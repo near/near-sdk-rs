@@ -1,4 +1,7 @@
 # near-runtime-rs
+[![Join the community on Spectrum](https://withspectrum.github.io/badge/badge.svg)](https://spectrum.chat/near)
+<a href="https://discord.gg/gBtUFKR">![Discord](https://img.shields.io/discord/490367152054992913.svg)</a>
+
 Rust library for writing NEAR smart contracts
 
 ## Pre-requisites
