@@ -1,0 +1,5 @@
+error: Not serializable/deserializable type of the smart contract argument/return type.
+  --> $DIR/bad_return_type.rs:14:30
+   |
+14 |     pub fn insert(&mut self) -> impl Iterator<Item=&u64> {
+   |                              ^^

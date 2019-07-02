@@ -6,14 +6,6 @@ use near_bindgen_core::*;
 use quote::quote;
 use syn::{parse_macro_input, File, ItemImpl};
 
-// For debugging.
-#[proc_macro_attribute]
-pub fn show_streams(attr: TokenStream, item: TokenStream) -> TokenStream {
-    println!("attr: \"{}\"", attr.to_string());
-    println!("item: \"{}\"", item.to_string());
-    item
-}
-
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input: ItemImpl = parse_macro_input!(item as ItemImpl);

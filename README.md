@@ -116,7 +116,6 @@ after you restart the local NEAR testnet.
 ## Limitations and Future Work
 The current implementation of `wasm_bindgen` has the following limitations:
 * The smart contract struct should be serializable with [bincode](https://crates.io/crates/bincode) which is true for most of the structs;
-* [Temporary limitation] The method arguments should be passed by value (oppose to by reference) and the return value, if any, should also not be a reference;
 * The method arguments and the return type should be json-serializable, which is true for most of the types, with some exceptions. For instance,
 a `HashMap<MyEnum, SomeValue>` where `MyEnum` is a non-trivial tagged-union with field-structs in variants will not serialize into json, you would need to convert it to
 `Vec<(MyEnum, SomeValue)>` first. **Require arguments and the return type to be json-serializable for compatiblity with

@@ -1,24 +1,51 @@
-#![recursion_limit="128"]
+#![recursion_limit = "128"]
+use proc_macro2::Span;
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::spanned::Spanned;
-use syn::{
-    FnArg, ImplItem, ImplItemMethod, ItemImpl, Pat, ReturnType, Visibility,
-};
+use syn::{Error, FnArg, ImplItem, ImplItemMethod, ItemImpl, Pat, ReturnType, Type, Visibility};
+
+/// Check that narrows down argument types and return type descriptive enough for deserialization and serialization.
+fn check_arg_return_type(ty: &Type, span: Span) -> syn::Result<()> {
+    match ty {
+        Type::Slice(_)
+        | Type::Array(_)
+        | Type::Reference(_)
+        | Type::Tuple(_)
+        | Type::Path(_)
+        | Type::Paren(_)
+        | Type::Group(_) => Ok(()),
+
+        Type::Ptr(_)
+        | Type::BareFn(_)
+        | Type::Never(_)
+        | Type::TraitObject(_)
+        | Type::ImplTrait(_)
+        | Type::Infer(_)
+        | Type::Macro(_)
+        | Type::Verbatim(_) => Err(Error::new(
+            span,
+            "Not serializable/deserializable type of the smart contract argument/return type.",
+        )),
+    }
+}
 
 /// Attempts processing `impl` method. If method is `pub` and has `&self` or `&mut self` then it is
 /// considered to be a part of contract API, otherwise `None` is returned. If method is a valid
 /// contract API then we examine its arguments and fail if they use complex pattern matching.
 pub fn process_method(
     method: &ImplItemMethod,
-    impl_type: &syn::Type,
+    impl_type: &Type,
 ) -> Option<syn::Result<TokenStream2>> {
     match method.vis {
         Visibility::Public(_) => {}
         _ => return None,
     }
     if !method.sig.decl.generics.params.is_empty() {
-        return Some(Err(syn::Error::new(method.sig.decl.generics.params.span(), "Methods exposed as contract API cannot use type parameters")));
+        return Some(Err(Error::new(
+            method.sig.decl.generics.params.span(),
+            "Methods exposed as contract API cannot use type parameters",
+        )));
     }
     // Method name.
     let method_name = &method.sig.ident;
@@ -37,21 +64,41 @@ pub fn process_method(
                 let ident = if let Pat::Ident(ident) = &c.pat {
                     ident
                 } else {
-                    return Some(Err(syn::Error::new(
-                        c.span(),
-                        format!("Unsupported argument type"),
-                    )));
+                    return Some(Err(Error::new(c.span(), format!("Unsupported argument type"))));
                 };
+
+                // Check argument type.
+                if let Err(e) = check_arg_return_type(&c.ty, c.span()) {
+                    return Some(Err(e));
+                }
+
                 let ident_quoted = quote! { #ident }.to_string();
-                let out_arg = quote! {
-                    let #c = serde_json::from_value(args[#ident_quoted].clone()).unwrap();
-                };
-                out_args = quote! { #out_args #out_arg };
-                method_args = quote! { #method_args #ident ,};
+                // Type used for deserialization.
+                // Whether arg type is a reference or a mutable reference.
+                if let Type::Reference(r) = &c.ty {
+                    let ty = &r.elem;
+                    if r.mutability.is_some() {
+                        let out_arg = quote! {
+                            let mut #ident: #ty = serde_json::from_value(args[#ident_quoted].clone()).unwrap();
+                        };
+                        out_args = quote! { #out_args #out_arg };
+                        method_args = quote! { #method_args &mut #ident ,};
+                    } else {
+                        let out_arg = quote! {
+                            let #ident: #ty = serde_json::from_value(args[#ident_quoted].clone()).unwrap();
+                        };
+                        out_args = quote! { #out_args #out_arg };
+                        method_args = quote! { #method_args &#ident ,};
+                    };
+                } else {
+                    let out_arg = quote! {
+                        let #c = serde_json::from_value(args[#ident_quoted].clone()).unwrap();
+                    };
+                    out_args = quote! { #out_args #out_arg };
+                    method_args = quote! { #method_args #ident ,};
+                }
             }
-            _ => {
-                return Some(Err(syn::Error::new(arg.span(), format!("Unsupported argument type"))))
-            }
+            _ => return Some(Err(Error::new(arg.span(), format!("Unsupported argument type")))),
         }
     }
     // If any args were found then add the parsing function.
@@ -77,12 +124,26 @@ pub fn process_method(
     };
 
     // If the function returns something then return it.
-    let return_value = if let ReturnType::Type(_, _) = &method.sig.decl.output {
-        quote! {
-         let result = serde_json::to_vec(&result).unwrap();
-         unsafe {
-             return_value(result.len() as _, result.as_ptr());
-         }
+    let method_output = &method.sig.decl.output;
+    let return_value = if let ReturnType::Type(_, ty) = &method_output {
+        // Check return type.
+        if let Err(e) = check_arg_return_type(ty.as_ref(), method_output.span()) {
+            return Some(Err(e));
+        }
+        if let &Type::Reference(_) = &ty.as_ref() {
+           quote!{
+                let result = serde_json::to_vec(result).unwrap();
+                unsafe {
+                    return_value(result.len() as _, result.as_ptr());
+                }
+           }
+        } else {
+            quote! {
+                let result = serde_json::to_vec(&result).unwrap();
+                unsafe {
+                    return_value(result.len() as _, result.as_ptr());
+                }
+            }
         }
     } else {
         quote! {}
@@ -106,7 +167,11 @@ pub fn process_method(
 /// Processes `impl` section of the struct.
 pub fn process_impl(item_impl: &ItemImpl) -> TokenStream2 {
     if !item_impl.generics.params.is_empty() {
-        return syn::Error::new(item_impl.generics.params.span(), "Impl type parameters are not supported for smart contracts.").to_compile_error()
+        return Error::new(
+            item_impl.generics.params.span(),
+            "Impl type parameters are not supported for smart contracts.",
+        )
+        .to_compile_error();
     }
     let mut output = TokenStream2::new();
 
@@ -128,11 +193,13 @@ pub fn process_impl(item_impl: &ItemImpl) -> TokenStream2 {
     output
 }
 
+// Rustfmt removes comas.
+#[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{Type, ImplItemMethod};
-    use quote::quote;
     use crate::process_method;
+    use quote::quote;
+    use syn::{ImplItemMethod, Type};
 
     #[test]
     fn no_args_no_return_no_mut() {
@@ -143,8 +210,8 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-            let mut contract: Hello = read_state().unwrap_or_default();
-            let result = contract.method();
+                let mut contract: Hello = read_state().unwrap_or_default();
+                let result = contract.method();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -159,9 +226,9 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-            let mut contract: Hello = read_state().unwrap_or_default();
-            let result = contract.method();
-            write_state(&contract);
+                let mut contract: Hello = read_state().unwrap_or_default();
+                let result = contract.method();
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -188,7 +255,8 @@ mod tests {
     #[test]
     fn args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
+        let method: ImplItemMethod =
+            syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
@@ -208,7 +276,8 @@ mod tests {
     #[test]
     fn args_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
+        let method: ImplItemMethod =
+            syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
@@ -221,7 +290,67 @@ mod tests {
                 let result = contract.method(k, m, );
                 write_state(&contract);
                 let result = serde_json::to_vec(&result).unwrap();
-                unsafe { return_value(result.len() as _ , result.as_ptr()); }
+                unsafe {
+                    return_value(result.len() as _, result.as_ptr());
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn args_return_ref() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod =
+            syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
+
+        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let expected = quote!(
+            #[no_mangle]
+            pub extern "C" fn method() {
+                let mut contract: Hello = read_state().unwrap_or_default();
+                let result = contract.method();
+                let result = serde_json::to_vec(result).unwrap();
+                unsafe {
+                    return_value(result.len() as _, result.as_ptr());
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn arg_ref() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
+
+        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let expected = quote!(
+            #[no_mangle]
+            pub extern "C" fn method() {
+                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
+                let mut contract: Hello = read_state().unwrap_or_default();
+                let result = contract.method(&k, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn arg_mut_ref() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod =
+            syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
+
+        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let expected = quote!(
+            #[no_mangle]
+            pub extern "C" fn method() {
+                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
+                let mut contract: Hello = read_state().unwrap_or_default();
+                let result = contract.method(&mut k, );
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
