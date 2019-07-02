@@ -17,6 +17,9 @@ pub fn process_method(
         Visibility::Public(_) => {}
         _ => return None,
     }
+    if !method.sig.decl.generics.params.is_empty() {
+        return Some(Err(syn::Error::new(method.sig.decl.generics.params.span(), "Methods exposed as contract API cannot use type parameters")));
+    }
     // Method name.
     let method_name = &method.sig.ident;
     let mut out_args = quote! {};
