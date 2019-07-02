@@ -1,4 +1,4 @@
-//! Regular smart contract.
+//! Method has type parameters.
 
 #![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
