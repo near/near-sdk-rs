@@ -1,6 +1,8 @@
+use crate::{storage_has_key, storage_read, storage_write};
+
 const SERIALIZED_STATE: &str = "STATE";
 
-fn read_state<T: serde::de::DeserializeOwned>() -> Option<T> {
+pub fn read_state<T: serde::de::DeserializeOwned>() -> Option<T> {
     let arr = SERIALIZED_STATE.as_bytes();
     if !unsafe { storage_has_key(arr.len() as _, arr.as_ptr()) } {
         return None;
@@ -9,7 +11,7 @@ fn read_state<T: serde::de::DeserializeOwned>() -> Option<T> {
     bincode::deserialize(&data).ok()
 }
 
-fn write_state<T: serde::Serialize>(state: &T) {
+pub fn write_state<T: serde::Serialize>(state: &T) {
     let arr = SERIALIZED_STATE.as_bytes();
     let data = bincode::serialize(state).unwrap();
     unsafe {

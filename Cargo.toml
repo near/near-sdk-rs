@@ -2,5 +2,6 @@
 members = [
     "near-bindgen",
     "near-bindgen-core",
+    "near-bindgen-macros",
     "test-contract",
 ]

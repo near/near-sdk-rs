@@ -2,7 +2,7 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
-use near_bindgen::near_bindgen;
+use near_bindgen::{originator_id, near_bindgen};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

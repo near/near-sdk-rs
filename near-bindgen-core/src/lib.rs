@@ -104,13 +104,13 @@ pub fn process_method(
     // If any args were found then add the parsing function.
     let args_parsing = if !out_args.is_empty() {
         quote! {
-        let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+        let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
         }
     } else {
         quote! {}
     };
     let method_call = quote! {
-        let mut contract: #impl_type = read_state().unwrap_or_default();
+        let mut contract: #impl_type = near_bindgen::read_state().unwrap_or_default();
         let result = contract.#method_name(#method_args);
     };
 
@@ -118,7 +118,7 @@ pub fn process_method(
     let is_mut = if let Some(is_mut) = is_mut { is_mut } else { return None };
     // If method mutates the state then record it.
     let write_state = if is_mut {
-        quote! { write_state(&contract); }
+        quote! { near_bindgen::write_state(&contract); }
     } else {
         quote! {}
     };
@@ -134,14 +134,14 @@ pub fn process_method(
            quote!{
                 let result = serde_json::to_vec(result).unwrap();
                 unsafe {
-                    return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::return_value(result.len() as _, result.as_ptr());
                 }
            }
         } else {
             quote! {
                 let result = serde_json::to_vec(&result).unwrap();
                 unsafe {
-                    return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::return_value(result.len() as _, result.as_ptr());
                 }
             }
         }
@@ -210,7 +210,7 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method();
             }
         );
@@ -226,9 +226,9 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method();
-                write_state(&contract);
+                near_bindgen::write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -243,9 +243,9 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method(k, );
             }
         );
@@ -262,12 +262,12 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method(k, m, );
-                write_state(&contract);
+                near_bindgen::write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -283,15 +283,15 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method(k, m, );
-                write_state(&contract);
+                near_bindgen::write_state(&contract);
                 let result = serde_json::to_vec(&result).unwrap();
                 unsafe {
-                    return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::return_value(result.len() as _, result.as_ptr());
                 }
             }
         );
@@ -308,11 +308,11 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method();
                 let result = serde_json::to_vec(result).unwrap();
                 unsafe {
-                    return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::return_value(result.len() as _, result.as_ptr());
                 }
             }
         );
@@ -328,9 +328,9 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method(&k, );
             }
         );
@@ -347,9 +347,9 @@ mod tests {
         let expected = quote!(
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&input_read()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
                 let result = contract.method(&mut k, );
             }
         );

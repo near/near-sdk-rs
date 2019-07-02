@@ -4,21 +4,8 @@ version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
 
-[lib]
-proc-macro = true
-
-[[test]]
-name = "compilation_tests"
-path = "compilation_tests/all.rs"
-
-[dev-dependencies]
-trybuild = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-bincode = "1.0"
-
 [dependencies]
-near-bindgen-core = { path = "../near-bindgen-core"}
-proc-macro2 = "0.4.30"
-syn = {version = "0.15.34", features = ["full", "fold"] }
-quote = "0.6.12"
+# Provide near_bindgen macros.
+near-bindgen-macros = { path = "../near-bindgen-macros"}
+serde = { version = "1.0" }
+bincode = "1.0"
