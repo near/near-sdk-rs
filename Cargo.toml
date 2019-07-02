@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "near-bindgen",
+    "near-bindgen-core",
     "test-contract",
 ]
