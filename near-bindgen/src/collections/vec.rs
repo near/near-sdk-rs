@@ -2,17 +2,17 @@
 //! Indexing is `O(d)`, where `d` is the depth of the trie, while iteration is `O(1)` amortized for
 //! each iteration step.
 use crate::{
-    assert, storage_has_key, storage_iter, storage_peek, storage_read, storage_remove,
-    storage_write,
+    assert, storage_has_key, storage_iter_next, storage_peek, storage_range,
+    storage_read, storage_remove, storage_write,
 };
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::ops::RangeBounds;
 
+#[derive(Serialize, Deserialize)]
 pub struct Vec<T> {
     id: String,
-    len: usize,
     element: PhantomData<T>,
 }
 
@@ -72,7 +72,7 @@ impl<T> Vec<T> {
 impl<T: Serialize + DeserializeOwned> Vec<T> {
     /// Create new vector with zero size.
     pub fn new(id: String) -> Self {
-        Self { id, len: 0, element: PhantomData }
+        Self { id, element: PhantomData }
     }
 
     /// Removes and returns the element at position index within the vector, shifting all elements after it to the left.
@@ -143,6 +143,19 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
         }
     }
 
+    /// Appends an element to the back of a collection.
+    pub fn push(&mut self, value: T) {
+        let len = self.len();
+        self.set_len(len + 1);
+
+        let key = self.index_to_key(len);
+        let key = key.as_bytes();
+        let data = bincode::serialize(&value).unwrap();
+        unsafe {
+            storage_write(key.len() as _, key.as_ptr(), data.len() as _, data.as_ptr());
+        }
+    }
+
     /// Returns element based on the index. If `index >= len` returns `None`.
     pub fn get(&self, index: usize) -> Option<T> {
         if index < self.len() {
@@ -153,6 +166,37 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
         } else {
             None
         }
+    }
+
+    /// Removes the last element from a vector.
+    pub fn pop(&mut self) {
+        let len = self.len();
+        self.set_len(len - 1);
+        let key = self.index_to_key(len);
+        let key = key.as_bytes();
+        unsafe {
+            storage_remove(key.len() as _, key.as_ptr());
+        }
+    }
+
+    /// Returns the first element of the slice, or `None` if it is empty.
+    pub fn first(&self) -> Option<T> {
+        self.get(0)
+    }
+
+    /// Returns the last element of the slice, or `None` if it is empty.
+    pub fn last(&self) -> Option<T> {
+        let len = self.len();
+        if len > 0 {
+            self.get(len - 1)
+        } else {
+            None
+        }
+    }
+
+    /// Copies elements into an `std::vec::Vec`.
+    pub fn to_vec(&self) -> std::vec::Vec<T> {
+        self.into_iter().collect()
     }
 
     /// Creates a draining iterator that removes the specified range in the vector
@@ -221,7 +265,7 @@ impl<T> Drop for Drain<'_, T> {
                 storage_remove(key.len() as _, key.as_ptr());
             }
         }
-        self.vec.len = 0;
+        self.vec.set_len(0);
     }
 }
 
@@ -231,10 +275,14 @@ impl<T: Serialize + DeserializeOwned> IntoIterator for Vec<T> {
     type IntoIter = IntoVec<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let prefix = self.iterator_prefix();
-        let prefix = prefix.as_bytes();
-        let iterator_id = unsafe { storage_iter(prefix.len() as _, prefix.as_ptr()) };
-        IntoVec { iterator_id, vec: self }
+        let start = self.index_to_key(0);
+        let start = start.as_bytes();
+        let end = self.index_to_key(self.len());
+        let end = end.as_bytes();
+        let iterator_id = unsafe {
+            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
+        };
+        IntoVec { iterator_id, vec: self, ended: false }
     }
 }
 
@@ -242,14 +290,22 @@ impl<T: Serialize + DeserializeOwned> IntoIterator for Vec<T> {
 pub struct IntoVec<T> {
     iterator_id: u32,
     vec: Vec<T>,
+    ended: bool,
 }
 
 impl<T: Serialize + DeserializeOwned> Iterator for IntoVec<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.ended {
+            return None;
+        }
         let data = storage_peek(self.iterator_id);
-        bincode::deserialize(&data).ok()
+        let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
+        if ended {
+            self.ended = true;
+        }
+        Some(bincode::deserialize(&data).unwrap())
     }
 }
 
@@ -264,10 +320,14 @@ impl<'a, T: Serialize + DeserializeOwned> IntoIterator for &'a Vec<T> {
     type IntoIter = IntoVecRef<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let prefix = self.iterator_prefix();
-        let prefix = prefix.as_bytes();
-        let iterator_id = unsafe { storage_iter(prefix.len() as _, prefix.as_ptr()) };
-        IntoVecRef { iterator_id, vec: self }
+        let start = self.index_to_key(0);
+        let start = start.as_bytes();
+        let end = self.index_to_key(self.len());
+        let end = end.as_bytes();
+        let iterator_id = unsafe {
+            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
+        };
+        IntoVecRef { iterator_id, vec: self, ended: false }
     }
 }
 
@@ -276,10 +336,14 @@ impl<'a, T: Serialize + DeserializeOwned> IntoIterator for &'a mut Vec<T> {
     type IntoIter = IntoVecRef<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let prefix = self.iterator_prefix();
-        let prefix = prefix.as_bytes();
-        let iterator_id = unsafe { storage_iter(prefix.len() as _, prefix.as_ptr()) };
-        IntoVecRef { iterator_id, vec: self }
+        let start = self.index_to_key(0);
+        let start = start.as_bytes();
+        let end = self.index_to_key(self.len());
+        let end = end.as_bytes();
+        let iterator_id = unsafe {
+            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
+        };
+        IntoVecRef { iterator_id, vec: self, ended: false }
     }
 }
 
@@ -288,13 +352,37 @@ pub struct IntoVecRef<'a, T> {
     iterator_id: u32,
     #[allow(dead_code)]
     vec: &'a Vec<T>,
+    ended: bool,
 }
 
 impl<'a, T: Serialize + DeserializeOwned> Iterator for IntoVecRef<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.ended {
+            return None;
+        }
         let data = storage_peek(self.iterator_id);
-        bincode::deserialize(&data).ok()
+        let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
+        if ended {
+            self.ended = true;
+        }
+        Some(bincode::deserialize(&data).unwrap())
+    }
+}
+
+impl<T: Serialize + DeserializeOwned> Extend<T> for Vec<T> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        let mut len = self.len();
+        for el in iter {
+            let key = self.index_to_key(len);
+            let key = key.as_bytes();
+            let data = bincode::serialize(&el).unwrap();
+            unsafe {
+                storage_write(key.len() as _, key.as_ptr(), data.len() as _, data.as_ptr());
+            }
+            len += 1;
+        }
+        self.set_len(len);
     }
 }

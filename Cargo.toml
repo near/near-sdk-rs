@@ -5,3 +5,6 @@ members = [
     "near-bindgen-macros",
     "test-contract",
 ]
+exclude = [
+    "near-bindgen/tests/test-contract",
+]

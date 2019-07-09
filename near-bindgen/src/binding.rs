@@ -120,7 +120,7 @@ pub fn input_read() -> Vec<u8> {
     read(DATA_TYPE_INPUT, 0, 0)
 }
 
-pub fn my_log(msg: &[u8]) {
+pub fn log(msg: &[u8]) {
     unsafe {
         debug(msg.len(), msg.as_ptr());
     }

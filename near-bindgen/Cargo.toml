@@ -9,3 +9,12 @@ edition = "2018"
 near-bindgen-macros = { path = "../near-bindgen-macros"}
 serde = { version = "1.0" }
 bincode = "1.0"
+
+[dev-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.0"
+near-bindgen = { path = "../near-bindgen" }
+wasmer-runtime = "0.4.2"
+wasm = { git = "https://github.com/nearprotocol/nearcore", branch="prenightshade" }
+primitives = { git = "https://github.com/nearprotocol/nearcore", branch="prenightshade" }
