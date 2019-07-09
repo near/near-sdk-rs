@@ -14,6 +14,15 @@ extern "C" {
         value_len: usize,
         value_ptr: *const u8,
     );
+    pub fn storage_iter(prefix_len: usize, prefix_ptr: *const u8) -> u32;
+    pub fn storage_range(
+        start_len: usize,
+        start_ptr: *const u8,
+        end_len: usize,
+        end_ptr: *const u8,
+    ) -> u32;
+    pub fn storage_iter_next(storage_id: u32) -> u32;
+
     pub fn storage_remove(key_len: usize, key_ptr: *const u8);
     pub fn storage_has_key(key_len: usize, key_ptr: *const u8) -> bool;
 
@@ -26,7 +35,7 @@ extern "C" {
     pub fn data_read(
         data_type_index: u32,
         key_len: usize,
-        key_ptr: *const u8,
+        key: u32,
         max_buf_len: usize,
         buf_ptr: *mut u8,
     ) -> usize;
@@ -88,7 +97,7 @@ extern "C" {
 const MAX_BUF_SIZE: usize = 1 << 16;
 static mut SCRATCH_BUF: Vec<u8> = Vec::new();
 
-pub fn read(type_index: u32, key_len: usize, key: *const u8) -> Vec<u8> {
+pub fn read(type_index: u32, key_len: usize, key: u32) -> Vec<u8> {
     unsafe {
         if SCRATCH_BUF.len() == 0 {
             SCRATCH_BUF.resize(MAX_BUF_SIZE, 0);
@@ -100,11 +109,15 @@ pub fn read(type_index: u32, key_len: usize, key: *const u8) -> Vec<u8> {
 }
 
 pub fn storage_read(key_len: usize, key: *const u8) -> Vec<u8> {
-    read(DATA_TYPE_STORAGE, key_len, key)
+    read(DATA_TYPE_STORAGE, key_len, key as _)
+}
+
+pub fn storage_peek(storage_id: u32) -> Vec<u8> {
+    read(DATA_TYPE_STORAGE_ITER, 0, storage_id)
 }
 
 pub fn input_read() -> Vec<u8> {
-    read(DATA_TYPE_INPUT, 0, 0 as (*const u8))
+    read(DATA_TYPE_INPUT, 0, 0)
 }
 
 pub fn my_log(msg: &[u8]) {
@@ -114,13 +127,13 @@ pub fn my_log(msg: &[u8]) {
 }
 
 pub fn result_read(index: u32) -> Vec<u8> {
-    read(DATA_TYPE_RESULT, 0, index as (*const u8))
+    read(DATA_TYPE_RESULT, 0, index)
 }
 
 pub fn originator_id() -> Vec<u8> {
-    read(DATA_TYPE_ORIGINATOR_ACCOUNT_ID, 0, 0 as (*const u8))
+    read(DATA_TYPE_ORIGINATOR_ACCOUNT_ID, 0, 0)
 }
 
 pub fn account_id() -> Vec<u8> {
-    read(DATA_TYPE_CURRENT_ACCOUNT_ID, 0, 0 as (*const u8))
+    read(DATA_TYPE_CURRENT_ACCOUNT_ID, 0, 0)
 }
