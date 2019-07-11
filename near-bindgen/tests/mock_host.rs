@@ -74,7 +74,7 @@ impl External for KVExternal {
     /// Advances iterator. Returns `Some` if iteration is not finished yet.
     fn storage_iter_next(&mut self, id: u32) -> Result<Option<Vec<u8>>, Error> {
         let (curr, end) = self.iterators[&id];
-        if end == Some(curr + 1) {
+        if end.is_some() && end.unwrap() <= curr + 1 {
             self.iterators.remove(&id);
             return Ok(None);
         }
@@ -91,8 +91,12 @@ impl External for KVExternal {
     }
 
     fn storage_iter_peek(&mut self, id: u32) -> Result<Option<Vec<u8>>, Error> {
-        let (curr, _) = self.iterators[&id];
-        Ok(self.data.get(curr as usize).map(|el| el.1.clone()))
+        let (curr, end) = self.iterators[&id];
+        if end.is_some() && curr == end.unwrap() {
+            return Ok(Some(vec![]));
+        }
+        let res = self.data.get(curr as usize).map(|el| el.1.clone());
+        Ok(res)
     }
 
     fn storage_iter_remove(&mut self, id: u32) {

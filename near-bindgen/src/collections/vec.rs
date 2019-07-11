@@ -2,8 +2,8 @@
 //! Indexing is `O(d)`, where `d` is the depth of the trie, while iteration is `O(1)` amortized for
 //! each iteration step.
 use crate::{
-    assert, storage_has_key, storage_iter_next, storage_peek, storage_range,
-    storage_read, storage_remove, storage_write,
+    assert, storage_has_key, storage_iter_next, storage_peek, storage_range, storage_read,
+    storage_remove, storage_write,
 };
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -47,6 +47,7 @@ impl<T> Vec<T> {
                 storage_remove(key.len() as _, key.as_ptr());
             }
         }
+        self.set_len(0);
     }
     /// Returns the number of elements in the vector, also referred to as its 'length'.
     pub fn len(&self) -> usize {
@@ -123,7 +124,7 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
             assert(index <= len);
         }
         // Shift the elements to the right.
-        for i in index..len {
+        for i in (index..len).rev() {
             let old_key = self.index_to_key(i);
             let old_key = old_key.as_bytes();
             let new_key = self.index_to_key(i + 1);
@@ -172,7 +173,7 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
     pub fn pop(&mut self) {
         let len = self.len();
         self.set_len(len - 1);
-        let key = self.index_to_key(len);
+        let key = self.index_to_key(len - 1);
         let key = key.as_bytes();
         unsafe {
             storage_remove(key.len() as _, key.as_ptr());
@@ -196,7 +197,8 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
 
     /// Copies elements into an `std::vec::Vec`.
     pub fn to_vec(&self) -> std::vec::Vec<T> {
-        self.into_iter().collect()
+        let res = self.into_iter().collect();
+        res
     }
 
     /// Creates a draining iterator that removes the specified range in the vector
@@ -265,7 +267,30 @@ impl<T> Drop for Drain<'_, T> {
                 storage_remove(key.len() as _, key.as_ptr());
             }
         }
-        self.vec.set_len(0);
+
+        let old_len = self.vec.len();
+
+        // Shift right elements left.
+        for i in self.end..old_len {
+            let old_key = self.vec.index_to_key(i);
+            let old_key = old_key.as_bytes();
+            let new_key = self.vec.index_to_key(i - self.end + self.start);
+            let new_key = new_key.as_bytes();
+            let data = storage_read(old_key.len() as _, old_key.as_ptr());
+            unsafe {
+                storage_write(new_key.len() as _, new_key.as_ptr(), data.len() as _, data.as_ptr());
+            }
+        }
+
+        // Remove old entries.
+        for i in (old_len - 1 + self.end - self.start)..old_len {
+            let key = self.vec.index_to_key(i);
+            let key = key.as_bytes();
+            unsafe {
+                storage_remove(key.len() as _, key.as_ptr());
+            }
+        }
+        self.vec.set_len(old_len - self.end + self.start);
     }
 }
 
@@ -301,11 +326,14 @@ impl<T: Serialize + DeserializeOwned> Iterator for IntoVec<T> {
             return None;
         }
         let data = storage_peek(self.iterator_id);
+        if data.is_empty() {
+            return None;
+        }
         let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
         if ended {
             self.ended = true;
         }
-        Some(bincode::deserialize(&data).unwrap())
+        bincode::deserialize(&data).ok()
     }
 }
 
@@ -363,11 +391,14 @@ impl<'a, T: Serialize + DeserializeOwned> Iterator for IntoVecRef<'a, T> {
             return None;
         }
         let data = storage_peek(self.iterator_id);
+        if data.is_empty() {
+            return None;
+        }
         let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
         if ended {
             self.ended = true;
         }
-        Some(bincode::deserialize(&data).unwrap())
+        bincode::deserialize(&data).ok()
     }
 }
 

@@ -51,14 +51,11 @@ pub fn process_method(
     let method_name = &method.sig.ident;
     let mut out_args = quote! {};
     let mut method_args = quote! {};
-    let mut is_mut = None;
+    let mut has_self = false;
     for arg in &method.sig.decl.inputs {
         match arg {
-            FnArg::SelfRef(r) => {
-                is_mut = Some(r.mutability.is_some());
-            }
-            FnArg::SelfValue(v) => {
-                is_mut = Some(v.mutability.is_some());
+            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {
+                has_self = true;
             }
             FnArg::Captured(c) => {
                 let ident = if let Pat::Ident(ident) = &c.pat {
@@ -114,14 +111,12 @@ pub fn process_method(
         let result = contract.#method_name(#method_args);
     };
 
-    // Only process methods that are &self or &mut self.
-    let is_mut = if let Some(is_mut) = is_mut { is_mut } else { return None };
-    // If method mutates the state then record it.
-    let write_state = if is_mut {
-        quote! { near_bindgen::write_state(&contract); }
-    } else {
-        quote! {}
+    // TODO: Investigate whether we can write state only when method is mutable.
+    // let is_mut = if let Some(is_mut) = is_mut { is_mut } else { return None };
+    if !has_self {
+        return None;
     };
+    let write_state = quote! { near_bindgen::write_state(&contract); };
 
     // If the function returns something then return it.
     let method_output = &method.sig.decl.output;
@@ -131,12 +126,12 @@ pub fn process_method(
             return Some(Err(e));
         }
         if let &Type::Reference(_) = &ty.as_ref() {
-           quote!{
-                let result = serde_json::to_vec(result).unwrap();
-                unsafe {
-                    near_bindgen::return_value(result.len() as _, result.as_ptr());
-                }
-           }
+            quote! {
+                 let result = serde_json::to_vec(result).unwrap();
+                 unsafe {
+                     near_bindgen::return_value(result.len() as _, result.as_ptr());
+                 }
+            }
         } else {
             quote! {
                 let result = serde_json::to_vec(&result).unwrap();

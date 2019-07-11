@@ -19,3 +19,23 @@ pub fn contract_code() -> ContractCode {
     let data = include_bytes!("./res/test_contract.wasm");
     ContractCode::new(data.to_vec())
 }
+
+macro_rules! check_result_str {
+    ($result:ident, $json_str:expr) => {
+        match $result.return_data {
+            Ok(wasm::types::ReturnData::Value(v)) => assert_eq!($json_str, String::from_utf8(v).unwrap()),
+            _ => panic!(),
+        }
+    };
+}
+
+macro_rules! check_result {
+    ($result:ident, $json_expr:expr) => {
+        match $result.return_data {
+            Ok(wasm::types::ReturnData::Value(v)) => {
+                assert_eq!(serde_json::json!($json_expr).to_string(), String::from_utf8(v).unwrap())
+            }
+            _ => panic!(),
+        }
+    };
+}
