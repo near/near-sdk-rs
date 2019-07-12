@@ -2,7 +2,7 @@
 //! Indexing is `O(d)`, where `d` is the depth of the trie, while iteration is `O(1)` amortized for
 //! each iteration step.
 use crate::{
-    assert, storage_has_key, storage_iter_next, storage_peek, storage_range, storage_read,
+    assert, storage_iter_next, storage_peek, storage_range, storage_read,
     storage_remove, storage_write,
 };
 use serde::de::DeserializeOwned;
@@ -12,6 +12,7 @@ use std::ops::RangeBounds;
 
 #[derive(Serialize, Deserialize)]
 pub struct Vec<T> {
+    len: usize,
     id: String,
     element: PhantomData<T>,
 }
@@ -23,11 +24,6 @@ impl<T: Serialize + DeserializeOwned> Default for Vec<T> {
 }
 
 impl<T> Vec<T> {
-    /// Get the id of the len field.
-    fn len_key(&self) -> String {
-        format!("{}Len", self.id)
-    }
-
     /// Get the prefix under which all items are stored.
     fn iterator_prefix(&self) -> String {
         format!("{}Element", self.id)
@@ -51,29 +47,18 @@ impl<T> Vec<T> {
     }
     /// Returns the number of elements in the vector, also referred to as its 'length'.
     pub fn len(&self) -> usize {
-        let key = self.len_key();
-        let key = key.as_bytes();
-        if !unsafe { storage_has_key(key.len() as _, key.as_ptr()) } {
-            return 0;
-        }
-        let data = storage_read(key.len() as _, key.as_ptr());
-        bincode::deserialize(&data).ok().unwrap()
+        self.len
     }
 
-    fn set_len(&self, value: usize) {
-        let key = self.len_key();
-        let key = key.as_bytes();
-        let data = bincode::serialize(&value).unwrap();
-        unsafe {
-            storage_write(key.len() as _, key.as_ptr(), data.len() as _, data.as_ptr());
-        }
+    fn set_len(&mut self, value: usize) {
+        self.len = value;
     }
 }
 
 impl<T: Serialize + DeserializeOwned> Vec<T> {
     /// Create new vector with zero size.
     pub fn new(id: String) -> Self {
-        Self { id, element: PhantomData }
+        Self { id, element: PhantomData, len: 0 }
     }
 
     /// Removes and returns the element at position index within the vector, shifting all elements after it to the left.
@@ -325,10 +310,11 @@ impl<T: Serialize + DeserializeOwned> Iterator for IntoVec<T> {
         if self.ended {
             return None;
         }
-        let data = storage_peek(self.iterator_id);
-        if data.is_empty() {
+        let key_data = storage_peek(self.iterator_id);
+        if key_data.is_empty() {
             return None;
         }
+        let data = storage_read(key_data.len() as _, key_data.as_ptr());
         let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
         if ended {
             self.ended = true;
@@ -390,10 +376,11 @@ impl<'a, T: Serialize + DeserializeOwned> Iterator for IntoVecRef<'a, T> {
         if self.ended {
             return None;
         }
-        let data = storage_peek(self.iterator_id);
-        if data.is_empty() {
+        let key_data = storage_peek(self.iterator_id);
+        if key_data.is_empty() {
             return None;
         }
+        let data = storage_read(key_data.len() as _, key_data.as_ptr());
         let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
         if ended {
             self.ended = true;

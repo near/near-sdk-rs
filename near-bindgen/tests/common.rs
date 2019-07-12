@@ -23,7 +23,9 @@ pub fn contract_code() -> ContractCode {
 macro_rules! check_result_str {
     ($result:ident, $json_str:expr) => {
         match $result.return_data {
-            Ok(wasm::types::ReturnData::Value(v)) => assert_eq!($json_str, String::from_utf8(v).unwrap()),
+            Ok(wasm::types::ReturnData::Value(v)) => {
+                assert_eq!($json_str, String::from_utf8(v).unwrap())
+            }
             _ => panic!(),
         }
     };

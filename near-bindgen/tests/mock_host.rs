@@ -95,7 +95,7 @@ impl External for KVExternal {
         if end.is_some() && curr == end.unwrap() {
             return Ok(Some(vec![]));
         }
-        let res = self.data.get(curr as usize).map(|el| el.1.clone());
+        let res = self.data.get(curr as usize).map(|el| el.0.clone());
         Ok(res)
     }
 
