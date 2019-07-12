@@ -1,4 +1,4 @@
-//! Test `near_bindgen::collections::Vec` implementation.
+//! Test `near_bindgen::collections::Map` implementation.
 #[macro_use]
 mod common;
 mod mock_host;

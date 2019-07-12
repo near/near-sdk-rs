@@ -1,4 +1,4 @@
-use near_bindgen::collections::{Map, Vec};
+use near_bindgen::collections::{Map, Set, Vec};
 use near_bindgen::near_bindgen;
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct SimpleContract {
     vec: Vec<u64>,
     map: Map<u64, u64>,
+    set: Set<u64>,
 }
 
 #[near_bindgen]
@@ -69,14 +70,34 @@ impl SimpleContract {
     pub fn map_insert(&mut self, key: u64, value: u64) -> Option<u64> {
         self.map.insert(key, value)
     }
+
+    pub fn set_to_vec(&self) -> std::vec::Vec<u64> {
+        self.set.to_vec()
+    }
+
+    pub fn set_remove(&mut self, value: u64) -> bool {
+        self.set.remove(value)
+    }
+
+    pub fn set_clear(&mut self) {
+        self.set.clear();
+    }
+
+    pub fn set_insert(&mut self, value: u64) -> bool {
+        self.set.insert(value)
+    }
 }
 
 impl Default for SimpleContract {
     fn default() -> Self {
         let mut vec = Vec::default();
         vec.extend(0..5);
+
         let mut map = Map::default();
         map.extend((0..5).zip(10..15));
-        Self { vec, map }
+
+        let mut set = Set::default();
+        set.extend(0..5);
+        Self { vec, map, set }
     }
 }
