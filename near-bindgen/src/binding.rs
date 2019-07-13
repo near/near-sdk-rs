@@ -74,8 +74,8 @@ extern "C" {
 
     pub fn frozen_balance() -> u64;
     pub fn liquid_balance() -> u64;
-    pub fn deposit(min_amout: u64, max_amount: u64) -> u64;
-    pub fn withdraw(min_amout: u64, max_amount: u64) -> u64;
+    pub fn deposit(min_amount: u64, max_amount: u64) -> u64;
+    pub fn withdraw(min_amount: u64, max_amount: u64) -> u64;
     pub fn storage_usage() -> u64;
     pub fn received_amount() -> u64;
     pub fn assert(expr: bool);

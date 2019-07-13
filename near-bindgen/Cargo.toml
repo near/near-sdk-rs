@@ -18,3 +18,5 @@ near-bindgen = { path = "../near-bindgen" }
 wasmer-runtime = "0.4.2"
 wasm = { git = "https://github.com/nearprotocol/nearcore", branch="prenightshade" }
 primitives = { git = "https://github.com/nearprotocol/nearcore", branch="prenightshade" }
+rand = "0.7.0"
+log = "1.1.0"

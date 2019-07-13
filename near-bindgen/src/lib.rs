@@ -11,6 +11,8 @@ pub use crate::header::*;
 
 pub mod collections;
 
+pub mod blockchain;
+
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.
 pub(crate) static mut NEXT_TRIE_OBJECT_INDEX: usize = 0;
