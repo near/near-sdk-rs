@@ -3,8 +3,8 @@ members = [
     "near-bindgen",
     "near-bindgen-core",
     "near-bindgen-macros",
-    "test-contract",
 ]
 exclude = [
     "near-bindgen/tests/test-contract",
+    "examples/mission-control"
 ]
