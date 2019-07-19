@@ -1,12 +1,12 @@
 //! A map implemented on a trie. Unlike `std::collections::HashMap` the keys in this map are not
 //! hashed but are instead serialized.
-use crate::{
-    storage_has_key, storage_iter_next, storage_peek, storage_range, storage_read,
-    storage_remove, storage_write,
-};
+use crate::collections::next_trie_id;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+
+/// Empty value. Set is implemented through the trie and does not store anything in the values.
+static EMPTY: [u8; 0] = [];
 
 #[derive(Serialize, Deserialize)]
 pub struct Map<K, V> {
@@ -14,16 +14,6 @@ pub struct Map<K, V> {
     id: String,
     key: PhantomData<K>,
     value: PhantomData<V>,
-}
-
-impl<K, V> Default for Map<K, V>
-where
-    K: Serialize + DeserializeOwned,
-    V: Serialize + DeserializeOwned,
-{
-    fn default() -> Self {
-        Self::new(crate::next_trie_id())
-    }
 }
 
 impl<K, V> Map<K, V> {
@@ -51,6 +41,16 @@ impl<K, V> Map<K, V> {
 
     fn set_len(&mut self, value: usize) {
         self.len = value;
+    }
+}
+
+impl<K, V> Default for Map<K, V>
+where
+    K: Serialize + DeserializeOwned,
+    V: Serialize + DeserializeOwned,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -83,16 +83,13 @@ where
         bincode::deserialize(&value).unwrap()
     }
     /// Create new map with zero elements.
-    pub fn new(id: String) -> Self {
-        let res = Self { len: 0, id, key: PhantomData, value: PhantomData };
+    pub fn new() -> Self {
+        let res = Self { len: 0, id: next_trie_id(), key: PhantomData, value: PhantomData };
         // Add the marker records.
-        let empty: [u8; 0] = [];
         let head = res.head();
         let tail = res.tail();
-        unsafe {
-            storage_write(head.len() as _, head.as_ptr(), empty.len() as _, empty.as_ptr());
-            storage_write(tail.len() as _, tail.as_ptr(), empty.len() as _, empty.as_ptr());
-        }
+        crate::CONTEXT.storage_write(&head, &EMPTY);
+        crate::CONTEXT.storage_write(&tail, &EMPTY);
         res
     }
 
@@ -113,14 +110,12 @@ where
     /// Removes a key from the map, returning the value at the key if the key was previously in the map.
     pub fn remove(&mut self, key: K) -> Option<V> {
         let key = self.serialize_key(key);
-        if !unsafe { storage_has_key(key.len() as _, key.as_ptr()) } {
+        if !crate::CONTEXT.storage_has_key(&key) {
             return None;
         }
-        let data = storage_read(key.len() as _, key.as_ptr());
+        let data = crate::CONTEXT.storage_read(&key);
         let result = bincode::deserialize(&data).ok().unwrap();
-        unsafe {
-            storage_remove(key.len() as _, key.as_ptr());
-        }
+        crate::CONTEXT.storage_remove(&key);
         self.set_len(self.len() - 1);
         Some(result)
     }
@@ -133,8 +128,8 @@ where
     /// value is returned.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         let key = self.serialize_key(key);
-        let res = if unsafe { storage_has_key(key.len() as _, key.as_ptr()) } {
-            let value = storage_read(key.len() as _, key.as_ptr());
+        let res = if crate::CONTEXT.storage_has_key(&key) {
+            let value = crate::CONTEXT.storage_read(&key);
             Some(self.deserialize_value(&value))
         } else {
             self.set_len(self.len() + 1);
@@ -142,9 +137,7 @@ where
         };
 
         let value = self.serialize_value(value);
-        unsafe {
-            storage_write(key.len() as _, key.as_ptr(), value.len() as _, value.as_ptr());
-        }
+        crate::CONTEXT.storage_write(&key, &value);
         res
     }
 
@@ -158,9 +151,7 @@ where
     fn raw_keys(&self) -> IntoMapRawKeys<K, V> {
         let start = self.head();
         let end = self.tail();
-        let iterator_id = unsafe {
-            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
-        };
+        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
         IntoMapRawKeys { iterator_id, map: self, ended: false }
     }
 
@@ -168,9 +159,7 @@ where
     pub fn clear(&mut self) {
         let keys: Vec<Vec<u8>> = self.raw_keys().collect();
         for key in keys {
-            unsafe {
-                storage_remove(key.len() as _, key.as_ptr());
-            }
+            crate::CONTEXT.storage_remove(&key);
         }
         self.set_len(0);
     }
@@ -190,9 +179,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = unsafe {
-            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
-        };
+        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
         IntoMapRef { iterator_id, map: self, ended: false }
     }
 }
@@ -211,9 +198,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = unsafe {
-            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
-        };
+        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
         IntoMapRef { iterator_id, map: self, ended: false }
     }
 }
@@ -237,16 +222,16 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = storage_peek(self.iterator_id);
+        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         if key_data == self.map.head() {
-            unsafe { storage_iter_next(self.iterator_id) };
-            key_data = storage_peek(self.iterator_id);
+            crate::CONTEXT.storage_iter_next(self.iterator_id);
+            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.map.tail() {
             return None;
         }
-        let value_data = storage_read(key_data.len() as _, key_data.as_ptr());
-        let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
+        let value_data = crate::CONTEXT.storage_read(&key_data);
+        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -273,15 +258,15 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = storage_peek(self.iterator_id);
+        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         if key_data == self.map.head() {
-            unsafe { storage_iter_next(self.iterator_id) };
-            key_data = storage_peek(self.iterator_id);
+            crate::CONTEXT.storage_iter_next(self.iterator_id);
+            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.map.tail() {
             return None;
         }
-        let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
+        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -299,9 +284,7 @@ where
         for (el_key, el_value) in iter {
             let key = self.serialize_key(el_key);
             let value = self.serialize_value(el_value);
-            unsafe {
-                storage_write(key.len() as _, key.as_ptr(), value.len() as _, value.as_ptr());
-            }
+            crate::CONTEXT.storage_write(&key, &value);
             len += 1;
         }
         self.set_len(len);

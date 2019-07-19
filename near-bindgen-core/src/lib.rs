@@ -101,13 +101,13 @@ pub fn process_method(
     // If any args were found then add the parsing function.
     let args_parsing = if !out_args.is_empty() {
         quote! {
-        let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
+        let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
         }
     } else {
         quote! {}
     };
     let method_call = quote! {
-        let mut contract: #impl_type = near_bindgen::read_state().unwrap_or_default();
+        let mut contract: #impl_type = read_state().unwrap_or_default();
         let result = contract.#method_name(#method_args);
     };
 
@@ -116,7 +116,7 @@ pub fn process_method(
     if !has_self {
         return None;
     };
-    let write_state = quote! { near_bindgen::write_state(&contract); };
+    let write_state = quote! { write_state(&contract); };
 
     // If the function returns something then return it.
     let method_output = &method.sig.decl.output;
@@ -129,14 +129,14 @@ pub fn process_method(
             quote! {
                  let result = serde_json::to_vec(result).unwrap();
                  unsafe {
-                     near_bindgen::return_value(result.len() as _, result.as_ptr());
+                     near_bindgen::CONTEXT.return_value(&result);
                  }
             }
         } else {
             quote! {
                 let result = serde_json::to_vec(&result).unwrap();
                 unsafe {
-                    near_bindgen::return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::CONTEXT.return_value(&result);
                 }
             }
         }
@@ -144,6 +144,7 @@ pub fn process_method(
         quote! {}
     };
     let body = quote! {
+     near_bindgen::CONTEXT.set(Box::new(NearContext{}));
      #args_parsing
      #out_args
      #method_call
@@ -151,6 +152,7 @@ pub fn process_method(
      #return_value
     };
     let full_method = quote! {
+        #[cfg(not(feature = "env_test"))]
         #[no_mangle]
         pub extern "C" fn #method_name() {
         #body
@@ -203,10 +205,13 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -219,11 +224,13 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
-                near_bindgen::write_state(&contract);
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -236,12 +243,15 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(k, );
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -255,14 +265,16 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(k, m, );
-                near_bindgen::write_state(&contract);
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -276,17 +288,19 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(k, m, );
-                near_bindgen::write_state(&contract);
+                write_state(&contract);
                 let result = serde_json::to_vec(&result).unwrap();
                 unsafe {
-                    near_bindgen::return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::CONTEXT.return_value(&result);
                 }
             }
         );
@@ -301,13 +315,16 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
+                write_state(&contract);
                 let result = serde_json::to_vec(result).unwrap();
                 unsafe {
-                    near_bindgen::return_value(result.len() as _, result.as_ptr());
+                    near_bindgen::CONTEXT.return_value(&result);
                 }
             }
         );
@@ -321,12 +338,15 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(&k, );
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -340,12 +360,15 @@ mod tests {
 
         let actual = process_method(&method, &impl_type).unwrap().unwrap();
         let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::input_read()).unwrap();
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = near_bindgen::read_state().unwrap_or_default();
+                let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(&mut k, );
+                write_state(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());

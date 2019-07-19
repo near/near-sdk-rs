@@ -2,7 +2,7 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
-use near_bindgen::{originator_id, near_bindgen};
+use near_bindgen::{near_bindgen, CONTEXT};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -18,7 +18,7 @@ pub struct MissionControl {
 #[near_bindgen]
 impl MissionControl {
     pub fn add_agent(&mut self) {
-        let account_id = originator_id();
+        let account_id = CONTEXT.originator_id();
         self.agents.insert(account_id, Agent { account: agent_default(), is_alive: true });
     }
 
@@ -78,4 +78,12 @@ fn rates_default() -> HashMap<Exchange, Rate> {
             debit: hashmap![Asset::Trust => Quantity(1)],
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn add_agent() {
+
+    }
 }

@@ -1,9 +1,6 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the keys in this set are not
 //! hashed but are instead serialized.
-use crate::{
-    storage_has_key, storage_iter_next, storage_peek, storage_range, storage_remove,
-    storage_write,
-};
+use crate::collections::next_trie_id;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -16,15 +13,6 @@ pub struct Set<T> {
     len: usize,
     id: String,
     element: PhantomData<T>,
-}
-
-impl<T> Default for Set<T>
-where
-    T: Serialize + DeserializeOwned,
-{
-    fn default() -> Self {
-        Self::new(crate::next_trie_id())
-    }
 }
 
 impl<T> Set<T> {
@@ -55,6 +43,15 @@ impl<T> Set<T> {
     }
 }
 
+impl<T> Default for Set<T>
+where
+    T: Serialize + DeserializeOwned,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> Set<T>
 where
     T: Serialize + DeserializeOwned,
@@ -74,27 +71,23 @@ where
     }
 
     /// Create new set with zero elements.
-    pub fn new(id: String) -> Self {
-        let res = Self { len: 0, id, element: PhantomData };
+    pub fn new() -> Self {
+        let res = Self { len: 0, id: next_trie_id(), element: PhantomData };
         // Add the marker records.
         let head = res.head();
         let tail = res.tail();
-        unsafe {
-            storage_write(head.len() as _, head.as_ptr(), EMPTY.len() as _, EMPTY.as_ptr());
-            storage_write(tail.len() as _, tail.as_ptr(), EMPTY.len() as _, EMPTY.as_ptr());
-        }
+        crate::CONTEXT.storage_write(&head, &EMPTY);
+        crate::CONTEXT.storage_write(&tail, &EMPTY);
         res
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
     pub fn remove(&mut self, value: T) -> bool {
         let key = self.serialize_element(value);
-        if !unsafe { storage_has_key(key.len() as _, key.as_ptr()) } {
+        if !crate::CONTEXT.storage_has_key(&key) {
             return false;
         }
-        unsafe {
-            storage_remove(key.len() as _, key.as_ptr());
-        }
+        crate::CONTEXT.storage_remove(&key);
         self.set_len(self.len() - 1);
         true
     }
@@ -108,10 +101,8 @@ where
     /// If the set did have this value present, false is returned.
     pub fn insert(&mut self, value: T) -> bool {
         let key = self.serialize_element(value);
-        if unsafe { storage_has_key(key.len() as _, key.as_ptr()) } {
-            unsafe {
-                storage_write(key.len() as _, key.as_ptr(), EMPTY.len() as _, EMPTY.as_ptr());
-            }
+        if crate::CONTEXT.storage_has_key(&key) {
+            crate::CONTEXT.storage_write(&key, &EMPTY);
             false
         } else {
             self.set_len(self.len() + 1);
@@ -129,9 +120,7 @@ where
     fn raw_keys(&self) -> IntoSetRawKeys<T> {
         let start = self.head();
         let end = self.tail();
-        let iterator_id = unsafe {
-            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
-        };
+        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
         IntoSetRawKeys { iterator_id, set: self, ended: false }
     }
 
@@ -139,9 +128,7 @@ where
     pub fn clear(&mut self) {
         let keys: Vec<Vec<u8>> = self.raw_keys().collect();
         for key in keys {
-            unsafe {
-                storage_remove(key.len() as _, key.as_ptr());
-            }
+            crate::CONTEXT.storage_remove(&key);
         }
         self.set_len(0);
     }
@@ -160,9 +147,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = unsafe {
-            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
-        };
+        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
         IntoSetRef { iterator_id, set: self, ended: false }
     }
 }
@@ -180,9 +165,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = unsafe {
-            storage_range(start.len() as _, start.as_ptr(), end.len() as _, end.as_ptr())
-        };
+        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
         IntoSetRef { iterator_id, set: self, ended: false }
     }
 }
@@ -205,15 +188,15 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = storage_peek(self.iterator_id);
+        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         if key_data == self.set.head() {
-            unsafe { storage_iter_next(self.iterator_id) };
-            key_data = storage_peek(self.iterator_id);
+            crate::CONTEXT.storage_iter_next(self.iterator_id);
+            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.set.tail() {
             return None;
         }
-        let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
+        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -239,15 +222,15 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = storage_peek(self.iterator_id);
+        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         if key_data == self.set.head() {
-            unsafe { storage_iter_next(self.iterator_id) };
-            key_data = storage_peek(self.iterator_id);
+            crate::CONTEXT.storage_iter_next(self.iterator_id);
+            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.set.tail() {
             return None;
         }
-        let ended = unsafe { storage_iter_next(self.iterator_id) } == 0;
+        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -263,9 +246,7 @@ where
         let mut len = self.len();
         for el in iter {
             let key = self.serialize_element(el);
-            unsafe {
-                storage_write(key.len() as _, key.as_ptr(), EMPTY.len() as _, EMPTY.as_ptr());
-            }
+            crate::CONTEXT.storage_write(&key, &EMPTY);
             len += 1;
         }
         self.set_len(len);

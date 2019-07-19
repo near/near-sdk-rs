@@ -23,3 +23,5 @@ near-bindgen-core = { path = "../near-bindgen-core"}
 proc-macro2 = "0.4.30"
 syn = {version = "0.15.34", features = ["full", "fold"] }
 quote = "0.6.12"
+
+
