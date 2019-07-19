@@ -1,9 +1,7 @@
 use crate::context::{AccountId, Balance, BlockIndex, Context, ResultIndex, StorageUsage};
-use rand_core::RngCore;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::HashMap;
-use std::mem::replace;
 
 struct KV(Vec<u8>, Vec<u8>);
 
@@ -14,6 +12,7 @@ impl PartialEq for KV {
 }
 
 /// Mocked version of `Context`.
+#[derive(Default)]
 pub struct MockedContext {
     // We use vector instead of `BTreeMap` for internal representation of the trie, because of how
     // we iterate over it, we cannot use regular iterators and `BTreeMap` does not provide accessing
@@ -23,18 +22,18 @@ pub struct MockedContext {
     iterators: RefCell<HashMap<u32, (u32, Option<u32>)>>,
     results: RefCell<HashMap<ResultIndex, Vec<u8>>>,
     logs: RefCell<Vec<String>>,
-    originator_id: AccountId,
-    account_id: AccountId,
+    originator_id: RefCell<AccountId>,
+    account_id: RefCell<AccountId>,
     frozen_balance: RefCell<Balance>,
     liquid_balance: RefCell<Balance>,
-    received_amount: Balance,
-    storage_usage: StorageUsage,
-    block_index: BlockIndex,
+    received_amount: RefCell<Balance>,
+    storage_usage: RefCell<StorageUsage>,
+    block_index: RefCell<BlockIndex>,
 }
 
 impl MockedContext {
     pub fn new() -> Self {
-        Self { ..Default::default() }
+        Self::default()
     }
     fn entry(&self, key: &[u8]) -> Result<usize, usize> {
         self.data.borrow().binary_search_by(|el| el.0.as_slice().cmp(key))
@@ -45,6 +44,14 @@ impl MockedContext {
             Ok(ind) => ind,
             Err(ind) => ind,
         }
+    }
+
+    pub fn set_account_id(&self, value: AccountId) {
+        *self.account_id.borrow_mut() = value;
+    }
+
+    pub fn set_originator_id(&self, value: AccountId) {
+        *self.originator_id.borrow_mut() = value;
     }
 }
 
@@ -63,32 +70,32 @@ impl Context for MockedContext {
 
     fn storage_iter(&self, prefix: &[u8]) -> u32 {
         let from = self.entry_unchecked(prefix);
-        self.iterators.insert(self.next_iterator_id.borrow(), (from as _, None));
+        self.iterators.borrow_mut().insert(*self.next_iterator_id.borrow(), (from as _, None));
         *self.next_iterator_id.borrow_mut() += 1;
-        self.next_iterator_id.borrow() - 1
+        *self.next_iterator_id.borrow() - 1
     }
 
     fn storage_range(&self, start: &[u8], end: &[u8]) -> u32 {
         let from = self.entry_unchecked(start);
         let to = Some(self.entry_unchecked(end) as u32);
-        self.iterators.insert(self.next_iterator_id.borrow(), (from as _, to));
+        self.iterators.borrow_mut().insert(*self.next_iterator_id.borrow(), (from as _, to));
         *self.next_iterator_id.borrow_mut() += 1;
-        self.next_iterator_id.borrow() - 1
+        *self.next_iterator_id.borrow() - 1
     }
 
     fn storage_iter_next(&self, iter_id: u32) -> bool {
         let (curr, end) = self.iterators.borrow()[&iter_id];
         if end.is_some() && end.unwrap() <= curr + 1 {
-            self.iterators.remove(&iter_id);
+            self.iterators.borrow_mut().remove(&iter_id);
             return false;
         }
-        match self.data.get(curr as usize) {
-            Some(el) => {
-                self.iterators.insert(iter_id, (curr + 1, end));
+        match self.data.borrow().get(curr as usize) {
+            Some(_el) => {
+                self.iterators.borrow_mut().insert(iter_id, (curr + 1, end));
                 true
             }
             None => {
-                self.iterators.remove(&iter_id);
+                self.iterators.borrow_mut().remove(&iter_id);
                 false
             }
         }
@@ -110,47 +117,47 @@ impl Context for MockedContext {
         self.results.borrow().contains_key(&index)
     }
 
-    fn return_value(&self, value: &[u8]) {
+    fn return_value(&self, _value: &[u8]) {
         unimplemented!()
     }
 
-    fn return_promise(&self, promise_index: u32) {
+    fn return_promise(&self, _promise_index: u32) {
         unimplemented!()
     }
 
     /// This method should not be called by the mocked functions.
     fn data_read(
         &self,
-        data_type_index: u32,
-        key_len: usize,
-        key: u32,
-        max_buf_len: usize,
-        buf_ptr: *mut u8,
+        _data_type_index: u32,
+        _key_len: usize,
+        _key: u32,
+        _max_buf_len: usize,
+        _buf_ptr: *mut u8,
     ) -> usize {
         unimplemented!()
     }
 
     fn promise_create(
         &self,
-        account_id: &[u8],
-        method_name: &[u8],
-        arguments: &[u8],
-        amount: u64,
+        _account_id: &[u8],
+        _method_name: &[u8],
+        _arguments: &[u8],
+        _amount: u64,
     ) -> u32 {
         unimplemented!()
     }
 
     fn promise_then(
         &self,
-        promise_index: u32,
-        method_name: &[u8],
-        arguments: &[u8],
-        amount: u64,
+        _promise_index: u32,
+        _method_name: &[u8],
+        _arguments: &[u8],
+        _amount: u64,
     ) -> u32 {
         unimplemented!()
     }
 
-    fn promise_and(&self, promise_index1: u32, promise_index2: u32) -> u32 {
+    fn promise_and(&self, _promise_index1: u32, _promise_index2: u32) -> u32 {
         unimplemented!()
     }
 
@@ -167,8 +174,8 @@ impl Context for MockedContext {
             return 0;
         }
         let delta = min(*self.liquid_balance.borrow(), max_amount);
-        self.liquid_balance.borrow_mut() -= delta;
-        self.frozen_balance.borrow_mut() += delta;
+        *self.liquid_balance.borrow_mut() -= delta;
+        *self.frozen_balance.borrow_mut() += delta;
         delta
     }
 
@@ -177,24 +184,24 @@ impl Context for MockedContext {
             return 0;
         }
         let delta = min(*self.frozen_balance.borrow(), max_amount);
-        self.frozen_balance.borrow_mut() -= delta;
-        self.liquid_balance.borrow_mut() += delta;
+        *self.frozen_balance.borrow_mut() -= delta;
+        *self.liquid_balance.borrow_mut() += delta;
         delta
     }
 
     fn received_amount(&self) -> u64 {
-        self.received_amount
+        *self.received_amount.borrow()
     }
 
     fn storage_usage(&self) -> u64 {
-        self.storage_usage
+        *self.storage_usage.borrow()
     }
 
     fn assert(&self, expr: bool) {
-        self.assert(expr)
+        assert!(expr)
     }
 
-    fn random_buf(&self, buf: &mut [u8]) {
+    fn random_buf(&self, _buf: &mut [u8]) {
         unimplemented!()
     }
 
@@ -203,7 +210,7 @@ impl Context for MockedContext {
     }
 
     fn block_index(&self) -> BlockIndex {
-        self.block_index
+        *self.block_index.borrow()
     }
 
     fn debug(&self, msg: &[u8]) {
@@ -224,10 +231,14 @@ impl Context for MockedContext {
     }
 
     fn originator_id(&self) -> Vec<u8> {
-        self.originator_id.clone()
+        self.originator_id.borrow().clone()
     }
 
     fn account_id(&self) -> Vec<u8> {
-        self.account_id.clone()
+        self.account_id.borrow().clone()
+    }
+
+    fn as_mock(&self) -> &MockedContext {
+        self
     }
 }

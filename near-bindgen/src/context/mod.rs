@@ -1,9 +1,9 @@
 //! Context allows smart contract to access the blockchain interface.
 use lazy_static::lazy_static;
+use crate::MockedContext;
 
 pub mod option_box;
 
-#[cfg(feature = "env_test")]
 pub mod mocked_context;
 
 lazy_static! {
@@ -171,5 +171,10 @@ pub trait Context {
     /// calls.
     fn account_id(&self) -> AccountId {
         self.data_read_buffered(DATA_TYPE_CURRENT_ACCOUNT_ID, 0, 0)
+    }
+
+    /// Accesses context as `MockedContext` allowing more methods that can be used in testing.
+    fn as_mock(&self) -> &MockedContext {
+        unimplemented!()
     }
 }

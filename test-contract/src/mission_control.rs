@@ -80,10 +80,23 @@ fn rates_default() -> HashMap<Exchange, Rate> {
     ]
 }
 
+#[cfg(feature = "env_test")]
 #[cfg(test)]
 mod tests {
+    use crate::mission_control::MissionControl;
+    use near_bindgen::MockedContext;
+    use near_bindgen::CONTEXT;
+    use crate::asset::Asset::MissionTime;
+    use crate::account::Quantity;
+
     #[test]
     fn add_agent() {
-
+        CONTEXT.set(Box::new(MockedContext::new()));
+        let account_id = "alice";
+        CONTEXT.as_mock().set_originator_id(account_id.as_bytes().to_vec());
+        let mut contract = MissionControl::default();
+        contract.add_agent();
+        assert_eq!(Some(true), contract.simulate(account_id.to_owned()));
+        assert_eq!(Some(Quantity(2)), contract.assets_quantity(account_id.to_owned(), MissionTime));
     }
 }
