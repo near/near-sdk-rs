@@ -5,6 +5,7 @@ use near_bindgen::near_bindgen;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
+#[near_bindgen]
 #[derive(Default, Serialize, Deserialize)]
 struct Incrementer<T> {
     value: u32,

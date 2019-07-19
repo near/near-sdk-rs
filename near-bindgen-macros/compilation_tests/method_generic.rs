@@ -4,6 +4,7 @@
 use near_bindgen::near_bindgen;
 use serde::{Deserialize, Serialize};
 
+#[near_bindgen]
 #[derive(Default, Serialize, Deserialize)]
 struct Incrementer {
     value: u32,

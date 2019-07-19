@@ -2,6 +2,7 @@ use near_bindgen::collections::{Map, Set, Vec};
 use near_bindgen::near_bindgen;
 use serde::{Deserialize, Serialize};
 
+#[near_bindgen]
 #[derive(Serialize, Deserialize)]
 pub struct SimpleContract {
     vec: Vec<u64>,

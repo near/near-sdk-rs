@@ -17,6 +17,7 @@ enum TypeB {
     Var2
 }
 
+#[near_bindgen]
 #[derive(Default, Serialize, Deserialize)]
 struct Storage {
     map: HashMap<TypeA, TypeB>

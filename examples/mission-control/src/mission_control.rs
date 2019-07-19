@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 pub type AccountId = Vec<u8>;
 
+#[near_bindgen]
 #[derive(Serialize, Deserialize)]
 pub struct MissionControl {
     account: Account,

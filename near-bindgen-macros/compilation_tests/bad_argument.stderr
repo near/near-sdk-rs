@@ -1,5 +1,5 @@
 error: Not serializable/deserializable type of the smart contract argument/return type.
-  --> $DIR/bad_argument.rs:29:56
+  --> $DIR/bad_argument.rs:30:56
    |
-29 |     pub fn insert(&mut self, key: TypeA, value: TypeB, t: impl MyTrait) -> Option<TypeB> {
+30 |     pub fn insert(&mut self, key: TypeA, value: TypeB, t: impl MyTrait) -> Option<TypeB> {
    |                                                        ^
