@@ -36,11 +36,14 @@ fn check_arg_return_type(ty: &Type, span: Span) -> syn::Result<()> {
 pub fn process_method(
     method: &ImplItemMethod,
     impl_type: &Type,
+    is_trait_impl: bool,
 ) -> Option<syn::Result<TokenStream2>> {
     match method.vis {
         Visibility::Public(_) => {}
-        _ => return None,
+        _ if !is_trait_impl => return None,
+        _ => {}
     }
+
     if !method.sig.decl.generics.params.is_empty() {
         return Some(Err(Error::new(
             method.sig.decl.generics.params.span(),
@@ -171,12 +174,13 @@ pub fn process_impl(item_impl: &ItemImpl) -> TokenStream2 {
         .to_compile_error();
     }
     let mut output = TokenStream2::new();
+    let is_trait_impl = item_impl.trait_.is_some();
 
     // Type for which impl is called.
     let impl_type = item_impl.self_ty.as_ref();
     for subitem in &item_impl.items {
         if let ImplItem::Method(m) = subitem {
-            if let Some(wrapped_method) = process_method(m, impl_type) {
+            if let Some(wrapped_method) = process_method(m, impl_type, is_trait_impl) {
                 match wrapped_method {
                     Ok(wrapped_method) => output.extend(wrapped_method),
                     Err(err) => {
@@ -199,11 +203,30 @@ mod tests {
     use syn::{ImplItemMethod, Type};
 
     #[test]
+    fn trait_implt() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = syn::parse_str("fn method(&self) { }").unwrap();
+
+        let actual = process_method(&method, &impl_type, true).unwrap().unwrap();
+        let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                let mut contract: Hello = read_state().unwrap_or_default();
+                let result = contract.method();
+                write_state(&contract);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
     fn no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -222,7 +245,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -241,7 +264,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -263,7 +286,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -286,7 +309,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -313,7 +336,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -336,7 +359,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
@@ -358,7 +381,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type).unwrap().unwrap();
+        let actual = process_method(&method, &impl_type, false).unwrap().unwrap();
         let expected = quote!(
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
