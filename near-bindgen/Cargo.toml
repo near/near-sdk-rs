@@ -12,6 +12,10 @@ description = """
 Rust library for writing NEAR smart contracts.
 """
 
+[[test]]
+name = "compilation_tests"
+path = "compilation_tests/all.rs"
+
 [dependencies]
 # Provide near_bindgen macros.
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.1.0"}
@@ -28,3 +32,6 @@ wasmer-runtime = "0.4.2"
 wasm = { git = "https://github.com/nearprotocol/nearcore", branch="prenightshade" }
 primitives = { git = "https://github.com/nearprotocol/nearcore", branch="prenightshade" }
 rand = "0.7.0"
+trybuild = "1.0"
+
+

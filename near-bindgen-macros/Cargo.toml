@@ -14,17 +14,6 @@ Main macro of the library for writing NEAR smart contracts.
 [lib]
 proc-macro = true
 
-[[test]]
-name = "compilation_tests"
-path = "compilation_tests/all.rs"
-
-[dev-dependencies]
-trybuild = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-bincode = "1.0"
-near-bindgen = { path = "../near-bindgen", version = "0.1.0" }
-
 [dependencies]
 near-bindgen-core = { path = "../near-bindgen-core", version = "0.1.0"}
 proc-macro2 = "0.4.30"
