@@ -3,6 +3,14 @@ name = "near-bindgen-core"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
+license = "Apache-2.0"
+readme = "README.md"
+categories = ["wasm"]
+repository = "https://github.com/nearprotocol/near-bindgen"
+homepage = "https://github.com/nearprotocol/near-bindgen"
+description = """
+Core part of the library for writing NEAR smart contracts.
+"""
 
 [dependencies]
 proc-macro2 = "0.4.30"
