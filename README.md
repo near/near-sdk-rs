@@ -10,6 +10,20 @@
     <a href="https://spectrum.chat/near"><img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the community on Spectrum" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
   </p>
+  
+   <h3>
+      <a href="https://github.com/nearprotocol/near-bindgen#features">Features</a>
+      <span> | </span>
+      <a href="https://github.com/nearprotocol/near-bindgen#pre-requisites">Pre-requisites</a>
+      <span> | </span>
+      <a href="https://github.com/nearprotocol/near-bindgen#writing-rust-contract">Writing Rust Contract</a>
+      <span> | </span>
+      <a href="https://github.com/nearprotocol/near-bindgen#building-rust-contract">Building Rust Contract</a>
+      <span> | </span>
+      <a href="https://github.com/nearprotocol/near-bindgen#run-the-contract">Run the Contract</a>
+      <span> | </span>
+      <a href="https://github.com/nearprotocol/near-bindgen#limitations-and-future-work">Limitations and Future Work</a>
+    </h3>
 </div>
 
 ## Example
@@ -86,7 +100,7 @@ which you can install with:
 npm install -g near-shell
 ```
 
-## Writing Rust contract
+## Writing Rust Contract
 You can follow the [test-contract](test-contract) crate that shows a simple Rust contract.
 
 The general workflow is the following:
