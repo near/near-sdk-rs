@@ -1,14 +1,14 @@
 const SERIALIZED_STATE: &[u8] = b"STATE";
 
 #[cfg(not(feature = "env_test"))]
-pub struct NearContext {}
+pub struct NearEnvironment {}
 
 #[cfg(not(feature = "env_test"))]
 pub fn read_state<T: serde::de::DeserializeOwned>() -> Option<T> {
-    if !unsafe { near_bindgen::CONTEXT.storage_has_key(SERIALIZED_STATE) } {
+    if !unsafe { near_bindgen::ENV.storage_has_key(SERIALIZED_STATE) } {
         return None;
     }
-    let data = near_bindgen::CONTEXT.storage_read(SERIALIZED_STATE);
+    let data = near_bindgen::ENV.storage_read(SERIALIZED_STATE);
     bincode::deserialize(&data).ok()
 }
 
@@ -16,7 +16,7 @@ pub fn read_state<T: serde::de::DeserializeOwned>() -> Option<T> {
 pub fn write_state<T: serde::Serialize>(state: &T) {
     let data = bincode::serialize(state).unwrap();
     unsafe {
-        near_bindgen::CONTEXT.storage_write(
+        near_bindgen::ENV.storage_write(
             SERIALIZED_STATE,
             &data,
         );
@@ -24,7 +24,7 @@ pub fn write_state<T: serde::Serialize>(state: &T) {
 }
 
 #[cfg(not(feature = "env_test"))]
-impl near_bindgen::context::Context for NearContext {
+impl near_bindgen::environment::Environment for NearEnvironment {
     fn storage_write(&self, key: &[u8], value: &[u8]) {
         unsafe {
             sys::storage_write(key.len() as _, key.as_ptr(), value.len() as _, value.as_ptr())

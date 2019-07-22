@@ -2,7 +2,7 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
-use near_bindgen::{near_bindgen, CONTEXT};
+use near_bindgen::{near_bindgen, ENV};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ pub struct MissionControl {
 #[near_bindgen]
 impl MissionControl {
     pub fn add_agent(&mut self) {
-        let account_id = CONTEXT.originator_id();
+        let account_id = ENV.originator_id();
         self.agents.insert(account_id, Agent { account: agent_default(), is_alive: true });
     }
 
@@ -85,16 +85,16 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 #[cfg(test)]
 mod tests {
     use crate::mission_control::MissionControl;
-    use near_bindgen::MockedContext;
-    use near_bindgen::CONTEXT;
+    use near_bindgen::MockedEnvironment;
+    use near_bindgen::ENV;
     use crate::asset::Asset::MissionTime;
     use crate::account::Quantity;
 
     #[test]
     fn add_agent() {
-        CONTEXT.set(Box::new(MockedContext::new()));
+        ENV.set(Box::new(MockedEnvironment::new()));
         let account_id = "alice";
-        CONTEXT.as_mock().set_originator_id(account_id.as_bytes().to_vec());
+        ENV.as_mock().set_originator_id(account_id.as_bytes().to_vec());
         let mut contract = MissionControl::default();
         contract.add_agent();
         assert_eq!(Some(true), contract.simulate(account_id.to_owned()));

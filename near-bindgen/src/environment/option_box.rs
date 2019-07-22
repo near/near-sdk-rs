@@ -1,4 +1,4 @@
-//! A combination of `Box` and `Option` that allows setting `context` after launch.
+//! A combination of `Box` and `Option` that allows setting `environment` after launch.
 
 use std::cell::RefCell;
 use std::ops::Deref;

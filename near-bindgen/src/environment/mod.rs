@@ -1,13 +1,13 @@
-//! Context allows smart contract to access the blockchain interface.
+//! Environment allows smart contract to access the blockchain interface.
 use lazy_static::lazy_static;
-use crate::MockedContext;
+use crate::MockedEnvironment;
 
 pub mod option_box;
 
-pub mod mocked_context;
+pub mod mocked_environment;
 
 lazy_static! {
-    pub static ref CONTEXT: option_box::BoxOption<dyn Context> = option_box::BoxOption::new();
+    pub static ref ENV: option_box::BoxOption<dyn Environment> = option_box::BoxOption::new();
 }
 
 pub type AccountId = Vec<u8>;
@@ -30,8 +30,8 @@ pub const DATA_TYPE_STORAGE_ITER: DataTypeIndex = 6;
 const MAX_BUF_SIZE: usize = 1 << 16;
 static mut SCRATCH_BUF: Vec<u8> = Vec::new();
 
-/// Interface that `NearContext` and `MockedContext` implement.
-pub trait Context {
+/// Interface that `NearEnvironment` and `MockedEnvironment` implement.
+pub trait Environment {
     /// Write key/value into the trie.
     fn storage_write(&self, key: &[u8], value: &[u8]);
     /// Create iterator that iterates over records with the given prefix. Returns id of the iterator.
@@ -173,8 +173,8 @@ pub trait Context {
         self.data_read_buffered(DATA_TYPE_CURRENT_ACCOUNT_ID, 0, 0)
     }
 
-    /// Accesses context as `MockedContext` allowing more methods that can be used in testing.
-    fn as_mock(&self) -> &MockedContext {
+    /// Accesses environment as `MockedEnvironment` allowing more methods that can be used in testing.
+    fn as_mock(&self) -> &MockedEnvironment {
         unimplemented!()
     }
 }

@@ -88,8 +88,8 @@ where
         // Add the marker records.
         let head = res.head();
         let tail = res.tail();
-        crate::CONTEXT.storage_write(&head, &EMPTY);
-        crate::CONTEXT.storage_write(&tail, &EMPTY);
+        crate::ENV.storage_write(&head, &EMPTY);
+        crate::ENV.storage_write(&tail, &EMPTY);
         res
     }
 
@@ -110,12 +110,12 @@ where
     /// Removes a key from the map, returning the value at the key if the key was previously in the map.
     pub fn remove(&mut self, key: K) -> Option<V> {
         let key = self.serialize_key(key);
-        if !crate::CONTEXT.storage_has_key(&key) {
+        if !crate::ENV.storage_has_key(&key) {
             return None;
         }
-        let data = crate::CONTEXT.storage_read(&key);
+        let data = crate::ENV.storage_read(&key);
         let result = bincode::deserialize(&data).ok().unwrap();
-        crate::CONTEXT.storage_remove(&key);
+        crate::ENV.storage_remove(&key);
         self.set_len(self.len() - 1);
         Some(result)
     }
@@ -128,8 +128,8 @@ where
     /// value is returned.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         let key = self.serialize_key(key);
-        let res = if crate::CONTEXT.storage_has_key(&key) {
-            let value = crate::CONTEXT.storage_read(&key);
+        let res = if crate::ENV.storage_has_key(&key) {
+            let value = crate::ENV.storage_read(&key);
             Some(self.deserialize_value(&value))
         } else {
             self.set_len(self.len() + 1);
@@ -137,7 +137,7 @@ where
         };
 
         let value = self.serialize_value(value);
-        crate::CONTEXT.storage_write(&key, &value);
+        crate::ENV.storage_write(&key, &value);
         res
     }
 
@@ -151,7 +151,7 @@ where
     fn raw_keys(&self) -> IntoMapRawKeys<K, V> {
         let start = self.head();
         let end = self.tail();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoMapRawKeys { iterator_id, map: self, ended: false }
     }
 
@@ -159,7 +159,7 @@ where
     pub fn clear(&mut self) {
         let keys: Vec<Vec<u8>> = self.raw_keys().collect();
         for key in keys {
-            crate::CONTEXT.storage_remove(&key);
+            crate::ENV.storage_remove(&key);
         }
         self.set_len(0);
     }
@@ -179,7 +179,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoMapRef { iterator_id, map: self, ended: false }
     }
 }
@@ -198,7 +198,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoMapRef { iterator_id, map: self, ended: false }
     }
 }
@@ -222,16 +222,16 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+        let mut key_data = crate::ENV.storage_peek(self.iterator_id);
         if key_data == self.map.head() {
-            crate::CONTEXT.storage_iter_next(self.iterator_id);
-            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+            crate::ENV.storage_iter_next(self.iterator_id);
+            key_data = crate::ENV.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.map.tail() {
             return None;
         }
-        let value_data = crate::CONTEXT.storage_read(&key_data);
-        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
+        let value_data = crate::ENV.storage_read(&key_data);
+        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -258,15 +258,15 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+        let mut key_data = crate::ENV.storage_peek(self.iterator_id);
         if key_data == self.map.head() {
-            crate::CONTEXT.storage_iter_next(self.iterator_id);
-            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+            crate::ENV.storage_iter_next(self.iterator_id);
+            key_data = crate::ENV.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.map.tail() {
             return None;
         }
-        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
+        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -284,7 +284,7 @@ where
         for (el_key, el_value) in iter {
             let key = self.serialize_key(el_key);
             let value = self.serialize_value(el_value);
-            crate::CONTEXT.storage_write(&key, &value);
+            crate::ENV.storage_write(&key, &value);
             len += 1;
         }
         self.set_len(len);

@@ -104,7 +104,7 @@ pub fn process_method(
     // If any args were found then add the parsing function.
     let args_parsing = if !out_args.is_empty() {
         quote! {
-        let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
+        let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
         }
     } else {
         quote! {}
@@ -132,14 +132,14 @@ pub fn process_method(
             quote! {
                  let result = serde_json::to_vec(result).unwrap();
                  unsafe {
-                     near_bindgen::CONTEXT.return_value(&result);
+                     near_bindgen::ENV.return_value(&result);
                  }
             }
         } else {
             quote! {
                 let result = serde_json::to_vec(&result).unwrap();
                 unsafe {
-                    near_bindgen::CONTEXT.return_value(&result);
+                    near_bindgen::ENV.return_value(&result);
                 }
             }
         }
@@ -147,7 +147,7 @@ pub fn process_method(
         quote! {}
     };
     let body = quote! {
-     near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+     near_bindgen::ENV.set(Box::new(NearEnvironment{}));
      #args_parsing
      #out_args
      #method_call
@@ -212,7 +212,7 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
                 write_state(&contract);
@@ -231,7 +231,7 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
                 write_state(&contract);
@@ -250,7 +250,7 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
                 write_state(&contract);
@@ -269,8 +269,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(k, );
@@ -291,8 +291,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
                 let mut contract: Hello = read_state().unwrap_or_default();
@@ -314,8 +314,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
                 let mut contract: Hello = read_state().unwrap_or_default();
@@ -323,7 +323,7 @@ mod tests {
                 write_state(&contract);
                 let result = serde_json::to_vec(&result).unwrap();
                 unsafe {
-                    near_bindgen::CONTEXT.return_value(&result);
+                    near_bindgen::ENV.return_value(&result);
                 }
             }
         );
@@ -341,13 +341,13 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method();
                 write_state(&contract);
                 let result = serde_json::to_vec(result).unwrap();
                 unsafe {
-                    near_bindgen::CONTEXT.return_value(&result);
+                    near_bindgen::ENV.return_value(&result);
                 }
             }
         );
@@ -364,8 +364,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(&k, );
@@ -386,8 +386,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::CONTEXT.set(Box::new(NearContext{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::CONTEXT.input()).unwrap();
+                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let mut contract: Hello = read_state().unwrap_or_default();
                 let result = contract.method(&mut k, );

@@ -4,6 +4,6 @@ extern crate near_bindgen_macros;
 pub use near_bindgen_macros::near_bindgen;
 
 pub mod collections;
-pub mod context;
-pub use context::CONTEXT;
-pub use context::mocked_context::MockedContext;
+pub mod environment;
+pub use environment::ENV;
+pub use environment::mocked_environment::MockedEnvironment;

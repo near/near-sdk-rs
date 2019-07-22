@@ -12,11 +12,11 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<ItemStruct>(item.clone()) {
         Ok(input) => {
             let sys_file = rust_file(include_bytes!("../res/sys.rs"));
-            let near_context = rust_file(include_bytes!("../res/near_context.rs"));
+            let near_environment = rust_file(include_bytes!("../res/near_environment.rs"));
             return TokenStream::from(quote! {
                 #input
                 #sys_file
-                #near_context
+                #near_environment
             });
         }
         Err(_) => (),

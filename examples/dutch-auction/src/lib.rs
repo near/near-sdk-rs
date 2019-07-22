@@ -1,4 +1,4 @@
-use near_bindgen::{near_bindgen, CONTEXT};
+use near_bindgen::{near_bindgen, ENV};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -76,11 +76,11 @@ impl DutchAuction for NearDutchAuction {
         end_price: u128,
         amount: u128,
     ) {
-        let originator = String::from_utf8(CONTEXT.originator_id()).unwrap();
+        let originator = String::from_utf8(ENV.originator_id()).unwrap();
         assert_eq!(self.auction_stage, AuctionStage::AuctionDeployed);
         assert_eq!(originator, auction_token);
         self.owner = originator;
-        self.start_block = CONTEXT.block_index();
+        self.start_block = ENV.block_index();
         self.end_block = self.start_block + auction_length;
         self.auction_token = auction_token;
         self.exchange_token = exchange_token;
@@ -94,25 +94,25 @@ impl DutchAuction for NearDutchAuction {
     fn price_at_block(&self) -> u128 {
         match self.auction_stage {
             AuctionStage::AuctionDeployed => 0,
-            AuctionStage::AuctionStarted => self.calc_price(CONTEXT.block_index()),
+            AuctionStage::AuctionStarted => self.calc_price(ENV.block_index()),
             AuctionStage::AuctionEnded => self.final_price,
         }
     }
 
     fn bid(&mut self, amount: u128) {
         let mut amount = amount;
-        let originator = String::from_utf8(CONTEXT.originator_id()).unwrap();
+        let originator = String::from_utf8(ENV.originator_id()).unwrap();
         assert_eq!(originator, self.exchange_token);
 
         // The amount left to deposit is 0 after the auction has finished.
-        let max_left = if CONTEXT.block_index() > self.end_block {
+        let max_left = if ENV.block_index() > self.end_block {
             0
         } else {
-            self.amount * self.calc_price(CONTEXT.block_index()) - self.total_received
+            self.amount * self.calc_price(ENV.block_index()) - self.total_received
         };
 
         if amount > max_left {
-            CONTEXT.promise_create(
+            ENV.promise_create(
                 self.exchange_token.as_bytes(),
                 "transfer".as_bytes(),
                 format!(
@@ -139,10 +139,10 @@ impl DutchAuction for NearDutchAuction {
 
     fn claim(&mut self) {
         assert_eq!(self.auction_stage, AuctionStage::AuctionEnded);
-        let receiver = String::from_utf8(CONTEXT.originator_id()).unwrap();
+        let receiver = String::from_utf8(ENV.originator_id()).unwrap();
         let bid_amount = self.bids.remove(&receiver).unwrap_or_default();
         let amount = bid_amount / self.final_price;
-        CONTEXT.promise_create(
+        ENV.promise_create(
             self.auction_token.as_bytes(),
             "transfer".as_bytes(),
             format!("{{\"receiver\": \"{}\", \"amount\": \"{}\"}}", receiver, amount).as_bytes(),
@@ -163,10 +163,10 @@ impl NearDutchAuction {
 
     fn finalize_auction(&mut self) {
         self.auction_stage = AuctionStage::AuctionEnded;
-        self.final_price = self.calc_price(CONTEXT.block_index());
+        self.final_price = self.calc_price(ENV.block_index());
         let sold_tokens = self.total_received / self.final_price;
         // Send owner the rest of the tokens that were not sold.
-        CONTEXT.promise_create(
+        ENV.promise_create(
             self.auction_token.as_bytes(),
             "transfer".as_bytes(),
             format!(
@@ -185,43 +185,43 @@ impl NearDutchAuction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::MockedContext;
-    use near_bindgen::CONTEXT;
+    use near_bindgen::MockedEnvironment;
+    use near_bindgen::ENV;
 
     /// Start auction from 0-1000 blocks, selling 10_000 NEAR for ETH, start price is 10_000, lowest price 100.
     #[test]
     fn test_auction_bid() {
-        CONTEXT.set(Box::new(MockedContext::new()));
-        CONTEXT.as_mock().set_block_index(0);
-        CONTEXT.as_mock().set_originator_id("alice".as_bytes().to_vec());
+        ENV.set(Box::new(MockedEnvironment::new()));
+        ENV.as_mock().set_block_index(0);
+        ENV.as_mock().set_originator_id("alice".as_bytes().to_vec());
         let mut auction = NearDutchAuction::default();
         auction.start_auction("system".to_string(), "eth".to_string(), 100, 10_000, 100, 10_000);
-        assert_eq!(CONTEXT.as_mock().get_promise_create(), vec![]);
+        assert_eq!(ENV.as_mock().get_promise_create(), vec![]);
         assert_eq!(auction.price_at_block(), 10_000);
-        CONTEXT.as_mock().set_block_index(100);
+        ENV.as_mock().set_block_index(100);
         assert_eq!(auction.price_at_block(), 100);
-        CONTEXT.as_mock().set_block_index(1000);
+        ENV.as_mock().set_block_index(1000);
         assert_eq!(auction.price_at_block(), 100);
 
-        CONTEXT.as_mock().set_block_index(5);
-        CONTEXT.as_mock().set_originator_id("bob".as_bytes().to_vec());
+        ENV.as_mock().set_block_index(5);
+        ENV.as_mock().set_originator_id("bob".as_bytes().to_vec());
         auction.bid(1_000);
-        assert_eq!(CONTEXT.as_mock().get_promise_create(), vec![]);
+        assert_eq!(ENV.as_mock().get_promise_create(), vec![]);
 
         // Too late, auction is finished. This will finalize it and return peter ETH.
-        CONTEXT.as_mock().set_block_index(101);
-        CONTEXT.as_mock().set_originator_id("peter".as_bytes().to_vec());
+        ENV.as_mock().set_block_index(101);
+        ENV.as_mock().set_originator_id("peter".as_bytes().to_vec());
         auction.bid(1_000);
-        assert_eq!(CONTEXT.as_mock().get_promise_create(), vec![]);
+        assert_eq!(ENV.as_mock().get_promise_create(), vec![]);
 
-        CONTEXT.as_mock().set_block_index(102);
-        CONTEXT.as_mock().set_originator_id("bob".as_bytes().to_vec());
+        ENV.as_mock().set_block_index(102);
+        ENV.as_mock().set_originator_id("bob".as_bytes().to_vec());
         auction.claim();
         // Bob receives what he bought.
-        assert_eq!(CONTEXT.as_mock().get_promise_create(), vec![]);
+        assert_eq!(ENV.as_mock().get_promise_create(), vec![]);
         // Final price is the same after we are done.
-        CONTEXT.as_mock().set_block_index(1000);
-        CONTEXT.as_mock().set_originator_id(vec![]);
+        ENV.as_mock().set_block_index(1000);
+        ENV.as_mock().set_originator_id(vec![]);
         assert_eq!(auction.price_at_block(), 100);
     }
 }

@@ -39,7 +39,7 @@ impl<T> Vec<T> {
         for i in 0..self.len() {
             let key = self.index_to_key(i);
             let key = key.as_bytes();
-            crate::CONTEXT.storage_remove(&key);
+            crate::ENV.storage_remove(&key);
         }
         self.set_len(0);
     }
@@ -65,24 +65,24 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
     /// Panics if `index` is out of bounds.
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.len();
-        crate::CONTEXT.assert(index < len);
+        crate::ENV.assert(index < len);
         let key = self.index_to_key(index);
         let key = key.as_bytes();
-        let data = crate::CONTEXT.storage_read(&key);
+        let data = crate::ENV.storage_read(&key);
         let result = bincode::deserialize(&data).ok().unwrap();
-        crate::CONTEXT.storage_remove(&key);
+        crate::ENV.storage_remove(&key);
         // Shift the elements to the left.
         for i in (index + 1)..len {
             let old_key = self.index_to_key(i);
             let old_key = old_key.as_bytes();
             let new_key = self.index_to_key(i - 1);
             let new_key = new_key.as_bytes();
-            let data = crate::CONTEXT.storage_read(&old_key);
-            crate::CONTEXT.storage_write(&new_key, &data);
+            let data = crate::ENV.storage_read(&old_key);
+            crate::ENV.storage_write(&new_key, &data);
         }
         let last_key = self.index_to_key(len - 1);
         let last_key = last_key.as_bytes();
-        crate::CONTEXT.storage_remove(&last_key);
+        crate::ENV.storage_remove(&last_key);
         self.set_len(len - 1);
         result
     }
@@ -95,22 +95,22 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
     /// Panics if `index > len`.
     pub fn insert(&mut self, index: usize, element: T) {
         let len = self.len();
-        crate::CONTEXT.assert(index <= len);
+        crate::ENV.assert(index <= len);
         // Shift the elements to the right.
         for i in (index..len).rev() {
             let old_key = self.index_to_key(i);
             let old_key = old_key.as_bytes();
             let new_key = self.index_to_key(i + 1);
             let new_key = new_key.as_bytes();
-            let data = crate::CONTEXT.storage_read(&old_key);
-            crate::CONTEXT.storage_write(&new_key, &data);
+            let data = crate::ENV.storage_read(&old_key);
+            crate::ENV.storage_write(&new_key, &data);
         }
         self.set_len(len + 1);
 
         let key = self.index_to_key(index);
         let key = key.as_bytes();
         let data = bincode::serialize(&element).unwrap();
-        crate::CONTEXT.storage_write(&key, &data);
+        crate::ENV.storage_write(&key, &data);
     }
 
     /// Appends an element to the back of a collection.
@@ -121,7 +121,7 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
         let key = self.index_to_key(len);
         let key = key.as_bytes();
         let data = bincode::serialize(&value).unwrap();
-        crate::CONTEXT.storage_write(&key, &data);
+        crate::ENV.storage_write(&key, &data);
     }
 
     /// Returns element based on the index. If `index >= len` returns `None`.
@@ -129,7 +129,7 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
         if index < self.len() {
             let key = self.index_to_key(index);
             let key = key.as_bytes();
-            let data = crate::CONTEXT.storage_read(&key);
+            let data = crate::ENV.storage_read(&key);
             bincode::deserialize(&data).ok()
         } else {
             None
@@ -142,7 +142,7 @@ impl<T: Serialize + DeserializeOwned> Vec<T> {
         self.set_len(len - 1);
         let key = self.index_to_key(len - 1);
         let key = key.as_bytes();
-        crate::CONTEXT.storage_remove(&key);
+        crate::ENV.storage_remove(&key);
     }
 
     /// Returns the first element of the slice, or `None` if it is empty.
@@ -228,7 +228,7 @@ impl<T> Drop for Drain<'_, T> {
         for i in self.start..self.end {
             let key = self.vec.index_to_key(i);
             let key = key.as_bytes();
-            crate::CONTEXT.storage_remove(&key);
+            crate::ENV.storage_remove(&key);
         }
 
         let old_len = self.vec.len();
@@ -239,15 +239,15 @@ impl<T> Drop for Drain<'_, T> {
             let old_key = old_key.as_bytes();
             let new_key = self.vec.index_to_key(i - self.end + self.start);
             let new_key = new_key.as_bytes();
-            let data = crate::CONTEXT.storage_read(&old_key);
-            crate::CONTEXT.storage_write(&new_key, &data);
+            let data = crate::ENV.storage_read(&old_key);
+            crate::ENV.storage_write(&new_key, &data);
         }
 
         // Remove old entries.
         for i in (old_len - 1 + self.end - self.start)..old_len {
             let key = self.vec.index_to_key(i);
             let key = key.as_bytes();
-            crate::CONTEXT.storage_remove(&key);
+            crate::ENV.storage_remove(&key);
         }
         self.vec.set_len(old_len - self.end + self.start);
     }
@@ -263,7 +263,7 @@ impl<T: Serialize + DeserializeOwned> IntoIterator for Vec<T> {
         let start = start.as_bytes();
         let end = self.index_to_key(self.len());
         let end = end.as_bytes();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoVec { iterator_id, vec: self, ended: false }
     }
 }
@@ -283,12 +283,12 @@ impl<T: Serialize + DeserializeOwned> Iterator for IntoVec<T> {
         if self.ended {
             return None;
         }
-        let key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+        let key_data = crate::ENV.storage_peek(self.iterator_id);
         if key_data.is_empty() {
             return None;
         }
-        let data = crate::CONTEXT.storage_read(&key_data);
-        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
+        let data = crate::ENV.storage_read(&key_data);
+        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -311,7 +311,7 @@ impl<'a, T: Serialize + DeserializeOwned> IntoIterator for &'a Vec<T> {
         let start = start.as_bytes();
         let end = self.index_to_key(self.len());
         let end = end.as_bytes();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoVecRef { iterator_id, vec: self, ended: false }
     }
 }
@@ -325,7 +325,7 @@ impl<'a, T: Serialize + DeserializeOwned> IntoIterator for &'a mut Vec<T> {
         let start = start.as_bytes();
         let end = self.index_to_key(self.len());
         let end = end.as_bytes();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoVecRef { iterator_id, vec: self, ended: false }
     }
 }
@@ -345,12 +345,12 @@ impl<'a, T: Serialize + DeserializeOwned> Iterator for IntoVecRef<'a, T> {
         if self.ended {
             return None;
         }
-        let key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+        let key_data = crate::ENV.storage_peek(self.iterator_id);
         if key_data.is_empty() {
             return None;
         }
-        let data = crate::CONTEXT.storage_read(&key_data);
-        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
+        let data = crate::ENV.storage_read(&key_data);
+        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -365,7 +365,7 @@ impl<T: Serialize + DeserializeOwned> Extend<T> for Vec<T> {
             let key = self.index_to_key(len);
             let key = key.as_bytes();
             let data = bincode::serialize(&el).unwrap();
-            crate::CONTEXT.storage_write(&key, &data);
+            crate::ENV.storage_write(&key, &data);
             len += 1;
         }
         self.set_len(len);

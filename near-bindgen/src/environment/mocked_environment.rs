@@ -1,4 +1,4 @@
-use crate::context::{AccountId, Balance, BlockIndex, Context, ResultIndex, StorageUsage};
+use crate::environment::{AccountId, Balance, BlockIndex, Environment, ResultIndex, StorageUsage};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ pub struct PromiseAnd {
 }
 
 #[derive(Default)]
-pub struct MockedContextInternal {
+pub struct MockedEnvironmentInternal {
     // We use vector instead of `BTreeMap` for internal representation of the trie, because of how
     // we iterate over it, we cannot use regular iterators and `BTreeMap` does not provide accessing
     // elements by index.
@@ -59,14 +59,14 @@ pub struct MockedContextInternal {
     return_promise: Vec<u32>,
 }
 
-/// Mocked version of `Context`.
+/// Mocked version of `Environment`.
 #[derive(Default)]
-pub struct MockedContext {
-    internal: RefCell<MockedContextInternal>,
+pub struct MockedEnvironment {
+    internal: RefCell<MockedEnvironmentInternal>,
 }
 
-impl Deref for MockedContext {
-    type Target = MockedContextInternal;
+impl Deref for MockedEnvironment {
+    type Target = MockedEnvironmentInternal;
 
     fn deref(&self) -> &Self::Target {
         let ptr = self.internal.borrow().deref() as *const Self::Target;
@@ -74,9 +74,9 @@ impl Deref for MockedContext {
     }
 }
 
-impl MockedContext {
-    fn borrow_mut(&self) -> &mut MockedContextInternal {
-        let ptr = self.internal.borrow_mut().deref_mut() as *mut MockedContextInternal;
+impl MockedEnvironment {
+    fn borrow_mut(&self) -> &mut MockedEnvironmentInternal {
+        let ptr = self.internal.borrow_mut().deref_mut() as *mut MockedEnvironmentInternal;
         unsafe { &mut *ptr }
     }
     pub fn new() -> Self {
@@ -118,7 +118,7 @@ impl MockedContext {
     }
 }
 
-impl Context for MockedContext {
+impl Environment for MockedEnvironment {
     fn storage_write(&self, key: &[u8], value: &[u8]) {
         let kv = KV(key.to_vec(), value.to_vec());
         match self.entry(key) {
@@ -320,7 +320,7 @@ impl Context for MockedContext {
         self.account_id.clone()
     }
 
-    fn as_mock(&self) -> &MockedContext {
+    fn as_mock(&self) -> &MockedEnvironment {
         self
     }
 }

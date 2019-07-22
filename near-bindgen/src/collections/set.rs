@@ -76,18 +76,18 @@ where
         // Add the marker records.
         let head = res.head();
         let tail = res.tail();
-        crate::CONTEXT.storage_write(&head, &EMPTY);
-        crate::CONTEXT.storage_write(&tail, &EMPTY);
+        crate::ENV.storage_write(&head, &EMPTY);
+        crate::ENV.storage_write(&tail, &EMPTY);
         res
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
     pub fn remove(&mut self, value: T) -> bool {
         let key = self.serialize_element(value);
-        if !crate::CONTEXT.storage_has_key(&key) {
+        if !crate::ENV.storage_has_key(&key) {
             return false;
         }
-        crate::CONTEXT.storage_remove(&key);
+        crate::ENV.storage_remove(&key);
         self.set_len(self.len() - 1);
         true
     }
@@ -101,8 +101,8 @@ where
     /// If the set did have this value present, false is returned.
     pub fn insert(&mut self, value: T) -> bool {
         let key = self.serialize_element(value);
-        if crate::CONTEXT.storage_has_key(&key) {
-            crate::CONTEXT.storage_write(&key, &EMPTY);
+        if crate::ENV.storage_has_key(&key) {
+            crate::ENV.storage_write(&key, &EMPTY);
             false
         } else {
             self.set_len(self.len() + 1);
@@ -120,7 +120,7 @@ where
     fn raw_keys(&self) -> IntoSetRawKeys<T> {
         let start = self.head();
         let end = self.tail();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoSetRawKeys { iterator_id, set: self, ended: false }
     }
 
@@ -128,7 +128,7 @@ where
     pub fn clear(&mut self) {
         let keys: Vec<Vec<u8>> = self.raw_keys().collect();
         for key in keys {
-            crate::CONTEXT.storage_remove(&key);
+            crate::ENV.storage_remove(&key);
         }
         self.set_len(0);
     }
@@ -147,7 +147,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoSetRef { iterator_id, set: self, ended: false }
     }
 }
@@ -165,7 +165,7 @@ where
         }
         let start = self.head();
         let end = self.tail();
-        let iterator_id = crate::CONTEXT.storage_range(&start, &end);
+        let iterator_id = crate::ENV.storage_range(&start, &end);
         IntoSetRef { iterator_id, set: self, ended: false }
     }
 }
@@ -188,15 +188,15 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+        let mut key_data = crate::ENV.storage_peek(self.iterator_id);
         if key_data == self.set.head() {
-            crate::CONTEXT.storage_iter_next(self.iterator_id);
-            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+            crate::ENV.storage_iter_next(self.iterator_id);
+            key_data = crate::ENV.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.set.tail() {
             return None;
         }
-        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
+        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -222,15 +222,15 @@ where
         if self.ended {
             return None;
         }
-        let mut key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+        let mut key_data = crate::ENV.storage_peek(self.iterator_id);
         if key_data == self.set.head() {
-            crate::CONTEXT.storage_iter_next(self.iterator_id);
-            key_data = crate::CONTEXT.storage_peek(self.iterator_id);
+            crate::ENV.storage_iter_next(self.iterator_id);
+            key_data = crate::ENV.storage_peek(self.iterator_id);
         }
         if key_data.is_empty() || key_data == self.set.tail() {
             return None;
         }
-        let ended = !crate::CONTEXT.storage_iter_next(self.iterator_id);
+        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
         if ended {
             self.ended = true;
         }
@@ -246,7 +246,7 @@ where
         let mut len = self.len();
         for el in iter {
             let key = self.serialize_element(el);
-            crate::CONTEXT.storage_write(&key, &EMPTY);
+            crate::ENV.storage_write(&key, &EMPTY);
             len += 1;
         }
         self.set_len(len);
