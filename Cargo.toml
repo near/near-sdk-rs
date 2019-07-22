@@ -7,5 +7,6 @@ members = [
 exclude = [
     "near-bindgen/tests/test-contract",
     "examples/mission-control",
-    "examples/dutch-auction"
+    "examples/dutch-auction",
+    "examples/status-message"
 ]

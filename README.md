@@ -1,8 +1,69 @@
-# near-bindgen
-[![Join the community on Spectrum](https://withspectrum.github.io/badge/badge.svg)](https://spectrum.chat/near)
-<a href="https://discord.gg/gBtUFKR">![Discord](https://img.shields.io/discord/490367152054992913.svg)</a>
+<div align="center">
 
-Rust library for writing NEAR smart contracts
+  <h1><code>near-bindgen</code></h1>
+
+  <p>
+    <strong>Rust library for writing NEAR smart contracts.</strong>
+  </p>
+
+  <p>
+    <a href="https://spectrum.chat/near"><img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the community on Spectrum" /></a>
+    <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
+  </p>
+</div>
+
+## Example
+
+Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
+```rust
+#[near_bindgen]
+#[derive(Default, Serialize, Deserialize)]
+pub struct StatusMessage {
+    records: HashMap<Vec<u8>, String>,
+}
+
+#[near_bindgen]
+impl StatusMessage {
+    pub fn set_status(&mut self, message: String) {
+        let account_id = ENV.originator_id();
+        self.records.insert(account_id, message);
+    }
+
+    pub fn get_status(&self, account_id: Vec<u8>) -> Option<String> {
+        self.records.get(&account_id).cloned()
+    }
+}
+```
+
+## Features
+
+* **Unit-testable.** Writing unit tests is easy with `near-bindgen`:
+
+    ```rust
+    #[test]
+    fn set_get_message() {
+        ENV.set(Box::new(MockedEnvironment::new()));
+        let account_id = b"alice";
+        ENV.as_mock().set_originator_id(account_id.to_vec());
+        let mut contract = StatusMessage::default();
+        contract.set_status("Hello".to_owned());
+        assert_eq!(Some("Hello".to_owned()), contract.get_status(account_id.to_vec()));
+    }
+    ```
+
+    To run unit tests include `env_test` feature:
+    ```bash
+    cargo test --package status-message --features env_test
+    ```
+
+* **Asynchronous cross-contract calls.** Asynchronous cross-contract calls allow parallel execution
+    of multiple contracts in parallel with subsequent aggregation on another contract.
+    `ENV` exposes the following methods:
+    * `promise_create` -- schedules an execution of a function on some contract;
+    * `promise_then` -- attaches the callback back to the current contract once the function is executed;
+    * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
+    * `return_promise` -- treats the result of execution of the promise as the result of the current function.
+
 
 ## Pre-requisites
 To develop Rust contracts you would need have:
@@ -37,6 +98,7 @@ The general workflow is the following:
     
    Here is an example of a smart contract struct:
    ```rust
+   #[near_bindgen]
    #[derive(Default, Serialize, Deserialize)]
    pub struct MyContract {
        data: HashMap<u64, u64>
