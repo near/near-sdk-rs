@@ -19,7 +19,7 @@ bincode = "1.0"
 near-bindgen = { path = "../near-bindgen" }
 
 [dependencies]
-near-bindgen-core = { path = "../near-bindgen-core"}
+near-bindgen-core = { path = "../near-bindgen-core", version = "0.1.0"}
 proc-macro2 = "0.4.30"
 syn = {version = "0.15.34", features = ["full", "fold"] }
 quote = "0.6.12"
