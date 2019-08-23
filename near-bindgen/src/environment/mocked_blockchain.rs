@@ -1,4 +1,4 @@
-use crate::context::blockchain_interface::BlockchainInterface;
+use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::VMLogic;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.

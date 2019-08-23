@@ -1,5 +1,5 @@
-use crate::context::blockchain_interface::BlockchainInterface;
-use crate::context::sys::sys;
+use crate::environment::blockchain_interface::BlockchainInterface;
+use crate::environment::sys::sys;
 
 /// Implementation of the blockchain interface that contracts actually use during the execution
 /// of the contract.

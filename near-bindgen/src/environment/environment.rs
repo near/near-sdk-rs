@@ -1,4 +1,4 @@
-use crate::context::blockchain_interface::BlockchainInterface;
+use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
     AccountId, Balance, BlockIndex, Gas, IteratorIndex, PromiseIndex, PromiseResult, PublicKey,
     StorageUsage,

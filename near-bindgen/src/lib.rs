@@ -5,3 +5,5 @@ pub use near_bindgen_macros::near_bindgen;
 
 pub mod collections;
 pub mod environment;
+pub use environment::environment::Environment;
+pub use environment::blockchain_interface::BlockchainInterface;
