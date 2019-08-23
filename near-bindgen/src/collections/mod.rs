@@ -4,8 +4,8 @@
 pub mod map;
 pub use map::Map;
 
-//pub mod set;
-//pub use set::Set;
+pub mod set;
+pub use set::Set;
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.

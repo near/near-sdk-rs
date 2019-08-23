@@ -49,7 +49,7 @@ where
         res
     }
 
-    /// Serializes key into an array of bytes.
+    /// Serializes value into an array of bytes.
     fn serialize_value(&self, value: V) -> Vec<u8> {
         value.try_to_vec().expect("Value should be serializable with Borsh.")
     }
