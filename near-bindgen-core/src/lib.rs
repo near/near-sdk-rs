@@ -70,16 +70,17 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
                     check_arg_return_type(&arg.ty, arg.span())?;
 
                     if let Type::Reference(r) = &arg.ty {
+                        let ty = &r.elem;
                         if r.mutability.is_some() {
                             result.extend(quote! {
-                                let mut #arg = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
+                                let mut #arg_name: #ty = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
                             });
                             result_args.extend(quote! {
                                 &mut #arg_name ,
                             });
                         } else {
                             result.extend(quote! {
-                                let #arg = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
+                                let #arg_name: #ty = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
                             });
                             result_args.extend(quote! {
                                 &#arg_name ,
@@ -206,8 +207,7 @@ pub fn process_method(
     }
 
     let env_creation = quote! {
-        let mut env_val = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain{}));
-        let env = &mut env_val;
+        let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain{}));
     };
 
     let method_name = &method.sig.ident;
@@ -280,6 +280,8 @@ pub fn process_impl(item_impl: &ItemImpl) -> TokenStream2 {
     output
 }
 
+mod testing_tools;
+
 // Rustfmt removes comas.
 #[rustfmt::skip]
 #[cfg(test)]
@@ -287,6 +289,7 @@ mod tests {
     use crate::process_method;
     use quote::quote;
     use syn::{ImplItemMethod, Type};
+    use crate::testing_tools::assert_eq;
 
     #[test]
     fn trait_implt() {
@@ -298,10 +301,9 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method();
-                write_state(&contract);
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = env.state_read().unwrap_or_default();
+                contract.method();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -317,10 +319,9 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method();
-                write_state(&contract);
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = env.state_read().unwrap_or_default();
+                contract.method();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -336,10 +337,10 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method();
-                write_state(&contract);
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let mut contract: Hello = env.state_read().unwrap_or_default();
+                contract.method();
+                env.state_write(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -355,12 +356,11 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method(k, );
-                write_state(&contract);
+                let contract: Hello = env.state_read().unwrap_or_default();
+                contract.method(k, );
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -377,13 +377,13 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method(k, m, );
-                write_state(&contract);
+                let mut contract: Hello = env.state_read().unwrap_or_default();
+                contract.method(k, m, );
+                env.state_write(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -400,17 +400,15 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut contract: Hello = env.state_read().unwrap_or_default();
                 let result = contract.method(k, m, );
-                write_state(&contract);
                 let result = serde_json::to_vec(&result).unwrap();
-                unsafe {
-                    near_bindgen::ENV.return_value(&result);
-                }
+                env.value_return(&result);
+                env.state_write(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -427,14 +425,11 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let mut contract: Hello = read_state().unwrap_or_default();
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = env.state_read().unwrap_or_default();
                 let result = contract.method();
-                write_state(&contract);
                 let result = serde_json::to_vec(result).unwrap();
-                unsafe {
-                    near_bindgen::ENV.return_value(&result);
-                }
+                env.value_return(&result);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -450,12 +445,11 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method(&k, );
-                write_state(&contract);
+                let contract: Hello = env.state_read().unwrap_or_default();
+                contract.method(&k, );
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -472,12 +466,11 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                near_bindgen::ENV.set(Box::new(NearEnvironment{}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::ENV.input()).unwrap();
+                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let mut contract: Hello = read_state().unwrap_or_default();
-                let result = contract.method(&mut k, );
-                write_state(&contract);
+                let contract: Hello = env.state_read().unwrap_or_default();
+                contract.method(&mut k, );
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
