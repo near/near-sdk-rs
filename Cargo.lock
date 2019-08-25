@@ -271,11 +271,11 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bincode 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "borsh 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-bindgen-macros 0.1.0",
+ "near-bindgen-macros 0.2.0",
  "near-vm-logic 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -294,9 +294,9 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
- "near-bindgen-core 0.1.0",
+ "near-bindgen-core 0.2.0",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.39 (registry+https://github.com/rust-lang/crates.io-index)",

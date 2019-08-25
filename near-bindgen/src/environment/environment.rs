@@ -9,8 +9,8 @@ use std::mem::size_of;
 /// All methods below panic if their invocation causes smart contract to exceed guest memory or
 /// internal limits of the host (like number of registers).
 /// This is a safe wrapper around low-level `BlockchainInterface`.
-pub struct Environment<T> {
-    blockchain_interface: T,
+pub struct Environment {
+    blockchain_interface: Box<dyn BlockchainInterface>,
 }
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -28,6 +28,9 @@ const KEY_REGISTER: u64 = std::u64::MAX - 2;
 /// Register used to read values.
 const VALUE_REGISTER: u64 = std::u64::MAX - 3;
 
+/// Key used to store the state of the contract.
+const STATE_KEY: &[u8] = b"STATE";
+
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
     ($self:ident, $method:ident ) => {{
@@ -43,8 +46,8 @@ macro_rules! method_into_register {
     }};
 }
 
-impl<T: BlockchainInterface> Environment<T> {
-    pub fn new(blockchain_interface: T) -> Self {
+impl Environment {
+    pub fn new(blockchain_interface: Box<dyn BlockchainInterface>) -> Self {
         Self { blockchain_interface }
     }
 
@@ -327,5 +330,19 @@ impl<T: BlockchainInterface> Environment<T> {
     /// Reads the value that iterator was pointing to.
     pub fn storage_iter_value_read(&mut self) -> Option<Vec<u8>> {
         self.read_register(VALUE_REGISTER)
+    }
+
+    // ############################################
+    // # Saving and loading of the contract state #
+    // ############################################
+    /// Load the state of the given object.
+    pub fn state_read<T: borsh::BorshDeserialize>(&mut self) -> Option<T> {
+        self.storage_read(STATE_KEY)
+            .map(|data| T::try_from_slice(&data).expect("Cannot deserialize the contract state."))
+    }
+
+    pub fn state_write<T: borsh::BorshSerialize>(&mut self, state: &T) {
+        let data = state.try_to_vec().expect("Cannot serialize the contract state.");
+        self.storage_write(STATE_KEY, &data);
     }
 }

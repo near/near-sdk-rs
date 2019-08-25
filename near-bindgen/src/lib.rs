@@ -1,9 +1,7 @@
-#![feature(const_vec_new)]
-#[macro_use]
-extern crate near_bindgen_macros;
 pub use near_bindgen_macros::near_bindgen;
 
 pub mod collections;
-pub mod environment;
-pub use environment::environment::Environment;
+mod environment;
 pub use environment::blockchain_interface::BlockchainInterface;
+pub use environment::environment::Environment;
+pub use environment::mocked_blockchain::MockedBlockchain;

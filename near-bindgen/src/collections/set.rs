@@ -1,7 +1,7 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::next_trie_id;
-use crate::{BlockchainInterface, Environment};
+use crate::Environment;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_vm_logic::types::IteratorIndex;
 use std::marker::PhantomData;
@@ -53,16 +53,13 @@ where
     }
 
     /// An iterator visiting all elements. The iterator element type is `T`.
-    pub fn iter<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> impl Iterator<Item = T> + 'a {
+    pub fn iter<'a>(&'a self, env: &'a mut Environment) -> impl Iterator<Item = T> + 'a {
         let prefix = self.prefix.clone();
         self.raw_elements(env).map(move |k| Self::deserialize_element(&prefix, &k))
     }
 
     /// Removes an element from the set, returning `true` if the element was present.
-    pub fn remove<I: BlockchainInterface>(&mut self, env: &mut Environment<I>, element: T) -> bool {
+    pub fn remove(&mut self, env: &mut Environment, element: T) -> bool {
         let raw_element = self.serialize_element(element);
         if env.storage_remove(&raw_element) {
             self.len -= 1;
@@ -73,11 +70,7 @@ where
     }
 
     /// Inserts an element into the set. If element was already present returns `true`.
-    pub fn insert<I: BlockchainInterface>(
-        &mut self,
-        env: &mut Environment<I>,
-        element: T
-    ) -> bool {
+    pub fn insert(&mut self, env: &mut Environment, element: T) -> bool {
         let raw_element = self.serialize_element(element);
         if env.storage_write(&raw_element, &[]) {
             true
@@ -88,23 +81,17 @@ where
     }
 
     /// Copies elements into an `std::vec::Vec`.
-    pub fn to_vec<I: BlockchainInterface>(
-        &self,
-        env: &mut Environment<I>,
-    ) -> std::vec::Vec<T> {
+    pub fn to_vec(&self, env: &mut Environment) -> std::vec::Vec<T> {
         self.iter(env).collect()
     }
 
     /// Raw serialized elements.
-    fn raw_elements<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> IntoSetRawElements<'a, I> {
+    fn raw_elements<'a>(&'a self, env: &'a mut Environment) -> IntoSetRawElements<'a> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoSetRawElements { iterator_id, env }
     }
     /// Clears the set, removing all elements.
-    pub fn clear<I: BlockchainInterface>(&mut self, env: &mut Environment<I>) {
+    pub fn clear(&mut self, env: &mut Environment) {
         let elements: Vec<Vec<u8>> = self.raw_elements(env).collect();
         for element in elements {
             env.storage_remove(&element);
@@ -112,11 +99,7 @@ where
         self.len = 0;
     }
 
-    pub fn extend<I: BlockchainInterface, IT: IntoIterator<Item = T>>(
-        &mut self,
-        env: &mut Environment<I>,
-        iter: IT,
-    ) {
+    pub fn extend<IT: IntoIterator<Item = T>>(&mut self, env: &mut Environment, iter: IT) {
         for el in iter {
             let element = self.serialize_element(el);
             if !env.storage_write(&element, &[]) {
@@ -127,15 +110,12 @@ where
 }
 
 /// Non-consuming iterator over raw serialized elements of `Set<T>`.
-pub struct IntoSetRawElements<'a, I> {
+pub struct IntoSetRawElements<'a> {
     iterator_id: IteratorIndex,
-    env: &'a mut Environment<I>,
+    env: &'a mut Environment,
 }
 
-impl<'a, I> Iterator for IntoSetRawElements<'a, I>
-where
-    I: BlockchainInterface,
-{
+impl<'a> Iterator for IntoSetRawElements<'a> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {

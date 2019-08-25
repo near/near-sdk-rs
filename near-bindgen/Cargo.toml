@@ -1,6 +1,6 @@
 [package]
 name = "near-bindgen"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -18,7 +18,7 @@ path = "compilation_tests/all.rs"
 
 [dependencies]
 # Provide near_bindgen macros.
-near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.1.0"}
+near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.2.0"}
 borsh = "0.2.1"
 near-vm-logic = "0.2.0"
 

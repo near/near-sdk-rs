@@ -1,7 +1,7 @@
 //! A map implemented on a trie. Unlike `std::collections::HashMap` the keys in this map are not
 //! hashed but are instead serialized.
 use crate::collections::next_trie_id;
-use crate::{BlockchainInterface, Environment};
+use crate::Environment;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_vm_logic::types::IteratorIndex;
 use std::marker::PhantomData;
@@ -66,28 +66,18 @@ where
     }
 
     /// An iterator visiting all keys. The iterator element type is `K`.
-    pub fn keys<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> impl Iterator<Item = K> + 'a {
+    pub fn keys<'a>(&'a self, env: &'a mut Environment) -> impl Iterator<Item = K> + 'a {
         let prefix = self.prefix.clone();
         self.raw_keys(env).map(move |k| Self::deserialize_key(&prefix, &k))
     }
 
     /// An iterator visiting all values. The iterator element type is `V`.
-    pub fn values<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> impl Iterator<Item = V> + 'a {
+    pub fn values<'a>(&'a self, env: &'a mut Environment) -> impl Iterator<Item = V> + 'a {
         self.raw_values(env).map(|v| Self::deserialize_value(&v))
     }
 
     /// Removes a key from the map, returning the value at the key if the key was previously in the map.
-    pub fn remove<I: BlockchainInterface>(
-        &mut self,
-        env: &mut Environment<I>,
-        key: K,
-    ) -> Option<V> {
+    pub fn remove(&mut self, env: &mut Environment, key: K) -> Option<V> {
         let raw_key = self.serialize_key(key);
         if env.storage_remove(&raw_key) {
             self.len -= 1;
@@ -106,12 +96,7 @@ where
     ///
     /// If the map did have this key present, the value is updated, and the old
     /// value is returned.
-    pub fn insert<I: BlockchainInterface>(
-        &mut self,
-        env: &mut Environment<I>,
-        key: K,
-        value: V,
-    ) -> Option<V> {
+    pub fn insert(&mut self, env: &mut Environment, key: K, value: V) -> Option<V> {
         let key = self.serialize_key(key);
         let value = self.serialize_value(value);
         if env.storage_write(&key, &value) {
@@ -125,33 +110,24 @@ where
     }
 
     /// Copies elements into an `std::vec::Vec`.
-    pub fn to_vec<I: BlockchainInterface>(
-        &self,
-        env: &mut Environment<I>,
-    ) -> std::vec::Vec<(K, V)> {
+    pub fn to_vec(&self, env: &mut Environment) -> std::vec::Vec<(K, V)> {
         self.iter(env).collect()
     }
 
     /// Raw serialized keys.
-    fn raw_keys<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> IntoMapRawKeys<'a, I> {
+    fn raw_keys<'a>(&'a self, env: &'a mut Environment) -> IntoMapRawKeys<'a> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoMapRawKeys { iterator_id, env }
     }
 
     /// Raw serialized values.
-    fn raw_values<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> IntoMapRawValues<'a, I> {
+    fn raw_values<'a>(&'a self, env: &'a mut Environment) -> IntoMapRawValues<'a> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoMapRawValues { iterator_id, env }
     }
 
     /// Clears the map, removing all elements.
-    pub fn clear<I: BlockchainInterface>(&mut self, env: &mut Environment<I>) {
+    pub fn clear(&mut self, env: &mut Environment) {
         let keys: Vec<Vec<u8>> = self.raw_keys(env).collect();
         for key in keys {
             env.storage_remove(&key);
@@ -159,19 +135,12 @@ where
         self.len = 0;
     }
 
-    pub fn iter<'a, I: BlockchainInterface>(
-        &'a self,
-        env: &'a mut Environment<I>,
-    ) -> IntoMapRef<'a, K, V, I> {
+    pub fn iter<'a>(&'a self, env: &'a mut Environment) -> IntoMapRef<'a, K, V> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoMapRef { iterator_id, map: self, env }
     }
 
-    pub fn extend<I: BlockchainInterface, IT: IntoIterator<Item = (K, V)>>(
-        &mut self,
-        env: &mut Environment<I>,
-        iter: IT,
-    ) {
+    pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, env: &mut Environment, iter: IT) {
         for (el_key, el_value) in iter {
             let key = self.serialize_key(el_key);
             let value = self.serialize_value(el_value);
@@ -183,17 +152,16 @@ where
 }
 
 /// Non-consuming iterator for `Map<K, V>`.
-pub struct IntoMapRef<'a, K, V, I> {
+pub struct IntoMapRef<'a, K, V> {
     iterator_id: IteratorIndex,
     map: &'a Map<K, V>,
-    env: &'a mut Environment<I>,
+    env: &'a mut Environment,
 }
 
-impl<'a, K, V, I> Iterator for IntoMapRef<'a, K, V, I>
+impl<'a, K, V> Iterator for IntoMapRef<'a, K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
-    I: BlockchainInterface,
 {
     type Item = (K, V);
 
@@ -212,15 +180,12 @@ where
 }
 
 /// Non-consuming iterator over raw serialized keys of `Map<K, V>`.
-pub struct IntoMapRawKeys<'a, I> {
+pub struct IntoMapRawKeys<'a> {
     iterator_id: IteratorIndex,
-    env: &'a mut Environment<I>,
+    env: &'a mut Environment,
 }
 
-impl<'a, I> Iterator for IntoMapRawKeys<'a, I>
-where
-    I: BlockchainInterface,
-{
+impl<'a> Iterator for IntoMapRawKeys<'a> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -233,15 +198,12 @@ where
 }
 
 /// Non-consuming iterator over serialized values of `Map<K, V>`.
-pub struct IntoMapRawValues<'a, I> {
+pub struct IntoMapRawValues<'a> {
     iterator_id: u64,
-    env: &'a mut Environment<I>,
+    env: &'a mut Environment,
 }
 
-impl<'a, I> Iterator for IntoMapRawValues<'a, I>
-where
-    I: BlockchainInterface,
-{
+impl<'a> Iterator for IntoMapRawValues<'a> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {

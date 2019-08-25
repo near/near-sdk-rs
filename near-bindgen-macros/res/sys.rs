@@ -1,5 +1,5 @@
 #[cfg(not(feature = "env_test"))]
-mod sys {
+pub mod sys {
     extern "C" {
         // #############
         // # Registers #
