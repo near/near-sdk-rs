@@ -7,5 +7,5 @@ set -e
 #rm -rf pkg
 
 cargo +nightly build --target wasm32-unknown-unknown --release
-cp target/wasm32-unknown-unknown/release/mission_control.wasm ../res/
+cp target/wasm32-unknown-unknown/release/mission_control.wasm ./res/
 rm -rf target

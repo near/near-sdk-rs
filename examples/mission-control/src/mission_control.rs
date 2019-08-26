@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub type AccountId = Vec<u8>;
 
 #[near_bindgen]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct MissionControl {
     account: Account,
     agents: HashMap<AccountId, Agent>,
@@ -20,7 +20,7 @@ pub struct MissionControl {
 #[near_bindgen]
 impl MissionControl {
     pub fn add_agent(&mut self, env: &mut Environment) {
-        let account_id = env.signer_account_id().to_bytes();
+        let account_id = env.signer_account_id().as_bytes().to_vec();
         self.agents.insert(account_id, Agent { account: agent_default(), is_alive: true });
     }
 

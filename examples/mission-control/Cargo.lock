@@ -69,7 +69,7 @@ version = "0.2.0"
 dependencies = [
  "borsh 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-bindgen-macros 0.2.0",
- "near-vm-logic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-vm-logic 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -101,7 +101,7 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bs58 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -227,7 +227,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum libc 0.2.60 (registry+https://github.com/rust-lang/crates.io-index)" = "d44e80633f007889c7eff624b709ab43c92d708caad982295768a7b13ca3b5eb"
 "checksum memory_units 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 "checksum near-runtime-fees 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "855cfe4da17849e97c3060399ee597b5272da9b063d7fb5649d67cc2c42119bb"
-"checksum near-vm-logic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "98cc09d385804684312a0999c398fc09e0f971b77baac5a0b79bece78eb60f8b"
+"checksum near-vm-logic 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ec874ff4eb2be064b1a6c3b955d92aefdcb85934b6b22c6849510938379ff043"
 "checksum proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)" = "cf3d2011ab5c909338f7887f4fc896d35932e29146c12c8d01da6b22a80ba759"
 "checksum quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)" = "6ce23b6b870e8f94f81fb0a363d65d86675884b34a09043c81e5562f11c1f8e1"
 "checksum ryu 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c92464b447c0ee8c4fb3824ecc8383b81717b9f1e74ba2e72540aef7b9f82997"

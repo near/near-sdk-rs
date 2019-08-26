@@ -20,7 +20,7 @@ path = "compilation_tests/all.rs"
 # Provide near_bindgen macros.
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.2.0"}
 borsh = "0.2.1"
-near-vm-logic = {version = "0.2.2", features = [], default-features = false }
+near-vm-logic = {version = "0.2.3", features = [], default-features = false }
 
 #[dependencies.near-vm-logic]
 #git = "https://github.com/nearprotocol/nearcore"

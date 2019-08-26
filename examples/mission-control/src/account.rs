@@ -20,7 +20,7 @@ use std::ops;
 )]
 pub struct Quantity(pub i32);
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Account(pub HashMap<Asset, Quantity>);
 
 pub enum Tranx {

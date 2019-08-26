@@ -59,9 +59,9 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
                     if let Type::Reference(r) = &arg.ty {
                         if r.mutability.is_none() {
                             return Err(Error::new(arg.span(), ENV_MUTABLE_REF_ERR));
-                        } else {
-                            return Err(Error::new(arg.span(), ENV_MUTABLE_REF_ERR));
                         }
+                    } else {
+                        return Err(Error::new(arg.span(), ENV_MUTABLE_REF_ERR));
                     }
                     result_args.extend(quote! {
                         &mut #arg_name ,

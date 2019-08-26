@@ -59,7 +59,7 @@ pub enum Asset {
     Trust,
 }
 
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd)]
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, BorshDeserialize, BorshSerialize)]
 pub enum Exchange {
     MissionTimeWithResource,
     MissionTimeWithTrust,
