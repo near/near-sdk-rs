@@ -20,7 +20,12 @@ path = "compilation_tests/all.rs"
 # Provide near_bindgen macros.
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.2.0"}
 borsh = "0.2.1"
-near-vm-logic = "0.2.0"
+near-vm-logic = {version = "0.2.2", features = [], default-features = false }
+
+#[dependencies.near-vm-logic]
+#git = "https://github.com/nearprotocol/nearcore"
+#branch = "logic_impl"
+#features = []
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -28,4 +33,6 @@ serde_json = "1.0"
 rand = "0.7.0"
 trybuild = "1.0"
 
-
+[features]
+default = ["testing"]
+testing = []

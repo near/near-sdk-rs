@@ -1,6 +1,18 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    BorshDeserialize,
+    BorshSerialize,
+)]
 pub enum Resource {
     Battery,
     RgbSensor,
@@ -8,7 +20,18 @@ pub enum Resource {
     PoseEstimation,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    BorshDeserialize,
+    BorshSerialize,
+)]
 pub enum Reward {
     Score,
     Token,
@@ -17,7 +40,18 @@ pub enum Reward {
     Policy,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    BorshDeserialize,
+    BorshSerialize,
+)]
 pub enum Asset {
     Resource(Resource),
     Reward(Reward),
@@ -25,7 +59,7 @@ pub enum Asset {
     Trust,
 }
 
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd)]
 pub enum Exchange {
     MissionTimeWithResource,
     MissionTimeWithTrust,
