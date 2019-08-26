@@ -103,7 +103,7 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
     // If there are some args then add parsing header.
     if !result.is_empty() {
         result = quote! {
-            let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
+            let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
             #result
         };
     }
@@ -280,8 +280,6 @@ pub fn process_impl(item_impl: &ItemImpl) -> TokenStream2 {
     output
 }
 
-mod testing_tools;
-
 // Rustfmt removes comas.
 #[rustfmt::skip]
 #[cfg(test)]
@@ -289,7 +287,6 @@ mod tests {
     use crate::process_method;
     use quote::quote;
     use syn::{ImplItemMethod, Type};
-    use crate::testing_tools::assert_eq;
 
     #[test]
     fn trait_implt() {
@@ -357,7 +354,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let contract: Hello = env.state_read().unwrap_or_default();
                 contract.method(k, );
@@ -378,7 +375,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
                 let mut contract: Hello = env.state_read().unwrap_or_default();
@@ -401,7 +398,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
                 let mut contract: Hello = env.state_read().unwrap_or_default();
@@ -446,7 +443,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let contract: Hello = env.state_read().unwrap_or_default();
                 contract.method(&k, );
@@ -467,7 +464,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input()).unwrap();
+                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let contract: Hello = env.state_read().unwrap_or_default();
                 contract.method(&mut k, );

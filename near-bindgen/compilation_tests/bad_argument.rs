@@ -2,23 +2,24 @@
 
 #![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
-use serde::{Deserialize, Serialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(BorshSerialize, BorshDeserialize, Eq, PartialEq, Hash, PartialOrd, Serialize, Deserialize)]
 enum TypeA {
     Var1,
     Var2
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(BorshSerialize, BorshDeserialize, Eq, PartialEq, Hash, PartialOrd, Serialize, Deserialize)]
 enum TypeB {
     Var1,
     Var2
 }
 
 #[near_bindgen]
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, BorshSerialize, BorshDeserialize)]
 struct Storage {
     map: HashMap<TypeA, TypeB>
 }

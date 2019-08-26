@@ -3,3 +3,5 @@ error: Not serializable/deserializable type of the smart contract argument/retur
    |
 15 |     pub fn insert(&mut self) -> impl Iterator<Item=&u64> {
    |                              ^^
+
+error: Could not compile `near-bindgen-tests`.
