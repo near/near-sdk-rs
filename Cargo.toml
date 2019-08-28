@@ -5,8 +5,6 @@ members = [
     "near-bindgen-macros",
 ]
 exclude = [
-    "near-bindgen/tests/test-contract",
     "examples/mission-control",
-    "examples/dutch-auction",
-    "examples/status-message"
+    "examples/status-message",
 ]

@@ -3,3 +3,5 @@ error: Methods exposed as contract API cannot use type parameters
    |
 15 |     pub fn method<'a, T: 'a + std::fmt::Display>(&self) {
    |                   ^^
+
+error: Could not compile `near-bindgen-tests`.

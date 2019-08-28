@@ -3,8 +3,9 @@ use crate::asset::*;
 use crate::rate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use borsh::{BorshDeserialize, BorshSerialize};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Agent {
     pub account: Account,
     pub is_alive: bool,

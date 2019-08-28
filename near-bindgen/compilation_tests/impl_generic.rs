@@ -2,11 +2,11 @@
 
 #![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
-use serde::{Deserialize, Serialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::marker::PhantomData;
 
 #[near_bindgen]
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Incrementer<T> {
     value: u32,
     data: PhantomData<T>,

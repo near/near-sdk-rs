@@ -1,254 +1,128 @@
-//! A set implemented on a trie. Unlike `std::collections::HashSet` the keys in this set are not
+//! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::next_trie_id;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use crate::Environment;
+use borsh::{BorshDeserialize, BorshSerialize};
+use near_vm_logic::types::IteratorIndex;
 use std::marker::PhantomData;
 
-/// Empty value. Set is implemented through the trie and does not store anything in the values.
-static EMPTY: [u8; 0] = [];
-
-#[derive(Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Set<T> {
-    len: usize,
-    id: String,
+    len: u64,
+    prefix: Vec<u8>,
+    #[borsh_skip]
     element: PhantomData<T>,
 }
 
 impl<T> Set<T> {
-    /// Head is the element that precedes all real elements. This is used for efficient iteration
-    /// over the elements of set.
-    pub(crate) fn head(&self) -> Vec<u8> {
-        format!("{}Element0", self.id).into_bytes()
-    }
-
-    /// Tail is the element that follows all real elements. This is used for efficient iteration
-    /// over the elements of set.
-    pub(crate) fn tail(&self) -> Vec<u8> {
-        format!("{}Element2", self.id).into_bytes()
-    }
-
-    /// Get the prefix of the elements.
-    fn prefix(&self) -> Vec<u8> {
-        format!("{}Element1", self.id).into_bytes()
-    }
-
     /// Returns the number of elements in the set, also referred to as its 'size'.
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u64 {
         self.len
-    }
-
-    fn set_len(&mut self, value: usize) {
-        self.len = value;
     }
 }
 
-impl<T> Default for Set<T>
-where
-    T: Serialize + DeserializeOwned,
-{
+impl<T> Default for Set<T> {
     fn default() -> Self {
-        Self::new()
+        Self::new(next_trie_id())
+    }
+}
+
+impl<T> Set<T> {
+    /// Create new set with zero elements. Use `id` as a unique identifier.
+    pub fn new(id: Vec<u8>) -> Self {
+        Self { len: 0, prefix: id, element: PhantomData }
     }
 }
 
 impl<T> Set<T>
 where
-    T: Serialize + DeserializeOwned,
+    T: BorshSerialize + BorshDeserialize,
 {
     /// Serializes element into an array of bytes.
     fn serialize_element(&self, element: T) -> Vec<u8> {
-        let mut res = self.prefix();
-        let data = bincode::serialize(&element).unwrap();
+        let mut res = self.prefix.clone();
+        let data = element.try_to_vec().expect("Element should be serializable with Borsh.");
         res.extend(data);
         res
     }
 
     /// Deserializes element, taking prefix into account.
-    fn deserialize_element(&self, element: &[u8]) -> T {
-        let element = &element[self.prefix().len()..];
-        bincode::deserialize(&element).unwrap()
+    fn deserialize_element(prefix: &[u8], raw_element: &[u8]) -> T {
+        let element = &raw_element[prefix.len()..];
+        T::try_from_slice(element).expect("Element should be deserializable with Borsh.")
     }
 
-    /// Create new set with zero elements.
-    pub fn new() -> Self {
-        let res = Self { len: 0, id: next_trie_id(), element: PhantomData };
-        // Add the marker records.
-        let head = res.head();
-        let tail = res.tail();
-        crate::ENV.storage_write(&head, &EMPTY);
-        crate::ENV.storage_write(&tail, &EMPTY);
-        res
+    /// An iterator visiting all elements. The iterator element type is `T`.
+    pub fn iter<'a>(&'a self, env: &'a mut Environment<'a>) -> impl Iterator<Item = T> + 'a {
+        let prefix = self.prefix.clone();
+        self.raw_elements(env).map(move |k| Self::deserialize_element(&prefix, &k))
     }
 
-    /// Removes a value from the set. Returns whether the value was present in the set.
-    pub fn remove(&mut self, value: T) -> bool {
-        let key = self.serialize_element(value);
-        if !crate::ENV.storage_has_key(&key) {
-            return false;
-        }
-        crate::ENV.storage_remove(&key);
-        self.set_len(self.len() - 1);
-        true
-    }
-
-    /// If the set did have this key present, the value is updated, and the old
-    /// value is returned.
-    /// Adds a value to the set.
-    ///
-    /// If the set did not have this value present, true is returned.
-    ///
-    /// If the set did have this value present, false is returned.
-    pub fn insert(&mut self, value: T) -> bool {
-        let key = self.serialize_element(value);
-        if crate::ENV.storage_has_key(&key) {
-            crate::ENV.storage_write(&key, &EMPTY);
-            false
-        } else {
-            self.set_len(self.len() + 1);
+    /// Removes an element from the set, returning `true` if the element was present.
+    pub fn remove(&mut self, env: &mut Environment, element: T) -> bool {
+        let raw_element = self.serialize_element(element);
+        if env.storage_remove(&raw_element) {
+            self.len -= 1;
             true
+        } else {
+            false
+        }
+    }
+
+    /// Inserts an element into the set. If element was already present returns `true`.
+    pub fn insert(&mut self, env: &mut Environment, element: T) -> bool {
+        let raw_element = self.serialize_element(element);
+        if env.storage_write(&raw_element, &[]) {
+            true
+        } else {
+            self.len += 1;
+            false
         }
     }
 
     /// Copies elements into an `std::vec::Vec`.
-    pub fn to_vec(&self) -> std::vec::Vec<T> {
-        let res = self.into_iter().collect();
-        res
+    pub fn to_vec<'a>(&'a self, env: &'a mut Environment<'a>) -> std::vec::Vec<T> {
+        self.iter(env).collect()
     }
 
-    /// Raw serialized keys.
-    fn raw_keys(&self) -> IntoSetRawKeys<T> {
-        let start = self.head();
-        let end = self.tail();
-        let iterator_id = crate::ENV.storage_range(&start, &end);
-        IntoSetRawKeys { iterator_id, set: self, ended: false }
+    /// Raw serialized elements.
+    fn raw_elements<'a, 'b, 'c: 'b>(&'a self, env: &'b mut Environment<'c>) -> IntoSetRawElements<'b, 'c> {
+        let iterator_id = env.storage_iter_prefix(&self.prefix);
+        IntoSetRawElements { iterator_id, env }
     }
-
     /// Clears the set, removing all elements.
-    pub fn clear(&mut self) {
-        let keys: Vec<Vec<u8>> = self.raw_keys().collect();
-        for key in keys {
-            crate::ENV.storage_remove(&key);
+    pub fn clear<'a, 'b>(&'a mut self, env: &'b mut Environment<'b>) {
+        let elements: Vec<Vec<u8>> = self.raw_elements(env).collect();
+        for element in elements {
+            env.storage_remove(&element);
         }
-        self.set_len(0);
+        self.len = 0;
     }
-}
 
-impl<'a, T> IntoIterator for &'a Set<T>
-where
-    T: Serialize + DeserializeOwned,
-{
-    type Item = T;
-    type IntoIter = IntoSetRef<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        if self.len() == 0 {
-            return IntoSetRef { iterator_id: 0, set: self, ended: true };
+    pub fn extend<IT: IntoIterator<Item = T>>(&mut self, env: &mut Environment, iter: IT) {
+        for el in iter {
+            let element = self.serialize_element(el);
+            if !env.storage_write(&element, &[]) {
+                self.len += 1;
+            }
         }
-        let start = self.head();
-        let end = self.tail();
-        let iterator_id = crate::ENV.storage_range(&start, &end);
-        IntoSetRef { iterator_id, set: self, ended: false }
-    }
-}
-
-impl<'a, T> IntoIterator for &'a mut Set<T>
-where
-    T: Serialize + DeserializeOwned,
-{
-    type Item = T;
-    type IntoIter = IntoSetRef<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        if self.len() == 0 {
-            return IntoSetRef { iterator_id: 0, set: self, ended: true };
-        }
-        let start = self.head();
-        let end = self.tail();
-        let iterator_id = crate::ENV.storage_range(&start, &end);
-        IntoSetRef { iterator_id, set: self, ended: false }
-    }
-}
-
-/// Non-consuming iterator for `Set<T>`.
-pub struct IntoSetRef<'a, T> {
-    iterator_id: u32,
-    #[allow(dead_code)]
-    set: &'a Set<T>,
-    ended: bool,
-}
-
-impl<'a, T> Iterator for IntoSetRef<'a, T>
-where
-    T: Serialize + DeserializeOwned,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.ended {
-            return None;
-        }
-        let mut key_data = crate::ENV.storage_peek(self.iterator_id);
-        if key_data == self.set.head() {
-            crate::ENV.storage_iter_next(self.iterator_id);
-            key_data = crate::ENV.storage_peek(self.iterator_id);
-        }
-        if key_data.is_empty() || key_data == self.set.tail() {
-            return None;
-        }
-        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
-        if ended {
-            self.ended = true;
-        }
-        Some(self.set.deserialize_element(&key_data))
     }
 }
 
 /// Non-consuming iterator over raw serialized elements of `Set<T>`.
-pub struct IntoSetRawKeys<'a, T> {
-    iterator_id: u32,
-    #[allow(dead_code)]
-    set: &'a Set<T>,
-    ended: bool,
+pub struct IntoSetRawElements<'a, 'b: 'a> {
+    iterator_id: IteratorIndex,
+    env: &'a mut Environment<'b>,
 }
 
-impl<'a, T> Iterator for IntoSetRawKeys<'a, T>
-where
-    T: Serialize + DeserializeOwned,
-{
+impl<'a, 'b: 'a> Iterator for IntoSetRawElements<'a, 'b> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.ended {
-            return None;
+        if self.env.storage_iter_next(self.iterator_id) {
+            self.env.storage_iter_key_read()
+        } else {
+            None
         }
-        let mut key_data = crate::ENV.storage_peek(self.iterator_id);
-        if key_data == self.set.head() {
-            crate::ENV.storage_iter_next(self.iterator_id);
-            key_data = crate::ENV.storage_peek(self.iterator_id);
-        }
-        if key_data.is_empty() || key_data == self.set.tail() {
-            return None;
-        }
-        let ended = !crate::ENV.storage_iter_next(self.iterator_id);
-        if ended {
-            self.ended = true;
-        }
-        Some(key_data)
-    }
-}
-
-impl<T> Extend<T> for Set<T>
-where
-    T: Serialize + DeserializeOwned,
-{
-    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        let mut len = self.len();
-        for el in iter {
-            let key = self.serialize_element(el);
-            crate::ENV.storage_write(&key, &EMPTY);
-            len += 1;
-        }
-        self.set_len(len);
     }
 }

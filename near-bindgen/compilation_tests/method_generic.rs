@@ -2,10 +2,10 @@
 
 #![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
-use serde::{Deserialize, Serialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 
 #[near_bindgen]
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Incrementer {
     value: u32,
 }

@@ -1,13 +1,26 @@
 use crate::asset::*;
 use crate::rate::*;
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops;
 
-#[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Debug,
+    BorshDeserialize,
+    BorshSerialize,
+)]
 pub struct Quantity(pub i32);
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Account(pub HashMap<Asset, Quantity>);
 
 pub enum Tranx {

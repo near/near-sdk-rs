@@ -1,6 +1,8 @@
 #!/bin/bash
+set -e
 
-wasm-pack build --no-typescript --release
-wasm-opt -Oz --output ./pkg/optimized_contract.wasm ./pkg/status_message_bg.wasm
-cp pkg/optimized_contract.wasm ./res/mission_control.wasm
-rm -rf pkg
+cargo +nightly build --target wasm32-unknown-unknown --release
+cp target/wasm32-unknown-unknown/release/status_message.wasm ./res/
+wasm-opt -Oz --output ./res/status_message.wasm ./res/status_message.wasm
+wasm-gc ./res/status_message.wasm
+rm -rf target

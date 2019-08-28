@@ -1,26 +1,26 @@
 #![feature(const_vec_new)]
-use near_bindgen::{near_bindgen, ENV};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use borsh::{BorshDeserialize, BorshSerialize};
+use near_bindgen::{near_bindgen, Environment};
 
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[near_bindgen]
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<Vec<u8>, String>,
+    records: HashMap<String, String>,
 }
 
 #[near_bindgen]
 impl StatusMessage {
-    pub fn set_status(&mut self, message: String) {
-        let account_id = ENV.originator_id();
+    pub fn set_status(&mut self, env: &mut Environment, message: String) {
+        let account_id = env.signer_account_id();
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: Vec<u8>) -> Option<String> {
+    pub fn get_status(&self, account_id: String) -> Option<String> {
         self.records.get(&account_id).cloned()
     }
 }
@@ -29,24 +29,40 @@ impl StatusMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::{MockedEnvironment, ENV};
-    use std::borrow::ToOwned;
+    use near_bindgen::MockedBlockchain;
+    use near_bindgen::{VMContext, Config, testing_env};
+
+    fn get_context(input: Vec<u8>) -> VMContext {
+        VMContext {
+            current_account_id: "alice.near".to_string(),
+            signer_account_id: "bob.near".to_string(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id: "carol.near".to_string(),
+            input,
+            block_index: 0,
+            account_balance: 0,
+            storage_usage: 0,
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(9),
+            random_seed: vec![0, 1, 2],
+            free_of_charge: false,
+            output_data_receivers: vec![],
+        }
+    }
 
     #[test]
     fn set_get_message() {
-        ENV.set(Box::new(MockedEnvironment::new()));
-        let account_id = b"alice";
-        ENV.as_mock().set_originator_id(account_id.to_vec());
+        let context = get_context(vec![]);
+        let config = Config::default();
+        testing_env!(env, context, config);
         let mut contract = StatusMessage::default();
-        contract.set_status("Hello".to_owned());
-        assert_eq!(Some("Hello".to_owned()), contract.get_status(account_id.to_vec()));
+        contract.set_status(&mut env, "hello".to_string());
+        assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
     }
 
     #[test]
     fn get_nonexistent_message() {
-        ENV.set(Box::new(MockedEnvironment::new()));
-        let account_id = b"alice";
-        let mut contract = StatusMessage::default();
-        assert_eq!(None, contract.get_status(account_id.to_vec()));
+        let contract = StatusMessage::default();
+        assert_eq!(None, contract.get_status("francis.near".to_string()));
     }
 }
