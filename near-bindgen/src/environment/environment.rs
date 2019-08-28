@@ -9,8 +9,8 @@ use std::mem::size_of;
 /// All methods below panic if their invocation causes smart contract to exceed guest memory or
 /// internal limits of the host (like number of registers).
 /// This is a safe wrapper around low-level `BlockchainInterface`.
-pub struct Environment {
-    blockchain_interface: Box<dyn BlockchainInterface>,
+pub struct Environment<'a> {
+    blockchain_interface: Box<dyn BlockchainInterface + 'a>,
 }
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -46,8 +46,8 @@ macro_rules! method_into_register {
     }};
 }
 
-impl Environment {
-    pub fn new(blockchain_interface: Box<dyn BlockchainInterface>) -> Self {
+impl<'a> Environment<'a> {
+    pub fn new(blockchain_interface: Box<dyn BlockchainInterface + 'a>) -> Self {
         Self { blockchain_interface }
     }
 

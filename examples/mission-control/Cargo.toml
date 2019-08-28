@@ -5,7 +5,7 @@ authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -22,7 +22,8 @@ debug = false
 panic = "abort"
 
 [features]
-env_test = []
+default = []
+env_test = ["near-bindgen/testing"]
 
 [workspace]
 members = []

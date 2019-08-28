@@ -34,5 +34,6 @@ rand = "0.7.0"
 trybuild = "1.0"
 
 [features]
-default = ["testing"]
-testing = []
+default = []
+# Re-export mocks feature for testing.
+testing = ["near-vm-logic/mocks"]

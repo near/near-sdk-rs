@@ -53,7 +53,7 @@ where
     }
 
     /// An iterator visiting all elements. The iterator element type is `T`.
-    pub fn iter<'a>(&'a self, env: &'a mut Environment) -> impl Iterator<Item = T> + 'a {
+    pub fn iter<'a>(&'a self, env: &'a mut Environment<'a>) -> impl Iterator<Item = T> + 'a {
         let prefix = self.prefix.clone();
         self.raw_elements(env).map(move |k| Self::deserialize_element(&prefix, &k))
     }
@@ -81,17 +81,17 @@ where
     }
 
     /// Copies elements into an `std::vec::Vec`.
-    pub fn to_vec(&self, env: &mut Environment) -> std::vec::Vec<T> {
+    pub fn to_vec<'a>(&'a self, env: &'a mut Environment<'a>) -> std::vec::Vec<T> {
         self.iter(env).collect()
     }
 
     /// Raw serialized elements.
-    fn raw_elements<'a>(&'a self, env: &'a mut Environment) -> IntoSetRawElements<'a> {
+    fn raw_elements<'a, 'b, 'c: 'b>(&'a self, env: &'b mut Environment<'c>) -> IntoSetRawElements<'b, 'c> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoSetRawElements { iterator_id, env }
     }
     /// Clears the set, removing all elements.
-    pub fn clear(&mut self, env: &mut Environment) {
+    pub fn clear<'a, 'b>(&'a mut self, env: &'b mut Environment<'b>) {
         let elements: Vec<Vec<u8>> = self.raw_elements(env).collect();
         for element in elements {
             env.storage_remove(&element);
@@ -110,12 +110,12 @@ where
 }
 
 /// Non-consuming iterator over raw serialized elements of `Set<T>`.
-pub struct IntoSetRawElements<'a> {
+pub struct IntoSetRawElements<'a, 'b: 'a> {
     iterator_id: IteratorIndex,
-    env: &'a mut Environment,
+    env: &'a mut Environment<'b>,
 }
 
-impl<'a> Iterator for IntoSetRawElements<'a> {
+impl<'a, 'b: 'a> Iterator for IntoSetRawElements<'a, 'b> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {

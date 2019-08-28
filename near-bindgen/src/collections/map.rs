@@ -66,13 +66,13 @@ where
     }
 
     /// An iterator visiting all keys. The iterator element type is `K`.
-    pub fn keys<'a>(&'a self, env: &'a mut Environment) -> impl Iterator<Item = K> + 'a {
+    pub fn keys<'a>(&'a self, env: &'a mut Environment<'a>) -> impl Iterator<Item = K> + 'a {
         let prefix = self.prefix.clone();
-        self.raw_keys(env).map(move |k| Self::deserialize_key(&prefix, &k))
+        self.raw_keys(env).into_iter().map(move |k| Self::deserialize_key(&prefix, &k))
     }
 
     /// An iterator visiting all values. The iterator element type is `V`.
-    pub fn values<'a>(&'a self, env: &'a mut Environment) -> impl Iterator<Item = V> + 'a {
+    pub fn values<'a>(&'a self, env: &'a mut Environment<'a>) -> impl Iterator<Item = V> + 'a {
         self.raw_values(env).map(|v| Self::deserialize_value(&v))
     }
 
@@ -110,32 +110,32 @@ where
     }
 
     /// Copies elements into an `std::vec::Vec`.
-    pub fn to_vec(&self, env: &mut Environment) -> std::vec::Vec<(K, V)> {
+    pub fn to_vec<'a>(&'a self, env: &'a mut Environment<'a>) -> std::vec::Vec<(K, V)> {
         self.iter(env).collect()
     }
 
     /// Raw serialized keys.
-    fn raw_keys<'a>(&'a self, env: &'a mut Environment) -> IntoMapRawKeys<'a> {
+    fn raw_keys<'a, 'b, 'c: 'b>(&'a self, env: &'b mut Environment<'c>) -> Vec<Vec<u8>> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
-        IntoMapRawKeys { iterator_id, env }
+        IntoMapRawKeys { iterator_id, env }.collect()
     }
 
     /// Raw serialized values.
-    fn raw_values<'a>(&'a self, env: &'a mut Environment) -> IntoMapRawValues<'a> {
+    fn raw_values<'a, 'b, 'c: 'b>(&'a self, env: &'b mut Environment<'c>) -> IntoMapRawValues<'b, 'c> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoMapRawValues { iterator_id, env }
     }
 
     /// Clears the map, removing all elements.
-    pub fn clear(&mut self, env: &mut Environment) {
-        let keys: Vec<Vec<u8>> = self.raw_keys(env).collect();
+    pub fn clear<'a, 'b, 'c: 'b>(&'a mut self, env: &'b mut Environment<'c>) {
+        let keys: Vec<Vec<u8>> = self.raw_keys(env);
         for key in keys {
             env.storage_remove(&key);
         }
         self.len = 0;
     }
 
-    pub fn iter<'a>(&'a self, env: &'a mut Environment) -> IntoMapRef<'a, K, V> {
+    pub fn iter<'a, 'b: 'a>(&'a self, env: &'a mut Environment<'b>) -> IntoMapRef<'a, 'b, K, V> {
         let iterator_id = env.storage_iter_prefix(&self.prefix);
         IntoMapRef { iterator_id, map: self, env }
     }
@@ -152,13 +152,13 @@ where
 }
 
 /// Non-consuming iterator for `Map<K, V>`.
-pub struct IntoMapRef<'a, K, V> {
+pub struct IntoMapRef<'a, 'b: 'a, K, V> {
     iterator_id: IteratorIndex,
     map: &'a Map<K, V>,
-    env: &'a mut Environment,
+    env: &'a mut Environment<'b>,
 }
 
-impl<'a, K, V> Iterator for IntoMapRef<'a, K, V>
+impl<'a, 'b: 'a, K, V> Iterator for IntoMapRef<'a, 'b, K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
@@ -180,12 +180,12 @@ where
 }
 
 /// Non-consuming iterator over raw serialized keys of `Map<K, V>`.
-pub struct IntoMapRawKeys<'a> {
+pub struct IntoMapRawKeys<'a, 'b: 'a> {
     iterator_id: IteratorIndex,
-    env: &'a mut Environment,
+    env: &'a mut Environment<'b>,
 }
 
-impl<'a> Iterator for IntoMapRawKeys<'a> {
+impl<'a, 'b: 'a> Iterator for IntoMapRawKeys<'a, 'b> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -198,12 +198,12 @@ impl<'a> Iterator for IntoMapRawKeys<'a> {
 }
 
 /// Non-consuming iterator over serialized values of `Map<K, V>`.
-pub struct IntoMapRawValues<'a> {
+pub struct IntoMapRawValues<'a, 'b: 'a> {
     iterator_id: u64,
-    env: &'a mut Environment,
+    env: &'a mut Environment<'b>,
 }
 
-impl<'a> Iterator for IntoMapRawValues<'a> {
+impl<'a, 'b: 'a> Iterator for IntoMapRawValues<'a, 'b> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {

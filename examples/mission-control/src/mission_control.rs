@@ -82,23 +82,42 @@ fn rates_default() -> HashMap<Exchange, Rate> {
     ]
 }
 
-//#[cfg(feature = "env_test")]
-//#[cfg(test)]
-//mod tests {
-//    use crate::mission_control::MissionControl;
-//    use near_bindgen::MockedEnvironment;
-//    use near_bindgen::ENV;
-//    use crate::asset::Asset::MissionTime;
-//    use crate::account::Quantity;
-//
-//    #[test]
-//    fn add_agent() {
-//        ENV.set(Box::new(MockedEnvironment::new()));
-//        let account_id = "alice";
-//        ENV.as_mock().set_originator_id(account_id.as_bytes().to_vec());
-//        let mut contract = MissionControl::default();
-//        contract.add_agent();
-//        assert_eq!(Some(true), contract.simulate(account_id.to_owned()));
-//        assert_eq!(Some(Quantity(2)), contract.assets_quantity(account_id.to_owned(), MissionTime));
-//    }
-//}
+#[cfg(feature = "env_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_bindgen::MockedBlockchain;
+    use near_bindgen::{VMContext, Config, testing_env};
+
+    fn get_context(input: Vec<u8>) -> VMContext {
+        VMContext {
+            current_account_id: "alice.near".to_string(),
+            signer_account_id: "bob.near".to_string(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id: "carol.near".to_string(),
+            input,
+            block_index: 0,
+            account_balance: 0,
+            storage_usage: 0,
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(9),
+            random_seed: vec![0, 1, 2],
+            free_of_charge: false,
+            output_data_receivers: vec![],
+        }
+    }
+
+    #[test]
+    fn add_agent() {
+        let context = get_context(vec![]);
+        let account_id = context.signer_account_id.clone();
+        let config = Config::default();
+        testing_env!(env, context, config);
+
+        let mut contract = MissionControl::default();
+        contract.add_agent(&mut env);
+        assert_eq!(Some(true), contract.simulate(account_id.clone()));
+        assert_eq!(Some(Quantity(2)), contract.assets_quantity(account_id.clone(), Asset::MissionTime));
+    }
+
+}

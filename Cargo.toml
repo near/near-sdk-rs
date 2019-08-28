@@ -6,6 +6,5 @@ members = [
 ]
 exclude = [
     "examples/mission-control",
-    "examples/dutch-auction",
-    "examples/status-message"
+    "examples/status-message",
 ]
