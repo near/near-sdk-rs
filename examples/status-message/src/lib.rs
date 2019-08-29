@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_bindgen::{near_bindgen, Environment};
 
-#[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
