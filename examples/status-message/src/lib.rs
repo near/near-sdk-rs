@@ -1,7 +1,7 @@
 #![feature(const_vec_new)]
 use std::collections::HashMap;
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{near_bindgen, Environment};
+use near_bindgen::{near_bindgen, env};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -14,8 +14,8 @@ pub struct StatusMessage {
 
 #[near_bindgen]
 impl StatusMessage {
-    pub fn set_status(&mut self, env: &mut Environment, message: String) {
-        let account_id = env.signer_account_id();
+    pub fn set_status(&mut self, message: String) {
+        let account_id = env::signer_account_id();
         self.records.insert(account_id, message);
     }
 
@@ -53,14 +53,17 @@ mod tests {
     fn set_get_message() {
         let context = get_context(vec![]);
         let config = Config::default();
-        testing_env!(env, context, config);
+        testing_env!(context, config);
         let mut contract = StatusMessage::default();
-        contract.set_status(&mut env, "hello".to_string());
+        contract.set_status("hello".to_string());
         assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
     }
 
     #[test]
     fn get_nonexistent_message() {
+        let context = get_context(vec![]);
+        let config = Config::default();
+        testing_env!(context, config);
         let contract = StatusMessage::default();
         assert_eq!(None, contract.get_status("francis.near".to_string()));
     }

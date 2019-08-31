@@ -21,6 +21,7 @@ path = "compilation_tests/all.rs"
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.2.0"}
 borsh = "0.2.1"
 near-vm-logic = {version = "0.2.3", features = [], default-features = false }
+lazy_static = {version = "1.4.0", optional = true }
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -31,4 +32,4 @@ trybuild = "1.0"
 [features]
 default = []
 # Re-export mocks feature for testing.
-testing = ["near-vm-logic/mocks"]
+testing = ["near-vm-logic/mocks", "lazy_static"]
