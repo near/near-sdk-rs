@@ -1,10 +1,10 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::next_trie_id;
-use crate::Environment;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_vm_logic::types::IteratorIndex;
 use std::marker::PhantomData;
+use crate::env;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Set<T> {
@@ -53,15 +53,15 @@ where
     }
 
     /// An iterator visiting all elements. The iterator element type is `T`.
-    pub fn iter<'a>(&'a self, env: &'a mut Environment<'a>) -> impl Iterator<Item = T> + 'a {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
         let prefix = self.prefix.clone();
-        self.raw_elements(env).map(move |k| Self::deserialize_element(&prefix, &k))
+        self.raw_elements().map(move |k| Self::deserialize_element(&prefix, &k))
     }
 
     /// Removes an element from the set, returning `true` if the element was present.
-    pub fn remove(&mut self, env: &mut Environment, element: T) -> bool {
+    pub fn remove(&mut self, element: T) -> bool {
         let raw_element = self.serialize_element(element);
-        if env.storage_remove(&raw_element) {
+        if env::storage_remove(&raw_element) {
             self.len -= 1;
             true
         } else {
@@ -70,9 +70,9 @@ where
     }
 
     /// Inserts an element into the set. If element was already present returns `true`.
-    pub fn insert(&mut self, env: &mut Environment, element: T) -> bool {
+    pub fn insert(&mut self, element: T) -> bool {
         let raw_element = self.serialize_element(element);
-        if env.storage_write(&raw_element, &[]) {
+        if env::storage_write(&raw_element, &[]) {
             true
         } else {
             self.len += 1;
@@ -81,28 +81,28 @@ where
     }
 
     /// Copies elements into an `std::vec::Vec`.
-    pub fn to_vec<'a>(&'a self, env: &'a mut Environment<'a>) -> std::vec::Vec<T> {
-        self.iter(env).collect()
+    pub fn to_vec(&self) -> std::vec::Vec<T> {
+        self.iter().collect()
     }
 
     /// Raw serialized elements.
-    fn raw_elements<'a, 'b, 'c: 'b>(&'a self, env: &'b mut Environment<'c>) -> IntoSetRawElements<'b, 'c> {
-        let iterator_id = env.storage_iter_prefix(&self.prefix);
-        IntoSetRawElements { iterator_id, env }
+    fn raw_elements(&self) -> IntoSetRawElements {
+        let iterator_id = env::storage_iter_prefix(&self.prefix);
+        IntoSetRawElements { iterator_id }
     }
     /// Clears the set, removing all elements.
-    pub fn clear<'a, 'b>(&'a mut self, env: &'b mut Environment<'b>) {
-        let elements: Vec<Vec<u8>> = self.raw_elements(env).collect();
+    pub fn clear(&mut self) {
+        let elements: Vec<Vec<u8>> = self.raw_elements().collect();
         for element in elements {
-            env.storage_remove(&element);
+            env::storage_remove(&element);
         }
         self.len = 0;
     }
 
-    pub fn extend<IT: IntoIterator<Item = T>>(&mut self, env: &mut Environment, iter: IT) {
+    pub fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT) {
         for el in iter {
             let element = self.serialize_element(el);
-            if !env.storage_write(&element, &[]) {
+            if !env::storage_write(&element, &[]) {
                 self.len += 1;
             }
         }
@@ -110,17 +110,16 @@ where
 }
 
 /// Non-consuming iterator over raw serialized elements of `Set<T>`.
-pub struct IntoSetRawElements<'a, 'b: 'a> {
+pub struct IntoSetRawElements {
     iterator_id: IteratorIndex,
-    env: &'a mut Environment<'b>,
 }
 
-impl<'a, 'b: 'a> Iterator for IntoSetRawElements<'a, 'b> {
+impl Iterator for IntoSetRawElements {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.env.storage_iter_next(self.iterator_id) {
-            self.env.storage_iter_key_read()
+        if env::storage_iter_next(self.iterator_id) {
+            env::storage_iter_key_read()
         } else {
             None
         }

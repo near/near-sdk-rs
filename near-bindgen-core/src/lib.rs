@@ -5,12 +5,6 @@ use syn::export::TokenStream2;
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, ImplItem, ImplItemMethod, ItemImpl, Pat, ReturnType, Type, Visibility};
 
-/// `env` is a keyword for near-bindgen.
-const ENV_ARG: &str = "env";
-
-const ENV_MUTABLE_REF_ERR: &str =
-    "Special argument `env` should be passed as mutable reference, `&mut Environment`.";
-
 /// Check that narrows down argument types and return type descriptive enough for deserialization and serialization.
 fn check_arg_return_type(ty: &Type, span: Span) -> syn::Result<()> {
     match ty {
@@ -55,45 +49,32 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
                 };
                 let arg_name_quoted = quote! { #arg_name }.to_string();
 
-                if arg_name_quoted.as_str() == ENV_ARG {
-                    if let Type::Reference(r) = &arg.ty {
-                        if r.mutability.is_none() {
-                            return Err(Error::new(arg.span(), ENV_MUTABLE_REF_ERR));
-                        }
-                    } else {
-                        return Err(Error::new(arg.span(), ENV_MUTABLE_REF_ERR));
-                    }
-                    result_args.extend(quote! {
-                        &mut #arg_name ,
-                    });
-                } else {
-                    check_arg_return_type(&arg.ty, arg.span())?;
+                check_arg_return_type(&arg.ty, arg.span())?;
 
-                    if let Type::Reference(r) = &arg.ty {
-                        let ty = &r.elem;
-                        if r.mutability.is_some() {
-                            result.extend(quote! {
+                if let Type::Reference(r) = &arg.ty {
+                    let ty = &r.elem;
+                    if r.mutability.is_some() {
+                        result.extend(quote! {
                                 let mut #arg_name: #ty = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
                             });
-                            result_args.extend(quote! {
-                                &mut #arg_name ,
-                            });
-                        } else {
-                            result.extend(quote! {
-                                let #arg_name: #ty = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
-                            });
-                            result_args.extend(quote! {
-                                &#arg_name ,
-                            });
-                        };
+                        result_args.extend(quote! {
+                            &mut #arg_name ,
+                        });
                     } else {
                         result.extend(quote! {
-                            let #arg = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
-                        });
+                                let #arg_name: #ty = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
+                            });
                         result_args.extend(quote! {
-                            #arg_name ,
+                            &#arg_name ,
                         });
-                    }
+                    };
+                } else {
+                    result.extend(quote! {
+                        let #arg = serde_json::from_value(args[#arg_name_quoted].clone()).unwrap();
+                    });
+                    result_args.extend(quote! {
+                        #arg_name ,
+                    });
                 }
             }
             _ => return Err(Error::new(arg.span(), format!("Unsupported argument type"))),
@@ -103,7 +84,7 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
     // If there are some args then add parsing header.
     if !result.is_empty() {
         result = quote! {
-            let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
+            let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
             #result
         };
     }
@@ -127,11 +108,11 @@ pub fn get_return_serialization(return_type: &ReturnType) -> syn::Result<TokenSt
         match return_type.as_ref() {
             Type::Reference(_) => Ok(quote! {
                  let result = serde_json::to_vec(result).unwrap();
-                 env.value_return(&result);
+                 near_bindgen::env::value_return(&result);
             }),
             _ => Ok(quote! {
                  let result = serde_json::to_vec(&result).unwrap();
-                 env.value_return(&result);
+                 near_bindgen::env::value_return(&result);
             }),
         }
     } else {
@@ -173,14 +154,14 @@ pub fn process_method(
                 uses_self = true;
                 if arg.mutability.is_some() {
                     state_de_code = quote! {
-                        let mut contract: #impl_type = env.state_read().unwrap_or_default();
+                        let mut contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
                     };
                     state_ser_code = quote! {
-                        env.state_write(&contract);
+                        near_bindgen::env::state_write(&contract);
                     }
                 } else {
                     state_de_code = quote! {
-                        let contract: #impl_type = env.state_read().unwrap_or_default();
+                        let contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
                     };
                 }
             }
@@ -195,10 +176,10 @@ pub fn process_method(
                     ));
                 } else {
                     state_de_code = quote! {
-                        let mut contract: #impl_type = env.state_read().unwrap_or_default();
+                        let mut contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
                     };
                     state_ser_code = quote! {
-                        env.state_write(&contract);
+                        near_bindgen::env::state_write(&contract);
                     }
                 }
             }
@@ -207,7 +188,7 @@ pub fn process_method(
     }
 
     let env_creation = quote! {
-        let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain{}));
+        near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
     };
 
     let method_name = &method.sig.ident;
@@ -298,8 +279,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let contract: Hello = env.state_read().unwrap_or_default();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
             }
         );
@@ -316,8 +297,8 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let contract: Hello = env.state_read().unwrap_or_default();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
             }
         );
@@ -334,10 +315,10 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let mut contract: Hello = env.state_read().unwrap_or_default();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
-                env.state_write(&contract);
+                near_bindgen::env::state_write(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -353,10 +334,10 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let contract: Hello = env.state_read().unwrap_or_default();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(k, );
             }
         );
@@ -374,13 +355,13 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = env.state_read().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(k, m, );
-                env.state_write(&contract);
+                near_bindgen::env::state_write(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -397,15 +378,15 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
-                let mut contract: Hello = env.state_read().unwrap_or_default();
+                let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method(k, m, );
                 let result = serde_json::to_vec(&result).unwrap();
-                env.value_return(&result);
-                env.state_write(&contract);
+                near_bindgen::env::value_return(&result);
+                near_bindgen::env::state_write(&contract);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -422,11 +403,11 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let contract: Hello = env.state_read().unwrap_or_default();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method();
                 let result = serde_json::to_vec(result).unwrap();
-                env.value_return(&result);
+                near_bindgen::env::value_return(&result);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -442,10 +423,10 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let contract: Hello = env.state_read().unwrap_or_default();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(&k, );
             }
         );
@@ -463,10 +444,10 @@ mod tests {
             #[cfg(not(feature = "env_test"))]
             #[no_mangle]
             pub extern "C" fn method() {
-                let mut env = near_bindgen::Environment::new(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&env.input().unwrap()).unwrap();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let contract: Hello = env.state_read().unwrap_or_default();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(&mut k, );
             }
         );

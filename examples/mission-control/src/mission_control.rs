@@ -2,9 +2,9 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
-use near_bindgen::{near_bindgen, Environment};
-use serde::{Deserialize, Serialize};
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_bindgen::{env, near_bindgen};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub type AccountId = Vec<u8>;
@@ -19,8 +19,8 @@ pub struct MissionControl {
 
 #[near_bindgen]
 impl MissionControl {
-    pub fn add_agent(&mut self, env: &mut Environment) {
-        let account_id = env.signer_account_id().as_bytes().to_vec();
+    pub fn add_agent(&mut self) {
+        let account_id = env::signer_account_id().as_bytes().to_vec();
         self.agents.insert(account_id, Agent { account: agent_default(), is_alive: true });
     }
 
@@ -87,7 +87,7 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 mod tests {
     use super::*;
     use near_bindgen::MockedBlockchain;
-    use near_bindgen::{VMContext, Config, testing_env};
+    use near_bindgen::{testing_env, Config, VMContext};
 
     fn get_context(input: Vec<u8>) -> VMContext {
         VMContext {
@@ -112,12 +112,14 @@ mod tests {
         let context = get_context(vec![]);
         let account_id = context.signer_account_id.clone();
         let config = Config::default();
-        testing_env!(env, context, config);
+        testing_env!(context, config);
 
         let mut contract = MissionControl::default();
-        contract.add_agent(&mut env);
+        contract.add_agent();
         assert_eq!(Some(true), contract.simulate(account_id.clone()));
-        assert_eq!(Some(Quantity(2)), contract.assets_quantity(account_id.clone(), Asset::MissionTime));
+        assert_eq!(
+            Some(Quantity(2)),
+            contract.assets_quantity(account_id.clone(), Asset::MissionTime)
+        );
     }
-
 }

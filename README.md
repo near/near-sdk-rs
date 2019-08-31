@@ -38,8 +38,8 @@ pub struct StatusMessage {
 
 #[near_bindgen]
 impl StatusMessage {
-    pub fn set_status(&mut self, env: &mut Environment, message: String) {
-        let account_id = env.signer_account_id();
+    pub fn set_status(&mut self, message: String) {
+        let account_id = env::signer_account_id();
         self.records.insert(account_id, message);
     }
 
@@ -59,7 +59,7 @@ impl StatusMessage {
         // Use VMContext to setup gas, balance, storage usage, account id, etc.
         let context = VMContext { ... };
         let config = Config::default();
-        testing_env!(env, context, config);
+        testing_env!(context, config);
         let mut contract = StatusMessage::default();
         contract.set_status(&mut env, "hello".to_string());
         assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
@@ -73,7 +73,7 @@ impl StatusMessage {
 
 * **Asynchronous cross-contract calls.** Asynchronous cross-contract calls allow parallel execution
     of multiple contracts in parallel with subsequent aggregation on another contract.
-    `Environment` exposes the following methods:
+    `env` exposes the following methods:
     * `promise_create` -- schedules an execution of a function on some contract;
     * `promise_then` -- attaches the callback back to the current contract once the function is executed;
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
@@ -115,7 +115,7 @@ The general workflow is the following:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
     * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening 
-    * If you need to use blockchain interface, e.g. to get the current account id then add `env: &mut Environment` argument.
+    * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
     
     Here is an example of smart contract methods:
     ```rust
