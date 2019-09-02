@@ -7,9 +7,10 @@ use near_bindgen_core::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{File, ItemImpl, ItemStruct};
+use syn::export::TokenStream2;
 
 #[proc_macro_attribute]
-pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let sys_file = rust_file(include_bytes!("../res/sys.rs"));
         let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
@@ -19,7 +20,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #near_environment
         });
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
-        let generated_code = process_impl(&input);
+        let generated_code = process_impl(&input, TokenStream2::from(attr));
         TokenStream::from(quote! {
             #input
             #generated_code
