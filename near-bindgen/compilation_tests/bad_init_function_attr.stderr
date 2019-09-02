@@ -1,0 +1,7 @@
+error: Expected syntax: init => <name of the method>
+  --> $DIR/bad_init_function_attr.rs:13:16
+   |
+13 | #[near_bindgen(initialize => new)]
+   |                ^^^^^^^^^^
+
+error: Could not compile `near-bindgen-tests`.

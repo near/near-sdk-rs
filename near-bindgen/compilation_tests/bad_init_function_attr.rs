@@ -1,4 +1,4 @@
-//! Smart contract with initialization function.
+//! Smart contract with initialization function that uses wrong syntax.
 
 #![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
@@ -10,7 +10,7 @@ struct Incrementer {
     value: u32,
 }
 
-#[near_bindgen(init => new)]
+#[near_bindgen(initialize => new)]
 impl Incrementer {
     pub fn inc(&mut self, by: u32) {
         self.value += by;

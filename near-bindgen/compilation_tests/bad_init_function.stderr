@@ -1,0 +1,7 @@
+error: Initialization method cannot take `self`.
+  --> $DIR/bad_init_function.rs:18:5
+   |
+18 |     pub fn new(&mut self, starting_value: u32) -> Self {
+   |     ^^^
+
+error: Could not compile `near-bindgen-tests`.
