@@ -78,6 +78,20 @@ impl StatusMessage {
     * `promise_then` -- attaches the callback back to the current contract once the function is executed;
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
+    
+* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
+contract. 
+
+    ```rust
+    #[near_bindgen(init => new)]
+    impl StatusMessage {
+      pub fn new(user: String, status: String) -> Self {
+          let mut res = Self::default();
+          res.records.insert(user, status);
+          res
+      }
+    }
+    ```
 
 
 ## Pre-requisites
