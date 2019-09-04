@@ -3,7 +3,9 @@ use crate::initializer_attribute::{process_init_method, InitAttr};
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, ImplItem, ImplItemMethod, ItemImpl, ReturnType, Type, Visibility};
+use syn::{
+    Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, ReturnType, Type, Visibility,
+};
 
 mod arg_parsing;
 pub mod initializer_attribute;
@@ -49,7 +51,10 @@ pub fn process_method(
     if !publicly_accessible(method, is_trait_impl) {
         return Ok(TokenStream2::new());
     }
-    if !method.sig.decl.generics.params.is_empty() {
+    if method.sig.decl.generics.params.iter().any(|p| match p {
+        GenericParam::Type(_) => true,
+        _ => false,
+    }) {
         return Err(Error::new(
             method.sig.decl.generics.params.span(),
             "Methods exposed as contract API cannot use type parameters",

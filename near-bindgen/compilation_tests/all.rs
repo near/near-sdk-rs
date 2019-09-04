@@ -12,4 +12,5 @@ fn tests() {
     t.pass("compilation_tests/init_function.rs");
     t.compile_fail("compilation_tests/bad_init_function.rs");
     t.compile_fail("compilation_tests/bad_init_function_attr.rs");
+    t.pass("compilation_tests/lifetime_method.rs");
 }
