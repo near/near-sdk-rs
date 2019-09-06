@@ -22,6 +22,8 @@
       <span> | </span>
       <a href="https://github.com/nearprotocol/near-bindgen#building-rust-contract">Building Rust Contract</a>
       <span> | </span>
+      <a href="https://github.com/nearprotocol/near-bindgen#running-rust-contract">Running Rust Contract</a>
+      <span> | </span>
       <a href="https://github.com/nearprotocol/near-bindgen#limitations-and-future-work">Limitations and Future Work</a>
     </h3>
 </div>
@@ -150,6 +152,101 @@ We can build the contract using rustc:
 cargo +nightly build --target wasm32-unknown-unknown --release
 ```
 But then we would want to compress it using `wasm-opt` and `wasm-gc` tools that we installed with [wasm-pack](https://rustwasm.github.io/wasm-pack/), see [examples/status-message/build.sh](examples/status-message/build.sh).
+
+## Running Rust Contract
+
+If you skipped the previous steps you can use the already built contract from [examples/status-message/res/status-message.wasm](examples/status-message/res/status-message.wasm).
+
+### Start the local testnet
+
+Let's start the local Near testnet to run the contract on it.
+
+* Make sure you have [Docker](https://www.docker.com/) installed;
+* Clone the [nearprotocol/nearcore](https://github.com/nearprotocol/nearcore);
+* Make sure you are in `master` branch, then run 
+    ```bash
+    rm -rf testdir; ./scripts/start_unittest.py
+    ```
+  It might take a minute to start if you machine have not downloaded the docker image yet.
+  
+Note, the locally running node will create `testdir` directory where it will keep the node state and the configs, including
+the secret key of the validator's account which we can use to create new accounts later.
+
+### Create the project and deploy the contract
+* Make sure you have the newest version of near-shell installed by running:
+    ```bash
+    npm install -g near-shell
+    ```
+* Create the near-shell project. This will allow having configuration like URL of the node in the config file instead of
+passing it with each near-shell command.
+    ```bash
+    near new_project ./myproject; cd ./myproject
+    ```
+* Modify the config to point to the local node: open `./src/config.js` in `./myproject` and change `nodeUrl` under `development` to be `http://localhost:3030`. 
+    This is how it should look like:
+    ```js
+    case 'development':
+    return {
+       networkId: 'default',
+       nodeUrl: 'https://rpc.nearprotocol.com',
+       ...
+    }
+    ```
+
+* Create account for your smart contract, e.g. we can use `status_message` as the account identifier:
+    ```bash
+    near create_account status_message --masterAccount=test.near --homeDir=../nearcore/testdir
+    ```
+    Note, `homeDir` should point to the home directory of the node which contains the secret key which we will use to sign transactions.
+
+* Deploy the contract code to the newly created account:
+    ```bash
+    near deploy --accountId=status_message --homeDir=../nearcore/testdir --wasmFile=../examples/status-message/res/status_message.wasm
+    ```
+
+### Call contract functions
+
+* Let's call the `set_status` function on the smart contract:
+    ```bash
+    near call status_message set_status "{\"message\": \"Hello\"}" --accountId=test.near --homeDir=../nearcore/testdir
+    ```
+    Notice that we use account id `test.near` to call a smart contract deployed to `status_message` account id.
+    The smart contract will remember that account `test.near` left the message `"Hello"`, see the implementation in
+    [examples/status-message/src/lib.rs](examples/status-message/src/lib.rs).
+    
+* Do another call to `get_status` function to check that the message was correctly recorded:
+    ```bash
+        near call status_message get_status "{\"account_id\": \"test.near\"}" --accountId=test.near --homeDir=../nearcore/testdir
+    ```
+    Observe the output:
+    ```
+    Result: Hello
+    ```
+    
+* Do another call to `get_status` but this time inquire about the account that have not left any messages:
+    ```bash
+        near call status_message get_status "{\"account_id\": \"some_other_account\"}" --accountId=test.near --homeDir=../nearcore/testdir
+    ```
+    Observe the output:
+    ```
+    Result: null
+    ```
+
+### Cleaning up
+
+* Stop the node using docker commands:
+    ```bash
+    docker stop nearcore watchtower
+    docker rm nearcore watchtower
+    ```
+* Remove the node project directory:
+    ```bash
+    rm -rf myproject
+    ```
+* Remove the node data:
+    ```bash
+    rm -rf testdir
+    ```
 
 ## Limitations and Future Work
 The current implementation of `wasm_bindgen` has the following limitations:
