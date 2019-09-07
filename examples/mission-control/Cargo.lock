@@ -115,7 +115,7 @@ name = "mission-control"
 version = "0.1.0"
 dependencies = [
  "borsh 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-bindgen 0.2.0",
+ "near-bindgen 0.2.2",
  "serde 1.0.97 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)",
  "wee_alloc 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -123,17 +123,17 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "borsh 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-bindgen-macros 0.2.0",
+ "near-bindgen-macros 0.2.2",
  "near-vm-logic 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "near-bindgen-core"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -142,9 +142,9 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-macros"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
- "near-bindgen-core 0.2.0",
+ "near-bindgen-core 0.2.2",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.39 (registry+https://github.com/rust-lang/crates.io-index)",
