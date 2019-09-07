@@ -104,11 +104,6 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup default nightly
 ```
 
-* wasm-gc can be installed with
-```bash
-cargo install wasm-gc
-```
-
 ## Writing Rust Contract
 You can follow the [test-contract](test-contract) crate that shows a simple Rust contract.
 
@@ -150,9 +145,8 @@ The general workflow is the following:
 ## Building Rust Contract
 We can build the contract using rustc:
 ```bash
-cargo +nightly build --target wasm32-unknown-unknown --release
+RUSTFLAGS='-C link-arg=-s' cargo +nightly build --target wasm32-unknown-unknown --release
 ```
-But then we would want to compress it using `wasm-opt` and `wasm-gc` tools that we installed with [wasm-pack](https://rustwasm.github.io/wasm-pack/), see [examples/status-message/build.sh](examples/status-message/build.sh).
 
 ## Running Rust Contract
 
