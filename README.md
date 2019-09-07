@@ -103,9 +103,10 @@ To develop Rust contracts you would need have:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup default nightly
 ```
-* [WASM pack](https://rustwasm.github.io/wasm-pack/) installed:
+
+* wasm-gc can be installed with
 ```bash
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+cargo install wasm-gc
 ```
 
 ## Writing Rust Contract
