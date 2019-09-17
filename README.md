@@ -105,7 +105,7 @@ rustup default nightly
 ```
 
 ## Writing Rust Contract
-You can follow the [test-contract](test-contract) crate that shows a simple Rust contract.
+You can follow the [examples/status-message](examples/status-message) crate that shows a simple Rust contract.
 
 The general workflow is the following:
 1. Create a crate and configure the `Cargo.toml` similarly to how it is configured in [examples/status-message/Cargo.toml](examples/status-message/Cargo.toml);
