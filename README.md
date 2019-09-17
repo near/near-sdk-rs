@@ -12,7 +12,7 @@
     <a href="https://spectrum.chat/near"><img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the community on Spectrum" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
   </p>
-  
+
    <h3>
       <a href="https://github.com/nearprotocol/near-bindgen#features">Features</a>
       <span> | </span>
@@ -80,9 +80,9 @@ impl StatusMessage {
     * `promise_then` -- attaches the callback back to the current contract once the function is executed;
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
-    
+
 * **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
-contract. 
+contract.
 
     ```rust
     #[near_bindgen(init => new)]
@@ -97,12 +97,21 @@ contract.
 
 
 ## Pre-requisites
-To develop Rust contracts you would need have:
-* [Rustup](https://rustup.rs/) installed and switched to `nightly` Rust compiler:
+To develop Rust contracts you would need to:
+* Install [Rustup](https://rustup.rs/):
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup default nightly
 ```
+* Install the `nightly` Rust compiler:
+```bash
+rustup install nightly
+```
+* Use the nightly compiler for your repo:
+```bash
+cd ./myproject
+rustup override set nightly
+```
+
 
 ## Writing Rust Contract
 You can follow the [examples/status-message](examples/status-message) crate that shows a simple Rust contract.
@@ -113,7 +122,7 @@ The general workflow is the following:
     * The struct needs to implement `Default` trait which
     NEAR will use to create the initial state of the contract upon its first usage;
     * The struct also needs to implement `BorshSerialize` and `BorshDeserialize` traits which NEAR will use to save/load contract's internal state;
-    
+
    Here is an example of a smart contract struct:
    ```rust
    #[near_bindgen]
@@ -126,9 +135,9 @@ The general workflow is the following:
 3. Define methods that NEAR will expose as smart contract methods:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
-    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening 
+    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening
     * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
-    
+
     Here is an example of smart contract methods:
     ```rust
     #[near_bindgen]
@@ -141,7 +150,7 @@ The general workflow is the following:
        }
     }
     ```
-    
+
 ## Building Rust Contract
 We can build the contract using rustc:
 ```bash
@@ -158,12 +167,12 @@ Let's start the local Near testnet to run the contract on it.
 
 * Make sure you have [Docker](https://www.docker.com/) installed;
 * Clone the [nearprotocol/nearcore](https://github.com/nearprotocol/nearcore);
-* Make sure you are in `master` branch, then run 
+* Make sure you are in `master` branch, then run
     ```bash
     rm -rf testdir; ./scripts/start_unittest.py
     ```
   It might take a minute to start if you machine have not downloaded the docker image yet.
-  
+
 Note, the locally running node will create `testdir` directory where it will keep the node state and the configs, including
 the secret key of the validator's account which we can use to create new accounts later.
 
@@ -177,7 +186,7 @@ passing it with each near-shell command.
     ```bash
     near new_project ./myproject; cd ./myproject
     ```
-* Modify the config to point to the local node: open `./src/config.js` in `./myproject` and change `nodeUrl` under `development` to be `http://localhost:3030`. 
+* Modify the config to point to the local node: open `./src/config.js` in `./myproject` and change `nodeUrl` under `development` to be `http://localhost:3030`.
     This is how it should look like:
     ```js
     case 'development':
@@ -208,7 +217,7 @@ passing it with each near-shell command.
     Notice that we use account id `test.near` to call a smart contract deployed to `status_message` account id.
     The smart contract will remember that account `test.near` left the message `"Hello"`, see the implementation in
     [examples/status-message/src/lib.rs](examples/status-message/src/lib.rs).
-    
+
 * Do another call to `get_status` function to check that the message was correctly recorded:
     ```bash
         near call status_message get_status "{\"account_id\": \"test.near\"}" --accountId=test.near --homeDir=../nearcore/testdir
@@ -217,7 +226,7 @@ passing it with each near-shell command.
     ```
     Result: Hello
     ```
-    
+
 * Do another call to `get_status` but this time inquire about the account that have not left any messages:
     ```bash
         near call status_message get_status "{\"account_id\": \"some_other_account\"}" --accountId=test.near --homeDir=../nearcore/testdir
@@ -263,4 +272,3 @@ For now you can use `wasm-opt` to slightly shrink the size:
     wasm-opt -Oz --output ./pkg/optimized_contract.wasm ./pkg/contract.wasm
     ```
     See Binaryen for [the installation instructions](https://github.com/WebAssembly/binaryen).
-
