@@ -8,79 +8,79 @@ pub mod near_blockchain {
 
     impl BlockchainInterface for NearBlockchain {
         unsafe fn read_register(&self, register_id: u64, ptr: u64) {
-            unsafe { sys::read_register(register_id, ptr) }
+            sys::read_register(register_id, ptr)
         }
 
         unsafe fn register_len(&self, register_id: u64) -> u64 {
-            unsafe { sys::register_len(register_id) }
+            sys::register_len(register_id)
         }
 
         unsafe fn current_account_id(&self, register_id: u64) {
-            unsafe { sys::current_account_id(register_id) }
+            sys::current_account_id(register_id)
         }
 
         unsafe fn signer_account_id(&self, register_id: u64) {
-            unsafe { sys::signer_account_id(register_id) }
+            sys::signer_account_id(register_id)
         }
 
         unsafe fn signer_account_pk(&self, register_id: u64) {
-            unsafe { sys::signer_account_pk(register_id) }
+            sys::signer_account_pk(register_id)
         }
 
         unsafe fn predecessor_account_id(&self, register_id: u64) {
-            unsafe { sys::predecessor_account_id(register_id) }
+            sys::predecessor_account_id(register_id)
         }
 
         unsafe fn input(&self, register_id: u64) {
-            unsafe { sys::input(register_id) }
+             sys::input(register_id)
         }
 
         unsafe fn block_index(&self) -> u64 {
-            unsafe { sys::block_index() }
+            sys::block_index()
         }
 
         unsafe fn storage_usage(&self) -> u64 {
-            unsafe { sys::storage_usage() }
+            sys::storage_usage()
         }
 
         unsafe fn account_balance(&self, balance_ptr: u64) {
-            unsafe { sys::account_balance(balance_ptr) }
+            sys::account_balance(balance_ptr)
         }
 
         unsafe fn attached_deposit(&self, balance_ptr: u64) {
-            unsafe { sys::attached_deposit(balance_ptr) }
+            sys::attached_deposit(balance_ptr)
         }
 
         unsafe fn prepaid_gas(&self) -> u64 {
-            unsafe { sys::prepaid_gas() }
+            sys::prepaid_gas()
         }
 
         unsafe fn used_gas(&self) -> u64 {
-            unsafe { sys::used_gas() }
+            sys::used_gas()
         }
 
         unsafe fn random_seed(&self, register_id: u64) {
-            unsafe { sys::random_seed(register_id) }
+            sys::random_seed(register_id)
         }
 
         unsafe fn sha256(&self, value_len: u64, value_ptr: u64, register_id: u64) {
-            unsafe { sys::sha256(value_len, value_ptr, register_id) }
+            sys::sha256(value_len, value_ptr, register_id)
         }
 
         unsafe fn value_return(&self, value_len: u64, value_ptr: u64) {
-            unsafe { sys::value_return(value_len, value_ptr) }
+            sys::value_return(value_len, value_ptr)
         }
 
         unsafe fn panic(&self) {
-            unsafe { sys::panic() }
+            sys::panic()
         }
 
         unsafe fn log_utf8(&self, len: u64, ptr: u64) {
-            unsafe { sys::log_utf8(len, ptr) }
+            sys::log_utf8(len, ptr)
         }
 
         unsafe fn log_utf16(&self, len: u64, ptr: u64) {
-            unsafe { sys::log_utf16(len, ptr) }
+            sys::log_utf16(len, ptr)
         }
 
         unsafe fn promise_create(
@@ -94,7 +94,6 @@ pub mod near_blockchain {
             amount_ptr: u64,
             gas: u64,
         ) -> u64 {
-            unsafe {
                 sys::promise_create(
                     account_id_len,
                     account_id_ptr,
@@ -105,7 +104,6 @@ pub mod near_blockchain {
                     amount_ptr,
                     gas,
                 )
-            }
         }
 
         unsafe fn promise_then(
@@ -120,7 +118,6 @@ pub mod near_blockchain {
             amount_ptr: u64,
             gas: u64,
         ) -> u64 {
-            unsafe {
                 sys::promise_then(
                     promise_index,
                     account_id_len,
@@ -132,23 +129,140 @@ pub mod near_blockchain {
                     amount_ptr,
                     gas,
                 )
-            }
         }
 
         unsafe fn promise_and(&self, promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
-            unsafe { sys::promise_and(promise_idx_ptr, promise_idx_count) }
+            sys::promise_and(promise_idx_ptr, promise_idx_count)
+        }
+
+        unsafe fn promise_batch_create(&self, account_id_len: u64, account_id_ptr: u64) -> u64 {
+            sys::promise_batch_create(account_id_len, account_id_ptr)
+        }
+        unsafe fn promise_batch_then(
+            &self,
+            promise_index: u64,
+            account_id_len: u64,
+            account_id_ptr: u64,
+        ) -> u64 {
+            sys::promise_batch_then(promise_index, account_id_len, account_id_ptr)
+        }
+        unsafe fn promise_batch_action_create_account(&self, promise_index: u64) {
+            sys::promise_batch_action_create_account(promise_index)
+        }
+        unsafe fn promise_batch_action_deploy_contract(
+            &self,
+            promise_index: u64,
+            code_len: u64,
+            code_ptr: u64,
+        ) {
+            sys::promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
+        }
+        unsafe fn promise_batch_action_function_call(
+            &self,
+            promise_index: u64,
+            method_name_len: u64,
+            method_name_ptr: u64,
+            arguments_len: u64,
+            arguments_ptr: u64,
+            amount_ptr: u64,
+            gas: u64,
+        ) {
+            sys::promise_batch_action_function_call(
+                promise_index,
+                method_name_len,
+                method_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+            )
+        }
+        unsafe fn promise_batch_action_transfer(&self, promise_index: u64, amount_ptr: u64) {
+            sys::promise_batch_action_transfer(promise_index, amount_ptr)
+        }
+        unsafe fn promise_batch_action_stake(
+            &self,
+            promise_index: u64,
+            amount_ptr: u64,
+            public_key_len: u64,
+            public_key_ptr: u64,
+        ) {
+            sys::promise_batch_action_stake(
+                promise_index,
+                amount_ptr,
+                public_key_len,
+                public_key_ptr,
+            )
+        }
+        unsafe fn promise_batch_action_add_key_with_full_access(
+            &self,
+            promise_index: u64,
+            public_key_len: u64,
+            public_key_ptr: u64,
+            nonce: u64,
+        ) {
+            sys::promise_batch_action_add_key_with_full_access(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                nonce,
+            )
+        }
+        unsafe fn promise_batch_action_add_key_with_function_call(
+            &self,
+            promise_index: u64,
+            public_key_len: u64,
+            public_key_ptr: u64,
+            nonce: u64,
+            allowance_ptr: u64,
+            receiver_id_len: u64,
+            receiver_id_ptr: u64,
+            method_names_len: u64,
+            method_names_ptr: u64,
+        ) {
+            sys::promise_batch_action_add_key_with_function_call(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                nonce,
+                allowance_ptr,
+                receiver_id_len,
+                receiver_id_ptr,
+                method_names_len,
+                method_names_ptr,
+            )
+        }
+        unsafe fn promise_batch_action_delete_key(
+            &self,
+            promise_index: u64,
+            public_key_len: u64,
+            public_key_ptr: u64,
+        ) {
+            sys::promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
+        }
+        unsafe fn promise_batch_action_delete_account(
+            &self,
+            promise_index: u64,
+            beneficiary_id_len: u64,
+            beneficiary_id_ptr: u64,
+        ) {
+            sys::promise_batch_action_delete_account(
+                promise_index,
+                beneficiary_id_len,
+                beneficiary_id_ptr,
+            )
         }
 
         unsafe fn promise_results_count(&self) -> u64 {
-            unsafe { sys::promise_results_count() }
+            sys::promise_results_count()
         }
 
         unsafe fn promise_result(&self, result_idx: u64, register_id: u64) -> u64 {
-            unsafe { sys::promise_result(result_idx, register_id) }
+            sys::promise_result(result_idx, register_id)
         }
 
         unsafe fn promise_return(&self, promise_id: u64) {
-            unsafe { sys::promise_return(promise_id) }
+            sys::promise_return(promise_id)
         }
 
         unsafe fn storage_write(
@@ -159,23 +273,23 @@ pub mod near_blockchain {
             value_ptr: u64,
             register_id: u64,
         ) -> u64 {
-            unsafe { sys::storage_write(key_len, key_ptr, value_len, value_ptr, register_id) }
+            sys::storage_write(key_len, key_ptr, value_len, value_ptr, register_id)
         }
 
         unsafe fn storage_read(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-            unsafe { sys::storage_read(key_len, key_ptr, register_id) }
+            sys::storage_read(key_len, key_ptr, register_id)
         }
 
         unsafe fn storage_remove(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-            unsafe { sys::storage_remove(key_len, key_ptr, register_id) }
+            sys::storage_remove(key_len, key_ptr, register_id)
         }
 
         unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
-            unsafe { sys::storage_has_key(key_len, key_ptr) }
+            sys::storage_has_key(key_len, key_ptr)
         }
 
         unsafe fn storage_iter_prefix(&self, prefix_len: u64, prefix_ptr: u64) -> u64 {
-            unsafe { sys::storage_iter_prefix(prefix_len, prefix_ptr) }
+            sys::storage_iter_prefix(prefix_len, prefix_ptr)
         }
 
         unsafe fn storage_iter_range(
@@ -185,7 +299,7 @@ pub mod near_blockchain {
             end_len: u64,
             end_ptr: u64,
         ) -> u64 {
-            unsafe { sys::storage_iter_range(start_len, start_ptr, end_len, end_ptr) }
+            sys::storage_iter_range(start_len, start_ptr, end_len, end_ptr)
         }
 
         unsafe fn storage_iter_next(
@@ -194,7 +308,7 @@ pub mod near_blockchain {
             key_register_id: u64,
             value_register_id: u64,
         ) -> u64 {
-            unsafe { sys::storage_iter_next(iterator_id, key_register_id, value_register_id) }
+            sys::storage_iter_next(iterator_id, key_register_id, value_register_id)
         }
     }
 }
