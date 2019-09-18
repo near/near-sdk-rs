@@ -192,7 +192,7 @@ passing it with each near-shell command.
     case 'development':
     return {
        networkId: 'default',
-       nodeUrl: 'https://rpc.nearprotocol.com',
+       nodeUrl: 'http://localhost:3030',
        ...
     }
     ```
