@@ -27,7 +27,7 @@ struct LogicFixture {
 impl MockedBlockchain {
     pub fn new(context: VMContext, config: Config, promise_results: Vec<PromiseResult>) -> Self {
         let ext = Box::new(MockedExternal::new());
-        let memory = Box::new(MockedMemory::new());
+        let memory = Box::new(MockedMemory{});
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
 
