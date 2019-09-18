@@ -41,8 +41,8 @@ const STATE_KEY: &[u8] = b"STATE";
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
     ( $method:ident ) => {{
-        BLOCKCHAIN_INTERFACE.with(|b_i| unsafe {
-            b_i.borrow()
+        BLOCKCHAIN_INTERFACE.with(|b| unsafe {
+            b.borrow()
                 .as_ref()
                 .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
                 .$method(ATOMIC_OP_REGISTER);
@@ -59,8 +59,8 @@ macro_rules! method_into_register {
 }
 
 pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterface>) {
-    BLOCKCHAIN_INTERFACE.with(|b_i| {
-        *b_i.borrow_mut() = Some(blockchain_interface);
+    BLOCKCHAIN_INTERFACE.with(|b| {
+        *b.borrow_mut() = Some(blockchain_interface);
     })
 }
 
@@ -68,8 +68,8 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
     let len = register_len(register_id)?;
     let res = vec![0u8; len as usize];
-    BLOCKCHAIN_INTERFACE.with(|b_i| unsafe {
-        b_i.borrow()
+    BLOCKCHAIN_INTERFACE.with(|b| unsafe {
+        b.borrow()
             .as_ref()
             .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
             .read_register(register_id, res.as_ptr() as _)
@@ -78,8 +78,8 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
 }
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
-    let len = BLOCKCHAIN_INTERFACE.with(|b_i| unsafe {
-        b_i.borrow()
+    let len = BLOCKCHAIN_INTERFACE.with(|b| unsafe {
+        b.borrow()
             .as_ref()
             .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
             .register_len(register_id)
