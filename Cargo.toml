@@ -7,4 +7,5 @@ members = [
 exclude = [
     "examples/mission-control",
     "examples/status-message",
+    "examples/money-transfer",
 ]
