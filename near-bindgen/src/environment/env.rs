@@ -290,6 +290,187 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
         })
     }
 }
+pub fn promise_batch_create(account_id: AccountId) -> PromiseIndex {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_create(account_id.len() as _, account_id.as_ptr() as _)
+        })
+    }
+}
+pub fn promise_batch_then(promise_index: PromiseIndex, account_id: AccountId) -> PromiseIndex {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
+                promise_index,
+                account_id.len() as _,
+                account_id.as_ptr() as _,
+            )
+        })
+    }
+}
+pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_create_account(promise_index)
+        })
+    }
+}
+pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_deploy_contract(
+                    promise_index,
+                    code.len() as _,
+                    code.as_ptr() as _,
+                )
+        })
+    }
+}
+pub fn promise_batch_action_function_call(
+    promise_index: PromiseIndex,
+    method_name: &[u8],
+    arguments: &[u8],
+    amount: Balance,
+    gas: Gas,
+) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_function_call(
+                    promise_index,
+                    method_name.len() as _,
+                    method_name.as_ptr() as _,
+                    arguments.len() as _,
+                    arguments.as_ptr() as _,
+                    &amount as *const Balance as _,
+                    gas,
+                )
+        })
+    }
+}
+pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_transfer(promise_index, &amount as *const Balance as _)
+        })
+    }
+}
+pub fn promise_batch_action_stake(
+    promise_index: PromiseIndex,
+    amount: Balance,
+    public_key: PublicKey,
+) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_stake(
+                    promise_index,
+                    &amount as *const Balance as _,
+                    public_key.len() as _,
+                    public_key.as_ptr() as _,
+                )
+        })
+    }
+}
+pub fn promise_batch_action_add_key_with_full_access(
+    promise_index: PromiseIndex,
+    public_key: PublicKey,
+    nonce: u64,
+) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_add_key_with_full_access(
+                    promise_index,
+                    public_key.len() as _,
+                    public_key.as_ptr() as _,
+                    nonce,
+                )
+        })
+    }
+}
+pub fn promise_batch_action_add_key_with_function_call(
+    promise_index: PromiseIndex,
+    public_key: PublicKey,
+    nonce: u64,
+    allowance: Balance,
+    receiver_id: AccountId,
+    method_names: &[&[u8]],
+) {
+    let mut joined_method_names = vec![];
+    for (i, method_name) in method_names.into_iter().enumerate() {
+        if i > 0 {
+            joined_method_names.push(b',');
+        }
+        joined_method_names.extend(*method_name);
+    }
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_add_key_with_function_call(
+                    promise_index,
+                    public_key.len() as _,
+                    public_key.as_ptr() as _,
+                    nonce,
+                    &allowance as *const Balance as _,
+                    receiver_id.len() as _,
+                    receiver_id.as_ptr() as _,
+                    joined_method_names.len() as _,
+                    joined_method_names.as_ptr() as _,
+                )
+        })
+    }
+}
+pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: PublicKey) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_delete_key(
+                    promise_index,
+                    public_key.len() as _,
+                    public_key.as_ptr() as _,
+                )
+        })
+    }
+}
+pub fn promise_batch_action_delete_account(promise_index: PromiseIndex, beneficiary_id: AccountId) {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .promise_batch_action_delete_account(
+                    promise_index,
+                    beneficiary_id.len() as _,
+                    beneficiary_id.as_ptr() as _,
+                )
+        })
+    }
+}
+
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback. This function returns the number of complete and
 /// incomplete callbacks.

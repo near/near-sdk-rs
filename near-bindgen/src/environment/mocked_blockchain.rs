@@ -37,8 +37,8 @@ impl MockedBlockchain {
             VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
-                & *(logic_fixture.config.as_mut() as *const Config),
-                & *(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
+                &*(logic_fixture.config.as_mut() as *const Config),
+                &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
             )
         };
@@ -183,6 +183,142 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().promise_and(promise_idx_ptr, promise_idx_count).unwrap()
     }
 
+    unsafe fn promise_batch_create(&self, account_id_len: u64, account_id_ptr: u64) -> u64 {
+        self.logic.borrow_mut().promise_batch_create(account_id_len, account_id_ptr).unwrap()
+    }
+    unsafe fn promise_batch_then(
+        &self,
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+    ) -> u64 {
+        self.logic
+            .borrow_mut()
+            .promise_batch_then(promise_index, account_id_len, account_id_ptr)
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_create_account(&self, promise_index: u64) {
+        self.logic.borrow_mut().promise_batch_action_create_account(promise_index).unwrap()
+    }
+    unsafe fn promise_batch_action_deploy_contract(
+        &self,
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_function_call(
+        &self,
+        promise_index: u64,
+        method_name_len: u64,
+        method_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_function_call(
+                promise_index,
+                method_name_len,
+                method_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+            )
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_transfer(&self, promise_index: u64, amount_ptr: u64) {
+        self.logic.borrow_mut().promise_batch_action_transfer(promise_index, amount_ptr).unwrap()
+    }
+    unsafe fn promise_batch_action_stake(
+        &self,
+        promise_index: u64,
+        amount_ptr: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr)
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_add_key_with_full_access(
+        &self,
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        nonce: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_add_key_with_full_access(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                nonce,
+            )
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_add_key_with_function_call(
+        &self,
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+        nonce: u64,
+        allowance_ptr: u64,
+        receiver_id_len: u64,
+        receiver_id_ptr: u64,
+        method_names_len: u64,
+        method_names_ptr: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_add_key_with_function_call(
+                promise_index,
+                public_key_len,
+                public_key_ptr,
+                nonce,
+                allowance_ptr,
+                receiver_id_len,
+                receiver_id_ptr,
+                method_names_len,
+                method_names_ptr,
+            )
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_delete_key(
+        &self,
+        promise_index: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
+            .unwrap()
+    }
+    unsafe fn promise_batch_action_delete_account(
+        &self,
+        promise_index: u64,
+        beneficiary_id_len: u64,
+        beneficiary_id_ptr: u64,
+    ) {
+        self.logic
+            .borrow_mut()
+            .promise_batch_action_delete_account(
+                promise_index,
+                beneficiary_id_len,
+                beneficiary_id_ptr,
+            )
+            .unwrap()
+    }
     unsafe fn promise_results_count(&self) -> u64 {
         self.logic.borrow_mut().promise_results_count().unwrap()
     }

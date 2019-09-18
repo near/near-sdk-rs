@@ -11,7 +11,7 @@ use quote::quote;
 /// # Example:
 ///
 /// Suppose this is the code that declares that the smart contract can be initialized with `new`.
-/// ```
+/// ```ignore
 /// #[near_bindgen]
 /// struct A {
 ///     a: u64,
