@@ -58,12 +58,11 @@ impl StatusMessage {
     ```rust
     #[test]
     fn set_get_message() {
-        // Use VMContext to setup gas, balance, storage usage, account id, etc.
-        let context = VMContext { ... };
+        let context = get_context(vec![]);
         let config = Config::default();
         testing_env!(context, config);
         let mut contract = StatusMessage::default();
-        contract.set_status(&mut env, "hello".to_string());
+        contract.set_status("hello".to_string());
         assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
     }
     ```
