@@ -6,7 +6,7 @@ Example of using cross-contract functions, like promises, or money transfers.
 This tutorial demonstrates how to deploy several contracts and test interaction between them.
 
 First, follow the [Running Rust Contract](https://github.com/nearprotocol/near-bindgen#running-rust-contract) section
-from the main documentation to start the local node, create the project and deploy the `status_message` contract.
+from the main documentation to start the local node but use `rm -rf testdir; ./scripts/start_unittest.py --image nearprotocol/nearcore:staging` command, create the project and deploy the `status_message` contract.
 
 Then deploy the `cross-contract` contract:
 ```bash
