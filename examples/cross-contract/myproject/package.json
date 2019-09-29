@@ -1,0 +1,31 @@
+{
+  "name": "hello_world_ts",
+  "description": "",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "mkdir -p out/ && gulp",
+    "deploy:contract": "near deploy",
+    "deploy:pages": "gh-pages -d src",
+    "deploy": "npm run build && npm run deploy:contract && npm run deploy:pages",
+    "prestart": "npm run build && npm run deploy:contract",
+    "start": "serve src",
+    "test": "npm run build && jest test --env=near-shell/test_environment"
+  },
+  "devDependencies": {
+    "assemblyscript-json": "github:nearprotocol/assemblyscript-json",
+    "bignum": "github:MaxGraey/bignum.wasm",
+    "gh-pages": "^2.1.1",
+    "gulp": "^4.0.2",
+    "jest": "^24.8.0",
+    "jest-environment-node": "^24.8.0",
+    "near-shell": "github:nearprotocol/near-shell"
+  },
+  "wasmStudio": {
+    "name": "Hello World Example",
+    "description": "The contract implements a single function to return \"Hello, World!\" using AssemblyScript",
+    "icon": "typescript-lang-file-icon"
+  },
+  "dependencies": {
+    "serve": "^11.0.1"
+  }
+}

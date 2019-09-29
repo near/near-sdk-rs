@@ -3,15 +3,46 @@
 Example of using cross-contract functions, like promises, or money transfers.
 
 ## Several contracts
-This tutorial demonstrates how to deploy several contracts and test interaction between them.
+Let's start the local Near testnet to run the contract on it.
 
-First, follow the [Running Rust Contract](https://github.com/nearprotocol/near-bindgen#running-rust-contract) section
-from the main documentation to start the local node but use `rm -rf testdir; ./scripts/start_unittest.py --image nearprotocol/nearcore:staging` command, create the project and deploy the `status_message` contract.
+* Make sure you have [Docker](https://www.docker.com/) installed;
+* Clone the [nearprotocol/nearcore](https://github.com/nearprotocol/nearcore);
+* Make sure you are in `master` branch, then run
+    ```bash
+    rm -rf testdir; ./scripts/start_unittest.py --image nearprotocol/nearcore:staging
+    ```
+  It might take a minute to start if you machine have not downloaded the docker image yet.
+
+* Make sure you have the newest version of near-shell installed by running:
+    ```bash
+    npm install -g near-shell
+    ```
+* Create the near-shell project. This will allow having configuration like URL of the node in the config file instead of
+passing it with each near-shell command.
+    ```bash
+    near new_project ./myproject; cd ./myproject
+    ```
+* Modify the config to point to the local node: open `./src/config.js` in `./myproject` and change `nodeUrl` under `development` to be `http://localhost:3030`.
+    This is how it should look like:
+    ```js
+    case 'development':
+    return {
+       networkId: 'default',
+       nodeUrl: 'http://localhost:3030',
+       ...
+    }
+    ```
 
 Then deploy the `cross-contract` contract:
 ```bash
 near create_account cross_contract --masterAccount=test.near --homeDir=../nearcore/testdir
 near deploy --accountId=cross_contract --homeDir=../nearcore/testdir --wasmFile=../examples/cross-contract/res/cross_contract.wasm
+```
+
+### Deploying another contract
+Let's deploy another contract using `cross-contract`, factory-style.
+```bash
+near call cross_contract deploy_status_message "{\"account_id\": \"status_message\", \"amount\":50000000}" --accountId=test.near --homeDir=../nearcore/testdir
 ```
 
 ### Trying money transfer
@@ -23,7 +54,7 @@ near state status_message
 near state cross_contract
 ```
 
-See that they both have `amount: '100000000'`.
+See that status_message has `amount: '50000000'` and cross_contract has `amount: '100000000'`.
 
 Then call a function on `cross_contract` that transfers money to `status_message`:
 
