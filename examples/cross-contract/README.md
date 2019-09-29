@@ -79,3 +79,12 @@ What did just happen?
 3. `status_message` executed `set_status`, then `status_message` executed `get_status` and got the `"halo"` return value
 which is then passed as the return value of `complex_call`.
 
+### Trying callback with return values
+
+Call `merge_sort` function on `cross_contract` account:
+
+```bash
+near call cross_contract merge_sort "{\"arr\": [2, 1, 0, 3]}" --accountId=test.near --homeDir=../nearcore/testdir
+```
+
+observe `Result: [ 0, 1, 2, 3 ]`

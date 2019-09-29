@@ -6,7 +6,6 @@ pub use environment::env;
 
 #[cfg(feature = "testing")]
 pub use environment::mocked_blockchain::MockedBlockchain;
-#[cfg(feature = "testing")]
 pub use near_vm_logic::types::PromiseResult;
 #[cfg(feature = "testing")]
 pub use near_vm_logic::Config;
