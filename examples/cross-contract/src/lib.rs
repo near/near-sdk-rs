@@ -12,13 +12,13 @@ pub struct CrossContract {}
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&mut self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
         let promise_idx = env::promise_batch_create(account_id);
         env::promise_batch_action_create_account(promise_idx);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
+        env::promise_batch_action_add_key_with_full_access(promise_idx, env::signer_account_pk(), 0);
         let code: &[u8] = include_bytes!("../../status-message/res/status_message.wasm");
         env::promise_batch_action_deploy_contract(promise_idx, code);
-        env::promise_batch_action_add_key_with_full_access(promise_idx, env::signer_account_pk(), 0);
     }
 
     pub fn merge_sort(&self, arr: Vec<u8>) {
