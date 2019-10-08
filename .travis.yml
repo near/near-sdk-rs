@@ -4,7 +4,7 @@ rust:
   - nightly
 env:
   - NEAR_RELEASE=true
-  - NEAR_RELAESE=false
+  - NEAR_RELEASE=false
 
 matrix:
   allow_failures:

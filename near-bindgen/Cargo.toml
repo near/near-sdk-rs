@@ -33,3 +33,8 @@ trybuild = "1.0"
 default = []
 # Re-export mocks feature for testing.
 testing = ["near-vm-logic/mocks", "lazy_static"]
+
+# Special triple # comment for ci.
+### [patch.crates-io]
+### borsh = { git = "https://github.com/nearprotocol/borsh", branch = "master" }
+### near-vm-logic = { git = "https://github.com/nearprotocol/nearcore", branch = "staging" }
