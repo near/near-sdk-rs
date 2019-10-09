@@ -1,0 +1,19 @@
+language: rust
+rust:
+  - nightly-2019-09-03
+  - nightly
+env:
+  - NEAR_RELEASE=true
+  - NEAR_RELEASE=false
+
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+branches:
+  only:
+  - master
+
+script:
+  - ./ci-test.sh
