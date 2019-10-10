@@ -76,6 +76,12 @@ where
         self.raw_values().map(|v| Self::deserialize_value(&v))
     }
 
+    /// Returns value by key, or None if key is not present
+    pub fn get(&self, key: K) -> Option<V> {
+        let raw_key = self.serialize_key(key);
+        env::storage_read(&raw_key).map(|raw_value| Self::deserialize_value(&raw_value))
+    }
+
     /// Removes a key from the map, returning the value at the key if the key was previously in the map.
     pub fn remove(&mut self, key: K) -> Option<V> {
         let raw_key = self.serialize_key(key);

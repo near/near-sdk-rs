@@ -58,6 +58,12 @@ where
         self.raw_elements().map(move |k| Self::deserialize_element(&prefix, &k))
     }
 
+    /// Returns `true` if the set contains a value
+    pub fn contains(&self, element: T) -> bool {
+        let raw_element = self.serialize_element(element);
+        env::storage_read(&raw_element).is_some()
+    }
+
     /// Removes an element from the set, returning `true` if the element was present.
     pub fn remove(&mut self, element: T) -> bool {
         let raw_element = self.serialize_element(element);
