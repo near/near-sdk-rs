@@ -3,9 +3,7 @@ use crate::initializer_attribute::{process_init_method, InitAttr};
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::spanned::Spanned;
-use syn::{
-    Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, ReturnType, Type, Visibility,
-};
+use syn::{Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, ReturnType, Type, Visibility, Receiver};
 
 mod arg_parsing;
 pub mod initializer_attribute;
@@ -51,18 +49,18 @@ pub fn process_method(
     if !publicly_accessible(method, is_trait_impl) {
         return Ok(TokenStream2::new());
     }
-    if method.sig.decl.generics.params.iter().any(|p| match p {
+    if method.sig.generics.params.iter().any(|p| match p {
         GenericParam::Type(_) => true,
         _ => false,
     }) {
         return Err(Error::new(
-            method.sig.decl.generics.params.span(),
+            method.sig.generics.params.span(),
             "Methods exposed as contract API cannot use type parameters",
         ));
     }
 
     let (arg_parsing_code, arg_list) = arg_parsing::get_arg_parsing(method)?;
-    let return_code = get_return_serialization(&method.sig.decl.output)?;
+    let return_code = get_return_serialization(&method.sig.output)?;
 
     // Whether method uses self.
     let mut uses_self = false;
@@ -70,11 +68,11 @@ pub fn process_method(
     let mut state_de_code = TokenStream2::new();
     // Code that reads and serializes the state, if state was modified.
     let mut state_ser_code = TokenStream2::new();
-    for arg in &method.sig.decl.inputs {
+    for arg in &method.sig.inputs {
         match arg {
-            FnArg::SelfRef(arg) => {
+            FnArg::Receiver(Receiver{reference: Some(_), mutability, ..}) => {
                 uses_self = true;
-                if arg.mutability.is_some() {
+                if mutability.is_some() {
                     state_de_code = quote! {
                         let mut contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
                     };
@@ -87,9 +85,9 @@ pub fn process_method(
                     };
                 }
             }
-            FnArg::SelfValue(arg) => {
+            FnArg::Receiver(Receiver{reference: None, mutability, ..}) => {
                 uses_self = true;
-                if arg.mutability.is_some() {
+                if mutability.is_some() {
                     return Err(Error::new(
                         arg.span(),
                         "Cannot use `mut self` because method cannot consume `self` \

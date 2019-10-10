@@ -1,7 +1,5 @@
 error: Methods exposed as contract API cannot use type parameters
-  --> $DIR/method_generic.rs:15:19
+  --> $DIR/method_generic.rs:14:19
    |
-15 |     pub fn method<'a, T: 'a + std::fmt::Display>(&self) {
+14 |     pub fn method<'a, T: 'a + std::fmt::Display>(&self) {
    |                   ^^
-
-error: Could not compile `near-bindgen-tests`.

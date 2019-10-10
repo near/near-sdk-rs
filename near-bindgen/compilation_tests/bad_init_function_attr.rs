@@ -1,6 +1,5 @@
 //! Smart contract with initialization function that uses wrong syntax.
 
-#![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 

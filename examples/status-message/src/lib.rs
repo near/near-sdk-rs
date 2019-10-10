@@ -1,4 +1,3 @@
-#![feature(const_vec_new)]
 use std::collections::HashMap;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_bindgen::{near_bindgen, env};

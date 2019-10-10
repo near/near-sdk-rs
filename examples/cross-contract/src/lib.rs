@@ -1,4 +1,3 @@
-#![feature(const_vec_new)]
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_bindgen::{env, near_bindgen, PromiseResult};
 use serde_json::json;
