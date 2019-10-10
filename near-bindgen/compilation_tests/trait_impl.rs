@@ -1,6 +1,5 @@
 //! Smart contract that implements trait.
 
-#![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 

@@ -1,6 +1,7 @@
+use syn::{Error, FnArg, ImplItemMethod, Pat, Type};
 use syn::export::{Span, TokenStream2};
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, ImplItemMethod, Pat, Type};
+
 use quote::quote;
 
 /// Check that narrows down argument types and return type descriptive enough for deserialization and serialization.
@@ -21,7 +22,8 @@ pub fn check_arg_return_type(ty: &Type, span: Span) -> syn::Result<()> {
         | Type::ImplTrait(_)
         | Type::Infer(_)
         | Type::Macro(_)
-        | Type::Verbatim(_) => Err(Error::new(
+        | Type::Verbatim(_)
+        | Type::__Nonexhaustive => Err(Error::new(
             span,
             "Not serializable/deserializable type of the smart contract argument/return type.",
         )),
@@ -35,12 +37,12 @@ pub fn check_arg_return_type(ty: &Type, span: Span) -> syn::Result<()> {
 pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, TokenStream2)> {
     let mut result = TokenStream2::new();
     let mut result_args = TokenStream2::new();
-    for arg in &method.sig.decl.inputs {
+    for arg in &method.sig.inputs {
         match arg {
             // Allowed types of arguments.
-            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {}
-            FnArg::Captured(arg) => {
-                let arg_name = if let Pat::Ident(arg_name) = &arg.pat {
+            FnArg::Receiver(_) => {}
+            FnArg::Typed(arg) => {
+                let arg_name = if let Pat::Ident(arg_name) = arg.pat.as_ref() {
                     arg_name
                 } else {
                     return Err(Error::new(arg.span(), "Unsupported argument name pattern."));
@@ -49,7 +51,7 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
 
                 check_arg_return_type(&arg.ty, arg.span())?;
 
-                if let Type::Reference(r) = &arg.ty {
+                if let Type::Reference(r) = arg.ty.as_ref() {
                     let ty = &r.elem;
                     if r.mutability.is_some() {
                         result.extend(quote! {
@@ -75,7 +77,6 @@ pub fn get_arg_parsing(method: &ImplItemMethod) -> syn::Result<(TokenStream2, To
                     });
                 }
             }
-            _ => return Err(Error::new(arg.span(), format!("Unsupported argument type"))),
         }
     }
 

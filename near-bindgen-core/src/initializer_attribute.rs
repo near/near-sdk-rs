@@ -56,22 +56,22 @@ pub fn process_init_method(
 ) -> syn::Result<TokenStream2> {
     if !publicly_accessible(method, is_trait_impl) {
         return Err(Error::new(
-            method.sig.decl.generics.params.span(),
+            method.sig.generics.params.span(),
             "Initialization method should have public visibility.",
         ));
     }
-    if !method.sig.decl.generics.params.is_empty() {
+    if !method.sig.generics.params.is_empty() {
         return Err(Error::new(
-            method.sig.decl.generics.params.span(),
+            method.sig.generics.params.span(),
             "Initialization method cannot use type parameters.",
         ));
     }
 
     let (arg_parsing_code, arg_list) = arg_parsing::get_arg_parsing(method)?;
 
-    for arg in &method.sig.decl.inputs {
+    for arg in &method.sig.inputs {
         match arg {
-            FnArg::SelfRef(_) | FnArg::SelfValue(_) => {
+            FnArg::Receiver(_) => {
                 return Err(Error::new(method.span(), "Initialization method cannot take `self`."));
             }
             _ => {}

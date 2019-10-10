@@ -1,6 +1,5 @@
 //! Method with non-deserializable argument type.
 
-#![feature(const_vec_new)]
 use near_bindgen::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::HashMap;
