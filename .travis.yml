@@ -21,4 +21,4 @@ branches:
 
 script:
   - ./ci-test.sh
-  - ./examples/test_all.sh
+  - [-z "${NEAR_RELEASE}"] && ./examples/test_all.sh
