@@ -1,14 +1,14 @@
 language: rust
 rust:
   - stable
-  - nightly
+  - nightly-2019-09-03
 env:
   - NEAR_RELEASE=true
   - NEAR_RELEASE=false
 
 matrix:
   allow_failures:
-    - rust: nightly
+    - rust: nightly-2019-09-03
   fast_finish: true
 
 before_install:
