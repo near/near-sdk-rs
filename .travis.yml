@@ -3,22 +3,23 @@ env:
   - NEAR_RELEASE=true
   - NEAR_RELEASE=false
 
-jobs:
+matrix:
   include:
 
   - rust: nightly
-      env: RUST_BACKTRACE=1
-      before_script:
-        - rustup target add wasm32-unknown-unknown
-      script:
-        - ./ci-test.sh
-        - ./examples/test_all.sh
-        - ./examples/check_all.sh
+    env: RUST_BACKTRACE=1
+    before_script:
+      - rustup target add wasm32-unknown-unknown
+    script:
+      - ./ci-test.sh
+      - ./examples/test_all.sh
+      - ./examples/check_all.sh
+
   - rust: stable
-      env: RUST_BACKTRACE=1
-      script:
-        - ./ci-test.sh
-        - ./examples/test_all.sh
+    env: RUST_BACKTRACE=1
+    script:
+      - ./ci-test.sh
+      - ./examples/test_all.sh
 
 branches:
   only:
