@@ -1,6 +1,6 @@
 language: rust
 rust:
-  - nightly-2019-09-03
+  - stable
   - nightly
 env:
   - NEAR_RELEASE=true
@@ -10,6 +10,12 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+
+before_install:
+  - rm rust-toolchain
+
+before_script:
+  - rustup target add wasm32-unknown-unknown
 
 branches:
   only:

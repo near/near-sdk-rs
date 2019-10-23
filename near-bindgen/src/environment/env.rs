@@ -79,10 +79,7 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
     let len = BLOCKCHAIN_INTERFACE.with(|b| unsafe {
-        b.borrow()
-            .as_ref()
-            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-            .register_len(register_id)
+        b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).register_len(register_id)
     });
     if len == std::u64::MAX {
         None
@@ -120,23 +117,23 @@ pub fn input() -> Option<Vec<u8>> {
 /// Current block index.
 pub fn block_index() -> BlockIndex {
     unsafe {
+        BLOCKCHAIN_INTERFACE
+            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
+    }
+}
+/// Current block timestamp.
+pub fn block_timestamp() -> u64 {
+    unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .block_index()
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_timestamp()
         })
     }
 }
 /// Current total storage usage of this smart contract that this account would be paying for.
 pub fn storage_usage() -> StorageUsage {
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_usage()
-        })
+        BLOCKCHAIN_INTERFACE
+            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_usage())
     }
 }
 
@@ -174,23 +171,15 @@ pub fn attached_deposit() -> Balance {
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .prepaid_gas()
-        })
+        BLOCKCHAIN_INTERFACE
+            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).prepaid_gas())
     }
 }
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .used_gas()
-        })
+        BLOCKCHAIN_INTERFACE
+            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).used_gas())
     }
 }
 
@@ -205,10 +194,11 @@ pub fn random_seed() -> Vec<u8> {
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER)
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).sha256(
+                value.len() as _,
+                value.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
         });
     };
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
@@ -229,19 +219,16 @@ pub fn promise_create(
     let account_id = account_id.as_bytes();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_create(
-                    account_id.len() as _,
-                    account_id.as_ptr() as _,
-                    method_name.len() as _,
-                    method_name.as_ptr() as _,
-                    arguments.len() as _,
-                    arguments.as_ptr() as _,
-                    &amount as *const Balance as _,
-                    gas,
-                )
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_create(
+                account_id.len() as _,
+                account_id.as_ptr() as _,
+                method_name.len() as _,
+                method_name.as_ptr() as _,
+                arguments.len() as _,
+                arguments.as_ptr() as _,
+                &amount as *const Balance as _,
+                gas,
+            )
         })
     }
 }
@@ -257,20 +244,17 @@ pub fn promise_then(
     let account_id = account_id.as_bytes();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_then(
-                    promise_idx,
-                    account_id.len() as _,
-                    account_id.as_ptr() as _,
-                    method_name.len() as _,
-                    method_name.as_ptr() as _,
-                    arguments.len() as _,
-                    arguments.as_ptr() as _,
-                    &amount as *const Balance as _,
-                    gas,
-                )
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_then(
+                promise_idx,
+                account_id.len() as _,
+                account_id.as_ptr() as _,
+                method_name.len() as _,
+                method_name.as_ptr() as _,
+                arguments.len() as _,
+                arguments.as_ptr() as _,
+                &amount as *const Balance as _,
+                gas,
+            )
         })
     }
 }
@@ -303,8 +287,7 @@ pub fn promise_batch_create(account_id: AccountId) -> PromiseIndex {
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: AccountId) -> PromiseIndex {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
                 promise_index,
                 account_id.len() as _,
                 account_id.as_ptr() as _,
@@ -377,15 +360,12 @@ pub fn promise_batch_action_stake(
 ) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_stake(
-                    promise_index,
-                    &amount as *const Balance as _,
-                    public_key.len() as _,
-                    public_key.as_ptr() as _,
-                )
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_action_stake(
+                promise_index,
+                &amount as *const Balance as _,
+                public_key.len() as _,
+                public_key.as_ptr() as _,
+            )
         })
     }
 }
@@ -477,10 +457,7 @@ pub fn promise_batch_action_delete_account(promise_index: PromiseIndex, benefici
 pub fn promise_results_count() -> u64 {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_results_count()
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_results_count()
         })
     }
 }
@@ -510,10 +487,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_return(promise_idx)
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_return(promise_idx)
         })
     }
 }
@@ -532,14 +506,14 @@ pub fn value_return(value: &[u8]) {
         })
     }
 }
-/// Terminates the execution of the program.
-pub fn panic() {
+/// Terminates the execution of the program with the UTF-8 encoded message.
+pub fn panic(message: &[u8]) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
                 .as_ref()
                 .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .panic()
+                .panic_utf8(message.len() as _, message.as_ptr() as _)
         })
     }
 }
@@ -563,16 +537,13 @@ pub fn log(message: &[u8]) {
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_write(
-                    key.len() as _,
-                    key.as_ptr() as _,
-                    value.len() as _,
-                    value.as_ptr() as _,
-                    EVICTED_REGISTER,
-                )
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_write(
+                key.len() as _,
+                key.as_ptr() as _,
+                value.len() as _,
+                value.as_ptr() as _,
+                EVICTED_REGISTER,
+            )
         })
     } {
         0 => false,
@@ -584,10 +555,11 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER)
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_read(
+                key.len() as _,
+                key.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
         })
     } {
         0 => None,
@@ -600,10 +572,11 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 pub fn storage_remove(key: &[u8]) -> bool {
     match unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER)
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_remove(
+                key.len() as _,
+                key.as_ptr() as _,
+                EVICTED_REGISTER,
+            )
         })
     } {
         0 => false,
@@ -645,15 +618,12 @@ pub fn storage_iter_prefix(prefix: &[u8]) -> IteratorIndex {
 pub fn storage_iter_range(start: &[u8], end: &[u8]) -> IteratorIndex {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_iter_range(
-                    start.len() as _,
-                    start.as_ptr() as _,
-                    end.len() as _,
-                    end.as_ptr() as _,
-                )
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_iter_range(
+                start.len() as _,
+                start.as_ptr() as _,
+                end.len() as _,
+                end.as_ptr() as _,
+            )
         })
     }
 }
@@ -662,10 +632,11 @@ pub fn storage_iter_range(start: &[u8], end: &[u8]) -> IteratorIndex {
 pub fn storage_iter_next(iterator_idx: IteratorIndex) -> bool {
     match unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_iter_next(iterator_idx, KEY_REGISTER, VALUE_REGISTER)
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_iter_next(
+                iterator_idx,
+                KEY_REGISTER,
+                VALUE_REGISTER,
+            )
         })
     } {
         0 => false,
@@ -692,8 +663,6 @@ pub fn state_read<T: borsh::BorshDeserialize>() -> Option<T> {
 }
 
 pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
-    let data = state
-        .try_to_vec()
-        .expect("Cannot serialize the contract state.");
+    let data = state.try_to_vec().expect("Cannot serialize the contract state.");
     storage_write(STATE_KEY, &data);
 }

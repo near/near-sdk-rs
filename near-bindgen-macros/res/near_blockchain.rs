@@ -32,11 +32,15 @@ pub mod near_blockchain {
         }
 
         unsafe fn input(&self, register_id: u64) {
-             sys::input(register_id)
+            sys::input(register_id)
         }
 
         unsafe fn block_index(&self) -> u64 {
             sys::block_index()
+        }
+
+        unsafe fn block_timestamp(&self) -> u64 {
+            sys::block_timestamp()
         }
 
         unsafe fn storage_usage(&self) -> u64 {
@@ -75,6 +79,10 @@ pub mod near_blockchain {
             sys::panic()
         }
 
+        unsafe fn panic_utf8(&self, len: u64, ptr: u64) {
+            sys::panic_utf8(len, ptr)
+        }
+
         unsafe fn log_utf8(&self, len: u64, ptr: u64) {
             sys::log_utf8(len, ptr)
         }
@@ -94,16 +102,16 @@ pub mod near_blockchain {
             amount_ptr: u64,
             gas: u64,
         ) -> u64 {
-                sys::promise_create(
-                    account_id_len,
-                    account_id_ptr,
-                    method_name_len,
-                    method_name_ptr,
-                    arguments_len,
-                    arguments_ptr,
-                    amount_ptr,
-                    gas,
-                )
+            sys::promise_create(
+                account_id_len,
+                account_id_ptr,
+                method_name_len,
+                method_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+            )
         }
 
         unsafe fn promise_then(
@@ -118,17 +126,17 @@ pub mod near_blockchain {
             amount_ptr: u64,
             gas: u64,
         ) -> u64 {
-                sys::promise_then(
-                    promise_index,
-                    account_id_len,
-                    account_id_ptr,
-                    method_name_len,
-                    method_name_ptr,
-                    arguments_len,
-                    arguments_ptr,
-                    amount_ptr,
-                    gas,
-                )
+            sys::promise_then(
+                promise_index,
+                account_id_len,
+                account_id_ptr,
+                method_name_len,
+                method_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+            )
         }
 
         unsafe fn promise_and(&self, promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
@@ -138,6 +146,7 @@ pub mod near_blockchain {
         unsafe fn promise_batch_create(&self, account_id_len: u64, account_id_ptr: u64) -> u64 {
             sys::promise_batch_create(account_id_len, account_id_ptr)
         }
+
         unsafe fn promise_batch_then(
             &self,
             promise_index: u64,
@@ -146,9 +155,11 @@ pub mod near_blockchain {
         ) -> u64 {
             sys::promise_batch_then(promise_index, account_id_len, account_id_ptr)
         }
+
         unsafe fn promise_batch_action_create_account(&self, promise_index: u64) {
             sys::promise_batch_action_create_account(promise_index)
         }
+
         unsafe fn promise_batch_action_deploy_contract(
             &self,
             promise_index: u64,
@@ -157,6 +168,7 @@ pub mod near_blockchain {
         ) {
             sys::promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
         }
+
         unsafe fn promise_batch_action_function_call(
             &self,
             promise_index: u64,
@@ -177,9 +189,11 @@ pub mod near_blockchain {
                 gas,
             )
         }
+
         unsafe fn promise_batch_action_transfer(&self, promise_index: u64, amount_ptr: u64) {
             sys::promise_batch_action_transfer(promise_index, amount_ptr)
         }
+
         unsafe fn promise_batch_action_stake(
             &self,
             promise_index: u64,
@@ -194,6 +208,7 @@ pub mod near_blockchain {
                 public_key_ptr,
             )
         }
+
         unsafe fn promise_batch_action_add_key_with_full_access(
             &self,
             promise_index: u64,
@@ -208,6 +223,7 @@ pub mod near_blockchain {
                 nonce,
             )
         }
+
         unsafe fn promise_batch_action_add_key_with_function_call(
             &self,
             promise_index: u64,
@@ -232,6 +248,7 @@ pub mod near_blockchain {
                 method_names_ptr,
             )
         }
+
         unsafe fn promise_batch_action_delete_key(
             &self,
             promise_index: u64,
@@ -240,6 +257,7 @@ pub mod near_blockchain {
         ) {
             sys::promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
         }
+
         unsafe fn promise_batch_action_delete_account(
             &self,
             promise_index: u64,

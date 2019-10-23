@@ -1,25 +1,34 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_bindgen::collections::{Map, Set};
 use near_bindgen::{env, near_bindgen};
-use std::collections::HashMap;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    pub records: Map<String, String>,
+    pub unique_values: Set<String>,
+}
+
+impl Default for StatusMessage {
+    fn default() -> Self {
+        Self { records: Map::new(b"r".to_vec()), unique_values: Set::new(b"s".to_vec()) }
+    }
 }
 
 #[near_bindgen]
 impl StatusMessage {
-    pub fn set_status(&mut self, message: String) {
+    /// Returns true if the message is unique
+    pub fn set_status(&mut self, message: String) -> bool {
         let account_id = env::signer_account_id();
-        self.records.insert(account_id, message);
+        self.records.insert(&account_id, &message);
+        !self.unique_values.insert(&message)
     }
 
     pub fn get_status(&self, account_id: String) -> Option<String> {
-        self.records.get(&account_id).cloned()
+        self.records.get(&account_id)
     }
 }
 
@@ -57,6 +66,24 @@ mod tests {
         let mut contract = StatusMessage::default();
         contract.set_status("hello".to_string());
         assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
+    }
+
+    #[test]
+    fn set_unique_message() {
+        let context = get_context(vec![], false);
+        let config = Config::default();
+        testing_env!(context, config);
+        let mut contract = StatusMessage::default();
+        // Unique
+        assert!(contract.set_status("hello".to_string()));
+        // Unique
+        assert!(contract.set_status("hello world".to_string()));
+        // Not unique. Same as current
+        assert!(!contract.set_status("hello world".to_string()));
+        // Not unique. Same as older
+        assert!(!contract.set_status("hello".to_string()));
+        // Unique
+        assert!(contract.set_status("hi".to_string()));
     }
 
     #[test]
