@@ -20,5 +20,12 @@ else
 
     mv near-bindgen/Cargo.toml{.bak,}
     mv Cargo.lock{.bak,}
-    exit ${status}
+    if [ $status -ne 0 ]; then
+      exit $status
+    fi
 fi
+
+echo "Testing examples"
+./examples/test_all.sh
+
+
