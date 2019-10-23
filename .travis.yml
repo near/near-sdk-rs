@@ -6,11 +6,6 @@ env:
   - NEAR_RELEASE=true
   - NEAR_RELEASE=false
 
-matrix:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
-
 before_install:
   - rm rust-toolchain
 
