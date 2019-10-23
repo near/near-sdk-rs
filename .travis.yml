@@ -1,6 +1,6 @@
 language: rust
 rust:
-  - nightly-2019-09-03
+  - stable
   - nightly
 env:
   - NEAR_RELEASE=true
