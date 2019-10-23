@@ -15,6 +15,7 @@ pub mod sys {
         pub fn predecessor_account_id(register_id: u64);
         pub fn input(register_id: u64);
         pub fn block_index() -> u64;
+        pub fn block_timestamp() -> u64;
         pub fn storage_usage() -> u64;
         // #################
         // # Economics API #
@@ -33,6 +34,7 @@ pub mod sys {
         // #####################
         pub fn value_return(value_len: u64, value_ptr: u64);
         pub fn panic();
+        pub fn panic_utf8(len: u64, ptr: u64);
         pub fn log_utf8(len: u64, ptr: u64);
         pub fn log_utf16(len: u64, ptr: u64);
         // ################
