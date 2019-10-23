@@ -7,7 +7,9 @@ env:
   - NEAR_RELEASE=false
 
 matrix:
-  - rust: nightly
+  include:
+  - name: "Compile examples"
+    rust: nightly
     before_script:
       - rustup target add wasm32-unknown-unknown
     script:
