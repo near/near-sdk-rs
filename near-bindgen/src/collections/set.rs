@@ -1,10 +1,10 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::next_trie_id;
+use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_vm_logic::types::IteratorIndex;
 use std::marker::PhantomData;
-use crate::env;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Set<T> {

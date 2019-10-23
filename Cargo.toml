@@ -5,7 +5,8 @@ members = [
     "near-bindgen-macros",
 ]
 exclude = [
-    "examples/mission-control",
+    "examples/cross-contract",
+    "examples/cross-contract-high-level",
     "examples/status-message",
     "examples/money-transfer",
 ]

@@ -18,6 +18,7 @@ path = "compilation_tests/all.rs"
 
 [dependencies]
 # Provide near_bindgen macros.
+serde = { version = "1.0", features = ["derive"] }
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.2.5"}
 borsh = "0.2.4"
 near-vm-logic = {version = "0.2.5", features = [], default-features = false }
