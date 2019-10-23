@@ -9,8 +9,8 @@ env:
 matrix:
   allow_failures:
     - rust: nightly
-  before_script:
-    - rustup target add wasm32-unknown-unknown
+    before_script:
+      - rustup target add wasm32-unknown-unknown
   fast_finish: true
 
 branches:
