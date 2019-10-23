@@ -1,12 +1,20 @@
 language: rust
 rust:
   - nightly
+  - stable
 env:
   - NEAR_RELEASE=true
   - NEAR_RELEASE=false
 
 matrix:
-  before_script: rustup target add wasm32-unknown-unknown
+  include:
+    - rust: nightly
+        env: RUST_BACKTRACE=1
+        before_script:
+          - rustup target add wasm32-unknown-unknown
+        script:
+          - ./examples/check_all.sh
+          - ./examples/test_all.sh
   fast_finish: true
 
 branches:
