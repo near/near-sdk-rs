@@ -1,25 +1,25 @@
 language: rust
-rust:
-  - nightly
-  - stable
 env:
   - NEAR_RELEASE=true
   - NEAR_RELEASE=false
 
-matrix:
+jobs:
   include:
+
   - rust: nightly
       env: RUST_BACKTRACE=1
       before_script:
         - rustup target add wasm32-unknown-unknown
       script:
-        - ./examples/check_all.sh
+        - ./ci-test.sh
         - ./examples/test_all.sh
-  fast_finish: true
+        - ./examples/check_all.sh
+  - rust: stable
+      env: RUST_BACKTRACE=1
+      script:
+        - ./ci-test.sh
+        - ./examples/test_all.sh
 
 branches:
   only:
   - master
-
-script:
-  - ./ci-test.sh
