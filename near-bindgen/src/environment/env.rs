@@ -122,7 +122,7 @@ pub fn block_index() -> BlockIndex {
     }
 }
 /// Current block timestamp.
-pub fn block_timestamp() -> BlockIndex {
+pub fn block_timestamp() -> u64 {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_timestamp()
