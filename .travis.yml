@@ -7,13 +7,15 @@ env:
   - NEAR_RELEASE=false
 
 matrix:
-  include:
-  - name: "Compile examples"
-    rust: nightly
-    before_script:
-      - rustup target add wasm32-unknown-unknown
-    script:
-      - ./examples/check_all.sh
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+before_install:
+  - rm rust-toolchain
+
+before_script:
+  - rustup target add wasm32-unknown-unknown
 
 branches:
   only:
@@ -21,4 +23,3 @@ branches:
 
 script:
   - ./ci-test.sh
-  - [-z "${NEAR_RELEASE}"] && ./examples/test_all.sh
