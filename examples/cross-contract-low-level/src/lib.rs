@@ -12,10 +12,14 @@ pub struct CrossContract {}
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: String, amount: u64) {
-        let promise_idx = env::promise_batch_create(account_id);
+        let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
-        env::promise_batch_action_add_key_with_full_access(promise_idx, env::signer_account_pk(), 0);
+        env::promise_batch_action_add_key_with_full_access(
+            promise_idx,
+            &env::signer_account_pk(),
+            0,
+        );
         let code: &[u8] = include_bytes!("../../status-message/res/status_message.wasm");
         env::promise_batch_action_deploy_contract(promise_idx, code);
     }
@@ -35,21 +39,18 @@ impl CrossContract {
             b"merge_sort",
             json!({ "arr": arr0 }).to_string().as_bytes(),
             0,
-            prepaid_gas/4,
+            prepaid_gas / 4,
         );
         let promise1 = env::promise_create(
             account_id.clone(),
             b"merge_sort",
             json!({ "arr": arr1 }).to_string().as_bytes(),
             0,
-            prepaid_gas/4,
+            prepaid_gas / 4,
         );
         let promise2 = env::promise_and(&[promise0, promise1]);
-        let promise3 = env::promise_then(promise2, account_id.clone(),
-                                         b"merge",
-                                         &[],
-                                         0,
-                                         prepaid_gas/4);
+        let promise3 =
+            env::promise_then(promise2, account_id.clone(), b"merge", &[], 0, prepaid_gas / 4);
         env::promise_return(promise3);
     }
 
@@ -60,12 +61,12 @@ impl CrossContract {
         assert_eq!(env::promise_results_count(), 2);
         let data0: Vec<u8> = match env::promise_result(0) {
             PromiseResult::Successful(x) => x,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         let data0: Vec<u8> = serde_json::from_slice(&data0).unwrap();
         let data1: Vec<u8> = match env::promise_result(1) {
             PromiseResult::Successful(x) => x,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         let data1: Vec<u8> = serde_json::from_slice(&data1).unwrap();
         let mut i = 0usize;
@@ -83,7 +84,7 @@ impl CrossContract {
             if data0[i] < data1[j] {
                 result.push(data0[i]);
                 i += 1;
-            }  else {
+            } else {
                 result.push(data1[j]);
                 j += 1;
             }
@@ -124,7 +125,7 @@ impl CrossContract {
     }
 
     pub fn transfer_money(&mut self, account_id: String, amount: u64) {
-        let promise_idx = env::promise_batch_create(account_id);
+        let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
     }
 }

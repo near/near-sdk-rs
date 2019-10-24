@@ -274,7 +274,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
         })
     }
 }
-pub fn promise_batch_create(account_id: AccountId) -> PromiseIndex {
+pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -284,7 +284,7 @@ pub fn promise_batch_create(account_id: AccountId) -> PromiseIndex {
         })
     }
 }
-pub fn promise_batch_then(promise_index: PromiseIndex, account_id: AccountId) -> PromiseIndex {
+pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
@@ -356,7 +356,7 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balanc
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: Balance,
-    public_key: PublicKey,
+    public_key: &PublicKey,
 ) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
@@ -371,7 +371,7 @@ pub fn promise_batch_action_stake(
 }
 pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
-    public_key: PublicKey,
+    public_key: &PublicKey,
     nonce: u64,
 ) {
     unsafe {
@@ -390,19 +390,12 @@ pub fn promise_batch_action_add_key_with_full_access(
 }
 pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
-    public_key: PublicKey,
+    public_key: &PublicKey,
     nonce: u64,
     allowance: Balance,
-    receiver_id: AccountId,
-    method_names: &[&[u8]],
+    receiver_id: &AccountId,
+    method_names: &[u8],
 ) {
-    let mut joined_method_names = vec![];
-    for (i, method_name) in method_names.into_iter().enumerate() {
-        if i > 0 {
-            joined_method_names.push(b',');
-        }
-        joined_method_names.extend(*method_name);
-    }
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -416,13 +409,13 @@ pub fn promise_batch_action_add_key_with_function_call(
                     &allowance as *const Balance as _,
                     receiver_id.len() as _,
                     receiver_id.as_ptr() as _,
-                    joined_method_names.len() as _,
-                    joined_method_names.as_ptr() as _,
+                    method_names.len() as _,
+                    method_names.as_ptr() as _,
                 )
         })
     }
 }
-pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: PublicKey) {
+pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -436,7 +429,10 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
         })
     }
 }
-pub fn promise_batch_action_delete_account(promise_index: PromiseIndex, beneficiary_id: AccountId) {
+pub fn promise_batch_action_delete_account(
+    promise_index: PromiseIndex,
+    beneficiary_id: &AccountId,
+) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()

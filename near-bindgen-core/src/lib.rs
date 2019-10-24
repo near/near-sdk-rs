@@ -3,9 +3,14 @@ use crate::initializer_attribute::{process_init_method, InitAttr};
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::spanned::Spanned;
-use syn::{Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, ReturnType, Type, Visibility, Receiver};
+use syn::{
+    Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, Receiver, ReturnType, Type,
+    Visibility,
+};
 
 mod arg_parsing;
+mod callback_args;
+mod callback_args_vec;
 pub mod initializer_attribute;
 
 /// Checks whether the method should be considered to be a part of contract API.
@@ -70,7 +75,7 @@ pub fn process_method(
     let mut state_ser_code = TokenStream2::new();
     for arg in &method.sig.inputs {
         match arg {
-            FnArg::Receiver(Receiver{reference: Some(_), mutability, ..}) => {
+            FnArg::Receiver(Receiver { reference: Some(_), mutability, .. }) => {
                 uses_self = true;
                 if mutability.is_some() {
                     state_de_code = quote! {
@@ -85,7 +90,7 @@ pub fn process_method(
                     };
                 }
             }
-            FnArg::Receiver(Receiver{reference: None, mutability, ..}) => {
+            FnArg::Receiver(Receiver { reference: None, mutability, .. }) => {
                 uses_self = true;
                 if mutability.is_some() {
                     return Err(Error::new(
@@ -206,7 +211,7 @@ pub fn process_impl(item_impl: &ItemImpl, attr: TokenStream2) -> TokenStream2 {
 mod tests {
     use crate::process_method;
     use quote::quote;
-    use syn::{ImplItemMethod, Type};
+    use syn::{ImplItemMethod, Type, parse_quote};
 
     #[test]
     fn trait_implt() {
@@ -388,6 +393,105 @@ mod tests {
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(&mut k, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            #[callback_args(x, z)]
+            pub fn method(&self, x: &mut u64, y: String, z: Vec<u8>) { }
+        };
+
+        let actual = process_method(&method, &impl_type, false).unwrap();
+        let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
+                assert_eq!(near_bindgen::env::promise_results_count(), 2u64);
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 0u64)
+                };
+                let mut x: u64 = serde_json::from_slice(&data).unwrap();
+                let y: String = serde_json::from_value(args["y"].clone()).unwrap();
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
+                    near_bindgen:: PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 1u64)
+                };
+                let z: Vec<u8> = serde_json::from_slice(&data).unwrap();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(&mut x, y, z, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args_only() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            #[callback_args(x, y)]
+            pub fn method(&self, x: &mut u64, y: String) { }
+        };
+
+        // When there is no input args we should not even attempt reading input and parsing json
+        // from it.
+        let actual = process_method(&method, &impl_type, false).unwrap();
+        let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                assert_eq!(near_bindgen::env::promise_results_count(), 2u64);
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 0u64)
+                };
+                let mut x: u64 = serde_json::from_slice(&data).unwrap();
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
+                    near_bindgen:: PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 1u64)
+                };
+                let y: String = serde_json::from_slice(&data).unwrap();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(&mut x, y, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args_vec() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            #[callback_args_vec(x)]
+            pub fn method(&self, x: Vec<String>, y: String) { }
+        };
+
+        let actual = process_method(&method, &impl_type, false).unwrap();
+        let expected = quote!(
+            #[cfg(not(feature = "env_test"))]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
+                let x: Vec<String> = (0..near_bindgen::env::promise_results_count())
+                            .map(|i| {
+                                let data: Vec<u8> = match near_bindgen::env::promise_result(i) {
+                                    near_bindgen::PromiseResult::Successful(x) => x,
+                                    _ => panic!("Callback computation {} was not successful", i)
+                                };
+                                serde_json::from_slice(&data).unwrap()
+                            }).collect(); 
+                let y: String = serde_json::from_value(args["y"].clone()).unwrap();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(x, y, );
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
