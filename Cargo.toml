@@ -9,5 +9,6 @@ exclude = [
     "examples/cross-contract-low-level",
     "examples/cross-contract-high-level",
     "examples/status-message",
+    "examples/status-message-collections",
     "examples/money-transfer",
 ]

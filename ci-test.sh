@@ -20,5 +20,14 @@ else
 
     mv near-bindgen/Cargo.toml{.bak,}
     mv Cargo.lock{.bak,}
-    exit ${status}
+    if [ $status -ne 0 ]; then
+      exit $status
+    fi
+
+    # Only testing it for one configuation to avoid running the same tests twice
+    echo "Checking compilation of wasm32 for all examples"
+    ./examples/check_all.sh
+    echo "Testing all examples"
+    ./examples/test_all.sh
 fi
+

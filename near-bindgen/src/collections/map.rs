@@ -42,7 +42,7 @@ where
     V: BorshSerialize + BorshDeserialize,
 {
     /// Serializes key into an array of bytes.
-    fn serialize_key(&self, key: K) -> Vec<u8> {
+    fn serialize_key(&self, key: &K) -> Vec<u8> {
         let mut res = self.prefix.clone();
         let data = key.try_to_vec().expect("Key should be serializable with Borsh.");
         res.extend(data);
@@ -50,7 +50,7 @@ where
     }
 
     /// Serializes value into an array of bytes.
-    fn serialize_value(&self, value: V) -> Vec<u8> {
+    fn serialize_value(&self, value: &V) -> Vec<u8> {
         value.try_to_vec().expect("Value should be serializable with Borsh.")
     }
 
@@ -77,13 +77,13 @@ where
     }
 
     /// Returns value by key, or None if key is not present
-    pub fn get(&self, key: K) -> Option<V> {
+    pub fn get(&self, key: &K) -> Option<V> {
         let raw_key = self.serialize_key(key);
         env::storage_read(&raw_key).map(|raw_value| Self::deserialize_value(&raw_value))
     }
 
     /// Removes a key from the map, returning the value at the key if the key was previously in the map.
-    pub fn remove(&mut self, key: K) -> Option<V> {
+    pub fn remove(&mut self, key: &K) -> Option<V> {
         let raw_key = self.serialize_key(key);
         if env::storage_remove(&raw_key) {
             self.len -= 1;
@@ -101,7 +101,7 @@ where
     ///
     /// If the map did have this key present, the value is updated, and the old
     /// value is returned.
-    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+    pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
         let key = self.serialize_key(key);
         let value = self.serialize_value(value);
         if env::storage_write(&key, &value) {
@@ -147,8 +147,8 @@ where
 
     pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) {
         for (el_key, el_value) in iter {
-            let key = self.serialize_key(el_key);
-            let value = self.serialize_value(el_value);
+            let key = self.serialize_key(&el_key);
+            let value = self.serialize_value(&el_value);
             if !env::storage_write(&key, &value) {
                 self.len += 1;
             }

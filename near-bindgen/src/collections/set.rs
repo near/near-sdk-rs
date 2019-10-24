@@ -39,7 +39,7 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     /// Serializes element into an array of bytes.
-    fn serialize_element(&self, element: T) -> Vec<u8> {
+    fn serialize_element(&self, element: &T) -> Vec<u8> {
         let mut res = self.prefix.clone();
         let data = element.try_to_vec().expect("Element should be serializable with Borsh.");
         res.extend(data);
@@ -59,13 +59,13 @@ where
     }
 
     /// Returns `true` if the set contains a value
-    pub fn contains(&self, element: T) -> bool {
+    pub fn contains(&self, element: &T) -> bool {
         let raw_element = self.serialize_element(element);
         env::storage_read(&raw_element).is_some()
     }
 
     /// Removes an element from the set, returning `true` if the element was present.
-    pub fn remove(&mut self, element: T) -> bool {
+    pub fn remove(&mut self, element: &T) -> bool {
         let raw_element = self.serialize_element(element);
         if env::storage_remove(&raw_element) {
             self.len -= 1;
@@ -76,7 +76,7 @@ where
     }
 
     /// Inserts an element into the set. If element was already present returns `true`.
-    pub fn insert(&mut self, element: T) -> bool {
+    pub fn insert(&mut self, element: &T) -> bool {
         let raw_element = self.serialize_element(element);
         if env::storage_write(&raw_element, &[]) {
             true
@@ -107,7 +107,7 @@ where
 
     pub fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT) {
         for el in iter {
-            let element = self.serialize_element(el);
+            let element = self.serialize_element(&el);
             if !env::storage_write(&element, &[]) {
                 self.len += 1;
             }

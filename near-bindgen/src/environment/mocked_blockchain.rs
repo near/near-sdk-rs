@@ -81,6 +81,10 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().block_index().unwrap()
     }
 
+    unsafe fn block_timestamp(&self) -> u64 {
+        self.logic.borrow_mut().block_timestamp().unwrap()
+    }
+
     unsafe fn storage_usage(&self) -> u64 {
         self.logic.borrow_mut().storage_usage().unwrap()
     }
@@ -115,6 +119,10 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn panic(&self) {
         self.logic.borrow_mut().panic().unwrap()
+    }
+
+    unsafe fn panic_utf8(&self, len: u64, ptr: u64) {
+        self.logic.borrow_mut().panic_utf8(len, ptr).unwrap()
     }
 
     unsafe fn log_utf8(&self, len: u64, ptr: u64) {

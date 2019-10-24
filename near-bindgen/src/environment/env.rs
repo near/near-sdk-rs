@@ -121,6 +121,14 @@ pub fn block_index() -> BlockIndex {
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
     }
 }
+/// Current block timestamp.
+pub fn block_timestamp() -> u64 {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_timestamp()
+        })
+    }
+}
 /// Current total storage usage of this smart contract that this account would be paying for.
 pub fn storage_usage() -> StorageUsage {
     unsafe {
@@ -494,11 +502,15 @@ pub fn value_return(value: &[u8]) {
         })
     }
 }
-/// Terminates the execution of the program.
-pub fn panic() {
+/// Terminates the execution of the program with the UTF-8 encoded message.
+pub fn panic(message: &[u8]) {
     unsafe {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).panic())
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .panic_utf8(message.len() as _, message.as_ptr() as _)
+        })
     }
 }
 /// Log the UTF-8 encodable message.
