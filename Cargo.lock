@@ -179,6 +179,7 @@ name = "near-bindgen-macros"
 version = "0.2.5"
 dependencies = [
  "near-bindgen-core 0.2.5",
+ "near-bindgen-promise 0.2.5",
  "proc-macro2 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",

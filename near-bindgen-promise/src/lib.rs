@@ -99,13 +99,13 @@ pub fn process_trait(t: &ItemTrait) -> syn::Result<TokenStream2> {
                     arg_to_json = quote! {json!({ #arg_to_json }).to_string().as_bytes().to_vec()};
                 }
                 res.extend( quote! {
-                    pub fn #method_name<T: ToString>(#method_args account_id: &T, balance: Balance, gas: Gas) -> Promise {
+                    pub fn #method_name<T: ToString>(#method_args __account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
                         Promise::new(
-                            account_id.to_string(),
+                            __account_id.to_string(),
                             #method_name_byte_str.to_vec(),
                             #arg_to_json,
-                            balance,
-                            gas,
+                            __balance,
+                            __gas,
                             None
                         )
                     }
@@ -151,24 +151,24 @@ mod tests {
                 use near_bindgen::{Gas, Balance, AccountId, Promise};
                 use std::string::ToString;
                 
-                pub fn merge_sort<T: ToString>(arr: Vec<u8>, account_id: &T, balance: Balance, gas: Gas) -> Promise {
+                pub fn merge_sort<T: ToString>(arr: Vec<u8>, __account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
                     Promise::new(
-                        account_id.to_string(),
+                        __account_id.to_string(),
                         b"merge_sort".to_vec(),
                         json!({ "arr": arr }).to_string().as_bytes().to_vec(),
-                        balance,
-                        gas,
+                        __balance,
+                        __gas,
                         None
                     )
                 }
 
-                pub fn merge<T: ToString>(account_id: &T, balance: Balance, gas: Gas) -> Promise {
+                pub fn merge<T: ToString>(__account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
                     Promise::new(
-                        account_id.to_string(),
+                        __account_id.to_string(),
                         b"merge".to_vec(),
                         vec![],
-                        balance,
-                        gas,
+                        __balance,
+                        __gas,
                         None
                     )
                 }

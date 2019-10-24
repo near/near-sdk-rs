@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, near_bindgen, PromiseResult, Promise, PromiseOrValue};
+use near_bindgen::{env, ext_contract, near_bindgen, Promise, PromiseOrValue, PromiseResult};
 use serde_json::json;
 
 #[global_allocator]
@@ -9,48 +9,28 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
 
-
-use near_bindgen::{Gas, Balance, AccountId};
-// #[ext-contract(a0)]
-pub trait ExternalCrossContract {
+#[ext_contract]
+pub trait A0 {
     fn merge_sort(&self, arr: Vec<u8>);
     fn merge(&self) -> Vec<u8>;
 }
 
-mod a0 {
-    use super::*;
-    pub fn merge_sort(arr: Vec<u8>, balance: Balance, gas: Gas) -> Promise {
-        Promise::new(
-            env::current_account_id(),
-            b"merge_sort".to_vec(),
-            json!({ "arr": arr }).to_string().as_bytes().to_vec(),
-            balance,
-            gas,
-            None,
-        )
-    }
-
-    pub fn merge(balance: Balance, gas: Gas) -> Promise {
-        Promise::new(
-            env::current_account_id(),
-            b"merge".to_vec(),
-            vec![],
-            balance,
-            gas,
-            None,
-        )
-    }
+#[ext_contract]
+pub trait S0 {
+    fn set_status(&mut self, message: String);
+    fn get_status(&self, account_id: String) -> Option<String>;
 }
 
-// callback_input!(Vec<u8>, Vec<u8>);
+// #[callback_args(arr0, arr1)]
+// #[callback_args_vec(arr)]
 pub fn merge_input() -> (Vec<u8>, Vec<u8>) {
     let data0: Vec<u8> = match env::promise_result(0) {
         PromiseResult::Successful(x) => x,
-        _ => unreachable!()
+        _ => unreachable!(),
     };
     let data1: Vec<u8> = match env::promise_result(1) {
         PromiseResult::Successful(x) => x,
-        _ => unreachable!()
+        _ => unreachable!(),
     };
     (serde_json::from_slice(&data0).unwrap(), serde_json::from_slice(&data1).unwrap())
 }
@@ -61,7 +41,11 @@ impl CrossContract {
         let promise_idx = env::promise_batch_create(account_id);
         env::promise_batch_action_create_account(promise_idx);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
-        env::promise_batch_action_add_key_with_full_access(promise_idx, env::signer_account_pk(), 0);
+        env::promise_batch_action_add_key_with_full_access(
+            promise_idx,
+            env::signer_account_pk(),
+            0,
+        );
         let code: &[u8] = include_bytes!("../../status-message/res/status_message.wasm");
         env::promise_batch_action_deploy_contract(promise_idx, code);
     }
@@ -73,12 +57,13 @@ impl CrossContract {
         let pivot = arr.len() / 2;
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
-        let account_id = env::current_account_id();
         let prepaid_gas = env::prepaid_gas();
+        let account_id = env::current_account_id();
 
-        a0::merge_sort(arr0, 0, prepaid_gas/4)
-            .join(a0::merge_sort(arr1, 0, prepaid_gas/4))
-            .and_then(a0::merge(0, prepaid_gas/4)).into()
+        a0::merge_sort(arr0, &account_id, 0, prepaid_gas / 4)
+            .join(a0::merge_sort(arr1, &account_id, 0, prepaid_gas / 4))
+            .and_then(a0::merge(&account_id, 0, prepaid_gas / 4))
+            .into()
     }
 
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
@@ -101,7 +86,7 @@ impl CrossContract {
             if data0[i] < data1[j] {
                 result.push(data0[i]);
                 i += 1;
-            }  else {
+            } else {
                 result.push(data1[j]);
                 j += 1;
             }
@@ -110,35 +95,19 @@ impl CrossContract {
     }
 
     pub fn simple_call(&mut self, account_id: String, message: String) {
-        env::promise_create(
-            account_id.clone(),
-            b"set_status",
-            json!({ "message": message }).to_string().as_bytes(),
-            0,
-            1_000_000,
-        );
+        s0::set_status(message, &account_id, 0, 1_000_000);
     }
-    pub fn complex_call(&mut self, account_id: String, message: String) {
+    pub fn complex_call(&mut self, account_id: String, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        let promise0 = env::promise_create(
-            account_id.clone(),
-            b"set_status",
-            json!({ "message": message }).to_string().as_bytes(),
+        s0::set_status(message, &account_id, 0, 1_000_000).and_then(s0::get_status(
+            env::signer_account_id(),
+            &account_id,
             0,
             1_000_000,
-        );
-        let promise1 = env::promise_then(
-            promise0,
-            account_id,
-            b"get_status",
-            json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
-            0,
-            1_000_000,
-        );
-        env::promise_return(promise1);
+        ))
     }
 
     pub fn transfer_money(&mut self, account_id: String, amount: u64) {

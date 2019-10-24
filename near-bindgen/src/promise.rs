@@ -67,7 +67,7 @@ impl PromiseJoint {
 #[derive(Clone)]
 pub struct Promise {
     pub subtype: PromiseSubtype,
-    pub should_return: bool,
+    pub should_return: RefCell<bool>,
 }
 
 #[derive(Clone)]
@@ -95,7 +95,7 @@ impl Promise {
                 after: RefCell::new(after),
                 promise_index: RefCell::new(None),
             })),
-            should_return: false,
+            should_return: RefCell::new(false),
         }
     }
 
@@ -106,7 +106,7 @@ impl Promise {
                 promise_b: other,
                 promise_index: RefCell::new(None),
             })),
-            should_return: false,
+            should_return: RefCell::new(false),
         }
     }
 
@@ -118,8 +118,8 @@ impl Promise {
         other
     }
 
-    pub fn as_return(mut self) -> Self {
-        self.should_return = true;
+    pub fn as_return(self) -> Self {
+        *self.should_return.borrow_mut() = true;
         self
     }
 
@@ -128,7 +128,7 @@ impl Promise {
             PromiseSubtype::Single(x) => x.construct_recursively(),
             PromiseSubtype::Joint(x) => x.construct_recursively(),
         };
-        if self.should_return {
+        if *self.should_return.borrow() {
             crate::env::promise_return(res);
         }
         res
@@ -138,6 +138,16 @@ impl Promise {
 impl Drop for Promise {
     fn drop(&mut self) {
         self.construct_recursively();
+    }
+}
+
+impl serde::Serialize for Promise {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        *self.should_return.borrow_mut() = true;
+        serializer.serialize_unit()
     }
 }
 
