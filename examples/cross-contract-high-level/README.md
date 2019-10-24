@@ -36,7 +36,7 @@ passing it with each near-shell command.
 Then deploy the `cross-contract` contract:
 ```bash
 near create_account cross_contract --masterAccount=test.near --homeDir=../nearcore/testdir
-near deploy --accountId=cross_contract --homeDir=../nearcore/testdir --wasmFile=../examples/cross-contract/res/cross_contract.wasm
+near deploy --accountId=cross_contract --homeDir=../nearcore/testdir --wasmFile=../examples/cross-contract-high-level/res/cross_contract_high_level.wasm
 ```
 
 ### Deploying another contract

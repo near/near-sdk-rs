@@ -6,7 +6,7 @@ members = [
     "near-bindgen-promise",
 ]
 exclude = [
-    "examples/cross-contract",
+    "examples/cross-contract-low-level",
     "examples/cross-contract-high-level",
     "examples/status-message",
     "examples/money-transfer",
