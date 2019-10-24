@@ -1,5 +1,13 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{callback_args, env, ext_contract, near_bindgen, Promise, PromiseOrValue};
+use near_bindgen::{
+    callback_args,
+    //    callback_args_vec,
+    env,
+    ext_contract,
+    near_bindgen,
+    Promise,
+    PromiseOrValue,
+};
 use serde_json::json;
 
 #[global_allocator]
@@ -52,33 +60,45 @@ impl CrossContract {
             .into()
     }
 
-    /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
-    /// the contract itself.
-    #[callback_args(data0, data1)]
-    pub fn merge(&self, data0: Vec<u8>, data1: Vec<u8>) -> Vec<u8> {
-        assert_eq!(env::current_account_id(), env::predecessor_account_id());
+    fn internal_merge(&self, arr0: Vec<u8>, arr1: Vec<u8>) -> Vec<u8> {
         let mut i = 0usize;
         let mut j = 0usize;
         let mut result = vec![];
         loop {
-            if i == data0.len() {
-                result.extend(&data1[j..]);
+            if i == arr0.len() {
+                result.extend(&arr1[j..]);
                 break;
             }
-            if j == data1.len() {
-                result.extend(&data0[i..]);
+            if j == arr1.len() {
+                result.extend(&arr0[i..]);
                 break;
             }
-            if data0[i] < data1[j] {
-                result.push(data0[i]);
+            if arr0[i] < arr1[j] {
+                result.push(arr0[i]);
                 i += 1;
             } else {
-                result.push(data1[j]);
+                result.push(arr1[j]);
                 j += 1;
             }
         }
         result
     }
+
+    /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
+    /// the contract itself.
+    #[callback_args(data0, data1)]
+    pub fn merge(&self, data0: Vec<u8>, data1: Vec<u8>) -> Vec<u8> {
+        assert_eq!(env::current_account_id(), env::predecessor_account_id());
+        self.internal_merge(data0, data1)
+    }
+
+    //    /// Alternative implementation of merge that demonstrates usage of callback_args_vec. Uncomment
+    //    /// to use.
+    //    #[callback_args_vec(arrs)]
+    //    pub fn merge(&self, arrs: &mut Vec<Vec<u8>>) -> Vec<u8> {
+    //        assert_eq!(env::current_account_id(), env::predecessor_account_id());
+    //        self.internal_merge(arrs.pop().unwrap(), arrs.pop().unwrap())
+    //    }
 
     pub fn simple_call(&mut self, account_id: String, message: String) {
         ext_status_message::set_status(message, &account_id, 0, 1_000_000);

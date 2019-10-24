@@ -80,3 +80,9 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn callback_args(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
+
+/// `callback_args_vec` is a marker attribute it does not generate code by itself.
+#[proc_macro_attribute]
+pub fn callback_args_vec(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}

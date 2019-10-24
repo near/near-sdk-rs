@@ -33,7 +33,6 @@ pub fn parse_args(method: &ImplItemMethod) -> syn::Result<Option<Vec<String>>> {
                 ));
             }
 
-            // PatTuple is the best fit for parsing (arg0, arg1, ..).
             let parsed: CallbackArgs = syn::parse2(attr.tokens.clone())?;
             if parsed.args.is_empty() {
                 return Err(Error::new(
@@ -49,7 +48,7 @@ pub fn parse_args(method: &ImplItemMethod) -> syn::Result<Option<Vec<String>>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::callback_args::parse_args;
+    use super::parse_args;
     use quote::quote;
     use syn::ImplItemMethod;
 
