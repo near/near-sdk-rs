@@ -9,14 +9,17 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
 
-#[ext_contract]
-pub trait A0 {
+// One can provide a name, e.g. `ext` to use for generated methods.
+#[ext_contract(ext)]
+pub trait ExtCrossContract {
     fn merge_sort(&self, arr: Vec<u8>);
     fn merge(&self) -> Vec<u8>;
 }
 
+// If the name is not provided, the namespace for generated methods in derived by applying snake
+// case to the trait name, e.g. ext_status_message.
 #[ext_contract]
-pub trait S0 {
+pub trait ExtStatusMessage {
     fn set_status(&mut self, message: String);
     fn get_status(&self, account_id: String) -> Option<String>;
 }
@@ -43,9 +46,9 @@ impl CrossContract {
         let prepaid_gas = env::prepaid_gas();
         let account_id = env::current_account_id();
 
-        a0::merge_sort(arr0, &account_id, 0, prepaid_gas / 4)
-            .and(a0::merge_sort(arr1, &account_id, 0, prepaid_gas / 4))
-            .then(a0::merge(&account_id, 0, prepaid_gas / 4))
+        ext::merge_sort(arr0, &account_id, 0, prepaid_gas / 4)
+            .and(ext::merge_sort(arr1, &account_id, 0, prepaid_gas / 4))
+            .then(ext::merge(&account_id, 0, prepaid_gas / 4))
             .into()
     }
 
@@ -78,19 +81,16 @@ impl CrossContract {
     }
 
     pub fn simple_call(&mut self, account_id: String, message: String) {
-        s0::set_status(message, &account_id, 0, 1_000_000);
+        ext_status_message::set_status(message, &account_id, 0, 1_000_000);
     }
     pub fn complex_call(&mut self, account_id: String, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        s0::set_status(message, &account_id, 0, 1_000_000).then(s0::get_status(
-            env::signer_account_id(),
-            &account_id,
-            0,
-            1_000_000,
-        ))
+        ext_status_message::set_status(message, &account_id, 0, 1_000_000).then(
+            ext_status_message::get_status(env::signer_account_id(), &account_id, 0, 1_000_000),
+        )
     }
 
     pub fn transfer_money(&mut self, account_id: String, amount: u64) {

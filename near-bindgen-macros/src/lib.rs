@@ -43,9 +43,24 @@ fn rust_file(data: &[u8]) -> File {
 }
 
 #[proc_macro_attribute]
-pub fn ext_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemTrait>(item.clone()) {
-        match process_trait(&input) {
+        let mut mod_name: Option<proc_macro2::Ident> = None;
+        if !attr.is_empty() {
+            mod_name = match syn::parse(attr) {
+                Ok(x) => x,
+                Err(err) => {
+                    return TokenStream::from(
+                        syn::Error::new(
+                            Span::call_site(),
+                            format!("Failed to parse mod name for ext_contract: {}", err),
+                        )
+                        .to_compile_error(),
+                    )
+                }
+            };
+        }
+        match process_trait(&input, mod_name.map(|x| x.to_string())) {
             Ok(generated_code) => TokenStream::from(quote! {
                 #input
                 #generated_code

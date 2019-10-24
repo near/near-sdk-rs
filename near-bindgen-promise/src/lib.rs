@@ -5,8 +5,8 @@ use syn::export::{Span, TokenStream2};
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, Ident, ItemTrait, LitByteStr, LitStr, Pat, TraitItem};
 
-pub fn process_trait(t: &ItemTrait) -> syn::Result<TokenStream2> {
-    let mod_name = t.ident.to_string().to_snake_case();
+pub fn process_trait(t: &ItemTrait, mod_name: Option<String>) -> syn::Result<TokenStream2> {
+    let mod_name = mod_name.unwrap_or_else(|| t.ident.to_string().to_snake_case());
     let mod_name = Ident::new(&mod_name, Span::call_site());
     let mut res = TokenStream2::new();
     for item in &t.items {
@@ -143,7 +143,7 @@ mod tests {
             }
         ).unwrap();
         
-        let actual = process_trait(&t).unwrap();
+        let actual = process_trait(&t, None).unwrap();
         let expected = quote! {
             pub mod external_cross_contract {
                 use super::*;
