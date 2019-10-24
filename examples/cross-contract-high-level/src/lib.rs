@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, ext_contract, near_bindgen, Promise, PromiseOrValue, PromiseResult};
+use near_bindgen::{callback_args, env, ext_contract, near_bindgen, Promise, PromiseOrValue};
 use serde_json::json;
 
 #[global_allocator]
@@ -19,20 +19,6 @@ pub trait A0 {
 pub trait S0 {
     fn set_status(&mut self, message: String);
     fn get_status(&self, account_id: String) -> Option<String>;
-}
-
-// #[callback_args(arr0, arr1)]
-// #[callback_args_vec(arr)]
-pub fn merge_input() -> (Vec<u8>, Vec<u8>) {
-    let data0: Vec<u8> = match env::promise_result(0) {
-        PromiseResult::Successful(x) => x,
-        _ => unreachable!(),
-    };
-    let data1: Vec<u8> = match env::promise_result(1) {
-        PromiseResult::Successful(x) => x,
-        _ => unreachable!(),
-    };
-    (serde_json::from_slice(&data0).unwrap(), serde_json::from_slice(&data1).unwrap())
 }
 
 #[near_bindgen]
@@ -65,9 +51,9 @@ impl CrossContract {
 
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
     /// the contract itself.
-    pub fn merge(&self) -> Vec<u8> {
+    #[callback_args(data0, data1)]
+    pub fn merge(&self, data0: Vec<u8>, data1: Vec<u8>) -> Vec<u8> {
         assert_eq!(env::current_account_id(), env::predecessor_account_id());
-        let (data0, data1) = merge_input();
         let mut i = 0usize;
         let mut j = 0usize;
         let mut result = vec![];

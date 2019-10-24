@@ -59,3 +59,9 @@ pub fn ext_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
         )
     }
 }
+
+/// `callback_args` is a marker attribute it does not generate code by itself.
+#[proc_macro_attribute]
+pub fn callback_args(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}

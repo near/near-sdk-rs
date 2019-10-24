@@ -1,4 +1,4 @@
-pub use near_bindgen_macros::{ext_contract, near_bindgen};
+pub use near_bindgen_macros::{callback_args, ext_contract, near_bindgen};
 
 pub mod collections;
 mod environment;
