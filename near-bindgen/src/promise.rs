@@ -223,7 +223,7 @@ impl Promise {
         self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
     }
 
-    pub fn join(self, other: Promise) -> Promise {
+    pub fn and(self, other: Promise) -> Promise {
         Promise {
             subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
                 promise_a: self,
@@ -234,7 +234,7 @@ impl Promise {
         }
     }
 
-    pub fn and_then(self, mut other: Promise) -> Promise {
+    pub fn then(self, mut other: Promise) -> Promise {
         match &mut other.subtype {
             PromiseSubtype::Single(x) => *x.after.borrow_mut() = Some(self),
             PromiseSubtype::Joint(_) => panic!("Cannot callback joint promise."),

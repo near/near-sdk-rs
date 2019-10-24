@@ -44,8 +44,8 @@ impl CrossContract {
         let account_id = env::current_account_id();
 
         a0::merge_sort(arr0, &account_id, 0, prepaid_gas / 4)
-            .join(a0::merge_sort(arr1, &account_id, 0, prepaid_gas / 4))
-            .and_then(a0::merge(&account_id, 0, prepaid_gas / 4))
+            .and(a0::merge_sort(arr1, &account_id, 0, prepaid_gas / 4))
+            .then(a0::merge(&account_id, 0, prepaid_gas / 4))
             .into()
     }
 
@@ -85,7 +85,7 @@ impl CrossContract {
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        s0::set_status(message, &account_id, 0, 1_000_000).and_then(s0::get_status(
+        s0::set_status(message, &account_id, 0, 1_000_000).then(s0::get_status(
             env::signer_account_id(),
             &account_id,
             0,
