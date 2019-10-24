@@ -38,16 +38,13 @@ pub fn merge_input() -> (Vec<u8>, Vec<u8>) {
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: String, amount: u64) {
-        let promise_idx = env::promise_batch_create(account_id);
-        env::promise_batch_action_create_account(promise_idx);
-        env::promise_batch_action_transfer(promise_idx, amount as u128);
-        env::promise_batch_action_add_key_with_full_access(
-            promise_idx,
-            env::signer_account_pk(),
-            0,
-        );
-        let code: &[u8] = include_bytes!("../../status-message/res/status_message.wasm");
-        env::promise_batch_action_deploy_contract(promise_idx, code);
+        Promise::new(account_id)
+            .create_account()
+            .transfer(amount as u128)
+            .add_full_access_key(env::signer_account_pk())
+            .deploy_contract(
+                include_bytes!("../../status-message/res/status_message.wasm").to_vec(),
+            );
     }
 
     pub fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
@@ -111,7 +108,6 @@ impl CrossContract {
     }
 
     pub fn transfer_money(&mut self, account_id: String, amount: u64) {
-        let promise_idx = env::promise_batch_create(account_id);
-        env::promise_batch_action_transfer(promise_idx, amount as u128);
+        Promise::new(account_id).transfer(amount as u128);
     }
 }

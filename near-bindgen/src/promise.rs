@@ -1,13 +1,95 @@
-use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex};
+use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub enum PromiseAction {
+    CreateAccount,
+    DeployContract {
+        code: Vec<u8>,
+    },
+    FunctionCall {
+        method_name: Vec<u8>,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+    },
+    Transfer {
+        amount: Balance,
+    },
+    Stake {
+        amount: Balance,
+        public_key: PublicKey,
+    },
+    AddFullAccessKey {
+        public_key: PublicKey,
+    },
+    AddAccessKey {
+        public_key: PublicKey,
+        allowance: Balance,
+        receiver_id: AccountId,
+        method_names: Vec<u8>,
+    },
+    DeleteKey {
+        public_key: PublicKey,
+    },
+    DeleteAccount {
+        beneficiary_id: AccountId,
+    },
+}
+
+impl PromiseAction {
+    pub fn add(&self, promise_index: PromiseIndex) {
+        use PromiseAction::*;
+        match self {
+            CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
+            DeployContract { code } => {
+                crate::env::promise_batch_action_deploy_contract(promise_index, &code)
+            }
+            FunctionCall { method_name, arguments, amount, gas } => {
+                crate::env::promise_batch_action_function_call(
+                    promise_index,
+                    &method_name,
+                    &arguments,
+                    *amount,
+                    *gas,
+                )
+            }
+            Transfer { amount } => {
+                crate::env::promise_batch_action_transfer(promise_index, *amount)
+            }
+            Stake { amount, public_key } => {
+                crate::env::promise_batch_action_stake(promise_index, *amount, public_key)
+            }
+            AddFullAccessKey { public_key } => {
+                crate::env::promise_batch_action_add_key_with_full_access(
+                    promise_index,
+                    public_key,
+                    0,
+                )
+            }
+            AddAccessKey { public_key, allowance, receiver_id, method_names } => {
+                crate::env::promise_batch_action_add_key_with_function_call(
+                    promise_index,
+                    public_key,
+                    0,
+                    *allowance,
+                    receiver_id,
+                    &method_names,
+                )
+            }
+            DeleteKey { public_key } => {
+                crate::env::promise_batch_action_delete_key(promise_index, &public_key)
+            }
+            DeleteAccount { beneficiary_id } => {
+                crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
+            }
+        }
+    }
+}
+
 pub struct PromiseSingle {
     pub account_id: AccountId,
-    pub method_name: Vec<u8>,
-    pub args: Vec<u8>,
-    pub balance: Balance,
-    pub gas: Gas,
+    pub actions: RefCell<Vec<PromiseAction>>,
     pub after: RefCell<Option<Promise>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
@@ -19,26 +101,17 @@ impl PromiseSingle {
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
-        let res = if let Some(after) = self.after.borrow().as_ref() {
-            crate::env::promise_then(
-                after.construct_recursively(),
-                self.account_id.clone(),
-                &self.method_name,
-                &self.args,
-                self.balance,
-                self.gas,
-            )
+        let promise_index = if let Some(after) = self.after.borrow().as_ref() {
+            crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
         } else {
-            crate::env::promise_create(
-                self.account_id.clone(),
-                &self.method_name,
-                &self.args,
-                self.balance,
-                self.gas,
-            )
+            crate::env::promise_batch_create(&self.account_id)
         };
-        *promise_lock = Some(res);
-        res
+        let actions_lock = self.actions.borrow();
+        for action in actions_lock.iter() {
+            action.add(promise_index);
+        }
+        *promise_lock = Some(promise_index);
+        promise_index
     }
 }
 
@@ -77,26 +150,77 @@ pub enum PromiseSubtype {
 }
 
 impl Promise {
-    pub fn new(
-        account_id: AccountId,
-        method_name: Vec<u8>,
-        args: Vec<u8>,
-        balance: Balance,
-        gas: Gas,
-        after: Option<Self>,
-    ) -> Self {
+    pub fn new(account_id: AccountId) -> Self {
         Self {
             subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
                 account_id,
-                method_name,
-                args,
-                balance,
-                gas,
-                after: RefCell::new(after),
+                actions: RefCell::new(vec![]),
+                after: RefCell::new(None),
                 promise_index: RefCell::new(None),
             })),
             should_return: RefCell::new(false),
         }
+    }
+
+    fn add_action(self, action: PromiseAction) -> Self {
+        match &self.subtype {
+            PromiseSubtype::Single(x) => x.actions.borrow_mut().push(action),
+            PromiseSubtype::Joint(_) => panic!("Cannot add action to a joint promise."),
+        }
+        self
+    }
+
+    pub fn create_account(self) -> Self {
+        self.add_action(PromiseAction::CreateAccount)
+    }
+
+    pub fn deploy_contract(self, code: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::DeployContract { code })
+    }
+
+    pub fn function_call(
+        self,
+        method_name: Vec<u8>,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+    ) -> Self {
+        self.add_action(PromiseAction::FunctionCall { method_name, arguments, amount, gas })
+    }
+
+    pub fn transfer(self, amount: Balance) -> Self {
+        self.add_action(PromiseAction::Transfer { amount })
+    }
+
+    pub fn stake(self, amount: Balance, public_key: PublicKey) -> Self {
+        self.add_action(PromiseAction::Stake { amount, public_key })
+    }
+
+    pub fn add_full_access_key(self, public_key: PublicKey) -> Self {
+        self.add_action(PromiseAction::AddFullAccessKey { public_key })
+    }
+
+    pub fn add_access_key(
+        self,
+        public_key: PublicKey,
+        allowance: Balance,
+        receiver_id: AccountId,
+        method_names: Vec<u8>,
+    ) -> Self {
+        self.add_action(PromiseAction::AddAccessKey {
+            public_key,
+            allowance,
+            receiver_id,
+            method_names,
+        })
+    }
+
+    pub fn delete_key(self, public_key: PublicKey) -> Self {
+        self.add_action(PromiseAction::DeleteKey { public_key })
+    }
+
+    pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
+        self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
     }
 
     pub fn join(self, other: Promise) -> Promise {

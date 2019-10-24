@@ -100,13 +100,12 @@ pub fn process_trait(t: &ItemTrait) -> syn::Result<TokenStream2> {
                 }
                 res.extend( quote! {
                     pub fn #method_name<T: ToString>(#method_args __account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
-                        Promise::new(
-                            __account_id.to_string(),
+                        Promise::new(__account_id.to_string())
+                        .function_call(
                             #method_name_byte_str.to_vec(),
                             #arg_to_json,
                             __balance,
                             __gas,
-                            None
                         )
                     }
                 });
@@ -152,24 +151,22 @@ mod tests {
                 use std::string::ToString;
                 
                 pub fn merge_sort<T: ToString>(arr: Vec<u8>, __account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
-                    Promise::new(
-                        __account_id.to_string(),
+                    Promise::new(__account_id.to_string())
+                        .function_call(
                         b"merge_sort".to_vec(),
                         json!({ "arr": arr }).to_string().as_bytes().to_vec(),
                         __balance,
                         __gas,
-                        None
                     )
                 }
 
                 pub fn merge<T: ToString>(__account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
-                    Promise::new(
-                        __account_id.to_string(),
+                    Promise::new(__account_id.to_string())
+                        .function_call(
                         b"merge".to_vec(),
                         vec![],
                         __balance,
                         __gas,
-                        None
                     )
                 }
             }
