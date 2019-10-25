@@ -64,6 +64,10 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
     })
 }
 
+pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
+    BLOCKCHAIN_INTERFACE.with(|b| b.replace(None))
+}
+
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
     let len = register_len(register_id)?;

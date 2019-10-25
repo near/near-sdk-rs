@@ -4,6 +4,7 @@ use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
 use near_vm_logic::{Config, External, MemoryLike, VMContext, VMLogic};
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
@@ -18,15 +19,21 @@ pub struct MockedBlockchain {
 }
 
 struct LogicFixture {
-    ext: Box<dyn External>,
+    ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
     promise_results: Box<Vec<PromiseResult>>,
     config: Box<Config>,
 }
 
 impl MockedBlockchain {
-    pub fn new(context: VMContext, config: Config, promise_results: Vec<PromiseResult>) -> Self {
-        let ext = Box::new(MockedExternal::new());
+    pub fn new(
+        context: VMContext,
+        config: Config,
+        promise_results: Vec<PromiseResult>,
+        storage: BTreeMap<Vec<u8>, Vec<u8>>,
+    ) -> Self {
+        let mut ext = Box::new(MockedExternal::new());
+        ext.fake_trie = storage;
         let memory = Box::new(MockedMemory {});
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
@@ -45,6 +52,10 @@ impl MockedBlockchain {
 
         let logic = RefCell::new(logic);
         Self { logic, logic_fixture }
+    }
+
+    pub fn take_storage(&mut self) -> BTreeMap<Vec<u8>, Vec<u8>> {
+        std::mem::replace(&mut self.logic_fixture.ext.fake_trie, Default::default())
     }
 }
 
@@ -389,5 +400,9 @@ impl BlockchainInterface for MockedBlockchain {
             .borrow_mut()
             .storage_iter_next(iterator_id, key_register_id, value_register_id)
             .unwrap()
+    }
+
+    fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
+        Some(self)
     }
 }
