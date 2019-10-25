@@ -18,11 +18,17 @@ pub use near_vm_logic::VMContext;
 #[cfg(feature = "testing")]
 #[macro_export]
 macro_rules! testing_env {
-    ($context:ident, $config:expr) => {
+    ($context:expr, $config:expr) => {
+        let storage = match near_bindgen::env::take_blockchain_interface() {
+            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
+            None => Default::default(),
+        };
+
         near_bindgen::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
             $context,
             $config,
             vec![],
+            storage,
         )));
     };
 }

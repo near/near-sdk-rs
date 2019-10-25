@@ -80,7 +80,6 @@ impl FunToken {
     /// (`predecessor_id`) who is considered the balance owner to the new `allowance`.
     /// If some amount of tokens is currently locked by the `escrow_account_id` the new allowance is
     /// decreased by the amount of locked tokens.
-    /// `set_allowance("escrow", 100_000);`
     pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: Balance) {
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
@@ -101,7 +100,6 @@ impl FunToken {
     /// Requirements:
     /// * The (`predecessor_id`) should have enough allowance or be the owner.
     /// * The owner should have enough unlocked balance.
-    /// `lock("bob.near", 50_000);`
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: Balance) {
         if lock_amount == 0 {
             env::panic(b"Can't lock 0 tokens");
@@ -111,7 +109,7 @@ impl FunToken {
 
         // Checking and updating unlocked balance
         if account.balance < lock_amount {
-            env::panic(b"Not enough balance");
+            env::panic(b"Not enough unlocked balance");
         }
         account.balance -= lock_amount;
 
@@ -131,10 +129,11 @@ impl FunToken {
         self.accounts.insert(&owner_id, &account);
     }
 
-    /// Unlock the `unlock_amount` from the caller of the function (`predecessor_id`) back to
+    /// Unlocks the `unlock_amount` from the caller of the function (`predecessor_id`) back to
     /// the `owner_id`.
+    /// If called not by the `owner_id` then the `unlock_amount` will be converted to the allowance.
     /// Requirements:
-    /// * The (`predecessor_id`) should have enough locked tokens.
+    /// * The (`predecessor_id`) should have at least `unlock_amount` locked tokens from `owner_id`.
     pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: Balance) {
         if unlock_amount == 0 {
             env::panic(b"Can't unlock 0 tokens");
@@ -161,13 +160,15 @@ impl FunToken {
         self.accounts.insert(&owner_id, &account);
     }
 
-    /// Transfer `amount` of tokens from `owner_id` to the `new_owner_id`.
+    /// Transfers the `amount` of tokens from `owner_id` to the `new_owner_id`.
     /// First uses locked tokens by the caller of the function (`predecessor_id`). If the amount
     /// of locked tokens is not enough to cover the full amount, then uses unlocked tokens
     /// for the remaining balance.
     /// Requirements:
-    /// * The caller of the function (`predecessor_id`) should have enough allowance.
-    /// * The balance owner should have enough unlocked balance.
+    /// * The caller of the function (`predecessor_id`) should have at least `amount` of locked plus
+    /// allowance tokens.
+    /// * The balance owner should have at least `amount` of locked (by `predecessor_id`) plus
+    /// unlocked tokens.
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: Balance) {
         if amount == 0 {
             env::panic(b"Can't transfer 0 tokens");
@@ -189,7 +190,7 @@ impl FunToken {
         if remaining_amount > 0 {
             // Checking and updating unlocked balance
             if account.balance < remaining_amount {
-                env::panic(b"Not enough balance");
+                env::panic(b"Not enough unlocked balance");
             }
             account.balance -= remaining_amount;
 
@@ -212,25 +213,40 @@ impl FunToken {
         self.accounts.insert(&new_owner_id, &new_account);
     }
 
+    /// Same as `transfer_from` with `owner_id` `predecessor_id`.
     pub fn transfer(&mut self, new_owner_id: AccountId, amount: Balance) {
         self.transfer_from(env::predecessor_account_id(), new_owner_id, amount);
     }
 
+    /// Returns total supply of tokens.
     pub fn get_total_supply(&self) -> Balance {
         self.total_supply
     }
 
+    /// Returns total balance for the `owner_id` account. Including all locked and unlocked tokens.
     pub fn get_total_balance(&self, owner_id: AccountId) -> Balance {
         self.get_account(&owner_id).total_balance()
     }
 
+    /// Returns unlocked token balance for the `owner_id`.
     pub fn get_unlocked_balance(&self, owner_id: AccountId) -> Balance {
         self.get_account(&owner_id).balance
+    }
+
+    /// Returns current allowance for the `owner_id` to be able to use by `escrow_account_id`.
+    pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> Balance {
+        self.get_account(&owner_id).get_allowance(&escrow_account_id)
+    }
+
+    /// Returns current locked balance for the `owner_id` locked by `escrow_account_id`.
+    pub fn get_locked_balance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> Balance {
+        self.get_account(&owner_id).get_locked_balance(&escrow_account_id)
     }
 }
 
 impl FunToken {
-    pub fn get_account(&self, owner_id: &AccountId) -> Account {
+    /// Helper method to get the account details for `owner_id`.
+    fn get_account(&self, owner_id: &AccountId) -> Account {
         self.accounts.get(owner_id).unwrap_or_default()
     }
 }
@@ -242,36 +258,38 @@ mod tests {
     use near_bindgen::MockedBlockchain;
     use near_bindgen::{testing_env, Config, VMContext};
 
+    fn alice() -> AccountId {
+        "alice.near".to_string()
+    }
     fn bob() -> AccountId {
         "bob.near".to_string()
     }
-
     fn carol() -> AccountId {
         "carol.near".to_string()
     }
 
-    fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
+    fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
-            current_account_id: "alice.near".to_string(),
+            current_account_id: alice(),
             signer_account_id: bob(),
             signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: carol(),
-            input,
+            predecessor_account_id,
+            input: vec![],
             block_index: 0,
             block_timestamp: 0,
             account_balance: 0,
-            storage_usage: 0,
+            storage_usage: 10u64.pow(6),
             attached_deposit: 0,
             prepaid_gas: 10u64.pow(9),
             random_seed: vec![0, 1, 2],
-            is_view,
+            is_view: false,
             output_data_receivers: vec![],
         }
     }
 
     #[test]
     fn test_new() {
-        let context = get_context(vec![], false);
+        let context = get_context(carol());
         let config = Config::default();
         testing_env!(context, config);
         let total_supply = 1_000_000_000_000_000u128;
@@ -284,7 +302,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_default() {
-        let context = get_context(vec![], false);
+        let context = get_context(carol());
         let config = Config::default();
         testing_env!(context, config);
         let total_supply = 1_000_000_000_000_000u128;
@@ -294,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_transfer() {
-        let context = get_context(vec![], false);
+        let context = get_context(carol());
         let config = Config::default();
         testing_env!(context, config);
         let total_supply = 1_000_000_000_000_000u128;
@@ -308,7 +326,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_lock_fail() {
-        let context = get_context(vec![], false);
+        let context = get_context(carol());
         let config = Config::default();
         testing_env!(context, config);
         let total_supply = 1_000_000_000_000_000u128;
@@ -318,12 +336,39 @@ mod tests {
     }
 
     #[test]
-    fn test_lock_and_transfer() {
-        let context = get_context(vec![], false);
+    #[should_panic]
+    fn test_self_allowance_fail() {
+        let context = get_context(carol());
         let config = Config::default();
         testing_env!(context, config);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
+        contract.set_allowance(carol(), total_supply / 2);
+    }
+
+    #[test]
+    fn test_lock_and_unlock_owner() {
+        let context = get_context(carol());
+        testing_env!(context, Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        let lock_amount = total_supply / 3;
+        contract.lock(carol(), lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+        contract.unlock(carol(), lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+    }
+
+    #[test]
+    fn test_lock_and_transfer() {
+        let context = get_context(carol());
+        testing_env!(context, Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
         let lock_amount = total_supply / 3;
         let transfer_amount = lock_amount / 3;
         // Locking
@@ -340,5 +385,118 @@ mod tests {
             assert_eq!(contract.get_total_balance(carol()), total_supply - transfer_amount * i);
             assert_eq!(contract.get_unlocked_balance(bob()), transfer_amount * i);
         }
+    }
+
+    #[test]
+    fn test_carol_escrows_to_bob_transfers_to_alice() {
+        // Acting as carol
+        testing_env!(get_context(carol()), Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        let allowance = total_supply / 3;
+        let transfer_amount = allowance / 3;
+        contract.set_allowance(bob(), allowance);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance);
+        // Acting as bob now
+        testing_env!(get_context(bob()), Config::default());
+        contract.transfer_from(carol(), alice(), transfer_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply - transfer_amount);
+        assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - transfer_amount);
+    }
+
+    #[test]
+    fn test_carol_escrows_to_bob_locks_and_transfers_to_alice() {
+        // Acting as carol
+        testing_env!(get_context(carol()), Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        let allowance = total_supply / 3;
+        let transfer_amount = allowance / 3;
+        let lock_amount = transfer_amount;
+        contract.set_allowance(bob(), allowance);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance);
+        // Acting as bob now
+        testing_env!(get_context(bob()), Config::default());
+        contract.lock(carol(), lock_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+        contract.transfer_from(carol(), alice(), transfer_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - transfer_amount);
+        assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - transfer_amount);
+    }
+
+    #[test]
+    fn test_lock_and_unlock_through_allowance() {
+        // Acting as carol
+        testing_env!(get_context(carol()), Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        let allowance = total_supply / 3;
+        let lock_amount = allowance / 2;
+        contract.set_allowance(bob(), allowance);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance);
+        // Acting as bob now
+        testing_env!(get_context(bob()), Config::default());
+        contract.lock(carol(), lock_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+        contract.unlock(carol(), lock_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+    }
+
+    #[test]
+    fn test_set_allowance_during_lock() {
+        // Acting as carol
+        testing_env!(get_context(carol()), Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        let allowance = 2 * total_supply / 3;
+        let lock_amount = allowance / 2;
+        contract.set_allowance(bob(), allowance);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance);
+        // Acting as bob now
+        testing_env!(get_context(bob()), Config::default());
+        contract.lock(carol(), lock_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+        // Acting as carol now
+        testing_env!(get_context(carol()), Config::default());
+        contract.set_allowance(bob(), allowance);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
+    }
+
+    #[test]
+    fn test_competing_locks() {
+        // Acting as carol
+        testing_env!(get_context(carol()), Config::default());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        let allowance = 2 * total_supply / 3;
+        let lock_amount = allowance;
+        contract.set_allowance(bob(), allowance);
+        contract.set_allowance(alice(), allowance);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance);
+        assert_eq!(contract.get_allowance(carol(), alice()), allowance);
+        // Acting as bob now
+        testing_env!(get_context(bob()), Config::default());
+        contract.lock(carol(), lock_amount);
+        assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+        // Acting as alice now
+        testing_env!(get_context(alice()), Config::default());
+        contract.lock(carol(), lock_amount);
     }
 }
