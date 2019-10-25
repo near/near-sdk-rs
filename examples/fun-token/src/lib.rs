@@ -1,0 +1,344 @@
+use borsh::{BorshDeserialize, BorshSerialize};
+use near_bindgen::collections::Map;
+use near_bindgen::{env, near_bindgen};
+use std::collections::HashMap;
+
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+type AccountId = String;
+type Balance = u128;
+
+#[derive(Default, BorshDeserialize, BorshSerialize)]
+pub struct Account {
+    /// Current unlocked balance.
+    pub balance: Balance,
+    /// Allowed account to the allowance amount.
+    pub allowances: HashMap<AccountId, Balance>,
+    /// Allowed account to locked balance.
+    pub locked_balances: HashMap<AccountId, Balance>,
+}
+
+impl Account {
+    pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: Balance) {
+        if allowance > 0 {
+            self.allowances.insert(escrow_account_id.clone(), allowance);
+        } else {
+            self.allowances.remove(escrow_account_id);
+        }
+    }
+
+    pub fn get_allowance(&self, escrow_account_id: &AccountId) -> Balance {
+        *self.allowances.get(escrow_account_id).unwrap_or(&0)
+    }
+
+    pub fn set_locked_balance(&mut self, escrow_account_id: &AccountId, locked_balance: Balance) {
+        if locked_balance > 0 {
+            self.locked_balances.insert(escrow_account_id.clone(), locked_balance);
+        } else {
+            self.locked_balances.remove(escrow_account_id);
+        }
+    }
+
+    pub fn get_locked_balance(&self, escrow_account_id: &AccountId) -> Balance {
+        *self.locked_balances.get(escrow_account_id).unwrap_or(&0)
+    }
+
+    pub fn total_balance(&self) -> Balance {
+        self.balance + self.locked_balances.values().sum::<Balance>()
+    }
+}
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct FunToken {
+    /// AccountID -> Account details.
+    pub accounts: Map<AccountId, Account>,
+
+    /// Total supply of the all token.
+    pub total_supply: Balance,
+}
+
+impl Default for FunToken {
+    fn default() -> Self {
+        env::panic(b"Not initialized");
+        unreachable!();
+    }
+}
+
+#[near_bindgen(init => new)]
+impl FunToken {
+    pub fn new(owner_id: AccountId, total_supply: Balance) -> Self {
+        let mut ft = Self { accounts: Map::new(b"a".to_vec()), total_supply };
+        let mut account = ft.get_account(&owner_id);
+        account.balance = total_supply;
+        ft.accounts.insert(&owner_id, &account);
+        ft
+    }
+
+    /// Sets amount allowed to spent by `escrow_account_id` on behalf of the caller of the function
+    /// (`predecessor_id`) who is considered the balance owner to the new `allowance`.
+    /// If some amount of tokens is currently locked by the `escrow_account_id` the new allowance is
+    /// decreased by the amount of locked tokens.
+    /// `set_allowance("escrow", 100_000);`
+    pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: Balance) {
+        let owner_id = env::predecessor_account_id();
+        if escrow_account_id == owner_id {
+            env::panic(b"Can't set allowance for yourself");
+        }
+        let mut account = self.get_account(&owner_id);
+        let locked_balance = account.get_locked_balance(&escrow_account_id);
+        if locked_balance > allowance {
+            env::panic(b"The new allowance can't be less than the amount of locked tokens");
+        }
+
+        account.set_allowance(&escrow_account_id, allowance - locked_balance);
+        self.accounts.insert(&owner_id, &account);
+    }
+
+    /// Locks an additional `lock_amount` to the caller of the function (`predecessor_id`) from
+    /// the `owner_id`.
+    /// Requirements:
+    /// * The (`predecessor_id`) should have enough allowance or be the owner.
+    /// * The owner should have enough unlocked balance.
+    /// `lock("bob.near", 50_000);`
+    pub fn lock(&mut self, owner_id: AccountId, lock_amount: Balance) {
+        if lock_amount == 0 {
+            env::panic(b"Can't lock 0 tokens");
+        }
+        let escrow_account_id = env::predecessor_account_id();
+        let mut account = self.get_account(&owner_id);
+
+        // Checking and updating unlocked balance
+        if account.balance < lock_amount {
+            env::panic(b"Not enough balance");
+        }
+        account.balance -= lock_amount;
+
+        // If locking by escrow, need to check and update the allowance.
+        if escrow_account_id != owner_id {
+            let allowance = account.get_allowance(&escrow_account_id);
+            if allowance < lock_amount {
+                env::panic(b"Not enough allowance");
+            }
+            account.set_allowance(&escrow_account_id, allowance - lock_amount);
+        }
+
+        // Updating total lock balance
+        let locked_balance = account.get_locked_balance(&escrow_account_id);
+        account.set_locked_balance(&escrow_account_id, locked_balance + lock_amount);
+
+        self.accounts.insert(&owner_id, &account);
+    }
+
+    /// Unlock the `unlock_amount` from the caller of the function (`predecessor_id`) back to
+    /// the `owner_id`.
+    /// Requirements:
+    /// * The (`predecessor_id`) should have enough locked tokens.
+    pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: Balance) {
+        if unlock_amount == 0 {
+            env::panic(b"Can't unlock 0 tokens");
+        }
+        let escrow_account_id = env::predecessor_account_id();
+        let mut account = self.get_account(&owner_id);
+
+        // Checking and updating locked balance
+        let locked_balance = account.get_locked_balance(&escrow_account_id);
+        if locked_balance < unlock_amount {
+            env::panic(b"Not enough locked tokens");
+        }
+        account.set_locked_balance(&escrow_account_id, locked_balance - unlock_amount);
+
+        // If unlocking by escrow, need to update allowance.
+        if escrow_account_id != owner_id {
+            let allowance = account.get_allowance(&escrow_account_id);
+            account.set_allowance(&escrow_account_id, allowance + unlock_amount);
+        }
+
+        // Updating unlocked balance
+        account.balance += unlock_amount;
+
+        self.accounts.insert(&owner_id, &account);
+    }
+
+    /// Transfer `amount` of tokens from `owner_id` to the `new_owner_id`.
+    /// First uses locked tokens by the caller of the function (`predecessor_id`). If the amount
+    /// of locked tokens is not enough to cover the full amount, then uses unlocked tokens
+    /// for the remaining balance.
+    /// Requirements:
+    /// * The caller of the function (`predecessor_id`) should have enough allowance.
+    /// * The balance owner should have enough unlocked balance.
+    pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: Balance) {
+        if amount == 0 {
+            env::panic(b"Can't transfer 0 tokens");
+        }
+        let escrow_account_id = env::predecessor_account_id();
+        let mut account = self.get_account(&owner_id);
+
+        // Checking and updating locked balance
+        let locked_balance = account.get_locked_balance(&escrow_account_id);
+        let remaining_amount = if locked_balance >= amount {
+            account.set_locked_balance(&escrow_account_id, locked_balance - amount);
+            0
+        } else {
+            account.set_locked_balance(&escrow_account_id, 0);
+            amount - locked_balance
+        };
+
+        // If there is remaining balance after the locked balance, we try to use unlocked tokens.
+        if remaining_amount > 0 {
+            // Checking and updating unlocked balance
+            if account.balance < remaining_amount {
+                env::panic(b"Not enough balance");
+            }
+            account.balance -= remaining_amount;
+
+            // If transferring by escrow, need to check and update allowance.
+            if escrow_account_id != owner_id {
+                let allowance = account.get_allowance(&escrow_account_id);
+                // Checking and updating unlocked balance
+                if allowance < remaining_amount {
+                    env::panic(b"Not enough allowance");
+                }
+                account.set_allowance(&escrow_account_id, allowance - remaining_amount);
+            }
+        }
+
+        self.accounts.insert(&owner_id, &account);
+
+        // Deposit amount to the new owner
+        let mut new_account = self.get_account(&new_owner_id);
+        new_account.balance += amount;
+        self.accounts.insert(&new_owner_id, &new_account);
+    }
+
+    pub fn transfer(&mut self, new_owner_id: AccountId, amount: Balance) {
+        self.transfer_from(env::predecessor_account_id(), new_owner_id, amount);
+    }
+
+    pub fn get_total_supply(&self) -> Balance {
+        self.total_supply
+    }
+
+    pub fn get_total_balance(&self, owner_id: AccountId) -> Balance {
+        self.get_account(&owner_id).total_balance()
+    }
+
+    pub fn get_unlocked_balance(&self, owner_id: AccountId) -> Balance {
+        self.get_account(&owner_id).balance
+    }
+}
+
+impl FunToken {
+    pub fn get_account(&self, owner_id: &AccountId) -> Account {
+        self.accounts.get(owner_id).unwrap_or_default()
+    }
+}
+
+#[cfg(feature = "env_test")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_bindgen::MockedBlockchain;
+    use near_bindgen::{testing_env, Config, VMContext};
+
+    fn bob() -> AccountId {
+        "bob.near".to_string()
+    }
+
+    fn carol() -> AccountId {
+        "carol.near".to_string()
+    }
+
+    fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
+        VMContext {
+            current_account_id: "alice.near".to_string(),
+            signer_account_id: bob(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id: carol(),
+            input,
+            block_index: 0,
+            block_timestamp: 0,
+            account_balance: 0,
+            storage_usage: 0,
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(9),
+            random_seed: vec![0, 1, 2],
+            is_view,
+            output_data_receivers: vec![],
+        }
+    }
+
+    #[test]
+    fn test_new() {
+        let context = get_context(vec![], false);
+        let config = Config::default();
+        testing_env!(context, config);
+        let total_supply = 1_000_000_000_000_000u128;
+        let contract = FunToken::new(bob(), total_supply);
+        assert_eq!(contract.get_total_supply(), total_supply);
+        assert_eq!(contract.get_unlocked_balance(bob()), total_supply);
+        assert_eq!(contract.get_total_balance(bob()), total_supply);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_default() {
+        let context = get_context(vec![], false);
+        let config = Config::default();
+        testing_env!(context, config);
+        let total_supply = 1_000_000_000_000_000u128;
+        let contract = FunToken::default();
+        assert_eq!(contract.get_total_supply(), total_supply);
+    }
+
+    #[test]
+    fn test_transfer() {
+        let context = get_context(vec![], false);
+        let config = Config::default();
+        testing_env!(context, config);
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        let transfer_amount = total_supply / 3;
+        contract.transfer(bob(), transfer_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - transfer_amount);
+        assert_eq!(contract.get_unlocked_balance(bob()), transfer_amount);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_lock_fail() {
+        let context = get_context(vec![], false);
+        let config = Config::default();
+        testing_env!(context, config);
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        let transfer_amount = total_supply / 3;
+        contract.lock(bob(), transfer_amount);
+    }
+
+    #[test]
+    fn test_lock_and_transfer() {
+        let context = get_context(vec![], false);
+        let config = Config::default();
+        testing_env!(context, config);
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply);
+        let lock_amount = total_supply / 3;
+        let transfer_amount = lock_amount / 3;
+        // Locking
+        contract.lock(carol(), lock_amount);
+        assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
+        assert_eq!(contract.get_total_balance(carol()), total_supply);
+        for i in 1..=5 {
+            // Transfer to bob
+            contract.transfer(bob(), transfer_amount);
+            assert_eq!(
+                contract.get_unlocked_balance(carol()),
+                std::cmp::min(total_supply - lock_amount, total_supply - transfer_amount * i)
+            );
+            assert_eq!(contract.get_total_balance(carol()), total_supply - transfer_amount * i);
+            assert_eq!(contract.get_unlocked_balance(bob()), transfer_amount * i);
+        }
+    }
+}
