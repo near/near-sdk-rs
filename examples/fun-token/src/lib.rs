@@ -324,7 +324,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_lock_fail() {
         let context = get_context(carol());
         let config = Config::default();
@@ -332,18 +331,23 @@ mod tests {
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         let transfer_amount = total_supply / 3;
-        contract.lock(bob(), transfer_amount);
+        std::panic::catch_unwind(move || {
+            contract.lock(bob(), transfer_amount);
+        })
+        .unwrap_err();
     }
 
     #[test]
-    #[should_panic]
     fn test_self_allowance_fail() {
         let context = get_context(carol());
         let config = Config::default();
         testing_env!(context, config);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
-        contract.set_allowance(carol(), total_supply / 2);
+        std::panic::catch_unwind(move || {
+            contract.set_allowance(carol(), total_supply / 2);
+        })
+        .unwrap_err();
     }
 
     #[test]
@@ -497,6 +501,9 @@ mod tests {
         assert_eq!(contract.get_total_balance(carol()), total_supply);
         // Acting as alice now
         testing_env!(get_context(alice()), Config::default());
-        contract.lock(carol(), lock_amount);
+        std::panic::catch_unwind(move || {
+            contract.lock(carol(), lock_amount);
+        })
+        .unwrap_err();
     }
 }
