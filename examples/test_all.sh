@@ -6,7 +6,7 @@ pushd $(dirname $0)
 for d in */ ; do
     pushd $d
     echo "Testing $d"
-    cargo test --features env_test -- --nocapture
+    cargo test -- --nocapture
     popd
 done
 

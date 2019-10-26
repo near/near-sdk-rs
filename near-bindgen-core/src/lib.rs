@@ -150,7 +150,7 @@ pub fn process_method(
     };
 
     Ok(quote! {
-        #[cfg(not(feature = "env_test"))]
+        #[cfg(target_arch = "wasm32")]
         #[no_mangle]
         pub extern "C" fn #method_name() {
             #method_body
@@ -220,7 +220,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, true).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -238,7 +238,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -256,7 +256,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -275,7 +275,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -296,7 +296,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -319,7 +319,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -344,7 +344,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -364,7 +364,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -385,7 +385,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -408,7 +408,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -444,7 +444,7 @@ mod tests {
         // from it.
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -476,7 +476,7 @@ mod tests {
 
         let actual = process_method(&method, &impl_type, false).unwrap();
         let expected = quote!(
-            #[cfg(not(feature = "env_test"))]
+            #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));

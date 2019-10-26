@@ -68,9 +68,9 @@ impl StatusMessage {
     }
     ```
 
-    To run unit tests include `env_test` feature:
+    Run unit test the usual way:
     ```bash
-    cargo test --package status-message --features env_test
+    cargo test --package status-message
     ```
 
 * **Asynchronous cross-contract calls.** Asynchronous cross-contract calls allow parallel execution

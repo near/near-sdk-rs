@@ -7,15 +7,15 @@ pub use environment::env;
 mod promise;
 pub use promise::{Promise, PromiseOrValue};
 
-#[cfg(feature = "testing")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;
 pub use near_vm_logic::types::*;
-#[cfg(feature = "testing")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::Config;
-#[cfg(feature = "testing")]
+#[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMContext;
 
-#[cfg(feature = "testing")]
+#[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! testing_env {
     ($context:expr, $config:expr) => {

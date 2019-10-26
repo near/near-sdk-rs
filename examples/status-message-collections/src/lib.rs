@@ -32,7 +32,7 @@ impl StatusMessage {
     }
 }
 
-#[cfg(feature = "env_test")]
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use super::*;

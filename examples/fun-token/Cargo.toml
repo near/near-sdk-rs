@@ -22,9 +22,5 @@ lto = true
 debug = false
 panic = "abort"
 
-[features]
-default = []
-env_test = ["near-bindgen/testing"]
-
 [workspace]
 members = []

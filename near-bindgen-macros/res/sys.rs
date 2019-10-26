@@ -1,4 +1,4 @@
-#[cfg(not(feature = "env_test"))]
+#[cfg(target_arch = "wasm32")]
 pub mod sys {
     extern "C" {
         // #############

@@ -1,4 +1,4 @@
-#[cfg(not(feature = "env_test"))]
+#[cfg(target_arch = "wasm32")]
 pub mod near_blockchain {
     use super::sys;
     use near_bindgen::BlockchainInterface;
