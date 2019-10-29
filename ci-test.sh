@@ -24,7 +24,7 @@ else
       exit $status
     fi
 
-    # Only testing it for one configuation to avoid running the same tests twice
+    # Only testing it for one configuration to avoid running the same tests twice
     echo "Checking compilation of wasm32 for all examples"
     ./examples/check_all.sh
     echo "Testing all examples"

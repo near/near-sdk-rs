@@ -68,9 +68,9 @@ impl StatusMessage {
     }
     ```
 
-    To run unit tests include `env_test` feature:
+    Run unit test the usual way:
     ```bash
-    cargo test --package status-message --features env_test
+    cargo test --package status-message
     ```
 
 * **Asynchronous cross-contract calls.** Asynchronous cross-contract calls allow parallel execution
@@ -105,16 +105,10 @@ To develop Rust contracts you would need to:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-* Install the `nightly` Rust compiler:
+* Add wasm target to your toolchain:
 ```bash
-rustup install nightly
+rustup target add wasm32-unknown-unknown
 ```
-* Use the nightly compiler for your repo:
-```bash
-cd ./myproject
-rustup override set nightly
-```
-
 
 ## Writing Rust Contract
 You can follow the [examples/status-message](examples/status-message) crate that shows a simple Rust contract.
@@ -157,7 +151,7 @@ The general workflow is the following:
 ## Building Rust Contract
 We can build the contract using rustc:
 ```bash
-RUSTFLAGS='-C link-arg=-s' cargo +nightly build --target wasm32-unknown-unknown --release
+RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
 
 ## Running Rust Contract

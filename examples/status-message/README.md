@@ -5,5 +5,5 @@ Records the status messages of the accounts that call this contract.
 ## Testing
 To test run:
 ```bash
-cargo test --package status-message --features env_test -- --nocapture
+cargo test --package status-message -- --nocapture
 ```

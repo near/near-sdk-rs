@@ -1,4 +1,4 @@
-#[cfg(feature = "testing")]
+#[cfg(not(target_arch = "wasm32"))]
 use crate::MockedBlockchain;
 
 /// A low-level interface of either real or mocked blockchain that contract interacts with.
@@ -167,7 +167,7 @@ pub trait BlockchainInterface {
         value_register_id: u64,
     ) -> u64;
 
-    #[cfg(feature = "testing")]
+    #[cfg(not(target_arch = "wasm32"))]
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         None
     }

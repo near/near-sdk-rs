@@ -5,5 +5,5 @@ Implements simulation of a distributed network of drones interacting with the mi
 ## Testing
 To test run:
 ```bash
-cargo test --package mission-control --features env_test -- --nocapture
+cargo test --package mission-control -- --nocapture
 ```
