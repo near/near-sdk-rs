@@ -2,7 +2,7 @@
 set -e
 
 for d in */ ; do
-    echo "Testing $d"
+    echo "Building $d"
     pushd $d
     ./build.sh
     popd
