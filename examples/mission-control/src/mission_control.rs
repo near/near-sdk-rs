@@ -87,7 +87,7 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 mod tests {
     use super::*;
     use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, Config, VMContext};
+    use near_bindgen::{testing_env, VMContext};
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {
@@ -112,8 +112,7 @@ mod tests {
     fn add_agent() {
         let context = get_context(vec![], false);
         let account_id = context.signer_account_id.clone();
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
 
         let mut contract = MissionControl::default();
         contract.add_agent();

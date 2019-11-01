@@ -1,5 +1,5 @@
-//! The methods that are available by the smart contracts to call.
-//! This is a safe wrapper around low-level `BlockchainInterface`.
+//! The methods available to the smart contract. This is a safe wrapper around low-level
+//! `BlockchainInterface`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
@@ -11,9 +11,8 @@ use std::mem::size_of;
 use std::cell::RefCell;
 
 thread_local! {
-/// Low-level blockchain interface wrapped by the environment.
-/// It is static so that environment can be statically accessible. And it uses trait object so that
-/// we can mock it with fake blockchain.
+/// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
+/// for interacting with the real and fake blockchains.
     pub static BLOCKCHAIN_INTERFACE: RefCell<Option<Box<dyn BlockchainInterface>>>
          = RefCell::new(None);
 }
@@ -58,6 +57,22 @@ macro_rules! method_into_register {
     }};
 }
 
+/// Replaces the current low-level blockchain interface accessible through `env::*` with another
+/// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
+/// want to use `testing_env!` macro to set it.
+///
+/// ```
+/// # let context = Default::default();
+/// # let config = Default::default();
+/// # let storage = Default::default();
+/// let mocked_blockchain = near_bindgen::MockedBlockchain::new(
+///           context,
+///           config,
+///           vec![],
+///           storage,
+///       );
+/// near_bindgen::env::set_blockchain_interface(Box::new(mocked_blockchain));
+/// ```
 pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterface>) {
     BLOCKCHAIN_INTERFACE.with(|b| {
         *b.borrow_mut() = Some(blockchain_interface);

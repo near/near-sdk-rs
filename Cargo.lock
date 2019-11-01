@@ -156,7 +156,8 @@ version = "0.3.2"
 dependencies = [
  "borsh 0.2.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-bindgen-macros 0.3.2",
- "near-vm-logic 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-runtime-fees 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-vm-logic 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustversion 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -196,7 +197,7 @@ dependencies = [
 
 [[package]]
 name = "near-runtime-fees"
-version = "0.3.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -204,17 +205,17 @@ dependencies = [
 
 [[package]]
 name = "near-vm-errors"
-version = "0.3.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "near-vm-logic"
-version = "0.3.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bs58 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-runtime-fees 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-vm-errors 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-runtime-fees 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-vm-errors 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
  "sodiumoxide 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -504,9 +505,9 @@ dependencies = [
 "checksum libflate 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)" = "d9135df43b1f5d0e333385cb6e7897ecd1a43d7d11b91ac003f4d2c2d2401fdd"
 "checksum libsodium-sys 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "1c344ff12b90ef8fa1f0fffacd348c1fd041db331841fec9eab23fdb991f5e73"
 "checksum memchr 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
-"checksum near-runtime-fees 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "101ee57849462f01e1f23127ef19106636ddbd9f4ea3fe10b45e20bc7d17257a"
-"checksum near-vm-errors 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "dc57c547ab77c4fac27154f5868cf980ab0b8c799cc9db91315a08aa6eac68a8"
-"checksum near-vm-logic 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e35528df715dfaf7b2eb5d87cbcea4d616944b597de4c902e39273cb2c948cce"
+"checksum near-runtime-fees 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5cbf9731274f5176c6da2dc4c060110e3ad78ecdde20eb400faee3bf2fc60f04"
+"checksum near-vm-errors 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "75852a26a84fbde593830be50938d2108a0c8c56124083106d2feec4d7b57341"
+"checksum near-vm-logic 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f0228d98c7654054a3d3de4e27d8677d98327de7ced99f1c40293bd030720cd2"
 "checksum pkg-config 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)" = "72d5370d90f49f70bd033c3d75e87fc529fbfff9d6f7cccef07d6170079d91ea"
 "checksum ppv-lite86 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
 "checksum proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "9c9e470a8dc4aeae2dee2f335e8f533e2d4b347e1434e5671afc49b054592f27"

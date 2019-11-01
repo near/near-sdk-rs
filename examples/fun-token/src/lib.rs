@@ -256,7 +256,7 @@ impl FunToken {
 mod tests {
     use super::*;
     use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, Config, VMContext};
+    use near_bindgen::{testing_env, VMContext};
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -290,8 +290,7 @@ mod tests {
     #[test]
     fn test_new() {
         let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let contract = FunToken::new(bob(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -303,8 +302,7 @@ mod tests {
     #[should_panic]
     fn test_default() {
         let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let contract = FunToken::default();
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -313,8 +311,7 @@ mod tests {
     #[test]
     fn test_transfer() {
         let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         let transfer_amount = total_supply / 3;
@@ -326,8 +323,7 @@ mod tests {
     #[test]
     fn test_lock_fail() {
         let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         let transfer_amount = total_supply / 3;
@@ -340,8 +336,7 @@ mod tests {
     #[test]
     fn test_self_allowance_fail() {
         let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         std::panic::catch_unwind(move || {
@@ -353,7 +348,7 @@ mod tests {
     #[test]
     fn test_lock_and_unlock_owner() {
         let context = get_context(carol());
-        testing_env!(context, Config::default());
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -369,7 +364,7 @@ mod tests {
     #[test]
     fn test_lock_and_transfer() {
         let context = get_context(carol());
-        testing_env!(context, Config::default());
+        testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -394,7 +389,7 @@ mod tests {
     #[test]
     fn test_carol_escrows_to_bob_transfers_to_alice() {
         // Acting as carol
-        testing_env!(get_context(carol()), Config::default());
+        testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -403,7 +398,7 @@ mod tests {
         contract.set_allowance(bob(), allowance);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance);
         // Acting as bob now
-        testing_env!(get_context(bob()), Config::default());
+        testing_env!(get_context(bob()));
         contract.transfer_from(carol(), alice(), transfer_amount);
         assert_eq!(contract.get_total_balance(carol()), total_supply - transfer_amount);
         assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount);
@@ -413,7 +408,7 @@ mod tests {
     #[test]
     fn test_carol_escrows_to_bob_locks_and_transfers_to_alice() {
         // Acting as carol
-        testing_env!(get_context(carol()), Config::default());
+        testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -423,7 +418,7 @@ mod tests {
         contract.set_allowance(bob(), allowance);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance);
         // Acting as bob now
-        testing_env!(get_context(bob()), Config::default());
+        testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
@@ -437,7 +432,7 @@ mod tests {
     #[test]
     fn test_lock_and_unlock_through_allowance() {
         // Acting as carol
-        testing_env!(get_context(carol()), Config::default());
+        testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -446,7 +441,7 @@ mod tests {
         contract.set_allowance(bob(), allowance);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance);
         // Acting as bob now
-        testing_env!(get_context(bob()), Config::default());
+        testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
@@ -460,7 +455,7 @@ mod tests {
     #[test]
     fn test_set_allowance_during_lock() {
         // Acting as carol
-        testing_env!(get_context(carol()), Config::default());
+        testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -469,13 +464,13 @@ mod tests {
         contract.set_allowance(bob(), allowance);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance);
         // Acting as bob now
-        testing_env!(get_context(bob()), Config::default());
+        testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
         assert_eq!(contract.get_total_balance(carol()), total_supply);
         // Acting as carol now
-        testing_env!(get_context(carol()), Config::default());
+        testing_env!(get_context(carol()));
         contract.set_allowance(bob(), allowance);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
     }
@@ -483,7 +478,7 @@ mod tests {
     #[test]
     fn test_competing_locks() {
         // Acting as carol
-        testing_env!(get_context(carol()), Config::default());
+        testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FunToken::new(carol(), total_supply);
         assert_eq!(contract.get_total_supply(), total_supply);
@@ -494,13 +489,13 @@ mod tests {
         assert_eq!(contract.get_allowance(carol(), bob()), allowance);
         assert_eq!(contract.get_allowance(carol(), alice()), allowance);
         // Acting as bob now
-        testing_env!(get_context(bob()), Config::default());
+        testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount);
         assert_eq!(contract.get_allowance(carol(), bob()), allowance - lock_amount);
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply - lock_amount);
         assert_eq!(contract.get_total_balance(carol()), total_supply);
         // Acting as alice now
-        testing_env!(get_context(alice()), Config::default());
+        testing_env!(get_context(alice()));
         std::panic::catch_unwind(move || {
             contract.lock(carol(), lock_amount);
         })

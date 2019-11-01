@@ -2,9 +2,10 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::mocks::mock_external::MockedExternal;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
-use near_vm_logic::{Config, External, MemoryLike, VMContext, VMLogic};
+use near_vm_logic::{VMConfig, External, MemoryLike, VMContext, VMLogic};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use near_runtime_fees::RuntimeFeesConfig;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
@@ -22,13 +23,15 @@ struct LogicFixture {
     ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
     promise_results: Box<Vec<PromiseResult>>,
-    config: Box<Config>,
+    vm_config: Box<VMConfig>,
+    runtime_fees_config: Box<RuntimeFeesConfig>,
 }
 
 impl MockedBlockchain {
     pub fn new(
         context: VMContext,
-        config: Config,
+        vm_config: VMConfig,
+        runtime_fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: BTreeMap<Vec<u8>, Vec<u8>>,
     ) -> Self {
@@ -36,15 +39,16 @@ impl MockedBlockchain {
         ext.fake_trie = storage;
         let memory = Box::new(MockedMemory {});
         let promise_results = Box::new(promise_results);
-        let config = Box::new(config);
-
-        let mut logic_fixture = LogicFixture { ext, memory, config, promise_results };
+        let vm_config = Box::new(vm_config);
+        let runtime_fees_config = Box::new(runtime_fees_config);
+        let mut logic_fixture = LogicFixture { ext, memory, promise_results, vm_config, runtime_fees_config };
 
         let logic = unsafe {
             VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
-                &*(logic_fixture.config.as_mut() as *const Config),
+                &*(logic_fixture.vm_config.as_mut() as *const VMConfig),
+                &*(logic_fixture.runtime_fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
             )
