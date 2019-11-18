@@ -1,7 +1,7 @@
 #![recursion_limit = "128"]
 use crate::initializer_attribute::{process_init_method, InitAttr};
 use quote::quote;
-use syn::export::TokenStream2;
+use syn::export::{TokenStream2, ToTokens};
 use syn::spanned::Spanned;
 use syn::{
     Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, Receiver, ReturnType, Type,
@@ -52,7 +52,10 @@ pub fn process_method(
     is_trait_impl: bool,
 ) -> syn::Result<TokenStream2> {
     let attrs = method.attrs.iter().fold(TokenStream2::new(), |mut acc, attr| {
-        acc.extend(quote!{#attr});
+        let attr_str = attr.path.to_token_stream().to_string();
+        if attr_str != "callback_args_vec".to_string() && attr_str != "callback_args".to_string() {
+            attr.to_tokens(&mut acc);
+        }
         acc
     });
     if !publicly_accessible(method, is_trait_impl) {
