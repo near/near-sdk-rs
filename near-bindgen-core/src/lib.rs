@@ -51,6 +51,10 @@ pub fn process_method(
     impl_type: &Type,
     is_trait_impl: bool,
 ) -> syn::Result<TokenStream2> {
+    let attrs = method.attrs.iter().fold(TokenStream2::new(), |mut acc, attr| {
+        acc.extend(quote!{#attr});
+        acc
+    });
     if !publicly_accessible(method, is_trait_impl) {
         return Ok(TokenStream2::new());
     }
@@ -150,6 +154,7 @@ pub fn process_method(
     };
 
     Ok(quote! {
+        #attrs
         #[cfg(target_arch = "wasm32")]
         #[no_mangle]
         pub extern "C" fn #method_name() {
