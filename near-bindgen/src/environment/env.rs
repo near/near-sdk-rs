@@ -1,5 +1,7 @@
-//! The methods available to the smart contract. This is a safe wrapper around low-level
-//! `BlockchainInterface`.
+//! Blockchain-specific methods available to the smart contract. This is a wrapper around a
+//! low-level `BlockchainInterface`. Unless you know what you are doing prefer using `env::*`
+//! whenever possible. In case of cross-contract calls prefer using even higher-level API available
+//! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
@@ -63,11 +65,13 @@ macro_rules! method_into_register {
 ///
 /// ```
 /// # let context = Default::default();
-/// # let config = Default::default();
+/// # let vm_config = Default::default();
+/// # let fees_config = Default::default();
 /// # let storage = Default::default();
 /// let mocked_blockchain = near_bindgen::MockedBlockchain::new(
 ///           context,
-///           config,
+///           vm_config,
+///           fees_config,
 ///           vec![],
 ///           storage,
 ///       );
@@ -79,6 +83,23 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
     })
 }
 
+/// Removes and returns the current low-level blockchain interface accessible through `env::*`.
+/// It is not meant to be used by the contract developers directly. In most cases you want to use
+/// `testing_env!` macro for your use cases.
+///
+/// ```
+/// # let mocked_blockchain = near_bindgen::MockedBlockchain::new(
+/// #           Default::default(),
+/// #           Default::default(),
+/// #           Default::default(),
+/// #           vec![],
+/// #           Default::default(),
+/// #       );
+/// # near_bindgen::env::set_blockchain_interface(Box::new(mocked_blockchain));
+/// let blockchain_interface = near_bindgen::env::take_blockchain_interface();
+/// // The following will panic, because there is no blockchain interface set:
+/// // env::account_balance();
+/// ```
 pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
     BLOCKCHAIN_INTERFACE.with(|b| b.replace(None))
 }

@@ -259,13 +259,13 @@ mod tests {
     use near_bindgen::{testing_env, VMContext};
 
     fn alice() -> AccountId {
-        "alice.near".to_string()
+        "alice_near".to_string()
     }
     fn bob() -> AccountId {
-        "bob.near".to_string()
+        "bob_near".to_string()
     }
     fn carol() -> AccountId {
-        "carol.near".to_string()
+        "carol_near".to_string()
     }
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
