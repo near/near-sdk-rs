@@ -53,7 +53,7 @@ pub fn process_method(
 ) -> syn::Result<TokenStream2> {
     let attrs = method.attrs.iter().fold(TokenStream2::new(), |mut acc, attr| {
         let attr_str = attr.path.to_token_stream().to_string();
-        if &attr_str != "callback_args_vec" && &attr_str != "callback_args" {
+        if attr_str != "callback_args_vec" && attr_str != "callback_args" {
             attr.to_tokens(&mut acc);
         }
         acc
