@@ -50,6 +50,7 @@ pub fn process_method(
     method: &ImplItemMethod,
     impl_type: &Type,
     is_trait_impl: bool,
+    has_init_method: bool,
 ) -> syn::Result<TokenStream2> {
     let attrs = method.attrs.iter().fold(TokenStream2::new(), |mut acc, attr| {
         let attr_str = attr.path.to_token_stream().to_string();
@@ -58,6 +59,14 @@ pub fn process_method(
         }
         acc
     });
+
+    // If init method is declared we do not use `Default::default` to unwrap the state, even if
+    // `Default` trait is implemented.
+    let state_unwrapper = if has_init_method {
+        quote!{unwrap()}
+    } else {
+        quote!{unwrap_or_default()}
+    };
     if !publicly_accessible(method, is_trait_impl) {
         return Ok(TokenStream2::new());
     }
@@ -86,14 +95,14 @@ pub fn process_method(
                 uses_self = true;
                 if mutability.is_some() {
                     state_de_code = quote! {
-                        let mut contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
+                        let mut contract: #impl_type = near_bindgen::env::state_read().#state_unwrapper;
                     };
                     state_ser_code = quote! {
                         near_bindgen::env::state_write(&contract);
                     }
                 } else {
                     state_de_code = quote! {
-                        let contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
+                        let contract: #impl_type = near_bindgen::env::state_read().#state_unwrapper;
                     };
                 }
             }
@@ -108,7 +117,7 @@ pub fn process_method(
                     ));
                 } else {
                     state_de_code = quote! {
-                        let mut contract: #impl_type = near_bindgen::env::state_read().unwrap_or_default();
+                        let mut contract: #impl_type = near_bindgen::env::state_read().#state_unwrapper;
                     };
                     state_ser_code = quote! {
                         near_bindgen::env::state_write(&contract);
@@ -199,7 +208,7 @@ pub fn process_impl(item_impl: &ItemImpl, attr: TokenStream2) -> TokenStream2 {
                 Some(init_attr) if m.sig.ident.to_string() == init_attr.ident.to_string() => {
                     process_init_method(m, impl_type, is_trait_impl)
                 }
-                _ => process_method(m, impl_type, is_trait_impl),
+                _ => process_method(m, impl_type, is_trait_impl, init_attr.is_some()),
             };
             match res {
                 Ok(wrapped_method) => output.extend(wrapped_method),
@@ -226,7 +235,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("fn method(&self) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, true).unwrap();
+        let actual = process_method(&method, &impl_type, true, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -244,7 +253,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -262,7 +271,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -277,11 +286,30 @@ mod tests {
     }
 
     #[test]
+    fn no_args_no_return_mut_init() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
+
+        let actual = process_method(&method, &impl_type, false, true).unwrap();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let mut contract: Hello = near_bindgen::env::state_read().unwrap();
+                contract.method();
+                near_bindgen::env::state_write(&contract);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
     fn arg_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -302,7 +330,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -325,7 +353,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -350,7 +378,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -370,7 +398,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -391,7 +419,7 @@ mod tests {
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -414,7 +442,7 @@ mod tests {
             pub fn method(&self, x: &mut u64, y: String, z: Vec<u8>) { }
         };
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -450,7 +478,7 @@ mod tests {
 
         // When there is no input args we should not even attempt reading input and parsing json
         // from it.
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -482,7 +510,7 @@ mod tests {
             pub fn method(&self, x: Vec<String>, y: String) { }
         };
 
-        let actual = process_method(&method, &impl_type, false).unwrap();
+        let actual = process_method(&method, &impl_type, false, false).unwrap();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]

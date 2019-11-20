@@ -59,13 +59,6 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-impl Default for FunToken {
-    fn default() -> Self {
-        env::panic(b"Not initialized");
-        unreachable!();
-    }
-}
-
 #[near_bindgen(init => new)]
 impl FunToken {
     pub fn new(owner_id: AccountId, total_supply: Balance) -> Self {
@@ -297,17 +290,6 @@ mod tests {
         assert_eq!(contract.get_total_supply(), total_supply);
         assert_eq!(contract.get_unlocked_balance(bob()), total_supply);
         assert_eq!(contract.get_total_balance(bob()), total_supply);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_default() {
-        let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
-        let total_supply = 1_000_000_000_000_000u128;
-        let contract = FunToken::default();
-        assert_eq!(contract.get_total_supply(), total_supply);
     }
 
     #[test]
