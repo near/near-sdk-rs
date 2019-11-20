@@ -4,7 +4,7 @@ use near_bindgen::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize)]
 struct Incrementer {
     value: u32,
 }

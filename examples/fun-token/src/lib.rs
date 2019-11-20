@@ -59,13 +59,6 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-impl Default for FunToken {
-    fn default() -> Self {
-        env::panic(b"Not initialized");
-        unreachable!();
-    }
-}
-
 #[near_bindgen(init => new)]
 impl FunToken {
     pub fn new(owner_id: AccountId, total_supply: Balance) -> Self {
