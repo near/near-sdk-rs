@@ -293,17 +293,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn test_default() {
-        let context = get_context(carol());
-        let config = Config::default();
-        testing_env!(context, config);
-        let total_supply = 1_000_000_000_000_000u128;
-        let contract = FunToken::default();
-        assert_eq!(contract.get_total_supply(), total_supply);
-    }
-
-    #[test]
     fn test_transfer() {
         let context = get_context(carol());
         let config = Config::default();
