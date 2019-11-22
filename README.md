@@ -60,8 +60,7 @@ impl StatusMessage {
     #[test]
     fn set_get_message() {
         let context = get_context(vec![]);
-        let config = Config::default();
-        testing_env!(context, config);
+        testing_env!(context);
         let mut contract = StatusMessage::default();
         contract.set_status("hello".to_string());
         assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
