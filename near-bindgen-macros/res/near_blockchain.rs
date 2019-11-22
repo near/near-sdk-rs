@@ -51,6 +51,10 @@ pub mod near_blockchain {
             sys::account_balance(balance_ptr)
         }
 
+        unsafe fn account_locked_balance(&self, balance_ptr: u64) {
+            sys::account_locked_balance(balance_ptr)
+        }
+
         unsafe fn attached_deposit(&self, balance_ptr: u64) {
             sys::attached_deposit(balance_ptr)
         }

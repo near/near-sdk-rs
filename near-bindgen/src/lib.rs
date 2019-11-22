@@ -11,14 +11,16 @@ pub use promise::{Promise, PromiseOrValue};
 pub use environment::mocked_blockchain::MockedBlockchain;
 pub use near_vm_logic::types::*;
 #[cfg(not(target_arch = "wasm32"))]
-pub use near_vm_logic::Config;
+pub use near_vm_logic::VMConfig;
+#[cfg(not(target_arch = "wasm32"))]
+pub use near_runtime_fees::RuntimeFeesConfig;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMContext;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! testing_env {
-    ($context:expr, $config:expr) => {
+    ($context:expr, $config:expr, $fee_config:expr) => {
         let storage = match near_bindgen::env::take_blockchain_interface() {
             Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
             None => Default::default(),
@@ -27,9 +29,13 @@ macro_rules! testing_env {
         near_bindgen::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
             $context,
             $config,
+            $fee_config,
             vec![],
             storage,
         )));
+    };
+    ($context:expr) => {
+        testing_env!($context, Default::default(), Default::default());
     };
 }
 

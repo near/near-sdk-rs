@@ -21,6 +21,7 @@ pub mod sys {
         // # Economics API #
         // #################
         pub fn account_balance(balance_ptr: u64);
+        pub fn account_locked_balance(balance_ptr: u64);
         pub fn attached_deposit(balance_ptr: u64);
         pub fn prepaid_gas() -> u64;
         pub fn used_gas() -> u64;

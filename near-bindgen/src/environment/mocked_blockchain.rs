@@ -2,7 +2,8 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::mocks::mock_external::MockedExternal;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
-use near_vm_logic::{Config, External, MemoryLike, VMContext, VMLogic};
+use near_vm_logic::{VMConfig, External, MemoryLike, VMContext, VMLogic};
+use near_runtime_fees::RuntimeFeesConfig;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -22,13 +23,15 @@ struct LogicFixture {
     ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
     promise_results: Box<Vec<PromiseResult>>,
-    config: Box<Config>,
+    config: Box<VMConfig>,
+    fees_config: Box<RuntimeFeesConfig>,
 }
 
 impl MockedBlockchain {
     pub fn new(
         context: VMContext,
-        config: Config,
+        config: VMConfig,
+        fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: BTreeMap<Vec<u8>, Vec<u8>>,
     ) -> Self {
@@ -37,14 +40,16 @@ impl MockedBlockchain {
         let memory = Box::new(MockedMemory {});
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
+        let fees_config = Box::new(fees_config);
 
-        let mut logic_fixture = LogicFixture { ext, memory, config, promise_results };
+        let mut logic_fixture = LogicFixture { ext, memory, config, fees_config, promise_results };
 
         let logic = unsafe {
             VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
-                &*(logic_fixture.config.as_mut() as *const Config),
+                &*(logic_fixture.config.as_mut() as *const VMConfig),
+                &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
             )
@@ -102,6 +107,10 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn account_balance(&self, balance_ptr: u64) {
         self.logic.borrow_mut().account_balance(balance_ptr).unwrap()
+    }
+
+    unsafe fn account_locked_balance(&self, balance_ptr: u64) {
+        self.logic.borrow_mut().account_locked_balance(balance_ptr).unwrap()
     }
 
     unsafe fn attached_deposit(&self, balance_ptr: u64) {
