@@ -158,6 +158,19 @@ pub fn account_balance() -> Balance {
     };
     Balance::from_le_bytes(data)
 }
+/// The balance locked for potential validator staking.
+pub fn account_locked_balance() -> Balance {
+    let data = [0u8; size_of::<Balance>()];
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .account_locked_balance(data.as_ptr() as u64)
+        })
+    };
+    Balance::from_le_bytes(data)
+}
 /// The balance that was attached to the call that will be immediately deposited before the
 /// contract execution starts
 pub fn attached_deposit() -> Balance {
