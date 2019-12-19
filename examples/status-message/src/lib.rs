@@ -40,6 +40,7 @@ mod tests {
             block_index: 0,
             block_timestamp: 0,
             account_balance: 0,
+            account_locked_balance: 0,
             storage_usage: 0,
             attached_deposit: 0,
             prepaid_gas: 10u64.pow(9),

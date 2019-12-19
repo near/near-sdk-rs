@@ -23,6 +23,7 @@ pub trait BlockchainInterface {
     // # Economics API #
     // #################
     unsafe fn account_balance(&self, balance_ptr: u64);
+    unsafe fn account_locked_balance(&self, balance_ptr: u64);
     unsafe fn attached_deposit(&self, balance_ptr: u64);
     unsafe fn prepaid_gas(&self) -> u64;
     unsafe fn used_gas(&self) -> u64;

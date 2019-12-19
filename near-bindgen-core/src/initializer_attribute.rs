@@ -1,6 +1,6 @@
 use crate::{arg_parsing, publicly_accessible};
 use proc_macro2::Ident;
-use syn::export::TokenStream2;
+use syn::export::{TokenStream2, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, ImplItemMethod, Token, Type};
@@ -54,6 +54,13 @@ pub fn process_init_method(
     impl_type: &Type,
     is_trait_impl: bool,
 ) -> syn::Result<TokenStream2> {
+    let attrs = method.attrs.iter().fold(TokenStream2::new(), |mut acc, attr| {
+        let attr_str = attr.path.to_token_stream().to_string();
+        if attr_str != "callback_args_vec" && attr_str != "callback_args" {
+            attr.to_tokens(&mut acc);
+        }
+        acc
+    });
     if !publicly_accessible(method, is_trait_impl) {
         return Err(Error::new(
             method.sig.generics.params.span(),
@@ -95,6 +102,7 @@ pub fn process_init_method(
     };
 
     Ok(quote! {
+        #attrs
         #[cfg(target_arch = "wasm32")]
         #[no_mangle]
         pub extern "C" fn #method_name() {

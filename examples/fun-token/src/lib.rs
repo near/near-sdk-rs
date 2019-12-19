@@ -59,13 +59,6 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-impl Default for FunToken {
-    fn default() -> Self {
-        env::panic(b"Not initialized");
-        unreachable!();
-    }
-}
-
 #[near_bindgen(init => new)]
 impl FunToken {
     pub fn new(owner_id: AccountId, total_supply: Balance) -> Self {
@@ -259,13 +252,13 @@ mod tests {
     use near_bindgen::{testing_env, VMContext};
 
     fn alice() -> AccountId {
-        "alice_near".to_string()
+        "alice.near".to_string()
     }
     fn bob() -> AccountId {
-        "bob_near".to_string()
+        "bob.near".to_string()
     }
     fn carol() -> AccountId {
-        "carol_near".to_string()
+        "carol.near".to_string()
     }
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
@@ -278,6 +271,7 @@ mod tests {
             block_index: 0,
             block_timestamp: 0,
             account_balance: 0,
+            account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
             prepaid_gas: 10u64.pow(9),
@@ -296,16 +290,6 @@ mod tests {
         assert_eq!(contract.get_total_supply(), total_supply);
         assert_eq!(contract.get_unlocked_balance(bob()), total_supply);
         assert_eq!(contract.get_total_balance(bob()), total_supply);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_default() {
-        let context = get_context(carol());
-        testing_env!(context);
-        let total_supply = 1_000_000_000_000_000u128;
-        let contract = FunToken::default();
-        assert_eq!(contract.get_total_supply(), total_supply);
     }
 
     #[test]
