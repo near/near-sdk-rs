@@ -96,7 +96,7 @@ pub fn process_trait(t: &ItemTrait, mod_name: Option<String>) -> syn::Result<Tok
                 if arg_to_json.is_empty() {
                     arg_to_json = quote! {vec![]};
                 } else {
-                    arg_to_json = quote! {json!({ #arg_to_json }).to_string().as_bytes().to_vec()};
+                    arg_to_json = quote! {serde_json::json!({ #arg_to_json }).to_string().as_bytes().to_vec()};
                 }
                 res.extend( quote! {
                     pub fn #method_name<T: ToString>(#method_args __account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
@@ -154,7 +154,7 @@ mod tests {
                     Promise::new(__account_id.to_string())
                         .function_call(
                         b"merge_sort".to_vec(),
-                        json!({ "arr": arr }).to_string().as_bytes().to_vec(),
+                        serde_json::json!({ "arr": arr }).to_string().as_bytes().to_vec(),
                         __balance,
                         __gas,
                     )

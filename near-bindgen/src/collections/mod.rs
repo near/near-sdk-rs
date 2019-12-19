@@ -1,7 +1,44 @@
-pub mod map;
+//! Collections that offer an alternative to standard containers from `std::collections::*` by
+//! utilizing the underlying blockchain trie storage more efficiently.
+//!
+//! For example, the following smart contract does not work with state efficiently, because it will
+//! load the entire `HashMap` at the beginning of the contract call, and will save it entirely at
+//! the end, in cases when there is state modification. This is fine for small number of elements,
+//! but very inefficient for large numbers.
+//!
+//! ```
+//! # use std::collections::HashMap;
+//! # use borsh::{BorshSerialize, BorshDeserialize};
+//! # use near_bindgen_macros::near_bindgen;
+//!
+//! #[near_bindgen]
+//! #[derive(Default, BorshDeserialize, BorshSerialize)]
+//! pub struct StatusMessage {
+//!    records: HashMap<String, String>,
+//! }
+//! ```
+//!
+//! The following is an efficient alternative. It will each element individually only when it is
+//! read and will save it only when it is written/removed.
+//! ```
+//! # use borsh::{BorshSerialize, BorshDeserialize};
+//! # use near_bindgen_macros::near_bindgen;
+//! # use near_bindgen::collections::Map;
+//!
+//! #[near_bindgen]
+//! #[derive(Default, BorshDeserialize, BorshSerialize)]
+//! pub struct StatusMessage {
+//!    records: Map<String, String>,
+//! }
+//! ```
+//!
+//! The efficiency of `Map` comes at the cost, since it has fewer methods than `HashMap` and is not
+//! that seemlessly integrated with the rest of the Rust standard library.
+
+mod map;
 pub use map::Map;
 
-pub mod set;
+mod set;
 pub use set::Set;
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided

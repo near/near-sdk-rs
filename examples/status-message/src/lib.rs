@@ -32,10 +32,10 @@ mod tests {
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {
-            current_account_id: "alice.near".to_string(),
-            signer_account_id: "bob.near".to_string(),
+            current_account_id: "alice_near".to_string(),
+            signer_account_id: "bob_near".to_string(),
             signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: "carol.near".to_string(),
+            predecessor_account_id: "carol_near".to_string(),
             input,
             block_index: 0,
             block_timestamp: 0,
@@ -56,7 +56,7 @@ mod tests {
         testing_env!(context);
         let mut contract = StatusMessage::default();
         contract.set_status("hello".to_string());
-        assert_eq!("hello".to_string(), contract.get_status("bob.near".to_string()).unwrap());
+        assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
     }
 
     #[test]
