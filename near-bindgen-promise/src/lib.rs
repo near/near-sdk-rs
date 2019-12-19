@@ -154,7 +154,7 @@ mod tests {
                     Promise::new(__account_id.to_string())
                         .function_call(
                         b"merge_sort".to_vec(),
-                        serder_json::json!({ "arr": arr }).to_string().as_bytes().to_vec(),
+                        serde_json::json!({ "arr": arr }).to_string().as_bytes().to_vec(),
                         __balance,
                         __gas,
                     )

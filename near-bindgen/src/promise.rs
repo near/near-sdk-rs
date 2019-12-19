@@ -145,7 +145,7 @@ impl PromiseJoint {
 ///   In the following code if someone calls method `ContractA::a` they will internally cause an
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
-/// ```
+/// ```ignore
 /// # use near_bindgen::{ext_contract, near_bindgen, Promise};
 /// # use borsh::{BorshDeserialize, BorshSerialize};
 /// #[ext_contract]
@@ -168,7 +168,7 @@ impl PromiseJoint {
 /// * When they need to create a transaction with one or many actions, e.g. the following code
 ///   schedules a transaction that creates an account, transfers tokens, and assigns a public key:
 ///
-/// ```
+/// ```ignore
 /// # use near_bindgen::{Promise, env, VMContext, testing_env};
 /// # testing_env!(VMContext{ signer_account_id: "bob_near".to_string(), account_balance: 10_000, prepaid_gas: 1_000_000, ..Default::default()});
 /// Promise::new("bob_near".to_string())
@@ -280,7 +280,7 @@ impl Promise {
     /// Note, once the promises are merged it is not possible to add actions to them, e.g. the
     /// following code will panic during the execution of the smart contract:
     ///
-    /// ```rust
+    /// ```ignore
     /// # use near_bindgen::{Promise, VMContext, testing_env};
     /// # testing_env!(VMContext{ signer_account_id: "alice_near".to_string(), prepaid_gas: 1_000_000, ..Default::default()});
     /// let p1 = Promise::new("bob_near".to_string()).create_account();
@@ -304,7 +304,7 @@ impl Promise {
     /// In the following code `bob_near` and `dave_near` will be created concurrently. `carol_near`
     /// creation will wait for `bob_near` to be created, and `eva_near` will wait for both `carol_near`
     /// and `dave_near` to be created first.
-    /// ```rust
+    /// ```ignore
     /// # use near_bindgen::{Promise, VMContext, testing_env};
     /// # testing_env!(VMContext{ signer_account_id: "alice_near".to_string(), prepaid_gas: 1_000_000, ..Default::default()});
     /// let p1 = Promise::new("bob_near".to_string()).create_account();

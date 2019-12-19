@@ -63,7 +63,7 @@ macro_rules! method_into_register {
 /// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
-/// ```
+/// ```ignore
 /// # let context = Default::default();
 /// # let vm_config = Default::default();
 /// # let fees_config = Default::default();
@@ -87,7 +87,7 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 /// It is not meant to be used by the contract developers directly. In most cases you want to use
 /// `testing_env!` macro for your use cases.
 ///
-/// ```
+/// ```ignore
 /// # let mocked_blockchain = near_bindgen::MockedBlockchain::new(
 /// #           Default::default(),
 /// #           Default::default(),
