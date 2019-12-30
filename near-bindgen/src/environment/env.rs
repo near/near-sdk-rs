@@ -5,8 +5,7 @@
 
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
-    AccountId, Balance, BlockIndex, Gas, IteratorIndex, PromiseIndex, PromiseResult, PublicKey,
-    StorageUsage,
+    AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 use std::mem::size_of;
 
@@ -31,10 +30,6 @@ const RETURN_CODE_ERR: &str = "Unexpected return code.";
 const ATOMIC_OP_REGISTER: u64 = 0;
 /// Register used to record evicted values from the storage.
 const EVICTED_REGISTER: u64 = std::u64::MAX - 1;
-/// Register used to read keys.
-const KEY_REGISTER: u64 = std::u64::MAX - 2;
-/// Register used to read values.
-const VALUE_REGISTER: u64 = std::u64::MAX - 3;
 
 /// Key used to store the state of the contract.
 const STATE_KEY: &[u8] = b"STATE";
@@ -556,7 +551,7 @@ pub fn value_return(value: &[u8]) {
     }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
-pub fn panic(message: &[u8]) {
+pub fn panic(message: &[u8]) -> ! {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -565,6 +560,7 @@ pub fn panic(message: &[u8]) {
                 .panic_utf8(message.len() as _, message.as_ptr() as _)
         })
     }
+    unreachable!()
 }
 /// Log the UTF-8 encodable message.
 pub fn log(message: &[u8]) {
@@ -651,55 +647,6 @@ pub fn storage_has_key(key: &[u8]) -> bool {
         1 => true,
         _ => panic!(RETURN_CODE_ERR),
     }
-}
-/// Creates an iterator that iterates key-values based on the prefix of the key.
-pub fn storage_iter_prefix(prefix: &[u8]) -> IteratorIndex {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_iter_prefix(prefix.len() as _, prefix.as_ptr() as _)
-        })
-    }
-}
-/// Creates an iterator that iterates key-values in [start, end) interval.
-pub fn storage_iter_range(start: &[u8], end: &[u8]) -> IteratorIndex {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_iter_range(
-                start.len() as _,
-                start.as_ptr() as _,
-                end.len() as _,
-                end.as_ptr() as _,
-            )
-        })
-    }
-}
-/// Checks the next element of iterator progressing it. Returns `true` if the element is available.
-/// Returns `false` if iterator has finished.
-pub fn storage_iter_next(iterator_idx: IteratorIndex) -> bool {
-    match unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_iter_next(
-                iterator_idx,
-                KEY_REGISTER,
-                VALUE_REGISTER,
-            )
-        })
-    } {
-        0 => false,
-        1 => true,
-        _ => panic!(RETURN_CODE_ERR),
-    }
-}
-/// Reads the key that iterator was pointing to.
-pub fn storage_iter_key_read() -> Option<Vec<u8>> {
-    read_register(KEY_REGISTER)
-}
-/// Reads the value that iterator was pointing to.
-pub fn storage_iter_value_read() -> Option<Vec<u8>> {
-    read_register(VALUE_REGISTER)
 }
 
 // ############################################

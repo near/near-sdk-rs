@@ -35,11 +35,17 @@
 //! The efficiency of `Map` comes at the cost, since it has fewer methods than `HashMap` and is not
 //! that seemlessly integrated with the rest of the Rust standard library.
 
-mod map;
-pub use map::Map;
+//mod map;
+//pub use map::Map;
 
 mod set;
 pub use set::Set;
+
+mod vector;
+pub use vector::Vector;
+
+mod map;
+pub use map::Map;
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.
