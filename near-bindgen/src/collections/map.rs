@@ -220,12 +220,12 @@ impl Iterator for IntoMapRawValues {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use crate::collections::Map;
+    use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use crate::{env, MockedBlockchain};
-    use crate::collections::Map;
-    use rand::{SeedableRng, Rng};
     use rand::seq::SliceRandom;
+    use rand::{Rng, SeedableRng};
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
 
@@ -252,7 +252,7 @@ mod tests {
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
-            prepaid_gas: 10u64.pow(9),
+            prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],
@@ -262,11 +262,11 @@ mod tests {
             None => Default::default(),
         };
         env::set_blockchain_interface(Box::new(MockedBlockchain::new(
-        context,
-        Default::default(),
-        Default::default(),
-        vec![],
-        storage,
+            context,
+            Default::default(),
+            Default::default(),
+            vec![],
+            storage,
         )));
     }
 
@@ -395,8 +395,14 @@ mod tests {
             map.insert(&key, &value);
         }
         let actual: HashMap<u64, u64> = HashMap::from_iter(map.to_vec());
-        assert_eq!(actual.keys().collect::<HashSet<_>>(), key_to_value.keys().collect::<HashSet<_>>());
-        assert_eq!(actual.values().collect::<HashSet<_>>(), key_to_value.values().collect::<HashSet<_>>());
+        assert_eq!(
+            actual.keys().collect::<HashSet<_>>(),
+            key_to_value.keys().collect::<HashSet<_>>()
+        );
+        assert_eq!(
+            actual.values().collect::<HashSet<_>>(),
+            key_to_value.values().collect::<HashSet<_>>()
+        );
     }
 
     #[test]

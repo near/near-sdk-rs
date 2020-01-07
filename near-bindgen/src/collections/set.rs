@@ -135,12 +135,12 @@ impl Iterator for IntoSetRawElements {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use crate::collections::Set;
+    use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use crate::{env, MockedBlockchain};
-    use crate::collections::Set;
-    use rand::{SeedableRng, Rng};
     use rand::seq::SliceRandom;
+    use rand::{Rng, SeedableRng};
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
@@ -167,7 +167,7 @@ mod tests {
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
-            prepaid_gas: 10u64.pow(9),
+            prepaid_gas: 10u64.pow(18),
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],

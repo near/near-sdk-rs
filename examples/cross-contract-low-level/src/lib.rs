@@ -98,7 +98,7 @@ impl CrossContract {
             b"set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
-            1_000_000,
+            1000000000000000000,
         );
     }
     pub fn complex_call(&mut self, account_id: String, message: String) {
@@ -111,7 +111,7 @@ impl CrossContract {
             b"set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
-            1_000_000,
+            1000000000000000000,
         );
         let promise1 = env::promise_then(
             promise0,
@@ -119,7 +119,7 @@ impl CrossContract {
             b"get_status",
             json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
             0,
-            1_000_000,
+            1000000000000000000,
         );
         env::promise_return(promise1);
     }
