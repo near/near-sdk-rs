@@ -556,7 +556,7 @@ pub fn value_return(value: &[u8]) {
     }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
-pub fn panic(message: &[u8]) {
+pub fn panic(message: &str) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -567,7 +567,7 @@ pub fn panic(message: &[u8]) {
     }
 }
 /// Log the UTF-8 encodable message.
-pub fn log(message: &[u8]) {
+pub fn log(message: &str) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
