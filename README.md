@@ -9,7 +9,6 @@
   <p>
     <a href="https://crates.io/crates/near-bindgen"><img src="https://img.shields.io/crates/v/near-bindgen.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-bindgen"><img src="https://img.shields.io/crates/d/near-bindgen.svg?style=flat-square" alt="Download" /></a>
-    <a href="https://spectrum.chat/near"><img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the community on Spectrum" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
     <a href="https://travis-ci.com/nearprotocol/near-bindgen"><img src="https://travis-ci.com/nearprotocol/near-bindgen.svg?branch=master" alt="Travis Build" /></a>
   </p>
