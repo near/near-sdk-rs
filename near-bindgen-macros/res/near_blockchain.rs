@@ -309,28 +309,5 @@ pub mod near_blockchain {
         unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
             sys::storage_has_key(key_len, key_ptr)
         }
-
-        unsafe fn storage_iter_prefix(&self, prefix_len: u64, prefix_ptr: u64) -> u64 {
-            sys::storage_iter_prefix(prefix_len, prefix_ptr)
-        }
-
-        unsafe fn storage_iter_range(
-            &self,
-            start_len: u64,
-            start_ptr: u64,
-            end_len: u64,
-            end_ptr: u64,
-        ) -> u64 {
-            sys::storage_iter_range(start_len, start_ptr, end_len, end_ptr)
-        }
-
-        unsafe fn storage_iter_next(
-            &self,
-            iterator_id: u64,
-            key_register_id: u64,
-            value_register_id: u64,
-        ) -> u64 {
-            sys::storage_iter_next(iterator_id, key_register_id, value_register_id)
-        }
     }
 }

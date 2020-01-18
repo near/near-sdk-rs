@@ -1,24 +1,18 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
-use crate::collections::next_trie_id;
+use crate::collections::{next_trie_id, Vector};
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_vm_logic::types::IteratorIndex;
-use std::marker::PhantomData;
+use std::mem::size_of;
 
+const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+
+/// An iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Set<T> {
-    len: u64,
-    prefix: Vec<u8>,
-    #[borsh_skip]
-    element: PhantomData<T>,
-}
-
-impl<T> Set<T> {
-    /// Returns the number of elements in the set, also referred to as its 'size'.
-    pub fn len(&self) -> u64 {
-        self.len
-    }
+    element_index_prefix: Vec<u8>,
+    elements: Vector<T>,
 }
 
 impl<T> Default for Set<T> {
@@ -28,9 +22,98 @@ impl<T> Default for Set<T> {
 }
 
 impl<T> Set<T> {
-    /// Create new set with zero elements. Use `id` as a unique identifier.
+    /// Returns the number of elements in the set, also referred to as its size.
+    pub fn len(&self) -> u64 {
+        self.elements.len()
+    }
+
+    /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
-        Self { len: 0, prefix: id, element: PhantomData }
+        let mut element_index_prefix = Vec::with_capacity(id.len() + 1);
+        element_index_prefix.extend(&id);
+        element_index_prefix.push(b'i');
+
+        let mut elements_prefix = Vec::with_capacity(id.len() + 1);
+        elements_prefix.extend(&id);
+        elements_prefix.push(b'e');
+
+        Self { element_index_prefix, elements: Vector::new(elements_prefix) }
+    }
+
+    fn serialize_index(index: u64) -> [u8; size_of::<u64>()] {
+        index.to_le_bytes()
+    }
+
+    fn deserialize_index(raw_index: &[u8]) -> u64 {
+        let mut result = [0u8; size_of::<u64>()];
+        result.copy_from_slice(raw_index);
+        u64::from_le_bytes(result)
+    }
+
+    fn raw_element_to_index_lookup(&self, element_raw: &[u8]) -> Vec<u8> {
+        let mut res = Vec::with_capacity(self.element_index_prefix.len() + element_raw.len());
+        res.extend_from_slice(&self.element_index_prefix);
+        res.extend_from_slice(&element_raw);
+        res
+    }
+
+    /// Returns true if the set contains a serialized element.
+    fn contains_raw(&self, element_raw: &[u8]) -> bool {
+        let index_lookup = self.raw_element_to_index_lookup(element_raw);
+        env::storage_has_key(&index_lookup)
+    }
+
+    /// Adds a value to the set. If the set did not have this value present, `true` is returned. If
+    /// the set did have this value present, `false` is returned. Note, the elements that have the same hash value are undistinguished by
+    /// the implementation.
+    pub fn insert_raw(&mut self, element_raw: &[u8]) -> bool {
+        let index_lookup = self.raw_element_to_index_lookup(element_raw);
+        match env::storage_read(&index_lookup) {
+            Some(index_raw) => {
+                // The element already exists.
+                env::storage_write(&index_lookup, &index_raw);
+                let index = Self::deserialize_index(&index_raw);
+                self.elements.replace_raw(index, element_raw);
+                true
+            }
+            None => {
+                // The element does not exist yet.
+                let next_index = self.len();
+                let next_index_raw = Self::serialize_index(next_index);
+                let element_lookup = self.raw_element_to_index_lookup(element_raw);
+                env::storage_write(&element_lookup, &next_index_raw);
+                self.elements.push_raw(element_raw);
+                false
+            }
+        }
+    }
+
+    /// Removes a value from the set. Returns whether the value was present in the set.
+    pub fn remove_raw(&mut self, element_raw: &[u8]) -> bool {
+        let index_lookup = self.raw_element_to_index_lookup(element_raw);
+        match env::storage_read(&index_lookup) {
+            Some(index_raw) => {
+                if self.len() == 1 {
+                    // If there is only one element then swap remove simply removes it without
+                    // swapping with the last element.
+                    env::storage_remove(&index_lookup);
+                } else {
+                    // If there is more than one element then swap remove swaps it with the last
+                    // element.
+                    let last_element_raw = match self.elements.get_raw(self.len() - 1) {
+                        Some(x) => x,
+                        None => env::panic(ERR_INCONSISTENT_STATE),
+                    };
+                    let last_lookup_element = self.raw_element_to_index_lookup(&last_element_raw);
+                    env::storage_remove(&index_lookup);
+                    env::storage_write(&last_lookup_element, &index_raw);
+                }
+                let index = Self::deserialize_index(&index_raw);
+                self.elements.swap_remove_raw(index);
+                true
+            }
+            None => false,
+        }
     }
 }
 
@@ -38,52 +121,37 @@ impl<T> Set<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
-    /// Serializes element into an array of bytes.
-    fn serialize_element(&self, element: &T) -> Vec<u8> {
-        let mut res = self.prefix.clone();
-        let data = element.try_to_vec().expect("Element should be serializable with Borsh.");
-        res.extend(data);
-        res
+    fn serialize_element(element: &T) -> Vec<u8> {
+        match element.try_to_vec() {
+            Ok(x) => x,
+            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+        }
     }
 
-    /// Deserializes element, taking prefix into account.
-    fn deserialize_element(prefix: &[u8], raw_element: &[u8]) -> T {
-        let element = &raw_element[prefix.len()..];
-        T::try_from_slice(element).expect("Element should be deserializable with Borsh.")
-    }
-
-    /// An iterator visiting all elements. The iterator element type is `T`.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
-        let prefix = self.prefix.clone();
-        self.raw_elements().map(move |k| Self::deserialize_element(&prefix, &k))
-    }
-
-    /// Returns `true` if the set contains a value
+    /// Returns true if the set contains an element.
     pub fn contains(&self, element: &T) -> bool {
-        let raw_element = self.serialize_element(element);
-        env::storage_read(&raw_element).is_some()
+        self.contains_raw(&Self::serialize_element(element))
     }
 
-    /// Removes an element from the set, returning `true` if the element was present.
+    /// Removes a value from the set. Returns whether the value was present in the set.
     pub fn remove(&mut self, element: &T) -> bool {
-        let raw_element = self.serialize_element(element);
-        if env::storage_remove(&raw_element) {
-            self.len -= 1;
-            true
-        } else {
-            false
-        }
+        self.remove_raw(&Self::serialize_element(element))
     }
 
-    /// Inserts an element into the set. If element was already present returns `true`.
+    /// Adds a value to the set. If the set did not have this value present, `true` is returned. If
+    /// the set did have this value present, `false` is returned. Note, the elements that have the same hash value are undistinguished by
+    /// the implementation.
     pub fn insert(&mut self, element: &T) -> bool {
-        let raw_element = self.serialize_element(element);
-        if env::storage_write(&raw_element, &[]) {
-            true
-        } else {
-            self.len += 1;
-            false
+        self.insert_raw(&Self::serialize_element(element))
+    }
+
+    /// Clears the map, removing all elements.
+    pub fn clear(&mut self) {
+        for raw_element in self.elements.iter_raw() {
+            let index_lookup = self.raw_element_to_index_lookup(&raw_element);
+            env::storage_remove(&index_lookup);
         }
+        self.elements.clear();
     }
 
     /// Copies elements into an `std::vec::Vec`.
@@ -91,43 +159,14 @@ where
         self.iter().collect()
     }
 
-    /// Raw serialized elements.
-    fn raw_elements(&self) -> IntoSetRawElements {
-        let iterator_id = env::storage_iter_prefix(&self.prefix);
-        IntoSetRawElements { iterator_id }
-    }
-    /// Clears the set, removing all elements.
-    pub fn clear(&mut self) {
-        let elements: Vec<Vec<u8>> = self.raw_elements().collect();
-        for element in elements {
-            env::storage_remove(&element);
-        }
-        self.len = 0;
+    /// Iterate over deserialized elements.
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+        self.elements.iter()
     }
 
     pub fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT) {
         for el in iter {
-            let element = self.serialize_element(&el);
-            if !env::storage_write(&element, &[]) {
-                self.len += 1;
-            }
-        }
-    }
-}
-
-/// Non-consuming iterator over raw serialized elements of `Set<T>`.
-pub struct IntoSetRawElements {
-    iterator_id: IteratorIndex,
-}
-
-impl Iterator for IntoSetRawElements {
-    type Item = Vec<u8>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if env::storage_iter_next(self.iterator_id) {
-            env::storage_iter_key_read()
-        } else {
-            None
+            self.insert(&el);
         }
     }
 }

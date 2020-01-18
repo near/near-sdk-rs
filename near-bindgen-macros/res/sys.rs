@@ -140,17 +140,5 @@ pub mod sys {
         pub fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_has_key(key_len: u64, key_ptr: u64) -> u64;
-        pub fn storage_iter_prefix(prefix_len: u64, prefix_ptr: u64) -> u64;
-        pub fn storage_iter_range(
-            start_len: u64,
-            start_ptr: u64,
-            end_len: u64,
-            end_ptr: u64,
-        ) -> u64;
-        pub fn storage_iter_next(
-            iterator_id: u64,
-            key_register_id: u64,
-            value_register_id: u64,
-        ) -> u64;
     }
 }
