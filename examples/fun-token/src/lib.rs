@@ -21,6 +21,7 @@ pub struct Account {
 
 impl Account {
     pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: Balance) {
+        env::log(b"example log");
         if allowance > 0 {
             self.allowances.insert(escrow_account_id.clone(), allowance);
         } else {

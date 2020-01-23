@@ -12,6 +12,7 @@ pub struct CrossContract {}
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+        env::log(b"example log");
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
         env::promise_batch_action_transfer(promise_idx, amount as u128);

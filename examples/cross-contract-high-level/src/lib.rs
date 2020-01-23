@@ -35,6 +35,7 @@ pub trait ExtStatusMessage {
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+        env::log(b"example log");
         Promise::new(account_id)
             .create_account()
             .transfer(amount as u128)

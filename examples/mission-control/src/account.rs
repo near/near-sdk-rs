@@ -1,6 +1,7 @@
 use crate::asset::*;
 use crate::rate::*;
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_bindgen::{env};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops;
@@ -30,6 +31,7 @@ pub enum Tranx {
 
 impl Account {
     pub fn quantity(&self, asset: &Asset) -> Quantity {
+        env::log(b"example log");
         match self.0.get(asset) {
             Some(quantity) => quantity.clone(),
             None => Quantity(0),
