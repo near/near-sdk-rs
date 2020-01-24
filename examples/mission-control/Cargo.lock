@@ -134,7 +134,7 @@ name = "mission-control"
 version = "0.1.0"
 dependencies = [
  "borsh 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-bindgen 0.3.9",
+ "near-bindgen 0.3.10",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.40 (git+https://github.com/nearprotocol/json?rev=1f5779f3b0bd3d2a4b0b975abc46f3d3fe873331)",
  "wee_alloc 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -142,10 +142,10 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "borsh 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-bindgen-macros 0.3.9",
+ "near-bindgen-macros 0.3.10",
  "near-runtime-fees 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-vm-logic 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -153,7 +153,7 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-core"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -162,10 +162,10 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-macros"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
- "near-bindgen-core 0.3.9",
- "near-bindgen-promise 0.3.9",
+ "near-bindgen-core 0.3.10",
+ "near-bindgen-promise 0.3.10",
  "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-promise"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "Inflector 0.11.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
