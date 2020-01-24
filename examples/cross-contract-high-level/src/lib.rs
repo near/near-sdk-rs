@@ -35,7 +35,7 @@ pub trait ExtStatusMessage {
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: String, amount: u64) {
-        env::log(b"example log");
+        env::log(b"deploy_status_message start");
         Promise::new(account_id)
             .create_account()
             .transfer(amount as u128)
@@ -43,6 +43,7 @@ impl CrossContract {
             .deploy_contract(
                 include_bytes!("../../status-message/res/status_message.wasm").to_vec(),
             );
+        env::log(b"deploy_status_message end");
     }
 
     pub fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
