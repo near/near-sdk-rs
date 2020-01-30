@@ -5,7 +5,7 @@
 
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
-    AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 use std::mem::size_of;
 
@@ -150,7 +150,7 @@ pub fn input() -> Option<Vec<u8>> {
     try_method_into_register!(input)
 }
 /// Current block index.
-pub fn block_index() -> BlockIndex {
+pub fn block_index() -> BlockHeight {
     unsafe {
         BLOCKCHAIN_INTERFACE
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
@@ -243,6 +243,32 @@ pub fn sha256(value: &[u8]) -> Vec<u8> {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).sha256(
+                value.len() as _,
+                value.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
+        });
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+/// Hashes the random sequence of bytes using keccak256.
+pub fn keccak256(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).keccak256(
+                value.len() as _,
+                value.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
+        });
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+/// Hashes the random sequence of bytes using keccak512.
+pub fn keccak512(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).keccak512(
                 value.len() as _,
                 value.as_ptr() as _,
                 ATOMIC_OP_REGISTER,
