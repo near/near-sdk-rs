@@ -129,6 +129,11 @@ impl UserData {
         }
     }
 
+    pub fn num_messages(&self, app_id: AppId) -> u64 {
+        verify_app_id(&app_id);
+        self.messages.get(&app_id).map(|q| q.len()).unwrap_or(0)
+    }
+
     pub fn pull_message(&mut self) -> Option<WrappedMessage> {
         let app_id = self.auth_app_id();
         if let Some(mut q) = self.messages.get(&app_id) {
@@ -324,8 +329,8 @@ mod tests {
         let mut contract = UserData::new();
         contract.add_app_key(pk, "app".to_string());
         contract.post_message("app".to_string(), "hello".to_string());
-        assert_eq!(contract.pull_message(), Some("hello".to_string()));
-        assert_eq!(contract.pull_message(), None);
+        assert_eq!(contract.pull_message().map(|m| m.message), Some("hello".to_string()));
+        assert_eq!(contract.pull_message().map(|m| m.message), None);
     }
 
     #[test]
@@ -337,7 +342,7 @@ mod tests {
         contract.add_app_key(pk, "app".to_string());
         contract.add_app_key(pk2, "bla".to_string());
         contract.post_message("bla".to_string(), "hello".to_string());
-        assert_eq!(contract.pull_message(), None);
+        assert_eq!(contract.pull_message().map(|m| m.message), None);
     }
 
     #[test]
@@ -351,9 +356,12 @@ mod tests {
         contract.send_message(alice(), "bla".to_string(), "hello".to_string());
         // Goes to somewhere else
         contract.send_message(bob(), "bla".to_string(), "hello".to_string());
-        assert_eq!(contract.pull_message(), None);
+        assert_eq!(contract.num_messages("app".to_string()), 0);
+        assert_eq!(contract.num_messages("bla".to_string()), 1);
+        assert_eq!(contract.pull_message().map(|m| m.message), None);
         testing_env!(get_context(pk2));
-        assert_eq!(contract.pull_message(), Some("hello".to_string()));
-        assert_eq!(contract.pull_message(), None);
+        assert_eq!(contract.pull_message().map(|m| m.message), Some("hello".to_string()));
+        assert_eq!(contract.num_messages("bla".to_string()), 0);
+        assert_eq!(contract.pull_message().map(|m| m.message), None);
     }
 }
