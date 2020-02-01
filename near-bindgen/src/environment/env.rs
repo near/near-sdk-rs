@@ -4,7 +4,7 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_vm_logic::types::{AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage, EpochId};
+use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage, EpochId, BlockHeight};
 use std::mem::size_of;
 
 use std::cell::RefCell;

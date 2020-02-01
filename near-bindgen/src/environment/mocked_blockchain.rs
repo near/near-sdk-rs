@@ -101,6 +101,10 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().block_timestamp().unwrap()
     }
 
+    unsafe fn epoch_id(&self, register_id: u64) {
+        self.logic.borrow_mut().epoch_id(register_id).unwrap()
+    }
+
     unsafe fn storage_usage(&self) -> u64 {
         self.logic.borrow_mut().storage_usage().unwrap()
     }
