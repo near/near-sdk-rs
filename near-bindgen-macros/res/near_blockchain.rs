@@ -35,6 +35,10 @@ pub mod near_blockchain {
             sys::input(register_id)
         }
 
+        unsafe fn epoch_id(&self, register_id: u64) {
+            sys::epoch_id(register_id)
+        }
+
         unsafe fn block_index(&self) -> u64 {
             sys::block_index()
         }
