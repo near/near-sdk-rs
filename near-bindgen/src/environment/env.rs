@@ -4,7 +4,7 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_vm_logic::types::{AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage, EpochId};
+use near_vm_logic::types::{AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage, EpochId};
 use std::mem::size_of;
 
 use std::cell::RefCell;
@@ -148,7 +148,7 @@ pub fn input() -> Option<Vec<u8>> {
     try_method_into_register!(input)
 }
 /// Current block index.
-pub fn block_index() -> BlockIndex {
+pub fn block_index() -> BlockHeight {
     unsafe {
         BLOCKCHAIN_INTERFACE
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
