@@ -14,6 +14,7 @@ pub mod sys {
         pub fn signer_account_pk(register_id: u64);
         pub fn predecessor_account_id(register_id: u64);
         pub fn input(register_id: u64);
+        pub fn epoch_id(register_id: u64);
         pub fn block_index() -> u64;
         pub fn block_timestamp() -> u64;
         pub fn storage_usage() -> u64;
