@@ -1059,7 +1059,7 @@ dependencies = [
 [[package]]
 name = "near-crypto"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "arrayref",
  "blake2",
@@ -1082,7 +1082,7 @@ dependencies = [
 [[package]]
 name = "near-primitives"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "actix",
  "base64",
@@ -1110,7 +1110,7 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1122,7 +1122,7 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-macro"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "near-rpc-error-core",
  "proc-macro2",
@@ -1135,7 +1135,7 @@ dependencies = [
 [[package]]
 name = "near-runtime-fees"
 version = "0.4.3"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "serde",
 ]
@@ -1143,7 +1143,7 @@ dependencies = [
 [[package]]
 name = "near-vm-errors"
 version = "0.4.3"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "borsh",
  "near-rpc-error-macro",
@@ -1153,7 +1153,7 @@ dependencies = [
 [[package]]
 name = "near-vm-logic"
 version = "0.4.3"
-source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#613e613d7f6520bae198abd557c1af0ad4c43cfa"
+source = "git+https://github.com/nearprotocol/nearcore?branch=expose-epoch-id#278a339f3d2281071b640a14a9eb6e6c2559aee5"
 dependencies = [
  "bs58",
  "byteorder",
