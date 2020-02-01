@@ -4,9 +4,7 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_vm_logic::types::{
-    AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
-};
+use near_vm_logic::types::{AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage, EpochId};
 use std::mem::size_of;
 
 use std::cell::RefCell;
@@ -163,6 +161,13 @@ pub fn block_timestamp() -> u64 {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_timestamp()
         })
     }
+}
+
+/// Current epoch id.
+pub fn epoch_id() -> EpochId {
+    let mut buf = [0u8; 32];
+    buf.copy_from_slice(&method_into_register!(epoch_id));
+    buf
 }
 /// Current total storage usage of this smart contract that this account would be paying for.
 pub fn storage_usage() -> StorageUsage {
