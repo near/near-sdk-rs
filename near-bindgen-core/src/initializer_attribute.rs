@@ -1,10 +1,10 @@
-use crate::{arg_parsing, publicly_accessible};
+use crate::{arg_deser, publicly_accessible};
 use proc_macro2::Ident;
-use syn::export::{TokenStream2, ToTokens};
+use quote::quote;
+use syn::export::{ToTokens, TokenStream2};
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, ImplItemMethod, Token, Type};
-use quote::quote;
 
 /// Parses the following syntax of an attribute of an attribute macro.
 ///
@@ -74,7 +74,7 @@ pub fn process_init_method(
         ));
     }
 
-    let (arg_parsing_code, arg_list) = arg_parsing::get_arg_parsing(method)?;
+    let (arg_parsing_code, arg_list) = arg_deser::get_arg_parsing(method)?;
 
     for arg in &method.sig.inputs {
         match arg {

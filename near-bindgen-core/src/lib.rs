@@ -1,45 +1,132 @@
 #![recursion_limit = "128"]
+use crate::arg_deser::create_input_struct;
+use crate::callback_args::CallbackArgs;
+use crate::callback_args_vec::CallbackArgsVec;
 use crate::initializer_attribute::{process_init_method, InitAttr};
+use crate::serializer_attr::SerializerAttr;
 use quote::quote;
-use syn::export::{TokenStream2, ToTokens};
+use syn::export::{ToTokens, TokenStream2};
 use syn::spanned::Spanned;
+use syn::token::Token;
 use syn::{
-    Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, Receiver, ReturnType, Type,
-    Visibility,
+    Attribute, Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, PatType, Receiver,
+    ReturnType, Type, Visibility,
 };
 
-mod arg_parsing;
-mod callback_args;
-mod callback_args_vec;
-pub mod initializer_attribute;
-
-/// Checks whether the method should be considered to be a part of contract API.
-pub fn publicly_accessible(method: &ImplItemMethod, is_trait_impl: bool) -> bool {
-    if let Visibility::Public(_) = method.vis {
-        true
-    } else {
-        is_trait_impl
-    }
+/// Type of serialization we use.
+enum SerializerType {
+    JSON,
+    Borsh,
 }
 
-/// Get code to serialize the return value.
-pub fn get_return_serialization(return_type: &ReturnType) -> syn::Result<TokenStream2> {
-    let span = return_type.span();
-    if let ReturnType::Type(_, return_type) = return_type {
-        arg_parsing::check_arg_return_type(return_type.as_ref(), span)?;
-        match return_type.as_ref() {
-            Type::Reference(_) => Ok(quote! {
-                 let result = serde_json::to_vec(result).unwrap();
-                 near_bindgen::env::value_return(&result);
-            }),
-            _ => Ok(quote! {
-                 let result = serde_json::to_vec(&result).unwrap();
-                 near_bindgen::env::value_return(&result);
-            }),
+mod arg_deser;
+mod callback_args;
+mod callback_args_vec;
+mod serializer_attr;
+
+struct BindgenMethod {
+    /// List of attributes that are not used by near-bindgen.
+    non_bindgen_attrs: Vec<Attribute>,
+    /// The list of arguments used to parse the input from the callback.
+    callback_args: Vec<CallbackArgs>,
+    /// An optional argument used to parse the entire input from the callback.
+    callback_args_vec: Option<CallbackArgsVec>,
+    /// Attribute defining serializer.
+    serializer: Option<SerializerAttr>,
+    /// Whether method can be used as initializer.
+    is_init: bool,
+    /// Regular arguments that are not callback and not self.
+    regular_args: Vec<PatType>,
+    /// Whether method has `pub` modifier or a part of trait implementation.
+    is_public: bool,
+    /// What this function returns.
+    returns: ReturnType,
+    /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
+    receiver: Option<Receiver>,
+}
+
+/// Process the method and extract information important for near-bindgen.
+fn _extract_bindgen_info_from_method(
+    method: &ImplItemMethod,
+    impl_type: &Type,
+    is_trait_impl: bool,
+) -> syn::Result<BindgenMethod> {
+    let mut callback_args = vec![];
+    let mut callback_args_vec = None;
+    let mut serializer = None;
+    let mut is_init = false;
+    let mut non_bindgen_attrs = vec![];
+    let mut regular_args = vec![];
+    for attr in &method.attrs {
+        let attr_str = attr.path.to_token_stream().to_string().as_str();
+        match attr_str {
+            "init" => {
+                is_init = true;
+            }
+            "callback_args" => callback_args.extend(syn::parse2(attr.tokens.clone())?),
+            "callback_args_vec" => callback_args_vec = Some(syn::parse2(attr.tokens.clone())?),
+            "serializer" => serializer = Some(syn::parse2(attr.tokens.clone())?),
+            _ => non_bindgen_attrs.push((*attr).clone()),
+        }
+    }
+
+    let is_public = match method.vis {
+        Visibility::Public(_) => true,
+        _ => is_trait_impl,
+    };
+    let returns = method.sig.output.clone();
+    let mut receiver = None;
+    for fn_arg in &method.sig.inputs {
+        match fn_arg {
+            FnArg::Receiver(r) => receiver = Some((*r).clone()),
+            FnArg::Typed(pat_typed) => {
+                for call_back_args in &callback_args {
+                    for call_back_arg in &callback_args.args {}
+                }
+            }
+        }
+    }
+    Ok(BindgenMethod {
+        non_bindgen_attrs,
+        callback_args,
+        callback_args_vec,
+        serializer,
+        is_init,
+        regular_args,
+        is_public,
+        returns,
+        receiver,
+    })
+}
+
+pub fn _process_method(
+    method: &ImplItemMethod,
+    impl_type: &Type,
+    is_trait_impl: bool,
+) -> syn::Result<TokenStream2> {
+    let bindgen_info = _extract_bindgen_info_from_method(method, impl_type, is_trait_impl)?;
+    let method_name = method.sig.ident.clone();
+
+    let mut needs_env_init = false;
+
+    let env_init = if needs_env_init {
+        quote! {
+        near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
         }
     } else {
-        Ok(TokenStream2::new())
-    }
+        TokenStream2::new()
+    };
+
+    Ok(quote! {
+        #[cfg(target_arch = "wasm32")]
+        #[no_mangle]
+        #non_bindgen_attrs
+        pub extern "C" fn #method_name() {
+            #env_init
+            #input_struct
+            #arg_deconstruct
+        }
+    })
 }
 
 /// Attempts processing `impl` method. If method is `pub` and has `&self`, `&mut self` or `self`
@@ -63,9 +150,9 @@ pub fn process_method(
     // If init method is declared we do not use `Default::default` to unwrap the state, even if
     // `Default` trait is implemented.
     let state_unwrapper = if has_init_method {
-        quote!{unwrap()}
+        quote! {unwrap()}
     } else {
-        quote!{unwrap_or_default()}
+        quote! {unwrap_or_default()}
     };
     if !publicly_accessible(method, is_trait_impl) {
         return Ok(TokenStream2::new());
@@ -80,7 +167,7 @@ pub fn process_method(
         ));
     }
 
-    let (arg_parsing_code, arg_list) = arg_parsing::get_arg_parsing(method)?;
+    let (arg_parsing_code, arg_list) = arg_deser::get_arg_parsing(method)?;
     let return_code = get_return_serialization(&method.sig.output)?;
 
     // Whether method uses self.
@@ -336,9 +423,13 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
-                let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
-                let m: Bar = serde_json::from_value(args["m"].clone()).unwrap();
+                let input = near_bindgen::env::input().unwrap();
+                #[derive(serde::Deserialize)]
+                struct Args {
+                    k: u64,
+                    m: Bar
+                }
+                let {k, m}: Args = serde_json::from_slice(&input).unwrap();
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(k, m, );
                 near_bindgen::env::state_write(&contract);
