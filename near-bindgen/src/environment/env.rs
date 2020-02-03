@@ -7,9 +7,10 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
     AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use std::mem::size_of;
 
 use std::cell::RefCell;
+use std::mem::size_of;
+use std::panic as std_panic;
 
 thread_local! {
 /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
@@ -97,6 +98,17 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 /// ```
 pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
     BLOCKCHAIN_INTERFACE.with(|b| b.replace(None))
+}
+
+/// Implements panic hook that converts `PanicInfo` into a string and provides it through the
+/// blockchain interface.
+fn panic_hook_impl(info: &std_panic::PanicInfo) {
+    panic(info.to_string().as_bytes());
+}
+
+/// Setups panic hook to expose error info to the blockchain.
+pub fn setup_panic_hook() {
+    std_panic::set_hook(Box::new(panic_hook_impl));
 }
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
