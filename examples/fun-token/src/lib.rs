@@ -1,13 +1,11 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_bindgen::{AccountId, Balance, env, near_bindgen};
 use near_bindgen::collections::Map;
-use near_bindgen::{env, near_bindgen};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-type AccountId = String;
-type Balance = u128;
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Account {
@@ -61,7 +59,8 @@ pub struct FunToken {
 
 #[near_bindgen(init => new)]
 impl FunToken {
-    pub fn new(owner_id: AccountId, total_supply: Balance) -> Self {
+    pub fn new(owner_id: AccountId, total_supply: String) -> Self {
+        let total_supply = u128::from_str(&total_supply).expect("Failed to parse total supply");
         let mut ft = Self { accounts: Map::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
@@ -73,7 +72,8 @@ impl FunToken {
     /// (`predecessor_id`) who is considered the balance owner to the new `allowance`.
     /// If some amount of tokens is currently locked by the `escrow_account_id` the new allowance is
     /// decreased by the amount of locked tokens.
-    pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: Balance) {
+    pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: String) {
+        let allowance = u128::from_str(&allowance).expect("Failed to parse allowance");
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
             env::panic(b"Can't set allowance for yourself");
@@ -93,7 +93,8 @@ impl FunToken {
     /// Requirements:
     /// * The (`predecessor_id`) should have enough allowance or be the owner.
     /// * The owner should have enough unlocked balance.
-    pub fn lock(&mut self, owner_id: AccountId, lock_amount: Balance) {
+    pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) {
+        let lock_amount = u128::from_str(&lock_amount).expect("Failed to parse allow lock_amount");
         if lock_amount == 0 {
             env::panic(b"Can't lock 0 tokens");
         }
@@ -127,7 +128,8 @@ impl FunToken {
     /// If called not by the `owner_id` then the `unlock_amount` will be converted to the allowance.
     /// Requirements:
     /// * The (`predecessor_id`) should have at least `unlock_amount` locked tokens from `owner_id`.
-    pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: Balance) {
+    pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: String) {
+        let unlock_amount = u128::from_str(&unlock_amount).expect("Failed to parse allow unlock_amount");
         if unlock_amount == 0 {
             env::panic(b"Can't unlock 0 tokens");
         }
@@ -162,7 +164,8 @@ impl FunToken {
     /// allowance tokens.
     /// * The balance owner should have at least `amount` of locked (by `predecessor_id`) plus
     /// unlocked tokens.
-    pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: Balance) {
+    pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: String) {
+        let amount = u128::from_str(&amount).expect("Failed to parse allow amount");
         if amount == 0 {
             env::panic(b"Can't transfer 0 tokens");
         }
@@ -207,33 +210,33 @@ impl FunToken {
     }
 
     /// Same as `transfer_from` with `owner_id` `predecessor_id`.
-    pub fn transfer(&mut self, new_owner_id: AccountId, amount: Balance) {
+    pub fn transfer(&mut self, new_owner_id: AccountId, amount: String) {
         self.transfer_from(env::predecessor_account_id(), new_owner_id, amount);
     }
 
     /// Returns total supply of tokens.
-    pub fn get_total_supply(&self) -> Balance {
-        self.total_supply
+    pub fn get_total_supply(&self) -> String {
+        self.total_supply.to_string()
     }
 
     /// Returns total balance for the `owner_id` account. Including all locked and unlocked tokens.
-    pub fn get_total_balance(&self, owner_id: AccountId) -> Balance {
-        self.get_account(&owner_id).total_balance()
+    pub fn get_total_balance(&self, owner_id: AccountId) -> String {
+        self.get_account(&owner_id).total_balance().to_string()
     }
 
     /// Returns unlocked token balance for the `owner_id`.
-    pub fn get_unlocked_balance(&self, owner_id: AccountId) -> Balance {
-        self.get_account(&owner_id).balance
+    pub fn get_unlocked_balance(&self, owner_id: AccountId) -> String {
+        self.get_account(&owner_id).balance.to_string()
     }
 
     /// Returns current allowance for the `owner_id` to be able to use by `escrow_account_id`.
-    pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> Balance {
-        self.get_account(&owner_id).get_allowance(&escrow_account_id)
+    pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> String {
+        self.get_account(&owner_id).get_allowance(&escrow_account_id).to_string()
     }
 
     /// Returns current locked balance for the `owner_id` locked by `escrow_account_id`.
-    pub fn get_locked_balance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> Balance {
-        self.get_account(&owner_id).get_locked_balance(&escrow_account_id)
+    pub fn get_locked_balance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> String {
+        self.get_account(&owner_id).get_locked_balance(&escrow_account_id).to_string()
     }
 }
 
@@ -247,9 +250,10 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use near_bindgen::MockedBlockchain;
     use near_bindgen::{testing_env, VMContext};
+    use near_bindgen::MockedBlockchain;
+
+    use super::*;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
