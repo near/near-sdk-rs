@@ -1,9 +1,9 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
+use near_runtime_fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::MockedExternal;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
-use near_vm_logic::{VMConfig, External, MemoryLike, VMContext, VMLogic};
-use near_runtime_fees::RuntimeFeesConfig;
+use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -383,32 +383,6 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
         self.logic.borrow_mut().storage_has_key(key_len, key_ptr).unwrap()
-    }
-
-    unsafe fn storage_iter_prefix(&self, prefix_len: u64, prefix_ptr: u64) -> u64 {
-        self.logic.borrow_mut().storage_iter_prefix(prefix_len, prefix_ptr).unwrap()
-    }
-
-    unsafe fn storage_iter_range(
-        &self,
-        start_len: u64,
-        start_ptr: u64,
-        end_len: u64,
-        end_ptr: u64,
-    ) -> u64 {
-        self.logic.borrow_mut().storage_iter_range(start_len, start_ptr, end_len, end_ptr).unwrap()
-    }
-
-    unsafe fn storage_iter_next(
-        &self,
-        iterator_id: u64,
-        key_register_id: u64,
-        value_register_id: u64,
-    ) -> u64 {
-        self.logic
-            .borrow_mut()
-            .storage_iter_next(iterator_id, key_register_id, value_register_id)
-            .unwrap()
     }
 
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {

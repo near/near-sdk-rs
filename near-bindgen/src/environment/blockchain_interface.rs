@@ -153,20 +153,6 @@ pub trait BlockchainInterface {
     unsafe fn storage_read(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_remove(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64;
-    unsafe fn storage_iter_prefix(&self, prefix_len: u64, prefix_ptr: u64) -> u64;
-    unsafe fn storage_iter_range(
-        &self,
-        start_len: u64,
-        start_ptr: u64,
-        end_len: u64,
-        end_ptr: u64,
-    ) -> u64;
-    unsafe fn storage_iter_next(
-        &self,
-        iterator_id: u64,
-        key_register_id: u64,
-        value_register_id: u64,
-    ) -> u64;
 
     #[cfg(not(target_arch = "wasm32"))]
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
