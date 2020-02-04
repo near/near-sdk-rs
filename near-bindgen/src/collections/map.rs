@@ -5,10 +5,10 @@ use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_KEY_SERIALIZATION: &[u8] = b"Cannot serialize key with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_KEY_SERIALIZATION: &str = "Cannot serialize key with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An iterable implementation of a map that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
