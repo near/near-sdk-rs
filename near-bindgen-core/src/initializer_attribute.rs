@@ -1,10 +1,10 @@
 use crate::{arg_parsing, publicly_accessible};
 use proc_macro2::Ident;
-use syn::export::{TokenStream2, ToTokens};
+use quote::quote;
+use syn::export::{ToTokens, TokenStream2};
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{Error, FnArg, ImplItemMethod, Token, Type};
-use quote::quote;
 
 /// Parses the following syntax of an attribute of an attribute macro.
 ///
@@ -84,6 +84,10 @@ pub fn process_init_method(
             _ => {}
         }
     }
+
+    let panic_hook = quote! {
+         near_bindgen::env::setup_panic_hook();
+    };
     let env_creation = quote! {
         near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
     };
@@ -95,6 +99,7 @@ pub fn process_init_method(
         near_bindgen::env::state_write(&contract);
     };
     let method_body = quote! {
+        #panic_hook
         #env_creation
         #arg_parsing_code
         #method_invocation
@@ -152,6 +157,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();

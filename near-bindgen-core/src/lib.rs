@@ -1,7 +1,7 @@
 #![recursion_limit = "128"]
 use crate::initializer_attribute::{process_init_method, InitAttr};
 use quote::quote;
-use syn::export::{TokenStream2, ToTokens};
+use syn::export::{ToTokens, TokenStream2};
 use syn::spanned::Spanned;
 use syn::{
     Error, FnArg, GenericParam, ImplItem, ImplItemMethod, ItemImpl, Receiver, ReturnType, Type,
@@ -63,9 +63,9 @@ pub fn process_method(
     // If init method is declared we do not use `Default::default` to unwrap the state, even if
     // `Default` trait is implemented.
     let state_unwrapper = if has_init_method {
-        quote!{unwrap()}
+        quote! {unwrap()}
     } else {
-        quote!{unwrap_or_default()}
+        quote! {unwrap_or_default()}
     };
     if !publicly_accessible(method, is_trait_impl) {
         return Ok(TokenStream2::new());
@@ -128,6 +128,10 @@ pub fn process_method(
         }
     }
 
+    let panic_hook = quote! {
+         near_bindgen::env::setup_panic_hook();
+    };
+
     let env_creation = quote! {
         near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
     };
@@ -157,6 +161,7 @@ pub fn process_method(
     };
 
     let method_body = quote! {
+        #panic_hook
         #env_creation
         #arg_parsing_code
         #state_de_code
@@ -240,6 +245,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
@@ -258,6 +264,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
@@ -276,6 +283,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
@@ -295,6 +303,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap();
                 contract.method();
@@ -314,6 +323,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
@@ -335,6 +345,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
@@ -358,6 +369,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
@@ -383,6 +395,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method();
@@ -403,6 +416,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
@@ -424,6 +438,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let mut k: u64 = serde_json::from_value(args["k"].clone()).unwrap();
@@ -447,6 +462,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 assert_eq!(near_bindgen::env::promise_results_count(), 2u64);
@@ -483,6 +499,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 assert_eq!(near_bindgen::env::promise_results_count(), 2u64);
                 let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
@@ -515,6 +532,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
                 let x: Vec<String> = (0..near_bindgen::env::promise_results_count())
