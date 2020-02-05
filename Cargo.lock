@@ -146,6 +146,11 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "keccak"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -166,8 +171,8 @@ version = "0.3.10"
 dependencies = [
  "borsh 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-bindgen-macros 0.3.10",
- "near-runtime-fees 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)",
- "near-vm-logic 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)",
+ "near-runtime-fees 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-vm-logic 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand_xorshift 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustversion 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -209,7 +214,7 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=staging#ff5036b6f41fdac290c4ff005418c6b203af48f7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -221,9 +226,9 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-macro"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=staging#ff5036b6f41fdac290c4ff005418c6b203af48f7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "near-rpc-error-core 0.1.0 (git+https://github.com/nearprotocol/nearcore?branch=staging)",
+ "near-rpc-error-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -233,33 +238,34 @@ dependencies = [
 
 [[package]]
 name = "near-runtime-fees"
-version = "0.4.3"
-source = "git+https://github.com/nearprotocol/nearcore?branch=staging#ff5036b6f41fdac290c4ff005418c6b203af48f7"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "near-vm-errors"
-version = "0.4.3"
-source = "git+https://github.com/nearprotocol/nearcore?branch=staging#ff5036b6f41fdac290c4ff005418c6b203af48f7"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "borsh 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-rpc-error-macro 0.1.0 (git+https://github.com/nearprotocol/nearcore?branch=staging)",
+ "near-rpc-error-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "near-vm-logic"
-version = "0.4.3"
-source = "git+https://github.com/nearprotocol/nearcore?branch=staging#ff5036b6f41fdac290c4ff005418c6b203af48f7"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bs58 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-runtime-fees 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)",
- "near-vm-errors 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)",
+ "near-runtime-fees 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-vm-errors 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha3 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -405,6 +411,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha3"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "block-buffer 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "byte-tools 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "keccak 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "opaque-debug 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -523,14 +541,15 @@ dependencies = [
 "checksum glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 "checksum indexmap 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0b54058f0a6ff80b6803da8faf8997cde53872b38f4023728f6830b06cd3c0dc"
 "checksum itoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
+"checksum keccak 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 "checksum libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)" = "1a31a0627fdf1f6a39ec0dd577e101440b7db22672c0901fe00a9a6fbb5c24e8"
 "checksum memchr 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
-"checksum near-rpc-error-core 0.1.0 (git+https://github.com/nearprotocol/nearcore?branch=staging)" = "<none>"
-"checksum near-rpc-error-macro 0.1.0 (git+https://github.com/nearprotocol/nearcore?branch=staging)" = "<none>"
-"checksum near-runtime-fees 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)" = "<none>"
-"checksum near-vm-errors 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)" = "<none>"
-"checksum near-vm-logic 0.4.3 (git+https://github.com/nearprotocol/nearcore?branch=staging)" = "<none>"
+"checksum near-rpc-error-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ffa8dbf8437a28ac40fcb85859ab0d0b8385013935b000c7a51ae79631dd74d9"
+"checksum near-rpc-error-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0c6111d713e90c7c551dee937f4a06cb9ea2672243455a4454cc7566387ba2d9"
+"checksum near-runtime-fees 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "2703f396f86da4324073de543f970e62ab9e0622839f452fafe0775dfc96a361"
+"checksum near-vm-errors 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "810b4cc78c7451c6cbfd546dc3af13d7ea7ea4aaa37e253be12477d28fdb1c55"
+"checksum near-vm-logic 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "968337bef99ec3d8b079050082b25b16c2b7c0a765324ed9547bbfd3a40cdd0b"
 "checksum opaque-debug 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
 "checksum ppv-lite86 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
 "checksum proc-macro2 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "9c9e470a8dc4aeae2dee2f335e8f533e2d4b347e1434e5671afc49b054592f27"
@@ -548,6 +567,7 @@ dependencies = [
 "checksum serde_derive 1.0.101 (registry+https://github.com/rust-lang/crates.io-index)" = "4b133a43a1ecd55d4086bd5b4dc6c1751c68b1bfbeba7a5040442022c7e7c02e"
 "checksum serde_json 1.0.41 (registry+https://github.com/rust-lang/crates.io-index)" = "2f72eb2a68a7dc3f9a691bfda9305a1c017a6215e5a4545c258500d2099a37c2"
 "checksum sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7b4d8bfd0e469f417657573d8451fb33d16cfe0989359b93baf3a1ffc639543d"
+"checksum sha3 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "dd26bc0e7a2e3a7c959bc494caf58b72ee0c71d67704e9520f736ca7e4853ecf"
 "checksum syn 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "66850e97125af79138385e9b88339cbcd037e3f28ceab8c5ad98e64f0f1f80bf"
 "checksum termcolor 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "96d6098003bde162e4277c70665bd87c326f5a0c3f3fbfb285787fa482d54e6e"
 "checksum thread_local 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c6b53e329000edc2b34dbe8545fd20e55a333362d0a321909685a19bd28c3f1b"

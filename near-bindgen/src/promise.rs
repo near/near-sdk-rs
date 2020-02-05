@@ -170,7 +170,7 @@ impl PromiseJoint {
 ///
 /// ```ignore
 /// # use near_bindgen::{Promise, env, VMContext, testing_env};
-/// # testing_env!(VMContext{ signer_account_id: "bob_near".to_string(), account_balance: 10_000, prepaid_gas: 1_000_000, ..Default::default()});
+/// # testing_env!(VMContext{ signer_account_id: "bob_near".to_string(), account_balance: 1000, prepaid_gas: 1_000_000, ..Default::default()});
 /// Promise::new("bob_near".to_string())
 ///   .create_account()
 ///   .transfer(1000)
