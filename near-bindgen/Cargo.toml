@@ -21,8 +21,8 @@ path = "compilation_tests/all.rs"
 serde = { version = "1.0", features = ["derive"] }
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.3.10"}
 borsh = "0.2.10"
-near-vm-logic = "0.4.3"
-near-runtime-fees = "0.4.3"
+near-vm-logic = { git = "https://github.com/nearprotocol/nearcore", branch = "staging" }
+near-runtime-fees = { git = "https://github.com/nearprotocol/nearcore", branch = "staging" }
 
 [dev-dependencies]
 serde_json = "1.0"
