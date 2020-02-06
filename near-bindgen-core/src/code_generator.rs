@@ -228,3 +228,35 @@ pub fn processed_impl_method(method_info: MethodInfo) -> ImplItemMethod {
     original.sig.inputs = inputs;
     original
 }
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn method() {
+    near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+    #[derive(serde :: Deserialize)]
+    struct Input {
+        k: u64,
+    }
+    let Input { k }: Input = serde_json::from_slice(
+        &near_bindgen::env::input().expect("Expected input since method has arguments."),
+    )
+    .expect("Failed to deserialize input from JSON.");
+    let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+    contract.method(&k);
+}
+
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn method() {
+    near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+    #[derive(serde :: Deserialize)]
+    struct Input {
+        k: u64,
+    }
+    let Input { mut k }: Input = serde_json::from_slice(
+        &near_bindgen::env::input().expect("Expected input since method has arguments."),
+    )
+    .expect("Failed to deserialize input from JSON.");
+    let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+    contract.method(&mut k);
+}
