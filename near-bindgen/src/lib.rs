@@ -1,4 +1,6 @@
-pub use near_bindgen_macros::{callback_args, callback_args_vec, ext_contract, near_bindgen};
+pub use near_bindgen_macros::{
+    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer,
+};
 
 pub mod collections;
 mod environment;
@@ -9,11 +11,11 @@ pub use promise::{Promise, PromiseOrValue};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;
+#[cfg(not(target_arch = "wasm32"))]
+pub use near_runtime_fees::RuntimeFeesConfig;
 pub use near_vm_logic::types::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMConfig;
-#[cfg(not(target_arch = "wasm32"))]
-pub use near_runtime_fees::RuntimeFeesConfig;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMContext;
 
