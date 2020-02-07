@@ -1,8 +1,7 @@
-use crate::info_extractor::{ArgInfo, AttrSigInfo, ImplItemMethodInfo, SerializerType};
+use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, SerializerType};
 use quote::quote;
 use syn::export::TokenStream2;
-use syn::punctuated::Punctuated;
-use syn::{FnArg, ImplItemMethod, ReturnType, Token};
+use syn::ReturnType;
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -96,7 +95,7 @@ impl ImplItemMethodInfo {
                             let result = serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                         },
                         SerializerType::Borsh => quote! {
-                            let result = borsh::BorshSerialize::try_to_vec(&contract, &result).expect("Failed to serialize the return value using Borsh.");
+                            let result = borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
                         },
                     };
                     quote! {
@@ -129,23 +128,5 @@ impl ImplItemMethodInfo {
                 #body
             }
         }
-    }
-
-    /// Original method from `impl` section with adjusted attributes.
-    pub fn processed_impl_method(self) -> ImplItemMethod {
-        let ImplItemMethodInfo { mut original, attr_signature_info, .. } = self;
-        let AttrSigInfo { receiver, args, non_bindgen_attrs, .. } = attr_signature_info;
-        original.attrs = non_bindgen_attrs;
-        let mut inputs: Punctuated<FnArg, Token![,]> = Default::default();
-        if let Some(receiver) = receiver {
-            inputs.push(FnArg::Receiver(receiver));
-        }
-        for arg_info in args {
-            let ArgInfo { mut original, non_bindgen_attrs, .. } = arg_info;
-            original.attrs = non_bindgen_attrs;
-            inputs.push(FnArg::Typed(original));
-        }
-        original.sig.inputs = inputs;
-        original
     }
 }

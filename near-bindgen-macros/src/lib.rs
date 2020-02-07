@@ -4,7 +4,6 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 
 use near_bindgen_core::*;
-use near_bindgen_promise::process_trait;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{File, ItemImpl, ItemStruct, ItemTrait};
@@ -19,8 +18,8 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #sys_file
             #near_environment
         });
-    } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-        let generated_code = process_impl(&mut input);
+    } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
+        let generated_code = process_impl(&input);
         TokenStream::from(quote! {
             #input
             #generated_code
@@ -59,13 +58,11 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             };
         }
-        match process_trait(&input, mod_name.map(|x| x.to_string())) {
-            Ok(generated_code) => TokenStream::from(quote! {
-                #input
-                #generated_code
-            }),
-            Err(e) => TokenStream::from(e.to_compile_error()),
-        }
+        let item_trait_info = match ItemTraitInfo::new(input, mod_name) {
+            Ok(x) => x,
+            Err(err) => return TokenStream::from(err.to_compile_error()),
+        };
+        item_trait_info.wrapped_module().into()
     } else {
         TokenStream::from(
             syn::Error::new(Span::call_site(), "ext_contract can only be used on traits")
@@ -73,6 +70,8 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
         )
     }
 }
+
+// The below attributes a marker-attributes and therefore they are no-op.
 
 /// `callback` is a marker attribute it does not generate code by itself.
 #[proc_macro_attribute]

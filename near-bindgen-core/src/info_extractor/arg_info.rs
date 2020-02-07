@@ -19,6 +19,10 @@ pub struct ArgInfo {
     pub non_bindgen_attrs: Vec<Attribute>,
     /// The `binding` part of `ref mut binding @ SUBPATTERN: TYPE` argument.
     pub ident: Ident,
+    /// Whether pattern has a preceded `ref`.
+    pub pat_reference: Option<Token![ref]>,
+    /// Whether pattern has a preceded `mut`.
+    pub pat_mutability: Option<Token![mut]>,
     /// Whether the `TYPE` starts with `&`.
     pub reference: Option<Token![&]>,
     /// Whether `TYPE` starts with `&mut`. Can only be set together with the `reference`.
@@ -37,8 +41,15 @@ impl ArgInfo {
     /// Extract near-bindgen specific argument info.
     pub fn new(original: PatType) -> syn::Result<Self> {
         let mut non_bindgen_attrs = vec![];
-        let ident = match original.pat.as_ref() {
-            Pat::Ident(pat_ident) => pat_ident.ident.clone(),
+        let pat_reference;
+        let pat_mutability;
+        let ident;
+        match original.pat.as_ref() {
+            Pat::Ident(pat_ident) => {
+                pat_reference = pat_ident.by_ref.clone();
+                pat_mutability = pat_ident.mutability.clone();
+                ident = pat_ident.ident.clone();
+            }
             _ => {
                 return Err(Error::new(
                     Span::call_site(),
@@ -81,6 +92,8 @@ impl ArgInfo {
         Ok(Self {
             non_bindgen_attrs,
             ident,
+            pat_reference,
+            pat_mutability,
             reference,
             mutability,
             ty,

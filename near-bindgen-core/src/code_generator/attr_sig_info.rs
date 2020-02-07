@@ -25,8 +25,10 @@ impl AttrSigInfo {
             "Can only generate input struct for when input args are specified"
         );
         let attribute = match &self.input_serializer {
-            SerializerType::JSON => quote! {#[derive(serde::Deserialize)]},
-            SerializerType::Borsh => quote! {#[derive(borsh::BorshDeserialize)]},
+            SerializerType::JSON => quote! {#[derive(serde::Deserialize, serde::Serialize)]},
+            SerializerType::Borsh => {
+                quote! {#[derive(borsh::BorshDeserialize, borsh::BorshSerialize)]}
+            }
         };
         let mut fields = TokenStream2::new();
         for arg in args {
@@ -72,6 +74,35 @@ impl AttrSigInfo {
         }
     }
 
+    /// Create expression that constructs the struct.
+    /// # Example:
+    /// ```
+    /// Input {
+    ///     arg0,
+    ///     arg1,
+    ///     arg2,
+    /// }
+    /// ```
+    pub fn constructor_expr(&self) -> TokenStream2 {
+        let args: Vec<_> = self.input_args().collect();
+        assert!(
+            !args.is_empty(),
+            "Can only generate constructor expression for when input args are specified."
+        );
+        let mut fields = TokenStream2::new();
+        for arg in args {
+            let ArgInfo { ident, .. } = &arg;
+            fields.extend(quote! {
+            #ident,
+            });
+        }
+        quote! {
+            Input {
+                #fields
+            }
+        }
+    }
+
     /// Create a sequence of arguments that can be used to call the method or the function
     /// of the smart contract.
     ///
@@ -85,6 +116,23 @@ impl AttrSigInfo {
             let ArgInfo { reference, mutability, ident, .. } = &arg;
             result.extend(quote! {
                 #reference #mutability #ident,
+            });
+        }
+        result
+    }
+
+    /// Create a sequence of patterns and types to be used in the method signature.
+    ///
+    /// # Example:
+    /// ```
+    /// a: u64, b: &mut T, ref mut c: Vec<String>,
+    /// ```
+    pub fn pat_type_list(&self) -> TokenStream2 {
+        let mut result = TokenStream2::new();
+        for arg in &self.args {
+            let ArgInfo { original, .. } = &arg;
+            result.extend(quote! {
+                #original,
             });
         }
         result

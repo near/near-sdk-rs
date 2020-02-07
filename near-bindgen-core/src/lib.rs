@@ -6,11 +6,13 @@ use syn::{Error, ImplItem, ItemImpl};
 
 mod code_generator;
 mod info_extractor;
+pub use code_generator::*;
+pub use info_extractor::*;
 
 /// Processes `impl` section of the struct.
 /// # Args:
 /// `item_impl` -- tokens representing `impl .. {}` body;
-pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
+pub fn process_impl(item_impl: &ItemImpl) -> TokenStream2 {
     if !item_impl.generics.params.is_empty() {
         return Error::new(
             item_impl.generics.params.span(),
@@ -23,7 +25,7 @@ pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
 
     // Type for which impl is called.
     let impl_type = item_impl.self_ty.as_ref();
-    for subitem in item_impl.items.iter_mut() {
+    for subitem in &item_impl.items {
         if let ImplItem::Method(m) = subitem {
             let method_info =
                 ImplItemMethodInfo::new((*m).clone(), (*impl_type).clone(), is_trait_impl);
@@ -36,7 +38,6 @@ pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
 
             if method_info.is_public {
                 output.extend(method_info.method_wrapper());
-                *m = method_info.processed_impl_method();
             }
         }
     }
@@ -435,7 +436,7 @@ mod tests {
                 .expect("Failed to deserialize input from Borsh.");
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method(k, m, );
-                let result = borsh::BorshSerialize::try_to_vec(&contract, &result)
+                let result = borsh::BorshSerialize::try_to_vec(&result)
                     .expect("Failed to serialize the return value using Borsh.");
                 near_bindgen::env::value_return(&result);
                 near_bindgen::env::state_write(&contract);

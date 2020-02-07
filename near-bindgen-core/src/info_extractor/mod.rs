@@ -10,6 +10,12 @@ pub use attr_sig_info::AttrSigInfo;
 mod impl_item_method_info;
 pub use impl_item_method_info::ImplItemMethodInfo;
 
+mod trait_item_method_info;
+pub use trait_item_method_info::*;
+
+mod item_trait_info;
+pub use item_trait_info::ItemTraitInfo;
+
 /// Type of serialization we use.
 #[derive(PartialEq, Eq)]
 pub enum SerializerType {

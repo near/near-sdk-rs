@@ -3,6 +3,7 @@ use crate::info_extractor::serializer_attr::SerializerAttr;
 use crate::info_extractor::SerializerType;
 use quote::ToTokens;
 use syn::export::Span;
+use syn::spanned::Spanned;
 use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
 
 /// Information extracted from method attributes and signature.
@@ -30,6 +31,31 @@ pub struct AttrSigInfo {
 impl AttrSigInfo {
     /// Process the method and extract information important for near-bindgen.
     pub fn new(original_attrs: Vec<Attribute>, original_sig: Signature) -> syn::Result<Self> {
+        if original_sig.asyncness.is_some() {
+            return Err(Error::new(
+                original_sig.span(),
+                "Contract API is not allowed to be async.",
+            ));
+        }
+        if original_sig.abi.is_some() {
+            return Err(Error::new(
+                original_sig.span(),
+                "Contract API is not allowed to have binary interface.",
+            ));
+        }
+        if !original_sig.generics.params.is_empty() {
+            return Err(Error::new(
+                original_sig.span(),
+                "Contract API is not allowed to have generics.",
+            ));
+        }
+        if original_sig.variadic.is_some() {
+            return Err(Error::new(
+                original_sig.span(),
+                "Contract API is not allowed to have variadic arguments.",
+            ));
+        }
+
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
         let mut args = vec![];
