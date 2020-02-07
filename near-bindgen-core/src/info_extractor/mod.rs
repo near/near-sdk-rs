@@ -154,18 +154,6 @@ impl MethodInfo {
             }
         }
 
-        let input_serializer =
-            if args.iter().all(|arg: &ArgInfo| arg.serializer_ty == SerializerType::JSON) {
-                SerializerType::JSON
-            } else if args.iter().all(|arg| arg.serializer_ty == SerializerType::Borsh) {
-                SerializerType::Borsh
-            } else {
-                return Err(Error::new(
-                    Span::call_site(),
-                    format!("Input arguments should be all of the same serialization type."),
-                ));
-            };
-
         let is_public = match original.vis {
             Visibility::Public(_) => true,
             _ => is_trait_impl,
@@ -180,11 +168,12 @@ impl MethodInfo {
                 }
             }
         }
-        Ok(Self {
+
+        let mut result = Self {
             ident,
             non_bindgen_attrs,
             args,
-            input_serializer,
+            input_serializer: SerializerType::JSON,
             is_init,
             result_serializer,
             receiver,
@@ -192,7 +181,21 @@ impl MethodInfo {
             returns,
             original,
             struct_type,
-        })
+        };
+
+        let input_serializer =
+            if result.input_args().all(|arg: &ArgInfo| arg.serializer_ty == SerializerType::JSON) {
+                SerializerType::JSON
+            } else if result.input_args().all(|arg| arg.serializer_ty == SerializerType::Borsh) {
+                SerializerType::Borsh
+            } else {
+                return Err(Error::new(
+                    Span::call_site(),
+                    format!("Input arguments should be all of the same serialization type."),
+                ));
+            };
+        result.input_serializer = input_serializer;
+        Ok(result)
     }
 
     /// Only get args that correspond to `env::input()`.

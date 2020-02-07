@@ -1,7 +1,7 @@
 use syn::export::TokenStream2;
 use syn::{FnArg, ImplItemMethod, ReturnType, Token};
 
-use crate::info_extractor::{ArgInfo, MethodInfo, SerializerType};
+use crate::info_extractor::{ArgInfo, BindgenArgType, MethodInfo, SerializerType};
 use quote::quote;
 use syn::punctuated::Punctuated;
 
@@ -78,15 +78,81 @@ pub fn decomposition_pattern(method_info: &MethodInfo) -> TokenStream2 {
 /// a, &b, &mut c,
 /// ```
 pub fn arg_list(method_info: &MethodInfo) -> TokenStream2 {
-    let args: Vec<_> = method_info.input_args().collect();
     let mut result = TokenStream2::new();
-    for arg in args {
+    for arg in &method_info.args {
         let ArgInfo { reference, mutability, ident, .. } = &arg;
         result.extend(quote! {
             #reference #mutability #ident,
         });
     }
     result
+}
+
+/// Create code that deserializes arguments that were decorated with `#[callback]`
+pub fn callback_deserialization(method_info: &MethodInfo) -> TokenStream2 {
+    method_info
+        .args
+        .iter()
+        .filter(|arg| match arg.bindgen_ty {
+            BindgenArgType::CallbackArg => true,
+            _ => false,
+        })
+        .enumerate()
+        .fold(TokenStream2::new(), |acc, (idx, arg)| {
+            let ArgInfo {mutability, ident, ty, ..} = arg;
+            let read_data = quote! {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(#idx) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", #idx)
+                };
+            };
+            let invocation = match arg.serializer_ty {
+                SerializerType::JSON => quote! {
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+                },
+                SerializerType::Borsh => quote! {
+                    borsh::Deserialize::try_from_slice(&data).expect("Failed to deserialize callback using JSON")
+                },
+            };
+            quote! {
+                #acc
+                #read_data
+                let #mutability #ident: #ty = #invocation;
+            }
+        })
+}
+
+/// Create code that deserializes arguments that were decorated with `#[callback_vec]`.
+pub fn callback_vec_deserialization(method_info: &MethodInfo) -> TokenStream2 {
+    method_info
+        .args
+        .iter()
+        .filter(|arg| match arg.bindgen_ty {
+            BindgenArgType::CallbackArgVec => true,
+            _ => false,
+        })
+        .fold(TokenStream2::new(), |acc, arg| {
+            let ArgInfo {mutability, ident, ty, ..} = arg;
+            let invocation = match arg.serializer_ty {
+                SerializerType::JSON => quote! {
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+                },
+                SerializerType::Borsh => quote! {
+                    borsh::Deserialize::try_from_slice(&data).expect("Failed to deserialize callback using JSON")
+                },
+            };
+            quote! {
+                #acc
+                let #mutability #ident: #ty = (0..near_bindgen::env::promise_results_count())
+                .map(|i| {
+                    let data: Vec<u8> = match near_bindgen::env::promise_result(i) {
+                        near_bindgen::PromiseResult::Successful(x) => x,
+                        _ => panic!("Callback computation {} was not successful", i)
+                    };
+                    #invocation
+                }).collect();
+            }
+        })
 }
 
 /// Generate wrapper method for the given method of the contract.
@@ -121,6 +187,9 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
         arg_struct = TokenStream2::new();
         arg_parsing = TokenStream2::new();
     };
+
+    let callback_deser = callback_deserialization(method_info);
+    let callback_vec_deser = callback_vec_deserialization(method_info);
 
     let arg_list = arg_list(method_info);
     let MethodInfo {
@@ -166,9 +235,6 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
         }
         match returns {
             ReturnType::Default => quote! {
-                #env_creation
-                #arg_struct
-                #arg_parsing
                 #contract_deser
                 #method_invocation;
                 #contract_ser
@@ -183,9 +249,6 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
                     },
                 };
                 quote! {
-                #env_creation
-                #arg_struct
-                #arg_parsing
                 #contract_deser
                 let result = #method_invocation;
                 #value_ser
@@ -207,6 +270,11 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
         #[cfg(target_arch = "wasm32")]
         #[no_mangle]
         pub extern "C" fn #ident() {
+            #env_creation
+            #arg_struct
+            #arg_parsing
+            #callback_deser
+            #callback_vec_deser
             #body
         }
     }
@@ -227,36 +295,4 @@ pub fn processed_impl_method(method_info: MethodInfo) -> ImplItemMethod {
     }
     original.sig.inputs = inputs;
     original
-}
-
-#[cfg(target_arch = "wasm32")]
-#[no_mangle]
-pub extern "C" fn method() {
-    near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-    #[derive(serde :: Deserialize)]
-    struct Input {
-        k: u64,
-    }
-    let Input { k }: Input = serde_json::from_slice(
-        &near_bindgen::env::input().expect("Expected input since method has arguments."),
-    )
-    .expect("Failed to deserialize input from JSON.");
-    let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
-    contract.method(&k);
-}
-
-#[cfg(target_arch = "wasm32")]
-#[no_mangle]
-pub extern "C" fn method() {
-    near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-    #[derive(serde :: Deserialize)]
-    struct Input {
-        k: u64,
-    }
-    let Input { mut k }: Input = serde_json::from_slice(
-        &near_bindgen::env::input().expect("Expected input since method has arguments."),
-    )
-    .expect("Failed to deserialize input from JSON.");
-    let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
-    contract.method(&mut k);
 }

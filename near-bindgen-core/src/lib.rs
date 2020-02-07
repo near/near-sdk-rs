@@ -47,7 +47,7 @@ pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{Type, ImplItemMethod};
+    use syn::{Type, ImplItemMethod, parse_quote};
     use crate::info_extractor::MethodInfo;
     use crate::code_generator::method_wrapper;
     use quote::quote;
@@ -272,102 +272,216 @@ mod tests {
         assert_eq!(expected.to_string(), actual.to_string());
     }
 
-//    #[test]
-//    fn callback_args() {
-//        let impl_type: Type = syn::parse_str("Hello").unwrap();
-//        let method: ImplItemMethod = parse_quote! {
-//            #[callback_args(x, z)]
-//            pub fn method(&self, x: &mut u64, y: String, z: Vec<u8>) { }
-//        };
-//
-//        let actual = process_method(&method, &impl_type, false, false).unwrap();
-//        let expected = quote!(
-//            #[cfg(target_arch = "wasm32")]
-//            #[no_mangle]
-//            pub extern "C" fn method() {
-//                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-//                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
-//                assert_eq!(near_bindgen::env::promise_results_count(), 2u64);
-//                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
-//                    near_bindgen::PromiseResult::Successful(x) => x,
-//                    _ => panic!("Callback computation {} was not successful", 0u64)
-//                };
-//                let mut x: u64 = serde_json::from_slice(&data).unwrap();
-//                let y: String = serde_json::from_value(args["y"].clone()).unwrap();
-//                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
-//                    near_bindgen:: PromiseResult::Successful(x) => x,
-//                    _ => panic!("Callback computation {} was not successful", 1u64)
-//                };
-//                let z: Vec<u8> = serde_json::from_slice(&data).unwrap();
-//                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
-//                contract.method(&mut x, y, z, );
-//            }
-//        );
-//        assert_eq!(expected.to_string(), actual.to_string());
-//    }
-//
-//    #[test]
-//    fn callback_args_only() {
-//        let impl_type: Type = syn::parse_str("Hello").unwrap();
-//        let method: ImplItemMethod = parse_quote! {
-//            #[callback_args(x, y)]
-//            pub fn method(&self, x: &mut u64, y: String) { }
-//        };
-//
-//        // When there is no input args we should not even attempt reading input and parsing json
-//        // from it.
-//        let actual = process_method(&method, &impl_type, false, false).unwrap();
-//        let expected = quote!(
-//            #[cfg(target_arch = "wasm32")]
-//            #[no_mangle]
-//            pub extern "C" fn method() {
-//                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-//                assert_eq!(near_bindgen::env::promise_results_count(), 2u64);
-//                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
-//                    near_bindgen::PromiseResult::Successful(x) => x,
-//                    _ => panic!("Callback computation {} was not successful", 0u64)
-//                };
-//                let mut x: u64 = serde_json::from_slice(&data).unwrap();
-//                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
-//                    near_bindgen:: PromiseResult::Successful(x) => x,
-//                    _ => panic!("Callback computation {} was not successful", 1u64)
-//                };
-//                let y: String = serde_json::from_slice(&data).unwrap();
-//                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
-//                contract.method(&mut x, y, );
-//            }
-//        );
-//        assert_eq!(expected.to_string(), actual.to_string());
-//    }
-//
-//    #[test]
-//    fn callback_args_vec() {
-//        let impl_type: Type = syn::parse_str("Hello").unwrap();
-//        let method: ImplItemMethod = parse_quote! {
-//            #[callback_args_vec(x)]
-//            pub fn method(&self, x: Vec<String>, y: String) { }
-//        };
-//
-//        let actual = process_method(&method, &impl_type, false, false).unwrap();
-//        let expected = quote!(
-//            #[cfg(target_arch = "wasm32")]
-//            #[no_mangle]
-//            pub extern "C" fn method() {
-//                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-//                let args: serde_json::Value = serde_json::from_slice(&near_bindgen::env::input().unwrap()).unwrap();
-//                let x: Vec<String> = (0..near_bindgen::env::promise_results_count())
-//                            .map(|i| {
-//                                let data: Vec<u8> = match near_bindgen::env::promise_result(i) {
-//                                    near_bindgen::PromiseResult::Successful(x) => x,
-//                                    _ => panic!("Callback computation {} was not successful", i)
-//                                };
-//                                serde_json::from_slice(&data).unwrap()
-//                            }).collect();
-//                let y: String = serde_json::from_value(args["y"].clone()).unwrap();
-//                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
-//                contract.method(x, y, );
-//            }
-//        );
-//        assert_eq!(expected.to_string(), actual.to_string());
-//    }
+    #[test]
+    fn callback_args() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            pub fn method(&self, #[callback] x: &mut u64, y: String, #[callback] z: Vec<u8>) { }
+        };
+        let method_info = MethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_wrapper(&method_info);
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                #[derive(serde :: Deserialize)]
+                struct Input {
+                    y: String,
+                }
+                let Input { y, }: Input = serde_json::from_slice(
+                    &near_bindgen::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from JSON.");
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0usize) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 0usize)
+                };
+                let mut x: u64 =
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 1usize)
+                };
+                let z: Vec<u8> =
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(&mut x, y, z, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args_only() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            pub fn method(&self, #[callback] x: &mut u64, #[callback] y: String) { }
+        };
+        let method_info = MethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_wrapper(&method_info);
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0usize) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 0usize)
+                };
+                let mut x: u64 =
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 1usize)
+                };
+                let y: String =
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(&mut x, y, );
+            }
+        );
+
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args_vec() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            pub fn method(&self, #[callback_vec] x: Vec<String>, y: String) { }
+        };
+        let method_info = MethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_wrapper(&method_info);
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                #[derive(serde :: Deserialize)]
+                struct Input {
+                    y: String,
+                }
+                let Input { y, }: Input = serde_json::from_slice(
+                    &near_bindgen::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from JSON.");
+                let x: Vec<String> = (0..near_bindgen::env::promise_results_count())
+                    .map(|i| {
+                        let data: Vec<u8> = match near_bindgen::env::promise_result(i) {
+                            near_bindgen::PromiseResult::Successful(x) => x,
+                            _ => panic!("Callback computation {} was not successful", i)
+                        };
+                        serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+                    })
+                    .collect();
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(x, y, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn simple_init() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            #[init]
+            pub fn method(k: &mut u64) -> Self { }
+        };
+        let method_info = MethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_wrapper(&method_info);
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                #[derive(serde :: Deserialize)]
+                struct Input {
+                    k: u64,
+                }
+                let Input { mut k, }: Input = serde_json::from_slice(
+                    &near_bindgen::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from JSON.");
+                let contract = Hello::method(&mut k,);
+                near_bindgen::env::state_write(&contract);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn args_return_mut_borsh() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            #[result_serializer(borsh)]
+            pub fn method(&mut self, #[serializer(borsh)] k: u64, #[serializer(borsh)]m: Bar) -> Option<u64> { }
+        };
+        let method_info = MethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_wrapper(&method_info);
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                #[derive(borsh :: BorshDeserialize)]
+                struct Input {
+                    k: u64,
+                    m: Bar,
+                }
+                let Input { k, m, }: Input = borsh::Deserialize::try_from_slice(
+                    &near_bindgen::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from Borsh.");
+                let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                let result = contract.method(k, m, );
+                let result = borsh::BorshSerialize::try_to_vec(&contract, &result)
+                    .expect("Failed to serialize the return value using Borsh.");
+                near_bindgen::env::value_return(&result);
+                near_bindgen::env::state_write(&contract);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args_mixed_serialization() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let method: ImplItemMethod = parse_quote! {
+            pub fn method(&self, #[callback] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback] #[serializer(json)] z: Vec<u8>) { }
+        };
+        let method_info = MethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_wrapper(&method_info);
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                #[derive(borsh :: BorshDeserialize)]
+                struct Input {
+                    y: String,
+                }
+                let Input { y, }: Input = borsh::Deserialize::try_from_slice(
+                    &near_bindgen::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from Borsh.");
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0usize) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 0usize)
+                };
+                let mut x: u64 = borsh::Deserialize::try_from_slice(&data)
+                    .expect("Failed to deserialize callback using JSON");
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
+                    near_bindgen::PromiseResult::Successful(x) => x,
+                    _ => panic!("Callback computation {} was not successful", 1usize)
+                };
+                let z: Vec<u8> =
+                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(&mut x, y, z, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 }

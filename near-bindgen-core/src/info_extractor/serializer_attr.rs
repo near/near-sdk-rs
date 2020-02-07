@@ -22,23 +22,3 @@ impl Parse for SerializerAttr {
         Ok(Self { paren_token, serializer_type })
     }
 }
-
-//#[cfg(test)]
-//mod tests {
-//    use super::parse_args;
-//    use quote::quote;
-//    use syn::ImplItemMethod;
-//
-//    #[test]
-//    fn standard() {
-//        let method: ImplItemMethod = syn::parse2(quote! {
-//            #[callback_args_vec(arg0)]
-//            fn simple_function() {
-//            }
-//        })
-//        .unwrap();
-//        let actual = syn::parse2(method.attrs[0].tokens.clone()).unwrap();
-//        let expected = "arg0".to_string();
-//        assert_eq!(actual, expected);
-//    }
-//}
