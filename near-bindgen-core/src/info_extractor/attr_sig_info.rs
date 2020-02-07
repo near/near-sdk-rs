@@ -5,7 +5,8 @@ use quote::ToTokens;
 use syn::export::Span;
 use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
 
-pub struct AttrSignatureInfo {
+/// Information extracted from method attributes and signature.
+pub struct AttrSigInfo {
     /// The name of the method.
     pub ident: Ident,
     /// Attributes not related to bindgen.
@@ -26,7 +27,7 @@ pub struct AttrSignatureInfo {
     pub original_sig: Signature,
 }
 
-impl AttrSignatureInfo {
+impl AttrSigInfo {
     /// Process the method and extract information important for near-bindgen.
     pub fn new(original_attrs: Vec<Attribute>, original_sig: Signature) -> syn::Result<Self> {
         let ident = original_sig.ident.clone();

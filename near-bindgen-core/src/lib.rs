@@ -1,6 +1,5 @@
 #![recursion_limit = "128"]
-use crate::code_generator::{method_wrapper, processed_impl_method};
-use crate::info_extractor::ImplMethodInfo;
+use crate::info_extractor::ImplItemMethodInfo;
 use syn::export::TokenStream2;
 use syn::spanned::Spanned;
 use syn::{Error, ImplItem, ItemImpl};
@@ -27,7 +26,7 @@ pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
     for subitem in item_impl.items.iter_mut() {
         if let ImplItem::Method(m) = subitem {
             let method_info =
-                ImplMethodInfo::new((*m).clone(), (*impl_type).clone(), is_trait_impl);
+                ImplItemMethodInfo::new((*m).clone(), (*impl_type).clone(), is_trait_impl);
             let method_info = match method_info {
                 Ok(x) => x,
                 Err(err) => {
@@ -36,8 +35,8 @@ pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
             };
 
             if method_info.is_public {
-                output.extend(method_wrapper(&method_info));
-                *m = processed_impl_method(method_info);
+                output.extend(method_info.method_wrapper());
+                *m = method_info.processed_impl_method();
             }
         }
     }
@@ -49,17 +48,16 @@ pub fn process_impl(item_impl: &mut ItemImpl) -> TokenStream2 {
 #[cfg(test)]
 mod tests {
     use syn::{Type, ImplItemMethod, parse_quote};
-    use crate::info_extractor::ImplMethodInfo;
-    use crate::code_generator::method_wrapper;
     use quote::quote;
+    use crate::info_extractor::ImplItemMethodInfo;
 
 
     #[test]
     fn trait_implt() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("fn method(&self) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -76,8 +74,8 @@ mod tests {
     fn no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -94,8 +92,8 @@ mod tests {
     fn no_args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -113,8 +111,8 @@ mod tests {
     fn arg_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -142,8 +140,8 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
@@ -171,8 +169,8 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
@@ -203,8 +201,8 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -224,8 +222,8 @@ mod tests {
     fn arg_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
@@ -251,8 +249,8 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let method: ImplItemMethod =
             syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -279,8 +277,8 @@ mod tests {
         let method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback] x: &mut u64, y: String, #[callback] z: Vec<u8>) { }
         };
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -319,8 +317,8 @@ mod tests {
         let method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback] x: &mut u64, #[callback] y: String) { }
         };
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -352,8 +350,8 @@ mod tests {
         let method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback_vec] x: Vec<String>, y: String) { }
         };
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -390,8 +388,8 @@ mod tests {
             #[init]
             pub fn method(k: &mut u64) -> Self { }
         };
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -419,8 +417,8 @@ mod tests {
             #[result_serializer(borsh)]
             pub fn method(&mut self, #[serializer(borsh)] k: u64, #[serializer(borsh)]m: Bar) -> Option<u64> { }
         };
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
@@ -452,8 +450,8 @@ mod tests {
         let method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback] #[serializer(json)] z: Vec<u8>) { }
         };
-        let method_info = ImplMethodInfo::new(method, impl_type, false).unwrap();
-        let actual = method_wrapper(&method_info);
+        let method_info = ImplItemMethodInfo::new(method, impl_type, false).unwrap();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
