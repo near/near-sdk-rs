@@ -1,7 +1,9 @@
 use syn::export::TokenStream2;
 use syn::{FnArg, ImplItemMethod, ReturnType, Token};
 
-use crate::info_extractor::{ArgInfo, BindgenArgType, MethodInfo, SerializerType};
+use crate::info_extractor::{
+    ArgInfo, AttrSignatureInfo, BindgenArgType, ImplMethodInfo, SerializerType,
+};
 use quote::quote;
 use syn::punctuated::Punctuated;
 
@@ -19,10 +21,10 @@ use syn::punctuated::Punctuated;
 ///   arg2: (u64, Vec<String>),
 /// }
 /// ```
-pub fn input_struct(method_info: &MethodInfo) -> TokenStream2 {
-    let args: Vec<_> = method_info.input_args().collect();
+pub fn input_struct(attr_signature_info: &AttrSignatureInfo) -> TokenStream2 {
+    let args: Vec<_> = attr_signature_info.input_args().collect();
     assert!(!args.is_empty(), "Can only generate input struct for when input args are specified");
-    let attribute = match &method_info.input_serializer {
+    let attribute = match &attr_signature_info.input_serializer {
         SerializerType::JSON => quote! {#[derive(serde::Deserialize)]},
         SerializerType::Borsh => quote! {#[derive(borsh::BorshDeserialize)]},
     };
@@ -50,8 +52,8 @@ pub fn input_struct(method_info: &MethodInfo) -> TokenStream2 {
 ///     arg2
 /// }
 /// ```
-pub fn decomposition_pattern(method_info: &MethodInfo) -> TokenStream2 {
-    let args: Vec<_> = method_info.input_args().collect();
+pub fn decomposition_pattern(attr_signature_info: &AttrSignatureInfo) -> TokenStream2 {
+    let args: Vec<_> = attr_signature_info.input_args().collect();
     assert!(
         !args.is_empty(),
         "Can only generate decomposition pattern for when input args are specified."
@@ -77,9 +79,9 @@ pub fn decomposition_pattern(method_info: &MethodInfo) -> TokenStream2 {
 /// ```
 /// a, &b, &mut c,
 /// ```
-pub fn arg_list(method_info: &MethodInfo) -> TokenStream2 {
+pub fn arg_list(attr_signature_info: &AttrSignatureInfo) -> TokenStream2 {
     let mut result = TokenStream2::new();
-    for arg in &method_info.args {
+    for arg in &attr_signature_info.args {
         let ArgInfo { reference, mutability, ident, .. } = &arg;
         result.extend(quote! {
             #reference #mutability #ident,
@@ -89,8 +91,8 @@ pub fn arg_list(method_info: &MethodInfo) -> TokenStream2 {
 }
 
 /// Create code that deserializes arguments that were decorated with `#[callback]`
-pub fn callback_deserialization(method_info: &MethodInfo) -> TokenStream2 {
-    method_info
+pub fn callback_deserialization(attr_signature_info: &AttrSignatureInfo) -> TokenStream2 {
+    attr_signature_info
         .args
         .iter()
         .filter(|arg| match arg.bindgen_ty {
@@ -123,8 +125,8 @@ pub fn callback_deserialization(method_info: &MethodInfo) -> TokenStream2 {
 }
 
 /// Create code that deserializes arguments that were decorated with `#[callback_vec]`.
-pub fn callback_vec_deserialization(method_info: &MethodInfo) -> TokenStream2 {
-    method_info
+pub fn callback_vec_deserialization(attr_signature_info: &AttrSignatureInfo) -> TokenStream2 {
+    attr_signature_info
         .args
         .iter()
         .filter(|arg| match arg.bindgen_ty {
@@ -156,9 +158,10 @@ pub fn callback_vec_deserialization(method_info: &MethodInfo) -> TokenStream2 {
 }
 
 /// Generate wrapper method for the given method of the contract.
-pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
+pub fn method_wrapper(method_info: &ImplMethodInfo) -> TokenStream2 {
+    let ImplMethodInfo { attr_signature_info, struct_type, .. } = method_info;
     // Args provided by `env::input()`.
-    let has_input_args = method_info.input_args().next().is_some();
+    let has_input_args = attr_signature_info.input_args().next().is_some();
 
     let env_creation = quote! {
         near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
@@ -166,9 +169,9 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
     let arg_struct;
     let arg_parsing;
     if has_input_args {
-        arg_struct = input_struct(method_info);
-        let decomposition = decomposition_pattern(method_info);
-        let serializer_invocation = match method_info.input_serializer {
+        arg_struct = input_struct(attr_signature_info);
+        let decomposition = decomposition_pattern(attr_signature_info);
+        let serializer_invocation = match attr_signature_info.input_serializer {
             SerializerType::JSON => quote! {
             serde_json::from_slice(
                 &near_bindgen::env::input().expect("Expected input since method has arguments.")
@@ -188,20 +191,20 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
         arg_parsing = TokenStream2::new();
     };
 
-    let callback_deser = callback_deserialization(method_info);
-    let callback_vec_deser = callback_vec_deserialization(method_info);
+    let callback_deser = callback_deserialization(attr_signature_info);
+    let callback_vec_deser = callback_vec_deserialization(attr_signature_info);
 
-    let arg_list = arg_list(method_info);
-    let MethodInfo {
+    let arg_list = arg_list(attr_signature_info);
+    let AttrSignatureInfo {
         non_bindgen_attrs,
-        struct_type,
         ident,
         receiver,
         returns,
         result_serializer,
+        is_init,
         ..
-    } = method_info;
-    let body = if method_info.is_init {
+    } = attr_signature_info;
+    let body = if *is_init {
         quote! {
             let contract = #struct_type::#ident(#arg_list);
             near_bindgen::env::state_write(&contract);
@@ -281,8 +284,9 @@ pub fn method_wrapper(method_info: &MethodInfo) -> TokenStream2 {
 }
 
 /// Original method from `impl` section with adjusted attributes.
-pub fn processed_impl_method(method_info: MethodInfo) -> ImplItemMethod {
-    let MethodInfo { mut original, receiver, non_bindgen_attrs, args, .. } = method_info;
+pub fn processed_impl_method(method_info: ImplMethodInfo) -> ImplItemMethod {
+    let ImplMethodInfo { mut original, attr_signature_info, .. } = method_info;
+    let AttrSignatureInfo { receiver, args, non_bindgen_attrs, .. } = attr_signature_info;
     original.attrs = non_bindgen_attrs;
     let mut inputs: Punctuated<FnArg, Token![,]> = Default::default();
     if let Some(receiver) = receiver {
