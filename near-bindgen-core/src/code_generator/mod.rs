@@ -9,3 +9,6 @@ pub use item_trait_info::*;
 
 mod trait_item_method_info;
 pub use trait_item_method_info::*;
+
+mod item_impl_info;
+pub use item_impl_info::*;

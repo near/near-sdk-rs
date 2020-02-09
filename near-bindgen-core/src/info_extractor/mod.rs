@@ -16,6 +16,9 @@ pub use trait_item_method_info::*;
 mod item_trait_info;
 pub use item_trait_info::ItemTraitInfo;
 
+mod item_impl_info;
+pub use item_impl_info::ItemImplInfo;
+
 /// Type of serialization we use.
 #[derive(PartialEq, Eq)]
 pub enum SerializerType {

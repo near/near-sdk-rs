@@ -19,7 +19,13 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #near_environment
         });
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
-        let generated_code = process_impl(&input);
+        let item_impl_info = match ItemImplInfo::new(input.clone()) {
+            Ok(x) => x,
+            Err(err) => {
+                return err.to_compile_error().into();
+            }
+        };
+        let generated_code = item_impl_info.wrapper_code();
         TokenStream::from(quote! {
             #input
             #generated_code
