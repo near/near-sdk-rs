@@ -3,7 +3,6 @@ members = [
     "near-bindgen",
     "near-bindgen-core",
     "near-bindgen-macros",
-    "near-bindgen-promise",
 ]
 exclude = [
     "examples/cross-contract-low-level",
