@@ -14,7 +14,7 @@ pub struct TraitItemMethodInfo {
 }
 
 impl TraitItemMethodInfo {
-    pub fn new(original: TraitItemMethod) -> syn::Result<Self> {
+    pub fn new(original: &mut TraitItemMethod) -> syn::Result<Self> {
         if original.default.is_some() {
             return Err(Error::new(
                 original.span(),
@@ -24,11 +24,13 @@ impl TraitItemMethodInfo {
             ));
         }
 
-        let attr_sig_info = AttrSigInfo::new(original.attrs.clone(), original.sig.clone())?;
+        let TraitItemMethod { attrs, sig, .. } = original;
+
+        let attr_sig_info = AttrSigInfo::new(attrs, sig)?;
 
         let ident_byte_str =
             LitByteStr::new(attr_sig_info.ident.to_string().as_bytes(), Span::call_site());
 
-        Ok(Self { attr_sig_info, original, ident_byte_str })
+        Ok(Self { attr_sig_info, original: original.clone(), ident_byte_str })
     }
 }

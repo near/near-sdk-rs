@@ -13,8 +13,9 @@ pub struct ImplItemMethodInfo {
 
 impl ImplItemMethodInfo {
     /// Process the method and extract information important for near-bindgen.
-    pub fn new(original: ImplItemMethod, struct_type: Type) -> syn::Result<Self> {
-        let attr_signature_info = AttrSigInfo::new(original.attrs.clone(), original.sig.clone())?;
+    pub fn new(original: &mut ImplItemMethod, struct_type: Type) -> syn::Result<Self> {
+        let ImplItemMethod { attrs, sig, .. } = original;
+        let attr_signature_info = AttrSigInfo::new(attrs, sig)?;
         let is_public = match original.vis {
             Visibility::Public(_) => true,
             _ => false,

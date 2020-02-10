@@ -129,7 +129,7 @@ impl AttrSigInfo {
     /// ```
     pub fn pat_type_list(&self) -> TokenStream2 {
         let mut result = TokenStream2::new();
-        for arg in &self.args {
+        for arg in self.input_args() {
             let ArgInfo { original, .. } = &arg;
             result.extend(quote! {
                 #original,
@@ -149,6 +149,7 @@ impl AttrSigInfo {
             })
             .enumerate()
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
+                let idx = idx as u64;
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let read_data = quote! {
                 let data: Vec<u8> = match near_bindgen::env::promise_result(#idx) {
@@ -161,7 +162,7 @@ impl AttrSigInfo {
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
                 },
                     SerializerType::Borsh => quote! {
-                    borsh::Deserialize::try_from_slice(&data).expect("Failed to deserialize callback using JSON")
+                    borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using JSON")
                 },
                 };
                 quote! {
@@ -188,7 +189,7 @@ impl AttrSigInfo {
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
                 },
                     SerializerType::Borsh => quote! {
-                    borsh::Deserialize::try_from_slice(&data).expect("Failed to deserialize callback using JSON")
+                    borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using JSON")
                 },
                 };
                 quote! {

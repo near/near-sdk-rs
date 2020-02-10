@@ -8,18 +8,18 @@ impl TraitItemMethodInfo {
         let ident = &self.attr_sig_info.ident;
         let ident_byte_str = &self.ident_byte_str;
         let pat_type_list = self.attr_sig_info.pat_type_list();
-        let args = self.attr_sig_info.arg_list();
+        let has_input_args = self.attr_sig_info.input_args().next().is_some();
         let struct_decl;
         let constructor;
         let value_ser;
-        if args.is_empty() {
+        if !has_input_args {
             struct_decl = TokenStream2::new();
             constructor = TokenStream2::new();
             value_ser = quote! {let args = vec![]; };
         } else {
             struct_decl = self.attr_sig_info.input_struct();
             let constructor_call = self.attr_sig_info.constructor_expr();
-            constructor = quote! {let args = # constructor_call;};
+            constructor = quote! {let args = #constructor_call;};
             value_ser = match self.attr_sig_info.result_serializer {
                 SerializerType::JSON => quote! {
                     let args = serde_json::to_vec(&args).expect("Failed to serialize the cross contract args using JSON.");
@@ -30,11 +30,11 @@ impl TraitItemMethodInfo {
             };
         }
         quote! {
-            pub fn #ident<T: ToString>(#pat_type_list __account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
+            pub fn #ident<T: ToString>(#pat_type_list __account_id: &T, __balance: near_bindgen::Balance, __gas: near_bindgen::Gas) -> near_bindgen::Promise {
                 #struct_decl
                 #constructor
                 #value_ser
-                Promise::new(__account_id.to_string())
+                near_bindgen::Promise::new(__account_id.to_string())
                 .function_call(
                     #ident_byte_str.to_vec(),
                     args,

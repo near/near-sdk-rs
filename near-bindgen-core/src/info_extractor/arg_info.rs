@@ -39,7 +39,7 @@ pub struct ArgInfo {
 
 impl ArgInfo {
     /// Extract near-bindgen specific argument info.
-    pub fn new(original: PatType) -> syn::Result<Self> {
+    pub fn new(original: &mut PatType) -> syn::Result<Self> {
         let mut non_bindgen_attrs = vec![];
         let pat_reference;
         let pat_mutability;
@@ -70,7 +70,7 @@ impl ArgInfo {
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
-        for attr in &original.attrs {
+        for attr in &mut original.attrs {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
                 "callback" => {
@@ -89,6 +89,11 @@ impl ArgInfo {
             }
         }
 
+        original.attrs.retain(|attr| {
+            let attr_str = attr.path.to_token_stream().to_string();
+            attr_str != "callback" && attr_str != "callback_vec" && attr_str != "serializer"
+        });
+
         Ok(Self {
             non_bindgen_attrs,
             ident,
@@ -99,7 +104,7 @@ impl ArgInfo {
             ty,
             bindgen_ty,
             serializer_ty,
-            original,
+            original: original.clone(),
         })
     }
 }

@@ -1,5 +1,6 @@
 use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 use std::cell::RefCell;
+use std::io::{Error, Write};
 use std::rc::Rc;
 
 pub enum PromiseAction {
@@ -402,6 +403,17 @@ impl<T: serde::Serialize> serde::Serialize for PromiseOrValue<T> {
             PromiseOrValue::Value(x) => x.serialize(serializer),
             // The promise is dropped to cause env::promise calls.
             PromiseOrValue::Promise(_) => serializer.serialize_unit(),
+        }
+    }
+}
+
+impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
+    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
+        match self {
+            // Only actual value is serialized.
+            PromiseOrValue::Value(x) => x.serialize(writer),
+            // The promise is dropped to cause env::promise calls.
+            PromiseOrValue::Promise(_) => Ok(()),
         }
     }
 }

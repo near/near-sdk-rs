@@ -15,14 +15,14 @@ pub struct ItemTraitInfo {
 }
 
 impl ItemTraitInfo {
-    pub fn new(original: ItemTrait, mod_name_override: Option<Ident>) -> syn::Result<Self> {
+    pub fn new(original: &mut ItemTrait, mod_name_override: Option<Ident>) -> syn::Result<Self> {
         let mod_name = mod_name_override.unwrap_or({
             let res = original.ident.to_string().to_snake_case();
             Ident::new(&res, Span::call_site())
         });
 
         let mut methods = vec![];
-        for item in &original.items {
+        for item in &mut original.items {
             match item {
                 TraitItem::Type(_) => {
                     return Err(Error::new(
@@ -31,12 +31,12 @@ impl ItemTraitInfo {
                     ))
                 }
                 TraitItem::Method(method) => {
-                    methods.push(TraitItemMethodInfo::new((*method).clone())?);
+                    methods.push(TraitItemMethodInfo::new(method)?);
                     if method.default.is_some() {
                         return Err(Error::new(
                             method.span(),
-                            "Traits that are used to describe external contract should not include\
-                             default implementations because this is not a valid use case of traits\
+                            "Traits that are used to describe external contract should not include
+                             default implementations because this is not a valid use case of traits
                              to describe external contracts.",
                         ));
                     }
@@ -44,6 +44,6 @@ impl ItemTraitInfo {
                 _ => {}
             }
         }
-        Ok(Self { original, mod_name, methods })
+        Ok(Self { original: original.clone(), mod_name, methods })
     }
 }

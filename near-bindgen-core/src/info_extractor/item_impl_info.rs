@@ -13,7 +13,7 @@ pub struct ItemImplInfo {
 }
 
 impl ItemImplInfo {
-    pub fn new(original: ItemImpl) -> syn::Result<Self> {
+    pub fn new(original: &mut ItemImpl) -> syn::Result<Self> {
         if !original.generics.params.is_empty() {
             return Err(Error::new(
                 original.generics.params.span(),
@@ -24,9 +24,9 @@ impl ItemImplInfo {
         let ty = (*original.self_ty.as_ref()).clone();
 
         let mut methods = vec![];
-        for subitem in &original.items {
+        for subitem in &mut original.items {
             if let ImplItem::Method(m) = subitem {
-                let method_info = ImplItemMethodInfo::new((*m).clone(), ty.clone())?;
+                let method_info = ImplItemMethodInfo::new(m, ty.clone())?;
                 methods.push(method_info);
             }
         }

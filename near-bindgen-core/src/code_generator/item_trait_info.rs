@@ -28,15 +28,23 @@ mod tests {
 
     #[test]
     fn standard() {
-        let t: ItemTrait = syn::parse2(
+        let mut t: ItemTrait = syn::parse2(
             quote!{
-                pub trait ExternalCrossContract {
-                    fn merge_sort(&self, arr: Vec<u8>) -> Vec<u8>;
-                    fn merge(&self) -> Vec<u8>;
-                }
+                    pub trait ExternalCrossContract {
+                        fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
+                        fn merge(
+                            &self,
+                            #[callback]
+                            #[serializer(borsh)]
+                            data0: Vec<u8>,
+                            #[callback]
+                            #[serializer(borsh)]
+                            data1: Vec<u8>,
+                        ) -> Vec<u8>;
+                    }
             }
         ).unwrap();
-        let info = ItemTraitInfo::new(t, None).unwrap();
+        let info = ItemTraitInfo::new(&mut t, None).unwrap();
         let actual = info.wrapped_module();
 
         let expected = quote! {
@@ -44,26 +52,26 @@ mod tests {
                 pub fn merge_sort<T: ToString>(
                     arr: Vec<u8>,
                     __account_id: &T,
-                    __balance: Balance,
-                    __gas: Gas,
-                ) -> Promise {
+                    __balance: near_bindgen::Balance,
+                    __gas: near_bindgen::Gas
+                ) -> near_bindgen::Promise {
                     #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         arr: Vec<u8>,
                     }
-                    let args = Input { arr };
+                    let args = Input { arr, };
                     let args = serde_json::to_vec(&args)
                         .expect("Failed to serialize the cross contract args using JSON.");
-                    Promise::new(__account_id.to_string()).function_call(
+                    near_bindgen::Promise::new(__account_id.to_string()).function_call(
                         b"merge_sort".to_vec(),
                         args,
                         __balance,
                         __gas,
                     )
                 }
-                pub fn merge<T: ToString>(__account_id: &T, __balance: Balance, __gas: Gas) -> Promise {
+                pub fn merge<T: ToString>(__account_id: &T, __balance: near_bindgen::Balance, __gas: near_bindgen::Gas) -> near_bindgen::Promise {
                     let args = vec![];
-                    Promise::new(__account_id.to_string()).function_call(
+                    near_bindgen::Promise::new(__account_id.to_string()).function_call(
                         b"merge".to_vec(),
                         args,
                         __balance,

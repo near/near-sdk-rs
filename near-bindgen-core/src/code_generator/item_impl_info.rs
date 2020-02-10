@@ -25,8 +25,8 @@ mod tests {
     #[test]
     fn trait_implt() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("fn method(&self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("fn method(&self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -43,8 +43,8 @@ mod tests {
     #[test]
     fn no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("pub fn method(&self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -61,8 +61,8 @@ mod tests {
     #[test]
     fn no_args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -80,8 +80,8 @@ mod tests {
     #[test]
     fn arg_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -108,9 +108,9 @@ mod tests {
     #[test]
     fn args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod =
+        let mut method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
@@ -137,9 +137,9 @@ mod tests {
     #[test]
     fn args_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod =
+        let mut method: ImplItemMethod =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
@@ -169,9 +169,9 @@ mod tests {
     #[test]
     fn args_return_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod =
+        let mut method: ImplItemMethod =
             syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -191,8 +191,8 @@ mod tests {
     #[test]
     fn arg_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
@@ -217,9 +217,9 @@ mod tests {
     #[test]
     fn arg_mut_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod =
+        let mut method: ImplItemMethod =
             syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -244,10 +244,10 @@ mod tests {
     #[test]
     fn callback_args() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback] x: &mut u64, y: String, #[callback] z: Vec<u8>) { }
         };
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -284,10 +284,10 @@ mod tests {
     #[test]
     fn callback_args_only() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback] x: &mut u64, #[callback] y: String) { }
         };
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -317,10 +317,10 @@ mod tests {
     #[test]
     fn callback_args_vec() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback_vec] x: Vec<String>, y: String) { }
         };
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -354,11 +354,11 @@ mod tests {
     #[test]
     fn simple_init() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemMethod = parse_quote! {
             #[init]
             pub fn method(k: &mut u64) -> Self { }
         };
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -383,11 +383,11 @@ mod tests {
     #[test]
     fn args_return_mut_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemMethod = parse_quote! {
             #[result_serializer(borsh)]
             pub fn method(&mut self, #[serializer(borsh)] k: u64, #[serializer(borsh)]m: Bar) -> Option<u64> { }
         };
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -399,7 +399,7 @@ mod tests {
                     k: u64,
                     m: Bar,
                 }
-                let Input { k, m, }: Input = borsh::Deserialize::try_from_slice(
+                let Input { k, m, }: Input = borsh::BorshDeserialize::try_from_slice(
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
@@ -417,10 +417,10 @@ mod tests {
     #[test]
     fn callback_args_mixed_serialization() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self, #[callback] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback] #[serializer(json)] z: Vec<u8>) { }
         };
-        let method_info = ImplItemMethodInfo::new(method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
@@ -431,7 +431,7 @@ mod tests {
                 struct Input {
                     y: String,
                 }
-                let Input { y, }: Input = borsh::Deserialize::try_from_slice(
+                let Input { y, }: Input = borsh::BorshDeserialize::try_from_slice(
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
@@ -439,7 +439,7 @@ mod tests {
                     near_bindgen::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 0usize)
                 };
-                let mut x: u64 = borsh::Deserialize::try_from_slice(&data)
+                let mut x: u64 = borsh::BorshDeserialize::try_from_slice(&data)
                     .expect("Failed to deserialize callback using JSON");
                 let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
                     near_bindgen::PromiseResult::Successful(x) => x,

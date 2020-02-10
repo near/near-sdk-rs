@@ -30,7 +30,10 @@ pub struct AttrSigInfo {
 
 impl AttrSigInfo {
     /// Process the method and extract information important for near-bindgen.
-    pub fn new(original_attrs: Vec<Attribute>, original_sig: Signature) -> syn::Result<Self> {
+    pub fn new(
+        original_attrs: &mut Vec<Attribute>,
+        original_sig: &mut Signature,
+    ) -> syn::Result<Self> {
         if original_sig.asyncness.is_some() {
             return Err(Error::new(
                 original_sig.span(),
@@ -62,7 +65,7 @@ impl AttrSigInfo {
         let mut is_init = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
-        for attr in &original_attrs {
+        for attr in original_attrs.iter() {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
@@ -72,17 +75,24 @@ impl AttrSigInfo {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
                     result_serializer = serializer.serializer_type;
                 }
-                _ => non_bindgen_attrs.push((*attr).clone()),
+                _ => {
+                    non_bindgen_attrs.push((*attr).clone());
+                }
             }
         }
 
+        original_attrs.retain(|attr| {
+            let attr_str = attr.path.to_token_stream().to_string();
+            attr_str != "init" && attr_str != "result_serializer"
+        });
+
         let returns = original_sig.output.clone();
         let mut receiver = None;
-        for fn_arg in &original_sig.inputs {
+        for fn_arg in &mut original_sig.inputs {
             match fn_arg {
                 FnArg::Receiver(r) => receiver = Some((*r).clone()),
                 FnArg::Typed(pat_typed) => {
-                    args.push(ArgInfo::new((*pat_typed).clone())?);
+                    args.push(ArgInfo::new(pat_typed)?);
                 }
             }
         }
@@ -96,7 +106,7 @@ impl AttrSigInfo {
             result_serializer,
             receiver,
             returns,
-            original_sig,
+            original_sig: original_sig.clone(),
         };
 
         let input_serializer =

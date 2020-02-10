@@ -25,7 +25,7 @@ impl ImplItemMethodInfo {
                 ).expect("Failed to deserialize input from JSON.")
                 },
                 SerializerType::Borsh => quote! {
-                borsh::Deserialize::try_from_slice(
+                borsh::BorshDeserialize::try_from_slice(
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 ).expect("Failed to deserialize input from Borsh.")
                 },

@@ -1,0 +1,32 @@
+{
+    "name": "myproject",
+    "version": "0.0.1",
+    "scripts": {
+        "build": "npm run build:contract && npm run build:web",
+        "build:contract": "mkdir -p out/ && gulp",
+        "build:web": "parcel build src/index.html --public-url ./",
+        "dev:deploy:contract": "near dev-deploy",
+        "deploy:contract": "near deploy",
+        "deploy:pages": "gh-pages -d dist/",
+        "deploy": "npm run build && npm run deploy:contract && npm run deploy:pages",
+        "prestart": "npm run build:contract && npm run dev:deploy:contract",
+        "start": "CONTRACT_NAME=$(cat neardev/dev-account) parcel src/index.html",
+        "dev": "nodemon --watch assembly -e ts --exec 'npm run start'",
+        "test": "npm run build:contract && jest test --env=near-shell/test_environment"
+    },
+    "devDependencies": {
+        "gh-pages": "^2.2.0",
+        "gulp": "^4.0.2",
+        "jest": "^24.9.0",
+        "jest-environment-node": "^24.9.0",
+        "near-bindgen-as": "^1.2.0",
+        "near-runtime-ts": "^0.5.2",
+        "near-shell": "^0.20.1",
+        "nodemon": "^2.0.2",
+        "parcel-bundler": "^1.12.4"
+    },
+    "dependencies": {
+        "nearlib": "^0.21.0",
+        "regenerator-runtime": "^0.13.3"
+    }
+}
