@@ -11,7 +11,7 @@ impl AttrSigInfo {
     /// and `SUBTYPE` is one of the following: `[T; n]`, path like
     /// `std::collections::HashMap<SUBTYPE, SUBTYPE>`, or tuple `(SUBTYPE0, SUBTYPE1, ...)`.
     /// # Example
-    /// ```
+    /// ```ignore
     /// struct Input {
     ///   arg0: Vec<String>,
     ///   arg1: [u64; 10],
@@ -47,7 +47,7 @@ impl AttrSigInfo {
 
     /// Create pattern that decomposes input struct using correct mutability modifiers.
     /// # Example:
-    /// ```
+    /// ```ignore
     /// Input {
     ///     arg0,
     ///     mut arg1,
@@ -76,7 +76,7 @@ impl AttrSigInfo {
 
     /// Create expression that constructs the struct.
     /// # Example:
-    /// ```
+    /// ```ignore
     /// Input {
     ///     arg0,
     ///     arg1,
@@ -107,7 +107,7 @@ impl AttrSigInfo {
     /// of the smart contract.
     ///
     /// # Example:
-    /// ```
+    /// ```ignore
     /// a, &b, &mut c,
     /// ```
     pub fn arg_list(&self) -> TokenStream2 {
@@ -124,7 +124,7 @@ impl AttrSigInfo {
     /// Create a sequence of patterns and types to be used in the method signature.
     ///
     /// # Example:
-    /// ```
+    /// ```ignore
     /// a: u64, b: &mut T, ref mut c: Vec<String>,
     /// ```
     pub fn pat_type_list(&self) -> TokenStream2 {

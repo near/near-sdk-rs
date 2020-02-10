@@ -46,12 +46,6 @@ impl AttrSigInfo {
                 "Contract API is not allowed to have binary interface.",
             ));
         }
-        if !original_sig.generics.params.is_empty() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have generics.",
-            ));
-        }
         if original_sig.variadic.is_some() {
             return Err(Error::new(
                 original_sig.span(),

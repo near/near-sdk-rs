@@ -32,6 +32,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
@@ -50,6 +51,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
@@ -68,6 +70,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
@@ -87,8 +90,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde::Deserialize)]
+                #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     k: u64,
                 }
@@ -116,8 +120,9 @@ mod tests {
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
                 pub extern "C" fn method() {
+                    near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    #[derive(serde::Deserialize)]
+                    #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         k: u64,
                         m: Bar,
@@ -145,8 +150,9 @@ mod tests {
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
                 pub extern "C" fn method() {
+                    near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    #[derive(serde::Deserialize)]
+                    #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         k: u64,
                         m: Bar,
@@ -177,6 +183,7 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method();
@@ -198,8 +205,9 @@ mod tests {
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
                 pub extern "C" fn method() {
+                    near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    #[derive(serde::Deserialize)]
+                    #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         k: u64,
                     }
@@ -225,8 +233,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize)]
+                #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     k: u64,
                 }
@@ -253,8 +262,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize)]
+                #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     y: String,
                 }
@@ -262,15 +272,15 @@ mod tests {
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
-                let data: Vec<u8> = match near_bindgen::env::promise_result(0usize) {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 0usize)
+                    _ => panic!("Callback computation {} was not successful", 0u64)
                 };
                 let mut x: u64 =
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
-                let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 1usize)
+                    _ => panic!("Callback computation {} was not successful", 1u64)
                 };
                 let z: Vec<u8> =
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
@@ -293,16 +303,17 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                let data: Vec<u8> = match near_bindgen::env::promise_result(0usize) {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 0usize)
+                    _ => panic!("Callback computation {} was not successful", 0u64)
                 };
                 let mut x: u64 =
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
-                let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 1usize)
+                    _ => panic!("Callback computation {} was not successful", 1u64)
                 };
                 let y: String =
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
@@ -326,8 +337,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize)]
+                #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     y: String,
                 }
@@ -364,8 +376,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize)]
+                #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     k: u64,
                 }
@@ -393,8 +406,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(borsh :: BorshDeserialize)]
+                #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
                 struct Input {
                     k: u64,
                     m: Bar,
@@ -426,8 +440,9 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(borsh :: BorshDeserialize)]
+                #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
                 struct Input {
                     y: String,
                 }
@@ -435,15 +450,15 @@ mod tests {
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
-                let data: Vec<u8> = match near_bindgen::env::promise_result(0usize) {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 0usize)
+                    _ => panic!("Callback computation {} was not successful", 0u64)
                 };
                 let mut x: u64 = borsh::BorshDeserialize::try_from_slice(&data)
                     .expect("Failed to deserialize callback using JSON");
-                let data: Vec<u8> = match near_bindgen::env::promise_result(1usize) {
+                let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 1usize)
+                    _ => panic!("Callback computation {} was not successful", 1u64)
                 };
                 let z: Vec<u8> =
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");

@@ -10,6 +10,9 @@ impl ImplItemMethodInfo {
         // Args provided by `env::input()`.
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
+        let panic_hook = quote! {
+            near_bindgen::env::setup_panic_hook();
+        };
         let env_creation = quote! {
             near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
         };
@@ -120,6 +123,7 @@ impl ImplItemMethodInfo {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn #ident() {
+                #panic_hook
                 #env_creation
                 #arg_struct
                 #arg_parsing
