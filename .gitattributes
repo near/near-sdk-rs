@@ -1,0 +1,2 @@
+**/*.wasm linguist-vendored
+**/*.wat linguist-vendored
