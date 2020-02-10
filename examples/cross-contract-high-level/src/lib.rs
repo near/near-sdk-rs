@@ -104,16 +104,16 @@ impl CrossContract {
         #[serializer(borsh)]
         data1: Vec<u8>,
     ) -> Vec<u8> {
+        env::log(format!("Received {:?} and {:?}", data0, data1).as_bytes());
         assert_eq!(env::current_account_id(), env::predecessor_account_id());
         let result = self.internal_merge(data0, data1);
-        env::log(format!("{:?}", result).as_bytes());
+        env::log(format!("Merged {:?}", result).as_bytes());
         result
     }
 
-    //    /// Alternative implementation of merge that demonstrates usage of callback_args_vec. Uncomment
+    //    /// Alternative implementation of merge that demonstrates usage of callback_vec. Uncomment
     //    /// to use.
-    //    #[callback_args_vec(arrs)]
-    //    pub fn merge(&self, arrs: &mut Vec<Vec<u8>>) -> Vec<u8> {
+    //    pub fn merge(&self, #[callback_vec] #[serializer(borsh)] arrs: &mut Vec<Vec<u8>>) -> Vec<u8> {
     //        assert_eq!(env::current_account_id(), env::predecessor_account_id());
     //        self.internal_merge(arrs.pop().unwrap(), arrs.pop().unwrap())
     //    }

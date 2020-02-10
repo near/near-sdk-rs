@@ -86,8 +86,9 @@ impl StatusMessage {
 contract.
 
     ```rust
-    #[near_bindgen(init => new)]
+    #[near_bindgen]
     impl StatusMessage {
+      #[init]
       pub fn new(user: String, status: String) -> Self {
           let mut res = Self::default();
           res.records.insert(user, status);
@@ -95,6 +96,15 @@ contract.
       }
     }
     ```
+Even if you have initialization method your smart contract is still expected to derive `Default` trait. If you don't
+want to disable default initialization then you can prohibit it like this:
+```rust
+impl Default for StatusMessage {
+    fn default() -> Self {
+        panic!("Contract should be initialized before the usage.")
+    }
+}
+```
 
 
 ## Pre-requisites
