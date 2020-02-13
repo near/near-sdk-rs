@@ -61,14 +61,20 @@ fn app_key(app_id: &AppId, key: &Key) -> Vec<u8> {
     res
 }
 
-// One can provide a name, e.g. `ext` to use for generated methods.
 #[ext_contract(remote)]
 pub trait RemoteSelf {
-    fn post_message(&mut self, app_id: AppId, message: Message);
+    fn post_message(&mut self, app_id: String, message: String);
 }
 
-#[near_bindgen(init => new)]
+impl Default for UserData {
+    fn default() -> Self {
+        env::panic(b"Not initialized yet.");
+    }
+}
+
+#[near_bindgen]
 impl UserData {
+    #[init]
     pub fn new() -> Self {
         Self {
             app_keys: Map::new(b":app_keys".to_vec()),
