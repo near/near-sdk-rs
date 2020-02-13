@@ -1,5 +1,0 @@
-error: Initialization method cannot take `self`.
-  --> $DIR/bad_init_function.rs:17:5
-   |
-17 |     pub fn new(&mut self, starting_value: u32) -> Self {
-   |     ^^^

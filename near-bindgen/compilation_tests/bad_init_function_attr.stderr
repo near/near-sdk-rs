@@ -1,5 +1,0 @@
-error: Expected syntax: init => <name of the method>
-  --> $DIR/bad_init_function_attr.rs:12:16
-   |
-12 | #[near_bindgen(initialize => new)]
-   |                ^^^^^^^^^^
