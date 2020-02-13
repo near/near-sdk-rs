@@ -52,6 +52,9 @@ mod tests {
 
         let expected = quote! {
             mod external_cross_contract {
+                use super::*;
+                use near_bindgen::{Gas, Balance, AccountId, Promise};
+                use std::string::ToString;
                 pub fn merge_sort<T: ToString>(
                     arr: Vec<u8>,
                     __account_id: &T,
