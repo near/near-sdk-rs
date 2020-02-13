@@ -59,8 +59,15 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-#[near_bindgen(init => new)]
+impl Default for FunToken {
+    fn default() -> Self {
+        panic!("Fun token should be initialized before usage")
+    }
+}
+
+#[near_bindgen]
 impl FunToken {
+    #[init]
     pub fn new(owner_id: AccountId, total_supply: Balance) -> Self {
         let mut ft = Self { accounts: Map::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);

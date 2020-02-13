@@ -75,6 +75,14 @@ pub mod near_blockchain {
             sys::sha256(value_len, value_ptr, register_id)
         }
 
+        unsafe fn keccak256(&self, value_len: u64, value_ptr: u64, register_id: u64) {
+            sys::keccak256(value_len, value_ptr, register_id)
+        }
+
+        unsafe fn keccak512(&self, value_len: u64, value_ptr: u64, register_id: u64) {
+            sys::keccak512(value_len, value_ptr, register_id)
+        }
+
         unsafe fn value_return(&self, value_len: u64, value_ptr: u64) {
             sys::value_return(value_len, value_ptr)
         }
