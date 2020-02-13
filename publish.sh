@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -ex
-for p in near-bindgen-promise near-bindgen-core near-bindgen-macros near-bindgen
+for p in near-bindgen-core near-bindgen-macros near-bindgen
 do
 pushd ./${p}
 cargo publish

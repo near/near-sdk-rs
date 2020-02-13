@@ -12,6 +12,9 @@ impl ItemTraitInfo {
         let mod_name = &self.mod_name;
         quote! {
             mod #mod_name {
+                use super::*;
+                use near_bindgen::{Gas, Balance, AccountId, Promise};
+                use std::string::ToString;
                 #result
             }
         }
