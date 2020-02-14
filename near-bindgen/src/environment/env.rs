@@ -103,7 +103,7 @@ pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
 /// blockchain interface.
 fn panic_hook_impl(info: &std_panic::PanicInfo) {
-    panic(info.to_string().as_bytes());
+    panic(&info.to_string());
 }
 
 /// Setups panic hook to expose error info to the blockchain.
