@@ -143,7 +143,7 @@ and the output
 ```
 The reason why output is a binary is because we used [Borsh](http://borsh.io) binary serialization format to communicate
 between the contracts instead of JSON. Borsh is faster and costs less gas. In this simple example you can even read
-the format, here `\u0004\u0000\u0000\u0000` stands for `4u32` encoded using big-endian encoding which corresponds to the
+the format, here `\u0004\u0000\u0000\u0000` stands for `4u32` encoded using little-endian encoding which corresponds to the
 length of the array, `\u0000\u0001\u0002\u0003` are the elements of the array. Since the array has type `Vec<u8>` each
 element is exactly one byte.
 
