@@ -5,11 +5,12 @@
 
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::types::{
-    AccountId, Balance, BlockIndex, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use std::mem::size_of;
 
 use std::cell::RefCell;
+use std::mem::size_of;
+use std::panic as std_panic;
 
 thread_local! {
 /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
@@ -99,6 +100,17 @@ pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
     BLOCKCHAIN_INTERFACE.with(|b| b.replace(None))
 }
 
+/// Implements panic hook that converts `PanicInfo` into a string and provides it through the
+/// blockchain interface.
+fn panic_hook_impl(info: &std_panic::PanicInfo) {
+    panic(&info.to_string());
+}
+
+/// Setups panic hook to expose error info to the blockchain.
+pub fn setup_panic_hook() {
+    std_panic::set_hook(Box::new(panic_hook_impl));
+}
+
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
     let len = register_len(register_id)?;
@@ -150,7 +162,7 @@ pub fn input() -> Option<Vec<u8>> {
     try_method_into_register!(input)
 }
 /// Current block index.
-pub fn block_index() -> BlockIndex {
+pub fn block_index() -> BlockHeight {
     unsafe {
         BLOCKCHAIN_INTERFACE
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
@@ -243,6 +255,32 @@ pub fn sha256(value: &[u8]) -> Vec<u8> {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).sha256(
+                value.len() as _,
+                value.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
+        });
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+/// Hashes the random sequence of bytes using keccak256.
+pub fn keccak256(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).keccak256(
+                value.len() as _,
+                value.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
+        });
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+/// Hashes the random sequence of bytes using keccak512.
+pub fn keccak512(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).keccak512(
                 value.len() as _,
                 value.as_ptr() as _,
                 ATOMIC_OP_REGISTER,
@@ -551,7 +589,7 @@ pub fn value_return(value: &[u8]) {
     }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
-pub fn panic(message: &[u8]) -> ! {
+pub fn panic(message: &str) -> ! {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -563,7 +601,7 @@ pub fn panic(message: &[u8]) -> ! {
     unreachable!()
 }
 /// Log the UTF-8 encodable message.
-pub fn log(message: &[u8]) {
+pub fn log(message: &str) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()

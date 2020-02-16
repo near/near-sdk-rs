@@ -1,6 +1,6 @@
 [package]
 name = "near-bindgen-core"
-version = "0.3.10"
+version = "0.4.1"
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -13,5 +13,6 @@ Core part of the library for writing NEAR smart contracts.
 
 [dependencies]
 proc-macro2 = "1.0"
-syn = {version = "1.0", features = ["full", "fold"] }
+syn = {version = "1.0.14", features = ["full", "fold", "extra-traits"] }
 quote = "1.0"
+Inflector = "0.11.4"
