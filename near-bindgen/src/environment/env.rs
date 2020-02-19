@@ -168,7 +168,7 @@ pub fn block_index() -> BlockHeight {
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
     }
 }
-/// Current block timestamp.
+/// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp() -> u64 {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
