@@ -127,4 +127,25 @@ Call `merge_sort` function on `cross_contract` account:
 near call cross_contract merge_sort "{\"arr\": [2, 1, 0, 3]}" --accountId=test_near --gas 10000000000000000000
 ```
 
-observe `[ 0, 1, 2, 3 ]`
+observe the logs:
+```
+[cross_contract]: Received [2] and [1]
+[cross_contract]: Merged [1, 2]
+[cross_contract]: Received [0] and [3]
+[cross_contract]: Merged [0, 3]
+[cross_contract]: Received [1, 2] and [0, 3]
+[cross_contract]: Merged [0, 1, 2, 3]
+```
+
+and the output
+```
+'\u0004\u0000\u0000\u0000\u0000\u0001\u0002\u0003'
+```
+The reason why output is a binary is because we used [Borsh](http://borsh.io) binary serialization format to communicate
+between the contracts instead of JSON. Borsh is faster and costs less gas. In this simple example you can even read
+the format, here `\u0004\u0000\u0000\u0000` stands for `4u32` encoded using little-endian encoding which corresponds to the
+length of the array, `\u0000\u0001\u0002\u0003` are the elements of the array. Since the array has type `Vec<u8>` each
+element is exactly one byte.
+
+If you don't want to use it you can remove `#[serializer(borsh)]` annotation everywhere from the code and the contract will fallback to JSON.
+

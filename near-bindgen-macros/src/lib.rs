@@ -4,14 +4,12 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 
 use near_bindgen_core::*;
-use near_bindgen_promise::process_trait;
 use proc_macro2::Span;
 use quote::quote;
-use syn::export::TokenStream2;
 use syn::{File, ItemImpl, ItemStruct, ItemTrait};
 
 #[proc_macro_attribute]
-pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let sys_file = rust_file(include_bytes!("../res/sys.rs"));
         let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
@@ -20,8 +18,14 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #sys_file
             #near_environment
         });
-    } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
-        let generated_code = process_impl(&input, TokenStream2::from(attr));
+    } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+        let item_impl_info = match ItemImplInfo::new(&mut input) {
+            Ok(x) => x,
+            Err(err) => {
+                return err.to_compile_error().into();
+            }
+        };
+        let generated_code = item_impl_info.wrapper_code();
         TokenStream::from(quote! {
             #input
             #generated_code
@@ -44,7 +48,7 @@ fn rust_file(data: &[u8]) -> File {
 
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemTrait>(item.clone()) {
+    if let Ok(mut input) = syn::parse::<ItemTrait>(item.clone()) {
         let mut mod_name: Option<proc_macro2::Ident> = None;
         if !attr.is_empty() {
             mod_name = match syn::parse(attr) {
@@ -60,13 +64,11 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             };
         }
-        match process_trait(&input, mod_name.map(|x| x.to_string())) {
-            Ok(generated_code) => TokenStream::from(quote! {
-                #input
-                #generated_code
-            }),
-            Err(e) => TokenStream::from(e.to_compile_error()),
-        }
+        let item_trait_info = match ItemTraitInfo::new(&mut input, mod_name) {
+            Ok(x) => x,
+            Err(err) => return TokenStream::from(err.to_compile_error()),
+        };
+        item_trait_info.wrapped_module().into()
     } else {
         TokenStream::from(
             syn::Error::new(Span::call_site(), "ext_contract can only be used on traits")
@@ -75,14 +77,34 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-/// `callback_args` is a marker attribute it does not generate code by itself.
+// The below attributes a marker-attributes and therefore they are no-op.
+
+/// `callback` is a marker attribute it does not generate code by itself.
 #[proc_macro_attribute]
-pub fn callback_args(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn callback(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// `callback_args_vec` is a marker attribute it does not generate code by itself.
 #[proc_macro_attribute]
-pub fn callback_args_vec(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn callback_vec(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// `serializer` is a marker attribute it does not generate code by itself.
+#[proc_macro_attribute]
+pub fn serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// `result_serializer` is a marker attribute it does not generate code by itself.
+#[proc_macro_attribute]
+pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
+/// `init` is a marker attribute it does not generate code by itself.
+#[proc_macro_attribute]
+pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }

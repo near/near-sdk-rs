@@ -6,10 +6,10 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use std::marker::PhantomData;
 use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
-const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
