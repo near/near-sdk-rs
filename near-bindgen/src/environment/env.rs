@@ -103,7 +103,7 @@ pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
 /// blockchain interface.
 fn panic_hook_impl(info: &std_panic::PanicInfo) {
-    panic(&info.to_string());
+    panic(info.to_string().as_bytes());
 }
 
 /// Setups panic hook to expose error info to the blockchain.
@@ -589,7 +589,7 @@ pub fn value_return(value: &[u8]) {
     }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
-pub fn panic(message: &str) -> ! {
+pub fn panic(message: &[u8]) -> ! {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -601,7 +601,7 @@ pub fn panic(message: &str) -> ! {
     unreachable!()
 }
 /// Log the UTF-8 encodable message.
-pub fn log(message: &str) {
+pub fn log(message: &[u8]) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
