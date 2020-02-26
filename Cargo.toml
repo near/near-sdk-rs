@@ -3,12 +3,12 @@ members = [
     "near-bindgen",
     "near-bindgen-core",
     "near-bindgen-macros",
-    "near-bindgen-promise",
 ]
 exclude = [
-    "examples/cross-contract-low-level",
     "examples/cross-contract-high-level",
+    "examples/cross-contract-low-level",
+    "examples/fun-token",
+    "examples/mission-control",
     "examples/status-message",
     "examples/status-message-collections",
-    "examples/money-transfer",
 ]

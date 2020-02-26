@@ -133,6 +133,14 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().sha256(value_len, value_ptr, register_id).unwrap()
     }
 
+    unsafe fn keccak256(&self, value_len: u64, value_ptr: u64, register_id: u64) {
+        self.logic.borrow_mut().keccak256(value_len, value_ptr, register_id).unwrap()
+    }
+
+    unsafe fn keccak512(&self, value_len: u64, value_ptr: u64, register_id: u64) {
+        self.logic.borrow_mut().keccak512(value_len, value_ptr, register_id).unwrap()
+    }
+
     unsafe fn value_return(&self, value_len: u64, value_ptr: u64) {
         self.logic.borrow_mut().value_return(value_len, value_ptr).unwrap()
     }

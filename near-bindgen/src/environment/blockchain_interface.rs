@@ -32,6 +32,8 @@ pub trait BlockchainInterface {
     // ############
     unsafe fn random_seed(&self, register_id: u64);
     unsafe fn sha256(&self, value_len: u64, value_ptr: u64, register_id: u64);
+    unsafe fn keccak256(&self, value_len: u64, value_ptr: u64, register_id: u64);
+    unsafe fn keccak512(&self, value_len: u64, value_ptr: u64, register_id: u64);
     // #####################
     // # Miscellaneous API #
     // #####################

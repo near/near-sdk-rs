@@ -1,5 +1,0 @@
-error: Methods exposed as contract API cannot use type parameters
-  --> $DIR/method_generic.rs:14:19
-   |
-14 |     pub fn method<'a, T: 'a + std::fmt::Display>(&self) {
-   |                   ^^
