@@ -6,6 +6,7 @@ use syn::ReturnType;
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
     pub fn method_wrapper(&self) -> TokenStream2 {
+        self.record_metadata();
         let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
         // Args provided by `env::input()`.
         let has_input_args = attr_signature_info.input_args().next().is_some();

@@ -108,3 +108,9 @@ pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
+
+/// `metadata` generate the metadata method and should be placed at the very end of the `lib.rs` file.
+#[proc_macro_attribute]
+pub fn metadata(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    generate_metadata_method().into()
+}

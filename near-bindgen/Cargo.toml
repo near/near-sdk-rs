@@ -20,7 +20,7 @@ path = "compilation_tests/all.rs"
 # Provide near_bindgen macros.
 serde = { version = "1.0", features = ["derive"] }
 near-bindgen-macros = { path = "../near-bindgen-macros", version = "0.4.2"}
-borsh = "0.2.10"
+borsh = "0.4.0"
 near-vm-logic = "0.4.5"
 near-runtime-fees = "0.4.5"
 

@@ -9,6 +9,8 @@ pub use environment::env;
 mod promise;
 pub use promise::{Promise, PromiseOrValue};
 
+mod metadata;
+
 #[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;
 #[cfg(not(target_arch = "wasm32"))]
