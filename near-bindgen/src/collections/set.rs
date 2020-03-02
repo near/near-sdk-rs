@@ -154,6 +154,10 @@ where
         self.elements.clear();
     }
 
+    pub fn as_vector(&self) -> &Vector<T> {
+        &self.elements
+    }
+
     /// Copies elements into an `std::vec::Vec`.
     pub fn to_vec(&self) -> std::vec::Vec<T> {
         self.iter().collect()
