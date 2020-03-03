@@ -189,7 +189,7 @@ impl AttrSigInfo {
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
                 },
                     SerializerType::Borsh => quote! {
-                    borsh::try_from_slice_with_schema(&data).expect("Failed to deserialize callback using JSON")
+                    borsh::try_from_slice_with_schema(&data).expect("Failed to deserialize callback using Borsh")
                 },
                 };
                 quote! {
