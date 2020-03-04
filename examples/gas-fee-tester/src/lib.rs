@@ -103,4 +103,34 @@ impl GasFeeTester {
     pub fn output_borsh_struct_a(#[serializer(borsh)] a: A) -> A {
         a
     }
+
+    // Vec of vecs
+
+    pub fn input_json_vec_vec_u8_v(v: Vec<Vec<u8>>) {}
+
+    pub fn input_borsh_vec_vec_u8_v(#[serializer(borsh)] v: Vec<Vec<u8>>) {}
+
+    pub fn output_json_vec_vec_u8_v(v: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        v
+    }
+
+    #[result_serializer(borsh)]
+    pub fn output_borsh_vec_vec_u8_v(#[serializer(borsh)] v: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        v
+    }
+
+    // Vec of strings
+
+    pub fn input_json_vec_string_v(v: Vec<String>) {}
+
+    pub fn input_borsh_vec_string_v(#[serializer(borsh)] v: Vec<String>) {}
+
+    pub fn output_json_vec_string_v(v: Vec<String>) -> Vec<String> {
+        v
+    }
+
+    #[result_serializer(borsh)]
+    pub fn output_borsh_vec_string_v(#[serializer(borsh)] v: Vec<String>) -> Vec<String> {
+        v
+    }
 }

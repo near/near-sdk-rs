@@ -52,7 +52,14 @@ version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c56bce1ed0585bf13a971d3465844ee399a4b0a7380d6f7d7723bd46dbfbefb"
 dependencies = [
- "borsh-derive",
+ "borsh-derive 0.2.10",
+]
+
+[[package]]
+name = "borsh"
+version = "0.3.0"
+dependencies = [
+ "borsh-derive 0.3.0",
 ]
 
 [[package]]
@@ -61,7 +68,16 @@ version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fab0f75397d5ded3f928adb67bcc01458c397b100be3a9f9d99e26bd72f9e83e"
 dependencies = [
- "borsh-derive-internal",
+ "borsh-derive-internal 0.2.10",
+ "syn",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "0.3.0"
+dependencies = [
+ "borsh-derive-internal 0.3.0",
+ "borsh-schema-derive-internal",
  "syn",
 ]
 
@@ -70,6 +86,24 @@ name = "borsh-derive-internal"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63ca09b14500c8c634d8e98ffcdb6c1fa8a40300b87027d4f996d6077c339ed4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "borsh-derive-internal"
+version = "0.3.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "borsh-schema-derive-internal"
+version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -119,7 +153,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 name = "gas-fee-tester"
 version = "0.1.0"
 dependencies = [
- "borsh",
+ "borsh 0.3.0",
  "near-bindgen",
  "serde",
  "serde_json",
@@ -184,7 +218,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 name = "near-bindgen"
 version = "0.4.2"
 dependencies = [
- "borsh",
+ "borsh 0.3.0",
  "near-bindgen-macros",
  "near-runtime-fees",
  "near-vm-logic",
@@ -253,7 +287,7 @@ version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e6a2d77423680ef49ff6339b4a59f7411620e7887ee916bf1fa6bb0b4d1bb3"
 dependencies = [
- "borsh",
+ "borsh 0.2.10",
  "near-rpc-error-macro",
  "serde",
 ]
