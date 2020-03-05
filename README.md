@@ -115,7 +115,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 * Add wasm target to your toolchain:
 ```bash
-rustup target add wasm32-unknown-unknown
+rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 
 ## Writing Rust Contract
