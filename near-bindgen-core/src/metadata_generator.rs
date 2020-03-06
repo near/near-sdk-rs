@@ -1,9 +1,9 @@
-use crate::{BindgenArgType, ImplItemMethodInfo};
-use syn::{Receiver, ReturnType};
+use crate::{BindgenArgType, ImplItemMethodInfo, SerializerType};
 
-use std::borrow::Borrow;
+use quote::quote;
 use std::cell::RefCell;
 use syn::export::TokenStream2;
+use syn::ReturnType;
 
 thread_local! {
     static METADATA: RefCell<Vec<TokenStream2>> = RefCell::new(vec![]);
@@ -19,8 +19,20 @@ impl ImplItemMethodInfo {
         };
         let is_init = self.attr_signature_info.is_init;
         let args = if self.attr_signature_info.input_args().next().is_some() {
+            let input_struct = self.attr_signature_info.input_struct();
+            // If input args are JSON then we need to additionally specify schema for them.
+            let additional_schema = match &self.attr_signature_info.input_serializer {
+                SerializerType::Borsh => TokenStream2::new(),
+                SerializerType::JSON => quote! {
+                    #[derive(borsh::BorshSchema)]
+                },
+            };
             quote! {
-                Some(Input::schema_container())
+                {
+                    #additional_schema
+                    #input_struct
+                    Some(Input::schema_container())
+                }
             }
         } else {
             quote! {
@@ -84,7 +96,7 @@ impl ImplItemMethodInfo {
                  is_view: #is_view,
                  is_init: #is_init,
                  args: #args,
-                 callbacks: #callbacks,
+                 callbacks: vec![#(#callbacks),*],
                  callbacks_vec: #callbacks_vec,
                  result: #result
              }
@@ -95,16 +107,100 @@ impl ImplItemMethodInfo {
 
 /// Produce method that exposes metadata.
 pub fn generate_metadata_method() -> TokenStream2 {
-    let methods = (*METADATA.borrow()).clone();
+    let methods: Vec<TokenStream2> = METADATA.with(|m| (*m.borrow()).clone());
     quote! {
         #[cfg(target_arch = "wasm32")]
         #[no_mangle]
         pub extern "C" fn metadata() {
+            use borsh::*;
             let metadata = near_bindgen::Metadata::new(vec![
                 #(#methods),*
             ]);
             let data = borsh::try_to_vec_with_schema(&metadata).expect("Failed to serialize the metadata using Borsh");
             near_bindgen::env::value_return(&data);
         }
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(test)]
+mod tests {
+    use syn::{Type, ImplItemMethod};
+    use quote::quote;
+    use crate::info_extractor::ImplItemMethodInfo;
+    use super::*;
+
+    #[test]
+    fn several_methods() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("fn f1(&self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type.clone()).unwrap();
+        method_info.record_metadata();
+
+        let mut method: ImplItemMethod = syn::parse_str("fn f2(&mut self, arg0: FancyStruct, arg1: u64) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type.clone()).unwrap();
+        method_info.record_metadata();
+
+        let mut method: ImplItemMethod = syn::parse_str("fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type.clone()).unwrap();
+        method_info.record_metadata();
+
+        let actual = generate_metadata_method();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn metadata() {
+                use borsh::*;
+                let metadata = near_bindgen::Metadata::new(vec![
+                    near_bindgen::MethodMetadata {
+                        name: "f1".to_string(),
+                        is_view: true,
+                        is_init: false,
+                        args: None,
+                        callbacks: vec![],
+                        callbacks_vec: None,
+                        result: None
+                    },
+                    near_bindgen::MethodMetadata {
+                        name: "f2".to_string(),
+                        is_view: false,
+                        is_init: false,
+                        args: {
+                            #[derive(borsh::BorshSchema)]
+                            #[derive(serde :: Deserialize, serde :: Serialize)]
+                            struct Input {
+                                arg0: FancyStruct,
+                                arg1: u64,
+                            }
+                            Some(Input::schema_container())
+                        },
+                        callbacks: vec![],
+                        callbacks_vec: None,
+                        result: None
+                    },
+                    near_bindgen::MethodMetadata {
+                        name: "f3".to_string(),
+                        is_view: false,
+                        is_init: false,
+                        args: {
+                            #[derive(borsh::BorshSchema)]
+                            #[derive(serde :: Deserialize, serde :: Serialize)]
+                            struct Input {
+                                arg0: FancyStruct,
+                                arg1: u64,
+                            }
+                            Some(Input::schema_container())
+                        },
+                        callbacks: vec![],
+                        callbacks_vec: None,
+                        result: Some(Result < IsOk, Error > ::schema_container())
+                    }
+                ]);
+                let data = borsh::try_to_vec_with_schema(&metadata)
+                    .expect("Failed to serialize the metadata using Borsh");
+                near_bindgen::env::value_return(&data);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
     }
 }

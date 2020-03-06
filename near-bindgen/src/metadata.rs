@@ -1,8 +1,9 @@
+use borsh::{schema::BorshSchemaContainer, BorshDeserialize, BorshSchema, BorshSerialize};
 /// Version of the metadata format.
 const METADATA_SEMVER: [u32; 3] = [0, 1, 0];
 
 /// Metadata of the contract.
-#[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema, Debug, PartialEq)]
 pub struct Metadata {
     /// Semver of the metadata.
     pub version: [u32; 3],
@@ -17,7 +18,7 @@ impl Metadata {
 }
 
 /// Metadata of a single method.
-#[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema, Debug, PartialEq)]
 pub struct MethodMetadata {
     pub name: String,
     /// Whether method does not modify the state.

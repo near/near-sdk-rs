@@ -111,6 +111,6 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// `metadata` generate the metadata method and should be placed at the very end of the `lib.rs` file.
 #[proc_macro_attribute]
-pub fn metadata(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn metadata(_attr: TokenStream, _item: TokenStream) -> TokenStream {
     generate_metadata_method().into()
 }
