@@ -17,7 +17,7 @@ proc-macro = true
 [dependencies]
 near-bindgen-core = { path = "../near-bindgen-core", version = "0.5.0"}
 proc-macro2 = "1.0"
-syn = {version = "1.0.14", features = ["full", "fold"] }
+syn = {version = "1.0.14", features = ["full", "fold", "visit"] }
 quote = "1.0"
 
 

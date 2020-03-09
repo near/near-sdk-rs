@@ -48,31 +48,11 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "717f7624d2c96606fbe135628db9c5d9b6ae849a457f144fefd43f06f9e57fe7"
-dependencies = [
- "borsh-derive 0.4.0",
-]
-
-[[package]]
-name = "borsh"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e999aeba3dba8c2a2ac164fc3081a617dbeea104c1cc7fa877d4251f05178eb2"
 dependencies = [
- "borsh-derive 0.5.0",
-]
-
-[[package]]
-name = "borsh-derive"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab4784139b55c9769437ebbe8f8ea04101338fd019fbb47eaa14ee2f2aca08a9"
-dependencies = [
- "borsh-derive-internal 0.4.0",
- "borsh-schema-derive-internal 0.4.0",
- "syn",
+ "borsh-derive",
 ]
 
 [[package]]
@@ -81,19 +61,8 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb430b123924d9b145f18fa93ec4069017796416a1796f4855b2ac27d79aa707"
 dependencies = [
- "borsh-derive-internal 0.5.0",
- "borsh-schema-derive-internal 0.5.0",
- "syn",
-]
-
-[[package]]
-name = "borsh-derive-internal"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfc281792ea95315eb9ce1abd42889613fb8d54321b72ce98537359144791ef8"
-dependencies = [
- "proc-macro2",
- "quote",
+ "borsh-derive-internal",
+ "borsh-schema-derive-internal",
  "syn",
 ]
 
@@ -102,17 +71,6 @@ name = "borsh-derive-internal"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f33a00c6c4b9c83146730186ecaf72b95d4a5c3bed741d2102ad5562e9bec1b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "borsh-schema-derive-internal"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4b157ea99f839321d9a5f62f2442c38e4dea0d07a053c17d0cf441186bca57a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -247,7 +205,7 @@ checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
 name = "near-bindgen"
 version = "0.5.0"
 dependencies = [
- "borsh 0.5.0",
+ "borsh",
  "near-bindgen-macros",
  "near-runtime-fees",
  "near-vm-logic",
@@ -282,7 +240,7 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#441d92104794b76573bdfeb6fba5f4890676b8f9"
+source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -294,7 +252,7 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-macro"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#441d92104794b76573bdfeb6fba5f4890676b8f9"
+source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
 dependencies = [
  "near-rpc-error-core",
  "proc-macro2",
@@ -307,7 +265,7 @@ dependencies = [
 [[package]]
 name = "near-runtime-fees"
 version = "0.5.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#441d92104794b76573bdfeb6fba5f4890676b8f9"
+source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
 dependencies = [
  "serde",
 ]
@@ -315,9 +273,9 @@ dependencies = [
 [[package]]
 name = "near-vm-errors"
 version = "0.5.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#441d92104794b76573bdfeb6fba5f4890676b8f9"
+source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
 dependencies = [
- "borsh 0.4.0",
+ "borsh",
  "near-rpc-error-macro",
  "serde",
 ]
@@ -325,7 +283,7 @@ dependencies = [
 [[package]]
 name = "near-vm-logic"
 version = "0.5.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#441d92104794b76573bdfeb6fba5f4890676b8f9"
+source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
 dependencies = [
  "bs58",
  "byteorder",

@@ -9,11 +9,12 @@ struct Incrementer {
     value: u32,
 }
 
-#[near_bindgen(init => new)]
+#[near_bindgen]
 impl Incrementer {
     pub fn inc(&mut self, by: u32) {
         self.value += by;
     }
+    #[init]
     pub fn new(starting_value: u32) -> Self {
         Self {
             value: starting_value

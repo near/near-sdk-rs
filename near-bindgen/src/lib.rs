@@ -1,5 +1,5 @@
 pub use near_bindgen_macros::{
-    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer,
+    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer, metadata
 };
 
 pub mod collections;

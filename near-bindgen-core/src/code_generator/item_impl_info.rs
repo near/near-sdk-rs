@@ -455,7 +455,7 @@ mod tests {
                     _ => panic!("Callback computation {} was not successful", 0u64)
                 };
                 let mut x: u64 = borsh::try_from_slice_with_schema(&data)
-                    .expect("Failed to deserialize callback using JSON");
+                    .expect("Failed to deserialize callback using Borsh");
                 let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 1u64)

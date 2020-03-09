@@ -2,7 +2,7 @@
 
 mod code_generator;
 mod info_extractor;
-mod metadata_generator;
+mod metadata;
 pub use code_generator::*;
 pub use info_extractor::*;
-pub use metadata_generator::generate_metadata_method;
+pub use metadata::metadata_visitor::MetadataVisitor;
