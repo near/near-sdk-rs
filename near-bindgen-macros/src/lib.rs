@@ -110,8 +110,8 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
-/// `metadata` generate the metadata method and should be placed at the very end of the `lib.rs` file.
-/// TODO: Once Rust allos inner attributes and custom procedural macros for modules we should switch this
+/// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
+/// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
 /// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
 #[proc_macro]
 pub fn metadata(item: TokenStream) -> TokenStream {
