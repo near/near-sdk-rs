@@ -226,7 +226,8 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffa8dbf8437a28ac40fcb85859ab0d0b8385013935b000c7a51ae79631dd74d9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -238,7 +239,8 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-macro"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c6111d713e90c7c551dee937f4a06cb9ea2672243455a4454cc7566387ba2d9"
 dependencies = [
  "near-rpc-error-core",
  "proc-macro2",
@@ -251,7 +253,8 @@ dependencies = [
 [[package]]
 name = "near-runtime-fees"
 version = "0.5.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "961ee9916571e2c81dd08f62a22fba380bbe1f0914556e99762085295b615835"
 dependencies = [
  "serde",
 ]
@@ -259,7 +262,8 @@ dependencies = [
 [[package]]
 name = "near-vm-errors"
 version = "0.5.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f283afbcd98eabbf3aab1406f6c91244056cd07df7ef397c685c6268f5deac28"
 dependencies = [
  "borsh",
  "near-rpc-error-macro",
@@ -269,7 +273,8 @@ dependencies = [
 [[package]]
 name = "near-vm-logic"
 version = "0.5.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=bump_borsh#e4fd2ca34d93de2046f9b88bd565e3ea92a1d0a7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df3bd7ed04151a3e8fcac08fe22ef99ef48443a35610618444f774a233c25817"
 dependencies = [
  "bs58",
  "byteorder",
