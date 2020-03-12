@@ -68,7 +68,9 @@ def test_integers():
         diff = gas_json_input_u32_a - last
         last = gas_json_input_u32_a
         diffs.append(diff)
-        print("Cost of JSON input of (a: u32) where a=%s is %s difference for 1 digit is %s" % (f(a), f(gas_json_input_u32_a), f(diff)))
+        diff_str = " difference for 1 digit is %s" % f(diff) if ap else ""
+        if ap < 3:
+            print("Cost of JSON input of (a: u32) where a=%s is %s%s" % (f(a), f(gas_json_input_u32_a), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     last = 0
@@ -79,7 +81,9 @@ def test_integers():
         diff = gas_json_input_u32_ab - last
         last = gas_json_input_u32_ab
         diffs.append(diff)
-        print("Cost of JSON input of (a: u32, b: u32) where a=b=%s is %s difference for 2 digit is %s" % (f(a), f(gas_json_input_u32_ab), f(diff)))
+        diff_str = " difference for 2 digit is %s" % f(diff) if ap else ""
+        if ap < 3:
+            print("Cost of JSON input of (a: u32, b: u32) where a=b=%s is %s%s" % (f(a), f(gas_json_input_u32_ab), diff_str))
     print("Average diff", mean(diffs[2:]))
 
 
@@ -94,7 +98,9 @@ def test_integers():
         diff = gas_json_output_u32_a - last
         last = gas_json_output_u32_a
         diffs.append(diff)
-        print("Cost of JSON output of u32=%s is %s difference for 1 digit is %s" % (f(a), f(gas_json_output_u32_a), f(diff)))
+        diff_str = " difference for 1 digit is %s" % f(diff) if ap else ""
+        if ap < 3:
+            print("Cost of JSON output of u32=%s is %s%s" % (f(a), f(gas_json_output_u32_a), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Input/Output <- ")
@@ -124,7 +130,9 @@ def test_strings():
         diff = gas_json_input_string_a - last
         last = gas_json_input_string_a
         diffs.append(diff)
-        print("Cost of JSON input of (s: String) where s=\"%s\" is %s difference for 1 char is %s" % (s, f(gas_json_input_string_a), f(diff)))
+        diff_str = " difference for 1 char is %s" % f(diff) if sl else ""
+        if sl < 3:
+            print("Cost of JSON input of (s: String) where s=\"%s\" is %s%s" % (s, f(gas_json_input_string_a), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> JSON Outputs <- ")
@@ -138,7 +146,9 @@ def test_strings():
         diff = gas_json_output_string_a - last
         last = gas_json_output_string_a
         diffs.append(diff)
-        print("Cost of JSON output of String where s=\"%s\" is %s difference for 1 char is %s" % (s, f(gas_json_output_string_a), f(diff)))
+        diff_str = " difference for 1 char is %s" % f(diff) if sl else ""
+        if sl < 3:
+            print("Cost of JSON output of String where s=\"%s\" is %s%s" % (s, f(gas_json_output_string_a), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Input <- ")
@@ -151,7 +161,9 @@ def test_strings():
         diff = gas_borsh_input_string_a - last
         last = gas_borsh_input_string_a
         diffs.append(diff)
-        print("Cost of Borsh input of (s: String) where s=\"%s\" is %s difference for 1 char is %s" % (s, f(gas_borsh_input_string_a), f(diff)))
+        diff_str = " difference for 1 char is %s" % f(diff) if sl else ""
+        if sl < 3:
+            print("Cost of Borsh input of (s: String) where s=\"%s\" is %s%s" % (s, f(gas_borsh_input_string_a), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Outputs <- ")
@@ -165,7 +177,9 @@ def test_strings():
         diff = gas_borsh_output_string_a - last
         last = gas_borsh_output_string_a
         diffs.append(diff)
-        print("Cost of Borsh output of String where s=\"%s\" is %s difference for 1 char is %s" % (s, f(gas_borsh_output_string_a), f(diff)))
+        diff_str = " difference for 1 digit is %s" % f(diff) if sl else ""
+        if sl < 3:
+            print("Cost of Borsh output of String where s=\"%s\" is %s%s" % (s, f(gas_borsh_output_string_a), diff_str))
     print("Average diff", mean(diffs[2:]))
 
 
@@ -185,7 +199,9 @@ def test_vec_u8():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of JSON input of (v: Vec<u8>) where v=%s is %s difference for 1 element is %s" % (v, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON input of (v: Vec<u8>) where v=%s is %s%s" % (v, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> JSON Outputs <- ")
@@ -200,7 +216,9 @@ def test_vec_u8():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of JSON output of Vec<u8> where v=%s is %s difference for 1 element is %s" % (v, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON output of Vec<u8> where v=%s is %s%s" % (v, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Input <- ")
@@ -216,7 +234,9 @@ def test_vec_u8():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of Borsh input of (v: Vec<u8>) where v=%s is %s difference for 1 element is %s" % (v, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh input of (v: Vec<u8>) where v=%s is %s%s" % (v, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Outputs <- ")
@@ -233,7 +253,9 @@ def test_vec_u8():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of Borsh output of Vec<u8> where v=%s is %s difference for 1 element is %s" % (v, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh output of Vec<u8> where v=%s is %s%s" % (v, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
 
@@ -253,7 +275,9 @@ def test_vec_u32():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of JSON input of (v: Vec<u32>) where v=%s is %s difference for 1 element is %s" % (v, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON input of (v: Vec<u32>) where v=%s is %s%s" % (v, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> JSON Outputs <- ")
@@ -268,7 +292,9 @@ def test_vec_u32():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of JSON output of Vec<u32> where v=%s is %s difference for 1 element is %s" % (v, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON output of Vec<u32> where v=%s is %s%s" % (v, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Input <- ")
@@ -284,7 +310,9 @@ def test_vec_u32():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of Borsh input of (v: Vec<u32>) where v=%s is %s difference for 1 element is %s" % (v, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh input of (v: Vec<u32>) where v=%s is %s%s" % (v, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Outputs <- ")
@@ -301,7 +329,9 @@ def test_vec_u32():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of Borsh output of Vec<u32> where v=%s is %s difference for 1 element is %s" % (v, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh output of Vec<u32> where v=%s is %s%s" % (v, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
 def test_simple_struct():
@@ -345,7 +375,9 @@ def test_vec_vec_u8():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of JSON input of (v: Vec<Vec<u8>>) where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON input of (v: Vec<Vec<u8>>) where len(v)=%d is %s%s" % (vl, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> JSON Outputs <- ")
@@ -360,7 +392,9 @@ def test_vec_vec_u8():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of JSON output of Vec<Vec<u8>> where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON output of Vec<Vec<u8>> where len(v)=%d is %s%s" % (vl, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Input <- ")
@@ -378,7 +412,9 @@ def test_vec_vec_u8():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of Borsh input of (v: Vec<Vec<u8>>) where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh input of (v: Vec<Vec<u8>>) where len(v)=%d is %s%s" % (vl, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Outputs <- ")
@@ -397,7 +433,9 @@ def test_vec_vec_u8():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of Borsh output of Vec<Vec<u8>> where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh output of Vec<Vec<u8>> where len(v)=%d is %s%s" % (vl, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
 
@@ -418,7 +456,9 @@ def test_vec_string():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of JSON input of (v: Vec<String>) where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON input of (v: Vec<String>) where len(v)=%d is %s%s" % (vl, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> JSON Outputs <- ")
@@ -433,7 +473,9 @@ def test_vec_string():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of JSON output of Vec<String> where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of JSON output of Vec<String> where len(v)=%d is %s%s" % (vl, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Input <- ")
@@ -450,7 +492,9 @@ def test_vec_string():
         diff = gas_input - last
         last = gas_input
         diffs.append(diff)
-        print("Cost of Borsh input of (v: Vec<String>) where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_input), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh input of (v: Vec<String>) where len(v)=%d is %s%s" % (vl, f(gas_input), diff_str))
     print("Average diff", mean(diffs[2:]))
 
     print(" -> Borsh Outputs <- ")
@@ -468,17 +512,18 @@ def test_vec_string():
         diff = gas_output - last
         last = gas_output
         diffs.append(diff)
-        print("Cost of Borsh output of Vec<String> where len(v)=%d is %s difference for 1 element is %s" % (vl, f(gas_output), f(diff)))
+        diff_str = " difference for 1 element is %s" % f(diff) if vl else ""
+        if vl < 3:
+            print("Cost of Borsh output of Vec<String> where len(v)=%d is %s%s" % (vl, f(gas_output), diff_str))
     print("Average diff", mean(diffs[2:]))
 
 
 
 
-# test_integers()
-# test_strings()
-# test_vec_u8()
-# test_vec_u32()
+test_integers()
+test_strings()
+test_vec_u8()
+test_vec_u32()
 test_vec_vec_u8()
 test_vec_string()
-
-# test_simple_struct()
+test_simple_struct()

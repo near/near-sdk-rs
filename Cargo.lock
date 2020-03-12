@@ -51,9 +51,9 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
- "borsh-derive 0.3.0",
+ "borsh-derive 0.6.0",
 ]
 
 [[package]]
@@ -67,10 +67,10 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
- "borsh-derive-internal 0.3.0",
- "borsh-schema-derive-internal 0.3.0",
+ "borsh-derive-internal 0.6.0",
+ "borsh-schema-derive-internal 0.6.0",
  "syn 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive-internal"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
  "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "borsh-schema-derive-internal"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
  "proc-macro2 1.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -203,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "near-bindgen"
 version = "0.4.2"
 dependencies = [
- "borsh 0.3.0",
+ "borsh 0.6.0",
  "near-bindgen-macros 0.4.2",
  "near-runtime-fees 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-vm-logic 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",

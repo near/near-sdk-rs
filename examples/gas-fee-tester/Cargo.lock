@@ -57,9 +57,9 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
- "borsh-derive 0.3.0",
+ "borsh-derive 0.6.0",
 ]
 
 [[package]]
@@ -74,9 +74,9 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
- "borsh-derive-internal 0.3.0",
+ "borsh-derive-internal 0.6.0",
  "borsh-schema-derive-internal",
  "syn",
 ]
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive-internal"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "borsh-schema-derive-internal"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -153,7 +153,7 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 name = "gas-fee-tester"
 version = "0.1.0"
 dependencies = [
- "borsh 0.3.0",
+ "borsh 0.6.0",
  "near-bindgen",
  "serde",
  "serde_json",
@@ -218,7 +218,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 name = "near-bindgen"
 version = "0.4.2"
 dependencies = [
- "borsh 0.3.0",
+ "borsh 0.6.0",
  "near-bindgen-macros",
  "near-runtime-fees",
  "near-vm-logic",
