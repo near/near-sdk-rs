@@ -27,7 +27,7 @@ impl AttrSigInfo {
         let attribute = match &self.input_serializer {
             SerializerType::JSON => quote! {#[derive(serde::Deserialize, serde::Serialize)]},
             SerializerType::Borsh => {
-                quote! {#[derive(borsh::BorshDeserialize, borsh::BorshSerialize)]}
+                quote! {#[derive(borsh::BorshDeserialize, borsh::BorshSerialize, borsh::BorshSchema)]}
             }
         };
         let mut fields = TokenStream2::new();
