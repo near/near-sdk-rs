@@ -1,5 +1,5 @@
 pub use near_bindgen_macros::{
-    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer,
+    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer, metadata
 };
 
 pub mod collections;
@@ -8,6 +8,9 @@ pub use environment::env;
 
 mod promise;
 pub use promise::{Promise, PromiseOrValue};
+
+mod metadata;
+pub use metadata::{Metadata, MethodMetadata};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;

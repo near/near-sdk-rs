@@ -8,17 +8,17 @@ if [[ "${NEAR_RELEASE}" == "true" ]]; then
 else
     echo "Test with git version of borsh and near-vm-logic"
 
-    cp near-bindgen/Cargo.toml{,.bak}
+    cp Cargo.toml{,.bak}
     cp Cargo.lock{,.bak}
 
-    sed -i "s|###||g" near-bindgen/Cargo.toml
+    sed -i "s|###||g" Cargo.toml
     
     set +e
     cargo test --all
     status=$?
     set -e
 
-    mv near-bindgen/Cargo.toml{.bak,}
+    mv Cargo.toml{.bak,}
     mv Cargo.lock{.bak,}
     if [ $status -ne 0 ]; then
       exit $status

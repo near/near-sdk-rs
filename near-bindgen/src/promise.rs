@@ -2,6 +2,8 @@ use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 use std::cell::RefCell;
 use std::io::{Error, Write};
 use std::rc::Rc;
+use borsh::BorshSchema;
+use std::collections::HashMap;
 
 pub enum PromiseAction {
     CreateAccount,
@@ -181,6 +183,17 @@ impl PromiseJoint {
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
+}
+
+/// Until we implement strongly typed promises we serialize them as unit struct.
+impl BorshSchema for Promise  {
+    fn add_definitions_recursively(definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>) {
+        <()>::add_definitions_recursively(definitions);
+    }
+
+    fn declaration() -> borsh::schema::Declaration {
+        <()>::declaration()
+    }
 }
 
 #[derive(Clone)]
@@ -385,6 +398,16 @@ impl serde::Serialize for Promise {
 pub enum PromiseOrValue<T> {
     Promise(Promise),
     Value(T),
+}
+
+impl<T> BorshSchema for PromiseOrValue<T> where T: BorshSchema {
+    fn add_definitions_recursively(definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>) {
+        T::add_definitions_recursively(definitions);
+    }
+
+    fn declaration() -> borsh::schema::Declaration {
+        T::declaration()
+    }
 }
 
 impl<T> From<Promise> for PromiseOrValue<T> {
