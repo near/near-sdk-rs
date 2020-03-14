@@ -2,8 +2,12 @@
 
 Contains a list of functions to calculate gas fees of different serializers and inputs
 
-## Testing
-To test run:
-```bash
-cargo test --package gas-fee-tester -- --nocapture
+## To run
+
+```
+# Install NEAR Runtime standalone runner first
+cargo install near-vm-runner-standalone
+
+# Start gas fee testing. It will build the contract and use standalone runner to compare gas for different calls.
+./run.py
 ```
