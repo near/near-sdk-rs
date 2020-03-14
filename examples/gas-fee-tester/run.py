@@ -4,6 +4,7 @@ import subprocess
 import json
 import struct
 import copy
+import base64
 
 subprocess.run("./build.sh")
 # subprocess.run(["cargo", "+nightly-2020-02-06-x86_64-apple-darwin", "install", "near-vm-runner-standalone"])
@@ -14,7 +15,7 @@ with open("./res/context.json", 'r') as f:
 def call(method_name, input=None):
     tmp_context = copy.deepcopy(context)
     if input is not None:
-        tmp_context['input'] = input
+        tmp_context['input'] = base64.b64encode(bytes(input)).decode('utf-8')
     args = [
         "near-vm-runner-standalone",
         "--context=%s" % (json.dumps(tmp_context),),
@@ -24,7 +25,7 @@ def call(method_name, input=None):
         ]
     result = subprocess.run(args, capture_output=True)
     assert(result.returncode == 0)
-    # print(result.stdout)
+    print(result.stdout)
     return json.loads(result.stdout)
 
 def gas_of(method_name, input=None):

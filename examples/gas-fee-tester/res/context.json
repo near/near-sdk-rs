@@ -3,7 +3,7 @@
   "signer_account_id": "bob_near",
   "signer_account_pk": "KuTCtARNzxZQ3YvXDeLjx83FDqxv2SdQTSbiq876zR7",
   "predecessor_account_id": "carol_near",
-  "input": [],
+  "input": "",
   "block_index": 0,
   "block_timestamp": 0,
   "account_balance": 100,
