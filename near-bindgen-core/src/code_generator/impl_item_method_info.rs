@@ -28,7 +28,7 @@ impl ImplItemMethodInfo {
                 ).expect("Failed to deserialize input from JSON.")
                 },
                 SerializerType::Borsh => quote! {
-                borsh::try_from_slice_with_schema(
+                borsh::BorshDeserialize::try_from_slice(
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 ).expect("Failed to deserialize input from Borsh.")
                 },
@@ -98,7 +98,7 @@ impl ImplItemMethodInfo {
                             let result = serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                         },
                         SerializerType::Borsh => quote! {
-                            let result = borsh::try_to_vec_with_schema(&result).expect("Failed to serialize the return value using Borsh.");
+                            let result = borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
                         },
                     };
                     quote! {

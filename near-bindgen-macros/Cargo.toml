@@ -1,6 +1,6 @@
 [package]
 name = "near-bindgen-macros"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ Main macro of the library for writing NEAR smart contracts.
 proc-macro = true
 
 [dependencies]
-near-bindgen-core = { path = "../near-bindgen-core", version = "0.5.0"}
+near-bindgen-core = { path = "../near-bindgen-core", version = "0.6.0"}
 proc-macro2 = "1.0"
 syn = {version = "1.0.14", features = ["full", "fold", "visit"] }
 quote = "1.0"

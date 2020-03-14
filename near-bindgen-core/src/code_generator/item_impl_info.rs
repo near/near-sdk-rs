@@ -413,13 +413,13 @@ mod tests {
                     k: u64,
                     m: Bar,
                 }
-                let Input { k, m, }: Input = borsh::try_from_slice_with_schema(
+                let Input { k, m, }: Input = borsh::BorshDeserialize::try_from_slice(
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method(k, m, );
-                let result = borsh::try_to_vec_with_schema(&result)
+                let result = borsh::BorshSerialize::try_to_vec(&result)
                     .expect("Failed to serialize the return value using Borsh.");
                 near_bindgen::env::value_return(&result);
                 near_bindgen::env::state_write(&contract);
@@ -446,7 +446,7 @@ mod tests {
                 struct Input {
                     y: String,
                 }
-                let Input { y, }: Input = borsh::try_from_slice_with_schema(
+                let Input { y, }: Input = borsh::BorshDeserialize::try_from_slice(
                     &near_bindgen::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
@@ -454,7 +454,7 @@ mod tests {
                     near_bindgen::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 0u64)
                 };
-                let mut x: u64 = borsh::try_from_slice_with_schema(&data)
+                let mut x: u64 = borsh::BorshDeserialize::try_from_slice(&data)
                     .expect("Failed to deserialize callback using Borsh");
                 let data: Vec<u8> = match near_bindgen::env::promise_result(1u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
