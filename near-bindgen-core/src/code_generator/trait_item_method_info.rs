@@ -25,7 +25,7 @@ impl TraitItemMethodInfo {
                     let args = serde_json::to_vec(&args).expect("Failed to serialize the cross contract args using JSON.");
                 },
                 SerializerType::Borsh => quote! {
-                    let args = borsh::try_to_vec_with_schema(&args).expect("Failed to serialize the cross contract args using Borsh.");
+                    let args = borsh::BorshSerialize::try_to_vec(&args).expect("Failed to serialize the cross contract args using Borsh.");
                 },
             };
         }
