@@ -64,7 +64,7 @@ impl MetadataVisitor {
                 let metadata = near_bindgen::Metadata::new(vec![
                     #(#methods),*
                 ]);
-                let data = borsh::try_to_vec_with_schema(&metadata).expect("Failed to serialize the metadata using Borsh");
+                let data = borsh::BorshSerialize::try_to_vec(&metadata).expect("Failed to serialize the metadata using Borsh");
                 near_bindgen::env::value_return(&data);
             }
         })
@@ -150,7 +150,7 @@ mod tests {
                         result: Some(Result < IsOk, Error > ::schema_container())
                     }
                 ]);
-                let data = borsh::try_to_vec_with_schema(&metadata)
+                let data = borsh::BorshSerialize::try_to_vec(&metadata)
                     .expect("Failed to serialize the metadata using Borsh");
                 near_bindgen::env::value_return(&data);
             }

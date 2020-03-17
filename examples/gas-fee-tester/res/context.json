@@ -1,0 +1,17 @@
+{
+  "current_account_id": "alice_near",
+  "signer_account_id": "bob_near",
+  "signer_account_pk": "KuTCtARNzxZQ3YvXDeLjx83FDqxv2SdQTSbiq876zR7",
+  "predecessor_account_id": "carol_near",
+  "input": "",
+  "block_index": 0,
+  "block_timestamp": 0,
+  "account_balance": 100,
+  "account_locked_balance": 10,
+  "storage_usage": 100,
+  "attached_deposit": 0,
+  "prepaid_gas": 1000000000000000,
+  "random_seed": "KuTCtARNzxZQ3YvXDeLjx83FDqxv2SdQTSbiq876zR7",
+  "is_view": false,
+  "output_data_receivers": []
+}
