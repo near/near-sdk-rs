@@ -134,17 +134,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
-name = "fun-token"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "near-bindgen",
- "serde",
- "serde_json",
- "wee_alloc",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -185,6 +174,17 @@ name = "libc"
 version = "0.2.67"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb147597cdf94ed43ab7a9038716637d2d1bf2bc571da995d0028dec06bd3018"
+
+[[package]]
+name = "lockable-fungible-token"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "near-bindgen",
+ "serde",
+ "serde_json",
+ "wee_alloc",
+]
 
 [[package]]
 name = "memchr"
