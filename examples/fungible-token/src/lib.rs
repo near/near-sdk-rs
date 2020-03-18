@@ -13,7 +13,7 @@
 */
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_bindgen::collections::Map;
-use near_bindgen::{env, metadata, near_bindgen, AccountId, Balance};
+use near_bindgen::{env, near_bindgen, AccountId, Balance};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[global_allocator]
@@ -72,9 +72,9 @@ impl From<u128> for U128 {
     }
 }
 
-impl Into<u128> for U128 {
-    fn into(self) -> u128 {
-        self.0
+impl From<U128> for u128 {
+    fn from(v: U128) -> u128 {
+        v.0
     }
 }
 
@@ -215,8 +215,6 @@ impl FungibleToken {
         self.accounts.insert(&account_hash, &account);
     }
 }
-
-metadata! {}
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
