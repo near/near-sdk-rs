@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{AccountId, Balance, env, near_bindgen};
-use near_bindgen::collections::Map;
+use near_sdk::{AccountId, Balance, env, near_sdk};
+use near_sdk::collections::Map;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -47,7 +47,7 @@ impl Account {
     }
 }
 
-#[near_bindgen]
+#[near_sdk]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FunToken {
     /// AccountID -> Account details.
@@ -63,7 +63,7 @@ impl Default for FunToken {
     }
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl FunToken {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: String) -> Self {
@@ -257,8 +257,8 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_bindgen::{testing_env, VMContext};
-    use near_bindgen::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
 
     use super::*;
 

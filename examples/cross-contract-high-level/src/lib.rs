@@ -1,10 +1,10 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{
+use near_sdk::{
     //    callback,
     //    callback_vec,
     env,
     ext_contract,
-    near_bindgen,
+    near_sdk,
     Promise,
     PromiseOrValue,
 };
@@ -12,7 +12,7 @@ use near_bindgen::{
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[near_bindgen]
+#[near_sdk]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
 
@@ -39,7 +39,7 @@ pub trait ExtStatusMessage {
     fn get_status(&self, account_id: String) -> Option<String>;
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: String, amount: u64) {
         Promise::new(account_id)

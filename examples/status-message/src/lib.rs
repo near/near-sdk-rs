@@ -1,18 +1,18 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, metadata, near_bindgen};
+use near_sdk::{env, metadata, near_sdk};
 use std::collections::HashMap;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 metadata!{
-#[near_bindgen]
+#[near_sdk]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         env::log(b"A");
@@ -31,8 +31,8 @@ impl StatusMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {

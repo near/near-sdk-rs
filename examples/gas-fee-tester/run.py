@@ -48,7 +48,7 @@ print("Base gas cost of full noop call is %s" % (f(gas_global_noop),))
 gas_structure_noop = gas_of("structure_noop")
 
 gas_structure_init = gas_structure_noop - gas_global_noop
-print("Base gas cost of calling a function with near_bindgen is %s" % (f(gas_structure_init),))
+print("Base gas cost of calling a function with near_sdk is %s" % (f(gas_structure_init),))
 
 gas_json_input_u32_a = gas_of("input_json_u32_a", json_input({"a": 1}))
 gas_json_input_u32_aa = gas_of("input_json_u32_aa", json_input({"aa": 1}))

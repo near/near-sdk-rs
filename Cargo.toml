@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "near-bindgen",
-    "near-bindgen-core",
-    "near-bindgen-macros",
+    "near-sdk",
+    "near-sdk-core",
+    "near-sdk-macros",
 ]
 exclude = [
     "examples/cross-contract-high-level",
