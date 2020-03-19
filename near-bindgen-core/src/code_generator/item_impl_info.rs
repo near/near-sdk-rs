@@ -34,6 +34,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
             }
@@ -53,6 +56,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
             }
@@ -72,6 +78,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method();
                 near_bindgen::env::state_write(&contract);
@@ -92,6 +101,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     k: u64,
@@ -107,8 +119,6 @@ mod tests {
         assert_eq!(expected.to_string(), actual.to_string());
     }
 
-
-
     #[test]
     fn args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
@@ -122,6 +132,9 @@ mod tests {
                 pub extern "C" fn method() {
                     near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                    if near_bindgen::env::attached_deposit() {
+                        panic!("Method doesn't accept deposit");
+                    }
                     #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         k: u64,
@@ -152,6 +165,9 @@ mod tests {
                 pub extern "C" fn method() {
                     near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                    if near_bindgen::env::attached_deposit() {
+                        panic!("Method doesn't accept deposit");
+                    }
                     #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         k: u64,
@@ -185,6 +201,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 let result = contract.method();
                 let result =
@@ -207,6 +226,9 @@ mod tests {
                 pub extern "C" fn method() {
                     near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                    if near_bindgen::env::attached_deposit() {
+                        panic!("Method doesn't accept deposit");
+                    }
                     #[derive(serde :: Deserialize, serde :: Serialize)]
                     struct Input {
                         k: u64,
@@ -235,6 +257,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     k: u64,
@@ -264,6 +289,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     y: String,
@@ -305,6 +333,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
                     near_bindgen::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 0u64)
@@ -339,6 +370,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     y: String,
@@ -378,6 +412,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
                 struct Input {
                     k: u64,
@@ -408,6 +445,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
                 struct Input {
                     k: u64,
@@ -442,6 +482,9 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_bindgen::env::attached_deposit() {
+                    panic!("Method doesn't accept deposit");
+                }
                 #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
                 struct Input {
                     y: String,
@@ -464,6 +507,74 @@ mod tests {
                     serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, z, );
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn trait_implt_payable() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("#[payable] fn method(&self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method();
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn no_args_no_return_mut_payable() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("#[payable] pub fn method(&mut self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method();
+                near_bindgen::env::state_write(&contract);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+
+    #[test]
+    fn arg_mut_ref_payable() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod =
+            syn::parse_str("#[payable] pub fn method(&self, k: &mut u64) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_bindgen::env::setup_panic_hook();
+                near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                #[derive(serde :: Deserialize, serde :: Serialize)]
+                struct Input {
+                    k: u64,
+                }
+                let Input { mut k, }: Input = serde_json::from_slice(
+                    &near_bindgen::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from JSON.");
+                let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
+                contract.method(&mut k, );
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());

@@ -52,8 +52,20 @@ impl ImplItemMethodInfo {
             returns,
             result_serializer,
             is_init,
+            is_payable,
             ..
         } = attr_signature_info;
+        let deposit_check = if *is_payable {
+            // No check if method is payable
+            quote! {}
+        } else {
+            // If method is not payable, do a check to make sure that it doesn't consume deposit
+            quote! {
+                if near_bindgen::env::attached_deposit() != 0 {
+                    panic!("Method doesn't accept deposit");
+                }
+            }
+        };
         let body = if *is_init {
             quote! {
                 let contract = #struct_type::#ident(#arg_list);
@@ -125,6 +137,7 @@ impl ImplItemMethodInfo {
             pub extern "C" fn #ident() {
                 #panic_hook
                 #env_creation
+                #deposit_check
                 #arg_struct
                 #arg_parsing
                 #callback_deser
