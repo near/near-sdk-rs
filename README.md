@@ -14,7 +14,7 @@
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
-    <a href="https://travis-ci.com/nearprotocol/near-sdk"><img src="https://travis-ci.com/nearprotocol/near-sdk.svg?branch=master" alt="Travis Build" /></a>
+    <a href="https://travis-ci.com/near/near-sdk-rs"><img src="https://travis-ci.com/near/near-sdk-rs.svg?branch=master" alt="Travis Build" /></a>
   </p>
 
    <h3>
