@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "near-bindgen",
-    "near-bindgen-core",
-    "near-bindgen-macros",
+    "near-sdk",
+    "near-sdk-core",
+    "near-sdk-macros",
 ]
 exclude = [
     "examples/cross-contract-high-level",
@@ -15,6 +15,6 @@ exclude = [
 
 # Special triple # comment for ci.
 [patch.crates-io]
-### borsh = { git = "https://github.com/nearprotocol/borsh", branch = "master" }
-### near-vm-logic = { git = "https://github.com/nearprotocol/nearcore", branch = "master" }
-### near-runtime-fees = { git = "https://github.com/nearprotocol/nearcore", branch = "master" }
+### borsh = { git = "https://github.com/near/borsh", branch = "master" }
+### near-vm-logic = { git = "https://github.com/near/nearcore", branch = "master" }
+### near-runtime-fees = { git = "https://github.com/near/nearcore", branch = "master" }

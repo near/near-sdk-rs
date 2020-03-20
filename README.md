@@ -1,40 +1,44 @@
 <div align="center">
 
-  <h1><code>near-bindgen</code></h1>
+  <h1><code>near-sdk</code></h1>
 
   <p>
     <strong>Rust library for writing NEAR smart contracts.</strong>
   </p>
+  <p>
+    Previously known as <code>near-bindgen</code>.
+  </p>
+
 
   <p>
-    <a href="https://crates.io/crates/near-bindgen"><img src="https://img.shields.io/crates/v/near-bindgen.svg?style=flat-square" alt="Crates.io version" /></a>
-    <a href="https://crates.io/crates/near-bindgen"><img src="https://img.shields.io/crates/d/near-bindgen.svg?style=flat-square" alt="Download" /></a>
+    <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
+    <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
-    <a href="https://travis-ci.com/nearprotocol/near-bindgen"><img src="https://travis-ci.com/nearprotocol/near-bindgen.svg?branch=master" alt="Travis Build" /></a>
+    <a href="https://travis-ci.com/nearprotocol/near-sdk"><img src="https://travis-ci.com/nearprotocol/near-sdk.svg?branch=master" alt="Travis Build" /></a>
   </p>
 
    <h3>
-      <a href="https://github.com/nearprotocol/near-bindgen#features">Features</a>
+      <a href="https://github.com/near/near-sdk#features">Features</a>
       <span> | </span>
-      <a href="https://github.com/nearprotocol/near-bindgen#pre-requisites">Pre-requisites</a>
+      <a href="https://github.com/near/near-sdk#pre-requisites">Pre-requisites</a>
       <span> | </span>
-      <a href="https://github.com/nearprotocol/near-bindgen#writing-rust-contract">Writing Rust Contract</a>
+      <a href="https://github.com/near/near-sdk#writing-rust-contract">Writing Rust Contract</a>
       <span> | </span>
-      <a href="https://github.com/nearprotocol/near-bindgen#building-rust-contract">Building Rust Contract</a>
+      <a href="https://github.com/near/near-sdk#building-rust-contract">Building Rust Contract</a>
     </h3>
 </div>
 
 ## Example
 
-Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
+Wrap a struct in `#[near_sdk]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
-#[near_bindgen]
+#[near_sdk]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         let account_id = env::signer_account_id();
@@ -49,7 +53,7 @@ impl StatusMessage {
 
 ## Features
 
-* **Unit-testable.** Writing unit tests is easy with `near-bindgen`:
+* **Unit-testable.** Writing unit tests is easy with `near-sdk`:
 
     ```rust
     #[test]
@@ -75,14 +79,14 @@ impl StatusMessage {
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
     
-    Follow [examples/cross-contract-high-level](https://github.com/nearprotocol/near-bindgen/tree/master/examples/cross-contract-high-level)
+    Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
 * **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
 contract.
 
     ```rust
-    #[near_bindgen]
+    #[near_sdk]
     impl StatusMessage {
       #[init]
       pub fn new(user: String, status: String) -> Self {
@@ -126,7 +130,7 @@ The general workflow is the following:
 
    Here is an example of a smart contract struct:
    ```rust
-   #[near_bindgen]
+   #[near_sdk]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
        data: HashMap<u64, u64>
@@ -136,12 +140,12 @@ The general workflow is the following:
 3. Define methods that NEAR will expose as smart contract methods:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
-    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening
+    * Decorate the `impl` section with `#[near_sdk]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening
     * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
 
     Here is an example of smart contract methods:
     ```rust
-    #[near_bindgen]
+    #[near_sdk]
     impl MyContract {
        pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
            self.data.insert(key)

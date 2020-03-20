@@ -12,8 +12,8 @@
 *    multiple accounts.
 */
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::collections::Map;
-use near_bindgen::{env, near_bindgen, AccountId, Balance};
+use near_sdk::collections::Map;
+use near_sdk::{env, near_sdk, AccountId, Balance};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[global_allocator]
@@ -54,7 +54,7 @@ impl Account {
 }
 
 //
-#[near_bindgen]
+#[near_sdk]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
     /// sha256(AccountID) -> Account details.
@@ -106,7 +106,7 @@ impl Default for FungibleToken {
     }
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl FungibleToken {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
     #[init]
@@ -219,8 +219,8 @@ impl FungibleToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     use super::*;
 

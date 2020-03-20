@@ -3,13 +3,13 @@ use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, near_bindgen};
+use near_sdk::{env, near_sdk};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub type AccountId = Vec<u8>;
 
-#[near_bindgen]
+#[near_sdk]
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct MissionControl {
     account: Account,
@@ -17,7 +17,7 @@ pub struct MissionControl {
     rates: HashMap<Exchange, Rate>,
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl MissionControl {
     pub fn add_agent(&mut self) {
         let account_id = env::signer_account_id().as_bytes().to_vec();
@@ -86,8 +86,8 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {

@@ -208,42 +208,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
 
 [[package]]
-name = "near-bindgen"
-version = "0.6.0"
-dependencies = [
- "borsh",
- "near-bindgen-macros",
- "near-runtime-fees",
- "near-vm-logic",
- "rand",
- "rand_xorshift",
- "rustversion",
- "serde",
- "serde_json",
- "trybuild",
-]
-
-[[package]]
-name = "near-bindgen-core"
-version = "0.6.0"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "near-bindgen-macros"
-version = "0.6.0"
-dependencies = [
- "near-bindgen-core",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -277,6 +241,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fba660ed57b3c42674fa9ab3c4623a98d1ad279fe6f4a40df18b900f4a10ad3d"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "near-sdk"
+version = "0.6.1"
+dependencies = [
+ "borsh",
+ "near-runtime-fees",
+ "near-sdk-macros",
+ "near-vm-logic",
+ "rand",
+ "rand_xorshift",
+ "rustversion",
+ "serde",
+ "serde_json",
+ "trybuild",
+]
+
+[[package]]
+name = "near-sdk-core"
+version = "0.6.1"
+dependencies = [
+ "Inflector",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "near-sdk-macros"
+version = "0.6.1"
+dependencies = [
+ "near-sdk-core",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

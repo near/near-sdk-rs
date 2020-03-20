@@ -6,7 +6,7 @@ Example of using cross-contract functions, like promises, or money transfers.
 Let's start the local Near testnet to run the contract on it.
 
 * Make sure you have [Docker](https://www.docker.com/) installed;
-* Clone the [nearprotocol/nearcore](https://github.com/nearprotocol/nearcore);
+* Clone the [nearprotocol/nearcore](https://github.com/near/nearcore);
 To start your local node, go to `nearcore` and run the following script:
 ```bash
 rm -rf ~/.near

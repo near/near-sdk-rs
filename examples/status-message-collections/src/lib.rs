@@ -1,11 +1,11 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::collections::{Map, Set};
-use near_bindgen::{env, near_bindgen};
+use near_sdk::collections::{Map, Set};
+use near_sdk::{env, near_sdk};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[near_bindgen]
+#[near_sdk]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
     pub records: Map<String, String>,
@@ -18,7 +18,7 @@ impl Default for StatusMessage {
     }
 }
 
-#[near_bindgen]
+#[near_sdk]
 impl StatusMessage {
     /// Returns true if the message is unique
     pub fn set_status(&mut self, message: String) -> bool {
@@ -36,8 +36,8 @@ impl StatusMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {
