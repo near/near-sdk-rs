@@ -1,13 +1,13 @@
 [package]
 name = "near-sdk"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2018"
 license = "Apache-2.0"
 readme = "README.md"
 categories = ["wasm"]
-repository = "https://github.com/nearprotocol/near-sdk"
-homepage = "https://github.com/nearprotocol/near-sdk"
+repository = "https://github.com/nearprotocol/near-sdk-rs"
+homepage = "https://github.com/nearprotocol/near-sdk-rs"
 description = """
 Rust library for writing NEAR smart contracts.
 """
@@ -19,7 +19,7 @@ path = "compilation_tests/all.rs"
 [dependencies]
 # Provide near_sdk macros.
 serde = { version = "1.0", features = ["derive"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "0.6.0"}
+near-sdk-macros = { path = "../near-sdk-macros", version = "0.6.1"}
 borsh = "0.6.0"
 near-vm-logic = "0.6.0"
 near-runtime-fees = "0.6.0"
