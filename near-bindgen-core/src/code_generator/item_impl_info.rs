@@ -34,7 +34,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
@@ -56,7 +56,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
@@ -78,7 +78,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 let mut contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
@@ -101,7 +101,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -132,7 +132,7 @@ mod tests {
                 pub extern "C" fn method() {
                     near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    if near_bindgen::env::attached_deposit() {
+                    if near_bindgen::env::attached_deposit() != 0 {
                         panic!("Method doesn't accept deposit");
                     }
                     #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -165,7 +165,7 @@ mod tests {
                 pub extern "C" fn method() {
                     near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    if near_bindgen::env::attached_deposit() {
+                    if near_bindgen::env::attached_deposit() != 0 {
                         panic!("Method doesn't accept deposit");
                     }
                     #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -201,7 +201,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 let contract: Hello = near_bindgen::env::state_read().unwrap_or_default();
@@ -226,7 +226,7 @@ mod tests {
                 pub extern "C" fn method() {
                     near_bindgen::env::setup_panic_hook();
                     near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    if near_bindgen::env::attached_deposit() {
+                    if near_bindgen::env::attached_deposit() != 0 {
                         panic!("Method doesn't accept deposit");
                     }
                     #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -257,7 +257,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -289,7 +289,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -333,7 +333,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 let data: Vec<u8> = match near_bindgen::env::promise_result(0u64) {
@@ -370,7 +370,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -412,7 +412,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(serde :: Deserialize, serde :: Serialize)]
@@ -445,7 +445,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
@@ -482,7 +482,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_bindgen::env::setup_panic_hook();
                 near_bindgen::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                if near_bindgen::env::attached_deposit() {
+                if near_bindgen::env::attached_deposit() != 0 {
                     panic!("Method doesn't accept deposit");
                 }
                 #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
