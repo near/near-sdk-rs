@@ -30,15 +30,15 @@
 
 ## Example
 
-Wrap a struct in `#[near_sdk]` and it generates a smart contract compatible with the NEAR blockchain:
+Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
-#[near_sdk]
+#[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
 
-#[near_sdk]
+#[near_bindgen]
 impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         let account_id = env::signer_account_id();
@@ -86,7 +86,7 @@ impl StatusMessage {
 contract.
 
     ```rust
-    #[near_sdk]
+    #[near_bindgen]
     impl StatusMessage {
       #[init]
       pub fn new(user: String, status: String) -> Self {
@@ -130,7 +130,7 @@ The general workflow is the following:
 
    Here is an example of a smart contract struct:
    ```rust
-   #[near_sdk]
+   #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
        data: HashMap<u64, u64>
@@ -140,12 +140,12 @@ The general workflow is the following:
 3. Define methods that NEAR will expose as smart contract methods:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
-    * Decorate the `impl` section with `#[near_sdk]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening
+    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening
     * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
 
     Here is an example of smart contract methods:
     ```rust
-    #[near_sdk]
+    #[near_bindgen]
     impl MyContract {
        pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
            self.data.insert(key)

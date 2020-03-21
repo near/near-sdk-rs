@@ -1,5 +1,5 @@
 pub use near_sdk_macros::{
-    callback, callback_vec, ext_contract, init, near_sdk, result_serializer, serializer, metadata
+    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer, metadata
 };
 
 pub mod collections;
