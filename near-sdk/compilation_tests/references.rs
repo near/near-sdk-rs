@@ -1,6 +1,6 @@
 //! Method with non-deserializable argument type.
 
-use near_sdk::near_sdk;
+use near_sdk::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
@@ -17,13 +17,13 @@ enum TypeB {
     Var2
 }
 
-#[near_sdk]
+#[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Storage {
     map: HashMap<TypeA, TypeB>
 }
 
-#[near_sdk]
+#[near_bindgen]
 impl Storage {
     pub fn get(&self, key: &TypeA) -> &TypeB {
         self.map.get(key).unwrap()

@@ -1,5 +1,5 @@
 error: Unsupported argument type.
   --> $DIR/bad_argument.rs:28:1
    |
-28 | #[near_sdk]
-   | ^^^^^^^^^^^
+28 | #[near_bindgen]
+   | ^^^^^^^^^^^^^^^
