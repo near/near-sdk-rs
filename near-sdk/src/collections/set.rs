@@ -175,10 +175,10 @@ where
         }
     }
 
-    /// Returns a view of keys as a vector.
-    /// It's sometimes useful to have random access to the keys.
+    /// Returns a view of elements as a vector.
+    /// It's sometimes useful to have random access to the elements.
     pub fn as_vector(&self) -> &Vector<T> {
-        &self.keys
+        &self.elements
     }
 }
 
