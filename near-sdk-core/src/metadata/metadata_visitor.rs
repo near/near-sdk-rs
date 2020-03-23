@@ -9,7 +9,7 @@ use syn::export::{ToTokens, TokenStream2};
 use syn::visit::Visit;
 use syn::{Error, ItemImpl};
 
-/// Information relevant to metadata extracted from the `impl` section decorated with `#[near_sdk]`.
+/// Information relevant to metadata extracted from the `impl` section decorated with `#[near_bindgen]`.
 #[derive(Default)]
 pub struct MetadataVisitor {
     impl_item_infos: Vec<ItemImplInfo>,
@@ -22,7 +22,7 @@ impl<'ast> Visit<'ast> for MetadataVisitor {
         let has_near_sdk_attr = i
             .attrs
             .iter()
-            .any(|attr| attr.path.to_token_stream().to_string().as_str() == "near_sdk");
+            .any(|attr| attr.path.to_token_stream().to_string().as_str() == "near_bindgen");
         if has_near_sdk_attr {
             match ItemImplInfo::new(&mut i.clone()) {
                 Ok(info) => self.impl_item_infos.push(info),
@@ -80,13 +80,13 @@ mod tests {
     #[test]
     fn several_methods() {
         let code = quote! {
-            #[near_sdk]
+            #[near_bindgen]
             impl Hello {
                 pub fn f1(&self) { }
                 pub fn f2(&mut self, arg0: FancyStruct, arg1: u64) { }
             }
 
-            #[near_sdk]
+            #[near_bindgen]
             impl SomeTrait for Hello {
                 fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
             }

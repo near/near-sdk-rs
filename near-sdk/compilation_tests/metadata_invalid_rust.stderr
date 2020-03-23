@@ -4,7 +4,7 @@ error: Failed to parse code decorated with `metadata!{}` macro. Only valid Rust 
 3  | / metadata! {
 4  | | FOOBAR
 5  | |
-6  | | #[near_sdk]
+6  | | #[near_bindgen]
 ...  |
 17 | | }
 18 | | }
@@ -12,11 +12,11 @@ error: Failed to parse code decorated with `metadata!{}` macro. Only valid Rust 
    | |_|
    | 
 
-warning: unused import: `near_sdk`
+warning: unused import: `near_bindgen`
  --> $DIR/metadata_invalid_rust.rs:1:16
   |
-1 | use near_sdk::{near_sdk, metadata};
-  |                ^^^^^^^^
+1 | use near_sdk::{near_bindgen, metadata};
+  |                ^^^^^^^^^^^^
   |
   = note: `#[warn(unused_imports)]` on by default
 

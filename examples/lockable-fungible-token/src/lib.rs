@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{AccountId, Balance, env, near_sdk};
+use near_sdk::{AccountId, Balance, env, near_bindgen};
 use near_sdk::collections::Map;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -47,7 +47,7 @@ impl Account {
     }
 }
 
-#[near_sdk]
+#[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FunToken {
     /// AccountID -> Account details.
@@ -63,7 +63,7 @@ impl Default for FunToken {
     }
 }
 
-#[near_sdk]
+#[near_bindgen]
 impl FunToken {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: String) -> Self {

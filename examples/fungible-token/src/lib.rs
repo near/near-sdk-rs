@@ -13,7 +13,7 @@
 */
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::Map;
-use near_sdk::{env, near_sdk, AccountId, Balance};
+use near_sdk::{env, near_bindgen, AccountId, Balance};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[global_allocator]
@@ -54,7 +54,7 @@ impl Account {
 }
 
 //
-#[near_sdk]
+#[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
     /// sha256(AccountID) -> Account details.
@@ -106,7 +106,7 @@ impl Default for FungibleToken {
     }
 }
 
-#[near_sdk]
+#[near_bindgen]
 impl FungibleToken {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
     #[init]

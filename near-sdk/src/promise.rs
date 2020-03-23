@@ -149,18 +149,18 @@ impl PromiseJoint {
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
 /// ```ignore
-/// # use near_sdk::{ext_contract, near_sdk, Promise};
+/// # use near_sdk::{ext_contract, near_bindgen, Promise};
 /// # use borsh::{BorshDeserialize, BorshSerialize};
 /// #[ext_contract]
 /// pub trait ContractB {
 ///     fn b(&mut self);
 /// }
 ///
-/// #[near_sdk]
+/// #[near_bindgen]
 /// #[derive(Default, BorshDeserialize, BorshSerialize)]
 /// struct ContractA {}
 ///
-/// #[near_sdk]
+/// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
 ///         contract_b::b(&"bob_near".to_string(), 0, 1_000)
@@ -340,18 +340,18 @@ impl Promise {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, near_sdk, Promise};
+    /// # use near_sdk::{ext_contract, near_bindgen, Promise};
     /// # use borsh::{BorshDeserialize, BorshSerialize};
     /// #[ext_contract]
     /// pub trait ContractB {
     ///     fn b(&mut self);
     /// }
     ///
-    /// #[near_sdk]
+    /// #[near_bindgen]
     /// #[derive(Default, BorshDeserialize, BorshSerialize)]
     /// struct ContractA {}
     ///
-    /// #[near_sdk]
+    /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
     ///        contract_b::b(&"bob_near".to_string(), 0, 1_000).as_return();
