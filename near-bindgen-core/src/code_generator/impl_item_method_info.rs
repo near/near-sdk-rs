@@ -62,7 +62,7 @@ impl ImplItemMethodInfo {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
             quote! {
                 if near_bindgen::env::attached_deposit() != 0 {
-                    panic!("Method doesn't accept deposit");
+                    near_bindgen::env::panic(b"Method doesn't accept deposit");
                 }
             }
         };

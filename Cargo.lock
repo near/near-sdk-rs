@@ -209,7 +209,7 @@ checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
 
 [[package]]
 name = "near-bindgen"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "borsh",
  "near-bindgen-macros",
@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-core"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -235,7 +235,7 @@ dependencies = [
 
 [[package]]
 name = "near-bindgen-macros"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "near-bindgen-core",
  "proc-macro2",
