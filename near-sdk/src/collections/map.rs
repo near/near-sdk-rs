@@ -132,9 +132,13 @@ impl<K, V> Map<K, V> {
                         Some(x) => x,
                         None => env::panic(ERR_INCONSISTENT_STATE),
                     };
-                    let last_lookup_key = self.raw_key_to_index_lookup(&last_key_raw);
                     env::storage_remove(&index_lookup);
-                    env::storage_write(&last_lookup_key, &index_raw);
+                    // If the removed element was the last element from keys, then we don't need to
+                    // reinsert the lookup back.
+                    if last_key_raw != key_raw {
+                        let last_lookup_key = self.raw_key_to_index_lookup(&last_key_raw);
+                        env::storage_write(&last_lookup_key, &index_raw);
+                    }
                 }
                 let index = Self::deserialize_index(&index_raw);
                 self.keys.swap_remove_raw(index);
@@ -227,6 +231,18 @@ where
             self.insert(&el_key, &el_value);
         }
     }
+
+    /// Returns a view of keys as a vector.
+    /// It's sometimes useful to have random access to the keys.
+    pub fn keys_as_vector(&self) -> &Vector<K> {
+        &self.keys
+    }
+
+    /// Returns a view of values as a vector.
+    /// It's sometimes useful to have random access to the values.
+    pub fn values_as_vector(&self) -> &Vector<V> {
+        &self.values
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -313,6 +329,24 @@ mod tests {
             let actual = map.remove(&key).unwrap();
             assert_eq!(actual, key_to_value[&key]);
         }
+    }
+
+    #[test]
+    pub fn test_remove_last_reinsert() {
+        set_env();
+        let mut map = Map::default();
+        let key1 = 1u64;
+        let value1 = 2u64;
+        map.insert(&key1, &value1);
+        let key2 = 3u64;
+        let value2 = 4u64;
+        map.insert(&key2, &value2);
+
+        let actual_value2 = map.remove(&key2).unwrap();
+        assert_eq!(actual_value2, value2);
+
+        let actual_insert_value2 = map.insert(&key2, &value2);
+        assert_eq!(actual_insert_value2, None);
     }
 
     #[test]
