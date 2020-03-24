@@ -104,9 +104,14 @@ impl<T> Set<T> {
                         Some(x) => x,
                         None => env::panic(ERR_INCONSISTENT_STATE),
                     };
-                    let last_lookup_element = self.raw_element_to_index_lookup(&last_element_raw);
                     env::storage_remove(&index_lookup);
-                    env::storage_write(&last_lookup_element, &index_raw);
+                    // If the removed element was the last element from keys, then we don't need to
+                    // reinsert the lookup back.
+                    if last_element_raw != element_raw {
+                        let last_lookup_element =
+                            self.raw_element_to_index_lookup(&last_element_raw);
+                        env::storage_write(&last_lookup_element, &index_raw);
+                    }
                 }
                 let index = Self::deserialize_index(&index_raw);
                 self.elements.swap_remove_raw(index);
@@ -168,6 +173,12 @@ where
         for el in iter {
             self.insert(&el);
         }
+    }
+
+    /// Returns a view of elements as a vector.
+    /// It's sometimes useful to have random access to the elements.
+    pub fn as_vector(&self) -> &Vector<T> {
+        &self.elements
     }
 }
 
@@ -250,6 +261,22 @@ mod tests {
         for key in keys {
             assert!(set.remove(&key));
         }
+    }
+
+    #[test]
+    pub fn test_remove_last_reinsert() {
+        set_env();
+        let mut set = Set::default();
+        let key1 = 1u64;
+        set.insert(&key1);
+        let key2 = 2u64;
+        set.insert(&key2);
+
+        let actual = set.remove(&key2);
+        assert!(actual);
+
+        let actual_reinsert = set.insert(&key2);
+        assert!(!actual_reinsert);
     }
 
     #[test]
