@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, near_bindgen, PromiseResult};
+use near_sdk::{env, near_bindgen, PromiseResult};
 use serde_json::json;
 
 #[global_allocator]

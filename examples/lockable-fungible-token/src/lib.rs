@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{AccountId, Balance, env, near_bindgen};
-use near_bindgen::collections::Map;
+use near_sdk::{AccountId, Balance, env, near_bindgen};
+use near_sdk::collections::Map;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -257,8 +257,8 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_bindgen::{testing_env, VMContext};
-    use near_bindgen::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
 
     use super::*;
 

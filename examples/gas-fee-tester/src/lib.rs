@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::near_bindgen;
+use near_sdk::near_bindgen;
 use serde::{Deserialize, Serialize};
 
 #[global_allocator]

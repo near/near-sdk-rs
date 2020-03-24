@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, metadata, near_bindgen};
+use near_sdk::{env, metadata, near_bindgen};
 use std::collections::HashMap;
 
 #[global_allocator]
@@ -31,8 +31,8 @@ impl StatusMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {

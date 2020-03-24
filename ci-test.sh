@@ -2,8 +2,8 @@
 
 if [[ "${NEAR_RELEASE}" == "true" ]]; then
     echo "Test with release version of borsh and near-vm-logic"
-    sed -n '/^borsh/p' near-bindgen/Cargo.toml 
-    sed -n '/^near-vm-logic/p' near-bindgen/Cargo.toml
+    sed -n '/^borsh/p' near-sdk/Cargo.toml 
+    sed -n '/^near-vm-logic/p' near-sdk/Cargo.toml
     cargo test --all
 else
     echo "Test with git version of borsh and near-vm-logic"

@@ -1,26 +1,30 @@
 <div align="center">
 
-  <h1><code>near-bindgen</code></h1>
+  <h1><code>near-sdk</code></h1>
 
   <p>
     <strong>Rust library for writing NEAR smart contracts.</strong>
   </p>
+  <p>
+    Previously known as <code>near-bindgen</code>.
+  </p>
+
 
   <p>
-    <a href="https://crates.io/crates/near-bindgen"><img src="https://img.shields.io/crates/v/near-bindgen.svg?style=flat-square" alt="Crates.io version" /></a>
-    <a href="https://crates.io/crates/near-bindgen"><img src="https://img.shields.io/crates/d/near-bindgen.svg?style=flat-square" alt="Download" /></a>
+    <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
+    <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
-    <a href="https://travis-ci.com/nearprotocol/near-bindgen"><img src="https://travis-ci.com/nearprotocol/near-bindgen.svg?branch=master" alt="Travis Build" /></a>
+    <a href="https://travis-ci.com/near/near-sdk-rs"><img src="https://travis-ci.com/near/near-sdk-rs.svg?branch=master" alt="Travis Build" /></a>
   </p>
 
    <h3>
-      <a href="https://github.com/nearprotocol/near-bindgen#features">Features</a>
+      <a href="https://github.com/near/near-sdk#features">Features</a>
       <span> | </span>
-      <a href="https://github.com/nearprotocol/near-bindgen#pre-requisites">Pre-requisites</a>
+      <a href="https://github.com/near/near-sdk#pre-requisites">Pre-requisites</a>
       <span> | </span>
-      <a href="https://github.com/nearprotocol/near-bindgen#writing-rust-contract">Writing Rust Contract</a>
+      <a href="https://github.com/near/near-sdk#writing-rust-contract">Writing Rust Contract</a>
       <span> | </span>
-      <a href="https://github.com/nearprotocol/near-bindgen#building-rust-contract">Building Rust Contract</a>
+      <a href="https://github.com/near/near-sdk#building-rust-contract">Building Rust Contract</a>
     </h3>
 </div>
 
@@ -49,7 +53,7 @@ impl StatusMessage {
 
 ## Features
 
-* **Unit-testable.** Writing unit tests is easy with `near-bindgen`:
+* **Unit-testable.** Writing unit tests is easy with `near-sdk`:
 
     ```rust
     #[test]
@@ -75,7 +79,7 @@ impl StatusMessage {
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
     
-    Follow [examples/cross-contract-high-level](https://github.com/nearprotocol/near-bindgen/tree/master/examples/cross-contract-high-level)
+    Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
 * **Initialization methods.** We can define an initialization method that can be used to initialize the state of the

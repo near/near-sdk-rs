@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{
+use near_sdk::{
     //    callback,
     //    callback_vec,
     env,

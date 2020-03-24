@@ -1,0 +1,23 @@
+[package]
+name = "near-sdk-macros"
+version = "0.7.0"
+authors = ["Near Inc <max@nearprotocol.com>"]
+edition = "2018"
+license = "Apache-2.0"
+categories = ["wasm"]
+repository = "https://github.com/near/near-sdk-rs"
+homepage = "https://github.com/near/near-sdk-rs"
+description = """
+Main macro of the library for writing NEAR smart contracts.
+"""
+
+[lib]
+proc-macro = true
+
+[dependencies]
+near-sdk-core = { path = "../near-sdk-core", version = "0.7.0"}
+proc-macro2 = "1.0"
+syn = {version = "1.0.14", features = ["full", "fold", "visit"] }
+quote = "1.0"
+
+
