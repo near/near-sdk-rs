@@ -1,5 +1,5 @@
 pub use near_sdk_macros::{
-    callback, callback_vec, ext_contract, init, near_sdk, result_serializer, serializer, metadata
+    callback, callback_vec, ext_contract, init, metadata, near_sdk, result_serializer, serializer,
 };
 
 pub mod collections;
@@ -12,7 +12,6 @@ pub use promise::{Promise, PromiseOrValue};
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
-#[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_runtime_fees::RuntimeFeesConfig;
@@ -37,6 +36,7 @@ macro_rules! testing_env {
             $fee_config,
             vec![],
             storage,
+            None,
         )));
     };
     ($context:expr) => {

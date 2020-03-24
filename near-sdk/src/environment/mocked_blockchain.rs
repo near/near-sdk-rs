@@ -3,7 +3,7 @@ use near_runtime_fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::MockedExternal;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
-use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
+use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic, VMOutcome};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -34,10 +34,11 @@ impl MockedBlockchain {
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: BTreeMap<Vec<u8>, Vec<u8>>,
+        memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
-        let memory = Box::new(MockedMemory {});
+        let memory = memory_opt.unwrap_or(Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
@@ -61,6 +62,10 @@ impl MockedBlockchain {
 
     pub fn take_storage(&mut self) -> BTreeMap<Vec<u8>, Vec<u8>> {
         std::mem::replace(&mut self.logic_fixture.ext.fake_trie, Default::default())
+    }
+
+    pub fn outcome(&self) -> VMOutcome {
+        self.logic.borrow().get_outcome()
     }
 }
 
@@ -159,6 +164,10 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn log_utf16(&self, len: u64, ptr: u64) {
         self.logic.borrow_mut().log_utf16(len, ptr).unwrap()
+    }
+
+    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> () {
+        self.logic.borrow_mut().abort(msg_ptr, filename_ptr, line, col).unwrap()
     }
 
     unsafe fn promise_create(

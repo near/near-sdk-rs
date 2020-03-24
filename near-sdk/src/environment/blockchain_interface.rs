@@ -1,4 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
 use crate::MockedBlockchain;
 
 /// A low-level interface of either real or mocked blockchain that contract interacts with.
@@ -42,6 +41,7 @@ pub trait BlockchainInterface {
     unsafe fn panic_utf8(&self, len: u64, ptr: u64);
     unsafe fn log_utf8(&self, len: u64, ptr: u64);
     unsafe fn log_utf16(&self, len: u64, ptr: u64);
+    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32);
     // ################
     // # Promises API #
     // ################
@@ -155,9 +155,10 @@ pub trait BlockchainInterface {
     unsafe fn storage_read(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_remove(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64;
+    
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         None
     }
+
 }
