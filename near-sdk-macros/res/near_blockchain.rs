@@ -43,6 +43,8 @@ pub mod near_blockchain {
             sys::block_timestamp()
         }
 
+        unsafe  fn epoch_height(&self) -> u64 { sys::epoch_height() }
+
         unsafe fn storage_usage(&self) -> u64 {
             sys::storage_usage()
         }

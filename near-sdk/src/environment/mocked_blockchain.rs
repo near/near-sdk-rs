@@ -5,7 +5,7 @@ use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
 use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
@@ -33,7 +33,7 @@ impl MockedBlockchain {
         config: VMConfig,
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
-        storage: BTreeMap<Vec<u8>, Vec<u8>>,
+        storage: HashMap<Vec<u8>, Vec<u8>>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
@@ -59,7 +59,7 @@ impl MockedBlockchain {
         Self { logic, logic_fixture }
     }
 
-    pub fn take_storage(&mut self) -> BTreeMap<Vec<u8>, Vec<u8>> {
+    pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
         std::mem::replace(&mut self.logic_fixture.ext.fake_trie, Default::default())
     }
 }
@@ -100,6 +100,8 @@ impl BlockchainInterface for MockedBlockchain {
     unsafe fn block_timestamp(&self) -> u64 {
         self.logic.borrow_mut().block_timestamp().unwrap()
     }
+
+    unsafe fn epoch_height(&self) -> u64 { self.logic.borrow_mut().epoch_height().unwrap() }
 
     unsafe fn storage_usage(&self) -> u64 {
         self.logic.borrow_mut().storage_usage().unwrap()

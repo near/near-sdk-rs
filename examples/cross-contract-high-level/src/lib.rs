@@ -12,6 +12,9 @@ use near_sdk::{
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+// Prepaid gas for making a single simple call.
+const SINGLE_CALL_GAS: u64 = 200000000000000;
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
@@ -119,19 +122,19 @@ impl CrossContract {
     //    }
 
     pub fn simple_call(&mut self, account_id: String, message: String) {
-        ext_status_message::set_status(message, &account_id, 0, 1000000000000000000);
+        ext_status_message::set_status(message, &account_id, 0, SINGLE_CALL_GAS);
     }
     pub fn complex_call(&mut self, account_id: String, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        ext_status_message::set_status(message, &account_id, 0, 1000000000000000000).then(
+        ext_status_message::set_status(message, &account_id, 0, SINGLE_CALL_GAS).then(
             ext_status_message::get_status(
                 env::signer_account_id(),
                 &account_id,
                 0,
-                1000000000000000000,
+                SINGLE_CALL_GAS,
             ),
         )
     }

@@ -284,6 +284,7 @@ mod tests {
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],
+            epoch_height: 0,
         };
         let storage = match env::take_blockchain_interface() {
             Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
