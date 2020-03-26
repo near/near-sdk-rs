@@ -18,6 +18,7 @@ pub trait BlockchainInterface {
     unsafe fn input(&self, register_id: u64);
     unsafe fn block_index(&self) -> u64;
     unsafe fn block_timestamp(&self) -> u64;
+    unsafe fn epoch_height(&self) -> u64;
     unsafe fn storage_usage(&self) -> u64;
     // #################
     // # Economics API #
