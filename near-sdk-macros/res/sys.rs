@@ -16,6 +16,7 @@ pub mod sys {
         pub fn input(register_id: u64);
         pub fn block_index() -> u64;
         pub fn block_timestamp() -> u64;
+        pub fn epoch_height() -> u64;
         pub fn storage_usage() -> u64;
         // #################
         // # Economics API #
