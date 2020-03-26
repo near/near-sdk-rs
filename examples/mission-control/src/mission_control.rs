@@ -3,7 +3,7 @@ use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, near_bindgen};
+use near_sdk::{env, near_bindgen};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -86,8 +86,8 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_bindgen::MockedBlockchain;
-    use near_bindgen::{testing_env, VMContext};
+    use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {

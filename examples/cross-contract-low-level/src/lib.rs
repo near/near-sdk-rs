@@ -1,11 +1,11 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_bindgen::{env, near_bindgen, PromiseResult};
+use near_sdk::{env, near_bindgen, PromiseResult};
 use serde_json::json;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// max burnt gas for single call
+// Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: u64 = 200000000000000;
 
 #[near_bindgen]

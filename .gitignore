@@ -1,5 +1,7 @@
-# Build files
+# Editor config files
+.vscode
 
+# Build files
 target
 **/target/
 **/pkg/
