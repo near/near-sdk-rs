@@ -19,38 +19,21 @@ macro_rules! console_log {
 }
 type Storage = BTreeMap<Vec<u8>, Vec<u8>>;
 
-// #[wasm_bindgen]
-// pub struct VM {
-//   context: VMContext
-// }
-
-// use std::cell::RefCell;
-
-// thread_local! {
-//   /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
-//   /// for interacting with the real and fake blockchains.
-//       pub static BLOCKCHAIN_INTERFACE_BK: RefCell<Option<Box<dyn BlockchainInterface>>>
-//            = RefCell::new(None);
-//   }
 
 fn new_chain(context: VMContext, storage: Option<Storage>) -> MockedBlockchain {
-    // let context: VMContext = serde_wasm_bindgen::from_value(context).unwrap();
     let storage = storage.unwrap_or_default();
     let config = VMConfig::default();
     let fees_config = RuntimeFeesConfig::default();
     let memory_opt: Option<Box<dyn MemoryLike>> = Some(Box::new(MockedMemory {}));
-    // let chain = Some();
 
     MockedBlockchain::new(context, config, fees_config, vec![], storage, memory_opt)
-    //   BLOCKCHAIN_INTERFACE_BK.with(|b| {
-    //     *b.borrow_mut() = Some();
-    // })
 }
 
 #[wasm_bindgen]
 pub struct VM {
     chain: MockedBlockchain,
     context: VMContext,
+    original: VMContext
 }
 
 #[allow(dead_code)]
@@ -65,58 +48,19 @@ impl VM {
         set_panic_hook();
         let _context: VMContext = serde_wasm_bindgen::from_value(context).unwrap();
         let context: VMContext = _context.clone();
-        let opt: Option<Storage> = None;
-        let chain = new_chain(_context, opt);
-        Self { chain, context }
+        let original: VMContext = context.clone();
+        let stor_opt: Option<Storage> = None;
+        let chain = new_chain(_context, stor_opt);
+        Self { chain, context, original }
     }
 
     fn take_storage(&mut self) -> BTreeMap<Vec<u8>, Vec<u8>> {
         self.chain.take_storage()
     }
 
-    // fn run_vm<T, F: FnOnce(&mut MockedBlockchain) -> T>(&mut self, f: F) -> T {
-    //     // let mut res: VMResult<T>;
-    //     // const BLOCKCHAIN_INTERFACE: Option<Box<dyn BlockchainInterface>> = env::take_blockchain_interface();
-    //     // let res = BLOCKCHAIN_INTERFACE.unwrap().with(|b| unsafe {
-    //     //   f(b.borrow()
-    //     //         .as_ref()
-    //     //         .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR))
-    //     // });
-    //     // env::set_blockchain_interface(BLOCKCHAIN_INTERFACE);
-    //     // res
-    //     // let mut vm = self.builder.build(self.context.clone());
-    //     // if self.internal_state.is_some() {
-    //     //    self.chain.restore_state(self.internal_state.as_ref().unwrap());
-    //     // }
-    //     let res: T = f(&mut self.chain);
-    //     // // console::log_1(&vm.storage_usage().unwrap().to_string().into());
-    //     // if res.is_ok() {
-    //     //     self.internal_state = Some(vm.save_state());
-    //     // }
-    //     res
-    // }
-
-    //     pub fn save_state(&mut self) {
-    //         self.saved_state = self.internal_state.clone();
-    //         self.saved_ext = Some(self.builder.ext.clone());
-    //     }
-
-    //     pub fn restore_state(&mut self) {
-    //         self.internal_state = self.saved_state.clone();
-    //         if self.saved_ext.is_some() {
-    //             self.builder.ext = self.saved_ext.as_ref().unwrap().clone()
-    //         }
-    //     }
-
-    //     pub fn save_context(&mut self) {
-    //         self.saved_context = Some(self.context.clone())
-    //     }
-
-    //     pub fn restore_context(&mut self) {
-    //         if self.saved_context.is_some() {
-    //             self.context = self.saved_context.as_ref().unwrap().clone();
-    //         }
-    //     }
+    pub fn reset(&mut self) {
+      self.chain = new_chain(self.original.clone(), None);
+    }
 
     pub fn set_context(&mut self, context: JsValue) {
         self.context = serde_wasm_bindgen::from_value(context).unwrap();
@@ -131,11 +75,11 @@ impl VM {
         self.context.current_account_id = serde_wasm_bindgen::from_value(s).unwrap();
         self.switch_context();
     }
-
-    // pub fn set_input(&mut self, s: JsValue) {
-    //     self.context.input = serde_wasm_bindgen::from_value(s).unwrap();
-    //     self.switch_context();
-    // }
+    // Base64 string
+    pub fn set_input(&mut self, s: JsValue) {
+        self.context.input = serde_wasm_bindgen::from_value(s).unwrap();
+        self.switch_context();
+    }
 
     pub fn set_signer_account_id(&mut self, s: JsValue) {
         self.context.signer_account_id = serde_wasm_bindgen::from_value(s).unwrap();
@@ -1206,88 +1150,14 @@ impl VM {
     pub fn storage_has_key(&mut self, key_len: u64, key_ptr: u64) -> u64 {
         unsafe { self.chain.storage_has_key(key_len, key_ptr) }
     }
-    /// Creates an iterator object inside the host. Returns the identifier that uniquely
-    /// differentiates the given iterator from other iterators that can be simultaneously created.
-    /// * It iterates over the keys that have the provided prefix. The order of iteration is defined
-    ///   by the lexicographic order of the bytes in the keys;
-    /// * If there are no keys, it creates an empty iterator, see below on empty iterators.
-    ///
-    /// # Errors
-    ///
-    /// If `prefix_len + prefix_ptr` exceeds the memory container it returns `MemoryAccessViolation`.
-    ///
-    /// # Cost
-    ///
-    /// `base + storage_iter_create_prefix_base + storage_iter_create_key_byte * num_prefix_bytes
-    ///  cost of reading the prefix`.
-    //    // pub fn storage_iter_prefix(&mut self, prefix_len: u64, prefix_ptr: u64) -> u64 {
-    //    //    self.chain.storage_iter_prefix(prefix_len, prefix_ptr))
-    //    // }
-    /// Iterates over all key-values such that keys are between `start` and `end`, where `start` is
-    /// inclusive and `end` is exclusive. Unless lexicographically `start < end`, it creates an
-    /// empty iterator. Note, this definition allows for `start` or `end` keys to not actually exist
-    /// on the given trie.
-    ///
-    /// # Errors
-    ///
-    /// If `start_len + start_ptr` or `end_len + end_ptr` exceeds the memory container or points to
-    /// an unused register it returns `MemoryAccessViolation`.
-    ///
-    /// # Cost
-    ///
-    /// `base + storage_iter_create_range_base + storage_iter_create_from_byte * num_from_bytes
-    ///  + storage_iter_create_to_byte * num_to_bytes + reading from prefix + reading to prefix`.
-    //    // pub fn storage_iter_range(
-    //    //     &mut self,
-    //    //     start_len: u64,
-    //    //     start_ptr: u64,
-    //    //     end_len: u64,
-    //    //     end_ptr: u64,
-    //    // ) -> u64 {
-    //    //    self.chain.storage_iter_range(start_len, start_ptr, end_len, end_ptr))
-    //    // }
 
-    /// Advances iterator and saves the next key and value in the register.
-    /// * If iterator is not empty (after calling next it points to a key-value), copies the key
-    ///   into `key_register_id` and value into `value_register_id` and returns `1`;
-    /// * If iterator is empty returns `0`;
-    /// This allows us to iterate over the keys that have zero bytes stored in values.
-    ///
-    /// # Errors
-    ///
-    /// * If `key_register_id == value_register_id` returns `MemoryAccessViolation`;
-    /// * If the registers exceed the memory limit returns `MemoryAccessViolation`;
-    /// * If `iterator_id` does not correspond to an existing iterator returns `InvalidIteratorId`;
-    /// * If between the creation of the iterator and calling `storage_iter_next` the range over
-    ///   which it iterates was modified returns `IteratorWasInvalidated`. Specifically, if
-    ///   `storage_write` or `storage_remove` was invoked on the key key such that:
-    ///   * in case of `storage_iter_prefix`. `key` has the given prefix and:
-    ///     * Iterator was not called next yet.
-    ///     * `next` was already called on the iterator and it is currently pointing at the `key`
-    ///       `curr` such that `curr <= key`.
-    ///   * in case of `storage_iter_range`. `start<=key<end` and:
-    ///     * Iterator was not called `next` yet.
-    ///     * `next` was already called on the iterator and it is currently pointing at the key
-    ///       `curr` such that `curr<=key<end`.
-    ///
-    /// # Cost
-    ///
-    /// `base + storage_iter_next_base + storage_iter_next_key_byte * num_key_bytes + storage_iter_next_value_byte * num_value_bytes
-    ///  + writing key to register + writing value to register`.
-    //    // pub fn storage_iter_next(
-    //    //     &mut self,
-    //    //     iterator_id: u64,
-    //    //     key_register_id: u64,
-    //    //     value_register_id: u64,
-    //    // ) -> u64 {
-    //    //    self.chain.storage_iter_next(iterator_id, key_register_id, value_register_id))
-    //    // }
+    /**
+     * Utilities
+     */
 
     ///Computes the outcome of execution.
     pub fn outcome(&self) -> JsValue {
-        // unsafe {
         let res = self.chain.outcome();
-
         let outcome = _VMOutcome {
             balance1: (res.balance >> 64) as u64,
             balance2: ((res.balance << 64) >> 64) as u64,
@@ -1298,13 +1168,6 @@ impl VM {
             logs: res.logs,
         };
         serde_wasm_bindgen::to_value(&outcome).unwrap()
-        // }
-
-        // let mut vm = self.builder.build(self.context.clone());
-        // if self.internal_state.is_some() {
-        //    self.chain.restore_state(self.internal_state.as_ref()
-        // }
-        // let res = self.chain. .outcome();
     }
 }
 

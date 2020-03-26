@@ -13,12 +13,9 @@ mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
 pub use environment::mocked_blockchain::MockedBlockchain;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_runtime_fees::RuntimeFeesConfig;
 pub use near_vm_logic::types::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMConfig;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMContext;
 
 #[cfg(not(target_arch = "wasm32"))]

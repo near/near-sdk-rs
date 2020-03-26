@@ -65,7 +65,7 @@ impl MockedBlockchain {
     }
 
     pub fn outcome(&self) -> VMOutcome {
-        self.logic.borrow().get_outcome()
+        self.logic.borrow().clone_outcome()
     }
 }
 
