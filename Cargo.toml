@@ -3,7 +3,7 @@ members = [
     "near-sdk",
     "near-sdk-core",
     "near-sdk-macros",
-    "wasm-mock-vm"
+    "near-mock-vm"
 ]
 exclude = [
     "examples/cross-contract-high-level",

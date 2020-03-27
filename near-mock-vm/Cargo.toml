@@ -1,5 +1,5 @@
 [package]
-name = "wasm-mock-vm"
+name = "near-mock-vm"
 version = "0.1.0"
 authors = ["Willem Wyndham <willem@cs.umd.edu>"]
 edition = "2018"

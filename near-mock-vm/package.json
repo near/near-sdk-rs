@@ -1,6 +1,6 @@
 {
-  "name": "wasm-mock-vm",
-  "version": "1.2.1",
+  "name": "near-mock-vm",
+  "version": "0.0.90",
   "description": "Mock Near VM core logic for unit testing",
   "main": "./pkg/wasm_mock_vm.js",
   "types": "./assembly/index.ts",
