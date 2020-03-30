@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const v8 = require('v8');
 v8.setFlagsFromString('--experimental-wasm-bigint');
 let VM = require('../dist').NearVM;
