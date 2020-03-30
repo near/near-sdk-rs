@@ -2,10 +2,12 @@ use serde::Serialize;
 
 use crate::memory::*;
 use crate::utils::*;
+use crate::runner;
 use near_sdk::*;
 use near_vm_logic::MemoryLike;
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
+
 
 // lifted from the `console_log` example
 #[wasm_bindgen]
@@ -20,20 +22,36 @@ macro_rules! console_log {
 type Storage = BTreeMap<Vec<u8>, Vec<u8>>;
 
 
-fn new_chain(context: VMContext, storage: Option<Storage>) -> MockedBlockchain {
+fn new_chain(context: VMContext, storage: Option<Storage>, memory: MockedMemory) -> MockedBlockchain {
     let storage = storage.unwrap_or_default();
     let config = VMConfig::default();
     let fees_config = RuntimeFeesConfig::default();
-    let memory_opt: Option<Box<dyn MemoryLike>> = Some(Box::new(MockedMemory {}));
+    let memory_opt: Option<Box<dyn MemoryLike>> = Some(Box::new(memory));
 
     MockedBlockchain::new(context, config, fees_config, vec![], storage, memory_opt)
+}
+
+#[wasm_bindgen]
+pub fn inject_contract(wasm_bytes: JsValue) -> JsValue {
+    let bytes: Vec<u8> = serde_wasm_bindgen::from_value(wasm_bytes).unwrap();
+    let instrumented_bytes = runner::prepare_contract(&bytes, &VMConfig::default()).unwrap();
+    serde_wasm_bindgen::to_value(&instrumented_bytes).unwrap()
+}
+
+#[wasm_bindgen]
+pub fn test_memory(mem: NearMemory) {
+    let mut memory = MockedMemory { mem };
+    let v: Vec<u8> = vec![42 as u8];
+    memory.write_memory(0, &v);
+
 }
 
 #[wasm_bindgen]
 pub struct VM {
     chain: MockedBlockchain,
     context: VMContext,
-    original: VMContext
+    original: VMContext,
+    memory: MockedMemory,
 }
 
 #[allow(dead_code)]
@@ -44,14 +62,15 @@ fn print_str(s: String) {
 #[wasm_bindgen]
 impl VM {
     #[wasm_bindgen(constructor)]
-    pub fn new(context: JsValue) -> Self {
+    pub fn new(context: JsValue, mem: NearMemory) -> Self {
         set_panic_hook();
+        let memory: MockedMemory = MockedMemory { mem };
         let _context: VMContext = serde_wasm_bindgen::from_value(context).unwrap();
         let context: VMContext = _context.clone();
         let original: VMContext = context.clone();
         let stor_opt: Option<Storage> = None;
-        let chain = new_chain(_context, stor_opt);
-        Self { chain, context, original }
+        let chain = new_chain(_context, stor_opt, memory.clone());
+        Self { chain, context, original, memory}
     }
 
     fn take_storage(&mut self) -> BTreeMap<Vec<u8>, Vec<u8>> {
@@ -59,7 +78,7 @@ impl VM {
     }
 
     pub fn reset(&mut self) {
-      self.chain = new_chain(self.original.clone(), None);
+      self.chain = new_chain(self.original.clone(), None, self.memory.clone());
     }
 
     pub fn set_context(&mut self, context: JsValue) {
@@ -68,7 +87,7 @@ impl VM {
     }
 
     fn switch_context(&mut self) {
-        self.chain = new_chain(self.context.clone(), Some(self.take_storage()));
+        self.chain = new_chain(self.context.clone(), Some(self.take_storage()), self.memory.clone());
     }
 
     pub fn set_current_account_id(&mut self, s: JsValue) {
@@ -77,7 +96,9 @@ impl VM {
     }
     // Base64 string
     pub fn set_input(&mut self, s: JsValue) {
-        self.context.input = serde_wasm_bindgen::from_value(s).unwrap();
+        let input_str: String = serde_wasm_bindgen::from_value(s).unwrap();
+        let res = base64::decode(&input_str).unwrap();
+        self.context.input = res;
         self.switch_context();
     }
 
@@ -118,8 +139,8 @@ impl VM {
         self.switch_context();
     }
 
-    pub fn set_storage_usage(&mut self, amt: JsValue) {
-        self.context.storage_usage = serde_wasm_bindgen::from_value(amt).unwrap();
+    pub fn set_storage_usage(&mut self, amt: u64) {
+        self.context.storage_usage = amt; //serde_wasm_bindgen::from_value(amt).unwrap();
         self.switch_context();
     }
 
@@ -440,6 +461,35 @@ impl VM {
     pub fn sha256(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> () {
         unsafe { self.chain.sha256(value_len, value_ptr, register_id) }
     }
+
+    /// Hashes the random sequence of bytes using keccak256 and returns it into `register_id`.
+    ///
+    /// # Errors
+    ///
+    /// If `value_len + value_ptr` points outside the memory or the registers use more memory than
+    /// the limit with `MemoryAccessViolation`.
+    ///
+    /// # Cost
+    ///
+    /// `base + write_register_base + write_register_byte * num_bytes + keccak256_base + keccak256_byte * num_bytes`
+    pub fn keccak256(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> () {
+        unsafe { self.chain.keccak256(value_len, value_ptr, register_id) }
+    }
+
+    /// Hashes the random sequence of bytes using keccak512 and returns it into `register_id`.
+    ///
+    /// # Errors
+    ///
+    /// If `value_len + value_ptr` points outside the memory or the registers use more memory than
+    /// the limit with `MemoryAccessViolation`.
+    ///
+    /// # Cost
+    ///
+    /// `base + write_register_base + write_register_byte * num_bytes + keccak512_base + keccak512_byte * num_bytes`
+    pub fn keccak512(&mut self, value_len: u64, value_ptr: u64, register_id: u64) -> () {
+        unsafe { self.chain.keccak512(value_len, value_ptr, register_id) }
+    }
+
     /// Called by gas metering injected into Wasm. Counts both towards `burnt_gas` and `used_gas`.
     ///
     /// # Errors
@@ -447,10 +497,10 @@ impl VM {
     /// * If passed gas amount somehow overflows internal gas counters returns `IntegerOverflow`;
     /// * If we exceed usage limit imposed on burnt gas returns `GasLimitExceeded`;
     /// * If we exceed the `prepaid_gas` then returns `GasExceeded`.
-    // pub fn gas(&mut self, gas_amount: u32) -> () {
-    //     unsafe { self.chain.gas(gas_amount) }
-    // }
-    // TODO
+    pub fn gas(&mut self, gas_amount: u32) -> () {
+        self.chain.gas(gas_amount)
+    }
+    
 
     /// ################
     /// # Promises API #

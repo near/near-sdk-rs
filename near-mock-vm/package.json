@@ -1,17 +1,22 @@
 {
   "name": "near-mock-vm",
-  "version": "0.0.90",
+  "version": "0.0.0",
+  "bin": {
+    "near-vm": "bin/standalone_vm.js"
+  },
   "description": "Mock Near VM core logic for unit testing",
-  "main": "./pkg/wasm_mock_vm.js",
-  "types": "./assembly/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "author": "Willem Wyndham <willem@nearprotocol.com>",
   "repository": {
     "type": "git",
     "url": "git@:nearprotocol/wasm-mock-vm.git"
   },
-  "license": "APACHE",
+  "license": "MIT",
   "private": false,
   "devDependencies": {
+    "@types/js-base64": "^2.3.1",
+    "@types/node": "^13.9.5",
     "assemblyscript": "^0.9.2",
     "bs58": "^4.0.1",
     "jest": "^25.1.0",
@@ -22,9 +27,10 @@
     "typescript": "^3.8.3"
   },
   "scripts": {
-    "build": "wasm-pack build --target nodejs",
-    "build:debug": "yarn build --debug",
-    "test": "asp"
+    "build": "wasm-pack build --target nodejs && tsc",
+    "test": "node tests && node tests/test && yarn test:bin",
+    "near-vm": "node bin/standalone_vm.js",
+    "test:bin": "yarn near-vm out/main.wasm add \"{\\\"a\\\":1000,\\\"b\\\":1000}\""
   },
   "files": [
     "pkg/wasm*",
@@ -35,5 +41,8 @@
   ],
   "engines": {
     "node": ">=12.0.0"
+  },
+  "dependencies": {
+    "@assemblyscript/loader": "^0.9.4"
   }
 }

@@ -1,0 +1,15 @@
+{
+  "name": "near-mock-vm",
+  "collaborators": [
+    "Willem Wyndham <willem@cs.umd.edu>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "near_mock_vm_bg.wasm",
+    "near_mock_vm.js",
+    "near_mock_vm_bg.js",
+    "near_mock_vm.d.ts"
+  ],
+  "main": "near_mock_vm.js",
+  "types": "near_mock_vm.d.ts"
+}

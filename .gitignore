@@ -4,7 +4,6 @@
 # Build files
 target
 **/target/
-**/pkg/
 
 # IDE
 .idea

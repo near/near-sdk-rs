@@ -67,6 +67,10 @@ impl MockedBlockchain {
     pub fn outcome(&self) -> VMOutcome {
         self.logic.borrow().clone_outcome()
     }
+
+    pub fn gas(&mut self, gas_amount: u32) {
+        self.logic.borrow_mut().gas(gas_amount).unwrap()
+    }
 }
 
 impl BlockchainInterface for MockedBlockchain {
