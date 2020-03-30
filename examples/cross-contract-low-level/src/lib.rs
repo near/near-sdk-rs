@@ -5,6 +5,9 @@ use serde_json::json;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+// Prepaid gas for making a single simple call.
+const SINGLE_CALL_GAS: u64 = 200000000000000;
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
@@ -98,7 +101,7 @@ impl CrossContract {
             b"set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
-            1000000000000000000,
+            SINGLE_CALL_GAS,
         );
     }
     pub fn complex_call(&mut self, account_id: String, message: String) {
@@ -111,7 +114,7 @@ impl CrossContract {
             b"set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
-            1000000000000000000,
+            SINGLE_CALL_GAS,
         );
         let promise1 = env::promise_then(
             promise0,
@@ -119,7 +122,7 @@ impl CrossContract {
             b"get_status",
             json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
             0,
-            1000000000000000000,
+            SINGLE_CALL_GAS,
         );
         env::promise_return(promise1);
     }

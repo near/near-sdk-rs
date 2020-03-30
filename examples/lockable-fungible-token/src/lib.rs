@@ -289,6 +289,7 @@ mod tests {
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],
+            epoch_height: 0,
         }
     }
 

@@ -21,8 +21,8 @@ path = "compilation_tests/all.rs"
 serde = { version = "1.0", features = ["derive"] }
 near-sdk-macros = { path = "../near-sdk-macros", version = "0.7.0"}
 borsh = "0.6.1"
-near-vm-logic = "0.6.1"
-near-runtime-fees = "0.6.1"
+near-vm-logic = "0.7.0"
+near-runtime-fees = "0.7.0"
 
 [dev-dependencies]
 serde_json = "1.0"

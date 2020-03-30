@@ -176,6 +176,14 @@ pub fn block_timestamp() -> u64 {
         })
     }
 }
+/// Current epoch height.
+pub fn epoch_height() -> u64 {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).epoch_height()
+        })
+    }
+}
 /// Current total storage usage of this smart contract that this account would be paying for.
 pub fn storage_usage() -> StorageUsage {
     unsafe {
