@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_sdk;
+use near_sdk::near_bindgen;
 use serde::{Deserialize, Serialize};
 
 #[global_allocator]
@@ -10,7 +10,7 @@ pub struct A {
     a: u32,
 }
 
-#[near_sdk]
+#[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct GasFeeTester {}
 
@@ -19,7 +19,7 @@ pub struct GasFeeTester {}
 pub extern "C" fn global_noop() {}
 
 #[allow(unused_variables)]
-#[near_sdk]
+#[near_bindgen]
 impl GasFeeTester {
     pub fn structure_noop() {}
 

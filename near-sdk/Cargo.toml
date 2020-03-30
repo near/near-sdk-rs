@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -17,10 +17,10 @@ name = "compilation_tests"
 path = "compilation_tests/all.rs"
 
 [dependencies]
-# Provide near_sdk macros.
+# Provide near_bidgen macros.
 serde = { version = "1.0", features = ["derive"] }
-near-sdk-macros = { path = "../near-sdk-macros", version = "0.6.2"}
-borsh = "0.6.0"
+near-sdk-macros = { path = "../near-sdk-macros", version = "0.7.0"}
+borsh = "0.6.1"
 near-vm-logic = { git = "https://github.com/nearprotocol/nearcore", branch = "mock_vm_helper_methods" }
 near-runtime-fees = { git = "https://github.com/nearprotocol/nearcore", branch = "mock_vm_helper_methods" }
 

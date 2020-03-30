@@ -1,18 +1,18 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{env, metadata, near_sdk};
+use near_sdk::{env, metadata, near_bindgen};
 use std::collections::HashMap;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 metadata!{
-#[near_sdk]
+#[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
 
-#[near_sdk]
+#[near_bindgen]
 impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         env::log(b"A");
@@ -51,6 +51,7 @@ mod tests {
             random_seed: vec![0, 1, 2],
             is_view,
             output_data_receivers: vec![],
+            epoch_height: 0,
         }
     }
 

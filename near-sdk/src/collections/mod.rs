@@ -9,9 +9,9 @@
 //! ```
 //! # use std::collections::HashMap;
 //! # use borsh::{BorshSerialize, BorshDeserialize};
-//! # use near_sdk_macros::near_sdk;
+//! # use near_sdk_macros::near_bindgen;
 //!
-//! #[near_sdk]
+//! #[near_bindgen]
 //! #[derive(Default, BorshDeserialize, BorshSerialize)]
 //! pub struct StatusMessage {
 //!    records: HashMap<String, String>,
@@ -22,10 +22,10 @@
 //! read and will save it only when it is written/removed.
 //! ```
 //! # use borsh::{BorshSerialize, BorshDeserialize};
-//! # use near_sdk_macros::near_sdk;
+//! # use near_sdk_macros::near_bindgen;
 //! # use near_sdk::collections::Map;
 //!
-//! #[near_sdk]
+//! #[near_bindgen]
 //! #[derive(Default, BorshDeserialize, BorshSerialize)]
 //! pub struct StatusMessage {
 //!    records: Map<String, String>,

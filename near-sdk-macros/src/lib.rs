@@ -10,7 +10,7 @@ use syn::visit::Visit;
 use syn::{File, ItemImpl, ItemStruct, ItemTrait};
 
 #[proc_macro_attribute]
-pub fn near_sdk(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let sys_file = rust_file(include_bytes!("../res/sys.rs"));
         let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
