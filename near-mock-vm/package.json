@@ -5,8 +5,8 @@
     "near-vm": "bin/standalone_vm.js"
   },
   "description": "Mock Near VM core logic for unit testing",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "author": "Willem Wyndham <willem@nearprotocol.com>",
   "repository": {
     "type": "git",
@@ -33,11 +33,9 @@
     "test:bin": "yarn near-vm out/main.wasm add \"{\\\"a\\\":1000,\\\"b\\\":1000}\""
   },
   "files": [
-    "pkg/wasm*",
-    "imports.js",
-    "assembly/index.ts",
-    "context.json",
-    "assembly/*.ts"
+    "pkg/",
+    "dist/",
+    "bin/"
   ],
   "engines": {
     "node": ">=12.0.0"
