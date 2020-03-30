@@ -1,6 +1,6 @@
 {
   "name": "near-mock-vm",
-  "version": "0.0.0",
+  "version": "0.0.1-0",
   "bin": {
     "near-vm": "bin/standalone_vm.js"
   },
