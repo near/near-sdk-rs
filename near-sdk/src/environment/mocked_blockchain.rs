@@ -1,6 +1,6 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_runtime_fees::RuntimeFeesConfig;
-use near_vm_logic::mocks::mock_external::MockedExternal;
+use near_vm_logic::mocks::mock_external::{Receipt, MockedExternal};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
 use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
@@ -61,6 +61,10 @@ impl MockedBlockchain {
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
         std::mem::replace(&mut self.logic_fixture.ext.fake_trie, Default::default())
+    }
+
+    pub fn created_receipts(&self) -> &Vec<Receipt> {
+        self.logic_fixture.ext.get_receipt_create_calls()
     }
 }
 
