@@ -4,9 +4,13 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_vm_logic::{mocks::mock_external::Receipt, types::{
-    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage, Prom
-}};
+use near_vm_logic::{
+    mocks::mock_external::Receipt,
+    types::{
+        AccountId, Balance, BlockHeight, Gas, Prom, PromiseIndex, PromiseResult, PublicKey,
+        StorageUsage,
+    },
+};
 
 use std::cell::RefCell;
 use std::mem::size_of;
@@ -20,7 +24,8 @@ thread_local! {
 }
 
 const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
-const NOT_MOCKED_BLOCKCHAIN_ERR: &str = "Operation expects mocked blockchain, e.g. because it can be only called from unit tests.";
+const NOT_MOCKED_BLOCKCHAIN_ERR: &str =
+    "Operation expects mocked blockchain, e.g. because it can be only called from unit tests.";
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -180,9 +185,8 @@ pub fn block_timestamp() -> u64 {
 /// Current epoch height.
 pub fn epoch_height() -> u64 {
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).epoch_height()
-        })
+        BLOCKCHAIN_INTERFACE
+            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).epoch_height())
     }
 }
 /// Current total storage usage of this smart contract that this account would be paying for.
@@ -710,12 +714,17 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
     storage_write(STATE_KEY, &data);
 }
 
-
 /// Accessing receipts created by the contract. Only available in unit tests.
 pub fn created_receipts() -> Vec<Receipt> {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).as_mut_mocked_blockchain().expect(NOT_MOCKED_BLOCKCHAIN_ERR).created_receipts().clone()
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .as_mut_mocked_blockchain()
+                .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
+                .created_receipts()
+                .clone()
         })
     }
 }

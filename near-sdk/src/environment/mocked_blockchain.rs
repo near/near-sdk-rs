@@ -1,6 +1,6 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
 use near_runtime_fees::RuntimeFeesConfig;
-use near_vm_logic::mocks::mock_external::{Receipt, MockedExternal};
+use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult;
 use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
@@ -105,7 +105,9 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().block_timestamp().unwrap()
     }
 
-    unsafe fn epoch_height(&self) -> u64 { self.logic.borrow_mut().epoch_height().unwrap() }
+    unsafe fn epoch_height(&self) -> u64 {
+        self.logic.borrow_mut().epoch_height().unwrap()
+    }
 
     unsafe fn storage_usage(&self) -> u64 {
         self.logic.borrow_mut().storage_usage().unwrap()
