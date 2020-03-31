@@ -307,7 +307,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "borsh",
  "near-runtime-fees",
@@ -323,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-core"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -333,7 +333,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "near-sdk-core",
  "proc-macro2",
