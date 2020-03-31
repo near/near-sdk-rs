@@ -16,6 +16,8 @@ pub struct AttrSigInfo {
     pub args: Vec<ArgInfo>,
     /// Whether method can be used as initializer.
     pub is_init: bool,
+    /// Whether method accepting $NEAR.
+    pub is_payable: bool,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
     /// The serializer that we use for the return type.
@@ -57,6 +59,7 @@ impl AttrSigInfo {
         let mut non_bindgen_attrs = vec![];
         let mut args = vec![];
         let mut is_init = false;
+        let mut is_payable = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
         for attr in original_attrs.iter() {
@@ -64,6 +67,9 @@ impl AttrSigInfo {
             match attr_str.as_str() {
                 "init" => {
                     is_init = true;
+                }
+                "payable" => {
+                    is_payable = true;
                 }
                 "result_serializer" => {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
@@ -97,6 +103,7 @@ impl AttrSigInfo {
             args,
             input_serializer: SerializerType::JSON,
             is_init,
+            is_payable,
             result_serializer,
             receiver,
             returns,
