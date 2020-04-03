@@ -266,7 +266,8 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=mock_vm_helper_methods#27ed4e3f6a290c356eff382725b5f0812e622cc9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffa8dbf8437a28ac40fcb85859ab0d0b8385013935b000c7a51ae79631dd74d9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -278,7 +279,8 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-macro"
 version = "0.1.0"
-source = "git+https://github.com/nearprotocol/nearcore?branch=mock_vm_helper_methods#27ed4e3f6a290c356eff382725b5f0812e622cc9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c6111d713e90c7c551dee937f4a06cb9ea2672243455a4454cc7566387ba2d9"
 dependencies = [
  "near-rpc-error-core",
  "proc-macro2",
@@ -290,8 +292,9 @@ dependencies = [
 
 [[package]]
 name = "near-runtime-fees"
-version = "0.6.1"
-source = "git+https://github.com/nearprotocol/nearcore?branch=mock_vm_helper_methods#27ed4e3f6a290c356eff382725b5f0812e622cc9"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edf30a72255518c87c9d87da055f7c872354fbe2bbf1a10937d4e30264c10a30"
 dependencies = [
  "serde",
 ]
@@ -334,8 +337,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-errors"
-version = "0.6.1"
-source = "git+https://github.com/nearprotocol/nearcore?branch=mock_vm_helper_methods#27ed4e3f6a290c356eff382725b5f0812e622cc9"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40b332fffba7a600b9a4d08c66e0aa4915237e2e2fdd6bc3e3232a07be802430"
 dependencies = [
  "borsh",
  "near-rpc-error-macro",
@@ -344,8 +348,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "0.6.1"
-source = "git+https://github.com/nearprotocol/nearcore?branch=mock_vm_helper_methods#27ed4e3f6a290c356eff382725b5f0812e622cc9"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54408690bc45a4bfee646cc1b29e980e4f4992789f3d51540757721347798158"
 dependencies = [
  "base64 0.11.0",
  "bs58",
