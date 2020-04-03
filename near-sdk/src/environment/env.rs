@@ -7,8 +7,7 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::{
     mocks::mock_external::Receipt,
     types::{
-        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey,
-        StorageUsage,
+        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
     },
 };
 
@@ -727,5 +726,4 @@ pub fn created_receipts() -> Vec<Receipt> {
             .created_receipts()
             .clone()
     })
-    
 }
