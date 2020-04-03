@@ -404,4 +404,8 @@ impl BlockchainInterface for MockedBlockchain {
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         Some(self)
     }
+
+    fn as_mocked_blockchain(&self) -> Option<&MockedBlockchain> {
+        Some(self)
+    }
 }

@@ -7,7 +7,7 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_vm_logic::{
     mocks::mock_external::Receipt,
     types::{
-        AccountId, Balance, BlockHeight, Gas, Prom, PromiseIndex, PromiseResult, PublicKey,
+        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey,
         StorageUsage,
     },
 };
@@ -716,15 +716,14 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
 
 /// Accessing receipts created by the contract. Only available in unit tests.
 pub fn created_receipts() -> Vec<Receipt> {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .as_mut_mocked_blockchain()
-                .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
-                .created_receipts()
-                .clone()
-        })
-    }
+    BLOCKCHAIN_INTERFACE.with(|b| {
+        b.borrow()
+            .as_ref()
+            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+            .as_mocked_blockchain()
+            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
+            .created_receipts()
+            .clone()
+    })
+    
 }
