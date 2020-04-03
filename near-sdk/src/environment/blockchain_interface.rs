@@ -157,8 +157,11 @@ pub trait BlockchainInterface {
     unsafe fn storage_remove(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64;
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
+        None
+    }
+
+    fn as_mocked_blockchain(&self) -> Option<&MockedBlockchain> {
         None
     }
 }
