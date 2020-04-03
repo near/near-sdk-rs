@@ -1,5 +1,9 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const bn_js_1 = __importDefault(require("bn.js"));
 function toNum(x) {
     return parseInt(x.toString());
 }
@@ -78,4 +82,9 @@ function StrtoUTF8(str) {
 }
 exports.StrtoUTF8 = StrtoUTF8;
 ;
+function createU128Str(lo, hi) {
+    const num = new bn_js_1.default(hi.toString());
+    return num.shln(64).add(new bn_js_1.default(lo.toString())).toString();
+}
+exports.createU128Str = createU128Str;
 //# sourceMappingURL=utils.js.map

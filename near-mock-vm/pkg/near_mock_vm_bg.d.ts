@@ -2,6 +2,7 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export function inject_contract(a: number): number;
+export function test_memory(a: number): void;
 export function __wbg_vm_free(a: number): void;
 export function vm_new(a: number, b: number): number;
 export function vm_reset(a: number): void;
@@ -13,10 +14,10 @@ export function vm_set_signer_account_pk(a: number, b: number): void;
 export function vm_set_predecessor_account_id(a: number, b: number): void;
 export function vm_set_block_index(a: number, b: number, c: number): void;
 export function vm_set_block_timestamp(a: number, b: number, c: number): void;
-export function vm_set_account_balance(a: number, b: number, c: number, d: number, e: number): void;
-export function vm_set_account_locked_balance(a: number, b: number, c: number, d: number, e: number): void;
+export function vm_set_account_balance(a: number, b: number): void;
+export function vm_set_account_locked_balance(a: number, b: number): void;
 export function vm_set_storage_usage(a: number, b: number, c: number): void;
-export function vm_set_attached_deposit(a: number, b: number, c: number, d: number, e: number): void;
+export function vm_set_attached_deposit(a: number, b: number): void;
 export function vm_set_prepaid_gas(a: number, b: number, c: number): void;
 export function vm_set_random_seed(a: number, b: number): void;
 export function vm_set_is_view(a: number, b: number): void;
@@ -70,7 +71,6 @@ export function vm_storage_remove(a: number, b: number, c: number, d: number, e:
 export function vm_storage_has_key(a: number, b: number, c: number, d: number, e: number, f: number): void;
 export function vm_outcome(a: number): number;
 export function vm_created_receipts(a: number): number;
-export function test_memory(a: number): void;
 export function __wbindgen_malloc(a: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number): number;
 export function __wbindgen_free(a: number, b: number): void;

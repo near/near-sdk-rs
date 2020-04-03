@@ -11,6 +11,17 @@ function getObject(idx) { return heap[idx]; }
 
 let heap_next = heap.length;
 
+function addHeapObject(obj) {
+    if (heap_next === heap.length) heap.push(heap.length + 1);
+    const idx = heap_next;
+    heap_next = heap[idx];
+
+    if (typeof(heap_next) !== 'number') throw new Error('corrupt heap');
+
+    heap[idx] = obj;
+    return idx;
+}
+
 function dropObject(idx) {
     if (idx < 36) return;
     heap[idx] = heap_next;
@@ -23,13 +34,10 @@ function takeObject(idx) {
     return ret;
 }
 
-function addHeapObject(obj) {
-    if (heap_next === heap.length) heap.push(heap.length + 1);
-    const idx = heap_next;
-    heap_next = heap[idx];
-
-    heap[idx] = obj;
-    return idx;
+function _assertBoolean(n) {
+    if (typeof(n) !== 'boolean') {
+        throw new Error('expected a boolean argument');
+    }
 }
 
 let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
@@ -50,6 +58,10 @@ function getStringFromWasm0(ptr, len) {
 
 function isLikeNone(x) {
     return x === undefined || x === null;
+}
+
+function _assertNum(n) {
+    if (typeof(n) !== 'number') throw new Error('expected a number argument');
 }
 
 let cachegetFloat64Memory0 = null;
@@ -79,6 +91,8 @@ function getNodeBufferMemory0() {
 }
 
 function passStringToWasm0(arg, malloc) {
+
+    if (typeof(arg) !== 'string') throw new Error('expected a string argument');
 
     const len = Buffer.byteLength(arg);
     const ptr = malloc(len);
@@ -151,6 +165,18 @@ function debugString(val) {
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
 }
+
+function logError(e) {
+    let error = (function () {
+        try {
+            return e instanceof Error ? `${e.message}\n\nStack:\n${e.stack}` : e.toString();
+        } catch(_) {
+            return "<failed to stringify thrown value>";
+        }
+    }());
+    console.error("wasm-bindgen: imported JS function that was not marked as `catch` threw an error:", error);
+    throw e;
+}
 /**
 * @param {any} wasm_bytes
 * @returns {any}
@@ -206,30 +232,40 @@ class VM {
     /**
     */
     reset() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_reset(this.ptr);
     }
     /**
     * @param {any} context
     */
     set_context(context) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_context(this.ptr, addHeapObject(context));
     }
     /**
     * @param {any} s
     */
     set_current_account_id(s) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_current_account_id(this.ptr, addHeapObject(s));
     }
     /**
     * @param {any} s
     */
     set_input(s) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_input(this.ptr, addHeapObject(s));
     }
     /**
     * @param {any} s
     */
     set_signer_account_id(s) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_signer_account_id(this.ptr, addHeapObject(s));
     }
     /**
@@ -238,18 +274,24 @@ class VM {
     * @param {any} s
     */
     set_signer_account_pk(s) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_signer_account_pk(this.ptr, addHeapObject(s));
     }
     /**
     * @param {any} s
     */
     set_predecessor_account_id(s) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_predecessor_account_id(this.ptr, addHeapObject(s));
     }
     /**
     * @param {BigInt} block_height
     */
     set_block_index(block_height) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = block_height;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -259,63 +301,54 @@ class VM {
     * @param {BigInt} stmp
     */
     set_block_timestamp(stmp) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = stmp;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
         wasm.vm_set_block_timestamp(this.ptr, low0, high0);
     }
     /**
-    * @param {BigInt} lo
-    * @param {BigInt} hi
+    * @param {any} u_128
     */
-    set_account_balance(lo, hi) {
-        uint64CvtShim[0] = lo;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        uint64CvtShim[0] = hi;
-        const low1 = u32CvtShim[0];
-        const high1 = u32CvtShim[1];
-        wasm.vm_set_account_balance(this.ptr, low0, high0, low1, high1);
+    set_account_balance(u_128) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
+        wasm.vm_set_account_balance(this.ptr, addHeapObject(u_128));
     }
     /**
-    * @param {BigInt} lo
-    * @param {BigInt} hi
+    * @param {any} u_128
     */
-    set_account_locked_balance(lo, hi) {
-        uint64CvtShim[0] = lo;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        uint64CvtShim[0] = hi;
-        const low1 = u32CvtShim[0];
-        const high1 = u32CvtShim[1];
-        wasm.vm_set_account_locked_balance(this.ptr, low0, high0, low1, high1);
+    set_account_locked_balance(u_128) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
+        wasm.vm_set_account_locked_balance(this.ptr, addHeapObject(u_128));
     }
     /**
     * @param {BigInt} amt
     */
     set_storage_usage(amt) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = amt;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
         wasm.vm_set_storage_usage(this.ptr, low0, high0);
     }
     /**
-    * @param {BigInt} lo
-    * @param {BigInt} hi
+    * @param {any} u_128
     */
-    set_attached_deposit(lo, hi) {
-        uint64CvtShim[0] = lo;
-        const low0 = u32CvtShim[0];
-        const high0 = u32CvtShim[1];
-        uint64CvtShim[0] = hi;
-        const low1 = u32CvtShim[0];
-        const high1 = u32CvtShim[1];
-        wasm.vm_set_attached_deposit(this.ptr, low0, high0, low1, high1);
+    set_attached_deposit(u_128) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
+        wasm.vm_set_attached_deposit(this.ptr, addHeapObject(u_128));
     }
     /**
     * @param {BigInt} _u64
     */
     set_prepaid_gas(_u64) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = _u64;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -325,18 +358,25 @@ class VM {
     * @param {any} s
     */
     set_random_seed(s) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_random_seed(this.ptr, addHeapObject(s));
     }
     /**
     * @param {boolean} b
     */
     set_is_view(b) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
+        _assertBoolean(b);
         wasm.vm_set_is_view(this.ptr, b);
     }
     /**
     * @param {any} arr
     */
     set_output_data_receivers(arr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_set_output_data_receivers(this.ptr, addHeapObject(arr));
     }
     /**
@@ -367,6 +407,8 @@ class VM {
     * @param {BigInt} ptr
     */
     read_register(register_id, ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -380,6 +422,8 @@ class VM {
     * @returns {BigInt}
     */
     register_len(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -439,6 +483,8 @@ class VM {
     * @param {BigInt} register_id
     */
     current_account_id(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -461,6 +507,8 @@ class VM {
     * @param {BigInt} register_id
     */
     signer_account_id(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -482,6 +530,8 @@ class VM {
     * @param {BigInt} register_id
     */
     signer_account_pk(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -503,6 +553,8 @@ class VM {
     * @param {BigInt} register_id
     */
     predecessor_account_id(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -519,6 +571,8 @@ class VM {
     * @param {BigInt} register_id
     */
     input(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -534,6 +588,8 @@ class VM {
     * @returns {BigInt}
     */
     block_index() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_block_index(8, this.ptr);
         var r0 = getInt32Memory0()[8 / 4 + 0];
         var r1 = getInt32Memory0()[8 / 4 + 1];
@@ -551,6 +607,8 @@ class VM {
     * @returns {BigInt}
     */
     block_timestamp() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_block_timestamp(8, this.ptr);
         var r0 = getInt32Memory0()[8 / 4 + 0];
         var r1 = getInt32Memory0()[8 / 4 + 1];
@@ -573,6 +631,8 @@ class VM {
     * @returns {BigInt}
     */
     storage_usage() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_storage_usage(8, this.ptr);
         var r0 = getInt32Memory0()[8 / 4 + 0];
         var r1 = getInt32Memory0()[8 / 4 + 1];
@@ -594,6 +654,8 @@ class VM {
     * @param {BigInt} balance_ptr
     */
     account_balance(balance_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = balance_ptr;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -608,6 +670,8 @@ class VM {
     * @param {BigInt} balance_ptr
     */
     account_locked_balance(balance_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = balance_ptr;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -627,6 +691,8 @@ class VM {
     * @param {BigInt} balance_ptr
     */
     attached_deposit(balance_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = balance_ptr;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -645,6 +711,8 @@ class VM {
     * @returns {BigInt}
     */
     prepaid_gas() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_prepaid_gas(8, this.ptr);
         var r0 = getInt32Memory0()[8 / 4 + 0];
         var r1 = getInt32Memory0()[8 / 4 + 1];
@@ -666,6 +734,8 @@ class VM {
     * @returns {BigInt}
     */
     used_gas() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_used_gas(8, this.ptr);
         var r0 = getInt32Memory0()[8 / 4 + 0];
         var r1 = getInt32Memory0()[8 / 4 + 1];
@@ -690,6 +760,8 @@ class VM {
     * @param {BigInt} register_id
     */
     random_seed(register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = register_id;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -711,6 +783,8 @@ class VM {
     * @param {BigInt} register_id
     */
     sha256(value_len, value_ptr, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = value_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -738,6 +812,8 @@ class VM {
     * @param {BigInt} register_id
     */
     keccak256(value_len, value_ptr, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = value_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -765,6 +841,8 @@ class VM {
     * @param {BigInt} register_id
     */
     keccak512(value_len, value_ptr, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = value_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -787,6 +865,9 @@ class VM {
     * @param {number} gas_amount
     */
     gas(gas_amount) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
+        _assertNum(gas_amount);
         wasm.vm_gas(this.ptr, gas_amount);
     }
     /**
@@ -840,6 +921,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_create(account_id_len, account_id_ptr, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = account_id_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -904,6 +987,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_then(promise_idx, account_id_len, account_id_ptr, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -966,6 +1051,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_and(promise_idx_ptr, promise_idx_count) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx_ptr;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1003,6 +1090,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_batch_create(account_id_len, account_id_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = account_id_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1043,6 +1132,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_batch_then(promise_idx, account_id_len, account_id_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1078,6 +1169,8 @@ class VM {
     * @param {BigInt} promise_idx
     */
     promise_batch_action_create_account(promise_idx) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1105,6 +1198,8 @@ class VM {
     * @param {BigInt} code_ptr
     */
     promise_batch_action_deploy_contract(promise_idx, code_len, code_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1144,6 +1239,8 @@ class VM {
     * @param {BigInt} gas
     */
     promise_batch_action_function_call(promise_idx, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1188,6 +1285,8 @@ class VM {
     * @param {BigInt} amount_ptr
     */
     promise_batch_action_transfer(promise_idx, amount_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1220,6 +1319,8 @@ class VM {
     * @param {BigInt} public_key_ptr
     */
     promise_batch_action_stake(promise_idx, amount_ptr, public_key_len, public_key_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1258,6 +1359,8 @@ class VM {
     * @param {BigInt} nonce
     */
     promise_batch_action_add_key_with_full_access(promise_idx, public_key_len, public_key_ptr, nonce) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1303,6 +1406,8 @@ class VM {
     * @param {BigInt} method_names_ptr
     */
     promise_batch_action_add_key_with_function_call(promise_idx, public_key_len, public_key_ptr, nonce, allowance_ptr, receiver_id_len, receiver_id_ptr, method_names_len, method_names_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1355,6 +1460,8 @@ class VM {
     * @param {BigInt} public_key_ptr
     */
     promise_batch_action_delete_key(promise_idx, public_key_len, public_key_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1388,6 +1495,8 @@ class VM {
     * @param {BigInt} beneficiary_id_ptr
     */
     promise_batch_action_delete_account(promise_idx, beneficiary_id_len, beneficiary_id_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1417,6 +1526,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_results_count() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_promise_results_count(8, this.ptr);
         var r0 = getInt32Memory0()[8 / 4 + 0];
         var r1 = getInt32Memory0()[8 / 4 + 1];
@@ -1453,6 +1564,8 @@ class VM {
     * @returns {BigInt}
     */
     promise_result(result_idx, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = result_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1482,6 +1595,8 @@ class VM {
     * @param {BigInt} promise_idx
     */
     promise_return(promise_idx) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = promise_idx;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1504,6 +1619,8 @@ class VM {
     * @param {BigInt} value_ptr
     */
     value_return(value_len, value_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = value_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1520,6 +1637,8 @@ class VM {
     * `base`
     */
     panic() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         wasm.vm_panic(this.ptr);
     }
     /**
@@ -1538,6 +1657,8 @@ class VM {
     * @param {BigInt} ptr
     */
     panic_utf8(len, ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1563,6 +1684,8 @@ class VM {
     * @param {BigInt} ptr
     */
     log_utf8(len, ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1587,6 +1710,8 @@ class VM {
     * @param {BigInt} ptr
     */
     log_utf16(len, ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1608,6 +1733,12 @@ class VM {
     * @param {number} col
     */
     abort(msg_ptr, filename_ptr, line, col) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
+        _assertNum(msg_ptr);
+        _assertNum(filename_ptr);
+        _assertNum(line);
+        _assertNum(col);
         wasm.vm_abort(this.ptr, msg_ptr, filename_ptr, line, col);
     }
     /**
@@ -1650,6 +1781,8 @@ class VM {
     * @returns {BigInt}
     */
     storage_write(key_len, key_ptr, value_len, value_ptr, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = key_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1696,6 +1829,8 @@ class VM {
     * @returns {BigInt}
     */
     storage_read(key_len, key_ptr, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = key_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1737,6 +1872,8 @@ class VM {
     * @returns {BigInt}
     */
     storage_remove(key_len, key_ptr, register_id) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = key_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1771,6 +1908,8 @@ class VM {
     * @returns {BigInt}
     */
     storage_has_key(key_len, key_ptr) {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         uint64CvtShim[0] = key_len;
         const low0 = u32CvtShim[0];
         const high0 = u32CvtShim[1];
@@ -1791,6 +1930,8 @@ class VM {
     * @returns {any}
     */
     outcome() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         var ret = wasm.vm_outcome(this.ptr);
         return takeObject(ret);
     }
@@ -1798,21 +1939,20 @@ class VM {
     * @returns {any}
     */
     created_receipts() {
+        if (this.ptr == 0) throw new Error('Attempt to use a moved value');
+        _assertNum(this.ptr);
         var ret = wasm.vm_created_receipts(this.ptr);
         return takeObject(ret);
     }
 }
 module.exports.VM = VM;
 
-module.exports.__wbindgen_object_drop_ref = function(arg0) {
-    takeObject(arg0);
-};
-
-module.exports.__wbg_writememory_ac21b7d629311fbb = function(arg0, arg1, arg2, arg3, arg4) {
-    u32CvtShim[0] = arg1;
-    u32CvtShim[1] = arg2;
-    const n0 = uint64CvtShim[0];
-    getObject(arg0).write_memory(n0, getArrayU8FromWasm0(arg3, arg4));
+module.exports.__wbg_log_6ce223fdee9c34a8 = function(arg0, arg1) {
+    try {
+        console.log(getStringFromWasm0(arg0, arg1));
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbindgen_object_clone_ref = function(arg0) {
@@ -1820,65 +1960,121 @@ module.exports.__wbindgen_object_clone_ref = function(arg0) {
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_log_6ce223fdee9c34a8 = function(arg0, arg1) {
-    console.log(getStringFromWasm0(arg0, arg1));
-};
-
 module.exports.__wbg_fitsmemory_8e38756424432b8d = function(arg0, arg1, arg2, arg3, arg4) {
-    u32CvtShim[0] = arg1;
-    u32CvtShim[1] = arg2;
-    const n0 = uint64CvtShim[0];
-    u32CvtShim[0] = arg3;
-    u32CvtShim[1] = arg4;
-    const n1 = uint64CvtShim[0];
-    var ret = getObject(arg0).fits_memory(n0, n1);
-    return ret;
+    try {
+        u32CvtShim[0] = arg1;
+        u32CvtShim[1] = arg2;
+        const n0 = uint64CvtShim[0];
+        u32CvtShim[0] = arg3;
+        u32CvtShim[1] = arg4;
+        const n1 = uint64CvtShim[0];
+        var ret = getObject(arg0).fits_memory(n0, n1);
+        _assertBoolean(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbg_readmemory_61c77ecaade64c0d = function(arg0, arg1, arg2, arg3, arg4) {
-    u32CvtShim[0] = arg1;
-    u32CvtShim[1] = arg2;
-    const n0 = uint64CvtShim[0];
-    getObject(arg0).read_memory(n0, getArrayU8FromWasm0(arg3, arg4));
+    try {
+        u32CvtShim[0] = arg1;
+        u32CvtShim[1] = arg2;
+        const n0 = uint64CvtShim[0];
+        getObject(arg0).read_memory(n0, getArrayU8FromWasm0(arg3, arg4));
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbg_readmemoryu8_b854d6f121ba3eb7 = function(arg0, arg1, arg2) {
-    u32CvtShim[0] = arg1;
-    u32CvtShim[1] = arg2;
-    const n0 = uint64CvtShim[0];
-    var ret = getObject(arg0).read_memory_u8(n0);
-    return ret;
+    try {
+        u32CvtShim[0] = arg1;
+        u32CvtShim[1] = arg2;
+        const n0 = uint64CvtShim[0];
+        var ret = getObject(arg0).read_memory_u8(n0);
+        _assertNum(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
 };
 
-module.exports.__wbg_new_59cb74e423758ede = function() {
-    var ret = new Error();
-    return addHeapObject(ret);
+module.exports.__wbg_writememory_ac21b7d629311fbb = function(arg0, arg1, arg2, arg3, arg4) {
+    try {
+        u32CvtShim[0] = arg1;
+        u32CvtShim[1] = arg2;
+        const n0 = uint64CvtShim[0];
+        getObject(arg0).write_memory(n0, getArrayU8FromWasm0(arg3, arg4));
+    } catch (e) {
+        logError(e)
+    }
 };
 
-module.exports.__wbg_stack_558ba5917b466edd = function(arg0, arg1) {
-    var ret = getObject(arg1).stack;
-    var ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    getInt32Memory0()[arg0 / 4 + 1] = len0;
-    getInt32Memory0()[arg0 / 4 + 0] = ptr0;
+module.exports.__wbindgen_object_drop_ref = function(arg0) {
+    takeObject(arg0);
 };
 
 module.exports.__wbg_error_4bb6c2a97407129a = function(arg0, arg1) {
     try {
-        console.error(getStringFromWasm0(arg0, arg1));
-    } finally {
-        wasm.__wbindgen_free(arg0, arg1);
+        try {
+            console.error(getStringFromWasm0(arg0, arg1));
+        } finally {
+            wasm.__wbindgen_free(arg0, arg1);
+        }
+    } catch (e) {
+        logError(e)
     }
 };
 
-module.exports.__wbindgen_string_new = function(arg0, arg1) {
-    var ret = getStringFromWasm0(arg0, arg1);
-    return addHeapObject(ret);
+module.exports.__wbg_new_59cb74e423758ede = function() {
+    try {
+        var ret = new Error();
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_stack_558ba5917b466edd = function(arg0, arg1) {
+    try {
+        var ret = getObject(arg1).stack;
+        var ptr0 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        getInt32Memory0()[arg0 / 4 + 1] = len0;
+        getInt32Memory0()[arg0 / 4 + 0] = ptr0;
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbg_new_68adb0d58759a4ed = function() {
-    var ret = new Object();
-    return addHeapObject(ret);
+    try {
+        var ret = new Object();
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_set_2e79e744454afade = function(arg0, arg1, arg2) {
+    try {
+        getObject(arg0)[takeObject(arg1)] = takeObject(arg2);
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbindgen_is_undefined = function(arg0) {
+    var ret = getObject(arg0) === undefined;
+    _assertBoolean(ret);
+    return ret;
+};
+
+module.exports.__wbindgen_is_null = function(arg0) {
+    var ret = getObject(arg0) === null;
+    _assertBoolean(ret);
+    return ret;
 };
 
 module.exports.__wbindgen_number_new = function(arg0) {
@@ -1886,145 +2082,229 @@ module.exports.__wbindgen_number_new = function(arg0) {
     return addHeapObject(ret);
 };
 
-module.exports.__wbindgen_is_null = function(arg0) {
-    var ret = getObject(arg0) === null;
-    return ret;
-};
-
-module.exports.__wbindgen_is_undefined = function(arg0) {
-    var ret = getObject(arg0) === undefined;
-    return ret;
-};
-
-module.exports.__wbg_set_2e79e744454afade = function(arg0, arg1, arg2) {
-    getObject(arg0)[takeObject(arg1)] = takeObject(arg2);
+module.exports.__wbindgen_string_new = function(arg0, arg1) {
+    var ret = getStringFromWasm0(arg0, arg1);
+    return addHeapObject(ret);
 };
 
 module.exports.__wbindgen_is_object = function(arg0) {
     const val = getObject(arg0);
     var ret = typeof(val) === 'object' && val !== null;
+    _assertBoolean(ret);
     return ret;
 };
 
-module.exports.__wbindgen_is_function = function(arg0) {
-    var ret = typeof(getObject(arg0)) === 'function';
-    return ret;
-};
-
-module.exports.__wbg_next_3d521c5c088358fa = function(arg0) {
-    var ret = getObject(arg0).next;
-    return addHeapObject(ret);
-};
-
-module.exports.__wbg_next_c08bf57a239475c3 = function(arg0) {
+module.exports.__wbg_new_ec28d6ba821801cb = function() {
     try {
-        var ret = getObject(arg0).next();
+        var ret = new Array();
         return addHeapObject(ret);
     } catch (e) {
-        handleError(e)
+        logError(e)
     }
 };
 
-module.exports.__wbg_done_e784c64062606540 = function(arg0) {
-    var ret = getObject(arg0).done;
-    return ret;
-};
-
-module.exports.__wbg_value_11f53ed6202a1367 = function(arg0) {
-    var ret = getObject(arg0).value;
-    return addHeapObject(ret);
-};
-
-module.exports.__wbg_iterator_7ab2f711861ad076 = function() {
-    var ret = Symbol.iterator;
-    return addHeapObject(ret);
-};
-
-module.exports.__wbg_get_8fd175832d82a656 = function(arg0, arg1) {
+module.exports.__wbg_isArray_c4a3026522b7f963 = function(arg0) {
     try {
-        var ret = Reflect.get(getObject(arg0), getObject(arg1));
+        var ret = Array.isArray(getObject(arg0));
+        _assertBoolean(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_push_ffaa2df7422d3b4c = function(arg0, arg1) {
+    try {
+        var ret = getObject(arg0).push(getObject(arg1));
+        _assertNum(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_instanceof_ArrayBuffer_d851e92b8b88a310 = function(arg0) {
+    try {
+        var ret = getObject(arg0) instanceof ArrayBuffer;
+        _assertBoolean(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_values_b136c3cae7c97bf6 = function(arg0) {
+    try {
+        var ret = getObject(arg0).values();
         return addHeapObject(ret);
     } catch (e) {
-        handleError(e)
+        logError(e)
+    }
+};
+
+module.exports.__wbg_new_a674acf697de3e9f = function(arg0, arg1) {
+    try {
+        var ret = new Error(getStringFromWasm0(arg0, arg1));
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
     }
 };
 
 module.exports.__wbg_call_804d3ad7e8acd4d5 = function(arg0, arg1) {
     try {
-        var ret = getObject(arg0).call(getObject(arg1));
-        return addHeapObject(ret);
+        try {
+            var ret = getObject(arg0).call(getObject(arg1));
+            return addHeapObject(ret);
+        } catch (e) {
+            handleError(e)
+        }
     } catch (e) {
-        handleError(e)
+        logError(e)
     }
 };
 
-module.exports.__wbg_new_ec28d6ba821801cb = function() {
-    var ret = new Array();
-    return addHeapObject(ret);
+module.exports.__wbg_next_c08bf57a239475c3 = function(arg0) {
+    try {
+        try {
+            var ret = getObject(arg0).next();
+            return addHeapObject(ret);
+        } catch (e) {
+            handleError(e)
+        }
+    } catch (e) {
+        logError(e)
+    }
 };
 
-module.exports.__wbg_isArray_c4a3026522b7f963 = function(arg0) {
-    var ret = Array.isArray(getObject(arg0));
-    return ret;
+module.exports.__wbg_next_3d521c5c088358fa = function(arg0) {
+    try {
+        var ret = getObject(arg0).next;
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
 };
 
-module.exports.__wbg_push_ffaa2df7422d3b4c = function(arg0, arg1) {
-    var ret = getObject(arg0).push(getObject(arg1));
-    return ret;
+module.exports.__wbg_done_e784c64062606540 = function(arg0) {
+    try {
+        var ret = getObject(arg0).done;
+        _assertBoolean(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
 };
 
-module.exports.__wbg_instanceof_ArrayBuffer_d851e92b8b88a310 = function(arg0) {
-    var ret = getObject(arg0) instanceof ArrayBuffer;
-    return ret;
-};
-
-module.exports.__wbg_values_b136c3cae7c97bf6 = function(arg0) {
-    var ret = getObject(arg0).values();
-    return addHeapObject(ret);
-};
-
-module.exports.__wbg_new_a674acf697de3e9f = function(arg0, arg1) {
-    var ret = new Error(getStringFromWasm0(arg0, arg1));
-    return addHeapObject(ret);
+module.exports.__wbg_value_11f53ed6202a1367 = function(arg0) {
+    try {
+        var ret = getObject(arg0).value;
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbg_isSafeInteger_357be569d88701c0 = function(arg0) {
-    var ret = Number.isSafeInteger(getObject(arg0));
-    return ret;
+    try {
+        var ret = Number.isSafeInteger(getObject(arg0));
+        _assertBoolean(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
 };
 
-module.exports.__wbg_buffer_f897a8d316863411 = function(arg0) {
-    var ret = getObject(arg0).buffer;
-    return addHeapObject(ret);
-};
-
-module.exports.__wbg_length_b7dc6aed3ca09be1 = function(arg0) {
-    var ret = getObject(arg0).length;
-    return ret;
-};
-
-module.exports.__wbg_new_da17c07b1fbb4a8b = function(arg0) {
-    var ret = new Uint8Array(getObject(arg0));
-    return addHeapObject(ret);
-};
-
-module.exports.__wbg_set_4a8545284001c06f = function(arg0, arg1, arg2) {
-    getObject(arg0).set(getObject(arg1), arg2 >>> 0);
+module.exports.__wbg_iterator_7ab2f711861ad076 = function() {
+    try {
+        var ret = Symbol.iterator;
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbg_instanceof_Uint8Array_4342cb3c1a0c83fe = function(arg0) {
-    var ret = getObject(arg0) instanceof Uint8Array;
-    return ret;
+    try {
+        var ret = getObject(arg0) instanceof Uint8Array;
+        _assertBoolean(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_new_da17c07b1fbb4a8b = function(arg0) {
+    try {
+        var ret = new Uint8Array(getObject(arg0));
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_length_b7dc6aed3ca09be1 = function(arg0) {
+    try {
+        var ret = getObject(arg0).length;
+        _assertNum(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
 };
 
 module.exports.__wbg_byteLength_5f1abb9d0f73f112 = function(arg0) {
-    var ret = getObject(arg0).byteLength;
+    try {
+        var ret = getObject(arg0).byteLength;
+        _assertNum(ret);
+        return ret;
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_set_4a8545284001c06f = function(arg0, arg1, arg2) {
+    try {
+        getObject(arg0).set(getObject(arg1), arg2 >>> 0);
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_buffer_f897a8d316863411 = function(arg0) {
+    try {
+        var ret = getObject(arg0).buffer;
+        return addHeapObject(ret);
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbg_get_8fd175832d82a656 = function(arg0, arg1) {
+    try {
+        try {
+            var ret = Reflect.get(getObject(arg0), getObject(arg1));
+            return addHeapObject(ret);
+        } catch (e) {
+            handleError(e)
+        }
+    } catch (e) {
+        logError(e)
+    }
+};
+
+module.exports.__wbindgen_is_function = function(arg0) {
+    var ret = typeof(getObject(arg0)) === 'function';
+    _assertBoolean(ret);
     return ret;
 };
 
 module.exports.__wbindgen_number_get = function(arg0, arg1) {
     const obj = getObject(arg1);
     var ret = typeof(obj) === 'number' ? obj : undefined;
+    if (!isLikeNone(ret)) {
+        _assertNum(ret);
+    }
     getFloat64Memory0()[arg0 / 8 + 1] = isLikeNone(ret) ? 0 : ret;
     getInt32Memory0()[arg0 / 4 + 0] = !isLikeNone(ret);
 };
@@ -2041,6 +2321,7 @@ module.exports.__wbindgen_string_get = function(arg0, arg1) {
 module.exports.__wbindgen_boolean_get = function(arg0) {
     const v = getObject(arg0);
     var ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
+    _assertNum(ret);
     return ret;
 };
 

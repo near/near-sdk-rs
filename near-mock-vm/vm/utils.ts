@@ -1,3 +1,4 @@
+import BN from "bn.js";
 
 export function toNum(x: number | BigInt){ 
   return parseInt(x.toString());}
@@ -75,3 +76,9 @@ export function StrtoUTF8(str: string): Uint8Array {
   }
   return new Uint8Array(utf8);
 };
+
+export function createU128Str(lo: BigInt, hi: BigInt): string {
+  const num = new BN(hi.toString());
+  return num.shln(64).add(new BN(lo.toString())).toString()
+  
+}

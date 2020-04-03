@@ -92,16 +92,16 @@ class NearVM {
                 },
                 setAccount_balance(lo, hi) {
                     //TODO: actually  u128
-                    vm.set_account_balance(lo, hi);
+                    vm.set_account_balance(utils.createU128Str(lo, hi));
                 },
                 setAccount_locked_balance(lo, hi) {
-                    vm.set_account_locked_balance(lo, hi);
+                    vm.set_account_locked_balance(utils.createU128Str(lo, hi));
                 },
                 setStorage_usage(amt) {
                     vm.set_storage_usage(amt);
                 },
                 setAttached_deposit(lo, hi) {
-                    vm.set_attached_deposit(lo, hi);
+                    vm.set_attached_deposit(utils.createU128Str(lo, hi));
                 },
                 setPrepaid_gas(_u64) {
                     vm.set_prepaid_gas(_u64);

@@ -43,7 +43,6 @@ pub fn test_memory(mem: NearMemory) {
     let mut memory = MockedMemory { mem };
     let v: Vec<u8> = vec![42 as u8];
     memory.write_memory(0, &v);
-
 }
 
 #[wasm_bindgen]
@@ -129,13 +128,15 @@ impl VM {
         self.switch_context();
     }
 
-    pub fn set_account_balance(&mut self, lo: u64, hi: u64) {
-        self.context.account_balance = u128_from_u64s(lo, hi) + self.context.attached_deposit; // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+    pub fn set_account_balance(&mut self, u_128: JsValue) {
+        let balance: String = serde_wasm_bindgen::from_value(u_128).unwrap();
+        self.context.account_balance = u128::from_str_radix(&balance, 10).unwrap() + self.context.attached_deposit; // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
         self.switch_context()
     }
 
-    pub fn set_account_locked_balance(&mut self, lo: u64, hi: u64) {
-        self.context.account_locked_balance = u128_from_u64s(lo, hi); // TODO: serde_wasm_bindgen::from_value(_u128).unwrap();
+    pub fn set_account_locked_balance(&mut self, u_128: JsValue) {
+        let balance: String = serde_wasm_bindgen::from_value(u_128).unwrap();
+        self.context.account_locked_balance = u128::from_str_radix(&balance, 10).unwrap();
         self.switch_context();
     }
 
@@ -144,8 +145,9 @@ impl VM {
         self.switch_context();
     }
 
-    pub fn set_attached_deposit(&mut self, lo: u64, hi: u64) {
-        self.context.attached_deposit = u128_from_u64s(lo, hi); // TODO: serde_wasm_bindgen::from_value(_u128).unwrap();
+    pub fn set_attached_deposit(&mut self, u_128: JsValue) {
+        let balance: String = serde_wasm_bindgen::from_value(u_128).unwrap();
+        self.context.attached_deposit = u128::from_str_radix(&balance, 10).unwrap();
         self.switch_context();
     }
 

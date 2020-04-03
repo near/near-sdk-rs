@@ -6,7 +6,6 @@ import { Memory } from "./memory";
 import { Base64 } from 'js-base64';
 import * as loader from "@assemblyscript/loader";
 import * as utils from "./utils";
-import assert from "assert";
 
 export class NearVM {
   vm: VM;
@@ -99,16 +98,16 @@ export class NearVM {
           },
           setAccount_balance(lo: BigInt, hi: BigInt) {
             //TODO: actually  u128
-            vm.set_account_balance(lo, hi);
+            vm.set_account_balance(utils.createU128Str(lo, hi));
           },
           setAccount_locked_balance(lo: BigInt, hi: BigInt) {
-            vm.set_account_locked_balance(lo, hi);
+            vm.set_account_locked_balance(utils.createU128Str(lo, hi));
           },
           setStorage_usage(amt: BigInt) {
             vm.set_storage_usage(amt);
           },
           setAttached_deposit(lo: BigInt, hi: BigInt) {
-            vm.set_attached_deposit(lo, hi);
+            vm.set_attached_deposit(utils.createU128Str(lo, hi));
           },
           setPrepaid_gas(_u64: BigInt) {
             vm.set_prepaid_gas(_u64);

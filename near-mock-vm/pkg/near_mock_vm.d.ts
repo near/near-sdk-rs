@@ -54,24 +54,21 @@ export class VM {
 */
   set_block_timestamp(stmp: BigInt): void;
 /**
-* @param {BigInt} lo 
-* @param {BigInt} hi 
+* @param {any} u_128 
 */
-  set_account_balance(lo: BigInt, hi: BigInt): void;
+  set_account_balance(u_128: any): void;
 /**
-* @param {BigInt} lo 
-* @param {BigInt} hi 
+* @param {any} u_128 
 */
-  set_account_locked_balance(lo: BigInt, hi: BigInt): void;
+  set_account_locked_balance(u_128: any): void;
 /**
 * @param {BigInt} amt 
 */
   set_storage_usage(amt: BigInt): void;
 /**
-* @param {BigInt} lo 
-* @param {BigInt} hi 
+* @param {any} u_128 
 */
-  set_attached_deposit(lo: BigInt, hi: BigInt): void;
+  set_attached_deposit(u_128: any): void;
 /**
 * @param {BigInt} _u64 
 */
