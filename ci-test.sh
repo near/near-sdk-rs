@@ -1,4 +1,5 @@
 #!/bin/bash
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 if [[ "${NEAR_RELEASE}" == "true" ]]; then
     echo "Test with release version of borsh and near-vm-logic"
@@ -8,7 +9,7 @@ if [[ "${NEAR_RELEASE}" == "true" ]]; then
 
     cargo test --all
     set +e
-    (cd near-mock-vm; yarn && yarn build && yarn test);
+    (cd near-mock-vm; yarn && yarn test:ci);
 else
     echo "Test with git version of borsh and near-vm-logic"
 
@@ -19,7 +20,7 @@ else
     
     set +e
     cargo test --all
-    (cd near-mock-vm; yarn && yarn build && yarn test);
+    (cd near-mock-vm; yarn && yarn test:ci);
     status=$?
     set -e
 

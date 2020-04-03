@@ -24,12 +24,12 @@
     "near-sdk-as": "^0.1.5",
     "ts-jest": "^25.2.1",
     "ts-node": "^8.6.2",
-    "typescript": "^3.8.3",
-    "wasm-pack": "^0.9.1"
+    "typescript": "^3.8.3"
   },
   "scripts": {
     "build": "wasm-pack build --target nodejs && tsc",
     "test": "node asconfig && node tests && node tests/test && yarn test:bin",
+    "test:ci": "yarn build && yarn test",
     "near-vm": "node bin/standalone_vm.js",
     "test:bin": "yarn near-vm out/main.wasm add \"{\\\"a\\\":1000,\\\"b\\\":1000}\""
   },
