@@ -24,7 +24,8 @@
     "near-sdk-as": "^0.0.2",
     "ts-jest": "^25.2.1",
     "ts-node": "^8.6.2",
-    "typescript": "^3.8.3"
+    "typescript": "^3.8.3",
+    "wasm-pack": "^0.9.1"
   },
   "scripts": {
     "build": "wasm-pack build --target nodejs && tsc",

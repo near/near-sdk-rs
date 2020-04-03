@@ -8,7 +8,7 @@ if [[ "${NEAR_RELEASE}" == "true" ]]; then
 
     cargo test --all
     set +e
-    (cd near-mock-vm; yarn build && yarn test);
+    (cd near-mock-vm; yarn && yarn build && yarn test);
 else
     echo "Test with git version of borsh and near-vm-logic"
 
@@ -19,7 +19,7 @@ else
     
     set +e
     cargo test --all
-    (cd near-mock-vm; yarn build && yarn test);
+    (cd near-mock-vm; yarn && yarn build && yarn test);
     status=$?
     set -e
 
