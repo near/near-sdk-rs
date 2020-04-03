@@ -162,4 +162,7 @@ pub trait BlockchainInterface {
         None
     }
 
+    fn as_mocked_blockchain(&self) -> Option<&MockedBlockchain> {
+        None
+    }
 }
