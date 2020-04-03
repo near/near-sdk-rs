@@ -18,7 +18,6 @@ else
     
     set +e
     cargo test --all
-    (cd near-mock-vm; yarn && yarn test:ci);
     status=$?
     set -e
 
