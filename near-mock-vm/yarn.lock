@@ -7,47 +7,47 @@
   resolved "https://registry.yarnpkg.com/@as-pect/assembly/-/assembly-3.1.2.tgz#3b8a3e17386ac76897a0c097c87b17a6e7eb8b0c"
   integrity sha512-RHmiU5D8sFVWA2BgoAioKmewnGibN592vT8kCweYN6fQ0TL2UGvGEdMvAdAgGdc0fgdWcAy9PIXGxsfBXpR4MA==
 
-"@as-pect/cli@^3.0.0-beta.0":
-  version "3.1.3"
-  resolved "https://registry.yarnpkg.com/@as-pect/cli/-/cli-3.1.3.tgz#68295728ae94b73f4a6344671884d6d6d4e18f83"
-  integrity sha512-vfz1nR3i46b8bg5E7DABjHsiaK55hIBxMFVETI97su8slKCVI4JS1zTbCq58jotWCOSEcvjDHcdZ09QN1PEAZg==
+"@as-pect/cli@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@as-pect/cli/-/cli-3.1.4.tgz#805ed82611583084e104a1592e008d607e7c5d31"
+  integrity sha512-0SNeUhn0ZW126qsoR/VUHvvqEjCg8l4IeTStqzHyb97usPEHLRuBI/dNZzJtqJBQLt1rb7xdQ2lZAdSSDTrBQA==
   dependencies:
     "@as-pect/assembly" "^3.1.2"
-    "@as-pect/core" "^3.1.3"
+    "@as-pect/core" "^3.1.4"
     chalk "^3.0.0"
     glob "^7.1.6"
   optionalDependencies:
-    "@as-pect/csv-reporter" "^3.1.3"
-    "@as-pect/json-reporter" "^3.1.3"
+    "@as-pect/csv-reporter" "^3.1.4"
+    "@as-pect/json-reporter" "^3.1.4"
 
-"@as-pect/core@^3.1.3":
-  version "3.1.3"
-  resolved "https://registry.yarnpkg.com/@as-pect/core/-/core-3.1.3.tgz#16a282845f9c9b289cff272b4d3ec73d1b37f0b0"
-  integrity sha512-nrVa3x37+nPMxqhdzPEN2aqtyADrRtbRngNDI8kUfdX6fk8WDtHFTBvCA6wifDUHHpIFVt0z5XcVsvjLWI5nsA==
+"@as-pect/core@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@as-pect/core/-/core-3.1.4.tgz#a6903717f6977af5b813d6f23a4cd0099e1ac00a"
+  integrity sha512-qLW0KxZXeNvWl0ZxM65O9AD8JZmHR5jUWPvfGvcshq5rVcH3g/Ny6MG5Atg5qy4RFR8n4aXhQNOS/axjAtZI+Q==
   dependencies:
     "@as-pect/assembly" "^3.1.2"
-    "@as-pect/snapshots" "^3.1.3"
+    "@as-pect/snapshots" "^3.1.4"
     chalk "^3.0.0"
     long "^4.0.0"
 
-"@as-pect/csv-reporter@^3.1.3":
-  version "3.1.3"
-  resolved "https://registry.yarnpkg.com/@as-pect/csv-reporter/-/csv-reporter-3.1.3.tgz#6503a751eb1bb3616e3c189950df3bcd84911472"
-  integrity sha512-qn0/IIF4tByhUN6Ci6bCPjvkH31vd24XrAiAYp2Q7VGUolqKMG/+Oyumj74PixmxriWJD3O6tKJxdCFXaWSgqA==
+"@as-pect/csv-reporter@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@as-pect/csv-reporter/-/csv-reporter-3.1.4.tgz#1f65b89ed514f6f7f77621e0a2bbd6028ed84297"
+  integrity sha512-tLXrrqUgH2gIPMFxSXoGpXyggqUkfuiJMJXoUnRpe8omzEvE4sW1OueXW+t+LKCI1ha2BYNl9ALR163G3gaOEw==
   dependencies:
-    "@as-pect/core" "^3.1.3"
+    "@as-pect/core" "^3.1.4"
 
-"@as-pect/json-reporter@^3.1.3":
-  version "3.1.3"
-  resolved "https://registry.yarnpkg.com/@as-pect/json-reporter/-/json-reporter-3.1.3.tgz#52d4e649fad4c97a1669fcc29b6b79948e44a9e4"
-  integrity sha512-pK+MdLqOQPvqMyjGqYeOZ7h7IpKzjfZhAG2NkUt/tKDAYChIee/qRXR/3PcG3w92enQDzabzRJEtqvq25gH9aQ==
+"@as-pect/json-reporter@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@as-pect/json-reporter/-/json-reporter-3.1.4.tgz#f985f8f6ef3fb2b59a5db38a7851c41be6a7a29a"
+  integrity sha512-mVzZ045tG022hTFv1d7d7+ge8nipwi8wtmK/ZoiEvxlgnH33tSyOk39TGv2bdXGp0wM1aKhZ+3wnfd1RUr5sBg==
   dependencies:
-    "@as-pect/core" "^3.1.3"
+    "@as-pect/core" "^3.1.4"
 
-"@as-pect/snapshots@^3.1.3":
-  version "3.1.3"
-  resolved "https://registry.yarnpkg.com/@as-pect/snapshots/-/snapshots-3.1.3.tgz#7975b0559aa3b8d648fad44071711f34737abd33"
-  integrity sha512-rJhtyAyHgMYztUvicMQ8Kpb2StvTkjKgNcGzeOizTLycUHF8HuaLUWU/DVU/UfU0d1UGweEqSyb6TWWyj4jMSQ==
+"@as-pect/snapshots@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@as-pect/snapshots/-/snapshots-3.1.4.tgz#4303bc5ef925f1f1ba4aa5445073d0202e45d99d"
+  integrity sha512-Gx7JHR2VJFDlrrBCC40YYkK00zF3B7q/bq4NwNOrOXVXW9ty6qH3ITc0Y8IufF3mLl8D8q6xCswXF2wVgxBPhg==
   dependencies:
     diff "^4.0.2"
     nearley "^2.19.1"
@@ -2584,29 +2584,31 @@ natural-compare@^1.4.0:
   resolved "https://registry.yarnpkg.com/natural-compare/-/natural-compare-1.4.0.tgz#4abebfeed7541f2c27acfb29bdbbd15c8d5ba4f7"
   integrity sha1-Sr6/7tdUHywnrPspvbvRXI1bpPc=
 
-near-bindgen-as@^1.3.0-0:
-  version "1.3.0-0"
-  resolved "https://registry.yarnpkg.com/near-bindgen-as/-/near-bindgen-as-1.3.0-0.tgz#9ee96d72d9a5f35191b6eb764d761f2fdd0cd757"
-  integrity sha512-TCQkXEPxuiC6D87dU4DyLluPQyzoZOThKl/Mz+1LV4u7eY3jN9NpaQ+cYa/6pBILvVrSPbqbtX6J+hhV72PqQw==
+near-bindgen-as@^1.3.1-1:
+  version "1.3.1-1"
+  resolved "https://registry.yarnpkg.com/near-bindgen-as/-/near-bindgen-as-1.3.1-1.tgz#67572fd531536147d5f4b697a907da1b063c0281"
+  integrity sha512-kH0wUWx4+lLK/2L5aqjlcM6reXlniUr1YEtHR/GDGyZYyhKJ5NtCvKBAnKQVcVVK1xRsCCqbEmmfykVsf8Y57w==
   dependencies:
-    semver "^7.1.3"
+    near-sdk-as "^0.1.0-1"
 
-near-runtime-ts@^0.7.0-0:
-  version "0.7.0-0"
-  resolved "https://registry.yarnpkg.com/near-runtime-ts/-/near-runtime-ts-0.7.0-0.tgz#78c5b9f9be77ac0d65bacabe09da807273acea10"
-  integrity sha512-Ed+Wvf58GQ56wecAn/6XX7uRorhY547vVKabMzX4SCve6V6QPdzYfAa0UJ6gvRvqn+3DZKabHncciTWY0Ue5vA==
+near-runtime-ts@^0.7.1-1:
+  version "0.7.1-1"
+  resolved "https://registry.yarnpkg.com/near-runtime-ts/-/near-runtime-ts-0.7.1-1.tgz#be20c032465652f432a8d4fd3313b85d297d46c9"
+  integrity sha512-Xi4IJ+7zDpHbeD5ERBFiq/kGPqyUqC61ShXDquKkvFY383kjs420MQkQ/yHFOFtlrF+slbnrL+ghbpKpe6+HaQ==
   dependencies:
+    near-sdk-as "^0.1.0-1"
+
+near-sdk-as@^0.1.0-1, near-sdk-as@^0.1.5:
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/near-sdk-as/-/near-sdk-as-0.1.5.tgz#abbc963e3611557c77e8cb966196a1d81489219c"
+  integrity sha512-0gI6jv8Ro1q4SqP2rR8CJE+7k52t/naFS65TwktBuzH2RMh3+yqrAMPP6S1GsVvU9ZC81QXWfkiQqiVVxF9MJg==
+  dependencies:
+    "@as-pect/cli" "^3.1.4"
     as-bignum "^0.1.5"
     assemblyscript-json "^0.3.0"
-
-near-sdk-as@^0.0.2:
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/near-sdk-as/-/near-sdk-as-0.0.2.tgz#d24d242e63ff33155e67b3ca92df352cc98eba28"
-  integrity sha512-63OIc0aylptQrPgH7DghVIeGx5v144QJOE/zto9JCLuhYVFWQ6dghvPn5mdsWgiRnpkBw+zQ/ptJ+35bqtfyfA==
-  dependencies:
-    "@as-pect/cli" "^3.0.0-beta.0"
-    near-bindgen-as "^1.3.0-0"
-    near-runtime-ts "^0.7.0-0"
+    near-bindgen-as "^1.3.1-1"
+    near-runtime-ts "^0.7.1-1"
+    semver "^7.1.3"
     wasm-mock-vm "^1.2.1"
 
 nearley@^2.19.1:
