@@ -5,7 +5,7 @@ use crate::utils::*;
 use crate::runner;
 use near_sdk::*;
 use near_vm_logic::MemoryLike;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 
@@ -19,7 +19,7 @@ extern "C" {
 macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
-type Storage = BTreeMap<Vec<u8>, Vec<u8>>;
+type Storage = HashMap<Vec<u8>, Vec<u8>>;
 
 
 fn new_chain(context: VMContext, storage: Option<Storage>, memory: MockedMemory) -> MockedBlockchain {
@@ -73,7 +73,7 @@ impl VM {
         Self { chain, context, original, memory}
     }
 
-    fn take_storage(&mut self) -> BTreeMap<Vec<u8>, Vec<u8>> {
+    fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
         self.chain.take_storage()
     }
 
@@ -1219,8 +1219,14 @@ impl VM {
         };
         serde_wasm_bindgen::to_value(&outcome).unwrap()
     }
-}
 
+    pub fn created_receipts(&self) -> JsValue {
+        let reciepts = self.chain.created_receipts();
+        console_log!("length {}", reciepts.len());
+        let json_str = serde_json::to_string(&reciepts).unwrap();
+        serde_wasm_bindgen::to_value(&json_str).unwrap()
+    }
+}
 #[derive(Serialize)]
 pub struct _VMOutcome {
     pub balance1: u64,

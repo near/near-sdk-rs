@@ -6,6 +6,7 @@ export interface VMContext {
     input: string;
     block_index: number;
     block_timestamp: number;
+    epoch_height: number;
     account_balance: number;
     account_locked_balance: number;
     storage_usage: number;

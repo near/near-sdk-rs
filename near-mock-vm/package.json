@@ -28,7 +28,7 @@
   },
   "scripts": {
     "build": "wasm-pack build --target nodejs && tsc",
-    "test": "node tests && node tests/test && yarn test:bin",
+    "test": "node asconfig && node tests && node tests/test && yarn test:bin",
     "near-vm": "node bin/standalone_vm.js",
     "test:bin": "yarn near-vm out/main.wasm add \"{\\\"a\\\":1000,\\\"b\\\":1000}\""
   },

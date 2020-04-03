@@ -1794,6 +1794,13 @@ class VM {
         var ret = wasm.vm_outcome(this.ptr);
         return takeObject(ret);
     }
+    /**
+    * @returns {any}
+    */
+    created_receipts() {
+        var ret = wasm.vm_created_receipts(this.ptr);
+        return takeObject(ret);
+    }
 }
 module.exports.VM = VM;
 
@@ -1811,6 +1818,10 @@ module.exports.__wbg_writememory_ac21b7d629311fbb = function(arg0, arg1, arg2, a
 module.exports.__wbindgen_object_clone_ref = function(arg0) {
     var ret = getObject(arg0);
     return addHeapObject(ret);
+};
+
+module.exports.__wbg_log_6ce223fdee9c34a8 = function(arg0, arg1) {
+    console.log(getStringFromWasm0(arg0, arg1));
 };
 
 module.exports.__wbg_fitsmemory_8e38756424432b8d = function(arg0, arg1, arg2, arg3, arg4) {
@@ -1860,16 +1871,6 @@ module.exports.__wbg_error_4bb6c2a97407129a = function(arg0, arg1) {
     }
 };
 
-module.exports.__wbindgen_is_null = function(arg0) {
-    var ret = getObject(arg0) === null;
-    return ret;
-};
-
-module.exports.__wbindgen_is_undefined = function(arg0) {
-    var ret = getObject(arg0) === undefined;
-    return ret;
-};
-
 module.exports.__wbindgen_string_new = function(arg0, arg1) {
     var ret = getStringFromWasm0(arg0, arg1);
     return addHeapObject(ret);
@@ -1883,6 +1884,16 @@ module.exports.__wbg_new_68adb0d58759a4ed = function() {
 module.exports.__wbindgen_number_new = function(arg0) {
     var ret = arg0;
     return addHeapObject(ret);
+};
+
+module.exports.__wbindgen_is_null = function(arg0) {
+    var ret = getObject(arg0) === null;
+    return ret;
+};
+
+module.exports.__wbindgen_is_undefined = function(arg0) {
+    var ret = getObject(arg0) === undefined;
+    return ret;
 };
 
 module.exports.__wbg_set_2e79e744454afade = function(arg0, arg1, arg2) {
@@ -1900,12 +1911,12 @@ module.exports.__wbindgen_is_function = function(arg0) {
     return ret;
 };
 
-module.exports.__wbg_next_8e20ccfba8b36336 = function(arg0) {
+module.exports.__wbg_next_3d521c5c088358fa = function(arg0) {
     var ret = getObject(arg0).next;
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_next_1d4b79eb1b9baf74 = function(arg0) {
+module.exports.__wbg_next_c08bf57a239475c3 = function(arg0) {
     try {
         var ret = getObject(arg0).next();
         return addHeapObject(ret);
@@ -1914,22 +1925,22 @@ module.exports.__wbg_next_1d4b79eb1b9baf74 = function(arg0) {
     }
 };
 
-module.exports.__wbg_done_45cf31906da300ce = function(arg0) {
+module.exports.__wbg_done_e784c64062606540 = function(arg0) {
     var ret = getObject(arg0).done;
     return ret;
 };
 
-module.exports.__wbg_value_170ae240f5dce1ea = function(arg0) {
+module.exports.__wbg_value_11f53ed6202a1367 = function(arg0) {
     var ret = getObject(arg0).value;
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_iterator_d8f236f351456524 = function() {
+module.exports.__wbg_iterator_7ab2f711861ad076 = function() {
     var ret = Symbol.iterator;
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_get_d37934344331757a = function(arg0, arg1) {
+module.exports.__wbg_get_8fd175832d82a656 = function(arg0, arg1) {
     try {
         var ret = Reflect.get(getObject(arg0), getObject(arg1));
         return addHeapObject(ret);
@@ -1938,7 +1949,7 @@ module.exports.__wbg_get_d37934344331757a = function(arg0, arg1) {
     }
 };
 
-module.exports.__wbg_call_183c0b733b35a027 = function(arg0, arg1) {
+module.exports.__wbg_call_804d3ad7e8acd4d5 = function(arg0, arg1) {
     try {
         var ret = getObject(arg0).call(getObject(arg1));
         return addHeapObject(ret);
@@ -1947,66 +1958,66 @@ module.exports.__wbg_call_183c0b733b35a027 = function(arg0, arg1) {
     }
 };
 
-module.exports.__wbg_new_6ebe5d19b58a40e1 = function() {
+module.exports.__wbg_new_ec28d6ba821801cb = function() {
     var ret = new Array();
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_isArray_f2072707e18b2a55 = function(arg0) {
+module.exports.__wbg_isArray_c4a3026522b7f963 = function(arg0) {
     var ret = Array.isArray(getObject(arg0));
     return ret;
 };
 
-module.exports.__wbg_push_9f1ae2f6575ac2d1 = function(arg0, arg1) {
+module.exports.__wbg_push_ffaa2df7422d3b4c = function(arg0, arg1) {
     var ret = getObject(arg0).push(getObject(arg1));
     return ret;
 };
 
-module.exports.__wbg_instanceof_ArrayBuffer_4ef858c408d7eadd = function(arg0) {
+module.exports.__wbg_instanceof_ArrayBuffer_d851e92b8b88a310 = function(arg0) {
     var ret = getObject(arg0) instanceof ArrayBuffer;
     return ret;
 };
 
-module.exports.__wbg_values_d0179fc5f9291ea1 = function(arg0) {
+module.exports.__wbg_values_b136c3cae7c97bf6 = function(arg0) {
     var ret = getObject(arg0).values();
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_new_28282f1280cc761a = function(arg0, arg1) {
+module.exports.__wbg_new_a674acf697de3e9f = function(arg0, arg1) {
     var ret = new Error(getStringFromWasm0(arg0, arg1));
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_isSafeInteger_d0006cb3317288ec = function(arg0) {
+module.exports.__wbg_isSafeInteger_357be569d88701c0 = function(arg0) {
     var ret = Number.isSafeInteger(getObject(arg0));
     return ret;
 };
 
-module.exports.__wbg_buffer_459b85bd7a0b346a = function(arg0) {
+module.exports.__wbg_buffer_f897a8d316863411 = function(arg0) {
     var ret = getObject(arg0).buffer;
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_length_9e997d8eaac24d6e = function(arg0) {
+module.exports.__wbg_length_b7dc6aed3ca09be1 = function(arg0) {
     var ret = getObject(arg0).length;
     return ret;
 };
 
-module.exports.__wbg_new_0e176355c854c502 = function(arg0) {
+module.exports.__wbg_new_da17c07b1fbb4a8b = function(arg0) {
     var ret = new Uint8Array(getObject(arg0));
     return addHeapObject(ret);
 };
 
-module.exports.__wbg_set_6a285c41fb4fd43e = function(arg0, arg1, arg2) {
+module.exports.__wbg_set_4a8545284001c06f = function(arg0, arg1, arg2) {
     getObject(arg0).set(getObject(arg1), arg2 >>> 0);
 };
 
-module.exports.__wbg_instanceof_Uint8Array_83a3d34114d9ebb6 = function(arg0) {
+module.exports.__wbg_instanceof_Uint8Array_4342cb3c1a0c83fe = function(arg0) {
     var ret = getObject(arg0) instanceof Uint8Array;
     return ret;
 };
 
-module.exports.__wbg_byteLength_b793543bac98964f = function(arg0) {
+module.exports.__wbg_byteLength_5f1abb9d0f73f112 = function(arg0) {
     var ret = getObject(arg0).byteLength;
     return ret;
 };

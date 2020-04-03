@@ -12,6 +12,7 @@ export interface VMContext {
   input: string // = bs64.encode(input_str);
   block_index: number
   block_timestamp: number;
+  epoch_height: number;
   account_balance: number;
   account_locked_balance: number;
   storage_usage: number;
@@ -46,6 +47,7 @@ function findContext(_path: string = ""): VMContext | null {
   });
   let context: VMContext = _paths.length > 0 ? require(_paths[0]) : null;
   if (context != null) {
+    console.log("found path: " + _paths[0]);
     context.input = Base64.encode(context.input);
   }
   return context;
@@ -61,6 +63,7 @@ const predecessor_account_id = "carol";
 const input_str = "{\"a\":21,\"b\":21}";
 const block_index = 10;
 const block_timestamp = 42;
+const epoch_height = 20;
 const account_balance = 2;
 const account_locked_balance = 1;
 const storage_usage = 12;
@@ -84,6 +87,7 @@ export function createDefault(): VMContext {
     input: Base64.encode(input_str), // JSON string
     block_index, // u128
     block_timestamp,
+    epoch_height,
     account_balance,
     account_locked_balance,
     storage_usage,

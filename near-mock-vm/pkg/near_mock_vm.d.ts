@@ -1029,4 +1029,8 @@ export class VM {
 * @returns {any} 
 */
   outcome(): any;
+/**
+* @returns {any} 
+*/
+  created_receipts(): any;
 }

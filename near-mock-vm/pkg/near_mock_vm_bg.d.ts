@@ -69,6 +69,7 @@ export function vm_storage_read(a: number, b: number, c: number, d: number, e: n
 export function vm_storage_remove(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): void;
 export function vm_storage_has_key(a: number, b: number, c: number, d: number, e: number, f: number): void;
 export function vm_outcome(a: number): number;
+export function vm_created_receipts(a: number): number;
 export function test_memory(a: number): void;
 export function __wbindgen_malloc(a: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number): number;

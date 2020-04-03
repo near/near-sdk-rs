@@ -15,7 +15,8 @@ export class NearVM {
   gas: number = 0;
 
   constructor(memory: Memory, contextPath?: string) {
-    this.vm = new VM(createContext(contextPath), memory);
+    const context = createContext(contextPath);
+    this.vm = new VM(context, memory);
     this.memory = memory;
   }
 
@@ -308,5 +309,10 @@ export class NearVM {
     console.log("Gas used after startup: " + ((after.used_gas)/(10**12)) )
     console.log("Outcome:");
     console.log(after);
+    const receipts = vm.vm.created_receipts();
+    if (receipts.length > 0) {
+      console.log("Receipts: ");
+      console.log(receipts);
+    }
   }
 }

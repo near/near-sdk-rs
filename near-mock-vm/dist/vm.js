@@ -18,7 +18,8 @@ class NearVM {
     constructor(memory, contextPath) {
         this.wasm = null;
         this.gas = 0;
-        this.vm = new pkg_1.VM(context_1.createContext(contextPath), memory);
+        const context = context_1.createContext(contextPath);
+        this.vm = new pkg_1.VM(context, memory);
         this.memory = memory;
     }
     static create(memory, contextPath) {
@@ -291,6 +292,11 @@ class NearVM {
         console.log("Gas used after startup: " + ((after.used_gas) / (10 ** 12)));
         console.log("Outcome:");
         console.log(after);
+        const receipts = vm.vm.created_receipts();
+        if (receipts.length > 0) {
+            console.log("Receipts: ");
+            console.log(receipts);
+        }
     }
 }
 exports.NearVM = NearVM;
