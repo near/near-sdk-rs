@@ -5,9 +5,13 @@ rust:
 env:
   - NEAR_RELEASE=true
   - NEAR_RELEASE=false
+cache: yarn
 
 before_install:
   - rm rust-toolchain
+  - nvm install 12
+  - nvm use 12
+  - npm install -g yarn
 
 before_script:
   - rustup target add wasm32-unknown-unknown
