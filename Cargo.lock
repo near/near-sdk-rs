@@ -239,6 +239,7 @@ name = "near-sdk"
 version = "0.7.0"
 dependencies = [
  "borsh",
+ "bs58",
  "near-runtime-fees",
  "near-sdk-macros",
  "near-vm-logic",

@@ -1,5 +1,6 @@
 pub use near_sdk_macros::{
-    callback, callback_vec, ext_contract, init, near_bindgen, result_serializer, serializer, metadata
+    callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
+    serializer,
 };
 
 pub mod collections;
@@ -11,6 +12,8 @@ pub use promise::{Promise, PromiseOrValue};
 
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
+
+pub mod types;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;
