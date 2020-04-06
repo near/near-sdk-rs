@@ -298,7 +298,7 @@ export class NearVM {
     const instrumented_bin = NearVM.instrumentBinary(binary);
     const wasm = loader.instantiateSync(instrumented_bin, vm.createImports());
     vm.wasm = wasm;
-    vm.memory.Memory = wasm.memory!;
+    vm.memory = new Memory(wasm.memory);
     vm.vm.set_input(Base64.encode(input));
     //@ts-ignore
     vm.wasm[method]();

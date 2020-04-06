@@ -1,23 +1,25 @@
 import * as utils from "./utils";
 
 export class Memory{
-  Memory: WebAssembly.Memory
-  constructor(memory?: WebAssembly.Memory){
-    if (memory) {
+  readonly Memory: WebAssembly.Memory
+
+  constructor(memory: WebAssembly.Memory | 
+                      WebAssembly.MemoryDescriptor = { initial: 1024, maximum: 2048 }){
+    if (memory instanceof WebAssembly.Memory) {
       this.Memory = memory
     } else {
-      this.Memory = new WebAssembly.Memory({initial: 1024, maximum: 2048});
+      this.Memory = new WebAssembly.Memory(memory);
     }
   }
 
-
+  /** Access to memories buffer */
   get memory(): Uint8Array {
     return new Uint8Array(this.Memory.buffer);
   }
 
   // Returns whether the memory interval is completely inside the smart contract memory.
   fits_memory(offset: number, len: number) {
-      return utils.toNum(offset) + utils.toNum(len) < this.memory.length;
+    return utils.toNum(offset) + utils.toNum(len) < this.memory.length;
   }
   
   // Reads the content of the given memory interval.
@@ -26,8 +28,8 @@ export class Memory{
   //
   // If memory interval is outside the smart contract memory.
   read_memory(offset: number, buffer: Buffer) {
-      offset = utils.toNum(offset)
-      buffer.set(this.memory.slice(offset, offset + buffer.length), 0)
+    offset = utils.toNum(offset)
+    buffer.set(this.memory.slice(offset, offset + buffer.length), 0)
   }
   
   // Reads a single byte from the memory.
@@ -36,7 +38,7 @@ export class Memory{
   //
   // If pointer is outside the smart contract memory.
   read_memory_u8(offset:number) {
-      this.memory[utils.toNum(offset)];
+    this.memory[utils.toNum(offset)];
   }
   
   // Writes the buffer into the smart contract memory.
@@ -45,15 +47,15 @@ export class Memory{
   //
   // If `offset + buffer.len()` is outside the smart contract memory.
   write_memory(offset: number, buffer: Buffer) {
-      this.memory.set(buffer, utils.toNum(offset))
+    this.memory.set(buffer, utils.toNum(offset))
   }
 
   set(arr: Uint8Array, offset: number) {
-      this.memory.set(arr, offset);
+    this.memory.set(arr, offset);
   }
 
   slice(ptr: number, len: number) {
-      return this.memory.slice(ptr, len);
+    return this.memory.slice(ptr, len);
   }
 
   readUTF8Str(ptr: number) {

@@ -1,7 +1,8 @@
 /// <reference types="node" />
 export declare class Memory {
-    Memory: WebAssembly.Memory;
-    constructor(memory?: WebAssembly.Memory);
+    readonly Memory: WebAssembly.Memory;
+    constructor(memory?: WebAssembly.Memory | WebAssembly.MemoryDescriptor);
+    /** Access to memories buffer */
     get memory(): Uint8Array;
     fits_memory(offset: number, len: number): boolean;
     read_memory(offset: number, buffer: Buffer): void;

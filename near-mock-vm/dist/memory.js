@@ -9,14 +9,15 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils = __importStar(require("./utils"));
 class Memory {
-    constructor(memory) {
-        if (memory) {
+    constructor(memory = { initial: 1024, maximum: 2048 }) {
+        if (memory instanceof WebAssembly.Memory) {
             this.Memory = memory;
         }
         else {
-            this.Memory = new WebAssembly.Memory({ initial: 1024, maximum: 2048 });
+            this.Memory = new WebAssembly.Memory(memory);
         }
     }
+    /** Access to memories buffer */
     get memory() {
         return new Uint8Array(this.Memory.buffer);
     }
