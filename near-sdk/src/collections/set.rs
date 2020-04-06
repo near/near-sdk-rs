@@ -66,7 +66,6 @@ impl<T> Set<T> {
     /// Adds a value to the set.
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    /// Note, the elements that have the same hash value are undistinguished by the implementation.
     pub fn insert_raw(&mut self, element_raw: &[u8]) -> bool {
         let index_lookup = self.raw_element_to_index_lookup(element_raw);
         match env::storage_read(&index_lookup) {
@@ -140,7 +139,6 @@ where
     /// Adds a value to the set.
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    /// Note, the elements that have the same hash value are undistinguished by the implementation.
     pub fn insert(&mut self, element: &T) -> bool {
         self.insert_raw(&Self::serialize_element(element))
     }

@@ -295,7 +295,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_push() {
+    pub fn test_push_pop() {
         set_env();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::default();
@@ -307,6 +307,9 @@ mod tests {
         }
         let actual = vec.to_vec();
         assert_eq!(actual, baseline);
+        for _ in 0..1001 {
+            assert_eq!(baseline.pop(), vec.pop());
+        }
     }
 
     #[test]
