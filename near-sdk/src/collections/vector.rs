@@ -73,18 +73,7 @@ impl<T> Vector<T> {
             }
         } else {
             let lookup_key = self.index_to_lookup_key(index);
-            let last_lookup_key = self.index_to_lookup_key(self.len - 1);
-            self.len -= 1;
-
-            // Swap the last element with the current one.
-            let raw_last_value = if env::storage_remove(&last_lookup_key) {
-                match env::storage_get_evicted() {
-                    Some(x) => x,
-                    None => env::panic(ERR_INCONSISTENT_STATE),
-                }
-            } else {
-                env::panic(ERR_INCONSISTENT_STATE)
-            };
+            let raw_last_value = self.pop_raw().expect("checked `index < len` above, so `len > 0`");
             if env::storage_write(&lookup_key, &raw_last_value) {
                 match env::storage_get_evicted() {
                     Some(x) => x,
