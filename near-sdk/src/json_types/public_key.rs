@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 
 /// PublicKey curve
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
@@ -23,9 +23,9 @@ impl TryFrom<String> for CurveType {
 /// Public key in a binary format with base58 string serialization with human-readable curve.
 /// e.g. `ed25519:3tysLvy7KGoE8pznUgXvSHa4vYyGvrDZFcT8jgb8PEQ6`
 #[derive(Clone, PartialEq, PartialOrd, Ord, Eq)]
-pub struct PublicKeyBase58(pub Vec<u8>);
+pub struct Base58PublicKey(pub Vec<u8>);
 
-impl PublicKeyBase58 {
+impl Base58PublicKey {
     fn split_key_type_data(value: &str) -> Result<(CurveType, &str), Box<dyn std::error::Error>> {
         if let Some(idx) = value.find(':') {
             let (prefix, key_data) = value.split_at(idx);
@@ -37,13 +37,13 @@ impl PublicKeyBase58 {
     }
 }
 
-impl From<PublicKeyBase58> for Vec<u8> {
-    fn from(v: PublicKeyBase58) -> Vec<u8> {
+impl From<Base58PublicKey> for Vec<u8> {
+    fn from(v: Base58PublicKey) -> Vec<u8> {
         v.0
     }
 }
 
-impl TryFrom<Vec<u8>> for PublicKeyBase58 {
+impl TryFrom<Vec<u8>> for Base58PublicKey {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
@@ -55,7 +55,7 @@ impl TryFrom<Vec<u8>> for PublicKeyBase58 {
     }
 }
 
-impl serde::Serialize for PublicKeyBase58 {
+impl serde::Serialize for Base58PublicKey {
     fn serialize<S>(
         &self,
         serializer: S,
@@ -67,7 +67,7 @@ impl serde::Serialize for PublicKeyBase58 {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for PublicKeyBase58 {
+impl<'de> serde::Deserialize<'de> for Base58PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as serde::Deserializer<'de>>::Error>
     where
         D: serde::Deserializer<'de>,
@@ -78,8 +78,8 @@ impl<'de> serde::Deserialize<'de> for PublicKeyBase58 {
     }
 }
 
-impl From<&PublicKeyBase58> for String {
-    fn from(str_public_key: &PublicKeyBase58) -> Self {
+impl From<&Base58PublicKey> for String {
+    fn from(str_public_key: &Base58PublicKey) -> Self {
         match str_public_key.0[0] {
             0 => "ed25519:".to_string() + &bs58::encode(&str_public_key.0[1..]).into_string(),
             1 => "secp256k1:".to_string() + &bs58::encode(&str_public_key.0[1..]).into_string(),
@@ -88,7 +88,7 @@ impl From<&PublicKeyBase58> for String {
     }
 }
 
-impl TryFrom<String> for PublicKeyBase58 {
+impl TryFrom<String> for Base58PublicKey {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -96,11 +96,11 @@ impl TryFrom<String> for PublicKeyBase58 {
     }
 }
 
-impl TryFrom<&str> for PublicKeyBase58 {
+impl TryFrom<&str> for Base58PublicKey {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let (key_type, key_data) = PublicKeyBase58::split_key_type_data(&value)?;
+        let (key_type, key_data) = Base58PublicKey::split_key_type_data(&value)?;
         let expected_length = match key_type {
             CurveType::ED25519 => 32,
             CurveType::SECP256K1 => 64,
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_public_key_deser() {
-        let key: PublicKeyBase58 =
+        let key: Base58PublicKey =
             serde_json::from_str("\"ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp\"")
                 .unwrap();
         assert_eq!(key.0, binary_key());
@@ -141,21 +141,21 @@ mod tests {
 
     #[test]
     fn test_public_key_ser() {
-        let key: PublicKeyBase58 = binary_key().try_into().unwrap();
+        let key: Base58PublicKey = binary_key().try_into().unwrap();
         let actual: String = serde_json::to_string(&key).unwrap();
         assert_eq!(actual, "\"ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp\"");
     }
 
     #[test]
     fn test_public_key_from_str() {
-        let key = PublicKeyBase58::try_from("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp")
+        let key = Base58PublicKey::try_from("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp")
             .unwrap();
         assert_eq!(key.0, binary_key());
     }
 
     #[test]
     fn test_public_key_to_string() {
-        let key: PublicKeyBase58 = binary_key().try_into().unwrap();
+        let key: Base58PublicKey = binary_key().try_into().unwrap();
         let actual: String = String::try_from(&key).unwrap();
         assert_eq!(actual, "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp");
     }
