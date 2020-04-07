@@ -13,7 +13,7 @@
 */
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::Map;
-use near_sdk::types::U128;
+use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance};
 
 #[global_allocator]
