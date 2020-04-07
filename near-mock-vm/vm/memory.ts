@@ -1,12 +1,17 @@
 import * as utils from "./utils";
 
-export class Memory{
-  readonly Memory: WebAssembly.Memory
+const DEFAULT_MEMORY_DESC = { initial: 1024, maximum: 2048 };
 
-  constructor(memory: WebAssembly.Memory | 
-                      WebAssembly.MemoryDescriptor = { initial: 1024, maximum: 2048 }){
+export class Memory {
+  readonly Memory: WebAssembly.Memory;
+
+  constructor(
+    memory:
+      | WebAssembly.Memory
+      | WebAssembly.MemoryDescriptor = DEFAULT_MEMORY_DESC
+  ) {
     if (memory instanceof WebAssembly.Memory) {
-      this.Memory = memory
+      this.Memory = memory;
     } else {
       this.Memory = new WebAssembly.Memory(memory);
     }
@@ -21,33 +26,33 @@ export class Memory{
   fits_memory(offset: number, len: number) {
     return utils.toNum(offset) + utils.toNum(len) < this.memory.length;
   }
-  
+
   // Reads the content of the given memory interval.
   //
   // # Panics
   //
   // If memory interval is outside the smart contract memory.
   read_memory(offset: number, buffer: Buffer) {
-    offset = utils.toNum(offset)
-    buffer.set(this.memory.slice(offset, offset + buffer.length), 0)
+    offset = utils.toNum(offset);
+    buffer.set(this.memory.slice(offset, offset + buffer.length), 0);
   }
-  
+
   // Reads a single byte from the memory.
   //
   // # Panics
   //
   // If pointer is outside the smart contract memory.
-  read_memory_u8(offset:number) {
+  read_memory_u8(offset: number) {
     this.memory[utils.toNum(offset)];
   }
-  
+
   // Writes the buffer into the smart contract memory.
   //
   // # Panics
   //
   // If `offset + buffer.len()` is outside the smart contract memory.
   write_memory(offset: number, buffer: Buffer) {
-    this.memory.set(buffer, utils.toNum(offset))
+    this.memory.set(buffer, utils.toNum(offset));
   }
 
   set(arr: Uint8Array, offset: number) {
@@ -68,4 +73,3 @@ export class Memory{
     return utils.UTF8toStr(arr);
   }
 }
-

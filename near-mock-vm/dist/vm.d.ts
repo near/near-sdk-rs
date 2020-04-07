@@ -1,15 +1,23 @@
 /// <reference lib="dom" />
 import { VM } from "../pkg";
 import { Memory } from "./memory";
-export declare class NearVM {
+declare type stringKeys = {
+    [key: number]: () => void;
+} & any;
+export declare class VMRunner {
     vm: VM;
-    wasm: any | null;
+    wasm: stringKeys | null;
     memory: Memory;
     gas: number;
     constructor(memory: Memory, contextPath?: string);
-    static create(memory?: WebAssembly.Memory, contextPath?: string): NearVM;
+    static create(memory?: WebAssembly.Memory, contextPath?: string): VMRunner;
     static instrumentBinary(binary: Uint8Array): Uint8Array;
     readUTF8Str(ptr: number): string;
     createImports(): any;
+    run(method: string, input: string): void;
+    static setup(binary: Uint8Array): VMRunner;
+    outcome(): any;
+    created_receipts(): any;
     static run(binary: Uint8Array, method: string, input: string): any;
 }
+export {};

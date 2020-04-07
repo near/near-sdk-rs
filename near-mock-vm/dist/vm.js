@@ -14,7 +14,7 @@ const memory_1 = require("./memory");
 const js_base64_1 = require("js-base64");
 const loader = __importStar(require("@assemblyscript/loader"));
 const utils = __importStar(require("./utils"));
-class NearVM {
+class VMRunner {
     constructor(memory, contextPath) {
         this.wasm = null;
         this.gas = 0;
@@ -24,7 +24,7 @@ class NearVM {
     }
     static create(memory, contextPath) {
         let mem = new memory_1.Memory(memory);
-        return new NearVM(mem, contextPath);
+        return new VMRunner(mem, contextPath);
     }
     static instrumentBinary(binary) {
         return Buffer.from(pkg_1.inject_contract(binary));
@@ -277,27 +277,39 @@ class NearVM {
         };
         return _imports;
     }
-    static run(binary, method, input) {
-        const vm = NearVM.create();
-        const instrumented_bin = NearVM.instrumentBinary(binary);
+    run(method, input) {
+        this.vm.set_input(js_base64_1.Base64.encode(input));
+        this.wasm[method]();
+    }
+    static setup(binary) {
+        const vm = VMRunner.create();
+        const instrumented_bin = VMRunner.instrumentBinary(binary);
         const wasm = loader.instantiateSync(instrumented_bin, vm.createImports());
         vm.wasm = wasm;
         vm.memory = new memory_1.Memory(wasm.memory);
-        vm.vm.set_input(js_base64_1.Base64.encode(input));
-        //@ts-ignore
-        vm.wasm[method]();
-        let after = vm.vm.outcome();
+        return vm;
+    }
+    outcome() {
+        return this.vm.outcome();
+    }
+    created_receipts() {
+        return this.vm.created_receipts();
+    }
+    static run(binary, method, input) {
+        const runner = VMRunner.setup(binary);
+        runner.run(method, input);
+        let after = runner.outcome();
         // console.log(after);
-        console.log("calls to injected gas: " + vm.gas);
+        console.log("calls to injected gas: " + runner.gas);
         console.log("Gas used after startup: " + ((after.used_gas) / (10 ** 12)));
         console.log("Outcome:");
         console.log(after);
-        const receipts = vm.vm.created_receipts();
+        const receipts = runner.created_receipts();
         if (receipts.length > 0) {
             console.log("Receipts: ");
             console.log(receipts);
         }
     }
 }
-exports.NearVM = NearVM;
+exports.VMRunner = VMRunner;
 //# sourceMappingURL=vm.js.map

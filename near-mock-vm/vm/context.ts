@@ -13,10 +13,10 @@ export interface VMContext {
   block_index: number
   block_timestamp: number;
   epoch_height: number;
-  account_balance: number;
-  account_locked_balance: number;
+  account_balance: string;
+  account_locked_balance: string;
   storage_usage: number;
-  attached_deposit: number;
+  attached_deposit: string;
   prepaid_gas: number;
   random_seed: string 
   is_view: boolean;
@@ -64,10 +64,10 @@ const input_str = "{\"a\":21,\"b\":21}";
 const block_index = 10;
 const block_timestamp = 42;
 const epoch_height = 20;
-const account_balance = 2;
-const account_locked_balance = 1;
+const account_balance = "2";
+const account_locked_balance = "1";
 const storage_usage = 12;
-const attached_deposit = 2;
+const attached_deposit = "2";
 const prepaid_gas = 10**(14);
 const random_seed = "HuxUynD5GdrcZ5MauxJuu74sGHgS6wLfCqqhQkLWK";
 const is_view = false;

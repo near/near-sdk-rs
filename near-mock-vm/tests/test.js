@@ -1,9 +1,9 @@
-let NearVM = require("..").NearVM;
+let runner = require("..").VMRunner;
 let assert = require("assert");
 let utils = require('./utils');
 
 
-let vm = NearVM.create();
+let vm = runner.create();
 const memory = vm.memory.memory;
 vm = vm.vm;
 vm.signer_account_pk(BigInt(1));

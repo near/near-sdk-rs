@@ -7,10 +7,10 @@ export interface VMContext {
     block_index: number;
     block_timestamp: number;
     epoch_height: number;
-    account_balance: number;
-    account_locked_balance: number;
+    account_balance: string;
+    account_locked_balance: string;
     storage_usage: number;
-    attached_deposit: number;
+    attached_deposit: string;
     prepaid_gas: number;
     random_seed: string;
     is_view: boolean;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 const v8 = require('v8');
 v8.setFlagsFromString('--experimental-wasm-bigint');
-let VM = require('../dist').NearVM;
+let runner = require('../dist').VMRunner;
 let fs = require("fs");
 let assert = require("assert");
 
@@ -16,5 +16,4 @@ if (process.argv.length >= 5) {
   input = process.argv[4];
 }
 
-VM.run(wasmBinary, method, input);
-
+runner.run(wasmBinary, method, input);

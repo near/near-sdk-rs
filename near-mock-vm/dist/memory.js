@@ -8,8 +8,9 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils = __importStar(require("./utils"));
+const DEFAULT_MEMORY_DESC = { initial: 1024, maximum: 2048 };
 class Memory {
-    constructor(memory = { initial: 1024, maximum: 2048 }) {
+    constructor(memory = DEFAULT_MEMORY_DESC) {
         if (memory instanceof WebAssembly.Memory) {
             this.Memory = memory;
         }

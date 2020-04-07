@@ -1211,8 +1211,7 @@ impl VM {
     pub fn outcome(&self) -> JsValue {
         let res = self.chain.outcome();
         let outcome = _VMOutcome {
-            balance1: (res.balance >> 64) as u64,
-            balance2: ((res.balance << 64) >> 64) as u64,
+            balance: res.balance.to_string(),
             storage_usage: res.storage_usage,
             return_data: res.return_data,
             burnt_gas: res.burnt_gas,
@@ -1231,8 +1230,7 @@ impl VM {
 }
 #[derive(Serialize)]
 pub struct _VMOutcome {
-    pub balance1: u64,
-    pub balance2: u64,
+    pub balance: String,
     pub storage_usage: StorageUsage,
     pub return_data: ReturnData,
     pub burnt_gas: Gas,

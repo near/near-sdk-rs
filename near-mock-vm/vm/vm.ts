@@ -7,9 +7,11 @@ import { Base64 } from 'js-base64';
 import * as loader from "@assemblyscript/loader";
 import * as utils from "./utils";
 
-export class NearVM {
+type stringKeys = { [key: number]: () => void } & any
+
+export class VMRunner {
   vm: VM;
-  wasm: any | null = null;
+  wasm: stringKeys | null = null;
   memory: Memory;
   gas: number = 0;
 
@@ -19,9 +21,9 @@ export class NearVM {
     this.memory = memory;
   }
 
-  static create(memory?: WebAssembly.Memory, contextPath?: string): NearVM {
+  static create(memory?: WebAssembly.Memory, contextPath?: string): VMRunner {
     let mem: Memory = new Memory(memory);
-    return new NearVM(mem, contextPath);
+    return new VMRunner(mem, contextPath);
   }
 
   static instrumentBinary(binary: Uint8Array): Uint8Array {
@@ -292,23 +294,41 @@ export class NearVM {
     };
     return _imports;
   }
-  
-  static run(binary: Uint8Array, method: string, input: string): any {
-    const vm = NearVM.create();
-    const instrumented_bin = NearVM.instrumentBinary(binary);
+
+  run(method: string, input: string): void {
+    this.vm.set_input(Base64.encode(input));
+    this.wasm[method]();
+  }
+
+  static setup(binary: Uint8Array): VMRunner {
+    const vm = VMRunner.create();
+    const instrumented_bin = VMRunner.instrumentBinary(binary);
     const wasm = loader.instantiateSync(instrumented_bin, vm.createImports());
     vm.wasm = wasm;
     vm.memory = new Memory(wasm.memory);
-    vm.vm.set_input(Base64.encode(input));
-    //@ts-ignore
-    vm.wasm[method]();
-    let after = vm.vm.outcome();
+    return vm;
+  }
+
+  outcome(): any {
+    return this.vm.outcome();
+  }
+
+  created_receipts(): any {
+    return this.vm.created_receipts();
+  }
+
+
+  
+  static run(binary: Uint8Array, method: string, input: string): any {
+    const runner = VMRunner.setup(binary);
+    runner.run(method, input);
+    let after = runner.outcome();
     // console.log(after);
-    console.log("calls to injected gas: " + vm.gas);
+    console.log("calls to injected gas: " + runner.gas);
     console.log("Gas used after startup: " + ((after.used_gas)/(10**12)) )
     console.log("Outcome:");
     console.log(after);
-    const receipts = vm.vm.created_receipts();
+    const receipts = runner.created_receipts();
     if (receipts.length > 0) {
       console.log("Receipts: ");
       console.log(receipts);
