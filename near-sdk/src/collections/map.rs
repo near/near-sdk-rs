@@ -97,17 +97,14 @@ impl<K, V> Map<K, V> {
         match env::storage_read(&index_lookup) {
             Some(index_raw) => {
                 // The element already exists.
-                env::storage_write(&index_lookup, &index_raw);
                 let index = Self::deserialize_index(&index_raw);
-                self.keys.replace_raw(index, key_raw);
                 Some(self.values.replace_raw(index, value_raw))
             }
             None => {
                 // The element does not exist yet.
                 let next_index = self.len();
                 let next_index_raw = Self::serialize_index(next_index);
-                let key_lookup = self.raw_key_to_index_lookup(key_raw);
-                env::storage_write(&key_lookup, &next_index_raw);
+                env::storage_write(&index_lookup, &next_index_raw);
                 self.keys.push_raw(key_raw);
                 self.values.push_raw(value_raw);
                 None

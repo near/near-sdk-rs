@@ -227,16 +227,16 @@ dependencies = [
 
 [[package]]
 name = "near-runtime-fees"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9556df68a27cd18af971149127b5a52afdbbbb2e54ded7006ae90356bdc40bb"
+checksum = "4324fa778de675b23edb4da36eac17a05ef7fc40f0a6d36e83cc6040e56fdb30"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "near-sdk"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "borsh",
  "near-runtime-fees",
@@ -247,7 +247,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "near-sdk-core",
  "proc-macro2",
@@ -267,9 +267,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-errors"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ffb5b1190a393f0717e0aef6aa3ada910c8d7187212033f33c633e618dc58cc"
+checksum = "464d6d36cf4840bed8ef57a4f043ce1da471b7021171d5470bd9f3112611fe9a"
 dependencies = [
  "borsh",
  "near-rpc-error-macro",
@@ -278,9 +278,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bad4de5668d4d9d39b2ec7106f9aa1f14aca41bb11fb0529b41392417a5be4e0"
+checksum = "dd3b537fe6c7b0eada25747c6bd3a3de26f572f5ee84c72fda054f715b83e281"
 dependencies = [
  "base64",
  "bs58",
