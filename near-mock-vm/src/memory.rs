@@ -45,8 +45,6 @@ pub struct MockedMemory {
 
 impl MemoryLike for MockedMemory {
 
-
-
     fn fits_memory(&self, _offset: u64, _len: u64) -> bool {
         self.mem.fits_memory(_offset, _len)
     }

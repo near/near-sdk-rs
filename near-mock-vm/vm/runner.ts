@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 
-import { VM, inject_contract } from "../pkg"
+import { VM, inject_contract } from "../pkg/near_mock_vm"
 import { createContext } from './context';
 import { Memory } from "./memory";
 import { Base64 } from 'js-base64';
@@ -60,8 +60,8 @@ export class VMRunner {
             if (outcome.return_data === "None") {
               return_data_ptr = self.wasm.NONE;
             }
-            let outcomePtr = new self.wasm.Outcome(BigInt(outcome.balance1),
-                                                BigInt(outcome.balance2),
+            const balancePtr = self.wasm.__allocString(outcome.balance)
+            let outcomePtr = new self.wasm.Outcome(balancePtr,
                                                 BigInt(outcome.burnt_gas),
                                                 BigInt(outcome.used_gas),
                                                 strArrPtr,
@@ -300,8 +300,8 @@ export class VMRunner {
     this.wasm[method]();
   }
 
-  static setup(binary: Uint8Array): VMRunner {
-    const vm = VMRunner.create();
+  static setup(binary: Uint8Array, contextPath?: string, memory?: WebAssembly.Memory): VMRunner {
+    const vm = VMRunner.create(memory, contextPath);
     const instrumented_bin = VMRunner.instrumentBinary(binary);
     const wasm = loader.instantiateSync(instrumented_bin, vm.createImports());
     vm.wasm = wasm;
@@ -319,8 +319,8 @@ export class VMRunner {
 
 
   
-  static run(binary: Uint8Array, method: string, input: string): any {
-    const runner = VMRunner.setup(binary);
+  static run(binary: Uint8Array, method: string, input: string, contextPath?: string): any {
+    const runner = VMRunner.setup(binary, contextPath);
     runner.run(method, input);
     let after = runner.outcome();
     // console.log(after);
