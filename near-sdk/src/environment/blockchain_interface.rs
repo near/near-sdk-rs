@@ -1,4 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
 use crate::MockedBlockchain;
 
 /// A low-level interface of either real or mocked blockchain that contract interacts with.
