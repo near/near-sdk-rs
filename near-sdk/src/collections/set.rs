@@ -63,27 +63,20 @@ impl<T> Set<T> {
         env::storage_has_key(&index_lookup)
     }
 
-    /// Adds a value to the set. If the set did not have this value present, `true` is returned. If
-    /// the set did have this value present, `false` is returned. Note, the elements that have the same hash value are undistinguished by
-    /// the implementation.
+    /// Adds a value to the set.
+    /// If the set did not have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
     pub fn insert_raw(&mut self, element_raw: &[u8]) -> bool {
         let index_lookup = self.raw_element_to_index_lookup(element_raw);
         match env::storage_read(&index_lookup) {
-            Some(index_raw) => {
-                // The element already exists.
-                env::storage_write(&index_lookup, &index_raw);
-                let index = Self::deserialize_index(&index_raw);
-                self.elements.replace_raw(index, element_raw);
-                true
-            }
+            Some(_index_raw) => false,
             None => {
                 // The element does not exist yet.
                 let next_index = self.len();
                 let next_index_raw = Self::serialize_index(next_index);
-                let element_lookup = self.raw_element_to_index_lookup(element_raw);
-                env::storage_write(&element_lookup, &next_index_raw);
+                env::storage_write(&index_lookup, &next_index_raw);
                 self.elements.push_raw(element_raw);
-                false
+                true
             }
         }
     }
@@ -143,9 +136,9 @@ where
         self.remove_raw(&Self::serialize_element(element))
     }
 
-    /// Adds a value to the set. If the set did not have this value present, `true` is returned. If
-    /// the set did have this value present, `false` is returned. Note, the elements that have the same hash value are undistinguished by
-    /// the implementation.
+    /// Adds a value to the set.
+    /// If the set did not have this value present, `true` is returned.
+    /// If the set did have this value present, `false` is returned.
     pub fn insert(&mut self, element: &T) -> bool {
         self.insert_raw(&Self::serialize_element(element))
     }
@@ -277,7 +270,7 @@ mod tests {
         assert!(actual);
 
         let actual_reinsert = set.insert(&key2);
-        assert!(!actual_reinsert);
+        assert!(actual_reinsert);
     }
 
     #[test]
@@ -293,7 +286,7 @@ mod tests {
         }
         keys.shuffle(&mut rng);
         for key in &keys {
-            assert!(set.insert(key));
+            assert!(!set.insert(key));
         }
         keys.shuffle(&mut rng);
         for key in keys {
