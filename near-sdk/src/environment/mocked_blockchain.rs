@@ -67,7 +67,6 @@ impl MockedBlockchain {
     pub fn created_receipts(&self) -> &Vec<Receipt> {
         self.logic_fixture.ext.get_receipt_create_calls()
     }
-
     pub fn outcome(&self) -> VMOutcome {
         self.logic.borrow().clone_outcome()
     }

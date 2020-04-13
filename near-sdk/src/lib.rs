@@ -19,7 +19,6 @@ pub use near_vm_logic::types::*;
 pub use near_vm_logic::VMConfig;
 pub use near_vm_logic::VMContext;
 
-#[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! testing_env {
     ($context:expr, $config:expr, $fee_config:expr) => {
