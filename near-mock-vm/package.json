@@ -2,7 +2,7 @@
   "name": "near-mock-vm",
   "version": "0.0.4-0",
   "bin": {
-    "near-vm": "bin/standalone_vm.js"
+    "near-vm-as": "bin/bin.js"
   },
   "description": "Mock Near VM core logic for unit testing",
   "main": "dist/index.js",
@@ -32,7 +32,7 @@
     "build": "yarn wasm-pack build --target nodejs --debug && tsc",
     "test": "node asconfig && node tests && node tests/test && yarn test:bin",
     "test:ci": "yarn build && yarn test",
-    "near-vm": "node bin/standalone_vm.js",
+    "near-vm": "node bin/bin.js",
     "test:bin": "yarn near-vm out/main.wasm add \"{\\\"a\\\":1000,\\\"b\\\":1000}\""
   },
   "files": [
