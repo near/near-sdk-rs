@@ -4,8 +4,11 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_vm_logic::types::{
-    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+use near_vm_logic::{
+    mocks::mock_external::Receipt,
+    types::{
+        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+    },
 };
 
 use std::cell::RefCell;
@@ -20,6 +23,8 @@ thread_local! {
 }
 
 const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
+const NOT_MOCKED_BLOCKCHAIN_ERR: &str =
+    "Operation expects mocked blockchain, e.g. because it can be only called from unit tests.";
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -697,6 +702,18 @@ pub fn storage_has_key(key: &[u8]) -> bool {
         1 => true,
         _ => panic!(RETURN_CODE_ERR),
     }
+}
+/// Accessing receipts created by the contract. Only available in unit tests.
+pub fn created_receipts() -> Vec<Receipt> {
+    BLOCKCHAIN_INTERFACE.with(|b| {
+        b.borrow()
+            .as_ref()
+            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+            .as_mocked_blockchain()
+            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
+            .created_receipts()
+            .clone()
+    })
 }
 
 // ############################################

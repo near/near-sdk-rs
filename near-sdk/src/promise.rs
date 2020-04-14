@@ -1,9 +1,9 @@
+use borsh::BorshSchema;
 use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::rc::Rc;
-use borsh::BorshSchema;
-use std::collections::HashMap;
 
 pub enum PromiseAction {
     CreateAccount,
@@ -186,8 +186,10 @@ pub struct Promise {
 }
 
 /// Until we implement strongly typed promises we serialize them as unit struct.
-impl BorshSchema for Promise  {
-    fn add_definitions_recursively(definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>) {
+impl BorshSchema for Promise {
+    fn add_definitions_recursively(
+        definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
+    ) {
         <()>::add_definitions_recursively(definitions);
     }
 
@@ -400,8 +402,13 @@ pub enum PromiseOrValue<T> {
     Value(T),
 }
 
-impl<T> BorshSchema for PromiseOrValue<T> where T: BorshSchema {
-    fn add_definitions_recursively(definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>) {
+impl<T> BorshSchema for PromiseOrValue<T>
+where
+    T: BorshSchema,
+{
+    fn add_definitions_recursively(
+        definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
+    ) {
         T::add_definitions_recursively(definitions);
     }
 
