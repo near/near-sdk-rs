@@ -64,6 +64,8 @@ impl AttrSigInfo {
         let mut is_payable = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
+
+        let mut payable_attr = None;
         for attr in original_attrs.iter() {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
@@ -71,6 +73,7 @@ impl AttrSigInfo {
                     is_init = true;
                 }
                 "payable" => {
+                    payable_attr = Some(attr);
                     is_payable = true;
                 }
                 "result_serializer" => {
@@ -83,12 +86,6 @@ impl AttrSigInfo {
             }
         }
 
-        original_attrs.retain(|attr| {
-            let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "init" && attr_str != "result_serializer"
-        });
-
-        let returns = original_sig.output.clone();
         let mut receiver = None;
         for fn_arg in &mut original_sig.inputs {
             match fn_arg {
@@ -100,17 +97,26 @@ impl AttrSigInfo {
         }
 
         let is_view = if let Some(ref receiver) = receiver {
-            let is_view = receiver.mutability.is_none();
-            if is_view && is_payable {
+            receiver.mutability.is_none()
+        } else {
+            !is_init
+        };
+
+        if let Some(payable_attr) = payable_attr {
+            if is_view {
                 return Err(Error::new(
-                    receiver.span(),
+                    payable_attr.span(),
                     "Payable method must be mutable (not view)",
                 ));
             }
-            is_view
-        } else {
-            false
-        };
+        }
+
+        original_attrs.retain(|attr| {
+            let attr_str = attr.path.to_token_stream().to_string();
+            attr_str != "init" && attr_str != "result_serializer"
+        });
+
+        let returns = original_sig.output.clone();
 
         let mut result = Self {
             ident,

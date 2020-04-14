@@ -1,5 +1,5 @@
 error: Payable method must be mutable (not view)
-  --> $DIR/payable_view.rs:13:16
+  --> $DIR/payable_view.rs:12:5
    |
-13 |     pub fn pay(&self) {}
-   |                ^
+12 |     #[payable]
+   |     ^
