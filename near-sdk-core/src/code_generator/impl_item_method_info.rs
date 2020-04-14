@@ -83,14 +83,13 @@ impl ImplItemMethodInfo {
             let contract_ser;
             if let Some(receiver) = receiver {
                 let mutability = &receiver.mutability;
-                let reference = &receiver.reference;
                 contract_deser = quote! {
                     let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
                 };
                 method_invocation = quote! {
                     contract.#ident(#arg_list)
                 };
-                if !is_view && reference.is_some() {
+                if !is_view {
                     contract_ser = quote! {
                         near_sdk::env::state_write(&contract);
                     };

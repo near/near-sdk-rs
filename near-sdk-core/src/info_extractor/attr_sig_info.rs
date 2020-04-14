@@ -20,7 +20,7 @@ pub struct AttrSigInfo {
     pub is_payable: bool,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
-    /// Whether the method is not mutate state
+    /// Whether the method doesn't mutate state
     pub is_view: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
