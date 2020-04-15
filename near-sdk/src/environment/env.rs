@@ -40,6 +40,11 @@ const EVICTED_REGISTER: u64 = std::u64::MAX - 1;
 /// Key used to store the state of the contract.
 const STATE_KEY: &[u8] = b"STATE";
 
+/// The minimum length of a valid account ID.
+const MIN_ACCOUNT_ID_LEN: u64 = 2;
+/// The maximum length of a valid account ID.
+const MAX_ACCOUNT_ID_LEN: u64 = 64;
+
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
     ( $method:ident ) => {{
@@ -698,6 +703,18 @@ pub fn storage_has_key(key: &[u8]) -> bool {
         _ => panic!(RETURN_CODE_ERR),
     }
 }
+/// Accessing receipts created by the contract. Only available in unit tests.
+pub fn created_receipts() -> Vec<Receipt> {
+    BLOCKCHAIN_INTERFACE.with(|b| {
+        b.borrow()
+            .as_ref()
+            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+            .as_mocked_blockchain()
+            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
+            .created_receipts()
+            .clone()
+    })
+}
 
 // ############################################
 // # Saving and loading of the contract state #
@@ -713,15 +730,130 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
     storage_write(STATE_KEY, &data);
 }
 
-/// Accessing receipts created by the contract. Only available in unit tests.
-pub fn created_receipts() -> Vec<Receipt> {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        b.borrow()
-            .as_ref()
-            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-            .as_mocked_blockchain()
-            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
-            .created_receipts()
-            .clone()
-    })
+/// Returns `true` if the contract state exists and `false` otherwise.
+pub fn state_exists() -> bool {
+    storage_has_key(STATE_KEY)
+}
+
+// ##################
+// # Helper methods #
+// ##################
+
+/// Returns `true` if the given account ID is valid and `false` otherwise.
+pub fn is_valid_account_id(account_id: &[u8]) -> bool {
+    if (account_id.len() as u64) < MIN_ACCOUNT_ID_LEN
+        || (account_id.len() as u64) > MAX_ACCOUNT_ID_LEN
+    {
+        return false;
+    }
+
+    // NOTE: We don't want to use Regex here, because it requires extra time to compile it.
+    // The valid account ID regex is /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
+    // Instead the implementation is based on the previous character checks.
+
+    // We can safely assume that last char was a separator.
+    let mut last_char_is_separator = true;
+
+    for c in account_id {
+        let current_char_is_separator = match *c {
+            b'a'..=b'z' | b'0'..=b'9' => false,
+            b'-' | b'_' | b'.' => true,
+            _ => return false,
+        };
+        if current_char_is_separator && last_char_is_separator {
+            return false;
+        }
+        last_char_is_separator = current_char_is_separator;
+    }
+    // The account can't end as separator.
+    !last_char_is_separator
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_valid_account_id_strings() {
+        // Valid
+        for account_id in &[
+            "aa",
+            "a-a",
+            "a-aa",
+            "100",
+            "0o",
+            "com",
+            "near",
+            "bowen",
+            "b-o_w_e-n",
+            "b.owen",
+            "bro.wen",
+            "a.ha",
+            "a.b-a.ra",
+            "system",
+            "over.9000",
+            "google.com",
+            "illia.cheapaccounts.near",
+            "0o0ooo00oo00o",
+            "alex-skidanov",
+            "10-4.8-2",
+            "b-o_w_e-n",
+            "no_lols",
+            "0123456789012345678901234567890123456789012345678901234567890123",
+            // Valid, but can't be created
+            "near.a",
+            "a.a",
+        ] {
+            assert!(
+                is_valid_account_id(account_id.as_ref()),
+                "Valid account id {:?} marked invalid",
+                account_id
+            );
+        }
+
+        // Invalid
+        for account_id in &[
+            "",
+            "a",
+            "A",
+            "Abc",
+            "-near",
+            "near-",
+            "-near-",
+            "near.",
+            ".near",
+            "near@",
+            "@near",
+            "неар",
+            "@@@@@",
+            "0__0",
+            "0_-_0",
+            "0_-_0",
+            "..",
+            "a..near",
+            "nEar",
+            "_bowen",
+            "hello world",
+            "abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz",
+            "01234567890123456789012345678901234567890123456789012345678901234",
+            // `@` separators are banned now
+            "some-complex-address@gmail.com",
+            "sub.buy_d1gitz@atata@b0-rg.c_0_m",
+        ] {
+            assert!(
+                !is_valid_account_id(account_id.as_ref()),
+                "Invalid account id {:?} marked valid",
+                account_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_valid_account_id_binary() {
+        assert!(!is_valid_account_id(&[]));
+        assert!(!is_valid_account_id(&[0]));
+        assert!(!is_valid_account_id(&[0, 1]));
+        assert!(!is_valid_account_id(&[0, 1, 2]));
+        assert!(is_valid_account_id(b"near"));
+    }
 }
