@@ -1,8 +1,11 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 
 /// PublicKey curve
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PartialEq, BorshDeserialize, BorshSerialize,
+)]
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
@@ -22,7 +25,7 @@ impl TryFrom<String> for CurveType {
 
 /// Public key in a binary format with base58 string serialization with human-readable curve.
 /// e.g. `ed25519:3tysLvy7KGoE8pznUgXvSHa4vYyGvrDZFcT8jgb8PEQ6`
-#[derive(Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize)]
 pub struct Base58PublicKey(pub Vec<u8>);
 
 impl Base58PublicKey {

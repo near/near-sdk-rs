@@ -1,8 +1,9 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct Base64VecU8(pub Vec<u8>);
 
 impl From<Vec<u8>> for Base64VecU8 {
@@ -31,7 +32,7 @@ impl<'de> Deserialize<'de> for Base64VecU8 {
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
         base64::decode(&s).map_err(|err| Error::custom(err.to_string())).map(Self)
     }
 }
