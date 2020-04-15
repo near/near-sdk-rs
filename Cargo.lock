@@ -236,9 +236,11 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
+ "base64",
  "borsh",
+ "bs58",
  "near-runtime-fees",
  "near-sdk-macros",
  "near-vm-logic",
@@ -252,7 +254,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -262,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "near-sdk-core",
  "proc-macro2",

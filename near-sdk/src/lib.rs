@@ -13,6 +13,8 @@ pub use promise::{Promise, PromiseOrValue};
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
+pub mod json_types;
+
 pub use environment::mocked_blockchain::MockedBlockchain;
 pub use near_runtime_fees::RuntimeFeesConfig;
 pub use near_vm_logic::types::*;
