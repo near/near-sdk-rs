@@ -53,16 +53,22 @@ impl ImplItemMethodInfo {
             result_serializer,
             is_init,
             is_payable,
+            is_view,
             ..
         } = attr_signature_info;
         let deposit_check = if *is_payable {
-            // No check if method is payable
+            // No check if the method is payable
             quote! {}
         } else {
-            // If method is not payable, do a check to make sure that it doesn't consume deposit
-            quote! {
-                if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(b"Method doesn't accept deposit");
+            if *is_view {
+                // No check if the method is a view method
+                quote! {}
+            } else {
+                // If method is not payable, do a check to make sure that it doesn't consume deposit
+                quote! {
+                    if near_sdk::env::attached_deposit() != 0 {
+                        near_sdk::env::panic(b"Method doesn't accept deposit");
+                    }
                 }
             }
         };
@@ -77,14 +83,13 @@ impl ImplItemMethodInfo {
             let contract_ser;
             if let Some(receiver) = receiver {
                 let mutability = &receiver.mutability;
-                let reference = &receiver.reference;
                 contract_deser = quote! {
                     let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
                 };
                 method_invocation = quote! {
                     contract.#ident(#arg_list)
                 };
-                if mutability.is_some() && reference.is_some() {
+                if !is_view {
                     contract_ser = quote! {
                         near_sdk::env::state_write(&contract);
                     };

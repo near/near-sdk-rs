@@ -20,13 +20,15 @@ pub struct AttrSigInfo {
     pub is_payable: bool,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
+    /// Whether the method doesn't mutate state
+    pub is_view: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
     pub receiver: Option<Receiver>,
     /// What this function returns.
     pub returns: ReturnType,
-    /// The original code of the method.
+    /// The original method signature.
     pub original_sig: Signature,
 }
 
@@ -62,6 +64,8 @@ impl AttrSigInfo {
         let mut is_payable = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
+
+        let mut payable_attr = None;
         for attr in original_attrs.iter() {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
@@ -69,6 +73,7 @@ impl AttrSigInfo {
                     is_init = true;
                 }
                 "payable" => {
+                    payable_attr = Some(attr);
                     is_payable = true;
                 }
                 "result_serializer" => {
@@ -81,12 +86,6 @@ impl AttrSigInfo {
             }
         }
 
-        original_attrs.retain(|attr| {
-            let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "init" && attr_str != "result_serializer"
-        });
-
-        let returns = original_sig.output.clone();
         let mut receiver = None;
         for fn_arg in &mut original_sig.inputs {
             match fn_arg {
@@ -97,6 +96,28 @@ impl AttrSigInfo {
             }
         }
 
+        let is_view = if let Some(ref receiver) = receiver {
+            receiver.mutability.is_none()
+        } else {
+            !is_init
+        };
+
+        if let Some(payable_attr) = payable_attr {
+            if is_view {
+                return Err(Error::new(
+                    payable_attr.span(),
+                    "Payable method must be mutable (not view)",
+                ));
+            }
+        }
+
+        original_attrs.retain(|attr| {
+            let attr_str = attr.path.to_token_stream().to_string();
+            attr_str != "init" && attr_str != "result_serializer"
+        });
+
+        let returns = original_sig.output.clone();
+
         let mut result = Self {
             ident,
             non_bindgen_attrs,
@@ -104,6 +125,7 @@ impl AttrSigInfo {
             input_serializer: SerializerType::JSON,
             is_init,
             is_payable,
+            is_view,
             result_serializer,
             receiver,
             returns,

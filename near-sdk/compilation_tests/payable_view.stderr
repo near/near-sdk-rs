@@ -1,0 +1,5 @@
+error: Payable method must be mutable (not view)
+  --> $DIR/payable_view.rs:12:5
+   |
+12 |     #[payable]
+   |     ^
