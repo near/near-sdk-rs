@@ -111,8 +111,9 @@ impl FungibleToken {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
+        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let total_supply = total_supply.into();
-        assert!(env::state_read::<Self>().is_none(), "Already initialized");
+        assert!(!env::state_exists(), "Already initialized");
         let mut ft = Self { accounts: Map::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
@@ -123,6 +124,10 @@ impl FungibleToken {
     /// Sets the `allowance` for `escrow_account_id` on the account of the caller of this contract
     /// (`predecessor_id`) who is the balance owner.
     pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: U128) {
+        assert!(
+            env::is_valid_account_id(escrow_account_id.as_bytes()),
+            "Escrow account ID is invalid"
+        );
         let allowance = allowance.into();
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
@@ -142,6 +147,11 @@ impl FungibleToken {
     ///   then the allowance of the caller of the function (`predecessor_account_id`) on
     ///   the account of `owner_id` should be greater or equal than the transfer `amount`.
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: U128) {
+        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
+        assert!(
+            env::is_valid_account_id(new_owner_id.as_bytes()),
+            "New owner's account ID is invalid"
+        );
         let amount = amount.into();
         if amount == 0 {
             env::panic(b"Can't transfer 0 tokens");
@@ -179,6 +189,7 @@ impl FungibleToken {
     /// Act the same was as `transfer_from` with `owner_id` equal to the caller of the contract
     /// (`predecessor_id`).
     pub fn transfer(&mut self, new_owner_id: AccountId, amount: U128) {
+        // NOTE: New owner's Account ID checked in transfer_from
         self.transfer_from(env::predecessor_account_id(), new_owner_id, amount);
     }
 
@@ -198,6 +209,11 @@ impl FungibleToken {
     /// receives this information, the allowance may already be changed by the owner.
     /// So this method should only be used on the front-end to see the current allowance.
     pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> U128 {
+        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
+        assert!(
+            env::is_valid_account_id(escrow_account_id.as_bytes()),
+            "Escrow account ID is invalid"
+        );
         self.get_account(&owner_id).get_allowance(&escrow_account_id).into()
     }
 }
@@ -273,6 +289,18 @@ mod tests {
         let contract = FungibleToken::new(bob(), total_supply.into());
         assert_eq!(contract.get_total_supply().0, total_supply);
         assert_eq!(contract.get_balance(bob()).0, total_supply);
+    }
+
+    #[test]
+    fn test_new_twice_fails() {
+        let context = get_context(carol());
+        testing_env!(context);
+        let total_supply = 1_000_000_000_000_000u128;
+        let _contract = FungibleToken::new(bob(), total_supply.into());
+        catch_unwind_silent(|| {
+            FungibleToken::new(bob(), total_supply.into());
+        })
+        .unwrap_err();
     }
 
     #[test]
