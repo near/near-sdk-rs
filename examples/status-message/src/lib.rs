@@ -5,7 +5,7 @@ use std::collections::HashMap;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-metadata!{
+metadata! {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
@@ -21,6 +21,10 @@ impl StatusMessage {
     }
 
     pub fn get_status(&self, account_id: String) -> Option::<String> {
+        assert!(
+            env::is_valid_account_id(account_id.as_bytes()),
+            "Given account ID is invalid"
+        );
         env::log(b"A");
         self.records.get(&account_id).cloned()
     }
