@@ -1,4 +1,5 @@
-/// Helper types for JSON serialization.
+//! Helper types for JSON serialization.
+
 mod integers;
 mod public_key;
 mod vector;

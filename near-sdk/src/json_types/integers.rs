@@ -1,6 +1,9 @@
+//! Helper classes to serialize and deserialize large integer types into base-10 string
+//! representations.
+//! NOTE: JSON standard can only work with integer up to 53 bits. So we need helper classes for
+//! 64-bit and 128-bit integers.
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// Implements a wrapped integer type that serializes into and deserializes from base10 string.
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
         #[derive(Debug, Clone, Copy, PartialEq)]

@@ -15,17 +15,12 @@ pub use metadata::{Metadata, MethodMetadata};
 
 pub mod json_types;
 
-#[cfg(not(target_arch = "wasm32"))]
 pub use environment::mocked_blockchain::MockedBlockchain;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_runtime_fees::RuntimeFeesConfig;
 pub use near_vm_logic::types::*;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMConfig;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMContext;
 
-#[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! testing_env {
     ($context:expr, $config:expr, $fee_config:expr) => {
