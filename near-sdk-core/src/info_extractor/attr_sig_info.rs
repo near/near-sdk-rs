@@ -113,7 +113,7 @@ impl AttrSigInfo {
 
         original_attrs.retain(|attr| {
             let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "init" && attr_str != "result_serializer"
+            attr_str != "init" && attr_str != "result_serializer" && attr_str != "payable"
         });
 
         let returns = original_sig.output.clone();

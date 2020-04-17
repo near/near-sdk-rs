@@ -14,6 +14,7 @@ pub struct StatusMessage {
 
 #[near_bindgen]
 impl StatusMessage {
+    #[payable]
     pub fn set_status(&mut self, message: String) {
         env::log(b"A");
         let account_id = env::signer_account_id();
