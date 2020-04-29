@@ -32,6 +32,8 @@
 
 Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
+use near_sdk::{near_bindgen, env};
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
@@ -106,6 +108,18 @@ impl Default for StatusMessage {
 }
 ```
 
+* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call. 
+
+To declare a payable method simply use `#[payable]` decorator:
+```rust
+user near_sdk::payable;
+
+#[payable]
+pub fn my_method(&mut self) {
+...
+}
+```
+
 
 ## Pre-requisites
 To develop Rust contracts you would need to:
@@ -130,6 +144,8 @@ The general workflow is the following:
 
    Here is an example of a smart contract struct:
    ```rust
+   use near_sdk::{near_bindgen, env};
+   
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
