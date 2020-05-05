@@ -15,4 +15,4 @@ Core part of the library for writing NEAR smart contracts.
 proc-macro2 = "1.0"
 syn = {version = "1.0.14", features = ["full", "fold", "extra-traits", "visit"] }
 quote = "1.0"
-Inflector = "0.11.4"
+Inflector = { version = "0.11.4", default-features = false, features = [] }
