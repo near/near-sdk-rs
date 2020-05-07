@@ -3,3 +3,5 @@ error: Unsupported argument type.
    |
 28 | #[near_bindgen]
    | ^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in an attribute macro (in Nightly builds, run with -Z macro-backtrace for more info)
