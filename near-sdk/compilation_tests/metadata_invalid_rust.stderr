@@ -8,9 +8,9 @@ error: Failed to parse code decorated with `metadata!{}` macro. Only valid Rust 
 ...  |
 17 | | }
 18 | | }
-   | | ^ in this macro invocation
-   | |_|
-   | 
+   | |_^
+   |
+   = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
 
 warning: unused import: `near_bindgen`
  --> $DIR/metadata_invalid_rust.rs:1:16
