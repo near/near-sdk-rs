@@ -4,12 +4,11 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_vm_logic::{
-    mocks::mock_external::Receipt,
-    types::{
-        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
-    },
+use crate::{
+    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use near_vm_logic::mocks::mock_external::Receipt;
 
 use std::cell::RefCell;
 use std::mem::size_of;
@@ -23,6 +22,7 @@ thread_local! {
 }
 
 const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
+#[cfg(not(target_arch = "wasm32"))]
 const NOT_MOCKED_BLOCKCHAIN_ERR: &str =
     "Operation expects mocked blockchain, e.g. because it can be only called from unit tests.";
 
@@ -704,6 +704,7 @@ pub fn storage_has_key(key: &[u8]) -> bool {
     }
 }
 /// Accessing receipts created by the contract. Only available in unit tests.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn created_receipts() -> Vec<Receipt> {
     BLOCKCHAIN_INTERFACE.with(|b| {
         b.borrow()

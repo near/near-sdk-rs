@@ -13,6 +13,9 @@ exclude = [
     "examples/status-message-collections",
 ]
 
+[profile.release]
+overflow-checks = true
+
 # Special triple # comment for ci.
 [patch.crates-io]
 ### borsh = { git = "https://github.com/near/borsh", branch = "master" }
