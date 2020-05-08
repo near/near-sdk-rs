@@ -115,7 +115,6 @@ impl Default for StatusMessage {
 
 To declare a payable method simply use `#[payable]` decorator:
 ```rust
-user near_sdk::payable;
 
 #[payable]
 pub fn my_method(&mut self) {
