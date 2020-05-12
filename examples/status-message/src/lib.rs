@@ -29,6 +29,10 @@ impl StatusMessage {
         env::log(b"A");
         self.records.get(&account_id).cloned()
     }
+
+    // pub fn get_epoch() -> u64 {
+    //     env::epoch_height()
+    // }
 }
 }
 

@@ -24,3 +24,25 @@ panic = "abort"
 
 [workspace]
 members = []
+
+[dev-dependencies]
+lazy_static = "1.4.0"
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
+log = "0.4"
+env_logger = { version = "0.7.1", default-features = false }
+
+[dev-dependencies.near-runtime-standalone]
+version = "0.1.0"
+git = "https://github.com/nearprotocol/nearcore.git"
+branch = "fckt/standalone-runitme-patch"
+
+[dev-dependencies.near-primitives]
+git = "https://github.com/nearprotocol/nearcore.git"
+version = "0.1.0"
+branch = "fckt/standalone-runitme-patch"
+
+[dev-dependencies.near-crypto]
+git = "https://github.com/nearprotocol/nearcore.git"
+version = "0.1.0"
+branch = "fckt/standalone-runitme-patch"
