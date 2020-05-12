@@ -1,4 +1,3 @@
-
 extern crate fungible_token;
 
 use near_crypto::{InMemorySigner, KeyType, Signer};
@@ -36,7 +35,6 @@ pub fn call_token<I: ToString, O: DeserializeOwned>(
 ) -> O {
     call_view(runtime, &TOKEN_ACCOUNT_ID.into(), method, args)
 }
-
 
 pub const TOKEN_ACCOUNT_ID: &str = "token";
 
@@ -132,14 +130,19 @@ impl ExternalUser {
         )
     }
 
-    pub fn transfer(&self, runtime: &mut RuntimeStandalone, new_owner_id: AccountId, amount: u128) -> ExecutionOutcome {
-        let args = json!({ 
-            "new_owner_id": new_owner_id,
-            "amount": format!("{}", amount) 
-            })
-            .to_string()
-            .as_bytes()
-            .to_vec();
+    pub fn transfer(
+        &self,
+        runtime: &mut RuntimeStandalone,
+        new_owner_id: AccountId,
+        amount: u128,
+    ) -> ExecutionOutcome {
+        let args = json!({
+        "new_owner_id": new_owner_id,
+        "amount": format!("{}", amount)
+        })
+        .to_string()
+        .as_bytes()
+        .to_vec();
         let tx = self
             .new_tx(runtime, TOKEN_ACCOUNT_ID.into())
             .function_call("transfer".into(), args, 10000000000000000, 0)
@@ -152,32 +155,26 @@ impl ExternalUser {
 
     pub fn get_total_supply(&self, runtime: &mut RuntimeStandalone) -> Balance {
         let balance = runtime
-        .view_method_call(
-            &TOKEN_ACCOUNT_ID.into(),
-            "get_total_supply",
-            json!({})
-                .to_string()
-                .as_bytes(),
-        )
-        .unwrap()
-        .0;
+            .view_method_call(
+                &TOKEN_ACCOUNT_ID.into(),
+                "get_total_supply",
+                json!({}).to_string().as_bytes(),
+            )
+            .unwrap()
+            .0;
         u128::from(serde_json::from_slice::<U128>(balance.as_slice()).unwrap())
         // u128::from(serde_json::from_slice::<U128>(balance.as_slice()).unwrap())
     }
 
     pub fn get_balance(&self, runtime: &mut RuntimeStandalone, account_id: AccountId) -> Balance {
         let balance = runtime
-        .view_method_call(
-            &TOKEN_ACCOUNT_ID.into(),
-            "get_balance",
-            json!({
-                "owner_id": account_id
-            })
-                .to_string()
-                .as_bytes(),
-        )
-        .unwrap()
-        .0;
+            .view_method_call(
+                &TOKEN_ACCOUNT_ID.into(),
+                "get_balance",
+                json!({ "owner_id": account_id }).to_string().as_bytes(),
+            )
+            .unwrap()
+            .0;
         u128::from(serde_json::from_slice::<U128>(balance.as_slice()).unwrap())
         // u128::from(serde_json::from_slice::<U128>(balance.as_slice()).unwrap())
     }
@@ -187,9 +184,6 @@ pub fn init_contract(total_supply: Balance) -> (RuntimeStandalone, ExternalUser)
     let (mut runtime, signer) = init_runtime_and_signer(&"root".into());
     let root = ExternalUser::new("root".into(), signer);
     // root.create_external(&mut runtime, root.account_id().into(), total_supply / 2);
-    root.init(
-        &mut runtime,
-        total_supply,
-    );
+    root.init(&mut runtime, total_supply);
     return (runtime, root);
 }
