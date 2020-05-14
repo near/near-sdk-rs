@@ -149,6 +149,9 @@ class VMRunner {
                 block_index() {
                     return vm.block_index();
                 },
+                block_timestamp() {
+                    return vm.block_timestamp();
+                },
                 storage_usage() {
                     return vm.storage_usage();
                 },

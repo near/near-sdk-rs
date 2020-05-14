@@ -117,7 +117,9 @@ console.log(vm.outcome());
 vm.set_current_account_id("Bobby");
 vm.current_account_id(BigInt(0));
 console.log(utils.UTF8toStr(readReg(0)));
-assert.equal(storage_read("key", 1000), data)
+assert.equal(storage_read("key", 1000), data);
+
+assert(vm.block_timestamp() == 42);
 
 
 // rust.pass_context(context);

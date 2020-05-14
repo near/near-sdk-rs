@@ -159,6 +159,9 @@ export class VMRunner {
           block_index(): BigInt {
             return vm.block_index();
           },
+          block_timestamp(): BigInt {
+            return vm.block_timestamp();
+          },
           storage_usage(): BigInt {
             return vm.storage_usage();
           },

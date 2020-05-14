@@ -1947,17 +1947,17 @@ class VM {
 }
 module.exports.VM = VM;
 
+module.exports.__wbindgen_object_clone_ref = function(arg0) {
+    var ret = getObject(arg0);
+    return addHeapObject(ret);
+};
+
 module.exports.__wbg_log_6ce223fdee9c34a8 = function(arg0, arg1) {
     try {
         console.log(getStringFromWasm0(arg0, arg1));
     } catch (e) {
         logError(e)
     }
-};
-
-module.exports.__wbindgen_object_clone_ref = function(arg0) {
-    var ret = getObject(arg0);
-    return addHeapObject(ret);
 };
 
 module.exports.__wbg_fitsmemory_8e38756424432b8d = function(arg0, arg1, arg2, arg3, arg4) {
@@ -2280,6 +2280,12 @@ module.exports.__wbg_buffer_f897a8d316863411 = function(arg0) {
     }
 };
 
+module.exports.__wbindgen_is_function = function(arg0) {
+    var ret = typeof(getObject(arg0)) === 'function';
+    _assertBoolean(ret);
+    return ret;
+};
+
 module.exports.__wbg_get_8fd175832d82a656 = function(arg0, arg1) {
     try {
         try {
@@ -2291,12 +2297,6 @@ module.exports.__wbg_get_8fd175832d82a656 = function(arg0, arg1) {
     } catch (e) {
         logError(e)
     }
-};
-
-module.exports.__wbindgen_is_function = function(arg0) {
-    var ret = typeof(getObject(arg0)) === 'function';
-    _assertBoolean(ret);
-    return ret;
 };
 
 module.exports.__wbindgen_number_get = function(arg0, arg1) {
