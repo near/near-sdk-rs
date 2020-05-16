@@ -179,7 +179,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::collections::Set;
-    use crate::{env, MockedBlockchain};
+    use crate::test_utils::test_env;
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
     use rand::seq::SliceRandom;
@@ -187,51 +187,9 @@ mod tests {
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
-    fn set_env() {
-        let context = VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: carol(),
-            input: vec![],
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view: false,
-            output_data_receivers: vec![],
-            epoch_height: 0,
-        };
-        let storage = match env::take_blockchain_interface() {
-            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-            None => Default::default(),
-        };
-        env::set_blockchain_interface(Box::new(MockedBlockchain::new(
-            context,
-            Default::default(),
-            Default::default(),
-            vec![],
-            storage,
-        )));
-    }
-
     #[test]
     pub fn test_insert() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..1000 {
@@ -242,7 +200,7 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
@@ -259,7 +217,7 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let key1 = 1u64;
         set.insert(&key1);
@@ -275,7 +233,7 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
@@ -296,7 +254,7 @@ mod tests {
 
     #[test]
     pub fn test_contains_non_existent() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set_tmp = HashSet::new();
@@ -313,7 +271,7 @@ mod tests {
 
     #[test]
     pub fn test_to_vec() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
@@ -328,7 +286,7 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
@@ -344,7 +302,7 @@ mod tests {
 
     #[test]
     pub fn test_iter() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
@@ -359,7 +317,7 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        set_env();
+        test_env::setup();
         let mut set = Set::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();

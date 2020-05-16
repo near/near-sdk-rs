@@ -43,3 +43,7 @@ macro_rules! testing_env {
 }
 
 pub use environment::blockchain_interface::BlockchainInterface;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+pub(crate) mod test_utils;
