@@ -29,6 +29,7 @@ impl<T> Set<T> {
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
+        // TODO use crate::collections::prefix
         let mut element_index_prefix = Vec::with_capacity(id.len() + 1);
         element_index_prefix.extend(&id);
         element_index_prefix.push(b'i');
@@ -180,8 +181,6 @@ where
 mod tests {
     use crate::collections::Set;
     use crate::test_utils::test_env;
-    use near_vm_logic::types::AccountId;
-    use near_vm_logic::VMContext;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashSet;

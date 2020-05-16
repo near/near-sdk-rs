@@ -38,6 +38,7 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
+        // TODO use crate::collections::prefix
         let mut key_index_prefix = Vec::with_capacity(id.len() + 1);
         key_index_prefix.extend(&id);
         key_index_prefix.push(b'i');
@@ -247,8 +248,6 @@ where
 mod tests {
     use crate::collections::UnorderedMap;
     use crate::test_utils::test_env;
-    use near_vm_logic::types::AccountId;
-    use near_vm_logic::VMContext;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::{HashMap, HashSet};

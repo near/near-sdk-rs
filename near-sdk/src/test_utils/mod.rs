@@ -1,12 +1,7 @@
 pub(crate) mod test_env {
-    use crate::collections::Set;
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use rand::seq::SliceRandom;
-    use rand::{Rng, SeedableRng};
-    use std::collections::HashSet;
-    use std::iter::FromIterator;
 
     fn alice() -> AccountId {
         "alice.near".to_string()

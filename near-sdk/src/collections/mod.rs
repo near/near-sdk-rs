@@ -64,3 +64,10 @@ pub(crate) fn next_trie_id() -> Vec<u8> {
         id.to_le_bytes().to_vec()
     }
 }
+
+pub(crate) fn prefix(id: &[u8], chr: u8) -> Vec<u8> {
+    let mut prefixed = Vec::with_capacity(id.len() + 1);
+    prefixed.extend(id);
+    prefixed.push(chr);
+    prefixed
+}
