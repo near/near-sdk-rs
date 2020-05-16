@@ -23,20 +23,17 @@
 //! ```
 //! # use borsh::{BorshSerialize, BorshDeserialize};
 //! # use near_sdk_macros::near_bindgen;
-//! # use near_sdk::collections::Map;
+//! # use near_sdk::collections::UnorderedMap;
 //!
 //! #[near_bindgen]
 //! #[derive(Default, BorshDeserialize, BorshSerialize)]
 //! pub struct StatusMessage {
-//!    records: Map<String, String>,
+//!    records: UnorderedMap<String, String>,
 //! }
 //! ```
 //!
 //! The efficiency of `Map` comes at the cost, since it has fewer methods than `HashMap` and is not
 //! that seemlessly integrated with the rest of the Rust standard library.
-
-//mod map;
-//pub use map::Map;
 
 mod set;
 pub use set::Set;
@@ -44,8 +41,17 @@ pub use set::Set;
 mod vector;
 pub use vector::Vector;
 
-mod map;
-pub use map::Map;
+mod unordered_map;
+pub use unordered_map::UnorderedMap;
+
+mod heap;
+pub use heap::Heap;
+
+mod heap_map;
+pub use heap_map::HeapMap;
+
+pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.
