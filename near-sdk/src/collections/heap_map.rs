@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
-
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::{UnorderedMap, Heap};
+use crate::collections::Heap;
 
 /// HeapMap allows iterating over keys and entries based on natural key ordering.
 ///
@@ -25,9 +23,7 @@ use crate::collections::{UnorderedMap, Heap};
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct HeapMap<K, V> {
     key_index_prefix: Vec<u8>,
-    keys: Heap<K>,
-    indices: UnorderedMap<K, u64>,
-    _values: PhantomData<V>,
+    keys: Heap<(K, V)>,
 }
 
 impl<K, V> HeapMap<K, V>
