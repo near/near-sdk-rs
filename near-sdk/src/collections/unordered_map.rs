@@ -12,19 +12,19 @@ const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
 
 /// An iterable implementation of a map that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Map<K, V> {
+pub struct UnorderedMap<K, V> {
     key_index_prefix: Vec<u8>,
     keys: Vector<K>,
     values: Vector<V>,
 }
 
-impl<K, V> Default for Map<K, V> {
+impl<K, V> Default for UnorderedMap<K, V> {
     fn default() -> Self {
         Self::new(next_trie_id())
     }
 }
 
-impl<K, V> Map<K, V> {
+impl<K, V> UnorderedMap<K, V> {
     /// Returns the number of elements in the map, also referred to as its size.
     pub fn len(&self) -> u64 {
         let key_len = self.keys.len();
@@ -146,7 +146,7 @@ impl<K, V> Map<K, V> {
     }
 }
 
-impl<K, V> Map<K, V>
+impl<K, V> UnorderedMap<K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
@@ -245,7 +245,7 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::collections::Map;
+    use crate::collections::UnorderedMap;
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     pub fn test_insert() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..1000 {
             let key = rng.gen::<u64>();
@@ -311,7 +311,7 @@ mod tests {
     #[test]
     pub fn test_insert_remove() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     pub fn test_remove_last_reinsert() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let key1 = 1u64;
         let value1 = 2u64;
         map.insert(&key1, &value1);
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     pub fn test_insert_override_remove() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -378,7 +378,7 @@ mod tests {
     #[test]
     pub fn test_get_non_existent() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..1000 {
@@ -396,7 +396,7 @@ mod tests {
     #[test]
     pub fn test_to_vec() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..1000 {
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     pub fn test_clear() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
@@ -429,7 +429,7 @@ mod tests {
     #[test]
     pub fn test_keys_values() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..1000 {
@@ -452,7 +452,7 @@ mod tests {
     #[test]
     pub fn test_iter() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..1000 {
@@ -468,7 +468,7 @@ mod tests {
     #[test]
     pub fn test_extend() {
         set_env();
-        let mut map = Map::default();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
