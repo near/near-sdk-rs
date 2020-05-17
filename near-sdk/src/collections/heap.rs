@@ -61,8 +61,8 @@ impl<T> Heap<T>
         sink(&mut self.elements, idx);
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
-        // TODO sort values
+    pub fn iter<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
+        sort(&mut self.elements);
         self.elements.iter()
     }
 }
@@ -75,49 +75,75 @@ fn zip<T, U>(lhs: Option<T>, rhs: Option<U>) -> Option<(T, U)> {
     }
 }
 
+// Takes 1-based indices of elements to swap
 fn less<T: Ord + BorshSerialize + BorshDeserialize>(vec: &Vector<T>, i: u64, j: u64) -> bool {
-    (i != j) && zip(vec.get(i), vec.get(j))
+    (i != j) && zip(vec.get(i - 1), vec.get(j - 1))
         .map(|(lhs, rhs)| lhs.lt(&rhs))
         .unwrap_or_default()
 }
 
+// Takes 1-based indices of elements to swap
 fn swap<T: BorshSerialize + BorshDeserialize>(vec: &mut Vector<T>, i: u64, j: u64) {
-    let i_opt = vec.get_raw(i);
-    let j_opt = vec.get_raw(j);
+    let i_opt = vec.get_raw(i - 1);
+    let j_opt = vec.get_raw(j - 1);
     if i_opt.is_some() && j_opt.is_some() {
-        vec.replace_raw(i, j_opt.as_ref().unwrap().as_slice());
-        vec.replace_raw(j, i_opt.as_ref().unwrap().as_slice());
+        vec.replace_raw(i - 1, j_opt.as_ref().unwrap().as_slice());
+        vec.replace_raw(j - 1, i_opt.as_ref().unwrap().as_slice());
         // TODO update `indices` here
     }
 }
 
+// 1-based index calculation
+fn parent(i: u64) -> u64 {
+    i / 2
+}
+
+// 1-based index calculation
+fn child(i: u64) -> u64 {
+    i * 2
+}
+
+// Takes 0-based index of element to sink
 fn sink<T>(vec: &mut Vector<T>, mut idx: u64)
     where
         T: Ord + BorshSerialize + BorshDeserialize
 {
-    while idx * 2 < vec.len() {
-        let mut k = idx * 2;
-        if k < (vec.len() - 1) && less(vec, k, k + 1) {
+    idx += 1;
+    let n = vec.len();
+    while child(idx) <= n {
+        let mut k = child(idx);
+        if k < n && less(vec, k + 1, k) {
             k += 1;
         }
-        if less(vec, idx, k) {
-            swap(vec, idx, k);
+        if !less(vec, k, idx) {
+            break;
         }
+        swap(vec, k, idx);
         idx = k;
     }
 }
 
+// Takes 0-based index of element to rise (pop up)
 fn rise<T>(vec: &mut Vector<T>, mut idx: u64)
     where
         T: Ord + BorshSerialize + BorshDeserialize
 {
-    while idx / 2 > 0 {
-        let k = idx / 2;
-        if less(vec, idx, k) {
-            swap(vec, idx, k);
+    idx += 1;
+    while idx > 1 {
+        let k = parent(idx);
+        if !less(vec, idx, k) {
+            break;
         }
+        swap(vec, idx, k);
         idx = k;
     }
+}
+
+fn sort<T>(_vec: &mut Vector<T>)
+    where
+        T: Ord + BorshSerialize + BorshDeserialize
+{
+    // TODO impl in-place heap-sort
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -149,12 +175,15 @@ mod tests {
         let mut vec: Vector<i32> = Vector::new(vec![b'x']);
         vec.push(&1);
         vec.push(&2);
-        assert!(less(&vec, 0, 1));
-        assert!(!less(&vec, 1, 0));
-        assert!(!less(&vec, 0, 0));
+        vec.push(&2);
+        assert!(less(&vec, 1, 2));
+        assert!(!less(&vec, 2, 1));
         assert!(!less(&vec, 1, 1));
-        assert!(!less(&vec, 1, 3));
-        assert!(!less(&vec, 3, 0));
+        assert!(!less(&vec, 2, 2));
+        assert!(!less(&vec, 2, 4));
+        assert!(!less(&vec, 4, 1));
+        assert!(!less(&vec, 2, 3));
+        assert!(!less(&vec, 3, 2));
     }
 
     #[test]
@@ -162,9 +191,9 @@ mod tests {
         test_env::setup();
 
         let cases: Vec<((u64, u64), Vec<u8>)> = vec![
-            ((0, 1), vec![2u8, 1u8]),
-            ((0, 2), vec![1u8, 2u8]),
-            ((2, 1), vec![1u8, 2u8]),
+            ((1, 2), vec![2u8, 1u8]),
+            ((1, 3), vec![1u8, 2u8]),
+            ((3, 2), vec![1u8, 2u8]),
         ];
 
         for ((i, j), expected) in cases {
@@ -177,6 +206,99 @@ mod tests {
         }
     }
 
-    // TODO test_sink
-    // TODO test_rise
+    #[test]
+    fn test_sink() {
+        test_env::setup();
+
+        let cases: Vec<(Vec<u8>, u64, Vec<u8>)> = vec![
+            (vec![1, 2], 0, vec![1, 2]),
+            (vec![2, 1], 0, vec![1, 2]),
+            (vec![1, 2, 3], 0, vec![1, 2, 3]),
+            (vec![1, 2, 3], 3, vec![1, 2, 3]),
+            (vec![2, 1, 3], 0, vec![1, 2, 3]),
+            (vec![2, 1, 1], 0, vec![1, 2, 1]),
+            (vec![3, 1, 2], 0, vec![1, 3, 2]),
+            (vec![2, 3, 1], 0, vec![1, 3, 2]),
+            (vec![3, 1, 2, 4], 0, vec![1, 3, 2, 4]),
+            (vec![1, 2, 3, 4, 5], 0, vec![1, 2, 3, 4, 5]),
+            (vec![7, 2, 3, 4, 5], 0, vec![2, 4, 3, 7, 5]),
+            (vec![1, 2, 7, 4, 5], 2, vec![1, 2, 7, 4, 5]),
+            (vec![1, 2, 7, 4, 5, 3], 2, vec![1, 2, 3, 4, 5, 7]),
+            (vec![1, 7, 2, 4, 5, 3], 1, vec![1, 4, 2, 7, 5, 3]),
+        ];
+
+        for (case, idx, expected) in cases {
+            let mut vec: Vector<u8> = Vector::new(vec![b'x']);
+            for x in &case {
+                vec.push(x);
+            }
+            sink(&mut vec, idx);
+            let actual = vec.to_vec();
+            assert_eq!(actual, expected,
+                       "sink({:?}, {}) expected {:?} but got {:?}", case, idx, expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_rise() {
+        test_env::setup();
+
+        let cases: Vec<(Vec<u8>, u64, Vec<u8>)> = vec![
+            (vec![], 0, vec![]),
+            (vec![2, 3, 1], 2, vec![1, 3, 2]),
+            (vec![5, 4, 3, 2, 1], 4, vec![1, 5, 3, 2, 4]),
+        ];
+
+        for (case, idx, expected) in cases {
+            let mut vec: Vector<u8> = Vector::new(vec![b'x']);
+            for x in &case {
+                vec.push(x);
+            }
+            rise(&mut vec, idx);
+            let actual = vec.to_vec();
+            assert_eq!(actual, expected,
+                       "rise({:?}, {}) expected {:?} but got {:?}", case, idx, expected, actual);
+        }
+    }
+
+    #[test]
+    #[ignore] // TODO un-ignore once sort impl is ready
+    fn test_sort() {
+        test_env::setup();
+
+        let cases: Vec<Vec<u8>> = vec![
+            vec![1, 2],
+            vec![2, 1],
+            vec![1, 2, 3],
+            vec![1, 3, 2],
+            vec![2, 1, 3],
+            vec![2, 3, 1],
+            vec![3, 2, 1],
+            vec![3, 1, 2],
+            vec![1, 2, 3, 4],
+            vec![4, 3, 2, 1],
+            vec![4, 2, 3, 1],
+            vec![3, 1, 2, 4],
+            (0..5).collect(),
+            (0..5).rev().collect(),
+            (0..10).collect(),
+            (0..10).rev().collect(),
+        ];
+
+        for case in cases {
+            let mut heap: Heap<u8> = Heap::new(vec![b't']);
+            for x in &case {
+                heap.insert(&x);
+                println!("heap: {:?}", heap.elements.to_vec());
+            }
+            assert_eq!(heap.len(), case.len() as u64);
+
+            let mut sorted = case.clone();
+            sorted.sort();
+
+            let actual = heap.iter().collect::<Vec<u8>>();
+            assert_eq!(actual, sorted,
+                       "Sorting {:?} failed: expected {:?} but got {:?}.", case, sorted, actual);
+        }
+    }
 }
