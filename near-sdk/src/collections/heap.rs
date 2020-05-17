@@ -1,8 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::env;
-use crate::collections::append;
-use crate::collections::{Vector, UnorderedMap, ERR_ELEMENT_SERIALIZATION};
+use crate::collections::{append, Vector, UnorderedMap};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Heap<T> {
@@ -32,12 +30,20 @@ impl<T> Heap<T>
         self.elements.len()
     }
 
+    pub fn clear(&mut self) {
+        self.elements.clear();
+    }
+
     pub fn at(&self, idx: u64) -> Option<T> {
         self.elements.get(idx)
     }
 
+    pub fn lookup(&self, value: &T) -> Option<u64> {
+        self.indices.get(value)
+    }
+
     pub fn insert(&mut self, value: &T) {
-        self.elements.push_raw(serialize(value).as_slice());
+        self.elements.push(value);
         let idx = self.elements.len() - 1;
         self.indices.insert(value, &idx);
         rise(&mut self.elements, idx);
@@ -59,10 +65,6 @@ impl<T> Heap<T>
         // TODO sort values
         self.elements.iter()
     }
-}
-
-fn serialize<T: BorshSerialize>(value: &T) -> Vec<u8> {
-    value.try_to_vec().unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
 }
 
 fn zip<T, U>(lhs: Option<T>, rhs: Option<U>) -> Option<(T, U)> {
