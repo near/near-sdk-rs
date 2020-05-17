@@ -1,6 +1,6 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
-use crate::collections::{next_trie_id, Vector};
+use crate::collections::{next_trie_id, prefix, Vector};
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
@@ -29,14 +29,8 @@ impl<T> Set<T> {
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
-        // TODO use crate::collections::prefix
-        let mut element_index_prefix = Vec::with_capacity(id.len() + 1);
-        element_index_prefix.extend(&id);
-        element_index_prefix.push(b'i');
-
-        let mut elements_prefix = Vec::with_capacity(id.len() + 1);
-        elements_prefix.extend(&id);
-        elements_prefix.push(b'e');
+        let element_index_prefix = prefix(&id, b'i');
+        let elements_prefix = prefix(&id, b'e');
 
         Self { element_index_prefix, elements: Vector::new(elements_prefix) }
     }
