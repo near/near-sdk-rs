@@ -1,17 +1,10 @@
+use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::Heap;
+use crate::collections::{append, serialize, deserialize, Heap};
+use crate::env;
 
 /// HeapMap allows iterating over keys and entries based on natural key ordering.
-///
-/// Internals:
-/// - `indices`: map `K -> u64` containing key's index in sorted order, required to ensure O(log(N))
-///   runtime complexity of `remove` in worst case (avoid linear scan to find sorted index for key)
-/// - `keys`: min-heap of keys
-///   - remove/insert return swaps performed to maintain heap order, `indices` must be updated
-///     accordingly to keep the state consistent
-/// - `iter()`: iterate over sorted order of keys with O(Nlog(N)) runtime complexity - effectively
-///   in-place heap-sort is performed, so all swaps must be mirrored to `indices`
 ///
 /// Runtime complexity (worst case):
 ///   - `contains_key`: O(1)
@@ -22,8 +15,9 @@ use crate::collections::Heap;
 ///   - `entries` (iterator): O(Nlog(N))
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct HeapMap<K, V> {
-    key_index_prefix: Vec<u8>,
-    keys: Heap<(K, V)>,
+    entry_index_prefix: Vec<u8>,
+    keys: Heap<K>,
+    _values: PhantomData<V>,
 }
 
 impl<K, V> HeapMap<K, V>
@@ -31,13 +25,32 @@ impl<K, V> HeapMap<K, V>
         K: Ord + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
 {
-    // TODO new
-    // TODO len
-    // TODO get
-    // TODO contains_key
-    // TODO remove: update indices after maintaining heap order
-    // TODO insert: update indices after maintaining heap order
-    // TODO clear
-    // TODO keys (iterator): update indices for sorted order
-    // TODO entries (iterator): update indices for sorted order
+    pub fn new(id: Vec<u8>) -> Self {
+        let entry_index_prefix = append(&id, b'i');
+        let elements_prefix = append(&id, b'e');
+
+        Self { entry_index_prefix, keys: Heap::new(elements_prefix), _values: PhantomData }
+    }
+
+    pub fn len(&self) -> u64 {
+        self.keys.len()
+    }
+
+    pub fn clear(&mut self) {
+        self.keys.clear();
+    }
+
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.keys.lookup(key).is_some()
+    }
+
+    pub fn get(&self, key: &K) -> Option<V> {
+        env::storage_read(&serialize(key))
+            .map(|raw| deserialize(&raw))
+    }
+
+    // TODO remove
+    // TODO insert
+    // TODO keys (iterator)
+    // TODO entries (iterator)
 }
