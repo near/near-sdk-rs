@@ -50,8 +50,12 @@ pub use heap::Heap;
 mod heap_map;
 pub use heap_map::HeapMap;
 
+use crate::env;
+
+use borsh::{BorshDeserialize, BorshSerialize};
 pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh.";
+pub const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element with Borsh.";
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.
@@ -77,4 +81,14 @@ pub(crate) fn append_slice(id: &[u8], extra: &[u8]) -> Vec<u8> {
     result.extend(id);
     result.extend(extra);
     result
+}
+
+fn serialize<T: BorshSerialize>(value: &T) -> Vec<u8> {
+    value.try_to_vec()
+        .unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
+}
+
+fn deserialize<T: BorshDeserialize>(slice: &[u8]) -> T {
+    T::try_from_slice(slice)
+        .unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
 }
