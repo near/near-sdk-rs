@@ -1,6 +1,6 @@
 //! A map implemented on a trie. Unlike `std::collections::HashMap` the keys in this map are not
 //! hashed but are instead serialized.
-use crate::collections::{next_trie_id, prefix, Vector};
+use crate::collections::{append, append_slice, next_trie_id, Vector};
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
@@ -38,9 +38,9 @@ impl<K, V> UnorderedMap<K, V> {
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
-        let key_index_prefix = prefix(&id, b'i');
-        let index_key_id = prefix(&id, b'k');
-        let index_value_id = prefix(&id, b'v');
+        let key_index_prefix = append(&id, b'i');
+        let index_key_id = append(&id, b'k');
+        let index_value_id = append(&id, b'v');
 
         Self {
             key_index_prefix,
@@ -60,10 +60,7 @@ impl<K, V> UnorderedMap<K, V> {
     }
 
     fn raw_key_to_index_lookup(&self, raw_key: &[u8]) -> Vec<u8> {
-        let mut res = Vec::with_capacity(self.key_index_prefix.len() + raw_key.len());
-        res.extend_from_slice(&self.key_index_prefix);
-        res.extend_from_slice(&raw_key);
-        res
+        append_slice(&self.key_index_prefix, raw_key)
     }
 
     /// Returns an index of the given raw key.

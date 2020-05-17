@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::env;
-use crate::collections::prefix;
+use crate::collections::append;
 use crate::collections::{Vector, UnorderedMap, ERR_ELEMENT_SERIALIZATION};
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -17,9 +17,9 @@ impl<T> Heap<T>
 {
 
     pub fn new(id: Vec<u8>) -> Self {
-        let element_index_prefix = prefix(&id, b'i');
-        let elements_prefix = prefix(&id, b'e');
-        let indices_prefix = prefix(&id, b'm');
+        let element_index_prefix = append(&id, b'i');
+        let elements_prefix = append(&id, b'e');
+        let indices_prefix = append(&id, b'm');
 
         Self {
             element_index_prefix,

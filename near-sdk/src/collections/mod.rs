@@ -65,9 +65,16 @@ pub(crate) fn next_trie_id() -> Vec<u8> {
     }
 }
 
-pub(crate) fn prefix(id: &[u8], chr: u8) -> Vec<u8> {
-    let mut prefixed = Vec::with_capacity(id.len() + 1);
-    prefixed.extend(id);
-    prefixed.push(chr);
-    prefixed
+pub(crate) fn append(id: &[u8], chr: u8) -> Vec<u8> {
+    let mut result = Vec::with_capacity(id.len() + 1);
+    result.extend(id);
+    result.push(chr);
+    result
+}
+
+pub(crate) fn append_slice(id: &[u8], extra: &[u8]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(id.len() + extra.len());
+    result.extend(id);
+    result.extend(extra);
+    result
 }
