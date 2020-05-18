@@ -2,10 +2,12 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::collections::{append, Vector, UnorderedMap};
 
+/// Max-heap of elements, iterator returns natural ordering of elements (ascending).
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Heap<T> {
     element_index_prefix: Vec<u8>,
     elements: Vector<T>,
+    // keeps 1-based index in the max-heap of respective element
     indices: UnorderedMap<T, u64>,
 }
 
@@ -79,9 +81,9 @@ fn zip<T, U>(lhs: Option<T>, rhs: Option<U>) -> Option<(T, U)> {
 }
 
 // Takes 1-based indices of elements to swap
-fn less<T: Ord + BorshSerialize + BorshDeserialize>(vec: &Vector<T>, i: u64, j: u64) -> bool {
-    (i != j) && zip(vec.get(i - 1), vec.get(j - 1))
-        .map(|(lhs, rhs)| lhs.lt(&rhs))
+fn gt<T: Ord + BorshSerialize + BorshDeserialize>(vec: &Vector<T>, i: u64, j: u64) -> bool {
+    (i != j) && (i > 0 && j > 0) && zip(vec.get(i - 1), vec.get(j - 1))
+        .map(|(lhs, rhs)| lhs.gt(&rhs))
         .unwrap_or_default()
 }
 
@@ -114,10 +116,10 @@ fn sink<T>(vec: &mut Vector<T>, mut idx: u64, n: u64, indices: &mut UnorderedMap
 {
     while child(idx) <= n {
         let mut k = child(idx);
-        if k < n && less(vec, k + 1, k) {
+        if k < n && gt(vec, k + 1, k) {
             k += 1;
         }
-        if !less(vec, k, idx) {
+        if !gt(vec, k, idx) {
             break;
         }
         swap(vec, k, idx, indices);
@@ -132,7 +134,7 @@ fn rise<T>(vec: &mut Vector<T>, mut idx: u64, indices: &mut UnorderedMap<T, u64>
 {
     while idx > 1 {
         let k = parent(idx);
-        if !less(vec, idx, k) {
+        if !gt(vec, idx, k) {
             break;
         }
         swap(vec, idx, k, indices);
@@ -181,17 +183,17 @@ mod tests {
     fn test_less() {
         test_env::setup();
         let mut vec: Vector<i32> = Vector::new(vec![b'x']);
+        vec.push(&2);
         vec.push(&1);
-        vec.push(&2);
-        vec.push(&2);
-        assert!(less(&vec, 1, 2));
-        assert!(!less(&vec, 2, 1));
-        assert!(!less(&vec, 1, 1));
-        assert!(!less(&vec, 2, 2));
-        assert!(!less(&vec, 2, 4));
-        assert!(!less(&vec, 4, 1));
-        assert!(!less(&vec, 2, 3));
-        assert!(!less(&vec, 3, 2));
+        vec.push(&1);
+        assert!(gt(&vec, 1, 2));
+        assert!(!gt(&vec, 2, 1));
+        assert!(!gt(&vec, 1, 1));
+        assert!(!gt(&vec, 2, 2));
+        assert!(!gt(&vec, 2, 4));
+        assert!(!gt(&vec, 4, 1));
+        assert!(!gt(&vec, 2, 3));
+        assert!(!gt(&vec, 3, 2));
         vec.clear();
     }
 
@@ -221,20 +223,20 @@ mod tests {
         test_env::setup();
 
         let cases: Vec<(Vec<u8>, u64, Vec<u8>)> = vec![
-            (vec![1, 2], 1, vec![1, 2]),
-            (vec![2, 1], 1, vec![1, 2]),
-            (vec![1, 2, 3], 1, vec![1, 2, 3]),
+            (vec![1, 2], 1, vec![2, 1]),
+            (vec![2, 1], 1, vec![2, 1]),
+            (vec![1, 2, 3], 1, vec![3, 2, 1]),
             (vec![1, 2, 3], 4, vec![1, 2, 3]),
-            (vec![2, 1, 3], 1, vec![1, 2, 3]),
-            (vec![2, 1, 1], 1, vec![1, 2, 1]),
-            (vec![3, 1, 2], 1, vec![1, 3, 2]),
-            (vec![2, 3, 1], 1, vec![1, 3, 2]),
-            (vec![3, 1, 2, 4], 1, vec![1, 3, 2, 4]),
-            (vec![1, 2, 3, 4, 5], 1, vec![1, 2, 3, 4, 5]),
-            (vec![7, 2, 3, 4, 5], 1, vec![2, 4, 3, 7, 5]),
-            (vec![1, 2, 7, 4, 5], 3, vec![1, 2, 7, 4, 5]),
-            (vec![1, 2, 7, 4, 5, 3], 3, vec![1, 2, 3, 4, 5, 7]),
-            (vec![1, 7, 2, 4, 5, 3], 2, vec![1, 4, 2, 7, 5, 3]),
+            (vec![1, 2, 3], 0, vec![1, 2, 3]),
+            (vec![2, 1, 3], 1, vec![3, 1, 2]),
+            (vec![2, 1, 1], 1, vec![2, 1, 1]),
+            (vec![2, 1, 3], 1, vec![3, 1, 2]),
+            (vec![2, 3, 1], 1, vec![3, 2, 1]),
+            (vec![1, 3, 2, 4], 1, vec![3, 4, 2, 1]),
+            (vec![1, 4, 3, 2, 5], 1, vec![4, 5, 3, 2, 1]),
+            (vec![1, 2, 5, 4, 7], 2, vec![1, 7, 5, 4, 2]),
+            (vec![1, 2, 3, 4, 5, 7], 3, vec![1, 2, 7, 4, 5, 3]),
+            (vec![7, 1, 4, 2, 5, 3], 2, vec![7, 5, 4, 2, 1, 3]),
         ];
 
         for (case, idx, expected) in cases {
@@ -259,8 +261,10 @@ mod tests {
 
         let cases: Vec<(Vec<u8>, u64, Vec<u8>)> = vec![
             (vec![], 1, vec![]),
-            (vec![2, 3, 1], 3, vec![1, 3, 2]),
-            (vec![5, 4, 3, 2, 1], 5, vec![1, 5, 3, 2, 4]),
+            (vec![1, 2], 2, vec![2, 1]),
+            (vec![2, 1], 2, vec![2, 1]),
+            (vec![1, 2, 3], 3, vec![3, 2, 1]),
+            (vec![1, 2, 3, 4, 5], 5, vec![5, 1, 3, 4, 2]),
         ];
 
         for (case, idx, expected) in cases {
@@ -279,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sort() {
+    fn test_iter_sorted() {
         test_env::setup();
 
         let cases: Vec<Vec<u8>> = vec![
@@ -311,17 +315,78 @@ mod tests {
             let mut sorted = case.clone();
             sorted.sort();
 
-            // TODO inverse the order of sorted vector
-            let rev = sorted.into_iter().rev().collect::<Vec<u8>>();
-
             let actual = heap.iter().collect::<Vec<u8>>();
             heap.clear();
-            assert_eq!(actual, rev,
-                       "Sorting {:?} failed: expected {:?} but got {:?}.", case, rev, actual);
+            assert_eq!(actual, sorted,
+                       "Sorting {:?} failed: expected {:?} but got {:?}.", case, sorted, actual);
         }
     }
 
-    // TODO test_insert
-    // TODO test_remove
+    #[test]
+    fn test_iter_sorted_random() {
+        test_env::setup();
+        use rand::prelude::*;
+
+        fn random(n: u32) -> Vec<u32> {
+            let mut vec = Vec::with_capacity(n as usize);
+            for x in 0..n {
+                vec.push(x);
+            }
+            let mut rng = rand::thread_rng();
+            vec.shuffle(&mut rng);
+            vec
+        }
+
+        let cases = vec![10, 20, 30, 42]; // Error(GasLimitExceeded) for sizes >= 50
+        for n in cases {
+            let mut heap: Heap<u32> = Heap::new(vec![b't']);
+
+            let items = random(n);
+            for x in &items {
+                heap.insert(x);
+            }
+            assert_eq!(heap.len(), n as u64);
+
+            let mut sorted = items.clone();
+            sorted.sort();
+
+            let actual = heap.iter().collect::<Vec<u32>>();
+            heap.clear();
+            assert_eq!(actual, sorted,
+                       "Sorting {:?} failed: expected {:?} but got {:?}.", items, sorted, actual);
+        }
+    }
+
+    #[test]
+    fn test_insert() {
+        test_env::setup();
+
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+        let key = 42u8;
+        assert!(heap.lookup(&key).is_none());
+        assert_eq!(heap.len(), 0);
+
+        heap.insert(&key);
+        assert_eq!(heap.len(), 1);
+        assert_eq!(heap.lookup(&key), Some(1));
+        heap.clear();
+    }
+
+    #[test]
+    fn test_remove() {
+        test_env::setup();
+
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+        let key = 42u8;
+        assert!(heap.lookup(&key).is_none());
+
+        heap.insert(&key);
+        heap.remove(&key);
+
+        assert!(heap.lookup(&key).is_none());
+        assert_eq!(heap.len(), 0);
+
+        heap.clear();
+    }
 
 }
