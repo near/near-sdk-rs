@@ -83,4 +83,101 @@ impl<K, V> HeapMap<K, V>
     }
 }
 
-// TODO heap_map tests
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::test_env;
+
+    #[test]
+    fn test_empty() {
+        test_env::setup();
+
+        let mut map: HeapMap<u32, u32> = HeapMap::new(vec![b't']);
+        assert_eq!(map.len(), 0);
+        map.clear();
+    }
+
+    #[test]
+    fn test_insert() {
+        test_env::setup();
+        let mut map: HeapMap<u32, u32> = HeapMap::new(vec![b't']);
+
+        let key: u32 = 42;
+        let val: u32 = 2020;
+
+        assert!(!map.contains_key(&key));
+        map.insert(&key, &val);
+        assert!(map.contains_key(&key));
+
+        assert_eq!(map.get(&key), Some(val));
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove() {
+        test_env::setup();
+        let mut map: HeapMap<u32, u32> = HeapMap::new(vec![b't']);
+
+        let key: u32 = 42;
+        let val: u32 = 2020;
+
+        assert!(!map.contains_key(&key));
+        map.insert(&key, &val);
+        map.remove(&key);
+
+        assert_eq!(map.get(&key), None);
+        map.clear();
+    }
+
+    #[test]
+    fn test_keys() {
+        test_env::setup();
+        let mut map: HeapMap<u32, u32> = HeapMap::new(vec![b't']);
+
+        let tuples: Vec<(u32, u32)> = vec![
+            (105, 999),
+            (104, 998),
+            (103, 997),
+            (102, 996),
+            (101, 995),
+        ];
+
+        for (k, v) in &tuples {
+            map.insert(k, v);
+        }
+
+        let mut expected: Vec<u32> = tuples.into_iter().map(|e| e.0).collect();
+        expected.sort();
+
+        let keys = map.keys().collect::<Vec<u32>>();
+        assert_eq!(keys, expected);
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_entries() {
+        test_env::setup();
+        let mut map: HeapMap<u32, u32> = HeapMap::new(vec![b't']);
+
+        let mut tuples: Vec<(u32, u32)> = vec![
+            (155, 999),
+            (144, 998),
+            (133, 997),
+            (122, 996),
+            (111, 995),
+        ];
+
+        for (k, v) in &tuples {
+            map.insert(k, v);
+        }
+
+        tuples.sort_by_key(|e| e.0);
+
+        let entries = map.entries().collect::<Vec<(u32, u32)>>();
+        assert_eq!(entries, tuples);
+
+        map.clear();
+    }
+}
