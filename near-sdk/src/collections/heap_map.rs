@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::{append, serialize, deserialize, Heap, append_slice};
+use crate::collections::{append, serialize, deserialize, Heap, append_slice, next_trie_id};
 use crate::env;
 
 /// HeapMap allows iterating over keys and entries based on natural key ordering.
@@ -18,6 +18,16 @@ pub struct HeapMap<K, V> {
     key_prefix: Vec<u8>,
     keys: Heap<K>,
     _values: PhantomData<V>,
+}
+
+impl<K, V> Default for HeapMap<K, V>
+    where
+        K: Ord + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
+{
+    fn default() -> Self {
+        Self::new(next_trie_id())
+    }
 }
 
 impl<K, V> HeapMap<K, V>
@@ -65,15 +75,15 @@ impl<K, V> HeapMap<K, V>
         opt
     }
 
-    // Note: iterator mutates underlying indexes when sorts the keys.
-    pub fn keys<'a>(&'a mut self) -> impl Iterator<Item = K> + 'a {
-        self.keys.iter()
+    /// Note: iterator mutates underlying indexes when sorts the keys.
+    pub fn sort_keys<'a>(&'a mut self) -> impl Iterator<Item = K> + 'a {
+        self.keys.sort_iter()
     }
 
-    // Note: mutable borrow is required for iterator.
-    pub fn entries<'a>(&'a mut self) -> impl Iterator<Item = (K, V)> + 'a {
+    /// Note: mutable borrow is required for iterator.
+    pub fn sort_iter<'a>(&'a mut self) -> impl Iterator<Item = (K, V)> + 'a {
         let prefix = self.key_prefix.clone();
-        self.keys.iter()
+        self.keys.sort_iter()
             .map(move |key| {
                 let raw_key = append_slice(&prefix, &serialize(&key));
                 let raw_val: Vec<u8> = env::storage_read(&raw_key).unwrap();
@@ -150,7 +160,7 @@ mod tests {
         let mut expected: Vec<u32> = tuples.into_iter().map(|e| e.0).collect();
         expected.sort();
 
-        let keys = map.keys().collect::<Vec<u32>>();
+        let keys = map.sort_keys().collect::<Vec<u32>>();
         assert_eq!(keys, expected);
 
         map.clear();
@@ -175,7 +185,7 @@ mod tests {
 
         tuples.sort_by_key(|e| e.0);
 
-        let entries = map.entries().collect::<Vec<(u32, u32)>>();
+        let entries = map.sort_iter().collect::<Vec<(u32, u32)>>();
         assert_eq!(entries, tuples);
 
         map.clear();

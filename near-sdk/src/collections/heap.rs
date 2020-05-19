@@ -37,8 +37,17 @@ impl<T> Heap<T>
         self.indices.clear();
     }
 
-    pub fn at(&self, idx: u64) -> Option<T> {
-        self.elements.get(idx)
+    pub fn get_max(&self) -> Option<T> {
+        self.at(0)
+    }
+
+    pub fn remove_max(&mut self) -> Option<T> {
+        let max = self.get_max();
+        let n = self.len();
+        swap(&mut self.elements, 1, n, &mut self.indices);
+        sink(&mut self.elements, 1, n - 1, &mut self.indices);
+        self.elements.pop();
+        max
     }
 
     pub fn lookup(&self, value: &T) -> Option<u64> {
@@ -70,9 +79,13 @@ impl<T> Heap<T>
         self.indices.remove(&value);
     }
 
-    pub fn iter<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
+    pub fn sort_iter<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
         sort(&mut self.elements, &mut self.indices);
         self.elements.iter()
+    }
+
+    fn at(&self, idx: u64) -> Option<T> {
+        self.elements.get(idx)
     }
 }
 
@@ -319,7 +332,7 @@ mod tests {
             let mut sorted = case.clone();
             sorted.sort();
 
-            let actual = heap.iter().collect::<Vec<u8>>();
+            let actual = heap.sort_iter().collect::<Vec<u8>>();
             heap.clear();
             assert_eq!(actual, sorted,
                        "Sorting {:?} failed: expected {:?} but got {:?}.", case, sorted, actual);
@@ -354,7 +367,7 @@ mod tests {
             let mut sorted = items.clone();
             sorted.sort();
 
-            let actual = heap.iter().collect::<Vec<u32>>();
+            let actual = heap.sort_iter().collect::<Vec<u32>>();
             heap.clear();
             assert_eq!(actual, sorted,
                        "Sorting {:?} failed: expected {:?} but got {:?}.", items, sorted, actual);
@@ -407,6 +420,42 @@ mod tests {
         heap.remove(&key);
 
         assert!(heap.lookup(&key).is_none());
+        assert_eq!(heap.len(), 0);
+
+        heap.clear();
+    }
+
+    #[test]
+    fn test_get_max() {
+        test_env::setup();
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+
+        for x in vec![1u8, 2u8, 3u8, 4u8, 5u8] {
+            heap.insert(&x);
+        }
+
+        assert_eq!(heap.get_max(), Some(5u8));
+        assert_eq!(heap.len(), 5);
+
+        heap.clear();
+    }
+
+    #[test]
+    fn test_remove_max() {
+        test_env::setup();
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+
+        let vec = vec![1u8, 2u8, 3u8, 4u8, 5u8];
+        for x in vec.iter() {
+            heap.insert(&x);
+        }
+
+        let n = vec.len();
+        for (i, _) in vec.iter().enumerate() {
+            assert_eq!(heap.remove_max(),  Some((n - i) as u8));
+            assert_eq!(heap.len() as usize, n - 1 - i);
+        }
+
         assert_eq!(heap.len(), 0);
 
         heap.clear();
