@@ -50,6 +50,9 @@ pub use heap::Heap;
 mod heap_map;
 pub use heap_map::HeapMap;
 
+mod tree_map;
+pub use tree_map::TreeMap;
+
 use crate::env;
 
 use borsh::{BorshDeserialize, BorshSerialize};
