@@ -47,6 +47,12 @@ pub use vector::Vector;
 mod map;
 pub use map::Map;
 
+// mod ordered_map;
+// pub use ordered_map::OrderedMap;
+
+mod binary_search_tree;
+pub use binary_search_tree::*;
+
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.
 pub(crate) static mut NEXT_TRIE_OBJECT_INDEX: u64 = 0;
