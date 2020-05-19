@@ -46,6 +46,10 @@ impl<T> Heap<T>
     }
 
     pub fn insert(&mut self, value: &T) {
+        if self.indices.get(value).is_some() {
+            // value already exists in the heap, nothing to do
+            return;
+        }
         self.elements.push(value);
         let idx = self.elements.len();
         self.indices.insert(value, &idx);
@@ -369,6 +373,25 @@ mod tests {
         heap.insert(&key);
         assert_eq!(heap.len(), 1);
         assert_eq!(heap.lookup(&key), Some(1));
+        heap.clear();
+    }
+
+    #[test]
+    fn test_insert_duplicate() {
+        test_env::setup();
+
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+        let key = 42u8;
+        assert!(heap.lookup(&key).is_none());
+        assert_eq!(heap.len(), 0);
+
+        heap.insert(&key);
+        heap.insert(&key);
+        assert_eq!(heap.len(), 1);
+        assert_eq!(heap.lookup(&key), Some(1));
+        assert_eq!(heap.indices.len(), 1);
+        assert_eq!(heap.elements.len(), 1);
+
         heap.clear();
     }
 
