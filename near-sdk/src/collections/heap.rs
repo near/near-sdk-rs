@@ -43,6 +43,9 @@ impl<T> Heap<T>
 
     pub fn remove_max(&mut self) -> Option<T> {
         let max = self.get_max();
+        if max.is_none() {
+            return max;
+        }
         let n = self.len();
         swap(&mut self.elements, 1, n, &mut self.indices);
         sink(&mut self.elements, 1, n - 1, &mut self.indices);
@@ -457,6 +460,16 @@ mod tests {
         }
 
         assert_eq!(heap.len(), 0);
+
+        heap.clear();
+    }
+
+    #[test]
+    fn test_remote_max_empty() {
+        test_env::setup();
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+
+        assert_eq!(heap.remove_max(), None);
 
         heap.clear();
     }
