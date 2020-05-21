@@ -1,7 +1,7 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::{append, next_trie_id, serialize};
+use crate::collections::{append, next_trie_id, serialize, deserialize};
 use crate::collections::UnorderedMap;
 use crate::env;
 
@@ -49,15 +49,21 @@ impl<K, V> TreeMap<K, V>
         let k_prefix = append(&id, b'k');
         let v_prefix = append(&id, b'v');
 
+        let root: u64 = env::storage_read(&id)
+            .map(|raw| deserialize(&raw))
+            .unwrap_or_default();
+        let val = UnorderedMap::new(v_prefix);
+        let len = val.len();
+
         Self {
             tree_prefix: id,
-            root: 0,
-            len: 0,
+            root,
+            len,
             ht: UnorderedMap::new(h_prefix),
             lft: UnorderedMap::new(l_prefix),
             rgt: UnorderedMap::new(r_prefix),
             key: UnorderedMap::new(k_prefix),
-            val: UnorderedMap::new(v_prefix),
+            val,
         }
     }
 
@@ -73,10 +79,15 @@ impl<K, V> TreeMap<K, V>
         self.val.clear();
         self.len = 0;
         self.root = 0;
+        env::storage_remove(&self.tree_prefix);
     }
 
     pub fn height(&mut self) -> u64 {
         self.ht.get(&self.root).unwrap_or_default()
+    }
+
+    pub fn contains_key(&self, key: &K) -> bool {
+        self.val.get(key).is_some()
     }
 
     pub fn get(&self, key: &K) -> Option<V> {
@@ -84,7 +95,7 @@ impl<K, V> TreeMap<K, V>
     }
 
     pub fn insert(&mut self, key: K, val: V) -> Option<V> {
-        if self.val.get(&key).is_some() {
+        if self.contains_key(&key) {
             // key is already present, changing only associated value
             self.val.insert(&key, &val)
         } else {
@@ -97,8 +108,16 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
-    pub fn remove(&mut self, _key: K) -> Option<V> {
-        None // TODO
+    pub fn remove(&mut self, key: K) -> Option<V> {
+        if self.contains_key(&key) {
+            let root = self.do_remove(&key);
+            self.set_root(root);
+            self.len -= 1;
+            self.val.remove(&key)
+        } else {
+            // no such key, nothing to do
+            None
+        }
     }
 
     pub fn min(&self) -> Option<K> {
@@ -136,7 +155,7 @@ impl<K, V> TreeMap<K, V>
         self.root = root;
     }
 
-    pub fn min_at(&self, mut at: u64) -> Option<K> {
+    fn min_at(&self, mut at: u64) -> Option<K> {
         loop {
             match self.lft.get(&at) {
                 Some(lft) => at = lft,
@@ -146,7 +165,7 @@ impl<K, V> TreeMap<K, V>
         self.key.get(&at)
     }
 
-    pub fn max_at(&self, mut at: u64) -> Option<K> {
+    fn max_at(&self, mut at: u64) -> Option<K> {
         loop {
             match self.rgt.get(&at) {
                 Some(rgt) => at = rgt,
@@ -156,7 +175,7 @@ impl<K, V> TreeMap<K, V>
         self.key.get(&at)
     }
 
-    pub fn floor_at(&self, mut at: u64, key: &K) -> Option<K> {
+    fn floor_at(&self, mut at: u64, key: &K) -> Option<K> {
         let mut seen: Option<K> = None;
         loop {
             match self.key.get(&at) {
@@ -180,7 +199,7 @@ impl<K, V> TreeMap<K, V>
         seen
     }
 
-    pub fn ceil_at(&self, mut at: u64, key: &K) -> Option<K> {
+    fn ceil_at(&self, mut at: u64, key: &K) -> Option<K> {
         let mut seen: Option<K> = None;
         loop {
             match self.key.get(&at) {
@@ -256,7 +275,7 @@ impl<K, V> TreeMap<K, V>
         self.ht.insert(&at, &ht);
     }
 
-    fn balance(&self, at: u64) -> i8 {
+    fn get_balance(&self, at: u64) -> i64 {
         let lht = self.lft.get(&at)
             .and_then(|id| self.ht.get(&id))
             .unwrap_or_default();
@@ -264,16 +283,11 @@ impl<K, V> TreeMap<K, V>
             .and_then(|id| self.ht.get(&id))
             .unwrap_or_default();
 
-        let d = lht as i64 - rht as i64;
-        if d < -1 {
-            -1
-        } else if d > 1 {
-            1
-        } else {
-            0
-        }
+        lht as i64 - rht as i64
     }
 
+    // Left rotation of an AVL subtree with root in `at`.
+    // New root of subtree is returned, caller's responsibility is to update links accordingly.
     fn rotate_left(&mut self, at: u64) -> u64 {
         let lft = self.lft.get(&at).unwrap();
         let lft_rgt = self.rgt.get(&lft);
@@ -293,6 +307,8 @@ impl<K, V> TreeMap<K, V>
         lft
     }
 
+    // Right rotation of an AVL subtree with root in `at`.
+    // New root of subtree is returned, caller's responsibility is to update links accordingly.
     fn rotate_right(&mut self, at: u64) -> u64 {
         let rgt = self.rgt.get(&at).unwrap();
         let rgt_lft = self.lft.get(&rgt);
@@ -313,23 +329,207 @@ impl<K, V> TreeMap<K, V>
     }
 
     fn enforce_balance(&mut self, at: u64) -> u64 {
-        let balance = self.balance(at);
-        if balance > 0 {
+        let balance = self.get_balance(at);
+        if balance > 1 {
             let lft = self.lft.get(&at).unwrap();
-            if self.balance(lft) < 0 {
+            if self.get_balance(lft) < 0 {
                 let rotated = self.rotate_right(lft);
                 self.lft.insert(&at, &rotated);
             }
             self.rotate_left(at)
-        } else if balance < 0 {
+        } else if balance < -1 {
             let rgt = self.rgt.get(&at).unwrap();
-            if self.balance(rgt) > 0 {
+            if self.get_balance(rgt) > 0 {
                 let rotated = self.rotate_left(rgt);
                 self.rgt.insert(&at, &rotated);
             }
             self.rotate_right(at)
         } else {
             at
+        }
+    }
+
+    fn lookup_at(&self, mut at: u64, key: &K) -> Option<(u64, u64)> {
+        let mut p = at;
+        loop {
+            match self.key.get(&at) {
+                Some(k) => {
+                    if k.eq(key) {
+                        return Some((at, p));
+                    } else if k.lt(key) {
+                        match self.rgt.get(&at) {
+                            Some(rgt) => {
+                                p = at;
+                                at = rgt;
+                            },
+                            None => break
+                        }
+                    } else {
+                        match self.lft.get(&at) {
+                            Some(lft) => {
+                                p = at;
+                                at = lft;
+                            },
+                            None => break
+                        }
+                    }
+                },
+                None => break
+            }
+        }
+        None
+    }
+
+    fn check_balance(&mut self, at: u64, key: &K) -> u64 {
+        match self.key.get(&at) {
+            Some(k) => {
+                if k.eq(key) {
+                    self.update_height(at);
+                    at
+                } else {
+                    if k.lt(key) {
+                        match self.lft.get(&at) {
+                            Some(l) => {
+                                let id = self.check_balance(l, key);
+                                self.lft.insert(&at, &id);
+                            },
+                            None => ()
+                        }
+                    } else {
+                        match self.rgt.get(&at) {
+                            Some(r) => {
+                                let id = self.check_balance(r, key);
+                                self.rgt.insert(&at, &id);
+                            },
+                            None => ()
+                        }
+                    }
+                    self.update_height(at);
+                    self.enforce_balance(at)
+                }
+            },
+            None => at
+        }
+    }
+
+    fn do_remove(&mut self, key: &K) -> u64 {
+        // Node holding the key is not removed from the tree - instead the substitute node is found,
+        // the key is copied to 'removed' node from substitute node, and then substitute node gets
+        // removed from the tree.
+        //
+        // The substitute node is either:
+        // - right-most (max) node of the left subtree (containing smaller keys) or
+        // - left-most (min) node of the right subtree (containing larger keys)
+        //
+        // The method expects the key to exist in the tree, calling on missing key will cause panic.
+
+        let root = self.root;
+        // r_id - id of a node containing key of interest
+        // r_p - id of an immediate parent node of r_id
+        let (r_id, r_p) = self.lookup_at(root, key).unwrap();   // key must exist
+
+        let lft_opt = self.lft.get(&r_id);
+        let rgt_opt = self.rgt.get(&r_id);
+
+        if lft_opt.is_none() && rgt_opt.is_none() {
+            // remove leaf
+            let p_key = self.key.get(&r_p).unwrap();
+            if p_key.lt(key) {
+                self.rgt.remove(&r_p);
+            } else {
+                self.lft.remove(&r_p);
+            }
+            self.key.remove(&r_id);
+            self.ht.remove(&r_id);
+
+            self.check_balance(root, &p_key)
+
+        } else {
+            // non-leaf node, select subtree to proceed with
+            let b = self.get_balance(r_id);
+            if (b >= 0 && lft_opt.is_some()) || rgt_opt.is_none() {
+                // proceed with left subtree
+                let lft = lft_opt.unwrap();
+
+                // k - max key from left subtree
+                let k = self.max_at(lft).unwrap();
+
+                // n - id of a node that holds key k, p - id of immediate parent of n
+                let (n, p) = self.lookup_at(r_id, &k).unwrap();
+
+                self.key.insert(&r_id, &k);
+                self.key.remove(&n);
+                self.ht.remove(&n);
+
+                if self.rgt.get(&p).map(|id| id == n).unwrap_or_default() {
+                    // n is on right link of p
+                    match self.lft.get(&n) {
+                        Some(l) => {
+                            self.rgt.insert(&p, &l);
+                            self.lft.remove(&n);
+                        },
+                        None => {
+                            self.rgt.remove(&p);
+                        }
+                    };
+                } else {
+                    // n is on left link of p
+                    match self.lft.get(&n) {
+                        Some(l) => {
+                            self.lft.insert(&p, &l);
+                            self.lft.remove(&n);
+                        },
+                        None => {
+                            self.lft.remove(&p);
+                        }
+                    }
+                }
+
+                self.check_balance(root, &k)
+
+            } else if (b < 0 && rgt_opt.is_some()) || lft_opt.is_none() {
+                // proceed with right subtree
+                let rgt = rgt_opt.unwrap();
+
+                // k - min key from right subtree
+                let k = self.min_at(rgt).unwrap();
+
+                // n - id of a node that holds key k, p - id of an immediate parent of n
+                let (n, p) = self.lookup_at(r_id, &k).unwrap();
+
+                self.key.insert(&r_id, &k);
+                self.key.remove(&n);
+                self.ht.remove(&n);
+
+                if self.lft.get(&p).map(|id| id == n).unwrap_or_default() {
+                    // n is on left link of p
+                    match self.rgt.get(&n) {
+                        Some(r) => {
+                            self.lft.insert(&p, &r);
+                            self.rgt.remove(&n);
+                        },
+                        None => {
+                            self.lft.remove(&p);
+                        }
+                    }
+                } else {
+                    // n is on right link of p
+                    match self.rgt.get(&n) {
+                        Some(r) => {
+                            self.rgt.insert(&p, &r);
+                            self.rgt.remove(&n);
+                        },
+                        None => {
+                            self.rgt.remove(&p);
+                        }
+                    }
+                }
+
+                self.check_balance(root, &k)
+
+            } else {
+                root
+            }
         }
     }
 }
@@ -343,7 +543,7 @@ mod tests {
     extern crate rand;
     use self::rand::RngCore;
 
-    fn random(n: usize) -> Vec<u32> {
+    fn random(n: u64) -> Vec<u32> {
         let mut rng = rand::thread_rng();
         let mut vec = Vec::with_capacity(n as usize);
         (0..n).for_each(|_| {
@@ -356,7 +556,7 @@ mod tests {
         std::primitive::f64::log(x, 2.0f64)
     }
 
-    fn max_tree_height(n: usize) -> u64 {
+    fn max_tree_height(n: u64) -> u64 {
         // h <= C * log2(n + D) + B
         // where:
         // C =~ 1.440, D =~ 1.065, B =~ 0.328
@@ -429,7 +629,7 @@ mod tests {
 
         let mut map: TreeMap<i32, i32> = TreeMap::default();
 
-        let n: usize = 30;
+        let n: u64 = 30;
         let cases = (0..2*(n as i32)).collect::<Vec<i32>>();
 
         let mut counter  = 0;
@@ -460,7 +660,7 @@ mod tests {
 
         let mut map: TreeMap<i32, i32> = TreeMap::default();
 
-        let n: usize = 30;
+        let n: u64 = 30;
         let cases = (0..2*(n as i32)).rev().collect::<Vec<i32>>();
 
         let mut counter  = 0;
@@ -508,7 +708,7 @@ mod tests {
     fn test_min() {
         test_env::setup();
 
-        let n: usize = 30;
+        let n: u64 = 30;
         let vec = random(n);
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
@@ -524,7 +724,7 @@ mod tests {
     fn test_max() {
         test_env::setup();
 
-        let n: usize = 30;
+        let n: u64 = 30;
         let vec = random(n);
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
@@ -580,7 +780,265 @@ mod tests {
         map.clear();
     }
 
-    // TODO remove
+    #[test]
+    fn test_remove_1() {
+        test_env::setup();
+
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        map.insert(1, 1);
+        assert_eq!(map.get(&1), Some(1));
+        map.remove(1);
+        assert_eq!(map.get(&1), None);
+        assert_eq!(map.key.len(), 0);
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_3_desc() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![3, 2, 1];
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_3_asc() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![1, 2, 3];
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_7_regression_1() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_7_regression_2() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_9_regression() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![1186903464, 506371929, 1738679820, 1883936615, 1815331350, 1512669683, 3581743264, 1396738166, 1902061760];
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_20_regression() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![552517392, 3638992158, 1015727752, 2500937532, 638716734, 586360620, 2476692174, 1425948996, 3608478547, 757735878, 2709959928, 2092169539, 3620770200, 783020918, 1986928932, 200210441, 1972255302, 533239929, 497054557, 2137924638];
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_n() {
+        test_env::setup();
+
+        let n: u64 = 20;
+        let vec = random(n);
+
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        for x in &vec {
+            map.insert(*x, 1);
+        }
+
+        assert_eq!(map.len(), n);
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            assert_eq!(map.get(x), None);
+        }
+
+        assert_eq!(map.len(), 0);
+
+        assert_eq!(map.key.len(), 0);
+        assert_eq!(map.val.len(), 0);
+        assert_eq!(map.ht.len(), 0);
+        assert_eq!(map.lft.len(), 0);
+        assert_eq!(map.rgt.len(), 0);
+        map.clear();
+    }
+
+    #[test]
+    fn test_remove_root_3() {
+        test_env::setup();
+
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        map.insert(2, 1);
+        map.insert(3, 1);
+        map.insert(1, 1);
+        map.insert(4, 1);
+
+        map.remove(2);
+
+        assert_eq!(map.get(&1), Some(1));
+        assert_eq!(map.get(&2), None);
+        assert_eq!(map.get(&3), Some(1));
+        assert_eq!(map.get(&4), Some(1));
+        map.clear();
+    }
+
+    #[test]
+    fn test_insert_2_remove_2_regression() {
+        test_env::setup();
+
+        let ins: Vec<u32> = vec![11760225, 611327897];
+        let rem: Vec<u32> = vec![2982517385, 1833990072];
+
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        map.insert(ins[0], 1);
+        map.insert(ins[1], 1);
+
+        map.remove(rem[0]);
+        map.remove(rem[1]);
+
+        let h = map.height();
+        let h_max = max_tree_height(map.len());
+        assert!(h <= h_max, "h={} h_max={}", h, h_max);
+        map.clear();
+    }
+
+    #[test]
+    fn test_insert_n_duplicates() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in 0..30 {
+            map.insert(x, x);
+            map.insert(42, x);
+        }
+
+        assert_eq!(map.get(&42), Some(29));
+        assert_eq!(map.len(), 31);
+        assert_eq!(map.key.len(), 31);
+        assert_eq!(map.ht.len(), 31);
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_insert_2n_remove_n_random() {
+        test_env::setup();
+
+        for k in 1..4 {
+            let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+            let n = 1 << k;
+            let ins: Vec<u32> = random(n);
+            let rem: Vec<u32> = random(n);
+
+            for x in &ins {
+                map.insert(*x, 42);
+            }
+
+            for x in &rem {
+                map.insert(*x, 42);
+            }
+
+            for x in &rem {
+                map.remove(*x);
+            }
+
+            assert_eq!(map.len(), n);
+
+            let h = map.height();
+            let h_max = max_tree_height(n);
+            assert!(h <= h_max, "[n={}] tree is too high: {} (max is {}).", n, h, h_max);
+
+            map.clear();
+        }
+    }
+
     // TODO iter
     // TODO iter_rev
 }

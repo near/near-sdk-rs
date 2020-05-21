@@ -83,13 +83,11 @@ pub(crate) fn append_slice(id: &[u8], extra: &[u8]) -> Vec<u8> {
     result
 }
 
-#[allow(dead_code)] // TODO remove is unused
 fn serialize<T: BorshSerialize>(value: &T) -> Vec<u8> {
     value.try_to_vec()
         .unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
 }
 
-#[allow(dead_code)] // TODO remove is unused
 fn deserialize<T: BorshDeserialize>(slice: &[u8]) -> T {
     T::try_from_slice(slice)
         .unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
