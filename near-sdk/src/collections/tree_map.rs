@@ -1039,6 +1039,13 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_remove_empty() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        assert_eq!(map.remove(1), None);
+    }
+
     // TODO iter
     // TODO iter_rev
 }
