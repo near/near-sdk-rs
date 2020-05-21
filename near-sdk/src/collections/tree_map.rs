@@ -424,13 +424,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO FIXME HostError(GasLimitExceeded)
     fn test_insert_lookup_n_asc() {
         test_env::setup();
 
         let mut map: TreeMap<i32, i32> = TreeMap::default();
 
-        let n: usize = 100;
+        let n: usize = 30;
         let cases = (0..2*(n as i32)).collect::<Vec<i32>>();
 
         let mut counter  = 0;
@@ -456,13 +455,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO FIXME HostError(GasLimitExceeded)
     fn test_insert_lookup_n_desc() {
         test_env::setup();
 
         let mut map: TreeMap<i32, i32> = TreeMap::default();
 
-        let n: usize = 100;
+        let n: usize = 30;
         let cases = (0..2*(n as i32)).rev().collect::<Vec<i32>>();
 
         let mut counter  = 0;
@@ -488,11 +486,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO FIXME HostError(GasLimitExceeded)
     fn insert_n_random() {
         test_env::setup();
 
-        for k in 0..10 {
+        for k in 1..5 {
             let mut map: TreeMap<u32, u32> = TreeMap::default();
 
             let n = 1 << k;
@@ -508,11 +505,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO FIXME HostError(GasLimitExceeded)
     fn test_min() {
         test_env::setup();
 
-        let n: usize = 100;
+        let n: usize = 30;
         let vec = random(n);
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
@@ -525,11 +521,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO FIXME HostError(GasLimitExceeded)
     fn test_max() {
         test_env::setup();
 
-        let n: usize = 100;
+        let n: usize = 30;
         let vec = random(n);
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
