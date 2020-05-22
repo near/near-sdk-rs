@@ -1,4 +1,4 @@
-
+use std::ops::Bound;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::collections::{append, next_trie_id, serialize, deserialize};
@@ -151,6 +151,18 @@ impl<K, V> TreeMap<K, V>
 
     pub fn iter_rev_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
         Cursor::desc_from(&self, key).into_iter()
+    }
+
+    pub fn range<'a>(&'a self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + 'a {
+        let (lo, hi) = match r {
+            (Bound::Included(a), Bound::Included(b)) if a >  b => panic!("Invalid range."),
+            (Bound::Excluded(a), Bound::Included(b)) if a >  b => panic!("Invalid range."),
+            (Bound::Included(a), Bound::Excluded(b)) if a >  b => panic!("Invalid range."),
+            (Bound::Excluded(a), Bound::Excluded(b)) if a == b => panic!("Invalid range."),
+            (lo, hi) => (lo, hi)
+        };
+
+        Cursor::range(&self, lo, hi).into_iter()
     }
 
     pub fn to_vec(&self) -> Vec<(K, V)> {
@@ -581,62 +593,104 @@ impl<K, V> Iterator for Cursor<'_, K, V>
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let key = if self.asc {
-            match self.key {
-                Some(k) => self.map.floor(&k),
-                None => self.map.min()
-            }
-        } else {
-            match self.key {
-                Some(k) => self.map.ceil(&k),
-                None => self.map.max()
-            }
-        };
-        self.key = key;
+        let this_key = self.key;
 
-        key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        let next_key = self.key.and_then(|k| {
+            if self.asc {
+                self.map.floor(&k)
+            } else {
+                self.map.ceil(&k)
+            }
+        });
+        self.key = next_key.filter(|k| fits(k, self.lo, self.hi));
+
+        this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
     }
+}
+
+fn fits<K: Ord>(key: &K, lo: Bound<K>, hi: Bound<K>) -> bool {
+    (match lo {
+        Bound::Included(ref x) => key >= x,
+        Bound::Excluded(ref x) => key > x,
+        Bound::Unbounded => true
+    }) &&
+    (match hi {
+        Bound::Included(ref x) => key <= x,
+        Bound::Excluded(ref x) => key < x,
+        Bound::Unbounded => true
+    })
 }
 
 pub struct Cursor<'a, K, V> {
     asc: bool,
+    lo: Bound<K>,
+    hi: Bound<K>,
     key: Option<K>,
     map: &'a TreeMap<K, V>
 }
 
 impl<'a, K, V> Cursor<'a, K, V>
     where
-        K: Ord + BorshSerialize + BorshDeserialize,
-        V: BorshSerialize + BorshDeserialize,
+        K: Ord + Copy + BorshSerialize + BorshDeserialize,
+        V: Copy + BorshSerialize + BorshDeserialize,
 {
     fn asc(map: &'a TreeMap<K, V>) -> Self {
+        let key: Option<K> = map.min();
         Self {
             asc: true,
-            key: None,
+            key,
+            lo: Bound::Unbounded,
+            hi: Bound::Unbounded,
             map
         }
     }
 
     fn asc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
+        let key = map.floor(&key);
         Self {
             asc: true,
-            key: Some(key),
+            key,
+            lo: Bound::Unbounded,
+            hi: Bound::Unbounded,
             map
         }
     }
 
     fn desc(map: &'a TreeMap<K, V>) -> Self {
+        let key: Option<K> = map.max();
         Self {
             asc: false,
-            key: None,
+            key,
+            lo: Bound::Unbounded,
+            hi: Bound::Unbounded,
             map
         }
     }
 
     fn desc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
+        let key = map.ceil(&key);
         Self {
             asc: false,
-            key: Some(key),
+            key,
+            lo: Bound::Unbounded,
+            hi: Bound::Unbounded,
+            map
+        }
+    }
+
+    fn range(map: &'a TreeMap<K, V>, lo: Bound<K>, hi: Bound<K>) -> Self {
+        let key = match lo {
+            Bound::Excluded(k) => map.floor(&k),
+            Bound::Included(k) if map.contains_key(&k) => Some(k),
+            _ => None
+        };
+        let key = key.filter(|k| fits(k, lo, hi));
+
+        Self {
+            asc: true,
+            key,
+            lo,
+            hi,
             map
         }
     }
@@ -1290,6 +1344,89 @@ mod tests {
             map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]);
         map.clear();
+    }
+
+    #[test]
+    fn test_range() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+
+        for x in &one {
+            map.insert(*x, 42);
+        }
+
+        for x in &two {
+            map.insert(*x, 42);
+        }
+
+        assert_eq!(
+            map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
+            vec![(20, 42), (25, 42)]);
+
+        assert_eq!(
+            map.range((Bound::Excluded(10), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
+            vec![(15, 42), (20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]);
+
+        assert_eq!(
+            map.range((Bound::Included(20), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
+            vec![(20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]);
+
+        assert_eq!(
+            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (30, 42), (35, 42), (40, 42)]);
+
+        assert_eq!(
+            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (30, 42), (35, 42), (40, 42)]);
+
+        assert_eq!(
+            map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
+            vec![]);
+
+        assert_eq!(
+            map.range((Bound::Included(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42)]);
+
+        assert_eq!(
+            map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
+            vec![]);
+
+        map.clear();
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_same_excluded() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_incl_exlc() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_excl_incl() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_incl_incl() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        let _ = map.range((Bound::Included(2), Bound::Included(1)));
     }
 
     #[test]
