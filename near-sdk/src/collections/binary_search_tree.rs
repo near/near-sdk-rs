@@ -269,6 +269,15 @@ where
         }
     }
 
+    pub fn assert_left_leaning_invariant(&self, node: &RedBlackNode<T>) {
+        // check left-leaning invariant
+        let left_child_is_black = self.get_left_child(&node).map_or(true, |n| n.is_black());
+        if left_child_is_black {
+            let right_child_is_black = self.get_right_child(&node).map_or(true, |n| n.is_black());
+            assert!(right_child_is_black);
+        }
+    }
+
     fn new_node_key(&mut self) -> EnvStorageKey {
         self.len += 1;
         self.len.clone().to_le_bytes().to_vec()
@@ -368,14 +377,9 @@ where
             right_child_node.color -= 1;
             self.update_node(&right_child_node);
         }
-        
-        // TODO check if node is already black -- indicates an invariant violation
-        
+                
         node.color += 1;
-
         self.update_node(node);
-        // self.update_node(&left_child_node);
-        // self.update_node(&right_child_node);
     }
 
     fn rotate(&mut self, direction: &Direction, pivot_node: &mut RedBlackNode<T>, swap_colors: bool) { // O(1)
@@ -513,382 +517,271 @@ where
     }
 
     // Returns parent of the spliced node
-    pub fn splice(&mut self, node: &RedBlackNode<T>) -> Option<RedBlackNode<T>> {
-        println!("TREE: splice(w), w={:?}", node.value);
-        let mut child = self
-            .get_left_child(node)
-            .or_else(|| self.get_right_child(&node));
+    pub fn splice(&mut self, w: &RedBlackNode<T>) -> Option<RedBlackNode<T>> {
+        println!("TREE: splice(w), w={:?}", w.value);
+        let mut s = self
+            .get_left_child(w)
+            .or_else(|| self.get_right_child(&w));
 
-        println!("TREE: splice(w), s={:?}", child.as_ref().map(|n| &n.value));
-        let mut parent = self.get_parent(node);
+        println!("TREE: splice(w), s = {:?}", s.as_ref().map(|n| &n.value));
+        let w_parent = self.get_parent(w);
 
-        println!("TREE: splice(w), w.parent={:?}", parent.as_ref().map(|n| &n.value));
+        println!("TREE: splice(w), w.parent = {:?}", w_parent.as_ref().map(|n| &n.value));
         // Replace node with its child
-        if let Some(parent_node) = parent.as_mut() {
-            parent_node.set_child(child.as_mut(), &node.child_direction());
-            self.update_node(parent_node);
-        } else if let Some(child_node) = child.as_mut() {
-            println!("TREE: splice(w), child s={:?} is new root!", child_node.value);
+        let updated_w_parent = if let Some(mut w_parent_node) = w_parent {
+            println!("TREE: splice(w), w.parent.{:?}_child = s = {:?}. s.color={:?}", w.child_direction(), s.as_ref().map(|n| &n.value), s.as_ref().map(|n| n.color));
+            w_parent_node.set_child(s.as_mut(), &w.child_direction());
+            self.update_node(&w_parent_node);
+            Some(w_parent_node)
+        } else if let Some(s_node) = s.as_mut() {
+            println!("TREE: splice(w), child s = {:?} is new root!", s_node.value);
             // child node is new root
-            child_node.parent_key = None;
-            self.root_key = Some(child_node.key().clone());
+            s_node.parent_key = None;
+            self.root_key = Some(s_node.key().clone());
             // FIXME what if child_node is new root and is None??
-        }
+            None
+        } else {
+            None
+        };
 
         // update child node if it exists
-        if let Some(child_node) = child {
-            self.update_node(&child_node);
+        if let Some(s_node) = s {
+            self.update_node(&s_node);
         }
 
         // TODO add call to remove node from env::storage
         self.len -= 1; // TODO check for underflow?
-        parent
+        updated_w_parent
     }
 
     pub fn remove(&mut self, value: &T) -> bool {
-        // u = self._find_last(x)
-        if let Some(mut node) = self.find_parent(value) {
-            // if u == self.nil or u.x != x:
-            if &node.value != value {
+        if let Some(mut u) = self.find_parent(value) {
+            // value does not exist in the tree
+            if &u.value != value {
                 println!("TREE: remove() {:?} does not exist in tree", value);
-                //     return False
-                // value does not exist in the tree
                 return false 
             }
 
-            // w = u.right
-            let mut child_node;
-            if let Some(right_child_node) = self.get_right_child(&node) {
-                println!("TREE: remove() right child of u={:?} is w={:?}", value, right_child_node.value);
-                // else:
-                //     while w.left != self.nil:
-                //         w = w.left
-                child_node = right_child_node;
-                while let Some(left_child_node) = self.get_left_child(&child_node) {
-                    child_node = left_child_node;
+            let mut w;
+            let child_direction = if let Some(is_w) = self.get_right_child(&u) {
+                w = is_w;
+                println!("TREE: remove() right child of u={:?} is w={:?}", value, w.value);
+
+                while let Some(left_child_node) = self.get_left_child(&w) {
+                    w = left_child_node;
                 }
 
-                println!("TREE: remove() leftmost child of w is {:?}", child_node.value);
+                println!("TREE: remove() leftmost child of w is {:?}", w.value);
                 
-                let right_grand_child = self.get_right_child(&child_node);
-                let child_node_child_direction = child_node.child_direction();
-                let child_node_color = child_node.color;
+                std::mem::swap(&mut u.value, &mut w.value);
+                self.update_node(&u);
 
-                //     u.x = w.x
-                std::mem::swap(&mut node.value, &mut child_node.value);
-                self.update_node(&node);
-
-                let parent = self.splice(&child_node);
-
-                if let Some(right_grand_child_node) = right_grand_child {
-                    node = right_grand_child_node;
-                    node.color += child_node_color;
-                    self.update_node(&node);
-                    self.remove_fixup(node); 
-                } else if child_node_color == 1 {
-                    // we have a double black node, but it is a nil node (None)
-                    if let Some(mut parent_node) = parent {
-                        node = if parent_node.has_left_child() {
-                            self.fix_double_black_right_child_node(parent_node)
-                        } else {
-                            self.fix_double_black_left_child_node(&mut parent_node)
-                        };
-                        // node = self.fix_double_black_right_child_node(parent_node);
-                        // node = self.fix_double_black_left_child_node(&mut parent_node);
-                        self.remove_fixup(node); 
-                    }
-                } else {
-                    // no double black node, but need to restore left leaning property
-                    self.restore_left_leaning(parent);
-                }
-
-                //     u = w.right
-                // node = right_grand_child_node;
-
-                // node.color += child_node_color;
-                
-                // done during splicing
-                // if let Some(mut parent_node) = self.get_parent(&node) {
-                //     parent_node.set_child(Some(&mut node), &child_node_child_direction);
-                //     self.update_node(&parent_node);
-                // } else {
-                //     node.parent_key = None;
-                // }
+                Direction::Right
+                // self.get_right_child(&w)
             } else {
-                println!("TREE: remove() right child of u={:?} is w=None", value);
-                // if w == self.nil:
-                //     w = u
-                //     u = w.left
-                child_node = node;
-                // println!("TREE: remove() w=u; {:?} -> {:?}", child_node.value);
+                println!("TREE: remove() right child of u={:?} is w=None", u.value);
 
-                let parent = self.splice(&child_node);
+                w = u;
+                Direction::Left
+                // self.get_left_child(&w)
+            };
 
-                if let Some(left_grand_child_node) = self.get_left_child(&child_node) {
-                    println!("TREE: remove() left child of {:?} is {:?}", child_node.value, left_grand_child_node.value);
-                    node = left_grand_child_node;
-                    node.color += child_node.color;
-                    self.update_node(&node);
-                    self.remove_fixup(node); 
-                } else if child_node.is_black() {
-                    println!("TREE: remove() left child of {:?} is None, and double black", child_node.value);
-                    // we have a double black node, but it is a nil node (None)
-                    if let Some(mut parent_node) = parent {
-                        node = if parent_node.has_left_child() {
-                            self.fix_double_black_right_child_node(parent_node)
-                        } else {
-                            self.fix_double_black_left_child_node(&mut parent_node)
-                        };
-                        // node = self.fix_double_black_right_child_node(parent_node);
-                        // node = self.fix_double_black_left_child_node(&mut parent_node);
-                        self.remove_fixup(node); 
+            println!("TREE: remove() w is {:?} child", w.child_direction());
+            let wp = self.get_parent(&w);
+            println!("TREE: remove() w.parent.left.color = {:?}", wp.as_ref().map(|p| self.get_left_child(p).map_or(1, |n| n.color)));
+            println!("TREE: remove() w.parent.right.color = {:?}", wp.as_ref().map(|p| self.get_right_child(p).map_or(1, |n| n.color)));
+
+            let w_parent = self.splice(&w);
+
+            if let Some(is_u) = self.get_child(&w, &child_direction) {
+                u = is_u;
+                u.color += w.color;
+                println!("TREE: remove() w = {:?}, u = w.{:?}_child = {:?}, u.color = {:?}", w.value, child_direction, u.value, u.color);
+                self.update_node(&u);
+                self.remove_fixup(u); 
+            } else if w.is_black() {
+                println!("TREE: remove() w = {:?}, u = w.{:?}_child = None, and double black", w.value, child_direction);
+                // we have a double black node, but it is a nil node (None)
+                if let Some(mut parent_node) = w_parent {
+
+                    let left_child_is_red = self.get_left_child(&parent_node).map_or(false, |n| n.is_red());
+                    if left_child_is_red {
+                        self.rotate(&Direction::Right, &mut parent_node, true);
                     }
-                } else {
-                    // no double black node, but need to restore left leaning property
-                    self.restore_left_leaning(parent);
-                }
 
-                // done during splicing
-                // if let Some(mut parent_node) = self.get_parent(&node) {
-                //     parent_node.set_child(Some(&mut node), &child_node.child_direction());
-                //     self.update_node(&parent_node);
-                // } else {
-                //     node.parent_key = None;
-                // }
+                    assert!(self.get_left_child(&parent_node).map_or(true, |n| n.is_black()));
+                    assert!(self.get_right_child(&parent_node).map_or(true, |n| n.is_black()));
+                    
+                    u = if parent_node.has_left_child() {
+                        self.fix_double_black_right_child_node(parent_node)
+                    } else {
+                        self.fix_double_black_left_child_node(&mut parent_node)
+                    };
+                    self.remove_fixup(u); 
+                }
+            } else {
+                // no double black node, but need to restore left leaning property
+                self.restore_left_leaning(w_parent);
             }
 
-            // self.splice(w)
-            // u.colour += w.colour
-            // u.parent = w.parent 
-            // self.remove_fixup(u)
+            // for node in self.iter() {
+            //     println!("checking node {:?} for invariant", node);
+            // }
             true
         } else {
-            println!("TREE: remove() {:?} does not exist in tree", value);
-            // if u == self.nil or u.x != x:
-            //     return False
             // value does not exist in the tree
+            println!("TREE: remove() {:?} does not exist in tree", value);
             false
         }
     }
 
-    fn remove_case(&self, node: &RedBlackNode<T>) -> Option<(DoubleBlackNodeCase, RedBlackNode<T>)> {
+    fn remove_case(&self, u: &RedBlackNode<T>) -> Option<(DoubleBlackNodeCase, RedBlackNode<T>)> {
         use DoubleBlackNodeCase::*;
-        self.get_parent(node)
-            .map_or(None, |parent_node| {
-                if (node.is_left_child() && node.is_red()) || 
-                    self.get_left_child(&parent_node)
+        self.get_parent(u)
+            .map_or(None, |u_parent| {
+                if (u.is_left_child() && u.is_red()) || 
+                    self.get_left_child(&u_parent)
                         .map_or(false, |left_child_node| left_child_node.is_red()) 
                 {
-                    Some((LeftSiblingIsRed, parent_node))
-                } else if node.is_left_child() {
-                    Some((NodeIsLeftChild, parent_node))
+                    Some((LeftSiblingIsRed, u_parent))
+                } else if u.is_left_child() {
+                    Some((NodeIsLeftChild, u_parent))
                 } else {
-                    Some((NodeIsRightChild, parent_node))
+                    Some((NodeIsRightChild, u_parent))
                 }
             })
     }
 
     fn restore_left_leaning(&mut self, parent: Option<RedBlackNode<T>>) {
-        if let Some(mut parent_node) = parent {
-            let right_chlid_is_red = self.get_right_child(&parent_node).map_or(false, |right_child_node| right_child_node.is_red());
-            let left_child_is_black = self.get_left_child(&parent_node).map_or(true, |left_child_node| left_child_node.is_black());
-            // if w.right.colour == red and w.left.colour == black:
-            if right_chlid_is_red && left_child_is_black {
-                println!("TREE: restore_left_leaning() parent={:?}", parent_node.value);
-                // self.flip_left(w)
-                self.rotate(&Direction::Left, &mut parent_node, true);
+        if let Some(mut w) = parent {
+            let right_child_is_red = self.get_right_child(&w).map_or(false, |right_child_node| right_child_node.is_red());
+            let left_child_is_black = self.get_left_child(&w).map_or(true, |left_child_node| left_child_node.is_black());
+
+            if right_child_is_red && left_child_is_black {
+                println!("TREE: restore_left_leaning() parent={:?}", w.value);
+                self.rotate(&Direction::Left, &mut w, true);
             }
         }
     }
     
-    fn remove_fixup(&mut self, mut node: RedBlackNode<T>) {
-        // while u.colour > black:
-        while node.is_double_black() {
-            match self.remove_case(&node) {
-                Some((case, parent_node)) => {
-                    if let Some(new_node) = self.fix_double_black_node(case, parent_node) {
-                        node = new_node;
+    fn remove_fixup(&mut self, mut u: RedBlackNode<T>) {
+        println!("TREE: remove_fixup() u={:?}", u.value);
+        while u.is_double_black() {
+            match self.remove_case(&u) {
+                Some((case, u_parent)) => {
+                    if let Some(new_node) = self.fix_double_black_node(case, u_parent) {
+                        u = new_node;
                     }
                 },
                 None => { // node is root
-                    node.color = 1; // black
-                    // self.update_node(&node);
+                    u.color = 1; // black
                 }
             }
-            /*
-            println!("TREE: remove_fixup() {:?} is double black", node.value);
-            if let Some(mut parent_node) = self.get_parent(&node) {
-
-            } 
-            // if u == self.r:  
-            else {
-                println!("TREE: remove_fixup() {:?} is new root. coloring black", node.value);
-                //     u.colour = black
-                node.color = 1; // black
-                self.update_node(&node);
-            }
-            */
-            self.update_node(&node);
+            self.update_node(&u);
         }
 
-        println!("TREE: remove_fixup() done! node={:?}", node.value);
-        self.restore_left_leaning(self.get_parent(&node));
-        
-        // if u != self.r:   # restore left-leaning property, if needed
-        // if let Some(mut parent_node) = self.get_parent(&node) {
-            // println!("TREE: remove_fixup() restoring left leaning property for {:?}", node.value);
-            // self.restore_left_leaning(&mut parent_node);
-            // w = u.parent
-            /*
-            let right_chlid_is_red = self.get_right_child(&parent_node).map_or(false, |right_child_node| right_child_node.is_red());
-            let left_child_is_black = self.get_left_child(&parent_node).map_or(true, |left_child_node| left_child_node.is_black());
-            // if w.right.colour == red and w.left.colour == black:
-            if right_chlid_is_red && left_child_is_black {
-                // self.flip_left(w)
-                self.rotate(&Direction::Left, &mut parent_node, true);
-            }
-            */
-        // }
+        println!("TREE: remove_fixup() done! u={:?}", u.value);
+        self.restore_left_leaning(self.get_parent(&u));
     }
     
-    fn fix_double_black_node(&mut self, case: DoubleBlackNodeCase, mut parent_node: RedBlackNode<T>) -> Option<RedBlackNode<T>> {
+    fn fix_double_black_node(&mut self, case: DoubleBlackNodeCase, mut u_parent: RedBlackNode<T>) -> Option<RedBlackNode<T>> {
         println!("TREE: fix_double_black_node() case {:?}", case);
         use DoubleBlackNodeCase::*;
         match case {
             LeftSiblingIsRed => {
-                // println!("TREE: remove_fixup() case 1 for {:?}", node.value);
-                self.rotate(&Direction::Right, &mut parent_node, true);
+                self.rotate(&Direction::Right, &mut u_parent, true);
                 None
             },
-            NodeIsLeftChild => Some(self.fix_double_black_left_child_node(&mut parent_node)),
-            NodeIsRightChild => Some(self.fix_double_black_right_child_node(parent_node))
+            NodeIsLeftChild => Some(self.fix_double_black_left_child_node(&mut u_parent)),
+            NodeIsRightChild => Some(self.fix_double_black_right_child_node(u_parent))
         }
-        /*
-        // elif u.parent.left.colour == red:
-        if (node.is_left_child() && node.is_red()) || 
-            self.get_left_child(&parent_node)
-                .map_or(false, |left_child_node| left_child_node.is_red()) 
-        {
-            println!("TREE: remove_fixup() case 1 for {:?}", node.value);
-            // u = self.remove_fixup_case1(u)
-            self.rotate(&Direction::Right, &mut parent_node, true);
-        } 
-        // elif u == u.parent.left:
-        else if node.is_left_child() {
-            println!("TREE: remove_fixup() case 2 for {:?}", node.value);
-            node = self.remove_fixup_case2(&mut parent_node);
-        }
-        // node is right child
-        else {
-            println!("TREE: remove_fixup() case 3 for {:?}", node.value);
-            node = self.remove_fixup_case3(parent_node);
-        }
-        node
-        */
     }
     
-    fn fix_double_black_left_child_node(&mut self, node: &mut RedBlackNode<T>) -> RedBlackNode<T> {
-        println!("TREE: remove_fixup_case2() w = {:?}, w.color = {:?}", node.value, node.color);
-        // w = u.parent
-        // v = w.right
-        // let mut right_child_node = self.get_right_child(&node).expect("right child must exist");
-        // println!("TREE: remove_fixup_case2() v = {:?}. v.color = {:?}", right_child_node.value, right_child_node.color);
-        // self.pull_black(w)
-        self.pull_black(node);
-        // self.flip_left(w)
-        self.rotate(&Direction::Left, node, true);
-        // q = w.right
-        // if let Some(mut new_right_child_node) = self.get_right_child(&node) {
-        if self.get_right_child(&node).map_or(false, |r| r.is_red()) {
-            // println!("TREE: remove_fixup_case2() q = {:?}. q.color = {:?}", new_right_child_node.value, new_right_child_node.color);
-            // if q.colour == red:
-            // if new_right_child_node.is_red() {
-        //     self.rotate_left(w)
+    fn fix_double_black_left_child_node(&mut self, w: &mut RedBlackNode<T>) -> RedBlackNode<T> {
+        println!("TREE: remove_fixup_case2() w = {:?}, w.color = {:?}", w.value, w.color);
+        self.pull_black(w);
+        
+        self.rotate(&Direction::Left, w, true);
+        
+        if self.get_right_child(&w).map_or(false, |r| r.is_red()) {
             println!("---> w={:?} has parent={:?}, rightchild q={:?}", 
-                node.value, 
-                self.get_parent(&node).expect("v").value,
-                self.get_right_child(&node).expect("q").value
+                w.value, 
+                self.get_parent(&w).expect("v").value,
+                self.get_right_child(&w).expect("q").value
             );
-            self.rotate(&Direction::Left, node, false);
-            let q =self.get_parent(&node).expect("q");
-            let mut v = self.get_parent(&q).expect("v");
-            let qq = self.get_left_child(&v).expect("qq");
-            println!("---> w={:?} has parent q={:?}, q parent v={:?}, v lchild q={:?}", 
-                node.value, 
-                q.value,
-                v.value,
-                qq.value
-            );
-            println!("TREE: remove_fixup_case2() w = {:?}. w.color = {:?}", node.value, node.color);
-            // println!("TREE: remove_fixup_case2() q = {:?}. q.color = {:?}", new_right_child_node.value, new_right_child_node.color);
-            // println!("TREE: remove_fixup_case2() v = {:?}. v.color = {:?}", right_child_node.value, right_child_node.color);
-        //     self.flip_right(v)
+
+            let q_b = self.get_right_child(&w).expect("q");
+            // self.assert_left_leaning_invariant(&q_b);
+            
+            self.rotate(&Direction::Left, w, false);
+            // self.assert_left_leaning_invariant(&w);
+            
+            let intermediate_q = self.get_parent(&w).expect("q");
+            let mut v = self.get_parent(&intermediate_q).expect("v");
+            // let qq = self.get_left_child(&v).expect("qq");
+            // println!("---> w={:?} has parent q={:?}, q parent v={:?}, v lchild q={:?}", 
+            //     w.value, 
+            //     intermediate_q.value,
+            //     v.value,
+            //     qq.value
+            // );
+            println!("TREE: remove_fixup_case2() w = {:?}. w.color = {:?}", w.value, w.color);
+            println!("TREE: remove_fixup_case2() q = {:?}. q.color = {:?}", intermediate_q.value, intermediate_q.color);
+            println!("TREE: remove_fixup_case2() v = {:?}. v.color = {:?}", v.value, v.color);
+            // self.flip_right(v)
             // let mut right_child_node = self.get_right_child(&node).expect("right child must exist");
             self.rotate(&Direction::Right, &mut v, true);
-            let mut new_right_child_node = self.get_parent(node).expect("parent must exist");
-            println!("TREE: remove_fixup_case2() w = {:?}. w.color = {:?}", node.value, node.color);
-            println!("TREE: remove_fixup_case2() q = {:?}. q.color = {:?}", new_right_child_node.value, new_right_child_node.color);
-            println!("---> parent of q is {:?}", self.get_parent(&new_right_child_node).map(|p| p.value));
+            let mut q = self.get_parent(w).expect("parent must exist");
+            println!("TREE: remove_fixup_case2() w = {:?}. w.color = {:?}", w.value, w.color);
+            println!("TREE: remove_fixup_case2() q = {:?}. q.color = {:?}", q.value, q.color);
+            // println!("---> parent of q is {:?}", self.get_parent(&q).map(|p| p.value));
             println!("TREE: remove_fixup_case2() v = {:?}. v.color = {:?}", v.value, v.color);
-        //     self.push_black(q)
-            self.push_black(&mut new_right_child_node);
-        //     if v.right.colour == red:
-            if self.get_right_child(&v).map_or(false, |n| n.is_red()) {
-        //         self.flip_left(v)
-                self.rotate(&Direction::Left, &mut v, true);
+            // self.push_black(q)
+            self.push_black(&mut q);
+            let mut updated_v = self.get_right_child(&q).expect("v exists");
+
+            if self.get_right_child(&updated_v).map_or(false, |n| n.is_red()) {
+                self.rotate(&Direction::Left, &mut updated_v, true);
             }
-        //     return q
-            return new_right_child_node
-            // }
+
+            // q
+            self.get_parent(&updated_v).expect("parent must exist")
         } else {
-            // else:
-            //     return v
-            // right_child_node
-            self.get_parent(&node).expect("parent must exist")
+            let v = self.get_parent(w).expect("parent must exist");
+            v
         }
     }
     
-    fn fix_double_black_right_child_node(&mut self, mut node: RedBlackNode<T>) -> RedBlackNode<T> {
-        println!("TREE: remove_fixup_case3() w = {:?}, w.color = {:?}", node.value, node.color);
-        // w = u.parent
-        // v = w.left
-        // let mut left_child_node = self.get_left_child(&node).expect("left child must exist");
-        // self.pull_black(w)
-        self.pull_black(&mut node);
-        // self.flip_right(w)  # w is now red
-        self.rotate(&Direction::Right, &mut node, true);
-        // q = w.left
-        if self.get_left_child(&mut node).map_or(false, |l| l.is_red()) {
-        // if q.colour == red:  # q-w is red-red
-        // if new_left_child_node.is_red() {
-        //     self.rotate_right(w)
-            self.rotate(&Direction::Right, &mut node, false);
-            let mut v = self.get_parent(&self.get_parent(&node).expect("parent exists")).expect("grandparent exists");
-        //     self.flip_left(v)
+    fn fix_double_black_right_child_node(&mut self, mut w: RedBlackNode<T>) -> RedBlackNode<T> {
+        println!("TREE: remove_fixup_case3() w = {:?}, w.color = {:?}", w.value, w.color);
+        self.pull_black(&mut w);
+        self.rotate(&Direction::Right, &mut w, true); // w is now red
+        assert!(w.is_red());
+        
+        if self.get_left_child(&mut w).map_or(false, |l| l.is_red()) {
+            // q-w is red-red
+            self.rotate(&Direction::Right, &mut w, false);
+
+            let intermediate_q = self.get_parent(&w).expect("q exists");
+            let mut v = self.get_parent(&intermediate_q).expect("v exists");
             self.rotate(&Direction::Left, &mut v, true);
-        //     self.push_black(q)
+
             let mut q = self.get_parent(&v).expect("parent exists");
             self.push_black(&mut q);
-        //     return q
+
             return q
-            // }
         }
 
-        // else:
-        let mut left_child_node = self.get_parent(&node).expect("left child must exist");
-        //     if v.left.colour == red:
-        if self.get_left_child(&left_child_node).map_or(false, |n| n.is_red()) {
-        //         self.push_black(v)
-            self.push_black(&mut left_child_node);
-        //         return v
-            left_child_node
-        } 
-        //     else:  # ensure left-leaning
-        else {
-        //         self.flip_left(v)
-            self.rotate(&Direction::Left, &mut left_child_node, true);
-        //         return w
-            self.get_parent(&left_child_node).expect("parent exists")
+        let mut v = self.get_parent(&w).expect("left child must exist");
+        assert!(v.is_black());
+
+        if self.get_left_child(&v).map_or(false, |n| n.is_red()) {
+            self.push_black(&mut v);
+            v
+        } else { // ensure left-leaning property
+            self.rotate(&Direction::Left, &mut v, true);
+            w = self.get_parent(&v).expect("parent exists");
+            w
         }
     }
 
@@ -959,6 +852,7 @@ where
                 self.visited.push(n);
             }
             self.index += 1;
+            // self.tree.assert_left_leaning_invariant(&node);
             Some(node.value)
         }
         // if this is the first call to next(), visit the left subtree of the root of the tree.
@@ -967,6 +861,7 @@ where
             let root_node = self.tree.get_root().expect("root must exist");
             let node = self.get_next_node(root_node);
             self.index += 1;
+            // self.tree.assert_left_leaning_invariant(&node);
             Some(node.value)
         } 
         // this case implies that there is no next node, in spite of being in the middle of iterating
@@ -1011,7 +906,7 @@ mod test {
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
             prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
+            random_seed: vec![0, 1, 3, 4, 5],
             is_view: false,
             output_data_receivers: vec![],
             epoch_height: 0,
@@ -1040,7 +935,7 @@ mod test {
         // for x in vec![10u64, 6, 3, 4, 5].into_iter() {
         for i in 0..100 {
             let x = rng.gen::<u64>();
-            if i % 10 == 0 {
+            if x % 2 == 0 {
                 remove_these.push(x.clone());
             }
             println!("TEST: -------- inserting value {:?} ---------", x);
