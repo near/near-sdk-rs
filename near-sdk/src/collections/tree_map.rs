@@ -11,7 +11,7 @@ use crate::env;
 /// - `lookup`/`insert`/`remove`: O(log(N)) worst case
 /// - `min`/`max`: O(log(N)) worst case
 /// - `floor`/`ceil` (find closes key above/below): O(log(N)) worst case
-/// - iterate keys in sorted order: O(Nlog(N)) worst case
+/// - iterate K elements in sorted order: O(Klog(N)) worst case
 ///
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TreeMap<K, V> {
@@ -22,14 +22,14 @@ pub struct TreeMap<K, V> {
     ht: UnorderedMap<u64, u64>,     // height of a subtree at a node
     lft: UnorderedMap<u64, u64>,    // left link of a node
     rgt: UnorderedMap<u64, u64>,    // right link of a node
-    key: UnorderedMap<u64, K>,      // key value stored in a node
+    key: UnorderedMap<u64, K>,      // key stored in a node
     val: UnorderedMap<K, V>,        // value associated with key
 }
 
 impl<K, V> Default for TreeMap<K, V>
     where
-        K: Ord + BorshSerialize + BorshDeserialize,
-        V: BorshSerialize + BorshDeserialize,
+        K: Ord + Copy + BorshSerialize + BorshDeserialize,
+        V: Copy + BorshSerialize + BorshDeserialize,
 {
     fn default() -> Self {
         Self::new(next_trie_id())
@@ -39,8 +39,8 @@ impl<K, V> Default for TreeMap<K, V>
 
 impl<K, V> TreeMap<K, V>
     where
-        K: Ord + BorshSerialize + BorshDeserialize,
-        V: BorshSerialize + BorshDeserialize,
+        K: Ord + Copy + BorshSerialize + BorshDeserialize,
+        V: Copy + BorshSerialize + BorshDeserialize,
 {
     pub fn new(id: Vec<u8>) -> Self {
         let h_prefix = append(&id, b'h');
@@ -136,14 +136,24 @@ impl<K, V> TreeMap<K, V>
         self.ceil_at(self.root, key)
     }
 
-    pub fn iter(&self, _key: &K) -> impl Iterator<Item=K> {
-        // self.min() and continue with self.floor()
-        std::iter::empty() // TODO
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
+        Cursor::asc(&self).into_iter()
     }
 
-    pub fn iter_rev(&self, _key: &K) -> impl Iterator<Item=K> {
-        // self.max() and continue with self.ceil()
-        std::iter::empty() // TODO
+    pub fn iter_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
+        Cursor::asc_from(&self, key).into_iter()
+    }
+
+    pub fn iter_rev<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
+        Cursor::desc(&self).into_iter()
+    }
+
+    pub fn iter_rev_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
+        Cursor::desc_from(&self, key).into_iter()
+    }
+
+    pub fn to_vec(&self) -> Vec<(K, V)> {
+        self.iter().collect()
     }
 
     //
@@ -530,6 +540,88 @@ impl<K, V> TreeMap<K, V>
             } else {
                 root
             }
+        }
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a TreeMap<K, V>
+    where
+        K: Ord + Copy + BorshSerialize + BorshDeserialize,
+        V: Copy + BorshSerialize + BorshDeserialize,
+{
+    type Item = (K, V);
+    type IntoIter = Cursor<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Cursor::asc(self)
+    }
+}
+
+impl<K, V> Iterator for Cursor<'_, K, V>
+    where
+        K: Ord + Copy + BorshSerialize + BorshDeserialize,
+        V: Copy + BorshSerialize + BorshDeserialize,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let key = if self.asc {
+            match self.key {
+                Some(k) => self.map.floor(&k),
+                None => self.map.min()
+            }
+        } else {
+            match self.key {
+                Some(k) => self.map.ceil(&k),
+                None => self.map.max()
+            }
+        };
+        self.key = key;
+
+        key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+    }
+}
+
+pub struct Cursor<'a, K, V> {
+    asc: bool,
+    key: Option<K>,
+    map: &'a TreeMap<K, V>
+}
+
+impl<'a, K, V> Cursor<'a, K, V>
+    where
+        K: Ord + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
+{
+    fn asc(map: &'a TreeMap<K, V>) -> Self {
+        Self {
+            asc: true,
+            key: None,
+            map
+        }
+    }
+
+    fn asc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
+        Self {
+            asc: true,
+            key: Some(key),
+            map
+        }
+    }
+
+    fn desc(map: &'a TreeMap<K, V>) -> Self {
+        Self {
+            asc: false,
+            key: None,
+            map
+        }
+    }
+
+    fn desc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
+        Self {
+            asc: false,
+            key: Some(key),
+            map
         }
     }
 }
@@ -1046,6 +1138,134 @@ mod tests {
         assert_eq!(map.remove(1), None);
     }
 
-    // TODO iter
-    // TODO iter_rev
+    #[test]
+    fn test_to_vec() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        map.insert(1, 41);
+        map.insert(2, 42);
+        map.insert(3, 43);
+
+        assert_eq!(map.to_vec(), vec![(1, 41), (2, 42), (3, 43)]);
+        map.clear();
+    }
+
+    #[test]
+    fn test_to_vec_empty() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        assert!(map.to_vec().is_empty());
+    }
+
+    #[test]
+    fn test_iter() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        map.insert(1, 41);
+        map.insert(2, 42);
+        map.insert(3, 43);
+
+        assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
+        map.clear();
+    }
+
+    #[test]
+    fn test_iter_empty() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+    }
+
+    #[test]
+    fn test_iter_rev() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+        map.insert(1, 41);
+        map.insert(2, 42);
+        map.insert(3, 43);
+
+        assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
+        map.clear();
+    }
+
+    #[test]
+    fn test_iter_rev_empty() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+    }
+
+    #[test]
+    fn test_iter_from() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+
+        for x in &one {
+            map.insert(*x, 42);
+        }
+
+        for x in &two {
+            map.insert(*x, 42);
+        }
+
+        assert_eq!(
+            map.iter_from(29).collect::<Vec<(u32, u32)>>(),
+            vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]);
+
+        assert_eq!(
+            map.iter_from(30).collect::<Vec<(u32, u32)>>(),
+            vec![(35, 42), (40, 42), (45, 42), (50, 42)]);
+
+        assert_eq!(
+            map.iter_from(31).collect::<Vec<(u32, u32)>>(),
+            vec![(35, 42), (40, 42), (45, 42), (50, 42)]);
+        map.clear();
+    }
+
+    #[test]
+    fn test_iter_from_empty() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+    }
+
+    #[test]
+    fn test_iter_rev_from() {
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+
+        for x in &one {
+            map.insert(*x, 42);
+        }
+
+        for x in &two {
+            map.insert(*x, 42);
+        }
+
+        assert_eq!(
+            map.iter_rev_from(29).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]);
+
+        assert_eq!(
+            map.iter_rev_from(30).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]);
+
+        assert_eq!(
+            map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
+            vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]);
+        map.clear();
+    }
+
+    #[test]
+    fn test_iter_rev_from_empty() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::default();
+        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+    }
 }
