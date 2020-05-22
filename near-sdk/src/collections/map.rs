@@ -293,6 +293,7 @@ mod tests {
             Default::default(),
             vec![],
             storage,
+            HashMap::default()
         )));
     }
 

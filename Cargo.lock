@@ -208,9 +208,9 @@ dependencies = [
 
 [[package]]
 name = "near-runtime-fees"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63d83f81309473b8e8e3ac44dcc137e04bcb84524559f9cd8d3a58f82244a5ba"
+checksum = "8f4992274c8acb33fa1246715d3aafbce5688ae82243c779b561f8eaff1bb6f1"
 dependencies = [
  "num-rational",
  "serde",
@@ -256,9 +256,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-errors"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f7afb496f55e2f4fe1494f5177fbfc967997ac1e1580a2bab086df14dd9f063"
+checksum = "386c2c07ef37ae52ad43860ef69c6322bbc1e610ae0c08c1d7f5ff56f4c28e6a"
 dependencies = [
  "borsh",
  "near-rpc-error-macro",
@@ -267,9 +267,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d094945c9a688e87c2e50fa595e1f9b31f9ee3e915f2c216e8d9bfc91d971651"
+checksum = "a6da6c80d3428f45248577820bfc943b8261a6f11d6721037e5c3f43484047cd"
 dependencies = [
  "base64",
  "bs58",

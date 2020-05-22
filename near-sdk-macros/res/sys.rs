@@ -143,5 +143,10 @@ pub mod sys {
         pub fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_has_key(key_len: u64, key_ptr: u64) -> u64;
+        // ###############
+        // # Validator API #
+        // ###############
+        pub fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64);
+        pub fn validator_total_stake(stake_ptr: u64);
     }
 }
