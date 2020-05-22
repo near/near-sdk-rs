@@ -401,6 +401,14 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().storage_has_key(key_len, key_ptr).unwrap()
     }
 
+    unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
+        self.logic.borrow_mut().validator_stake(account_id_len, account_id_ptr, stake_ptr).unwrap();
+    }
+
+    unsafe fn validator_total_stake(&self, stake_ptr: u64) {
+        self.logic.borrow_mut().validator_total_stake(stake_ptr).unwrap();
+    }
+
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         Some(self)
     }
