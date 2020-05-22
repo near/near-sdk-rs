@@ -82,7 +82,7 @@ impl<K, V> TreeMap<K, V>
         env::storage_remove(&self.tree_prefix);
     }
 
-    pub fn height(&mut self) -> u64 {
+    pub fn height(&self) -> u64 {
         self.ht.get(&self.root).unwrap_or_default()
     }
 
@@ -273,6 +273,8 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
+    // Calculate and save the height of a subtree at node `at`:
+    // height[at] = 1 + max(height[at.L], height[at.R])
     fn update_height(&mut self, at: u64) {
         let lft = self.lft.get(&at)
             .and_then(|id| self.ht.get(&id))
@@ -285,6 +287,7 @@ impl<K, V> TreeMap<K, V>
         self.ht.insert(&at, &ht);
     }
 
+    // Balance = difference in heights between left and right subtrees at node `at`.
     fn get_balance(&self, at: u64) -> i64 {
         let lht = self.lft.get(&at)
             .and_then(|id| self.ht.get(&id))
@@ -296,7 +299,7 @@ impl<K, V> TreeMap<K, V>
         lht as i64 - rht as i64
     }
 
-    // Left rotation of an AVL subtree with root in `at`.
+    // Left rotation of an AVL subtree with at node `at`.
     // New root of subtree is returned, caller's responsibility is to update links accordingly.
     fn rotate_left(&mut self, at: u64) -> u64 {
         let lft = self.lft.get(&at).unwrap();
@@ -317,7 +320,7 @@ impl<K, V> TreeMap<K, V>
         lft
     }
 
-    // Right rotation of an AVL subtree with root in `at`.
+    // Right rotation of an AVL subtree at node in `at`.
     // New root of subtree is returned, caller's responsibility is to update links accordingly.
     fn rotate_right(&mut self, at: u64) -> u64 {
         let rgt = self.rgt.get(&at).unwrap();
@@ -338,6 +341,7 @@ impl<K, V> TreeMap<K, V>
         rgt
     }
 
+    // Check balance at node `at` and enforce it if necessary with respective rotations.
     fn enforce_balance(&mut self, at: u64) -> u64 {
         let balance = self.get_balance(at);
         if balance > 1 {
@@ -359,6 +363,8 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
+    // Returns (`id`, `parent_id`) for a node that holds the `key`.
+    // For root node, root node id is returned both as `id` and as `parent_id`.
     fn lookup_at(&self, mut at: u64, key: &K) -> Option<(u64, u64)> {
         let mut p = at;
         loop {
@@ -390,6 +396,8 @@ impl<K, V> TreeMap<K, V>
         None
     }
 
+    // Navigate from root to node holding `key` and backtrace back to the root -
+    // enforcing balance (if imbalance takes place) along the way up to the root.
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
         match self.key.get(&at) {
             Some(k) => {
@@ -422,21 +430,22 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
+    // Node holding the key is not removed from the tree - instead the substitute node is found,
+    // the key is copied to 'removed' node from substitute node, and then substitute node gets
+    // removed from the tree.
+    //
+    // The substitute node is either:
+    // - right-most (max) node of the left subtree (containing smaller keys) of node holding `key`
+    // - or left-most (min) node of the right subtree (containing larger keys) of node holding `key`
+    //
     fn do_remove(&mut self, key: &K) -> u64 {
-        // Node holding the key is not removed from the tree - instead the substitute node is found,
-        // the key is copied to 'removed' node from substitute node, and then substitute node gets
-        // removed from the tree.
-        //
-        // The substitute node is either:
-        // - right-most (max) node of the left subtree (containing smaller keys) or
-        // - left-most (min) node of the right subtree (containing larger keys)
-        //
-        // The method expects the key to exist in the tree, calling on missing key will cause panic.
-
         let root = self.root;
         // r_id - id of a node containing key of interest
         // r_p - id of an immediate parent node of r_id
-        let (r_id, r_p) = self.lookup_at(root, key).unwrap();   // key must exist
+        let (r_id, r_p) = match self.lookup_at(root, key) {
+            Some(x) => x,
+            None => return root // cannot remove a missing key, no changes to the tree needed
+        };
 
         let lft_opt = self.lft.get(&r_id);
         let rgt_opt = self.rgt.get(&r_id);
@@ -452,6 +461,8 @@ impl<K, V> TreeMap<K, V>
             self.key.remove(&r_id);
             self.ht.remove(&r_id);
 
+            // removing node might have caused a imbalance - balance the tree up to the root,
+            // starting from lowest affected key - the parent of a leaf node in this case
             self.check_balance(root, &p_key)
 
         } else {
@@ -495,6 +506,8 @@ impl<K, V> TreeMap<K, V>
                     }
                 }
 
+                // removing node might have caused a imbalance - balance the tree up to the root,
+                // starting from the lowest affected key (max key from left subtree in this case)
                 self.check_balance(root, &k)
 
             } else if (b < 0 && rgt_opt.is_some()) || lft_opt.is_none() {
@@ -535,6 +548,8 @@ impl<K, V> TreeMap<K, V>
                     }
                 }
 
+                // removing node might have caused a imbalance - balance the tree up to the root,
+                // starting from the lowest affected key (min key from right subtree in this case)
                 self.check_balance(root, &k)
 
             } else {
@@ -667,6 +682,13 @@ mod tests {
 
         let map: TreeMap<u8, u8> = TreeMap::new(vec![b't']);
         assert_eq!(map.len(), 0);
+        assert_eq!(map.height(), 0);
+        assert_eq!(map.get(&42), None);
+        assert!(!map.contains_key(&42));
+        assert_eq!(map.min(), None);
+        assert_eq!(map.max(), None);
+        assert_eq!(map.ceil(&42), None);
+        assert_eq!(map.floor(&42), None);
     }
 
     #[test]
@@ -882,6 +904,7 @@ mod tests {
         map.remove(1);
         assert_eq!(map.get(&1), None);
         assert_eq!(map.key.len(), 0);
+        assert_eq!(map.ht.len(), 0);
         map.clear();
     }
 
@@ -931,7 +954,8 @@ mod tests {
     fn test_remove_7_regression_1() {
         test_env::setup();
 
-        let vec: Vec<u32> = vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
+        let vec: Vec<u32> = vec![2104297040, 552624607, 4269683389, 3382615941,
+                                 155419892, 4102023417, 1795725075];
         let mut map: TreeMap<u32, u32> = TreeMap::default();
 
         for x in &vec {
@@ -952,7 +976,8 @@ mod tests {
     fn test_remove_7_regression_2() {
         test_env::setup();
 
-        let vec: Vec<u32> = vec![700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
+        let vec: Vec<u32> = vec![700623085, 87488544, 1500140781, 1111706290,
+                                 3187278102, 4042663151, 3731533080];
         let mut map: TreeMap<u32, u32> = TreeMap::default();
 
         for x in &vec {
@@ -973,7 +998,8 @@ mod tests {
     fn test_remove_9_regression() {
         test_env::setup();
 
-        let vec: Vec<u32> = vec![1186903464, 506371929, 1738679820, 1883936615, 1815331350, 1512669683, 3581743264, 1396738166, 1902061760];
+        let vec: Vec<u32> = vec![1186903464, 506371929, 1738679820, 1883936615, 1815331350,
+                                 1512669683, 3581743264, 1396738166, 1902061760];
         let mut map: TreeMap<u32, u32> = TreeMap::default();
 
         for x in &vec {
@@ -994,7 +1020,10 @@ mod tests {
     fn test_remove_20_regression() {
         test_env::setup();
 
-        let vec: Vec<u32> = vec![552517392, 3638992158, 1015727752, 2500937532, 638716734, 586360620, 2476692174, 1425948996, 3608478547, 757735878, 2709959928, 2092169539, 3620770200, 783020918, 1986928932, 200210441, 1972255302, 533239929, 497054557, 2137924638];
+        let vec: Vec<u32> = vec![552517392, 3638992158, 1015727752, 2500937532, 638716734,
+                                 586360620, 2476692174, 1425948996, 3608478547, 757735878,
+                                 2709959928, 2092169539, 3620770200, 783020918, 1986928932,
+                                 200210441, 1972255302, 533239929, 497054557, 2137924638];
         let mut map: TreeMap<u32, u32> = TreeMap::default();
 
         for x in &vec {
