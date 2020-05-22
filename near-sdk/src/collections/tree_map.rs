@@ -43,20 +43,21 @@ impl<K, V> TreeMap<K, V>
         V: Copy + BorshSerialize + BorshDeserialize,
 {
     pub fn new(id: Vec<u8>) -> Self {
+        let tree_prefix = append(&id, b'T');
         let h_prefix = append(&id, b'h');
         let l_prefix = append(&id, b'l');
         let r_prefix = append(&id, b'r');
         let k_prefix = append(&id, b'k');
         let v_prefix = append(&id, b'v');
 
-        let root: u64 = env::storage_read(&id)
+        let root: u64 = env::storage_read(&tree_prefix)
             .map(|raw| deserialize(&raw))
             .unwrap_or_default();
         let val = UnorderedMap::new(v_prefix);
         let len = val.len();
 
         Self {
-            tree_prefix: id,
+            tree_prefix,
             root,
             len,
             ht: UnorderedMap::new(h_prefix),
@@ -121,11 +122,11 @@ impl<K, V> TreeMap<K, V>
     }
 
     pub fn min(&self) -> Option<K> {
-        self.min_at(self.root)
+        self.min_at(self.root, self.root).map(|(k, _, _)| k)
     }
 
     pub fn max(&self) -> Option<K> {
-        self.max_at(self.root)
+        self.max_at(self.root, self.root).map(|(k, _, _)| k)
     }
 
     pub fn floor(&self, key: &K) -> Option<K> {
@@ -165,24 +166,30 @@ impl<K, V> TreeMap<K, V>
         self.root = root;
     }
 
-    fn min_at(&self, mut at: u64) -> Option<K> {
+    fn min_at(&self, mut at: u64, mut p: u64) -> Option<(K, u64, u64)> {
         loop {
             match self.lft.get(&at) {
-                Some(lft) => at = lft,
+                Some(lft) => {
+                    p = at;
+                    at = lft;
+                },
                 None => break
             }
         }
-        self.key.get(&at)
+        self.key.get(&at).map(|k| (k, at, p))
     }
 
-    fn max_at(&self, mut at: u64) -> Option<K> {
+    fn max_at(&self, mut at: u64, mut p: u64) -> Option<(K, u64, u64)> {
         loop {
             match self.rgt.get(&at) {
-                Some(rgt) => at = rgt,
+                Some(rgt) => {
+                    p = at;
+                    at = rgt;
+                },
                 None => break
             }
         }
-        self.key.get(&at)
+        self.key.get(&at).map(|k| (k, at, p))
     }
 
     fn floor_at(&self, mut at: u64, key: &K) -> Option<K> {
@@ -468,15 +475,13 @@ impl<K, V> TreeMap<K, V>
         } else {
             // non-leaf node, select subtree to proceed with
             let b = self.get_balance(r_id);
-            if (b >= 0 && lft_opt.is_some()) || rgt_opt.is_none() {
+            if b >= 0 {
                 // proceed with left subtree
                 let lft = lft_opt.unwrap();
 
                 // k - max key from left subtree
-                let k = self.max_at(lft).unwrap();
-
                 // n - id of a node that holds key k, p - id of immediate parent of n
-                let (n, p) = self.lookup_at(r_id, &k).unwrap();
+                let (k, n, p) = self.max_at(lft, r_id).unwrap();
 
                 self.key.insert(&r_id, &k);
                 self.key.remove(&n);
@@ -506,19 +511,17 @@ impl<K, V> TreeMap<K, V>
                     }
                 }
 
-                // removing node might have caused a imbalance - balance the tree up to the root,
+                // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
                 self.check_balance(root, &k)
 
-            } else if (b < 0 && rgt_opt.is_some()) || lft_opt.is_none() {
+            } else {
                 // proceed with right subtree
                 let rgt = rgt_opt.unwrap();
 
                 // k - min key from right subtree
-                let k = self.min_at(rgt).unwrap();
-
                 // n - id of a node that holds key k, p - id of an immediate parent of n
-                let (n, p) = self.lookup_at(r_id, &k).unwrap();
+                let (k, n, p) = self.min_at(rgt, r_id).unwrap();
 
                 self.key.insert(&r_id, &k);
                 self.key.remove(&n);
@@ -552,8 +555,6 @@ impl<K, V> TreeMap<K, V>
                 // starting from the lowest affected key (min key from right subtree in this case)
                 self.check_balance(root, &k)
 
-            } else {
-                root
             }
         }
     }
