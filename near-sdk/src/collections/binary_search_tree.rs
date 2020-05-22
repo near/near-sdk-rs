@@ -12,7 +12,7 @@ type EnvStorageKey = Vec<u8>;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct RedBlackNode<T> {
-    is_red: bool,
+    color: u8,
     is_right_child: bool,
     key: EnvStorageKey,
     parent_key: Option<EnvStorageKey>,
@@ -66,8 +66,20 @@ impl<T> RedBlackNode<T> {
         self.right_key.as_ref()
     }
 
+    pub fn is_root(&self) -> bool {
+        self.parent_key.is_none()
+    }
+
     pub fn is_black(&self) -> bool {
-        !self.is_red
+        self.color > 0
+    }
+
+    pub fn is_double_black(&self) -> bool {
+        self.color == 2
+    }
+
+    pub fn is_red(&self) -> bool {
+        self.color == 0
     }
 
     pub fn is_left_child(&self) -> bool {
@@ -91,19 +103,23 @@ impl<T> RedBlackNode<T> {
         self.left_key.is_some()
     }
 
-    pub fn set_right_child(&mut self, node: &mut RedBlackNode<T>) {
-        self.right_key = Some(node.key().clone());
-        node.parent_key = Some(self.key().clone());
-        node.is_right_child = true;
+    pub fn set_right_child(&mut self, node: Option<&mut RedBlackNode<T>>) {
+        self.right_key = node.as_ref().map(|child_node| child_node.key().clone());
+        if let Some(child_node) = node {
+            child_node.parent_key = Some(self.key().clone());
+            child_node.is_right_child = true;
+        }
     }
 
-    pub fn set_left_child(&mut self, node: &mut RedBlackNode<T>) {
-        self.left_key = Some(node.key().clone());
-        node.parent_key = Some(self.key().clone());
-        node.is_right_child = false;
+    pub fn set_left_child(&mut self, node: Option<&mut RedBlackNode<T>>) {
+        self.left_key = node.as_ref().map(|child_node| child_node.key().clone());
+        if let Some(child_node) = node {
+            child_node.parent_key = Some(self.key().clone());
+            child_node.is_right_child = false;
+        }
     }
 
-    pub fn set_child(&mut self, node: &mut RedBlackNode<T>, direction: &Direction) {
+    pub fn set_child(&mut self, node: Option<&mut RedBlackNode<T>>, direction: &Direction) {
         use Direction::*;
         match direction {
             Left => self.set_left_child(node),
@@ -122,11 +138,23 @@ where
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct RedBlackTree<T> {
-    prefix: Vec<u8>,
+    prefix: EnvStorageKey,
     len: u64,
     root_key: Option<EnvStorageKey>,
     // TODO store indices that have been removed. 
     node_value: PhantomData<T>
+}
+
+pub enum Either<T> {
+    Parent((DoubleBlackNodeCase, RedBlackNode<T>)),
+    Child(RedBlackNode<T>)
+}
+
+#[derive(Debug)]
+pub enum DoubleBlackNodeCase {
+    LeftSiblingIsRed,
+    NodeIsLeftChild,
+    NodeIsRightChild
 }
 
 #[derive(Debug)]
@@ -146,7 +174,7 @@ impl Direction {
 }
 
 impl<T> RedBlackTree<T> {
-    fn new(prefix: Vec<u8>) -> Self {
+    fn new(prefix: EnvStorageKey) -> Self {
         Self {
             prefix, 
             len: 0,
@@ -260,7 +288,7 @@ where
                     key,
                     parent_key: Some(parent.key().clone()),
                     is_right_child: true,
-                    is_red: true,
+                    color: 0, // Red
                     left_key: None,
                     right_key: None
                 };
@@ -277,7 +305,7 @@ where
                     key,
                     parent_key: Some(parent.key().clone()),
                     is_right_child: false,
-                    is_red: true,
+                    color: 0, // Red
                     left_key: None,
                     right_key: None
                 };
@@ -313,37 +341,58 @@ where
         parent
     }
 
-    fn update_node_to_red(&self, node: &mut RedBlackNode<T>) {
-        println!("TREE: update_node_to_red() key {:?}", node.key());
+    fn push_black(&self, node: &mut RedBlackNode<T>) {
+        println!("TREE: push_black() key {:?}", node.key());
         let mut left_child_node = self.get_left_child(&node).expect("left child must exist for color change to black");
         let mut right_child_node = self.get_right_child(&node).expect("right child must exist for color change to black");
         
         // TODO check if node is already red -- indicates an invariant violation
-        node.is_red = true;
-        left_child_node.is_red = false;
-        right_child_node.is_red = false;
+        node.color -= 1;
+        left_child_node.color += 1;
+        right_child_node.color += 1;
 
         self.update_node(node);
         self.update_node(&left_child_node);
         self.update_node(&right_child_node);
     }
 
+    fn pull_black(&self, node: &mut RedBlackNode<T>) {
+        println!("TREE: pull_black() key {:?}", node.key());
+        if let Some(mut left_child_node) = self.get_left_child(&node) {
+            left_child_node.color -= 1;
+            self.update_node(&left_child_node);
+        }
+        
+        if let Some(mut right_child_node) = self.get_right_child(&node) {
+            right_child_node.color -= 1;
+            self.update_node(&right_child_node);
+        }
+        
+        // TODO check if node is already black -- indicates an invariant violation
+        
+        node.color += 1;
+
+        self.update_node(node);
+        // self.update_node(&left_child_node);
+        // self.update_node(&right_child_node);
+    }
+
     fn rotate(&mut self, direction: &Direction, pivot_node: &mut RedBlackNode<T>, swap_colors: bool) { // O(1)
-        println!("TREE: rotate_left() pivot node key {:?}", pivot_node.key());
+        println!("TREE: rotate() {:?} pivot node key {:?}", direction, pivot_node.key());
         use Direction::*;
         match self.get_child(pivot_node, &direction.opposite()) {
             Some(mut child_node) => {
                 // Replace pivot node with its right child
                 if swap_colors {
-                    let parent_color = pivot_node.is_red;
-                    let child_color = child_node.is_red;
+                    let parent_color = pivot_node.color;
+                    let child_color = child_node.color;
                 
-                    pivot_node.is_red = child_color;
-                    child_node.is_red = parent_color;
+                    pivot_node.color = child_color;
+                    child_node.color = parent_color;
                 }
 
                 if let Some(mut pivot_parent_node) = self.get_parent(&pivot_node) {
-                    pivot_parent_node.set_child(&mut child_node, &pivot_node.child_direction());
+                    pivot_parent_node.set_child(Some(&mut child_node), &pivot_node.child_direction());
                     self.update_node(&pivot_parent_node);
                 } else {
                     // pivot node parent_key is none -- assert this! FIXME
@@ -353,7 +402,7 @@ where
                 
                 // Replace pivot node's right child with former right child's left child
                 if let Some(mut grand_child_node) = self.get_child(&child_node, direction) {
-                    pivot_node.set_child(&mut grand_child_node, &direction.opposite());
+                    pivot_node.set_child(Some(&mut grand_child_node), &direction.opposite());
                     println!("TREE: rotate() {:?} grand child updating", direction);
                     self.update_node(&grand_child_node);
                 } else {
@@ -364,7 +413,7 @@ where
                 }
 
                 // Replace pivot node's former right child's left child with pivot node
-                child_node.set_child(pivot_node, direction);
+                child_node.set_child(Some(pivot_node), direction);
 
                 println!("TREE: rotate() {:?} pivot node updating", direction);
                 self.update_node(pivot_node);
@@ -372,92 +421,22 @@ where
                 self.update_node(&child_node);
 
                 // check if child_node is new root
-                if child_node.parent_key.is_none() {
+                if child_node.is_root() {
                     self.root_key = Some(child_node.key().clone())
                 }
             },
             None => {
-                panic!("rotate {:?} panic", direction);
+                panic!("rotate {:?} panic. {:?} has no {:?} child", direction, pivot_node.value, direction.opposite());
                 env::panic(ERR_INCONSISTENT_STATE)
             }
         }
     }
-
-    fn rotate_right(&mut self, pivot_node: &mut RedBlackNode<T>, swap_colors: bool) { // O(1)
-        println!("TREE: rotate_right() pivot node key {:?}", pivot_node.key());
-        match self.get_left_child(pivot_node) {
-            Some(mut left_child_node) => {
-                // Replace pivot node with its left child
-                if swap_colors {
-                    let parent_color = pivot_node.is_red;
-                    let child_color = left_child_node.is_red;
-                
-                    pivot_node.is_red = child_color;
-                    left_child_node.is_red = parent_color;
-                }
-
-                if let Some(mut pivot_parent_node) = self.get_parent(&pivot_node) {
-                    if pivot_node.is_right_child() {
-                        pivot_parent_node.set_right_child(&mut left_child_node);
-                    } else {
-                        pivot_parent_node.set_left_child(&mut left_child_node);
-                    }
-                    self.update_node(&pivot_parent_node);
-                } else {
-                    // pivot node parent_key is none -- assert this! FIXME
-                    left_child_node.parent_key = pivot_node.parent_key.clone();
-                    left_child_node.is_right_child = pivot_node.is_right_child;
-                }
-                
-                // Replace pivot node's left child with former left child's right child
-                if let Some(mut right_of_left_child_node) = self.get_right_child(&left_child_node) {
-                    pivot_node.set_left_child(&mut right_of_left_child_node);
-                    println!("TREE: rotate_right() right of left child updating");
-                    self.update_node(&right_of_left_child_node);
-                } else {
-                    pivot_node.left_key = None;
-                }
-
-                // Replace pivot node's former left child's right child with pivot node
-                left_child_node.set_right_child(pivot_node);
-
-                println!("TREE: rotate_right() pivot node updating");
-                self.update_node(pivot_node);
-                println!("TREE: rotate_right() left child updating");
-                self.update_node(&left_child_node);
-                
-                // check if left_child_node is new root
-                if left_child_node.parent_key.is_none() {
-                    self.root_key = Some(left_child_node.key().clone())
-                }
-            },
-            None => {
-                panic!("rotate right panic");
-                env::panic(ERR_INCONSISTENT_STATE)
-            }
-        }
-    }
-
-    // fn swap_colors(&self, node: &mut RedBlackNode<T>, child_node: &mut RedBlackNode<T>) {
-    //     let parent_color = node.is_red;
-    //     let child_color = child_node.is_red;
-       
-    //     node.is_red = child_color;
-    //     child_node.is_red = parent_color;
-
-    //     self.update_node(&node);
-    //     self.update_node(&child_node);
-    // }
-
-    // fn flip_left(&self, node: &mut RedBlackNode<T>) {
-    //     self.swap_colors(node, child_node)
-    // }
 
     fn add_red_node(&mut self, child_node: RedBlackNode<T>) { // O(logN)
         use Direction::*;
         println!("TREE: add_red_node() key {:?}", child_node.key());
         let mut node = child_node;
-        while node.is_red {
+        while node.is_red() {
             if let Some(mut parent_node) = self.get_parent(&node) {
                 let left_child = if node.is_right_child {
                     // only read from env storage if necessary
@@ -487,12 +466,12 @@ where
                     break
                 }
     
-                self.update_node_to_red(&mut grand_parent_node);
+                self.push_black(&mut grand_parent_node);
     
                 node = grand_parent_node;
             } else {
                 // This node is the root node, color it black
-                node.is_red = false;
+                node.color = 1;
                 self.update_node(&node);
             }
         }
@@ -509,7 +488,7 @@ where
                     value,
                     key,
                     is_right_child: false, // arbitrary default
-                    is_red: false,
+                    color: 1, // Black
                     parent_key: None,
                     left_key: None,
                     right_key: None
@@ -530,6 +509,350 @@ where
         }
 
         added_new_node
+    }
+
+    // Returns parent of the spliced node
+    pub fn splice(&mut self, node: &RedBlackNode<T>) -> Option<RedBlackNode<T>> {
+        let mut child = self
+            .get_left_child(node)
+            .or_else(|| self.get_right_child(&node));
+
+        let mut parent = self.get_parent(node);
+
+        // Replace node with its child
+        if let Some(parent_node) = parent.as_mut() {
+            parent_node.set_child(child.as_mut(), &node.child_direction());
+            self.update_node(parent_node);
+        } else if let Some(child_node) = child.as_mut() {
+            // child node is new root
+            child_node.parent_key = None;
+            self.root_key = Some(child_node.key().clone());
+            // FIXME what if child_node is new root and is None??
+        }
+
+        // update child node if it exists
+        if let Some(child_node) = child {
+            self.update_node(&child_node);
+        }
+
+        // TODO add call to remove node from env::storage
+        self.len -= 1; // TODO check for underflow?
+        parent
+    }
+
+    pub fn remove(&mut self, value: &T) -> bool {
+        // u = self._find_last(x)
+        if let Some(mut node) = self.find_parent(value) {
+            // if u == self.nil or u.x != x:
+            if &node.value != value {
+                println!("TREE: remove() {:?} does not exist in tree", value);
+                //     return False
+                // value does not exist in the tree
+                return false 
+            }
+
+            // w = u.right
+            let mut child_node;
+            if let Some(right_child_node) = self.get_right_child(&node) {
+                println!("TREE: remove() right child of u={:?} is w={:?}", value, right_child_node.value);
+                // else:
+                //     while w.left != self.nil:
+                //         w = w.left
+                child_node = right_child_node;
+                while let Some(left_child_node) = self.get_left_child(&child_node) {
+                    child_node = left_child_node;
+                }
+
+                println!("TREE: remove() leftmost child of w is {:?}", child_node.value);
+                
+                let right_grand_child = self.get_right_child(&child_node);
+                let child_node_child_direction = child_node.child_direction();
+                let child_node_color = child_node.color;
+
+                //     u.x = w.x
+                std::mem::swap(&mut node.value, &mut child_node.value);
+                self.update_node(&node);
+
+                let parent = self.splice(&child_node);
+
+                if let Some(right_grand_child_node) = right_grand_child {
+                    node = right_grand_child_node;
+                    node.color += child_node_color;
+                    self.update_node(&node);
+                    self.remove_fixup(node); 
+                } else if child_node_color == 1 {
+                    // we have a double black node, but it is a nil node (None)
+                    if let Some(mut parent_node) = parent {
+                        node = if parent_node.has_left_child() {
+                            self.fix_double_black_right_child_node(parent_node)
+                        } else {
+                            self.fix_double_black_left_child_node(&mut parent_node)
+                        };
+                        // node = self.fix_double_black_right_child_node(parent_node);
+                        // node = self.fix_double_black_left_child_node(&mut parent_node);
+                        self.remove_fixup(node); 
+                    }
+                } else {
+                    // no double black node, but need to restore left leaning property
+                    self.restore_left_leaning(parent);
+                }
+
+                //     u = w.right
+                // node = right_grand_child_node;
+
+                // node.color += child_node_color;
+                
+                // done during splicing
+                // if let Some(mut parent_node) = self.get_parent(&node) {
+                //     parent_node.set_child(Some(&mut node), &child_node_child_direction);
+                //     self.update_node(&parent_node);
+                // } else {
+                //     node.parent_key = None;
+                // }
+            } else {
+                println!("TREE: remove() right child of {:?} is None", value);
+                // if w == self.nil:
+                //     w = u
+                //     u = w.left
+                child_node = node;
+                // println!("TREE: remove() w=u; {:?} -> {:?}", child_node.value);
+
+                let parent = self.splice(&child_node);
+
+                if let Some(left_grand_child_node) = self.get_left_child(&child_node) {
+                    println!("TREE: remove() left child of {:?} is {:?}", child_node.value, left_grand_child_node.value);
+                    node = left_grand_child_node;
+                    node.color += child_node.color;
+                    self.update_node(&node);
+                    self.remove_fixup(node); 
+                } else if child_node.is_black() {
+                    println!("TREE: remove() left child of {:?} is None, and double black", child_node.value);
+                    // we have a double black node, but it is a nil node (None)
+                    if let Some(mut parent_node) = parent {
+                        node = if parent_node.has_left_child() {
+                            self.fix_double_black_right_child_node(parent_node)
+                        } else {
+                            self.fix_double_black_left_child_node(&mut parent_node)
+                        };
+                        // node = self.fix_double_black_right_child_node(parent_node);
+                        // node = self.fix_double_black_left_child_node(&mut parent_node);
+                        self.remove_fixup(node); 
+                    }
+                } else {
+                    // no double black node, but need to restore left leaning property
+                    self.restore_left_leaning(parent);
+                }
+
+                // done during splicing
+                // if let Some(mut parent_node) = self.get_parent(&node) {
+                //     parent_node.set_child(Some(&mut node), &child_node.child_direction());
+                //     self.update_node(&parent_node);
+                // } else {
+                //     node.parent_key = None;
+                // }
+            }
+
+            // self.splice(w)
+            // u.colour += w.colour
+            // u.parent = w.parent 
+            // self.remove_fixup(u)
+            true
+        } else {
+            println!("TREE: remove() {:?} does not exist in tree", value);
+            // if u == self.nil or u.x != x:
+            //     return False
+            // value does not exist in the tree
+            false
+        }
+    }
+
+    fn remove_case(&self, node: &RedBlackNode<T>) -> Option<(DoubleBlackNodeCase, RedBlackNode<T>)> {
+        use DoubleBlackNodeCase::*;
+        self.get_parent(node)
+            .map_or(None, |parent_node| {
+                if (node.is_left_child() && node.is_red()) || 
+                    self.get_left_child(&parent_node)
+                        .map_or(false, |left_child_node| left_child_node.is_red()) 
+                {
+                    Some((LeftSiblingIsRed, parent_node))
+                } else if node.is_left_child() {
+                    Some((NodeIsLeftChild, parent_node))
+                } else {
+                    Some((NodeIsRightChild, parent_node))
+                }
+            })
+    }
+
+    fn restore_left_leaning(&mut self, parent: Option<RedBlackNode<T>>) {
+        if let Some(mut parent_node) = parent {
+            let right_chlid_is_red = self.get_right_child(&parent_node).map_or(false, |right_child_node| right_child_node.is_red());
+            let left_child_is_black = self.get_left_child(&parent_node).map_or(true, |left_child_node| left_child_node.is_black());
+            // if w.right.colour == red and w.left.colour == black:
+            if right_chlid_is_red && left_child_is_black {
+                println!("TREE: restore_left_leaning()");
+                // self.flip_left(w)
+                self.rotate(&Direction::Left, &mut parent_node, true);
+            }
+        }
+    }
+    
+    fn remove_fixup(&mut self, mut node: RedBlackNode<T>) {
+        // while u.colour > black:
+        while node.is_double_black() {
+            match self.remove_case(&node) {
+                Some((case, parent_node)) => {
+                    if let Some(new_node) = self.fix_double_black_node(case, parent_node) {
+                        node = new_node;
+                    }
+                },
+                None => { // node is root
+                    node.color = 1; // black
+                    self.update_node(&node);
+                }
+            }
+            /*
+            println!("TREE: remove_fixup() {:?} is double black", node.value);
+            if let Some(mut parent_node) = self.get_parent(&node) {
+
+            } 
+            // if u == self.r:  
+            else {
+                println!("TREE: remove_fixup() {:?} is new root. coloring black", node.value);
+                //     u.colour = black
+                node.color = 1; // black
+                self.update_node(&node);
+            }
+            */
+        }
+
+        self.restore_left_leaning(self.get_parent(&node));
+        
+        // if u != self.r:   # restore left-leaning property, if needed
+        // if let Some(mut parent_node) = self.get_parent(&node) {
+            // println!("TREE: remove_fixup() restoring left leaning property for {:?}", node.value);
+            // self.restore_left_leaning(&mut parent_node);
+            // w = u.parent
+            /*
+            let right_chlid_is_red = self.get_right_child(&parent_node).map_or(false, |right_child_node| right_child_node.is_red());
+            let left_child_is_black = self.get_left_child(&parent_node).map_or(true, |left_child_node| left_child_node.is_black());
+            // if w.right.colour == red and w.left.colour == black:
+            if right_chlid_is_red && left_child_is_black {
+                // self.flip_left(w)
+                self.rotate(&Direction::Left, &mut parent_node, true);
+            }
+            */
+        // }
+    }
+    
+    fn fix_double_black_node(&mut self, case: DoubleBlackNodeCase, mut parent_node: RedBlackNode<T>) -> Option<RedBlackNode<T>> {
+        println!("TREE: fix_double_black_node() case {:?}", case);
+        use DoubleBlackNodeCase::*;
+        match case {
+            LeftSiblingIsRed => {
+                // println!("TREE: remove_fixup() case 1 for {:?}", node.value);
+                self.rotate(&Direction::Right, &mut parent_node, true);
+                None
+            },
+            NodeIsLeftChild => Some(self.fix_double_black_left_child_node(&mut parent_node)),
+            NodeIsRightChild => Some(self.fix_double_black_right_child_node(parent_node))
+        }
+        /*
+        // elif u.parent.left.colour == red:
+        if (node.is_left_child() && node.is_red()) || 
+            self.get_left_child(&parent_node)
+                .map_or(false, |left_child_node| left_child_node.is_red()) 
+        {
+            println!("TREE: remove_fixup() case 1 for {:?}", node.value);
+            // u = self.remove_fixup_case1(u)
+            self.rotate(&Direction::Right, &mut parent_node, true);
+        } 
+        // elif u == u.parent.left:
+        else if node.is_left_child() {
+            println!("TREE: remove_fixup() case 2 for {:?}", node.value);
+            node = self.remove_fixup_case2(&mut parent_node);
+        }
+        // node is right child
+        else {
+            println!("TREE: remove_fixup() case 3 for {:?}", node.value);
+            node = self.remove_fixup_case3(parent_node);
+        }
+        node
+        */
+    }
+    
+    fn fix_double_black_left_child_node(&mut self, node: &mut RedBlackNode<T>) -> RedBlackNode<T> {
+        println!("TREE: remove_fixup_case2() w = {:?}", node.value);
+        // w = u.parent
+        // v = w.right
+        let mut right_child_node = self.get_right_child(&node).expect("right child must exist");
+        // self.pull_black(w)
+        self.pull_black(node);
+        // self.flip_left(w)
+        self.rotate(&Direction::Left, node, true);
+        // q = w.right
+        if let Some(mut new_right_child_node) = self.get_right_child(&node) {
+            // if q.colour == red:
+            if new_right_child_node.is_red() {
+            //     self.rotate_left(w)
+                self.rotate(&Direction::Left, node, false);
+            //     self.flip_right(v)
+                self.rotate(&Direction::Right, &mut right_child_node, true);
+            //     self.push_black(q)
+                self.push_black(&mut new_right_child_node);
+            //     if v.right.colour == red:
+                if self.get_right_child(&right_child_node).map_or(false, |n| n.is_red()) {
+            //         self.flip_left(v)
+                    self.rotate(&Direction::Left, &mut right_child_node, true);
+                }
+            //     return q
+                return new_right_child_node
+            }
+        }
+        // else:
+        //     return v
+        right_child_node
+    }
+    
+    fn fix_double_black_right_child_node(&mut self, mut node: RedBlackNode<T>) -> RedBlackNode<T> {
+        println!("TREE: remove_fixup_case3() w = {:?}", node.value);
+        // w = u.parent
+        // v = w.left
+        // let mut left_child_node = self.get_left_child(&node).expect("left child must exist");
+        // self.pull_black(w)
+        self.pull_black(&mut node);
+        // self.flip_right(w)  # w is now red
+        self.rotate(&Direction::Right, &mut node, true);
+        let mut left_child_node = self.get_parent(&node).expect("left child must exist");
+        // q = w.left
+        if let Some(mut new_left_child_node) = self.get_left_child(&mut node) {
+            // if q.colour == red:  # q-w is red-red
+            if new_left_child_node.is_red() {
+            //     self.rotate_right(w)
+                self.rotate(&Direction::Right, &mut node, false);
+            //     self.flip_left(v)
+                self.rotate(&Direction::Left, &mut left_child_node, true);
+            //     self.push_black(q)
+                self.push_black(&mut new_left_child_node);
+            //     return q
+                return new_left_child_node
+            }
+        }
+
+        // else:
+        //     if v.left.colour == red:
+        if self.get_left_child(&left_child_node).map_or(false, |n| n.is_red()) {
+        //         self.push_black(v)
+            self.push_black(&mut left_child_node);
+        //         return v
+            left_child_node
+        } 
+        //     else:  # ensure left-leaning
+        else {
+        //         self.flip_left(v)
+            self.rotate(&Direction::Left, &mut left_child_node, true);
+        //         return w
+            node
+        }
     }
 
     pub fn iter<'a>(&'a self) -> impl Iterator<Item=T> + 'a {
@@ -588,6 +911,7 @@ where
         
         // if tree is of length zero, or there are no nodes left return None
         if next_node.is_none() && self.index == self.tree.len {
+            self.index = 0; // allows iterator to be re-used
             None
         } 
         // if there is some node that has been visited, visit its right child's left subtree. 
@@ -674,13 +998,25 @@ mod test {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut tree = RedBlackTree::default();
         let mut baseline = std::collections::BTreeSet::new();
+
+        let mut remove_these = vec!(12);
         // for x in vec![10u64, 6, 3, 4, 5].into_iter() {
-        for _ in 0..100 {
+        for i in 0..100 {
             let x = rng.gen::<u64>();
-            println!("TEST: -------- inserting value {:?} ---------", x);
-            tree.add(x);
-            baseline.insert(x);
+            // if i % 10 == 0 {
+            //     remove_these.push(i.clone());
+            // }
+            println!("TEST: -------- inserting value {:?} ---------", i);
+            tree.add(i);
+            baseline.insert(i);
         }
+
+        for r in remove_these.into_iter() {
+            println!("TEST: -------- removing value {:?} ---------", r);
+            assert!(tree.remove(&r));
+            assert!(baseline.remove(&r));
+        }
+
         // let actual = tree.to_vec();
         // assert_eq!(tree, baseline);
         // for _ in 0..1001 {
@@ -697,6 +1033,9 @@ mod test {
             // let v = iter_thing.next();
             // println!("{:?}", v);
         }
+
+        //let iter_thing_post_remove = baseline.iter().zip(tree.iter());
+
     }
     #[test]
     fn test_as_set() {
