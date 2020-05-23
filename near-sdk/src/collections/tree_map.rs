@@ -766,6 +766,7 @@ impl<'a, K, V> Cursor<'a, K, V>
 #[cfg(test)]
 mod tests {
     use std::fmt::{Debug, Result};
+    use std::collections::HashSet;
 
     use super::*;
     use crate::test_utils::test_env;
@@ -773,6 +774,10 @@ mod tests {
     extern crate rand;
     use self::rand::RngCore;
     use serde::export::Formatter;
+    use quickcheck::QuickCheck;
+    use std::time::Duration;
+    use std::sync::mpsc;
+    use std::thread;
 
     fn random(n: u64) -> Vec<u32> {
         let mut rng = rand::thread_rng();
@@ -1220,14 +1225,16 @@ mod tests {
         let vec = random(n);
         println!("{:?}", vec);
 
+        let mut set: HashSet<u32> = HashSet::new();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
         for x in &vec {
             map.insert(*x, 1);
+            set.insert(*x);
         }
 
-        assert_eq!(map.len(), n);
+        assert_eq!(map.len(), set.len() as u64);
 
-        for x in &vec {
+        for x in &set {
             assert_eq!(map.get(x), Some(1));
             map.remove(*x);
             assert_eq!(map.get(x), None);
@@ -1306,24 +1313,28 @@ mod tests {
 
         for k in 1..4 {
             let mut map: TreeMap<u32, u32> = TreeMap::default();
+            let mut set: HashSet<u32> = HashSet::new();
 
             let n = 1 << k;
             let ins: Vec<u32> = random(n);
             let rem: Vec<u32> = random(n);
 
             for x in &ins {
+                set.insert(*x);
                 map.insert(*x, 42);
             }
 
             for x in &rem {
+                set.insert(*x);
                 map.insert(*x, 42);
             }
 
             for x in &rem {
+                set.remove(x);
                 map.remove(*x);
             }
 
-            assert_eq!(map.len(), n);
+            assert_eq!(map.len(), set.len() as u64);
 
             let h = map.height();
             let h_max = max_tree_height(n);
@@ -1552,5 +1563,76 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::default();
         assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+    }
+
+    fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> Vec<(K, V)>
+        where
+            K: Ord + Copy + BorshSerialize + BorshDeserialize,
+            V: Copy + BorshSerialize + BorshDeserialize,
+    {
+        test_env::setup();
+        let mut map: TreeMap<K, V> = TreeMap::default();
+        for (k, v) in insert {
+            map.insert(*k, *v);
+        }
+        for k in remove {
+            map.remove(*k);
+        }
+        let out = map.iter().collect();
+        map.clear();
+        out
+    }
+
+    fn rb<K, V>(insert: &[(K, V)], remove: &[K]) -> Vec<(K, V)>
+        where
+            K: Ord + Copy + BorshSerialize + BorshDeserialize,
+            V: Copy + BorshSerialize + BorshDeserialize,
+    {
+        use std::collections::BTreeMap;
+
+        let mut map: BTreeMap<K, V> = BTreeMap::default();
+        for (k, v) in insert {
+            map.insert(*k, *v);
+        }
+        for k in remove {
+            map.remove(k);
+        }
+        map.into_iter().collect()
+    }
+
+    // cargo test collections::tree_map::tests::prop_avl_vs_rb -- --nocapture
+    #[test]
+    fn prop_avl_vs_rb() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
+            println!("AVL vs RB: inserts={} removes={}", insert.len(), remove.len());
+            let a = avl(&insert, &remove);
+            let b = rb(&insert, &remove);
+            a == b
+        }
+        let f = prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool;
+
+        // QuickCheck keeps running after `HostError(GasLimitExceeded)`, thus limiting by timeout.
+        with_timeout(Duration::from_secs(10), move || {
+            QuickCheck::new()
+                .tests(1)
+                .max_tests(1)
+                .min_tests_passed(1)
+                .quickcheck(f);
+        });
+    }
+
+    // inspired by https://github.com/rust-lang/rfcs/issues/2798#issuecomment-552949300
+    fn with_timeout<T: Send + 'static, F: (FnOnce() -> T) + Send + 'static>(d: Duration, f: F) -> T {
+        let (tx, rx) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            let val = f();
+            tx.send(()).expect("Failed to send 'done' marker.");
+            val
+        });
+
+        match rx.recv_timeout(d) {
+            Ok(_) => handle.join().expect("Test thread panic detected."),
+            Err(_) => panic!("Test time is out: {} millis", d.as_millis()),
+        }
     }
 }
