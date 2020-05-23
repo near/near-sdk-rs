@@ -492,6 +492,8 @@ impl<K, V> TreeMap<K, V>
             self.key.remove(&r_id);
             self.ht.remove(&r_id);
 
+            let root = self.swap_with_last(r_id);
+
             // removing node might have caused a imbalance - balance the tree up to the root,
             // starting from lowest affected key - the parent of a leaf node in this case
             self.check_balance(root, &p_key)
@@ -535,6 +537,8 @@ impl<K, V> TreeMap<K, V>
                     }
                 }
 
+                let root = self.swap_with_last(n);
+
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
                 self.check_balance(root, &k)
@@ -575,12 +579,62 @@ impl<K, V> TreeMap<K, V>
                     }
                 }
 
+                let root = self.swap_with_last(n);
+
                 // removing node might have caused a imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (min key from right subtree in this case)
                 self.check_balance(root, &k)
 
             }
         }
+    }
+
+    // Move content of node with ID `len - 1` (parent left or right link, left, right, key, height)
+    // to node with id `t`, and remove node `len - 1`.
+    fn swap_with_last(&mut self, target: u64) -> u64 {
+        let remove = self.len - 1;
+        if target == remove {
+            return self.root;
+        }
+
+        let k_opt = self.key.get(&remove);
+        if k_opt.is_none() {
+            return self.root;
+        }
+        let key = k_opt.unwrap();
+
+        // parent lookup takes O(log(N)) in worst case - can take amortized O(1) with `parent` map
+        let root = self.root;
+        let (_, parent) = self.lookup_at(root, &key).unwrap();
+
+        self.key.remove(&remove);
+        self.key.insert(&target, &key);
+
+        // update link from parent node (p-n -> p-t)
+        if remove != parent {
+            if self.lft.get(&parent).map(|link| link == remove).unwrap_or_default() {
+                self.lft.insert(&parent, &target);
+            } else {
+                self.rgt.insert(&parent, &target);
+            }
+        }
+
+        // move references from `ht`, `lft`, `rgt` from `r` to `t`.
+        for map in [&mut self.ht, &mut self.lft, &mut self.rgt].iter_mut() {
+            let val = map.remove(&remove);
+            match val {
+                Some(x) => {
+                    map.insert(&target, &x);
+                },
+                None => ()
+            }
+        }
+
+        if remove == root {
+            self.set_root(target);
+        }
+
+        self.root
     }
 }
 
@@ -711,17 +765,20 @@ impl<'a, K, V> Cursor<'a, K, V>
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use std::fmt::{Debug, Result};
+
     use super::*;
     use crate::test_utils::test_env;
 
     extern crate rand;
     use self::rand::RngCore;
+    use serde::export::Formatter;
 
     fn random(n: u64) -> Vec<u32> {
         let mut rng = rand::thread_rng();
         let mut vec = Vec::with_capacity(n as usize);
         (0..n).for_each(|_| {
-            vec.push(rng.next_u32());
+            vec.push(rng.next_u32() % 1000);
         });
         vec
     }
@@ -741,6 +798,23 @@ mod tests {
 
         let h = C * log2( n as f64 + D ) + B;
         h.ceil() as u64
+    }
+
+    impl<K, V> Debug for TreeMap<K, V>
+        where
+            K: Ord + Copy + Debug + BorshSerialize + BorshDeserialize,
+            V: Copy + Debug + BorshSerialize + BorshDeserialize,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            f.debug_struct("TreeMap")
+                .field("root", &self.root)
+                .field("key", &self.key.iter().collect::<Vec<(u64, K)>>())
+                .field("val", &self.val.iter().collect::<Vec<(K, V)>>())
+                .field("lft", &self.lft.iter().collect::<Vec<(u64, u64)>>())
+                .field("rgt", &self.rgt.iter().collect::<Vec<(u64, u64)>>())
+                .field("ht", &self.ht.iter().collect::<Vec<(u64, u64)>>())
+                .finish()
+        }
     }
 
     #[test]
@@ -1084,7 +1158,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_20_regression() {
+    fn test_remove_20_regression_1() {
         test_env::setup();
 
         let vec: Vec<u32> = vec![552517392, 3638992158, 1015727752, 2500937532, 638716734,
@@ -1108,11 +1182,43 @@ mod tests {
     }
 
     #[test]
+    fn test_remove_7_regression() {
+        test_env::setup();
+
+        let vec: Vec<u32> = vec![280, 606, 163, 857, 436, 508, 44, 801];
+
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            println!("\ninserted {}\n{:?}", *x, map);
+            assert_eq!(map.get(x), Some(1));
+        }
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(1));
+            map.remove(*x);
+            println!("\nremoved {}\n{:?}", *x, map);
+            assert_eq!(map.get(x), None);
+        }
+
+        assert_eq!(map.len(), 0, "map.len() > 0");
+        assert_eq!(map.key.len(), 0, "map.key is not empty");
+        assert_eq!(map.val.len(), 0, "map.val is not empty");
+        assert_eq!(map.ht.len(),  0, "map.ht  is not empty");
+        assert_eq!(map.lft.len(), 0, "map.lft is not empty");
+        assert_eq!(map.rgt.len(), 0, "map.rgt is not empty");
+        map.clear();
+    }
+
+    #[test]
     fn test_remove_n() {
         test_env::setup();
 
         let n: u64 = 20;
         let vec = random(n);
+        println!("{:?}", vec);
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
         for x in &vec {
@@ -1127,13 +1233,13 @@ mod tests {
             assert_eq!(map.get(x), None);
         }
 
-        assert_eq!(map.len(), 0);
+        assert_eq!(map.len(), 0, "map.len() > 0");
 
-        assert_eq!(map.key.len(), 0);
-        assert_eq!(map.val.len(), 0);
-        assert_eq!(map.ht.len(), 0);
-        assert_eq!(map.lft.len(), 0);
-        assert_eq!(map.rgt.len(), 0);
+        assert_eq!(map.key.len(), 0, "map.key is not empty");
+        assert_eq!(map.val.len(), 0, "map.val is not empty");
+        assert_eq!(map.ht.len(),  0, "map.ht  is not empty");
+        assert_eq!(map.lft.len(), 0, "map.lft is not empty");
+        assert_eq!(map.rgt.len(), 0, "map.rgt is not empty");
         map.clear();
     }
 
