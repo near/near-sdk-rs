@@ -153,6 +153,12 @@ impl<K, V> TreeMap<K, V>
         Cursor::desc_from(&self, key).into_iter()
     }
 
+    /// Iterate over K keys in ascending order in O(Klog(N))
+    ///
+    /// # Panics
+    ///
+    /// Panics if range start > end.
+    /// Panics if range start == end and both bounds are Excluded.
     pub fn range<'a>(&'a self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + 'a {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a >  b => panic!("Invalid range."),
@@ -178,6 +184,9 @@ impl<K, V> TreeMap<K, V>
         self.root = root;
     }
 
+    /// Returns (key, id, parent id) of left-most lower (min) node starting from given node `at`.
+    /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
+    /// its parent must be explicitly provided in advance.
     fn min_at(&self, mut at: u64, mut p: u64) -> Option<(K, u64, u64)> {
         loop {
             match self.lft.get(&at) {
@@ -191,6 +200,9 @@ impl<K, V> TreeMap<K, V>
         self.key.get(&at).map(|k| (k, at, p))
     }
 
+    /// Returns (key, id, parent id) of right-most lower (max) node starting from given node `at`.
+    /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
+    /// its parent must be explicitly provided in advance.
     fn max_at(&self, mut at: u64, mut p: u64) -> Option<(K, u64, u64)> {
         loop {
             match self.rgt.get(&at) {
@@ -1392,7 +1404,7 @@ mod tests {
 
         assert_eq!(
             map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
-            vec![]);
+            vec![]); // the range makes no sense, but `BTreeMap` does not panic in this case
 
         map.clear();
     }
