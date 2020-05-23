@@ -35,7 +35,7 @@ macro_rules! testing_env {
             $fee_config,
             vec![],
             storage,
-            validator
+            $validator
         )));
     };
     ($context:expr, $config:expr, $fee_config:expr) => {
