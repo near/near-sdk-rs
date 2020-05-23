@@ -95,7 +95,7 @@ impl<K, V> TreeMap<K, V>
         self.val.get(key)
     }
 
-    pub fn insert(&mut self, key: K, val: V) -> Option<V> {
+    pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
         if self.contains_key(&key) {
             // key is already present, changing only associated value
             self.val.insert(&key, &val)
@@ -109,7 +109,7 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
-    pub fn remove(&mut self, key: K) -> Option<V> {
+    pub fn remove(&mut self, key: &K) -> Option<V> {
         if self.contains_key(&key) {
             let root = self.do_remove(&key);
             self.set_root(root);
@@ -844,13 +844,13 @@ mod tests {
         let mut map: TreeMap<i32, i32> = TreeMap::default();
         assert_eq!(map.height(), 0);
 
-        map.insert(3, 3);
+        map.insert(&3, &3);
         assert_eq!(map.height(), 1);
 
-        map.insert(2, 2);
+        map.insert(&2, &2);
         assert_eq!(map.height(), 2);
 
-        map.insert(1, 1);
+        map.insert(&1, &1);
 
         let root = map.root;
         assert_eq!(root, 1);
@@ -867,13 +867,13 @@ mod tests {
         let mut map: TreeMap<i32, i32> = TreeMap::default();
         assert_eq!(map.height(), 0);
 
-        map.insert(1, 1);
+        map.insert(&1, &1);
         assert_eq!(map.height(), 1);
 
-        map.insert(2, 2);
+        map.insert(&2, &2);
         assert_eq!(map.height(), 2);
 
-        map.insert(3, 3);
+        map.insert(&3, &3);
 
         let root = map.root;
         assert_eq!(root, 1);
@@ -896,7 +896,7 @@ mod tests {
         for k in &cases {
             if *k % 2 == 0 {
                 counter += 1;
-                map.insert(*k, counter);
+                map.insert(k, &counter);
             }
         }
 
@@ -927,7 +927,7 @@ mod tests {
         for k in &cases {
             if *k % 2 == 0 {
                 counter += 1;
-                map.insert(*k, counter);
+                map.insert(k, &counter);
             }
         }
 
@@ -956,7 +956,7 @@ mod tests {
             let input: Vec<u32> = random(n);
 
             for x in &input {
-                map.insert(*x, 42);
+                map.insert(x, &42);
             }
 
             assert!(map.height() <= max_tree_height(n));
@@ -973,7 +973,7 @@ mod tests {
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
         for x in vec.iter().rev() {
-            map.insert(*x, 1);
+            map.insert(x, &1);
         }
 
         assert_eq!(map.min().unwrap(), *vec.iter().min().unwrap());
@@ -989,7 +989,7 @@ mod tests {
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
         for x in vec.iter().rev() {
-            map.insert(*x, 1);
+            map.insert(x, &1);
         }
 
         assert_eq!(map.max().unwrap(), *vec.iter().max().unwrap());
@@ -1004,7 +1004,7 @@ mod tests {
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
         for x in vec.iter() {
-            map.insert(*x, 1);
+            map.insert(x, &1);
         }
 
         assert_eq!(map.ceil( &5), None);
@@ -1026,7 +1026,7 @@ mod tests {
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
         for x in vec.iter() {
-            map.insert(*x, 1);
+            map.insert(x, &1);
         }
 
         assert_eq!(map.floor( &5), Some(10));
@@ -1045,9 +1045,9 @@ mod tests {
         test_env::setup();
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        map.insert(1, 1);
+        map.insert(&1, &1);
         assert_eq!(map.get(&1), Some(1));
-        map.remove(1);
+        map.remove(&1);
         assert_eq!(map.get(&1), None);
         assert_eq!(map.key.len(), 0);
         assert_eq!(map.ht.len(), 0);
@@ -1063,13 +1063,13 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
+            map.insert(x, &1);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
         map.clear();
@@ -1084,13 +1084,13 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
+            map.insert(x, &1);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
         map.clear();
@@ -1106,13 +1106,13 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
+            map.insert(x, &1);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
         map.clear();
@@ -1128,13 +1128,13 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
+            map.insert(x, &1);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
         map.clear();
@@ -1150,13 +1150,13 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
+            map.insert(x, &1);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
         map.clear();
@@ -1174,13 +1174,13 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
+            map.insert(x, &1);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
         map.clear();
@@ -1196,15 +1196,15 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
-            println!("\ninserted {}\n{:?}", *x, map);
+            map.insert(x, &1);
+            println!("\ninserted {}\n{:?}", x, map);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
-            println!("\nremoved {}\n{:?}", *x, map);
+            map.remove(x);
+            println!("\nremoved {}\n{:?}", x, map);
             assert_eq!(map.get(x), None);
         }
 
@@ -1228,7 +1228,7 @@ mod tests {
         let mut set: HashSet<u32> = HashSet::new();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
         for x in &vec {
-            map.insert(*x, 1);
+            map.insert(x, &1);
             set.insert(*x);
         }
 
@@ -1236,7 +1236,7 @@ mod tests {
 
         for x in &set {
             assert_eq!(map.get(x), Some(1));
-            map.remove(*x);
+            map.remove(x);
             assert_eq!(map.get(x), None);
         }
 
@@ -1255,12 +1255,12 @@ mod tests {
         test_env::setup();
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        map.insert(2, 1);
-        map.insert(3, 1);
-        map.insert(1, 1);
-        map.insert(4, 1);
+        map.insert(&2, &1);
+        map.insert(&3, &1);
+        map.insert(&1, &1);
+        map.insert(&4, &1);
 
-        map.remove(2);
+        map.remove(&2);
 
         assert_eq!(map.get(&1), Some(1));
         assert_eq!(map.get(&2), None);
@@ -1277,11 +1277,11 @@ mod tests {
         let rem: Vec<u32> = vec![2982517385, 1833990072];
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        map.insert(ins[0], 1);
-        map.insert(ins[1], 1);
+        map.insert(&ins[0], &1);
+        map.insert(&ins[1], &1);
 
-        map.remove(rem[0]);
-        map.remove(rem[1]);
+        map.remove(&rem[0]);
+        map.remove(&rem[1]);
 
         let h = map.height();
         let h_max = max_tree_height(map.len());
@@ -1295,8 +1295,8 @@ mod tests {
         let mut map: TreeMap<u32, u32> = TreeMap::default();
 
         for x in 0..30 {
-            map.insert(x, x);
-            map.insert(42, x);
+            map.insert(&x, &x);
+            map.insert(&42, &x);
         }
 
         assert_eq!(map.get(&42), Some(29));
@@ -1321,17 +1321,17 @@ mod tests {
 
             for x in &ins {
                 set.insert(*x);
-                map.insert(*x, 42);
+                map.insert(x, &42);
             }
 
             for x in &rem {
                 set.insert(*x);
-                map.insert(*x, 42);
+                map.insert(x, &42);
             }
 
             for x in &rem {
                 set.remove(x);
-                map.remove(*x);
+                map.remove(x);
             }
 
             assert_eq!(map.len(), set.len() as u64);
@@ -1348,16 +1348,16 @@ mod tests {
     fn test_remove_empty() {
         test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        assert_eq!(map.remove(1), None);
+        assert_eq!(map.remove(&1), None);
     }
 
     #[test]
     fn test_to_vec() {
         test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        map.insert(1, 41);
-        map.insert(2, 42);
-        map.insert(3, 43);
+        map.insert(&1, &41);
+        map.insert(&2, &42);
+        map.insert(&3, &43);
 
         assert_eq!(map.to_vec(), vec![(1, 41), (2, 42), (3, 43)]);
         map.clear();
@@ -1374,9 +1374,9 @@ mod tests {
     fn test_iter() {
         test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        map.insert(1, 41);
-        map.insert(2, 42);
-        map.insert(3, 43);
+        map.insert(&1, &41);
+        map.insert(&2, &42);
+        map.insert(&3, &43);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
         map.clear();
@@ -1393,9 +1393,9 @@ mod tests {
     fn test_iter_rev() {
         test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
-        map.insert(1, 41);
-        map.insert(2, 42);
-        map.insert(3, 43);
+        map.insert(&1, &41);
+        map.insert(&2, &42);
+        map.insert(&3, &43);
 
         assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
         map.clear();
@@ -1417,11 +1417,11 @@ mod tests {
         let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
         for x in &one {
-            map.insert(*x, 42);
+            map.insert(x, &42);
         }
 
         for x in &two {
-            map.insert(*x, 42);
+            map.insert(x, &42);
         }
 
         assert_eq!(
@@ -1454,11 +1454,11 @@ mod tests {
         let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
         for x in &one {
-            map.insert(*x, 42);
+            map.insert(x, &42);
         }
 
         for x in &two {
-            map.insert(*x, 42);
+            map.insert(x, &42);
         }
 
         assert_eq!(
@@ -1484,11 +1484,11 @@ mod tests {
         let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
         for x in &one {
-            map.insert(*x, 42);
+            map.insert(x, &42);
         }
 
         for x in &two {
-            map.insert(*x, 42);
+            map.insert(x, &42);
         }
 
         assert_eq!(
@@ -1573,10 +1573,10 @@ mod tests {
         test_env::setup();
         let mut map: TreeMap<K, V> = TreeMap::default();
         for (k, v) in insert {
-            map.insert(*k, *v);
+            map.insert(k, v);
         }
         for k in remove {
-            map.remove(*k);
+            map.remove(k);
         }
         let out = map.iter().collect();
         map.clear();
@@ -1604,7 +1604,6 @@ mod tests {
     #[test]
     fn prop_avl_vs_rb() {
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
-            println!("AVL vs RB: inserts={} removes={}", insert.len(), remove.len());
             let a = avl(&insert, &remove);
             let b = rb(&insert, &remove);
             a == b
