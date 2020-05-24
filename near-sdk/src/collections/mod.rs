@@ -45,7 +45,7 @@ mod vector;
 pub use vector::Vector;
 
 mod map;
-pub use map::Map;
+pub use map::{OrderedMap, UnorderedMap};
 
 // mod ordered_map;
 // pub use ordered_map::OrderedMap;

@@ -21,36 +21,60 @@ pub struct RedBlackNode<T> {
     value: T
 }
 
+pub trait RedBlackNodeValue: Ord {
+    type OrdValue: Ord;
+
+    fn ord_value(&self) -> &Self::OrdValue;
+}
+
+// Need specialization in stable rust for this to work as intended
+// impl<T: Ord> RedBlackNodeValue for T {
+//     type OrdValue = Self;
+
+//     fn ord_value(&self) -> &Self::OrdValue {
+//         self
+//     }
+// }
+
+impl RedBlackNodeValue for u64 {
+    type OrdValue = Self;
+
+    fn ord_value(&self) -> &Self::OrdValue {
+        self
+    }
+}
+
+
 impl<T> Ord for RedBlackNode<T> 
 where
-    T: Ord
+    T: RedBlackNodeValue
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.value.cmp(&other.value)
+        self.value.ord_value().cmp(&other.value.ord_value())
     }
 }
 
 impl<T> PartialOrd for RedBlackNode<T> 
 where
-    T: Ord
+    T: RedBlackNodeValue
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.value.cmp(&other.value))
+        Some(self.value.ord_value().cmp(&other.value.ord_value()))
     }
 }
 
 impl<T> PartialEq for RedBlackNode<T> 
 where
-    T: Ord
+    T: RedBlackNodeValue
 {
     fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
+        self.value.ord_value() == other.value.ord_value()
     }
 }
 
 impl<T> Eq for RedBlackNode<T> 
 where
-    T: Ord
+    T: RedBlackNodeValue
 {}
 
 impl<T> RedBlackNode<T> {
@@ -131,7 +155,7 @@ impl<T> RedBlackNode<T> {
 
 impl<T> RedBlackNode<T> 
 where 
-    T: Ord
+    T: RedBlackNodeValue
 {
 
 }
@@ -143,11 +167,6 @@ pub struct RedBlackTree<T> {
     root_key: Option<EnvStorageKey>,
     // TODO store indices that have been removed. 
     node_value: PhantomData<T>
-}
-
-pub enum Either<T> {
-    Parent((DoubleBlackNodeCase, RedBlackNode<T>)),
-    Child(RedBlackNode<T>)
 }
 
 #[derive(Debug)]
@@ -206,6 +225,14 @@ impl<T> RedBlackTree<T> {
             env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
         }
     }
+
+    fn delete_node_raw(&self, key: &EnvStorageKey) {
+        let lookup_key = [&self.prefix, key.as_slice()].concat();
+        if !env::storage_remove(&lookup_key) { 
+            panic!("delete node raw panic");
+            env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
+        }
+    }
 }
 
 impl<T> Default for RedBlackTree<T> {
@@ -216,7 +243,8 @@ impl<T> Default for RedBlackTree<T> {
 
 impl<T> RedBlackTree<T> 
 where 
-    T: BorshSerialize + BorshDeserialize + Ord + std::fmt::Debug
+    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
+    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
 {
     fn deserialize_element(raw_element: &[u8]) -> RedBlackNode<T> {
         match RedBlackNode::try_from_slice(&raw_element) {
@@ -243,6 +271,11 @@ where
 
     fn update_node(&self, node: &RedBlackNode<T>) {
         self.update_node_raw(node.key(), &Self::serialize_element(node))
+    }
+
+    fn delete_node(&mut self, node: &RedBlackNode<T>) {
+        self.delete_node_raw(node.key());
+        self.len -= 1;
     }
 
     fn get_root(&self) -> Option<RedBlackNode<T>> {
@@ -284,10 +317,10 @@ where
     }
 
     // 2 writes to env::storage
-    fn add_child(&mut self, mut parent: RedBlackNode<T>, child_value: T) -> Option<RedBlackNode<T>> {
+    fn add_child(&mut self, mut parent: RedBlackNode<T>, mut child_value: T) -> Result<RedBlackNode<T>, T> {
         println!("TREE: add_child() parent key {:?}", parent.key());
         use std::cmp::Ordering::*;
-        match child_value.cmp(&parent.value) {
+        match child_value.ord_value().cmp(&parent.value.ord_value()) {
             Greater => {
                 println!("TREE: add_child() adding right child -->");
                 let key = self.new_node_key();
@@ -303,7 +336,7 @@ where
                 };
                 self.insert_node(&child_node);
                 self.update_node(&parent);
-                Some(child_node)
+                Ok(child_node)
             },
             Less => {
                 println!("TREE: add_child() adding left child <--");
@@ -320,25 +353,28 @@ where
                 };
                 self.insert_node(&child_node);
                 self.update_node(&parent);
-                Some(child_node)
+                Ok(child_node)
             },
             Equal => {
                 // the value already exists in the tree
-                None
+                // return the old value
+                std::mem::swap(&mut child_value, &mut parent.value);
+                self.update_node(&parent);
+                Err(child_value)
             }
         }
     }
 
     // 1 + O(logN) reads from env::storage
-    fn find_parent(&self, child_value: &T) -> Option<RedBlackNode<T>> {
+    fn find_parent(&self, child_value: &<T as RedBlackNodeValue>::OrdValue) -> Option<RedBlackNode<T>> {
         println!("TREE: find_parent()");
         use std::cmp::Ordering::*;
         let mut root = self.get_root();
         let mut parent = None; 
         
         while let Some(parent_node) = root {
-            println!("TREE: find_parent() : {:?} gtlte {:?} = {:?}", child_value, parent_node.value, child_value.cmp(&parent_node.value));
-            root = match child_value.cmp(&parent_node.value) {
+            // println!("TREE: find_parent() : {:?} gtlte {:?} = {:?}", child_value, parent_node.value, child_value.cmp(&parent_node.value));
+            root = match child_value.cmp(&parent_node.value.ord_value()) {
                 Greater => self.get_right_child(&parent_node),
                 Less => self.get_left_child(&parent_node),
                 Equal => None
@@ -346,7 +382,7 @@ where
             println!("TREE: find_parent() : new root = {:?}", root.as_ref().map(|n| n.key()));
             parent = Some(parent_node);
         }
-        println!("TREE: find_parent() : parent of {:?} is {:?}, parent key {:?}", child_value, parent.as_ref().map(|p| &p.value), parent.as_ref().map(|p| p.key()));
+        // println!("TREE: find_parent() : parent of {:?} is {:?}, parent key {:?}", child_value, parent.as_ref().map(|p| &p.value), parent.as_ref().map(|p| p.key()));
         parent
     }
 
@@ -482,8 +518,16 @@ where
         }
     }
 
-    pub fn add(&mut self, value: T) -> bool {
-        let child = match self.find_parent(&value) { // O(logN)
+    pub fn has(&self, value: &<T as RedBlackNodeValue>::OrdValue) -> bool {
+        self.find_parent(value).map_or(false, |node| node.value.ord_value() == value)
+    }
+
+    pub fn get(&self, value: &<T as RedBlackNodeValue>::OrdValue) -> Option<T> {
+        self.find_parent(value).map(|node| node.value)
+    }
+
+    pub fn add(&mut self, value: T) -> Option<T> {
+        let child = match self.find_parent(value.ord_value()) { // O(logN)
             Some(parent) => self.add_child(parent, value), // O(1)
             None => { // O(1)
                 println!("inserting new root");
@@ -500,20 +544,18 @@ where
                 };
                 self.insert_node(&root_node); 
                 self.root_key = Some(root_node.key().clone());
-                Some(root_node)
+                Ok(root_node)
             }
         };
 
-        let added_new_node = child.is_some();
-
-        // O(logN)
-        if let Some(child_node) = child {
-            // FIXME try to minimize number of updates... need to insert here pre-emptively
-            // self.insert_node(&child_node);
-            self.add_red_node(child_node); // does nothing if child is already black
+        match child {
+            Ok(child_node) => {
+                // O(logN)
+                self.add_red_node(child_node); // does nothing if child is already black
+                None
+            },
+            Err(old_value) => Some(old_value)
         }
-
-        added_new_node
     }
 
     // Returns parent of the spliced node
@@ -549,17 +591,17 @@ where
             self.update_node(&s_node);
         }
 
-        // TODO add call to remove node from env::storage
-        self.len -= 1; // TODO check for underflow?
+        self.delete_node(&w);
+
         updated_w_parent
     }
 
-    pub fn remove(&mut self, value: &T) -> bool {
+    pub fn remove(&mut self, value: &<T as RedBlackNodeValue>::OrdValue) -> Option<T> {
         if let Some(mut u) = self.find_parent(value) {
             // value does not exist in the tree
-            if &u.value != value {
+            if &u.value.ord_value() != &value {
                 println!("TREE: remove() {:?} does not exist in tree", value);
-                return false 
+                return None 
             }
 
             let mut w;
@@ -624,14 +666,16 @@ where
                 self.restore_left_leaning(w_parent);
             }
 
+            Some(w.value)
+
             // for node in self.iter() {
             //     println!("checking node {:?} for invariant", node);
             // }
-            true
+            // true
         } else {
             // value does not exist in the tree
             println!("TREE: remove() {:?} does not exist in tree", value);
-            false
+            None
         }
     }
 
@@ -798,7 +842,8 @@ struct RedBlackTreeIter<'a, T> {
 
 impl<'a, T> RedBlackTreeIter<'a, T> 
 where
-    T: BorshSerialize + BorshDeserialize + Ord + std::fmt::Debug
+    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
+    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
 {
     fn new(tree: &'a RedBlackTree<T>) -> Self {
         Self {
@@ -830,7 +875,8 @@ where
 
 impl<'a, T> Iterator for RedBlackTreeIter<'a, T> 
 where
-    T: BorshSerialize + BorshDeserialize + Ord + std::fmt::Debug
+    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
+    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
 {
     type Item = T;
 
@@ -878,7 +924,10 @@ mod test {
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
+    use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
+    use std::collections::{HashMap, HashSet, BTreeSet};
+    use std::iter::FromIterator;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -927,50 +976,219 @@ mod test {
     #[test]
     pub fn test_add() {
         set_env();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut tree = RedBlackTree::default();
-        let mut baseline = std::collections::BTreeSet::new();
-
-        let mut remove_these = vec!();
-        // for x in vec![10u64, 6, 3, 4, 5].into_iter() {
-        for i in 0..100 {
-            let x = rng.gen::<u64>();
-            if x % 2 == 0 {
-                remove_these.push(x.clone());
-            }
-            println!("TEST: -------- inserting value {:?} ---------", x);
-            tree.add(x);
-            baseline.insert(x);
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            tree.add(value);
         }
-
-        for r in remove_these.into_iter() {
-            println!("TEST: -------- removing value {:?} ---------", r);
-            assert!(tree.remove(&r));
-            assert!(baseline.remove(&r));
-        }
-
-        // let actual = tree.to_vec();
-        // assert_eq!(tree, baseline);
-        // for _ in 0..1001 {
-        //     assert_eq!(baseline.pop(), tree.pop());
-        // }
-        
-        // see that iterating through the values leads to identical output
-        let iter_thing = baseline.iter().zip(tree.iter());
-        // let mut iter_thing = tree.iter();
-        for val in iter_thing {
-            let (baseline_value, tree_value) = val;
-            println!("{:?} vs {:?}", baseline_value, tree_value);
-            // assert_eq!(*baseline_value, tree_value);
-            // let v = iter_thing.next();
-            // println!("{:?}", v);
-        }
-
-        //let iter_thing_post_remove = baseline.iter().zip(tree.iter());
-
     }
+
     #[test]
-    fn test_as_set() {
+    pub fn test_add_remove() {
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
+        let mut values = vec![];
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            values.push(value);
+            tree.add(value);
+        }
+        values.shuffle(&mut rng);
+        for value in values {
+            assert_eq!(tree.remove(&value), Some(value));
+        }
 
+        assert_eq!(tree.len, 0);
     }
+
+    #[test]
+    pub fn test_remove_last_readd() {
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let value1 = 2u64;
+        tree.add(value1);
+        let value2 = 4u64;
+        tree.add(value2);
+
+        assert_eq!(tree.remove(&value2), Some(value2));
+        assert!(tree.add(value2).map_or(true, |_| false));
+        assert_eq!(tree.len, 2)
+    }
+
+    #[test]
+    pub fn test_insert_override_remove() {
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
+        let mut values = vec![];
+        let mut set = HashSet::new();
+
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            values.push(value);
+            set.insert(value);
+            tree.add(value);
+        }
+
+        values.shuffle(&mut rng);
+        for value in &values {
+            assert_eq!(tree.add(*value).map_or(true, |_| false), set.insert(*value));
+        }
+
+        values.shuffle(&mut rng);
+        for value in values {
+            assert_eq!(set.remove(&value), tree.remove(&value).is_some());
+        }
+    }
+
+    #[test]
+    pub fn test_get_non_existent() {
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
+        let mut set = HashSet::new();
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            set.insert(value);
+            tree.add(value);
+        }
+        for _ in 0..100 {
+            let value = rng.gen::<u64>() % 20_000;
+            assert_eq!(tree.has(&value), set.contains(&value));
+        }
+    }
+
+    #[test]
+    pub fn test_to_vec() { // FIXME
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+        let mut set = HashSet::new();
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            set.insert(value);
+            tree.add(value);
+        }
+        let actual = HashSet::from_iter(tree.iter());
+        assert_eq!(actual, set);
+    }
+
+    // #[test]
+    // pub fn test_clear() {
+    //     set_env();
+    //     let mut tree = RedBlackTree::default();
+    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
+    //     for _ in 0..10 {
+    //         for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
+    //             let value = rng.gen::<u64>();
+    //             tree.add(value);
+    //         }
+    //         assert!(!Vec::from_iter(tree.iter()).is_empty());
+    //         tree.clear();
+    //         assert!(Vec::from_iter(tree.iter()).is_empty());
+    //     }
+    // }
+
+    // #[test]
+    // pub fn test_keys_values() {
+    //     set_env();
+    //     let mut map = Map::default();
+    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+    //     let mut key_to_value = HashMap::new();
+    //     for _ in 0..1000 {
+    //         let key = rng.gen::<u64>();
+    //         let value = rng.gen::<u64>();
+    //         key_to_value.insert(key, value);
+    //         map.insert(&key, &value);
+    //     }
+    //     let actual: HashMap<u64, u64> = HashMap::from_iter(map.to_vec());
+    //     assert_eq!(
+    //         actual.keys().collect::<HashSet<_>>(),
+    //         key_to_value.keys().collect::<HashSet<_>>()
+    //     );
+    //     assert_eq!(
+    //         actual.values().collect::<HashSet<_>>(),
+    //         key_to_value.values().collect::<HashSet<_>>()
+    //     );
+    // }
+
+    #[test]
+    pub fn test_iter() {
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+        let mut set = BTreeSet::new();
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            set.insert(value);
+            tree.add(value);
+        }
+
+        for val in set.iter().zip(tree.iter()) {
+            let (set_value, tree_value) = val;
+            assert_eq!(*set_value, tree_value);
+        }        
+    }
+
+    #[test]
+    pub fn test_iter_with_remove() {
+        set_env();
+        let mut tree = RedBlackTree::default();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+        let mut set = BTreeSet::new();
+
+        let mut values = vec!();
+
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            set.insert(value);
+            tree.add(value);
+            if value % 2 == 0 {
+                values.push(value);
+            }
+        }
+
+        for value in values.iter() {
+            assert!(set.remove(value));
+            assert_eq!(tree.remove(value), Some(*value))
+        }
+
+        for val in set.iter().zip(tree.iter()) {
+            let (set_value, tree_value) = val;
+            assert_eq!(*set_value, tree_value);
+        }        
+
+        assert_eq!(set.len(), tree.len as usize)
+    }
+
+
+
+    // #[test]
+    // pub fn test_extend() {
+    //     set_env();
+    //     let mut map = Map::default();
+    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+    //     let mut key_to_value = HashMap::new();
+    //     for _ in 0..100 {
+    //         let key = rng.gen::<u64>();
+    //         let value = rng.gen::<u64>();
+    //         key_to_value.insert(key, value);
+    //         map.insert(&key, &value);
+    //     }
+    //     for _ in 0..100 {
+    //         let mut tmp = vec![];
+    //         for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
+    //             let key = rng.gen::<u64>();
+    //             let value = rng.gen::<u64>();
+    //             tmp.push((key, value));
+    //         }
+    //         key_to_value.extend(tmp.iter().cloned());
+    //         map.extend(tmp.iter().cloned());
+    //     }
+
+    //     let actual: HashMap<u64, u64> = HashMap::from_iter(map.iter());
+    //     assert_eq!(actual, key_to_value);
+    // }
 }
