@@ -1,7 +1,7 @@
 pub(crate) mod test_env {
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
-    use near_vm_logic::VMContext;
+    use near_vm_logic::{VMContext, VMConfig};
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -15,7 +15,7 @@ pub(crate) mod test_env {
         "carol.near".to_string()
     }
 
-    pub(crate) fn setup() {
+    fn setup_with_config(vm_config: VMConfig) {
         let context = VMContext {
             current_account_id: alice(),
             signer_account_id: bob(),
@@ -40,10 +40,19 @@ pub(crate) mod test_env {
         };
         env::set_blockchain_interface(Box::new(MockedBlockchain::new(
             context,
-            Default::default(),
+            vm_config,
             Default::default(),
             vec![],
             storage,
         )));
+    }
+
+    pub(crate) fn setup() {
+        setup_with_config(VMConfig::default());
+    }
+
+    // free == effectively unlimited gas
+    pub(crate) fn setup_free() {
+        setup_with_config(VMConfig::free());
     }
 }
