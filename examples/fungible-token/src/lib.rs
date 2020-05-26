@@ -12,7 +12,7 @@
 *    multiple accounts.
 */
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::Map;
+use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance};
 
@@ -27,13 +27,13 @@ pub struct Account {
     /// Escrow Account ID hash to the allowance amount.
     /// Allowance is the amount of tokens the Escrow Account ID can spent on behalf of the account
     /// owner.
-    pub allowances: Map<Vec<u8>, Balance>,
+    pub allowances: UnorderedMap<Vec<u8>, Balance>,
 }
 
 impl Account {
     /// Initializes a new Account with 0 balance and no allowances for a given `account_hash`.
     pub fn new(account_hash: Vec<u8>) -> Self {
-        Self { balance: 0, allowances: Map::new(account_hash) }
+        Self { balance: 0, allowances: UnorderedMap::new(account_hash) }
     }
 
     /// Sets allowance for account `escrow_account_id` to `allowance`.
@@ -58,7 +58,7 @@ impl Account {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
     /// sha256(AccountID) -> Account details.
-    pub accounts: Map<Vec<u8>, Account>,
+    pub accounts: UnorderedMap<Vec<u8>, Account>,
 
     /// Total supply of the all token.
     pub total_supply: Balance,
@@ -78,7 +78,7 @@ impl FungibleToken {
         assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let total_supply = total_supply.into();
         assert!(!env::state_exists(), "Already initialized");
-        let mut ft = Self { accounts: Map::new(b"a".to_vec()), total_supply };
+        let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
         ft.set_account(&owner_id, &account);
