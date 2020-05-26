@@ -746,8 +746,8 @@ impl<'a, K, V> Cursor<'a, K, V>
 
     fn range(map: &'a TreeMap<K, V>, lo: Bound<K>, hi: Bound<K>) -> Self {
         let key = match lo {
-            Bound::Excluded(k) => map.floor(&k),
             Bound::Included(k) if map.contains_key(&k) => Some(k),
+            Bound::Included(k) | Bound::Excluded(k) => map.floor(&k),
             _ => None
         };
         let key = key.filter(|k| fits(k, lo, hi));
@@ -765,9 +765,6 @@ impl<'a, K, V> Cursor<'a, K, V>
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use std::fmt::{Debug, Result};
-    use std::collections::HashSet;
-
     use super::*;
     use crate::test_utils::test_env;
 
@@ -775,9 +772,9 @@ mod tests {
     use self::rand::RngCore;
     use serde::export::Formatter;
     use quickcheck::QuickCheck;
-    use std::time::Duration;
-    use std::sync::mpsc;
-    use std::thread;
+    use std::fmt::{Debug, Result};
+    use std::collections::HashSet;
+    use std::collections::BTreeMap;
 
     fn random(n: u64) -> Vec<u32> {
         let mut rng = rand::thread_rng();
@@ -947,9 +944,9 @@ mod tests {
 
     #[test]
     fn insert_n_random() {
-        test_env::setup();
+        test_env::setup_free();
 
-        for k in 1..5 {
+        for k in 1..10 { // tree size is 2^k
             let mut map: TreeMap<u32, u32> = TreeMap::default();
 
             let n = 1 << k;
@@ -1197,14 +1194,12 @@ mod tests {
         for x in &vec {
             assert_eq!(map.get(x), None);
             map.insert(x, &1);
-            println!("\ninserted {}\n{:?}", x, map);
             assert_eq!(map.get(x), Some(1));
         }
 
         for x in &vec {
             assert_eq!(map.get(x), Some(1));
             map.remove(x);
-            println!("\nremoved {}\n{:?}", x, map);
             assert_eq!(map.get(x), None);
         }
 
@@ -1223,7 +1218,6 @@ mod tests {
 
         let n: u64 = 20;
         let vec = random(n);
-        println!("{:?}", vec);
 
         let mut set: HashSet<u32> = HashSet::new();
         let mut map: TreeMap<u32, u32> = TreeMap::default();
@@ -1565,12 +1559,16 @@ mod tests {
         assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
     }
 
-    fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> Vec<(K, V)>
+    //
+    // Property-based tests of AVL-based TreeMap against std::collections::BTreeMap
+    //
+
+    fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> TreeMap<K, V>
         where
             K: Ord + Copy + BorshSerialize + BorshDeserialize,
             V: Copy + BorshSerialize + BorshDeserialize,
     {
-        test_env::setup();
+        test_env::setup_free();
         let mut map: TreeMap<K, V> = TreeMap::default();
         for (k, v) in insert {
             map.insert(k, v);
@@ -1578,18 +1576,14 @@ mod tests {
         for k in remove {
             map.remove(k);
         }
-        let out = map.iter().collect();
-        map.clear();
-        out
+        map
     }
 
-    fn rb<K, V>(insert: &[(K, V)], remove: &[K]) -> Vec<(K, V)>
+    fn rb<K, V>(insert: &[(K, V)], remove: &[K]) -> BTreeMap<K, V>
         where
             K: Ord + Copy + BorshSerialize + BorshDeserialize,
             V: Copy + BorshSerialize + BorshDeserialize,
     {
-        use std::collections::BTreeMap;
-
         let mut map: BTreeMap<K, V> = BTreeMap::default();
         for (k, v) in insert {
             map.insert(*k, *v);
@@ -1597,41 +1591,91 @@ mod tests {
         for k in remove {
             map.remove(k);
         }
-        map.into_iter().collect()
+        map
     }
 
-    // cargo test collections::tree_map::tests::prop_avl_vs_rb -- --nocapture
     #[test]
     fn prop_avl_vs_rb() {
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let a = avl(&insert, &remove);
             let b = rb(&insert, &remove);
-            a == b
+            let v1: Vec<(u32, u32)> = a.iter().collect();
+            let v2: Vec<(u32, u32)> = b.into_iter().collect();
+            v1 == v2
         }
-        let f = prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool;
 
-        // QuickCheck keeps running after `HostError(GasLimitExceeded)`, thus limiting by timeout.
-        with_timeout(Duration::from_secs(10), move || {
-            QuickCheck::new()
-                .tests(1)
-                .max_tests(1)
-                .min_tests_passed(1)
-                .quickcheck(f);
-        });
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
     }
 
-    // inspired by https://github.com/rust-lang/rfcs/issues/2798#issuecomment-552949300
-    fn with_timeout<T: Send + 'static, F: (FnOnce() -> T) + Send + 'static>(d: Duration, f: F) -> T {
-        let (tx, rx) = mpsc::channel();
-        let handle = thread::spawn(move || {
-            let val = f();
-            tx.send(()).expect("Failed to send 'done' marker.");
-            val
-        });
-
-        match rx.recv_timeout(d) {
-            Ok(_) => handle.join().expect("Test thread panic detected."),
-            Err(_) => panic!("Test time is out: {} millis", d.as_millis()),
+    fn range_prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, range: (Bound<u32>, Bound<u32>)) -> bool {
+        let a = avl(&insert, &remove);
+        let b = rb(&insert, &remove);
+        let v1: Vec<(u32, u32)> = a.range(range).collect();
+        let v2: Vec<(u32, u32)> = b.range(range)
+            .map(|(k, v)| (*k, *v))
+            .collect();
+        v1 == v2 || {
+            println!("\ninsert: {:?}", insert);
+            println!("remove: {:?}", remove);
+            println!(" range: {:?}", range);
+            println!("AVL: {:?}", v1);
+            println!(" RB: {:?}", v2);
+            false
         }
+    }
+
+    type Prop = fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>, u32, u32) -> bool;
+
+    #[test]
+    fn prop_avl_vs_rb_range_incl_incl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            let range = (Bound::Included(r1.min(r2)), Bound::Included(r1.max(r2)));
+            range_prop(insert, remove, range)
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as Prop);
+    }
+
+    #[test]
+    fn prop_avl_vs_rb_range_incl_excl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            let range = (Bound::Included(r1.min(r2)), Bound::Excluded(r1.max(r2)));
+            range_prop(insert, remove, range)
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as Prop);
+    }
+
+    #[test]
+    fn prop_avl_vs_rb_range_excl_incl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            let range = (Bound::Excluded(r1.min(r2)), Bound::Included(r1.max(r2)));
+            range_prop(insert, remove, range)
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as Prop);
+    }
+
+    #[test]
+    fn prop_avl_vs_rb_range_excl_excl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            // (Excluded(x), Excluded(x)) is invalid range, checking against it makes no sense
+            r1 == r2 || {
+                let range = (Bound::Excluded(r1.min(r2)), Bound::Excluded(r1.max(r2)));
+                range_prop(insert, remove, range)
+            }
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as Prop);
     }
 }
