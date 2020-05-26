@@ -81,7 +81,7 @@ impl PromiseAction {
                 )
             }
             DeleteKey { public_key } => {
-                crate::env::promise_batch_action_delete_key(promise_index, &public_key)
+                crate::env::promise_batch_action_delete_key(promise_index, public_key)
             }
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)

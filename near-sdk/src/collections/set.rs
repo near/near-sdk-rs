@@ -27,6 +27,11 @@ impl<T> Set<T> {
         self.elements.len()
     }
 
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
         let mut element_index_prefix = Vec::with_capacity(id.len() + 1);
