@@ -27,12 +27,23 @@ impl<K, V> Default for Map<K, V> {
 impl<K, V> Map<K, V> {
     /// Returns the number of elements in the map, also referred to as its size.
     pub fn len(&self) -> u64 {
-        let key_len = self.keys.len();
+        let keys_len = self.keys.len();
         let values_len = self.values.len();
-        if key_len != values_len {
+        if keys_len != values_len {
             env::panic(ERR_INCONSISTENT_STATE)
         } else {
-            key_len
+            keys_len
+        }
+    }
+
+    /// Returns `true` if the map contains no elements.
+    pub fn is_empty(&self) -> bool {
+        let keys_is_empty = self.keys.is_empty();
+        let values_is_empty = self.values.is_empty();
+        if keys_is_empty != values_is_empty {
+            env::panic(ERR_INCONSISTENT_STATE)
+        } else {
+            keys_is_empty
         }
     }
 

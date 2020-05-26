@@ -1,6 +1,7 @@
 use crate::MockedBlockchain;
 
 /// A low-level interface of either real or mocked blockchain that contract interacts with.
+#[allow(clippy::missing_safety_doc, clippy::too_many_arguments)]
 pub trait BlockchainInterface {
     // #############
     // # Registers #

@@ -56,19 +56,14 @@ impl ImplItemMethodInfo {
             is_view,
             ..
         } = attr_signature_info;
-        let deposit_check = if *is_payable {
-            // No check if the method is payable
+        let deposit_check = if *is_payable || *is_view {
+            // No check if the method is payable or a view method
             quote! {}
         } else {
-            if *is_view {
-                // No check if the method is a view method
-                quote! {}
-            } else {
-                // If method is not payable, do a check to make sure that it doesn't consume deposit
-                quote! {
-                    if near_sdk::env::attached_deposit() != 0 {
-                        near_sdk::env::panic(b"Method doesn't accept deposit");
-                    }
+            // If method is not payable, do a check to make sure that it doesn't consume deposit
+            quote! {
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic(b"Method doesn't accept deposit");
                 }
             }
         };
@@ -128,13 +123,12 @@ impl ImplItemMethodInfo {
                 }
             }
         };
-        let non_bindgen_attrs =
-            non_bindgen_attrs.into_iter().fold(TokenStream2::new(), |acc, value| {
-                quote! {
-                    #acc
-                    #value
-                }
-            });
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
