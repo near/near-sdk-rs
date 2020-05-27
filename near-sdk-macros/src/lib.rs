@@ -14,11 +14,11 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let sys_file = rust_file(include_bytes!("../res/sys.rs"));
         let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
-        return TokenStream::from(quote! {
+        TokenStream::from(quote! {
             #input
             #sys_file
             #near_environment
-        });
+        })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
@@ -49,10 +49,11 @@ fn rust_file(data: &[u8]) -> File {
 
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
-    if let Ok(mut input) = syn::parse::<ItemTrait>(item.clone()) {
-        let mut mod_name: Option<proc_macro2::Ident> = None;
-        if !attr.is_empty() {
-            mod_name = match syn::parse(attr) {
+    if let Ok(mut input) = syn::parse::<ItemTrait>(item) {
+        let mod_name: Option<proc_macro2::Ident> = if attr.is_empty() {
+            None
+        } else {
+            match syn::parse(attr) {
                 Ok(x) => x,
                 Err(err) => {
                     return TokenStream::from(
@@ -63,8 +64,8 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                         .to_compile_error(),
                     )
                 }
-            };
-        }
+            }
+        };
         let item_trait_info = match ItemTraitInfo::new(&mut input, mod_name) {
             Ok(x) => x,
             Err(err) => return TokenStream::from(err.to_compile_error()),
@@ -115,7 +116,7 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
 #[proc_macro]
 pub fn metadata(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<File>(item.clone()) {
+    if let Ok(input) = syn::parse::<File>(item) {
         let mut visitor = MetadataVisitor::new();
         visitor.visit_file(&input);
         let generated = match visitor.generate_metadata_method() {

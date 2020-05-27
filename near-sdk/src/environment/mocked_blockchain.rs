@@ -22,6 +22,7 @@ pub struct MockedBlockchain {
 struct LogicFixture {
     ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
+    #[allow(clippy::box_vec)]
     promise_results: Box<Vec<PromiseResult>>,
     config: Box<VMConfig>,
     fees_config: Box<RuntimeFeesConfig>,
@@ -60,7 +61,7 @@ impl MockedBlockchain {
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
-        std::mem::replace(&mut self.logic_fixture.ext.fake_trie, Default::default())
+        std::mem::take(&mut self.logic_fixture.ext.fake_trie)
     }
 
     pub fn created_receipts(&self) -> &Vec<Receipt> {
