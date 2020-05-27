@@ -53,10 +53,6 @@ impl<T> Heap<T>
         max
     }
 
-    pub fn lookup(&self, value: &T) -> Option<u64> {
-        self.indices.get(value)
-    }
-
     pub fn insert(&mut self, value: &T) {
         if self.indices.get(value).is_some() {
             // value already exists in the heap, nothing to do
@@ -82,13 +78,49 @@ impl<T> Heap<T>
         self.indices.remove(&value);
     }
 
-    pub fn sort_iter<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
-        sort(&mut self.elements, &mut self.indices);
-        self.elements.iter()
+    pub fn into_iter(self) -> impl Iterator<Item = T> {
+        HeapIterator::of(self)
     }
 
     fn at(&self, idx: u64) -> Option<T> {
         self.elements.get(idx)
+    }
+}
+
+pub struct HeapIterator<T> {
+    heap: Heap<T>
+}
+
+impl<T> HeapIterator<T> {
+    fn of(heap: Heap<T>) -> Self {
+        Self {
+            heap
+        }
+    }
+}
+
+impl<T> Iterator for HeapIterator<T>
+    where
+        T: BorshSerialize + BorshDeserialize + Ord
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.heap.remove_max()
+    }
+}
+
+impl<T> IntoIterator for Heap<T>
+    where
+        T: BorshSerialize + BorshDeserialize + Ord
+{
+    type Item = T;
+    type IntoIter = HeapIterator<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        HeapIterator {
+            heap: self,
+        }
     }
 }
 
@@ -159,20 +191,6 @@ fn rise<T>(vec: &mut Vector<T>, mut idx: u64, indices: &mut UnorderedMap<T, u64>
         }
         swap(vec, idx, k, indices);
         idx = k;
-    }
-}
-
-fn sort<T>(vec: &mut Vector<T>, indices: &mut UnorderedMap<T, u64>)
-    where
-        T: Ord + BorshSerialize + BorshDeserialize
-{
-    // Sort vector in-place in O(Nlog(N))
-    let n = vec.len();
-    let mut k = n;
-    while k > 1 {
-        swap(vec, 1, k, indices);
-        k -= 1;
-        sink(vec, 1, k, indices);
     }
 }
 
@@ -335,8 +353,7 @@ mod tests {
             let mut sorted = case.clone();
             sorted.sort();
 
-            let actual = heap.sort_iter().collect::<Vec<u8>>();
-            heap.clear();
+            let actual = heap.into_iter().collect::<Vec<u8>>();
             assert_eq!(actual, sorted,
                        "Sorting {:?} failed: expected {:?} but got {:?}.", case, sorted, actual);
         }
@@ -370,8 +387,7 @@ mod tests {
             let mut sorted = items.clone();
             sorted.sort();
 
-            let actual = heap.sort_iter().collect::<Vec<u32>>();
-            heap.clear();
+            let actual = heap.into_iter().collect::<Vec<u32>>();
             assert_eq!(actual, sorted,
                        "Sorting {:?} failed: expected {:?} but got {:?}.", items, sorted, actual);
         }
@@ -383,12 +399,12 @@ mod tests {
 
         let mut heap: Heap<u8> = Heap::new(vec![b't']);
         let key = 42u8;
-        assert!(heap.lookup(&key).is_none());
+        assert!(heap.indices.get(&key).is_none());
         assert_eq!(heap.len(), 0);
 
         heap.insert(&key);
         assert_eq!(heap.len(), 1);
-        assert_eq!(heap.lookup(&key), Some(1));
+        assert_eq!(heap.indices.get(&key), Some(1));
         heap.clear();
     }
 
@@ -398,13 +414,13 @@ mod tests {
 
         let mut heap: Heap<u8> = Heap::new(vec![b't']);
         let key = 42u8;
-        assert!(heap.lookup(&key).is_none());
+        assert!(heap.indices.get(&key).is_none());
         assert_eq!(heap.len(), 0);
 
         heap.insert(&key);
         heap.insert(&key);
         assert_eq!(heap.len(), 1);
-        assert_eq!(heap.lookup(&key), Some(1));
+        assert_eq!(heap.indices.get(&key), Some(1));
         assert_eq!(heap.indices.len(), 1);
         assert_eq!(heap.elements.len(), 1);
 
@@ -417,12 +433,12 @@ mod tests {
 
         let mut heap: Heap<u8> = Heap::new(vec![b't']);
         let key = 42u8;
-        assert!(heap.lookup(&key).is_none());
+        assert!(heap.indices.get(&key).is_none());
 
         heap.insert(&key);
         heap.remove(&key);
 
-        assert!(heap.lookup(&key).is_none());
+        assert!(heap.indices.get(&key).is_none());
         assert_eq!(heap.len(), 0);
 
         heap.clear();
