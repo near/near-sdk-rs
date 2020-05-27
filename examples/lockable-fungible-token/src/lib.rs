@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{AccountId, Balance, env, near_bindgen};
-use near_sdk::collections::Map;
+use near_sdk::collections::{UnorderedMap as Map};
 use std::collections::HashMap;
 use std::str::FromStr;
 

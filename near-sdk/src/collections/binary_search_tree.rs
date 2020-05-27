@@ -2,13 +2,26 @@ use crate::collections::next_trie_id;
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::marker::PhantomData;
+use std::sync::Mutex;
+use std::collections::{HashMap, HashSet};
 // use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+// const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
 
 type EnvStorageKey = Vec<u8>;
+
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
+pub struct RawRedBlackNode<T> {
+    color: bool, // 0 Red, 1 Black
+    is_right_child: bool,
+    // key: EnvStorageKey,
+    parent_key: Option<EnvStorageKey>,
+    left_key: Option<EnvStorageKey>,
+    right_key: Option<EnvStorageKey>,
+    value: T
+}
 
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct RedBlackNode<T> {
@@ -160,13 +173,14 @@ where
 
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+// #[derive(BorshSerialize, BorshDeserialize)]
 pub struct RedBlackTree<T> {
-    prefix: EnvStorageKey,
+    // prefix: EnvStorageKey,
     len: u64,
     root_key: Option<EnvStorageKey>,
     // TODO store indices that have been removed. 
-    node_value: PhantomData<T>
+    node_value: PhantomData<T>,
+    cache: RedBlackTreeCache
 }
 
 #[derive(Debug)]
@@ -192,19 +206,59 @@ impl Direction {
     }
 }
 
-impl<T> RedBlackTree<T> {
+pub struct RedBlackTreeCache {
+    prefix: EnvStorageKey,
+    cache: Mutex<HashMap<EnvStorageKey, Vec<u8>>>,
+    dirty_keys: Mutex<HashSet<EnvStorageKey>>
+}
+
+impl RedBlackTreeCache {
     fn new(prefix: EnvStorageKey) -> Self {
         Self {
-            prefix, 
-            len: 0,
-            root_key: None,
-            node_value: PhantomData
+            prefix,
+            cache: Mutex::new(HashMap::new()),
+            dirty_keys: Mutex::new(HashSet::new())
         }
+    }
+
+    fn read(&self, key: &EnvStorageKey) -> Option<Vec<u8>> {
+        let mut cache = self.cache.lock().expect("lock is not poisoned");
+        if !cache.contains_key(key) {
+            if let Some(data) = self.get_node_raw(key) {
+                cache.insert(key.clone(), data);
+            }
+        }
+        cache.get(key).map(|v| v.clone())
+    }
+
+    fn update(&self, key: &EnvStorageKey, value: &Vec<u8>) {
+        let mut cache = self.cache.lock().expect("lock is not poisoned");
+        cache.insert(key.clone(), value.clone());
+        let mut dirty_keys = self.dirty_keys.lock().expect("lock is not poisoned");
+        dirty_keys.insert(key.clone());
+    }
+
+    fn insert(&self, key: &EnvStorageKey, value: &Vec<u8>) {
+        let mut cache = self.cache.lock().expect("lock is not poisoned");
+        cache.insert(key.clone(), value.clone());
+        self.insert_node_raw(key, value);
+    }
+
+    fn clear(&self) {
+        let mut cache = self.cache.lock().expect("lock is not poisoned");
+        let mut updates = 0;
+        for key in self.dirty_keys.lock().expect("lock is not poisoned").drain() {
+            let node = cache.get(&key).expect("value must exist");
+            self.update_node_raw(&key, node);
+            updates += 1;
+        }
+        println!("Number of updates = {:?}", updates);
+        cache.drain();
     }
 
     fn get_node_raw(&self, key: &EnvStorageKey) -> Option<Vec<u8>> {
         let lookup_key = [&self.prefix, key.as_slice()].concat();
-        // println!("RAW: looking up node for key {:?}", key);
+        println!("RAW: looking up node for key {:?}", key);
         env::storage_read(&lookup_key)
     }
 
@@ -213,24 +267,36 @@ impl<T> RedBlackTree<T> {
         println!("RAW: inserting node for key {:?}", key);
         if env::storage_write(&lookup_key, node) {
             panic!("insert node raw panic");
-            env::panic(ERR_INCONSISTENT_STATE) // Node should not exist already
+            // env::panic(ERR_INCONSISTENT_STATE) // Node should not exist already
         }
     }
 
     fn update_node_raw(&self, key: &EnvStorageKey, node: &Vec<u8>) {
         let lookup_key = [&self.prefix, key.as_slice()].concat();
-        // println!("RAW: updating node for key {:?}", key);
+        println!("RAW: updating node for key {:?}", key);
         if !env::storage_write(&lookup_key, node) { 
             panic!("update node raw panic");
-            env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
+            // env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
         }
     }
 
     fn delete_node_raw(&self, key: &EnvStorageKey) {
         let lookup_key = [&self.prefix, key.as_slice()].concat();
         if !env::storage_remove(&lookup_key) { 
-            panic!("delete node raw panic");
-            env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
+            panic!("delete node raw panic. node key={:?}", key);
+            // env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
+        }
+    }
+}
+
+impl<T> RedBlackTree<T> {
+    fn new(prefix: EnvStorageKey) -> Self {
+        Self {
+            len: 0,
+            root_key: None,
+            node_value: PhantomData,
+            cache: RedBlackTreeCache::new(prefix.clone()),
+            // prefix
         }
     }
 }
@@ -261,20 +327,22 @@ where
     }
 
     fn get_node(&self, key: &EnvStorageKey) -> Option<RedBlackNode<T>> {
-        self.get_node_raw(key).map(|raw_node| Self::deserialize_element(&raw_node))
+        // self.get_node_raw(key).map(|raw_node| Self::deserialize_element(&raw_node))
+        self.cache.read(key).map(|raw_node| Self::deserialize_element(&raw_node))
     }
 
     fn insert_node(&self, node: &RedBlackNode<T>) {
-        let key = node.key();
-        self.insert_node_raw(key, &Self::serialize_element(node))
+        // self.insert_node_raw(node.key(), &Self::serialize_element(node))
+        self.cache.insert(node.key(), &Self::serialize_element(node))
     }
 
     fn update_node(&self, node: &RedBlackNode<T>) {
-        self.update_node_raw(node.key(), &Self::serialize_element(node))
+        // self.update_node_raw(node.key(), &Self::serialize_element(node))
+        self.cache.update(node.key(), &Self::serialize_element(node))
     }
 
     fn delete_node(&mut self, node: &RedBlackNode<T>) {
-        self.delete_node_raw(node.key());
+        self.cache.delete_node_raw(node.key());
         self.len -= 1;
     }
 
@@ -468,7 +536,7 @@ where
             },
             None => {
                 panic!("rotate {:?} panic. {:?} has no {:?} child", direction, pivot_node.value, direction.opposite());
-                env::panic(ERR_INCONSISTENT_STATE)
+                // env::panic(ERR_INCONSISTENT_STATE)
             }
         }
     }
@@ -548,14 +616,17 @@ where
             }
         };
 
-        match child {
+        let existing_value = match child {
             Ok(child_node) => {
                 // O(logN)
                 self.add_red_node(child_node); // does nothing if child is already black
                 None
             },
             Err(old_value) => Some(old_value)
-        }
+        };
+
+        self.cache.clear();
+        existing_value
     }
 
     // Returns parent of the spliced node
@@ -583,6 +654,8 @@ where
             // FIXME what if child_node is new root and is None??
             None
         } else {
+            // child_node (s) is new root and is none
+            self.root_key = None;
             None
         };
 
@@ -597,7 +670,7 @@ where
     }
 
     pub fn remove(&mut self, value: &<T as RedBlackNodeValue>::OrdValue) -> Option<T> {
-        if let Some(mut u) = self.find_parent(value) {
+        let removed_value = if let Some(mut u) = self.find_parent(value) {
             // value does not exist in the tree
             if &u.value.ord_value() != &value {
                 println!("TREE: remove() {:?} does not exist in tree", value);
@@ -676,7 +749,9 @@ where
             // value does not exist in the tree
             println!("TREE: remove() {:?} does not exist in tree", value);
             None
-        }
+        };
+        self.cache.clear();
+        removed_value
     }
 
     fn remove_case(&self, u: &RedBlackNode<T>) -> Option<(DoubleBlackNodeCase, RedBlackNode<T>)> {
@@ -754,7 +829,7 @@ where
                 self.get_right_child(&w).expect("q").value
             );
 
-            let q_b = self.get_right_child(&w).expect("q");
+            // let q_b = self.get_right_child(&w).expect("q");
             // self.assert_left_leaning_invariant(&q_b);
             
             self.rotate(&Direction::Left, w, false);
@@ -926,7 +1001,7 @@ mod test {
     use near_vm_logic::VMContext;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
-    use std::collections::{HashMap, HashSet, BTreeSet};
+    use std::collections::{HashSet, BTreeSet};
     use std::iter::FromIterator;
 
     fn alice() -> AccountId {
@@ -954,7 +1029,7 @@ mod test {
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
+            prepaid_gas: std::u64::MAX,
             random_seed: vec![0, 1, 3, 4, 5],
             is_view: false,
             output_data_receivers: vec![],
@@ -978,7 +1053,7 @@ mod test {
         set_env();
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        for _ in 0..100 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             tree.add(value);
         }
@@ -990,7 +1065,7 @@ mod test {
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut values = vec![];
-        for _ in 0..100 {
+        for _ in 0..250 {
             let value = rng.gen::<u64>();
             values.push(value);
             tree.add(value);
@@ -1049,12 +1124,12 @@ mod test {
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set = HashSet::new();
-        for _ in 0..100 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             set.insert(value);
             tree.add(value);
         }
-        for _ in 0..100 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>() % 20_000;
             assert_eq!(tree.has(&value), set.contains(&value));
         }
@@ -1066,7 +1141,7 @@ mod test {
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut set = HashSet::new();
-        for _ in 0..100 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             set.insert(value);
             tree.add(value);
@@ -1120,7 +1195,7 @@ mod test {
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut set = BTreeSet::new();
-        for _ in 0..100 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             set.insert(value);
             tree.add(value);
@@ -1141,7 +1216,7 @@ mod test {
 
         let mut values = vec!();
 
-        for _ in 0..100 {
+        for _ in 0..250 {
             let value = rng.gen::<u64>();
             set.insert(value);
             tree.add(value);

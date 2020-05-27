@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{Map, Set};
+use near_sdk::collections::{UnorderedMap as Map, Set};
 use near_sdk::{env, near_bindgen};
 
 #[global_allocator]

@@ -23,7 +23,7 @@
 //! ```
 //! # use borsh::{BorshSerialize, BorshDeserialize};
 //! # use near_sdk_macros::near_bindgen;
-//! # use near_sdk::collections::Map;
+//! # use near_sdk::collections::{UnorderedMap as Map};
 //!
 //! #[near_bindgen]
 //! #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -46,9 +46,6 @@ pub use vector::Vector;
 
 mod map;
 pub use map::{OrderedMap, UnorderedMap};
-
-// mod ordered_map;
-// pub use ordered_map::OrderedMap;
 
 mod binary_search_tree;
 pub use binary_search_tree::*;

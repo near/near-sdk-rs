@@ -1,5 +1,3 @@
-use crate::collections::Vector;
-
 pub mod unordered_map;
 pub use unordered_map::*;
 
@@ -50,7 +48,7 @@ pub mod tests {
     pub fn test_insert<M: Map<u64, u64> + Default>() {
         let mut map = M::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        for _ in 0..1000 {
+        for _ in 0..100 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             map.insert(&key, &value);
@@ -126,13 +124,13 @@ pub mod tests {
         let mut map = M::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..250 {
             let key = rng.gen::<u64>() % 20_000;
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
-        for _ in 0..1000 {
+        for _ in 0..250 {
             let key = rng.gen::<u64>() % 20_000;
             assert_eq!(map.get(&key), key_to_value.get(&key).cloned());
         }
@@ -143,7 +141,7 @@ pub mod tests {
         let mut map = M::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..250 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
@@ -174,7 +172,7 @@ pub mod tests {
         let mut map = M::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..250 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
@@ -196,7 +194,7 @@ pub mod tests {
         let mut map = M::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..250 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
@@ -217,7 +215,7 @@ pub mod tests {
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
-        for _ in 0..100 {
+        for _ in 0..10 {
             let mut tmp = vec![];
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
                 let key = rng.gen::<u64>();

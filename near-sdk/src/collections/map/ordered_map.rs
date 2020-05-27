@@ -1,11 +1,10 @@
 use super::Map;
 
 use crate::collections::{
-    Vector,
+    UnorderedMap,
     RedBlackTree,
     RedBlackNodeValue
 };
-use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -74,7 +73,8 @@ where
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct OrderedMap<K, V> {
-    tree: RedBlackTree<OrderedMapEntry<K, V>>
+    tree: RedBlackTree<K>,
+    map: UnorderedMap<K, V>
 }
 
 // impl<K, V> OrderedMap<K, V> {
@@ -88,55 +88,82 @@ pub struct OrderedMap<K, V> {
 impl<K, V> Default for OrderedMap<K, V> {
     fn default() -> Self {
         Self {
-            tree: RedBlackTree::default()
+            tree: RedBlackTree::default(),
+            map: UnorderedMap::default()
         }
     }
 }
 
 impl<K, V> Map<K, V> for OrderedMap<K, V> 
 where
-    K: BorshSerialize + BorshDeserialize + Clone + Ord + std::fmt::Debug,
+    K: BorshSerialize + BorshDeserialize + Clone + Ord + std::fmt::Debug + RedBlackNodeValue,
+    <K as RedBlackNodeValue>::OrdValue: std::fmt::Debug,
     V: BorshSerialize + BorshDeserialize + Clone + std::fmt::Debug,
 {
     fn get(&self, key: &K) -> Option<V> {
-        self.tree.get(key).map(|entry| entry.value)
+        self.map.get(key)
     }
 
     fn remove(&mut self, key: &K) -> Option<V> {
-        self.tree.remove(key).map(|entry| entry.value)
+        self.tree.remove(key.ord_value()).map(|_| self.map.remove(key)).flatten()
     }
 
     fn insert(&mut self, key: &K, value: &V) -> Option<V> {
-        self.tree.add(OrderedMapEntry { key: key.clone(), value: value.clone() }).map(|entry| entry.value)
+        // self.tree.add(OrderedMapEntry { key: key.clone(), value: value.clone() }).map(|entry| entry.value)
+        self.tree.add(key.clone());
+        self.map.insert(key, value)
     }
 
     fn clear(&mut self) {
         // FIXME make this efficient
-        let v: Vec<OrderedMapEntry<K, V>> = self.tree.iter().collect();
-        for entry in v.iter() {
-            self.tree.remove(&entry.key);
+        // let v: Vec<OrderedMapEntry<K, V>> = self.tree.iter().collect();
+        // for entry in v.iter() {
+        //     self.tree.remove(&entry.key);
+        // }
+        for key in self.tree.iter().collect::<Vec<K>>().iter() {
+            self.tree.remove(key.ord_value());
         }
+        self.map.clear();
     }
 
     fn to_vec(&self) -> std::vec::Vec<(K, V)> {
-        self.tree.iter().map(|entry| entry.into()).collect()
+        // self.tree.iter().map(|entry| entry.into()).collect()
+        self.tree.iter()
+            .map(|key| {
+                let value = self.map.get(&key).expect("value exists");
+                (key, value)
+            })
+            .collect()
     }
 
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = K> + 'a> {
-        Box::new(self.tree.iter().map(|entry| entry.key))
+        // Box::new(self.tree.iter().map(|entry| entry.key))
+        Box::new(self.tree.iter())
     }
 
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = V> + 'a> {
-        Box::new(self.tree.iter().map(|entry| entry.value))
+        // Box::new(self.tree.iter().map(|entry| entry.value))
+        let iter = self.tree.iter().map(move |key| self.map.get(&key).expect("value exists"));
+        Box::new(iter)
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (K, V)> + 'a> {
-        Box::new(self.tree.iter().map(|entry| entry.into()))
+        // Box::new(self.tree.iter().map(|entry| entry.into()))
+        let iter = self.tree.iter()
+            .map(move |key| {
+                let value = self.map.get(&key).expect("value exists");
+                (key, value)
+            });
+        Box::new(iter)
     }
 
     fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) where Self: Sized {
-        for entry in iter.into_iter().map(|entry| OrderedMapEntry::from(entry)) {
-            self.tree.add(entry);
+        // for entry in iter.into_iter().map(|entry| OrderedMapEntry::from(entry)) {
+        //     self.tree.add(entry);
+        // }
+        for entry in iter.into_iter() {
+            self.map.insert(&entry.0, &entry.1);
+            self.tree.add(entry.0);
         }
     }
 
@@ -186,7 +213,7 @@ mod tests {
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
-            prepaid_gas: 10u64.pow(19),
+            prepaid_gas: std::u64::MAX, //10u64.pow(19),
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],
