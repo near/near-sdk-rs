@@ -597,11 +597,12 @@ impl<K, V> TreeMap<K, V>
             return self.root;
         }
 
-        let k_opt = self.key.get(&remove);
-        if k_opt.is_none() {
-            return self.root;
-        }
-        let key = k_opt.unwrap();
+        let key = match self.key.get(&remove) {
+            Some(k) => k,
+            None => {
+                return self.root;
+            }
+        };
 
         // parent lookup takes O(log(N)) in worst case - can take amortized O(1) with `parent` map
         let root = self.root;
@@ -626,7 +627,9 @@ impl<K, V> TreeMap<K, V>
                 Some(x) => {
                     map.insert(&target, &x);
                 },
-                None => ()
+                None => {
+                    map.remove(&target);
+                }
             }
         }
 
