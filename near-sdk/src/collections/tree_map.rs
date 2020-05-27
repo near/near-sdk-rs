@@ -634,7 +634,7 @@ impl<K, V> TreeMap<K, V>
                     map.insert(&target, &x);
                 },
                 None => {
-                    map.remove(&target);
+                    () // target's links and height have already been reset in do_remove
                 }
             }
         }
