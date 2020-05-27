@@ -156,6 +156,11 @@ pub trait BlockchainInterface {
     unsafe fn storage_read(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_remove(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64;
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64;
+    // ###############
+    // # Validator API #
+    // ###############
+    unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64);
+    unsafe fn validator_total_stake(&self, stake_ptr: u64);
 
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         None

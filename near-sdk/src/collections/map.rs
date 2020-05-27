@@ -288,7 +288,7 @@ mod tests {
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
+            prepaid_gas: 10u64.pow(16),
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],
@@ -304,6 +304,7 @@ mod tests {
             Default::default(),
             vec![],
             storage,
+            HashMap::default()
         )));
     }
 
@@ -392,13 +393,13 @@ mod tests {
         let mut map = Map::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>() % 20_000;
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>() % 20_000;
             assert_eq!(map.get(&key), key_to_value.get(&key).cloned());
         }
@@ -410,7 +411,7 @@ mod tests {
         let mut map = Map::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
@@ -443,7 +444,7 @@ mod tests {
         let mut map = Map::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
@@ -466,7 +467,7 @@ mod tests {
         let mut map = Map::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             key_to_value.insert(key, value);
@@ -488,7 +489,7 @@ mod tests {
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
-        for _ in 0..100 {
+        for _ in 0..10 {
             let mut tmp = vec![];
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
                 let key = rng.gen::<u64>();

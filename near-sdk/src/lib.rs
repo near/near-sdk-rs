@@ -23,7 +23,7 @@ pub use near_vm_logic::VMContext;
 
 #[macro_export]
 macro_rules! testing_env {
-    ($context:expr, $config:expr, $fee_config:expr) => {
+    ($context:expr, $config:expr, $fee_config:expr, $validator:expr) => {
         let storage = match near_sdk::env::take_blockchain_interface() {
             Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
             None => Default::default(),
@@ -35,7 +35,11 @@ macro_rules! testing_env {
             $fee_config,
             vec![],
             storage,
+            $validator
         )));
+    };
+    ($context:expr, $config:expr, $fee_config:expr) => {
+        testing_env!($context, $config, $fee_config, Default::default());
     };
     ($context:expr) => {
         testing_env!($context, Default::default(), Default::default());
