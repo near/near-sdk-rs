@@ -50,9 +50,6 @@ pub use heap::Heap;
 mod tree_map;
 pub use tree_map::TreeMap;
 
-use crate::env;
-
-use borsh::{BorshDeserialize, BorshSerialize};
 pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh.";
 pub const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element with Borsh.";
@@ -75,14 +72,4 @@ pub(crate) fn append(id: &[u8], chr: u8) -> Vec<u8> {
 
 pub(crate) fn append_slice(id: &[u8], extra: &[u8]) -> Vec<u8> {
     [id, extra].concat()
-}
-
-fn serialize<T: BorshSerialize>(value: &T) -> Vec<u8> {
-    value.try_to_vec()
-        .unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
-}
-
-fn deserialize<T: BorshDeserialize>(slice: &[u8]) -> T {
-    T::try_from_slice(slice)
-        .unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
 }

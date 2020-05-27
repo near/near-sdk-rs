@@ -42,15 +42,17 @@ impl<T> Heap<T>
     }
 
     pub fn remove_max(&mut self) -> Option<T> {
-        let max = self.get_max();
-        if max.is_none() {
-            return max;
+        match self.get_max() {
+            Some(max) => {
+                let n = self.len();
+                swap(&mut self.elements, 1, n, &mut self.indices);
+                sink(&mut self.elements, 1, n - 1, &mut self.indices);
+                self.elements.pop();
+                self.indices.remove(&max);
+                Some(max)
+            },
+            None => None
         }
-        let n = self.len();
-        swap(&mut self.elements, 1, n, &mut self.indices);
-        sink(&mut self.elements, 1, n - 1, &mut self.indices);
-        self.elements.pop();
-        max
     }
 
     pub fn insert(&mut self, value: &T) {
@@ -62,20 +64,6 @@ impl<T> Heap<T>
         let idx = self.elements.len();
         self.indices.insert(value, &idx);
         rise(&mut self.elements, idx, &mut self.indices);
-    }
-
-    pub fn remove(&mut self, value: &T) {
-        let idx_opt = self.indices.get(&value);
-        if idx_opt.is_none() {
-            return
-        }
-        let idx = idx_opt.unwrap();
-        let last = self.elements.len();
-        swap(&mut self.elements, idx, last, &mut self.indices);
-        self.elements.pop_raw();
-        let n = self.len();
-        sink(&mut self.elements, idx, n, &mut self.indices);
-        self.indices.remove(&value);
     }
 
     pub fn into_iter(self) -> impl Iterator<Item = T> {
@@ -321,6 +309,12 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_empty() {
+        let heap: Heap<u8> = Heap::new(vec![b't']);
+        assert!(heap.into_iter().collect::<Vec<u8>>().is_empty());
+    }
+
+    #[test]
     fn test_iter_sorted() {
         test_env::setup();
 
@@ -352,6 +346,7 @@ mod tests {
 
             let mut sorted = case.clone();
             sorted.sort();
+            sorted.reverse();
 
             let actual = heap.into_iter().collect::<Vec<u8>>();
             assert_eq!(actual, sorted,
@@ -386,6 +381,7 @@ mod tests {
 
             let mut sorted = items.clone();
             sorted.sort();
+            sorted.reverse();
 
             let actual = heap.into_iter().collect::<Vec<u32>>();
             assert_eq!(actual, sorted,
@@ -423,23 +419,6 @@ mod tests {
         assert_eq!(heap.indices.get(&key), Some(1));
         assert_eq!(heap.indices.len(), 1);
         assert_eq!(heap.elements.len(), 1);
-
-        heap.clear();
-    }
-
-    #[test]
-    fn test_remove() {
-        test_env::setup();
-
-        let mut heap: Heap<u8> = Heap::new(vec![b't']);
-        let key = 42u8;
-        assert!(heap.indices.get(&key).is_none());
-
-        heap.insert(&key);
-        heap.remove(&key);
-
-        assert!(heap.indices.get(&key).is_none());
-        assert_eq!(heap.len(), 0);
 
         heap.clear();
     }
