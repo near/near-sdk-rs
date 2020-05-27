@@ -1612,6 +1612,32 @@ mod tests {
             .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
     }
 
+    #[test]
+    fn prop_avl_height() {
+        test_env::setup_free();
+
+        fn prop(ops: Vec<(u32, u32)>) -> bool {
+            let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+            for (k, v) in ops.iter() {
+                map.insert(k, v);
+            }
+
+            for (idx, (k, _)) in ops.iter().enumerate() {
+                if idx % 2 == 0 {
+                    map.remove(k);
+                }
+            }
+
+            let n = (ops.len() + 1) as u64 / 2;
+            map.height() <= max_tree_height(n)
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>) -> bool);
+    }
+
     fn range_prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, range: (Bound<u32>, Bound<u32>)) -> bool {
         let a = avl(&insert, &remove);
         let b = rb(&insert, &remove);
@@ -1619,14 +1645,7 @@ mod tests {
         let v2: Vec<(u32, u32)> = b.range(range)
             .map(|(k, v)| (*k, *v))
             .collect();
-        v1 == v2 || {
-            println!("\ninsert: {:?}", insert);
-            println!("remove: {:?}", remove);
-            println!(" range: {:?}", range);
-            println!("AVL: {:?}", v1);
-            println!(" RB: {:?}", v2);
-            false
-        }
+        v1 == v2
     }
 
     type Prop = fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>, u32, u32) -> bool;
