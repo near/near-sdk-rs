@@ -140,7 +140,7 @@ impl AttrSigInfo {
             } else {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Input arguments should be all of the same serialization type."),
+                    "Input arguments should be all of the same serialization type.",
                 ));
             };
         result.input_serializer = input_serializer;
