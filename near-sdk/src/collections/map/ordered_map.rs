@@ -183,10 +183,6 @@ mod tests {
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use rand::seq::SliceRandom;
-    use rand::{Rng, SeedableRng};
-    use std::collections::{HashMap, HashSet};
-    use std::iter::FromIterator;
 
     use crate::collections::map;
 

@@ -4,6 +4,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use std::marker::PhantomData;
 use std::sync::Mutex;
 use std::collections::{HashMap, HashSet};
+use super::Set;
 // use std::mem::size_of;
 
 // const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
@@ -992,17 +993,57 @@ where
     }
 }
 
+impl<T> Set<T> for RedBlackTree<T> 
+where 
+    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug + Clone,
+    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
+{
+
+    fn contains(&self, element: &T) -> bool {
+        self.has(element.ord_value())
+    }
+
+    fn remove(&mut self, element: &T) -> bool {
+        self.remove(element.ord_value()).is_some()
+    }
+
+    fn insert(&mut self, element: &T) -> bool {
+        self.add(element.clone()).is_none() // FIXME clone
+    }
+
+    fn clear(&mut self) {
+        // FIXME inefficient
+        let values = Self::iter(self).collect::<Vec<T>>();
+        for value in values.iter() {
+            self.remove(value.ord_value());
+        }
+    }
+
+    fn to_vec(&self) -> std::vec::Vec<T> {
+        Self::iter(self).collect()
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = T> + 'a> {
+        Box::new(self.iter())
+    }
+
+    fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT) {
+        for value in iter {
+            self.add(value);
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod test {
     use super::RedBlackTree;
     use crate::{env, MockedBlockchain};
+    use crate::collections::set;
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
-    use std::collections::{HashSet, BTreeSet};
-    use std::iter::FromIterator;
+    use std::collections::BTreeSet;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -1060,137 +1101,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_add_remove() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
-        let mut values = vec![];
-        for _ in 0..250 {
-            let value = rng.gen::<u64>();
-            values.push(value);
-            tree.add(value);
-        }
-        values.shuffle(&mut rng);
-        for value in values {
-            assert_eq!(tree.remove(&value), Some(value));
-        }
-
-        assert_eq!(tree.len, 0);
-    }
-
-    #[test]
-    pub fn test_remove_last_readd() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let value1 = 2u64;
-        tree.add(value1);
-        let value2 = 4u64;
-        tree.add(value2);
-
-        assert_eq!(tree.remove(&value2), Some(value2));
-        assert!(tree.add(value2).map_or(true, |_| false));
-        assert_eq!(tree.len, 2)
-    }
-
-    #[test]
-    pub fn test_insert_override_remove() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
-        let mut values = vec![];
-        let mut set = HashSet::new();
-
-        for _ in 0..100 {
-            let value = rng.gen::<u64>();
-            values.push(value);
-            set.insert(value);
-            tree.add(value);
-        }
-
-        values.shuffle(&mut rng);
-        for value in &values {
-            assert_eq!(tree.add(*value).map_or(true, |_| false), set.insert(*value));
-        }
-
-        values.shuffle(&mut rng);
-        for value in values {
-            assert_eq!(set.remove(&value), tree.remove(&value).is_some());
-        }
-    }
-
-    #[test]
-    pub fn test_get_non_existent() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
-        let mut set = HashSet::new();
-        for _ in 0..500 {
-            let value = rng.gen::<u64>();
-            set.insert(value);
-            tree.add(value);
-        }
-        for _ in 0..500 {
-            let value = rng.gen::<u64>() % 20_000;
-            assert_eq!(tree.has(&value), set.contains(&value));
-        }
-    }
-
-    #[test]
-    pub fn test_to_vec() { // FIXME
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-        let mut set = HashSet::new();
-        for _ in 0..500 {
-            let value = rng.gen::<u64>();
-            set.insert(value);
-            tree.add(value);
-        }
-        let actual = HashSet::from_iter(tree.iter());
-        assert_eq!(actual, set);
-    }
-
-    // #[test]
-    // pub fn test_clear() {
-    //     set_env();
-    //     let mut tree = RedBlackTree::default();
-    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
-    //     for _ in 0..10 {
-    //         for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-    //             let value = rng.gen::<u64>();
-    //             tree.add(value);
-    //         }
-    //         assert!(!Vec::from_iter(tree.iter()).is_empty());
-    //         tree.clear();
-    //         assert!(Vec::from_iter(tree.iter()).is_empty());
-    //     }
-    // }
-
-    // #[test]
-    // pub fn test_keys_values() {
-    //     set_env();
-    //     let mut map = Map::default();
-    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-    //     let mut key_to_value = HashMap::new();
-    //     for _ in 0..1000 {
-    //         let key = rng.gen::<u64>();
-    //         let value = rng.gen::<u64>();
-    //         key_to_value.insert(key, value);
-    //         map.insert(&key, &value);
-    //     }
-    //     let actual: HashMap<u64, u64> = HashMap::from_iter(map.to_vec());
-    //     assert_eq!(
-    //         actual.keys().collect::<HashSet<_>>(),
-    //         key_to_value.keys().collect::<HashSet<_>>()
-    //     );
-    //     assert_eq!(
-    //         actual.values().collect::<HashSet<_>>(),
-    //         key_to_value.values().collect::<HashSet<_>>()
-    //     );
-    // }
-
-    #[test]
-    pub fn test_iter() {
+    pub fn test_iter_sorted() {
         set_env();
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
@@ -1208,7 +1119,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_iter_with_remove() {
+    pub fn test_iter_sorted_with_remove() {
         set_env();
         let mut tree = RedBlackTree::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
@@ -1238,32 +1149,57 @@ mod test {
         assert_eq!(set.len(), tree.len as usize)
     }
 
+    #[test]
+    pub fn test_insert() {
+        set_env();
+        set::tests::test_insert::<RedBlackTree<u64>>()
+    }
 
+    #[test]
+    pub fn test_insert_remove() {
+        set_env();
+        set::tests::test_insert_remove::<RedBlackTree<u64>>()
+    }
 
-    // #[test]
-    // pub fn test_extend() {
-    //     set_env();
-    //     let mut map = Map::default();
-    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-    //     let mut key_to_value = HashMap::new();
-    //     for _ in 0..100 {
-    //         let key = rng.gen::<u64>();
-    //         let value = rng.gen::<u64>();
-    //         key_to_value.insert(key, value);
-    //         map.insert(&key, &value);
-    //     }
-    //     for _ in 0..100 {
-    //         let mut tmp = vec![];
-    //         for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-    //             let key = rng.gen::<u64>();
-    //             let value = rng.gen::<u64>();
-    //             tmp.push((key, value));
-    //         }
-    //         key_to_value.extend(tmp.iter().cloned());
-    //         map.extend(tmp.iter().cloned());
-    //     }
+    #[test]
+    pub fn test_remove_last_reinsert() {
+        set_env();
+        set::tests::test_remove_last_reinsert::<RedBlackTree<u64>>()
+    }
 
-    //     let actual: HashMap<u64, u64> = HashMap::from_iter(map.iter());
-    //     assert_eq!(actual, key_to_value);
-    // }
+    #[test]
+    pub fn test_insert_override_remove() {
+        set_env();
+        set::tests::test_insert_override_remove::<RedBlackTree<u64>>()
+    }
+
+    #[test]
+    pub fn test_contains_non_existent() {
+        set_env();
+        set::tests::test_contains_non_existent::<RedBlackTree<u64>>()
+    }
+
+    #[test]
+    pub fn test_to_vec() {
+        set_env();
+        set::tests::test_to_vec::<RedBlackTree<u64>>()
+    }
+
+    #[test]
+    pub fn test_clear() {
+        set_env();
+        set::tests::test_clear::<RedBlackTree<u64>>()
+    }
+
+    #[test]
+    pub fn test_iter() {
+        set_env();
+        set::tests::test_iter::<RedBlackTree<u64>>()
+    }
+
+    #[test]
+    pub fn test_extend() {
+        set_env();
+        set::tests::test_extend::<RedBlackTree<u64>>()
+    }
 }

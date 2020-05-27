@@ -39,16 +39,13 @@
 //pub use map::Map;
 
 mod set;
-pub use set::Set;
+pub use set::{UnorderedSet, RedBlackTree, RedBlackNodeValue};
 
 mod vector;
 pub use vector::Vector;
 
 mod map;
 pub use map::{OrderedMap, UnorderedMap};
-
-mod binary_search_tree;
-pub use binary_search_tree::*;
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.

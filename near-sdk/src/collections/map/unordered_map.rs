@@ -289,16 +289,10 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::collections::UnorderedMap;
+    use crate::collections::{map, UnorderedMap};
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use rand::seq::SliceRandom;
-    use rand::{Rng, SeedableRng};
-    use std::collections::{HashMap, HashSet};
-    use std::iter::FromIterator;
-
-    use crate::collections::map;
 
     fn alice() -> AccountId {
         "alice.near".to_string()
