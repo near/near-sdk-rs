@@ -321,7 +321,7 @@ mod tests {
             keys.insert(key);
             set.insert(&key);
         }
-        for _ in 0..100 {
+        for _ in 0..10 {
             let mut tmp = vec![];
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
                 let key = rng.gen::<u64>();

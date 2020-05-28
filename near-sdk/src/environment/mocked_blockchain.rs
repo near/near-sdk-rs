@@ -2,7 +2,7 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_runtime_fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
-use near_vm_logic::types::PromiseResult;
+use near_vm_logic::types::{PromiseResult, AccountId, Balance};
 use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -35,9 +35,11 @@ impl MockedBlockchain {
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
+        validators: HashMap<AccountId, Balance>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
+        ext.validators = validators;
         let memory = Box::new(MockedMemory {});
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
@@ -400,6 +402,14 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
         self.logic.borrow_mut().storage_has_key(key_len, key_ptr).unwrap()
+    }
+
+    unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
+        self.logic.borrow_mut().validator_stake(account_id_len, account_id_ptr, stake_ptr).unwrap();
+    }
+
+    unsafe fn validator_total_stake(&self, stake_ptr: u64) {
+        self.logic.borrow_mut().validator_total_stake(stake_ptr).unwrap();
     }
 
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {

@@ -635,6 +635,38 @@ pub fn promise_return(promise_idx: PromiseIndex) {
     }
 }
 
+// ###############
+// # Validator API #
+// ###############
+
+/// For a given account return its current stake. If the account is not a validator, returns 0.
+pub fn validator_stake(account_id: &AccountId) -> Balance {
+    let data = [0u8; size_of::<Balance>()];
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
+        })
+    };
+    Balance::from_le_bytes(data)
+}
+
+/// Returns the total stake of validators in the current epoch.
+pub fn validator_total_stake() -> Balance {
+    let data = [0u8; size_of::<Balance>()];
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .validator_total_stake(data.as_ptr() as u64)
+        })
+    };
+    Balance::from_le_bytes(data)
+}
+
 // #####################
 // # Miscellaneous API #
 // #####################
