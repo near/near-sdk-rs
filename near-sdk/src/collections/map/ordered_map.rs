@@ -1,6 +1,6 @@
 use super::Map;
-
 use crate::collections::{
+    next_trie_id,
     UnorderedMap,
     RedBlackTree,
     RedBlackNodeValue
@@ -73,24 +73,26 @@ where
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct OrderedMap<K, V> {
+    prefix: Vec<u8>,
     tree: RedBlackTree<K>,
     map: UnorderedMap<K, V>
 }
 
-// impl<K, V> OrderedMap<K, V> {
-//     fn new() -> Self {
-//         Self {
-//             tree: RedBlackTree::new(next_trie_id())
-//         }
-//     }
-// }
+impl<K, V> OrderedMap<K, V> {
+    fn new(prefix: Vec<u8>) -> Self {
+        let tree_prefix = [prefix.as_slice(), "_tree".as_bytes()].concat();
+        let map_prefix = [prefix.as_slice(), "_map".as_bytes()].concat();
+        Self {
+            prefix,
+            tree: RedBlackTree::new(tree_prefix),
+            map: UnorderedMap::new(map_prefix)
+        }
+    }
+}
 
 impl<K, V> Default for OrderedMap<K, V> {
     fn default() -> Self {
-        Self {
-            tree: RedBlackTree::default(),
-            map: UnorderedMap::default()
-        }
+        Self::new(next_trie_id())
     }
 }
 
@@ -109,25 +111,16 @@ where
     }
 
     fn insert(&mut self, key: &K, value: &V) -> Option<V> {
-        // self.tree.add(OrderedMapEntry { key: key.clone(), value: value.clone() }).map(|entry| entry.value)
-        self.tree.add(key.clone());
+        self.tree.insert(key);
         self.map.insert(key, value)
     }
 
     fn clear(&mut self) {
-        // FIXME make this efficient
-        // let v: Vec<OrderedMapEntry<K, V>> = self.tree.iter().collect();
-        // for entry in v.iter() {
-        //     self.tree.remove(&entry.key);
-        // }
-        for key in self.tree.iter().collect::<Vec<K>>().iter() {
-            self.tree.remove(key.ord_value());
-        }
+        self.tree.clear();
         self.map.clear();
     }
 
     fn to_vec(&self) -> std::vec::Vec<(K, V)> {
-        // self.tree.iter().map(|entry| entry.into()).collect()
         self.tree.iter()
             .map(|key| {
                 let value = self.map.get(&key).expect("value exists");
@@ -137,18 +130,15 @@ where
     }
 
     fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = K> + 'a> {
-        // Box::new(self.tree.iter().map(|entry| entry.key))
         Box::new(self.tree.iter())
     }
 
     fn values<'a>(&'a self) -> Box<dyn Iterator<Item = V> + 'a> {
-        // Box::new(self.tree.iter().map(|entry| entry.value))
         let iter = self.tree.iter().map(move |key| self.map.get(&key).expect("value exists"));
         Box::new(iter)
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = (K, V)> + 'a> {
-        // Box::new(self.tree.iter().map(|entry| entry.into()))
         let iter = self.tree.iter()
             .map(move |key| {
                 let value = self.map.get(&key).expect("value exists");
@@ -158,22 +148,11 @@ where
     }
 
     fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) where Self: Sized {
-        // for entry in iter.into_iter().map(|entry| OrderedMapEntry::from(entry)) {
-        //     self.tree.add(entry);
-        // }
         for entry in iter.into_iter() {
             self.map.insert(&entry.0, &entry.1);
-            self.tree.add(entry.0);
+            self.tree.insert(&entry.0);
         }
     }
-
-    // fn keys_as_vector(&self) -> &Vector<K> {
-    //     Self::keys_as_vector(self)
-    // }
-
-    // fn values_as_vector(&self) -> &Vector<V> {
-    //     Self::values_as_vector(self)
-    // }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

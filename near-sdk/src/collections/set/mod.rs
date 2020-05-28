@@ -4,6 +4,8 @@ pub use unordered_set::*;
 pub mod red_black_tree;
 pub use red_black_tree::*;
 
+use std::ops::Bound;
+
 pub trait Set<T> {
     /// Returns true if the set contains an element.
     fn contains(&self, element: &T) -> bool;
@@ -26,6 +28,47 @@ pub trait Set<T> {
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = T> + 'a>;
 
     fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT);
+}
+
+// Adapted from TreeMap implementation by https://github.com/sergey-melnychuk 
+// https://github.com/near/near-sdk-rs/blob/45035d5909e200a1ba03b779435de9d08b7e7f4c/near-sdk/src/collections/tree_map.rs
+pub trait TreeSet<T>: Set<T> {    
+    /// Returns the smallest stored value from the tree
+    fn min(&self) -> Option<T>;
+    
+    /// Returns the largest stored value from the tree
+    fn max(&self) -> Option<T>;
+
+    /// Returns the smallest value that is strictly greater than value given as the parameter
+    fn above(&self, value: &T) -> Option<T>;
+
+    /// Returns the largest value that is strictly less than value given as the parameter
+    fn below(&self, value: &T) -> Option<T>;
+
+    /// Returns the largest value that is greater or equal to value given as the parameter
+    fn ceil(&self, value: &T) -> Option<T>;
+    
+    /// Returns the smallest value that is greater or equal to value given as the parameter
+    fn floor(&self, value: &T) -> Option<T>;
+
+    /// Iterates through values in ascending order starting at value that is greater than
+    /// or equal to the value supplied
+    fn iter_from<'a>(&'a self, value: T) -> Box<dyn Iterator<Item = T> + 'a>;
+
+    /// Iterates through values in descending order
+    fn iter_rev<'a>(&'a self) -> Box<dyn Iterator<Item = T> + 'a>;
+
+    /// Iterates through values in descending order starting at value that is less than
+    /// or equal to the value supplied
+    fn iter_rev_from<'a>(&'a self, value: T) -> Box<dyn Iterator<Item = T> + 'a>;
+
+    /// Iterate over K values in ascending order
+    ///
+    /// # Panics
+    ///
+    /// Panics if range start > end.
+    /// Panics if range start == end and both bounds are Excluded.
+    fn range<'a>(&'a self, r: (Bound<T>, Bound<T>)) -> Box<dyn Iterator<Item = T> + 'a>;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
