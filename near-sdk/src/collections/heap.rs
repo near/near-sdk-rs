@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_iter_sorted_random() {
-        test_env::setup();
+        test_env::setup_free();
         use rand::prelude::*;
 
         fn random(n: u32) -> Vec<u32> {
@@ -369,7 +369,7 @@ mod tests {
             vec
         }
 
-        let cases = vec![10, 20, 30, 42]; // Error(GasLimitExceeded) for sizes >= 50
+        let cases = vec![10, 20, 30, 40, 50, 60, 70];
         for n in cases {
             let mut heap: Heap<u32> = Heap::new(vec![b't']);
 
