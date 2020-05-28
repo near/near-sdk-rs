@@ -491,7 +491,7 @@ impl<K, V> TreeMap<K, V>
     fn do_remove(&mut self, key: &K) -> u64 {
         // r_node - node containing key of interest
         // p_node - immediate parent node of r_node
-        let (r_node, mut p_node) = match self.lookup_at(self.root, key) {
+        let (mut r_node, mut p_node) = match self.lookup_at(self.root, key) {
             Some(x) => x,
             None => return self.root // cannot remove a missing key, no changes to the tree needed
         };
@@ -535,7 +535,11 @@ impl<K, V> TreeMap<K, V>
 
                 self.update_height(&mut p);
 
-                let mut r_node = self.node(r_node.id).unwrap();
+                if r_node.id == p.id {
+                    // for trees of 2 levels, r_node.id and p.id can overlap,
+                    // leading to nasty lost update of the key
+                    r_node = self.node(r_node.id).unwrap();
+                }
                 r_node.key = k;
                 self.save(&r_node);
 
@@ -563,7 +567,11 @@ impl<K, V> TreeMap<K, V>
 
                 self.update_height(&mut p);
 
-                let mut r_node = self.node(r_node.id).unwrap();
+                if r_node.id == p.id {
+                    // for trees of 2 levels, r_node.id and p.id can overlap,
+                    // leading to nasty lost update of the key
+                    r_node = self.node(r_node.id).unwrap();
+                }
                 r_node.key = k;
                 self.save(&r_node);
 
@@ -580,6 +588,7 @@ impl<K, V> TreeMap<K, V>
     // to node with id `t`, and remove node `len - 1`.
     fn swap_with_last(&mut self, id: u64) {
         if id == self.len() - 1 {
+            // noop: id is already last element in the vector
             self.tree.pop();
             return;
         }
