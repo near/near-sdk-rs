@@ -1,7 +1,7 @@
 use std::ops::Bound;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::{append, next_trie_id};
+use crate::collections::{append, next_trie_id, Vector};
 use crate::collections::UnorderedMap;
 
 /// AVL tree implementation
@@ -14,13 +14,33 @@ use crate::collections::UnorderedMap;
 ///
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TreeMap<K, V> {
-    len: u64,
-    root: u64,                      // ID of a root node of the tree
-    ht: UnorderedMap<u64, u64>,     // height of a subtree at a node
-    lft: UnorderedMap<u64, u64>,    // left link of a node
-    rgt: UnorderedMap<u64, u64>,    // right link of a node
-    key: UnorderedMap<u64, K>,      // key stored in a node
-    val: UnorderedMap<K, V>,        // value associated with key
+    root: u64,
+    val: UnorderedMap<K, V>,
+    tree: Vector<Node<K>>,
+}
+
+#[derive(Copy, Clone, BorshSerialize, BorshDeserialize)]
+pub struct Node<K> {
+    id: u64,
+    key: K,             // key stored in a node
+    lft: Option<u64>,   // left link of a node
+    rgt: Option<u64>,   // right link of a node
+    ht: u64,            // height of a subtree at a node
+}
+
+impl<K> Node<K>
+    where
+        K: Ord + Copy + BorshSerialize + BorshDeserialize
+{
+    fn of(id: u64, key: K) -> Self {
+        Self {
+            id,
+            key,
+            lft: None,
+            rgt: None,
+            ht: 1,
+        }
+    }
 }
 
 impl<K, V> Default for TreeMap<K, V>
@@ -40,40 +60,38 @@ impl<K, V> TreeMap<K, V>
         V: Copy + BorshSerialize + BorshDeserialize,
 {
     pub fn new(id: Vec<u8>) -> Self {
-        let h_prefix = append(&id, b'h');
-        let l_prefix = append(&id, b'l');
-        let r_prefix = append(&id, b'r');
-        let k_prefix = append(&id, b'k');
-        let v_prefix = append(&id, b'v');
-
         Self {
             root: 0,
-            len: 0,
-            ht: UnorderedMap::new(h_prefix),
-            lft: UnorderedMap::new(l_prefix),
-            rgt: UnorderedMap::new(r_prefix),
-            key: UnorderedMap::new(k_prefix),
-            val: UnorderedMap::new(v_prefix),
+            val: UnorderedMap::new(append(&id, b'v')),
+            tree: Vector::new(append(&id, b'n')),
         }
     }
 
     pub fn len(&self) -> u64 {
-        self.len
+        self.tree.len() as u64
     }
 
     pub fn clear(&mut self) {
-        self.ht.clear();
-        self.lft.clear();
-        self.rgt.clear();
-        self.key.clear();
-        self.val.clear();
-        self.len = 0;
         self.root = 0;
+        self.val.clear();
+        self.tree.clear();
+    }
+
+    fn node(&self, id: u64) -> Option<Node<K>> {
+        self.tree.get(id)
+    }
+
+    fn save(&mut self, node: &Node<K>) {
+        if node.id < self.len() {
+            self.tree.replace(node.id, node);
+        } else {
+            self.tree.push(node);
+        }
     }
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     pub fn height(&self) -> u64 {
-        self.ht.get(&self.root).unwrap_or_default()
+        self.node(self.root).map(|n| n.ht).unwrap_or_default()
     }
 
     pub fn contains_key(&self, key: &K) -> bool {
@@ -85,24 +103,15 @@ impl<K, V> TreeMap<K, V>
     }
 
     pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
-        if self.contains_key(&key) {
-            // key is already present, changing only associated value
-            self.val.insert(&key, &val)
-        } else {
-            let at = self.root;
-            let id = self.len;
-            let root = self.insert_at(at, id, &key);
-            self.root = root;
-            self.len += 1;
-            self.val.insert(&key, &val)
+        if !self.contains_key(&key) {
+            self.root = self.insert_at(self.root, self.len(), &key);
         }
+        self.val.insert(&key, &val)
     }
 
     pub fn remove(&mut self, key: &K) -> Option<V> {
         if self.contains_key(&key) {
-            let root = self.do_remove(&key);
-            self.root = root;
-            self.len -= 1;
+            self.root = self.do_remove(&key);
             self.val.remove(&key)
         } else {
             // no such key, nothing to do
@@ -112,12 +121,12 @@ impl<K, V> TreeMap<K, V>
 
     /// Returns the smallest stored key from the tree
     pub fn min(&self) -> Option<K> {
-        self.min_at(self.root, self.root).map(|(k, _, _)| k)
+        self.min_at(self.root, self.root).map(|(n, _)| n.key)
     }
 
     /// Returns the largest stored key from the tree
     pub fn max(&self) -> Option<K> {
-        self.max_at(self.root, self.root).map(|(k, _, _)| k)
+        self.max_at(self.root, self.root).map(|(n, _)| n.key)
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
@@ -193,48 +202,56 @@ impl<K, V> TreeMap<K, V>
     /// Returns (key, id, parent id) of left-most lower (min) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn min_at(&self, mut at: u64, mut p: u64) -> Option<(K, u64, u64)> {
+    fn min_at(&self, mut at: u64, p: u64) -> Option<(Node<K>, Node<K>)> {
+        let mut parent: Option<Node<K>> = self.node(p);
         loop {
-            match self.lft.get(&at) {
+            let node = self.node(at);
+            match node.and_then(|n| n.lft) {
                 Some(lft) => {
-                    p = at;
                     at = lft;
+                    parent = node;
                 },
-                None => break
+                None => {
+                    return node.and_then(|n| parent.map(|p| (n, p)));
+                }
             }
         }
-        self.key.get(&at).map(|k| (k, at, p))
+
     }
 
     /// Returns (key, id, parent id) of right-most lower (max) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn max_at(&self, mut at: u64, mut p: u64) -> Option<(K, u64, u64)> {
+    fn max_at(&self, mut at: u64, p: u64) -> Option<(Node<K>, Node<K>)> {
+        let mut parent: Option<Node<K>> = self.node(p);
         loop {
-            match self.rgt.get(&at) {
+            let node = self.node(at);
+            match node.and_then(|n| n.rgt) {
                 Some(rgt) => {
-                    p = at;
+                    parent = node;
                     at = rgt;
                 },
-                None => break
+                None => {
+                    return node.and_then(|n| parent.map(|p| (n, p)));
+                }
             }
         }
-        self.key.get(&at).map(|k| (k, at, p))
     }
 
     fn above_at(&self, mut at: u64, key: &K) -> Option<K> {
         let mut seen: Option<K> = None;
         loop {
-            match self.key.get(&at) {
+            let node = self.node(at);
+            match node.map(|n| n.key) {
                 Some(k) => {
                     if k.le(key) {
-                        match self.rgt.get(&at) {
+                        match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break
                         }
                     } else {
                         seen = Some(k);
-                        match self.lft.get(&at) {
+                        match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break
                         }
@@ -249,16 +266,17 @@ impl<K, V> TreeMap<K, V>
     fn below_at(&self, mut at: u64, key: &K) -> Option<K> {
         let mut seen: Option<K> = None;
         loop {
-            match self.key.get(&at) {
+            let node = self.node(at);
+            match node.map(|n| n.key) {
                 Some(k) => {
                     if k.lt(key) {
                         seen = Some(k);
-                        match self.rgt.get(&at) {
+                        match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break
                         }
                     } else {
-                        match self.lft.get(&at) {
+                        match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break
                         }
@@ -271,18 +289,17 @@ impl<K, V> TreeMap<K, V>
     }
 
     fn insert_at(&mut self, at: u64, id: u64, key: &K) -> u64 {
-        match self.key.get(&at) {
+        match self.node(at) {
             None => {
-                self.ht.insert(&id, &1);
-                self.key.insert(&id, key);
+                self.save(&Node::of(id, *key));
                 at
             },
-            Some(node_key) => {
-                if key.eq(&node_key) {
+            Some(mut node) => {
+                if key.eq(&node.key) {
                     at
                 } else {
-                    if key.lt(&node_key) {
-                        let idx = match self.lft.get(&at) {
+                    if key.lt(&node.key) {
+                        let idx = match node.lft {
                             Some(lft) => {
                                 self.insert_at(lft, id, key)
                             },
@@ -290,9 +307,9 @@ impl<K, V> TreeMap<K, V>
                                 self.insert_at(id, id, key)
                             }
                         };
-                        self.lft.insert(&at, &idx);
+                        node.lft = Some(idx);
                     } else {
-                        let idx = match self.rgt.get(&at) {
+                        let idx = match node.rgt {
                             Some(rgt) => {
                                 self.insert_at(rgt, id, key)
                             },
@@ -300,11 +317,11 @@ impl<K, V> TreeMap<K, V>
                                 self.insert_at(id, id, key)
                             }
                         };
-                        self.rgt.insert(&at, &idx);
+                        node.rgt = Some(idx);
                     };
 
-                    self.update_height(at);
-                    self.enforce_balance(at)
+                    self.update_height(&mut node);
+                    self.enforce_balance(&mut node)
                 }
             }
         }
@@ -312,25 +329,25 @@ impl<K, V> TreeMap<K, V>
 
     // Calculate and save the height of a subtree at node `at`:
     // height[at] = 1 + max(height[at.L], height[at.R])
-    fn update_height(&mut self, at: u64) {
-        let lft = self.lft.get(&at)
-            .and_then(|id| self.ht.get(&id))
+    fn update_height(&mut self, node: &mut Node<K>) {
+        let lft = node.lft
+            .and_then(|id| self.node(id).map(|n| n.ht))
             .unwrap_or_default();
-        let rgt = self.rgt.get(&at)
-            .and_then(|id| self.ht.get(&id))
+        let rgt = node.rgt
+            .and_then(|id| self.node(id).map(|n| n.ht))
             .unwrap_or_default();
 
-        let ht = 1 + std::cmp::max(lft, rgt);
-        self.ht.insert(&at, &ht);
+        node.ht = 1 + std::cmp::max(lft, rgt);
+        self.save(&node);
     }
 
     // Balance = difference in heights between left and right subtrees at node `at`.
-    fn get_balance(&self, at: u64) -> i64 {
-        let lht = self.lft.get(&at)
-            .and_then(|id| self.ht.get(&id))
+    fn get_balance(&self, node: &Node<K>) -> i64 {
+        let lht = node.lft
+            .and_then(|id| self.node(id).map(|n| n.ht))
             .unwrap_or_default();
-        let rht = self.rgt.get(&at)
-            .and_then(|id| self.ht.get(&id))
+        let rht = node.rgt
+            .and_then(|id| self.node(id).map(|n| n.ht))
             .unwrap_or_default();
 
         lht as i64 - rht as i64
@@ -338,89 +355,85 @@ impl<K, V> TreeMap<K, V>
 
     // Left rotation of an AVL subtree with at node `at`.
     // New root of subtree is returned, caller's responsibility is to update links accordingly.
-    fn rotate_left(&mut self, at: u64) -> u64 {
-        let lft = self.lft.get(&at).unwrap();
-        let lft_rgt = self.rgt.get(&lft);
+    fn rotate_left(&mut self, node: &mut Node<K>) -> u64 {
+        let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
+        let lft_rgt = lft.rgt;
 
         // at.L = at.L.R
-        match lft_rgt {
-            Some(x) => self.lft.insert(&at, &x),
-            None => self.lft.remove(&at)
-        };
+        node.lft = lft_rgt;
 
         // at.L.R = at
-        self.rgt.insert(&lft, &at);
+        lft.rgt = Some(node.id);
 
         // at = at.L
-        self.update_height(at);
-        self.update_height(lft);
-        lft
+        self.update_height(node);
+        self.update_height(&mut lft);
+
+        lft.id
     }
 
     // Right rotation of an AVL subtree at node in `at`.
     // New root of subtree is returned, caller's responsibility is to update links accordingly.
-    fn rotate_right(&mut self, at: u64) -> u64 {
-        let rgt = self.rgt.get(&at).unwrap();
-        let rgt_lft = self.lft.get(&rgt);
+    fn rotate_right(&mut self, node: &mut Node<K>) -> u64 {
+        let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap();
+        let rgt_lft = rgt.lft;
 
         // at.R = at.R.L
-        match rgt_lft {
-            Some(x) => self.rgt.insert(&at, &x),
-            None => self.rgt.remove(&at)
-        };
+        node.rgt = rgt_lft;
 
         // at.R.L = at
-        self.lft.insert(&rgt, &at);
+        rgt.lft = Some(node.id);
 
         // at = at.R
-        self.update_height(at);
-        self.update_height(rgt);
-        rgt
+        self.update_height(node);
+        self.update_height(&mut rgt);
+
+        rgt.id
     }
 
     // Check balance at node `at` and enforce it if necessary with respective rotations.
-    fn enforce_balance(&mut self, at: u64) -> u64 {
-        let balance = self.get_balance(at);
+    fn enforce_balance(&mut self, node: &mut Node<K>) -> u64 {
+        let balance = self.get_balance(&node);
         if balance > 1 {
-            let lft = self.lft.get(&at).unwrap();
-            if self.get_balance(lft) < 0 {
-                let rotated = self.rotate_right(lft);
-                self.lft.insert(&at, &rotated);
+            let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
+            if self.get_balance(&lft) < 0 {
+                let rotated = self.rotate_right(&mut lft);
+                node.lft = Some(rotated);
             }
-            self.rotate_left(at)
+            self.rotate_left(node)
         } else if balance < -1 {
-            let rgt = self.rgt.get(&at).unwrap();
-            if self.get_balance(rgt) > 0 {
-                let rotated = self.rotate_left(rgt);
-                self.rgt.insert(&at, &rotated);
+            let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap();
+            if self.get_balance(&rgt) > 0 {
+                let rotated = self.rotate_left(&mut rgt);
+                node.rgt = Some(rotated);
             }
-            self.rotate_right(at)
+            self.rotate_right(node)
         } else {
-            at
+            node.id
         }
     }
 
     // Returns (`id`, `parent_id`) for a node that holds the `key`.
     // For root node, root node id is returned both as `id` and as `parent_id`.
-    fn lookup_at(&self, mut at: u64, key: &K) -> Option<(u64, u64)> {
-        let mut p = at;
+    fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
+        let mut p: Node<K> = self.node(at).unwrap();
         loop {
-            match self.key.get(&at) {
-                Some(k) => {
-                    if k.eq(key) {
-                        return Some((at, p));
-                    } else if k.lt(key) {
-                        match self.rgt.get(&at) {
+            match self.node(at) {
+                Some(node) => {
+                    if node.key.eq(key) {
+                        return Some((node, p));
+                    } else if node.key.lt(key) {
+                        match node.rgt {
                             Some(rgt) => {
-                                p = at;
+                                p = node;
                                 at = rgt;
                             },
                             None => break
                         }
                     } else {
-                        match self.lft.get(&at) {
+                        match node.lft {
                             Some(lft) => {
-                                p = at;
+                                p = node;
                                 at = lft;
                             },
                             None => break
@@ -436,31 +449,31 @@ impl<K, V> TreeMap<K, V>
     // Navigate from root to node holding `key` and backtrace back to the root -
     // enforcing balance (if imbalance takes place) along the way up to the root.
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
-        match self.key.get(&at) {
-            Some(k) => {
-                if k.eq(key) {
-                    self.update_height(at);
+        match self.node(at) {
+            Some(mut node) => {
+                if node.key.eq(key) {
+                    self.update_height(&mut node);
                     at
                 } else {
-                    if k.lt(key) {
-                        match self.lft.get(&at) {
+                    if node.key.lt(key) {
+                        match node.lft {
                             Some(l) => {
                                 let id = self.check_balance(l, key);
-                                self.lft.insert(&at, &id);
+                                node.lft = Some(id);
                             },
                             None => ()
                         }
                     } else {
-                        match self.rgt.get(&at) {
+                        match node.rgt {
                             Some(r) => {
                                 let id = self.check_balance(r, key);
-                                self.rgt.insert(&at, &id);
+                                node.rgt = Some(id);
                             },
                             None => ()
                         }
                     }
-                    self.update_height(at);
-                    self.enforce_balance(at)
+                    self.update_height(&mut node);
+                    self.enforce_balance(&mut node)
                 }
             },
             None => at
@@ -476,174 +489,120 @@ impl<K, V> TreeMap<K, V>
     // - or left-most (min) node of the right subtree (containing larger keys) of node holding `key`
     //
     fn do_remove(&mut self, key: &K) -> u64 {
-        let root = self.root;
-        // r_id - id of a node containing key of interest
-        // r_p - id of an immediate parent node of r_id
-        let (r_id, r_p) = match self.lookup_at(root, key) {
+        // r_node - node containing key of interest
+        // p_node - immediate parent node of r_node
+        let (r_node, mut p_node) = match self.lookup_at(self.root, key) {
             Some(x) => x,
-            None => return root // cannot remove a missing key, no changes to the tree needed
+            None => return self.root // cannot remove a missing key, no changes to the tree needed
         };
 
-        let lft_opt = self.lft.get(&r_id);
-        let rgt_opt = self.rgt.get(&r_id);
+        let lft_opt = r_node.lft;
+        let rgt_opt = r_node.rgt;
 
         if lft_opt.is_none() && rgt_opt.is_none() {
             // remove leaf
-            let p_key = self.key.get(&r_p).unwrap();
-            if p_key.lt(key) {
-                self.rgt.remove(&r_p);
+            if p_node.key.lt(key) {
+                p_node.rgt = None;
             } else {
-                self.lft.remove(&r_p);
+                p_node.lft = None;
             }
-            self.key.remove(&r_id);
-            self.ht.remove(&r_id);
+            self.update_height(&mut p_node);
 
-            let root = self.swap_with_last(r_id);
+            self.swap_with_last(r_node.id);
 
             // removing node might have caused a imbalance - balance the tree up to the root,
             // starting from lowest affected key - the parent of a leaf node in this case
-            self.check_balance(root, &p_key)
-
+            self.check_balance(self.root, &p_node.key)
         } else {
             // non-leaf node, select subtree to proceed with
-            let b = self.get_balance(r_id);
+            let b = self.get_balance(&r_node);
             if b >= 0 {
                 // proceed with left subtree
                 let lft = lft_opt.unwrap();
 
                 // k - max key from left subtree
-                // n - id of a node that holds key k, p - id of immediate parent of n
-                let (k, n, p) = self.max_at(lft, r_id).unwrap();
+                // n - node that holds key k, p - immediate parent of n
+                let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
+                let k = n.key;
 
-                self.key.insert(&r_id, &k);
-                self.key.remove(&n);
-                self.ht.remove(&n);
-
-                if self.rgt.get(&p).map(|id| id == n).unwrap_or_default() {
+                if p.rgt.map(|id| id == n.id).unwrap_or_default() {
                     // n is on right link of p
-                    match self.lft.get(&n) {
-                        Some(l) => {
-                            self.rgt.insert(&p, &l);
-                            self.lft.remove(&n);
-                        },
-                        None => {
-                            self.rgt.remove(&p);
-                        }
-                    };
+                    p.rgt = n.lft;
                 } else {
                     // n is on left link of p
-                    match self.lft.get(&n) {
-                        Some(l) => {
-                            self.lft.insert(&p, &l);
-                            self.lft.remove(&n);
-                        },
-                        None => {
-                            self.lft.remove(&p);
-                        }
-                    }
+                    p.lft = n.lft;
                 }
 
-                let root = self.swap_with_last(n);
+                self.update_height(&mut p);
+
+                let mut r_node = self.node(r_node.id).unwrap();
+                r_node.key = k;
+                self.save(&r_node);
+
+                self.swap_with_last(n.id);
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                self.check_balance(root, &k)
-
+                self.check_balance(self.root, &k)
             } else {
                 // proceed with right subtree
                 let rgt = rgt_opt.unwrap();
 
                 // k - min key from right subtree
-                // n - id of a node that holds key k, p - id of an immediate parent of n
-                let (k, n, p) = self.min_at(rgt, r_id).unwrap();
+                // n - node that holds key k, p - immediate parent of n
+                let (n, mut p) = self.min_at(rgt, r_node.id).unwrap();
+                let k = n.key;
 
-                self.key.insert(&r_id, &k);
-                self.key.remove(&n);
-                self.ht.remove(&n);
-
-                if self.lft.get(&p).map(|id| id == n).unwrap_or_default() {
+                if p.lft.map(|id| id == n.id).unwrap_or_default() {
                     // n is on left link of p
-                    match self.rgt.get(&n) {
-                        Some(r) => {
-                            self.lft.insert(&p, &r);
-                            self.rgt.remove(&n);
-                        },
-                        None => {
-                            self.lft.remove(&p);
-                        }
-                    }
+                    p.lft = n.rgt;
                 } else {
                     // n is on right link of p
-                    match self.rgt.get(&n) {
-                        Some(r) => {
-                            self.rgt.insert(&p, &r);
-                            self.rgt.remove(&n);
-                        },
-                        None => {
-                            self.rgt.remove(&p);
-                        }
-                    }
+                    p.rgt = n.rgt;
                 }
 
-                let root = self.swap_with_last(n);
+                self.update_height(&mut p);
+
+                let mut r_node = self.node(r_node.id).unwrap();
+                r_node.key = k;
+                self.save(&r_node);
+
+                self.swap_with_last(n.id);
 
                 // removing node might have caused a imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (min key from right subtree in this case)
-                self.check_balance(root, &k)
-
+                self.check_balance(self.root, &k)
             }
         }
     }
 
     // Move content of node with ID `len - 1` (parent left or right link, left, right, key, height)
     // to node with id `t`, and remove node `len - 1`.
-    fn swap_with_last(&mut self, target: u64) -> u64 {
-        let remove = self.len - 1;
-        if target == remove {
-            return self.root;
+    fn swap_with_last(&mut self, id: u64) {
+        if id == self.len() - 1 {
+            self.tree.pop();
+            return;
         }
 
-        let key = match self.key.get(&remove) {
-            Some(k) => k,
-            None => {
-                return self.root;
-            }
-        };
+        let key = self.node(self.len() - 1).map(|n| n.key).unwrap();
+        let (mut n, mut p) = self.lookup_at(self.root, &key).unwrap();
 
-        // parent lookup takes O(log(N)) in worst case - can take amortized O(1) with `parent` map
-        let root = self.root;
-        let (_, parent) = self.lookup_at(root, &key).unwrap();
-
-        self.key.remove(&remove);
-        self.key.insert(&target, &key);
-
-        // update link from parent node (p-n -> p-t)
-        if remove != parent {
-            if self.lft.get(&parent).map(|link| link == remove).unwrap_or_default() {
-                self.lft.insert(&parent, &target);
+        if n.id != p.id {
+            if p.lft.map(|id| id == n.id).unwrap_or_default() {
+                p.lft = Some(id);
             } else {
-                self.rgt.insert(&parent, &target);
+                p.rgt = Some(id);
             }
+            self.save(&p);
         }
 
-        // move references from `ht`, `lft`, `rgt` from `r` to `t`.
-        for map in [&mut self.ht, &mut self.lft, &mut self.rgt].iter_mut() {
-            let val = map.remove(&remove);
-            match val {
-                Some(x) => {
-                    map.insert(&target, &x);
-                },
-                None => {
-                    () // target's links and height have already been reset in do_remove
-                }
-            }
+        if self.root == n.id {
+            self.root = id;
         }
 
-        if remove == root {
-            self.root = target;
-        }
-
-        self.root
+        n.id = id;
+        self.save(&n);
+        self.tree.pop();
     }
 }
 
@@ -811,6 +770,21 @@ mod tests {
         h.ceil() as u64
     }
 
+    impl<K> Debug for Node<K>
+        where
+            K: Ord + Copy + Debug + BorshSerialize + BorshDeserialize,
+    {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            f.debug_struct("Node")
+                .field("id", &self.id)
+                .field("key", &self.key)
+                .field("lft", &self.lft)
+                .field("rgt", &self.rgt)
+                .field("ht", &self.ht)
+                .finish()
+        }
+    }
+
     impl<K, V> Debug for TreeMap<K, V>
         where
             K: Ord + Copy + Debug + BorshSerialize + BorshDeserialize,
@@ -819,11 +793,8 @@ mod tests {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             f.debug_struct("TreeMap")
                 .field("root", &self.root)
-                .field("key", &self.key.iter().collect::<Vec<(u64, K)>>())
+                .field("tree", &self.tree.iter().collect::<Vec<Node<K>>>())
                 .field("val", &self.val.iter().collect::<Vec<(K, V)>>())
-                .field("lft", &self.lft.iter().collect::<Vec<(u64, u64)>>())
-                .field("rgt", &self.rgt.iter().collect::<Vec<(u64, u64)>>())
-                .field("ht", &self.ht.iter().collect::<Vec<(u64, u64)>>())
                 .finish()
         }
     }
@@ -857,11 +828,11 @@ mod tests {
         assert_eq!(map.height(), 2);
 
         map.insert(&1, &1);
+        assert_eq!(map.height(), 2);
 
         let root = map.root;
         assert_eq!(root, 1);
-        assert_eq!(map.key.get(&root), Some(2));
-        assert_eq!(map.height(), 2);
+        assert_eq!(map.node(root).map(|n| n.key), Some(2));
 
         map.clear();
     }
@@ -883,7 +854,7 @@ mod tests {
 
         let root = map.root;
         assert_eq!(root, 1);
-        assert_eq!(map.key.get(&root), Some(2));
+        assert_eq!(map.node(root).map(|n| n.key), Some(2));
         assert_eq!(map.height(), 2);
 
         map.clear();
@@ -963,6 +934,10 @@ mod tests {
 
             for x in &input {
                 map.insert(x, &42);
+            }
+
+            for x in &input {
+                assert_eq!(map.get(x), Some(42));
             }
 
             assert!(map.height() <= max_tree_height(n));
@@ -1099,9 +1074,17 @@ mod tests {
         assert_eq!(map.get(&1), Some(1));
         map.remove(&1);
         assert_eq!(map.get(&1), None);
-        assert_eq!(map.key.len(), 0);
-        assert_eq!(map.ht.len(), 0);
+        assert_eq!(map.tree.len(), 0);
         map.clear();
+    }
+
+    #[test]
+    fn test_remove_3() {
+        test_env::setup();
+
+        let map: TreeMap<u32, u32> = avl(&[(0,0)], &[0,0,1]);
+
+        assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![]);
     }
 
     #[test]
@@ -1257,12 +1240,34 @@ mod tests {
         }
 
         assert_eq!(map.len(), 0, "map.len() > 0");
-        assert_eq!(map.key.len(), 0, "map.key is not empty");
         assert_eq!(map.val.len(), 0, "map.val is not empty");
-        assert_eq!(map.ht.len(),  0, "map.ht  is not empty");
-        assert_eq!(map.lft.len(), 0, "map.lft is not empty");
-        assert_eq!(map.rgt.len(), 0, "map.rgt is not empty");
+        assert_eq!(map.tree.len(), 0, "map.tree is not empty");
         map.clear();
+    }
+
+    #[test]
+    fn test_insert_8_remove_4_regression() {
+        let insert = vec![882, 398, 161, 76];
+        let remove = vec![242, 687, 860, 811];
+
+        test_env::setup();
+        let mut map: TreeMap<u32, u32> = TreeMap::default();
+
+        for (i, (k1, k2)) in insert.iter().zip(remove.iter()).enumerate() {
+            let v = i as u32;
+            map.insert(k1, &v);
+            map.insert(k2, &v);
+        }
+
+        for k in remove.iter() {
+            map.remove(k);
+        }
+
+        assert_eq!(map.len(), insert.len() as u64);
+
+        for (i, k) in insert.iter().enumerate() {
+            assert_eq!(map.get(k), Some(i as u32));
+        }
     }
 
     #[test]
@@ -1288,12 +1293,8 @@ mod tests {
         }
 
         assert_eq!(map.len(), 0, "map.len() > 0");
-
-        assert_eq!(map.key.len(), 0, "map.key is not empty");
+        assert_eq!(map.tree.len(), 0, "map.tree is not empty");
         assert_eq!(map.val.len(), 0, "map.val is not empty");
-        assert_eq!(map.ht.len(),  0, "map.ht  is not empty");
-        assert_eq!(map.lft.len(), 0, "map.lft is not empty");
-        assert_eq!(map.rgt.len(), 0, "map.rgt is not empty");
         map.clear();
     }
 
@@ -1348,8 +1349,8 @@ mod tests {
 
         assert_eq!(map.get(&42), Some(29));
         assert_eq!(map.len(), 31);
-        assert_eq!(map.key.len(), 31);
-        assert_eq!(map.ht.len(), 31);
+        assert_eq!(map.val.len(), 31);
+        assert_eq!(map.tree.len(), 31);
 
         map.clear();
     }
@@ -1680,33 +1681,14 @@ mod tests {
     fn prop_avl_height() {
         test_env::setup_free();
 
-        fn prop(val: u64) -> bool {
-            let n = val % 100;
-            let insert = random(n);
-            let remove = random(n);
-
-            let mut kept: HashSet<u32> = HashSet::new();
-            let mut map: TreeMap<u32, u32> = TreeMap::default();
-
-            for (i, (k1, k2)) in insert.iter().zip(remove.iter()).enumerate() {
-                let v = i as u32;
-                map.insert(k1, &v);
-                map.insert(k2, &v);
-                kept.insert(*k1);
-                kept.insert(*k2);
-            }
-
-            for k in remove.iter() {
-                map.remove(k);
-                kept.remove(k);
-            }
-
-            map.height() <= max_tree_height(kept.len() as u64)
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
+            let map = avl(&insert, &remove);
+            map.height() <= max_tree_height(map.len())
         }
 
         QuickCheck::new()
             .tests(300)
-            .quickcheck(prop as fn(u64) -> bool);
+            .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
     }
 
     fn range_prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, range: (Bound<u32>, Bound<u32>)) -> bool {
