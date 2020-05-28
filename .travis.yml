@@ -12,9 +12,5 @@ before_install:
 before_script:
   - rustup target add wasm32-unknown-unknown
 
-branches:
-  only:
-  - master
-
 script:
   - ./ci-test.sh

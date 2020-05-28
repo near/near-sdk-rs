@@ -27,6 +27,11 @@ impl<T> Set<T> {
         self.elements.len()
     }
 
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
         let mut element_index_prefix = Vec::with_capacity(id.len() + 1);
@@ -210,7 +215,7 @@ mod tests {
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
+            prepaid_gas: 10u64.pow(16),
             random_seed: vec![0, 1, 2],
             is_view: false,
             output_data_receivers: vec![],
@@ -226,6 +231,7 @@ mod tests {
             Default::default(),
             vec![],
             storage,
+            Default::default(),
         )));
     }
 
@@ -368,7 +374,7 @@ mod tests {
             keys.insert(key);
             set.insert(&key);
         }
-        for _ in 0..100 {
+        for _ in 0..10 {
             let mut tmp = vec![];
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
                 let key = rng.gen::<u64>();

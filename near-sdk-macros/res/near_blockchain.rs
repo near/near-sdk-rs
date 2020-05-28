@@ -319,5 +319,13 @@ pub mod near_blockchain {
         unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
             sys::storage_has_key(key_len, key_ptr)
         }
+
+        unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
+            sys::validator_stake(account_id_len, account_id_ptr, stake_ptr)
+        }
+
+        unsafe fn validator_total_stake(&self, stake_ptr: u64) {
+            sys::validator_total_stake(stake_ptr)
+        }
     }
 }

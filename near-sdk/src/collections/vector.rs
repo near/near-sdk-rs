@@ -291,6 +291,7 @@ mod tests {
             Default::default(),
             vec![],
             storage,
+            Default::default(),
         )));
     }
 
@@ -318,12 +319,12 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut vec = Vector::default();
         let mut baseline = vec![];
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             vec.push(&value);
             baseline.push(value);
         }
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let index = rng.gen::<u64>() % vec.len();
             let value = rng.gen::<u64>();
             let old_value0 = vec.get(index).unwrap();
