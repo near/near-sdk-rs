@@ -90,11 +90,6 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
-    /// Return height of the tree - number of nodes on the longest path starting from the root node.
-    pub fn height(&self) -> u64 {
-        self.node(self.root).map(|n| n.ht).unwrap_or_default()
-    }
-
     pub fn contains_key(&self, key: &K) -> bool {
         self.val.get(key).is_some()
     }
@@ -131,30 +126,30 @@ impl<K, V> TreeMap<K, V>
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
-    pub fn above(&self, key: &K) -> Option<K> {
+    pub fn higher(&self, key: &K) -> Option<K> {
         self.above_at(self.root, key)
     }
 
     /// Returns the largest key that is strictly less than key given as the parameter
-    pub fn below(&self, key: &K) -> Option<K> {
+    pub fn lower(&self, key: &K) -> Option<K> {
         self.below_at(self.root, key)
     }
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
-    pub fn floor(&self, key: &K) -> Option<K> {
+    pub fn ceil_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
             Some(*key)
         } else {
-            self.above(key)
+            self.higher(key)
         }
     }
 
-    /// Returns the largest key that is greater or equal to key given as the parameter
-    pub fn ceil(&self, key: &K) -> Option<K> {
+    /// Returns the largest key that is less or equal to key given as the parameter
+    pub fn floor_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
             Some(*key)
         } else {
-            self.below(key)
+            self.lower(key)
         }
     }
 
@@ -647,9 +642,9 @@ impl<K, V> Iterator for Cursor<'_, K, V>
 
         let next_key = self.key.and_then(|k| {
             if self.asc {
-                self.map.above(&k)
+                self.map.higher(&k)
             } else {
-                self.map.below(&k)
+                self.map.lower(&k)
             }
         });
         self.key = next_key.filter(|k| fits(k, self.lo, self.hi));
@@ -696,7 +691,7 @@ impl<'a, K, V> Cursor<'a, K, V>
     }
 
     fn asc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
-        let key = map.above(&key);
+        let key = map.higher(&key);
         Self {
             asc: true,
             key,
@@ -718,7 +713,7 @@ impl<'a, K, V> Cursor<'a, K, V>
     }
 
     fn desc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
-        let key = map.below(&key);
+        let key = map.lower(&key);
         Self {
             asc: false,
             key,
@@ -731,7 +726,7 @@ impl<'a, K, V> Cursor<'a, K, V>
     fn range(map: &'a TreeMap<K, V>, lo: Bound<K>, hi: Bound<K>) -> Self {
         let key = match lo {
             Bound::Included(k) if map.contains_key(&k) => Some(k),
-            Bound::Included(k) | Bound::Excluded(k) => map.above(&k),
+            Bound::Included(k) | Bound::Excluded(k) => map.higher(&k),
             _ => None
         };
         let key = key.filter(|k| fits(k, lo, hi));
@@ -759,6 +754,15 @@ mod tests {
     use std::fmt::{Debug, Result};
     use std::collections::HashSet;
     use std::collections::BTreeMap;
+
+    /// Return height of the tree - number of nodes on the longest path starting from the root node.
+    fn height<K, V>(tree: &TreeMap<K, V>) -> u64
+        where
+            K: Ord + Copy + BorshSerialize + BorshDeserialize,
+            V: Copy + BorshSerialize + BorshDeserialize,
+    {
+        tree.node(tree.root).map(|n| n.ht).unwrap_or_default()
+    }
 
     fn random(n: u64) -> Vec<u32> {
         let mut rng = rand::thread_rng();
@@ -821,13 +825,13 @@ mod tests {
 
         let map: TreeMap<u8, u8> = TreeMap::new(vec![b't']);
         assert_eq!(map.len(), 0);
-        assert_eq!(map.height(), 0);
+        assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
         assert!(!map.contains_key(&42));
         assert_eq!(map.min(), None);
         assert_eq!(map.max(), None);
-        assert_eq!(map.below(&42), None);
-        assert_eq!(map.above(&42), None);
+        assert_eq!(map.lower(&42), None);
+        assert_eq!(map.higher(&42), None);
     }
 
     #[test]
@@ -835,16 +839,16 @@ mod tests {
         test_env::setup();
 
         let mut map: TreeMap<i32, i32> = TreeMap::default();
-        assert_eq!(map.height(), 0);
+        assert_eq!(height(&map), 0);
 
         map.insert(&3, &3);
-        assert_eq!(map.height(), 1);
+        assert_eq!(height(&map), 1);
 
         map.insert(&2, &2);
-        assert_eq!(map.height(), 2);
+        assert_eq!(height(&map), 2);
 
         map.insert(&1, &1);
-        assert_eq!(map.height(), 2);
+        assert_eq!(height(&map), 2);
 
         let root = map.root;
         assert_eq!(root, 1);
@@ -858,20 +862,20 @@ mod tests {
         test_env::setup();
 
         let mut map: TreeMap<i32, i32> = TreeMap::default();
-        assert_eq!(map.height(), 0);
+        assert_eq!(height(&map), 0);
 
         map.insert(&1, &1);
-        assert_eq!(map.height(), 1);
+        assert_eq!(height(&map), 1);
 
         map.insert(&2, &2);
-        assert_eq!(map.height(), 2);
+        assert_eq!(height(&map), 2);
 
         map.insert(&3, &3);
 
         let root = map.root;
         assert_eq!(root, 1);
         assert_eq!(map.node(root).map(|n| n.key), Some(2));
-        assert_eq!(map.height(), 2);
+        assert_eq!(height(&map), 2);
 
         map.clear();
     }
@@ -903,7 +907,7 @@ mod tests {
             }
         }
 
-        assert!(map.height() <= max_tree_height(n));
+        assert!(height(&map) <= max_tree_height(n));
         map.clear();
     }
 
@@ -934,7 +938,7 @@ mod tests {
             }
         }
 
-        assert!(map.height() <= max_tree_height(n));
+        assert!(height(&map) <= max_tree_height(n));
         map.clear();
     }
 
@@ -956,7 +960,7 @@ mod tests {
                 assert_eq!(map.get(x), Some(42));
             }
 
-            assert!(map.height() <= max_tree_height(n));
+            assert!(height(&map) <= max_tree_height(n));
             map.clear();
         }
     }
@@ -994,7 +998,7 @@ mod tests {
     }
 
     #[test]
-    fn test_below() {
+    fn test_lower() {
         test_env::setup();
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
@@ -1004,19 +1008,19 @@ mod tests {
             map.insert(x, &1);
         }
 
-        assert_eq!(map.below( &5), None);
-        assert_eq!(map.below(&10), None);
-        assert_eq!(map.below(&11), Some(10));
-        assert_eq!(map.below(&20), Some(10));
-        assert_eq!(map.below(&49), Some(40));
-        assert_eq!(map.below(&50), Some(40));
-        assert_eq!(map.below(&51), Some(50));
+        assert_eq!(map.lower( &5), None);
+        assert_eq!(map.lower(&10), None);
+        assert_eq!(map.lower(&11), Some(10));
+        assert_eq!(map.lower(&20), Some(10));
+        assert_eq!(map.lower(&49), Some(40));
+        assert_eq!(map.lower(&50), Some(40));
+        assert_eq!(map.lower(&51), Some(50));
 
         map.clear();
     }
 
     #[test]
-    fn test_above() {
+    fn test_higher() {
         test_env::setup();
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
@@ -1026,19 +1030,19 @@ mod tests {
             map.insert(x, &1);
         }
 
-        assert_eq!(map.above( &5), Some(10));
-        assert_eq!(map.above(&10), Some(20));
-        assert_eq!(map.above(&11), Some(20));
-        assert_eq!(map.above(&20), Some(30));
-        assert_eq!(map.above(&49), Some(50));
-        assert_eq!(map.above(&50), None);
-        assert_eq!(map.above(&51), None);
+        assert_eq!(map.higher( &5), Some(10));
+        assert_eq!(map.higher(&10), Some(20));
+        assert_eq!(map.higher(&11), Some(20));
+        assert_eq!(map.higher(&20), Some(30));
+        assert_eq!(map.higher(&49), Some(50));
+        assert_eq!(map.higher(&50), None);
+        assert_eq!(map.higher(&51), None);
 
         map.clear();
     }
 
     #[test]
-    fn test_ceil() {
+    fn test_floor_key() {
         test_env::setup();
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
@@ -1048,19 +1052,19 @@ mod tests {
             map.insert(x, &1);
         }
 
-        assert_eq!(map.ceil( &5), None);
-        assert_eq!(map.ceil(&10), Some(10));
-        assert_eq!(map.ceil(&11), Some(10));
-        assert_eq!(map.ceil(&20), Some(20));
-        assert_eq!(map.ceil(&49), Some(40));
-        assert_eq!(map.ceil(&50), Some(50));
-        assert_eq!(map.ceil(&51), Some(50));
+        assert_eq!(map.floor_key( &5), None);
+        assert_eq!(map.floor_key(&10), Some(10));
+        assert_eq!(map.floor_key(&11), Some(10));
+        assert_eq!(map.floor_key(&20), Some(20));
+        assert_eq!(map.floor_key(&49), Some(40));
+        assert_eq!(map.floor_key(&50), Some(50));
+        assert_eq!(map.floor_key(&51), Some(50));
 
         map.clear();
     }
 
     #[test]
-    fn test_floor() {
+    fn test_ceil_key() {
         test_env::setup();
 
         let mut map: TreeMap<u32, u32> = TreeMap::default();
@@ -1070,13 +1074,13 @@ mod tests {
             map.insert(x, &1);
         }
 
-        assert_eq!(map.floor( &5), Some(10));
-        assert_eq!(map.floor(&10), Some(10));
-        assert_eq!(map.floor(&11), Some(20));
-        assert_eq!(map.floor(&20), Some(20));
-        assert_eq!(map.floor(&49), Some(50));
-        assert_eq!(map.floor(&50), Some(50));
-        assert_eq!(map.floor(&51), None);
+        assert_eq!(map.ceil_key( &5), Some(10));
+        assert_eq!(map.ceil_key(&10), Some(10));
+        assert_eq!(map.ceil_key(&11), Some(20));
+        assert_eq!(map.ceil_key(&20), Some(20));
+        assert_eq!(map.ceil_key(&49), Some(50));
+        assert_eq!(map.ceil_key(&50), Some(50));
+        assert_eq!(map.ceil_key(&51), None);
 
         map.clear();
     }
@@ -1347,7 +1351,7 @@ mod tests {
         map.remove(&rem[0]);
         map.remove(&rem[1]);
 
-        let h = map.height();
+        let h = height(&map);
         let h_max = max_tree_height(map.len());
         assert!(h <= h_max, "h={} h_max={}", h, h_max);
         map.clear();
@@ -1400,7 +1404,7 @@ mod tests {
 
             assert_eq!(map.len(), set.len() as u64);
 
-            let h = map.height();
+            let h = height(&map);
             let h_max = max_tree_height(n);
             assert!(h <= h_max, "[n={}] tree is too high: {} (max is {}).", n, h, h_max);
 
@@ -1699,7 +1703,7 @@ mod tests {
 
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let map = avl(&insert, &remove);
-            map.height() <= max_tree_height(map.len())
+            height(&map) <= max_tree_height(map.len())
         }
 
         QuickCheck::new()
