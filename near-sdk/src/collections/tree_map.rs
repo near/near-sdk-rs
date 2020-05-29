@@ -4,13 +4,14 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use crate::collections::{append, next_trie_id, Vector};
 use crate::collections::UnorderedMap;
 
-/// AVL tree implementation
+/// TreeMap based on AVL-tree
 ///
-/// Runtime complexity (N = number of entries):
-/// - `lookup`/`insert`/`remove`: O(log(N)) worst case
-/// - `min`/`max`: O(log(N)) worst case
-/// - `above`/`below` (find closes key above/below): O(log(N)) worst case
-/// - iterate K elements in sorted order: O(Klog(N)) worst case
+/// Runtime complexity (worst case):
+/// - `get`/`contains_key`:     O(1) - UnorderedMap lookup
+/// - `insert`/`remove`:        O(log(N))
+/// - `min`/`max`:              O(log(N))
+/// - `above`/`below`:          O(log(N))
+/// - `range` of K elements:    O(Klog(N))
 ///
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TreeMap<K, V> {
@@ -157,23 +158,27 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
+    /// Iterate all entries in ascending order: min to max, both inclusive
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
         Cursor::asc(&self).into_iter()
     }
 
+    /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
     pub fn iter_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
         Cursor::asc_from(&self, key).into_iter()
     }
 
+    /// Iterate all entries in descending order: max to min, both inclusive
     pub fn iter_rev<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
         Cursor::desc(&self).into_iter()
     }
 
+    /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
     pub fn iter_rev_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
         Cursor::desc_from(&self, key).into_iter()
     }
 
-    /// Iterate over K keys in ascending order in O(Klog(N))
+    /// Iterate entries in ascending order according to specified bounds.
     ///
     /// # Panics
     ///
@@ -199,7 +204,7 @@ impl<K, V> TreeMap<K, V>
     // Internal utilities
     //
 
-    /// Returns (key, id, parent id) of left-most lower (min) node starting from given node `at`.
+    /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
     fn min_at(&self, mut at: u64, p: u64) -> Option<(Node<K>, Node<K>)> {
@@ -219,7 +224,7 @@ impl<K, V> TreeMap<K, V>
 
     }
 
-    /// Returns (key, id, parent id) of right-most lower (max) node starting from given node `at`.
+    /// Returns (node, parent node) of right-most lower (max) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
     fn max_at(&self, mut at: u64, p: u64) -> Option<(Node<K>, Node<K>)> {
@@ -341,7 +346,7 @@ impl<K, V> TreeMap<K, V>
         self.save(&node);
     }
 
-    // Balance = difference in heights between left and right subtrees at node `at`.
+    // Balance = difference in heights between left and right subtrees at given node.
     fn get_balance(&self, node: &Node<K>) -> i64 {
         let lht = node.lft
             .and_then(|id| self.node(id).map(|n| n.ht))
@@ -354,7 +359,7 @@ impl<K, V> TreeMap<K, V>
     }
 
     // Left rotation of an AVL subtree with at node `at`.
-    // New root of subtree is returned, caller's responsibility is to update links accordingly.
+    // New root of subtree is returned, caller is responsible for updating proper link from parent.
     fn rotate_left(&mut self, node: &mut Node<K>) -> u64 {
         let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
         let lft_rgt = lft.rgt;
@@ -373,7 +378,7 @@ impl<K, V> TreeMap<K, V>
     }
 
     // Right rotation of an AVL subtree at node in `at`.
-    // New root of subtree is returned, caller's responsibility is to update links accordingly.
+    // New root of subtree is returned, caller is responsible for updating proper link from parent.
     fn rotate_right(&mut self, node: &mut Node<K>) -> u64 {
         let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap();
         let rgt_lft = rgt.lft;
@@ -391,7 +396,7 @@ impl<K, V> TreeMap<K, V>
         rgt.id
     }
 
-    // Check balance at node `at` and enforce it if necessary with respective rotations.
+    // Check balance at a given node and enforce it if necessary with respective rotations.
     fn enforce_balance(&mut self, node: &mut Node<K>) -> u64 {
         let balance = self.get_balance(&node);
         if balance > 1 {
@@ -413,8 +418,8 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
-    // Returns (`id`, `parent_id`) for a node that holds the `key`.
-    // For root node, root node id is returned both as `id` and as `parent_id`.
+    // Returns (node, parent node) for a node that holds the `key`.
+    // For root node, same node is returned for node and parent node.
     fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
         let mut p: Node<K> = self.node(at).unwrap();
         loop {
@@ -446,8 +451,8 @@ impl<K, V> TreeMap<K, V>
         None
     }
 
-    // Navigate from root to node holding `key` and backtrace back to the root -
-    // enforcing balance (if imbalance takes place) along the way up to the root.
+    // Navigate from root to node holding `key` and backtrace back to the root
+    // enforcing balance (if necessary) along the way.
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
         match self.node(at) {
             Some(mut node) => {
@@ -536,8 +541,8 @@ impl<K, V> TreeMap<K, V>
                 self.update_height(&mut p);
 
                 if r_node.id == p.id {
-                    // for trees of 2 levels, r_node.id and p.id can overlap,
-                    // leading to nasty lost update of the key
+                    // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
+                    // that leads to nasty lost update of the key, refresh below fixes that
                     r_node = self.node(r_node.id).unwrap();
                 }
                 r_node.key = k;
@@ -568,8 +573,8 @@ impl<K, V> TreeMap<K, V>
                 self.update_height(&mut p);
 
                 if r_node.id == p.id {
-                    // for trees of 2 levels, r_node.id and p.id can overlap,
-                    // leading to nasty lost update of the key
+                    // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
+                    // that leads to nasty lost update of the key, refresh below fixes that
                     r_node = self.node(r_node.id).unwrap();
                 }
                 r_node.key = k;
@@ -584,8 +589,10 @@ impl<K, V> TreeMap<K, V>
         }
     }
 
-    // Move content of node with ID `len - 1` (parent left or right link, left, right, key, height)
-    // to node with id `t`, and remove node `len - 1`.
+    // Move content of node with id = `len - 1` (parent left or right link, left, right, key, height)
+    // to node with give `id`, and remove node `len - 1` (pop the vector of nodes).
+    // This ensures that among n nodes in the tree, max id is n-1, so when new node is inserted,
+    // it gets and id as it's position in the vector.
     fn swap_with_last(&mut self, id: u64) {
         if id == self.len() - 1 {
             // noop: id is already last element in the vector
