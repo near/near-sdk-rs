@@ -123,6 +123,8 @@ pub fn my_method(&mut self) {
 }
 ```
 
+* **Private methods** Sometimes developer want to restrict method to be called only by the contract itsefl. The most 
+
 
 ## Pre-requisites
 To develop Rust contracts you would need to:
