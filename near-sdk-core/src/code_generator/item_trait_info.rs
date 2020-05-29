@@ -11,7 +11,7 @@ impl ItemTraitInfo {
         }
         let mod_name = &self.mod_name;
         quote! {
-            mod #mod_name {
+           pub mod #mod_name {
                 use super::*;
                 use near_sdk::{Gas, Balance, AccountId, Promise};
                 use std::string::ToString;
@@ -51,7 +51,7 @@ mod tests {
         let actual = info.wrapped_module();
 
         let expected = quote! {
-            mod external_cross_contract {
+            pub mod external_cross_contract {
                 use super::*;
                 use near_sdk::{Gas, Balance, AccountId, Promise};
                 use std::string::ToString;
