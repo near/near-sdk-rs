@@ -9,11 +9,19 @@ use crate::AccountId;
 #[derive(
     Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Serialize,
 )]
-pub struct ValidAccountId(pub AccountId);
+pub struct ValidAccountId(AccountId);
 
 impl ValidAccountId {
-    pub fn is_valid(&self) -> bool {
+    fn is_valid(&self) -> bool {
         is_valid_account_id(&self.0.as_bytes())
+    }
+
+    pub fn account_id(&self) -> &AccountId {
+        &self.0
+    }
+
+    pub fn into_account_id(self) -> AccountId {
+        self.0
     }
 }
 
@@ -79,6 +87,6 @@ mod tests {
     #[test]
     fn test_from_str() {
         let key = ValidAccountId::try_from("alice.near").unwrap();
-        assert_eq!(key.0, "alice.near".to_string());
+        assert_eq!(key.into_account_id(), "alice.near".to_string());
     }
 }
