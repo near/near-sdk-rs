@@ -1,27 +1,33 @@
-use super::{Set, TreeSet};
-use crate::collections::next_trie_id;
+use super::{
+    EnvStorageKey, 
+    EnvStorageCache, 
+};
+use crate::collections::{
+    next_trie_id,
+    set::{Set, TreeSet}
+};
 use crate::env;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::{
     marker::PhantomData,
-    sync::Mutex,
-    collections::{HashMap, HashSet},
     ops::{RangeBounds, Bound},
 };
 
-// const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+mod node;
+use node::*;
+pub use node::RedBlackNodeValue;
+
+mod iter;
+use iter::*;
+
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+pub mod test;
+
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
-
-type EnvStorageKey = Vec<u8>;
-
-#[derive(Debug)]
-pub enum DoubleBlackNodeCase {
-    LeftSiblingIsRed,
-    NodeIsLeftChild,
-    NodeIsRightChild
-}
 
 #[derive(Debug)]
 pub enum Direction {
@@ -39,266 +45,11 @@ impl Direction {
     }
 }
 
-// #[derive(BorshSerialize, BorshDeserialize, Clone)]
-// pub struct RawRedBlackNode<T> {
-//     color: bool, // 0 Red, 1 Black
-//     is_right_child: bool,
-//     // key: EnvStorageKey,
-//     parent_key: Option<EnvStorageKey>,
-//     left_key: Option<EnvStorageKey>,
-//     right_key: Option<EnvStorageKey>,
-//     value: T
-// }
-
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
-pub struct RedBlackNode<T> {
-    color: u8,
-    is_right_child: bool,
-    key: EnvStorageKey,
-    parent_key: Option<EnvStorageKey>,
-    left_key: Option<EnvStorageKey>,
-    right_key: Option<EnvStorageKey>,
-    value: T
-}
-
-pub trait RedBlackNodeValue: Ord {
-    type OrdValue: Ord;
-
-    fn ord_value(&self) -> &Self::OrdValue;
-}
-
-// Need specialization in stable rust for this to work as intended
-// impl<T: Ord> RedBlackNodeValue for T {
-//     type OrdValue = Self;
-
-//     fn ord_value(&self) -> &Self::OrdValue {
-//         self
-//     }
-// }
-
-// impl<T> RedBlackNodeValue for T {
-//     type OrdValue = Self;
-
-//     fn ord_value(&self) -> &Self::OrdValue {
-//         self
-//     }
-// }
-
-impl RedBlackNodeValue for u64 {
-    type OrdValue = Self;
-
-    fn ord_value(&self) -> &Self::OrdValue {
-        self
-    }
-}
-
-
-impl<T> Ord for RedBlackNode<T> 
-where
-    T: RedBlackNodeValue
-{
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.value.ord_value().cmp(&other.value.ord_value())
-    }
-}
-
-impl<T> PartialOrd for RedBlackNode<T> 
-where
-    T: RedBlackNodeValue
-{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.value.ord_value().cmp(&other.value.ord_value()))
-    }
-}
-
-impl<T> PartialEq for RedBlackNode<T> 
-where
-    T: RedBlackNodeValue
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.value.ord_value() == other.value.ord_value()
-    }
-}
-
-impl<T> Eq for RedBlackNode<T> 
-where
-    T: RedBlackNodeValue
-{}
-
-impl<T> RedBlackNode<T> {
-    pub fn key(&self) -> &EnvStorageKey {
-        &self.key
-    }
-
-    pub fn left_node_key(&self) -> Option<&EnvStorageKey> {
-        self.left_key.as_ref()
-    }
-
-    pub fn right_node_key(&self) -> Option<&EnvStorageKey> {
-        self.right_key.as_ref()
-    }
-
-    pub fn is_root(&self) -> bool {
-        self.parent_key.is_none()
-    }
-
-    pub fn is_black(&self) -> bool {
-        self.color > 0
-    }
-
-    pub fn is_double_black(&self) -> bool {
-        self.color == 2
-    }
-
-    pub fn is_red(&self) -> bool {
-        self.color == 0
-    }
-
-    pub fn is_left_child(&self) -> bool {
-        !self.is_right_child
-    }
-
-    pub fn is_right_child(&self) -> bool {
-        self.is_right_child
-    }
-
-    pub fn child_direction(&self) -> Direction {
-        use Direction::*;
-        if self.is_right_child { Right } else { Left }
-    }
-
-    pub fn has_right_child(&self) -> bool {
-        self.right_key.is_some()
-    }
-
-    pub fn has_left_child(&self) -> bool {
-        self.left_key.is_some()
-    }
-
-    pub fn has_child(&self, direction: &Direction) -> bool {
-        use Direction::*;
-        match direction {
-            Left => self.has_left_child(),
-            Right => self.has_right_child()
-        }
-    }
-
-    pub fn set_right_child(&mut self, node: Option<&mut RedBlackNode<T>>) {
-        self.right_key = node.as_ref().map(|child_node| child_node.key().clone());
-        if let Some(child_node) = node {
-            child_node.parent_key = Some(self.key().clone());
-            child_node.is_right_child = true;
-        }
-    }
-
-    pub fn set_left_child(&mut self, node: Option<&mut RedBlackNode<T>>) {
-        self.left_key = node.as_ref().map(|child_node| child_node.key().clone());
-        if let Some(child_node) = node {
-            child_node.parent_key = Some(self.key().clone());
-            child_node.is_right_child = false;
-        }
-    }
-
-    pub fn set_child(&mut self, node: Option<&mut RedBlackNode<T>>, direction: &Direction) {
-        use Direction::*;
-        match direction {
-            Left => self.set_left_child(node),
-            Right => self.set_right_child(node)
-        }
-    }
-}
-
-
-impl<T> RedBlackNode<T> 
-where 
-    T: RedBlackNodeValue
-{
-
-}
-
-#[derive(Default)]
-struct EnvStorageCache {
-    prefix: EnvStorageKey,
-    cache: Mutex<HashMap<EnvStorageKey, Vec<u8>>>,
-    dirty_keys: Mutex<HashSet<EnvStorageKey>>
-}
-
-impl EnvStorageCache {
-    pub fn new(prefix: EnvStorageKey) -> Self {
-        Self {
-            prefix,
-            cache: Mutex::new(HashMap::new()),
-            dirty_keys: Mutex::new(HashSet::new())
-        }
-    }
-
-    pub fn read(&self, key: &EnvStorageKey) -> Option<Vec<u8>> {
-        let mut cache = self.cache.lock().expect("lock is not poisoned");
-        if !cache.contains_key(key) {
-            if let Some(data) = self.get_node_raw(key) {
-                cache.insert(key.clone(), data);
-            }
-        }
-        cache.get(key).map(|v| v.clone())
-    }
-
-    pub fn update(&self, key: &EnvStorageKey, value: &Vec<u8>) {
-        let mut cache = self.cache.lock().expect("lock is not poisoned");
-        cache.insert(key.clone(), value.clone());
-        let mut dirty_keys = self.dirty_keys.lock().expect("lock is not poisoned");
-        dirty_keys.insert(key.clone());
-    }
-
-    pub fn insert(&self, key: &EnvStorageKey, value: &Vec<u8>) {
-        let mut cache = self.cache.lock().expect("lock is not poisoned");
-        cache.insert(key.clone(), value.clone());
-        self.insert_node_raw(key, value);
-    }
-
-    pub fn delete(&self, key: &EnvStorageKey) {
-        self.delete_node_raw(key)
-    }
-
-    pub fn clear(&self) {
-        let mut cache = self.cache.lock().expect("lock is not poisoned");
-        for key in self.dirty_keys.lock().expect("lock is not poisoned").drain() {
-            let node = cache.get(&key).expect("value must exist");
-            self.update_node_raw(&key, node);
-        }
-        cache.drain();
-    }
-
-    fn get_node_raw(&self, key: &EnvStorageKey) -> Option<Vec<u8>> {
-        let lookup_key = [&self.prefix, key.as_slice()].concat();
-        // println!("RAW: looking up node for key {:?}", key);
-        env::storage_read(&lookup_key)
-    }
-
-    fn insert_node_raw(&self, key: &EnvStorageKey, node: &Vec<u8>) {
-        let lookup_key = [&self.prefix, key.as_slice()].concat();
-        // println!("RAW: inserting node for key {:?}", key);
-        if env::storage_write(&lookup_key, node) {
-            panic!("insert node raw panic");
-            // env::panic(ERR_INCONSISTENT_STATE) // Node should not exist already
-        }
-    }
-
-    fn update_node_raw(&self, key: &EnvStorageKey, node: &Vec<u8>) {
-        let lookup_key = [&self.prefix, key.as_slice()].concat();
-        // println!("RAW: updating node for key {:?}", key);
-        if !env::storage_write(&lookup_key, node) { 
-            panic!("update node raw panic");
-            // env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
-        }
-    }
-
-    fn delete_node_raw(&self, key: &EnvStorageKey) {
-        let lookup_key = [&self.prefix, key.as_slice()].concat();
-        if !env::storage_remove(&lookup_key) { 
-            panic!("delete node raw panic. node key={:?}", key);
-            // env::panic(ERR_INCONSISTENT_STATE) // Node should already exist
-        }
-    }
+#[derive(Debug)]
+pub enum DoubleBlackNodeCase {
+    LeftSiblingIsRed,
+    NodeIsLeftChild,
+    NodeIsRightChild
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -454,7 +205,7 @@ where
     }
 
     fn get_parent(&self, node: &RedBlackNode<T>) -> Option<RedBlackNode<T>> {
-        node.parent_key.as_ref().map(|key| self.get_node(key)).flatten()
+        node.parent_node_key().map(|key| self.get_node(key)).flatten()
     }
 
     fn get_left_child(&self, node: &RedBlackNode<T>) -> Option<RedBlackNode<T>> {
@@ -489,10 +240,13 @@ where
         
         while let Some(parent_node) = root {
             root = match parent_node.value.ord_value().cmp(value.ord_value()) {
-                Greater => self.get_left_child(&parent_node),
-                Less | Equal => self.get_right_child(&parent_node),
+                Greater => {
+                    let child = self.get_left_child(&parent_node);
+                    parent = Some(parent_node);
+                    child
+                },
+                Less | Equal => self.get_right_child(&parent_node)
             };
-            parent = Some(parent_node);
         }
         
         if let Some(node) = &parent {
@@ -509,13 +263,16 @@ where
         use std::cmp::Ordering::*;
         let mut root = self.get_root();
         let mut parent = None; 
-            
+        
         while let Some(parent_node) = root {
             root = match parent_node.value.ord_value().cmp(value.ord_value()) {
-                Greater | Equal => self.get_left_child(&parent_node),
-                Less => self.get_right_child(&parent_node),
+                Greater => self.get_left_child(&parent_node),
+                Less | Equal => {
+                    let child = self.get_right_child(&parent_node);
+                    parent = Some(parent_node);
+                    child
+                }
             };
-            parent = Some(parent_node);
         }
         
         if let Some(node) = &parent {
@@ -527,22 +284,29 @@ where
         parent
     }
 
-    /// Returns the largest value that is greater or equal to value given as the parameter
+    /// Returns the largest value that is less or equal to value given as the parameter
     fn ceil(&self, value: &T) -> Option<RedBlackNode<T>> {
         use std::cmp::Ordering::*;
         let mut root = self.get_root();
         let mut parent = None; 
-        
+
         while let Some(parent_node) = root {
             root = match parent_node.value.ord_value().cmp(value.ord_value()) {
                 Greater => self.get_left_child(&parent_node),
-                Less | Equal => self.get_right_child(&parent_node),
+                Equal => {
+                    parent = Some(parent_node);
+                    None
+                },
+                Less => {
+                    let child = self.get_right_child(&parent_node);
+                    parent = Some(parent_node);
+                    child
+                },
             };
-            parent = Some(parent_node);
         }
         
         if let Some(node) = &parent {
-            if &node.value < value {
+            if &node.value > value {
                 return None
             }
         }
@@ -555,17 +319,24 @@ where
         use std::cmp::Ordering::*;
         let mut root = self.get_root();
         let mut parent = None; 
-            
+        
         while let Some(parent_node) = root {
             root = match parent_node.value.ord_value().cmp(value.ord_value()) {
-                Greater | Equal => self.get_left_child(&parent_node),
-                Less => self.get_right_child(&parent_node),
+                Greater => {
+                    let child = self.get_left_child(&parent_node);
+                    parent = Some(parent_node);
+                    child
+                },
+                Equal => {
+                    parent = Some(parent_node);
+                    None
+                },
+                Less => self.get_right_child(&parent_node)
             };
-            parent = Some(parent_node);
         }
         
         if let Some(node) = &parent {
-            if &node.value >= value {
+            if &node.value < value {
                 return None
             }
         }
@@ -697,7 +468,7 @@ where
         let mut node = child_node;
         while node.is_red() {
             if let Some(mut parent_node) = self.get_parent(&node) {
-                let left_child = if node.is_right_child {
+                let left_child = if node.is_right_child() {
                     // only read from env storage if necessary
                     self.get_left_child(&parent_node)
                 } else {
@@ -1100,229 +871,6 @@ where
     }
 }
 
-struct RedBlackTreeIter<'a, T> {
-    tree: &'a RedBlackTree<T>,
-    visited: Vec<RedBlackNode<T>>,
-    root: Option<RedBlackNode<T>>,
-}
-
-struct RedBlackTreeRange<'a, T, R> {
-    iter: RedBlackTreeIter<'a, T>,
-    init: bool,
-    done: bool,
-    range: R
-}
-
-impl<'a, T, R> RedBlackTreeRange<'a, T, R> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
-{
-    pub fn new(tree: &'a RedBlackTree<T>, range: R) -> Self {
-        Self {
-            iter: RedBlackTreeIter {
-                root: None,
-                tree,
-                visited: vec!()
-            },
-            init: false,
-            done: false,
-            range
-        }
-    }
-}
-
-impl<'a, T, R> Iterator for RedBlackTreeRange<'a, T, R> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug,
-    R: RangeBounds<T>
-{
-    type Item = RedBlackNode<T>;
-
-    /// in order traversal in ascending order with bounds
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.done {
-            return None
-        } 
-
-        if !self.init {
-            // initialize the root. 
-            // for ascending traversals, this will be the start bound
-            self.iter.root = match self.range.start_bound() {
-                Bound::Included(value) => self.iter.tree.floor(value),
-                Bound::Excluded(value) => self.iter.tree.above(value),
-                Bound::Unbounded => self.iter.tree.get_root()
-            };
-            self.init = true;
-        }
-        
-        let node = <RedBlackTreeIter<T> as Iterator>::next(&mut self.iter)
-            .filter(|node| self.range.contains(&node.value));
-        
-        if node.is_none() {
-            self.done = true;
-        }
-
-        node
-    }
-}
-
-impl<'a, T, R> DoubleEndedIterator for RedBlackTreeRange<'a, T, R> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug,
-    R: RangeBounds<T>
-{
-    /// in order traversal in descending order with bounds
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if self.done {
-            return None
-        } 
-
-        if !self.init {
-            // initialize the root. 
-            // for ascending traversals, this will be the end bound
-            self.iter.root = match self.range.end_bound() {
-                Bound::Included(value) => self.iter.tree.ceil(value),
-                Bound::Excluded(value) => self.iter.tree.below(value),
-                Bound::Unbounded => self.iter.tree.get_root()
-            };
-            self.init = true;
-        }
-        
-        let node = <RedBlackTreeIter<T> as DoubleEndedIterator>::next_back(&mut self.iter)
-            .filter(|node| self.range.contains(&node.value));
-        
-        if node.is_none() {
-            self.done = true;
-        }
-
-        node
-    }
-}
-
-impl<'a, T, R> std::iter::FusedIterator for RedBlackTreeRange<'a, T, R> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug,
-    R: RangeBounds<T>
-{}
-
-impl<'a, T> RedBlackTreeIter<'a, T> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
-{
-    fn new(tree: &'a RedBlackTree<T>) -> Self {
-        Self {
-            tree,
-            visited: vec!(),
-            root: tree.get_root(),
-        }
-    }
-
-    fn direction(asc: bool) -> Direction {
-        if asc {
-            Direction::Left
-        } else {
-            Direction::Right
-        }
-    }
-
-    fn get_leaf_child(&mut self, node: RedBlackNode<T>, direction: &Direction) -> RedBlackNode<T> {
-        let mut last_node = node;
-
-        while let Some(leaf_child_node) = self.tree.get_child(&last_node, direction) {
-            self.visited.push(last_node); 
-            last_node = leaf_child_node;
-        }
-
-        last_node
-    }
-
-    fn get_next_node(&mut self, node: RedBlackNode<T>, direction: &Direction) -> RedBlackNode<T> {
-        if node.has_child(direction) {
-            self.get_leaf_child(node, direction)
-        } else {
-            node
-        }
-    }
-
-    // comments correspond to ascending traversal of the tree. implementation is direction generic,
-    // so effectively comments describe iteration where asc=true, direction=Left
-    pub fn next(&mut self, asc: bool) -> Option<RedBlackNode<T>> {
-        let direction = Self::direction(asc);
-        let next_node = self.visited.pop();
-        
-        // if this is the first call to next(), visit the left subtree of the root of the tree.
-        // then return the leftmost child (leaf node) of the tree 
-        // NOTE: this iterator cannot be re-used. it will forever return None after finishing iteration
-        if let Some(root_node) = self.root.take() {
-            let node = self.get_next_node(root_node, &direction);
-            Some(node)
-        } 
-        // if there is some node that has been visited, visit its right child's left subtree. 
-        // then return the visited node
-        else if let Some(node) = next_node {
-            if let Some(right_child_node) = self.tree.get_child(&node, &direction.opposite()) {
-                let n = self.get_next_node(right_child_node, &direction);
-                self.visited.push(n);
-            }
-            Some(node)
-        }
-        // if tree is no root, or there are no nodes left return None
-        else {
-            None
-        }
-    }
-}
-
-impl<'a, T> Iterator for RedBlackTreeIter<'a, T> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
-{
-    type Item = RedBlackNode<T>;
-
-    /// in order traversal in ascending order
-    fn next(&mut self) -> Option<Self::Item> {
-        Self::next(self, true)
-    }
-}
-
-// FIXME if next() and next_back() are called interchangeably, the visited vec of RedBlackTreeIter will become corrupted! 
-// can think about how to address this to get intended behavior...
-impl<'a, T> DoubleEndedIterator for RedBlackTreeIter<'a, T> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
-{
-    /// in order traversal in descending order
-    fn next_back(&mut self) -> Option<Self::Item> {
-        Self::next(self, false)
-    }
-}
-
-impl<'a, T> std::iter::FusedIterator for RedBlackTreeIter<'a, T> 
-where
-    T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-    <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
-{}
-
-impl<'a, T> IntoIterator for &'a RedBlackTree<T>
-    where
-        T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
-        <T as RedBlackNodeValue>::OrdValue: std::fmt::Debug
-{
-    type Item = T;
-    type IntoIter = Box<dyn DoubleEndedIterator<Item=Self::Item> + 'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Box::new(RedBlackTreeIter::new(self).map(|node| node.value))
-    }
-}
-
 impl<T> Set<T> for RedBlackTree<T> 
 where 
     T: BorshSerialize + BorshDeserialize + RedBlackNodeValue + std::fmt::Debug,
@@ -1413,7 +961,7 @@ where
     /// Iterates through values in descending order starting at value that is less than
     /// or equal to the value supplied
     fn iter_rev_from<'a>(&'a self, value: T) -> Box<dyn Iterator<Item = T> + 'a> {
-        Box::new(self.range(..=value))
+        Box::new(self.range(..=value).rev())
     }
 
     /// Iterate over K values in ascending order
@@ -1424,224 +972,5 @@ where
     /// Panics if range start == end and both bounds are Excluded.
     fn range<'a>(&'a self, r: (Bound<T>, Bound<T>)) -> Box<dyn Iterator<Item = T> + 'a> {
         Box::new(self.range(r))
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-mod test {
-    use super::RedBlackTree;
-    use crate::{env, MockedBlockchain};
-    use crate::collections::set;
-    use near_vm_logic::types::AccountId;
-    use near_vm_logic::VMContext;
-    use rand::{Rng, SeedableRng};
-    use std::collections::BTreeSet;
-
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
-
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
-    fn set_env() {
-        let context = VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: carol(),
-            input: vec![],
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: std::u64::MAX,
-            random_seed: vec![0, 1, 3, 4, 5],
-            is_view: false,
-            output_data_receivers: vec![],
-            epoch_height: 0,
-        };
-        let storage = match env::take_blockchain_interface() {
-            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-            None => Default::default(),
-        };
-        env::set_blockchain_interface(Box::new(MockedBlockchain::new(
-            context,
-            Default::default(),
-            Default::default(),
-            vec![],
-            storage,
-        )));
-    }
-
-    #[test]
-    pub fn test_add() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        for _ in 0..500 {
-            let value = rng.gen::<u64>();
-            tree.insert(&value);
-        }
-    }
-
-    #[test]
-    pub fn test_iter_sorted() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-        let mut set = BTreeSet::new();
-        for _ in 0..500 {
-            let value = rng.gen::<u64>();
-            set.insert(value);
-            tree.insert(&value);
-        }
-
-        for val in set.iter().zip(tree.iter()) {
-            let (set_value, tree_value) = val;
-            assert_eq!(*set_value, tree_value);
-        }        
-    }
-
-    #[test]
-    pub fn test_iter_sorted_with_remove() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-        let mut set = BTreeSet::new();
-
-        let mut values = vec!();
-
-        for _ in 0..250 {
-            let value = rng.gen::<u64>();
-            set.insert(value);
-            tree.insert(&value);
-            if value % 2 == 0 {
-                values.push(value);
-            }
-        }
-
-        for value in values.iter() {
-            assert!(set.remove(value));
-            assert_eq!(tree.remove(value), Some(*value))
-        }
-
-        for val in set.iter().zip(tree.iter()) {
-            let (set_value, tree_value) = val;
-            assert_eq!(*set_value, tree_value);
-        }        
-
-        assert_eq!(set.len(), tree.len as usize)
-    }
-
-    #[test]
-    pub fn test_iter_desc_sorted() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-        let mut set = BTreeSet::new();
-        for _ in 0..500 {
-            let value = rng.gen::<u64>();
-            set.insert(value);
-            tree.insert(&value);
-        }
-
-        for val in set.iter().rev().zip(tree.iter().rev()) {
-            let (set_value, tree_value) = val;
-            assert_eq!(*set_value, tree_value);
-        }        
-    }
-
-    #[test]
-    pub fn test_iter_desc_sorted_with_remove() {
-        set_env();
-        let mut tree = RedBlackTree::default();
-        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-        let mut set = BTreeSet::new();
-
-        let mut values = vec!();
-
-        for _ in 0..250 {
-            let value = rng.gen::<u64>();
-            set.insert(value);
-            tree.insert(&value);
-            if value % 2 == 0 {
-                values.push(value);
-            }
-        }
-
-        for value in values.iter() {
-            assert!(set.remove(value));
-            assert_eq!(tree.remove(value), Some(*value))
-        }
-
-        for val in set.iter().rev().zip(tree.iter().rev()) {
-            let (set_value, tree_value) = val;
-            assert_eq!(*set_value, tree_value);
-        }        
-
-        assert_eq!(set.len(), tree.len as usize)
-    }
-
-    #[test]
-    pub fn test_insert() {
-        set_env();
-        set::tests::test_insert::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_insert_remove() {
-        set_env();
-        set::tests::test_insert_remove::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_remove_last_reinsert() {
-        set_env();
-        set::tests::test_remove_last_reinsert::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_insert_override_remove() {
-        set_env();
-        set::tests::test_insert_override_remove::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_contains_non_existent() {
-        set_env();
-        set::tests::test_contains_non_existent::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_to_vec() {
-        set_env();
-        set::tests::test_to_vec::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_clear() {
-        set_env();
-        set::tests::test_clear::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_iter() {
-        set_env();
-        set::tests::test_iter::<RedBlackTree<u64>>()
-    }
-
-    #[test]
-    pub fn test_extend() {
-        set_env();
-        set::tests::test_extend::<RedBlackTree<u64>>()
     }
 }
