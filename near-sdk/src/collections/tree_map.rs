@@ -453,9 +453,9 @@ impl<K, V> TreeMap<K, V>
             Some(mut node) => {
                 if node.key.eq(key) {
                     self.update_height(&mut node);
-                    at
+                    self.enforce_balance(&mut node)
                 } else {
-                    if node.key.lt(key) {
+                    if node.key.gt(key) {
                         match node.lft {
                             Some(l) => {
                                 let id = self.check_balance(l, key);
@@ -547,7 +547,7 @@ impl<K, V> TreeMap<K, V>
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                self.check_balance(self.root, &k)
+                self.check_balance(self.root, &p.key)
             } else {
                 // proceed with right subtree
                 let rgt = rgt_opt.unwrap();
@@ -579,7 +579,7 @@ impl<K, V> TreeMap<K, V>
 
                 // removing node might have caused a imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (min key from right subtree in this case)
-                self.check_balance(self.root, &k)
+                self.check_balance(self.root, &p.key)
             }
         }
     }
@@ -1633,6 +1633,24 @@ mod tests {
         assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
     }
 
+    #[test]
+    fn test_balance_regression_1() {
+        let insert = vec![(2, 0), (3, 0), (4, 0)];
+        let remove = vec![0, 0, 0, 1];
+
+        let map = avl(&insert, &remove);
+        assert!(is_balanced(&map, map.root));
+    }
+
+    #[test]
+    fn test_balance_regression_2() {
+        let insert = vec![(1, 0), (2, 0), (0, 0), (3, 0), (5, 0), (6, 0)];
+        let remove = vec![0, 0, 0, 3, 5, 6, 7, 4];
+
+        let map = avl(&insert, &remove);
+        assert!(is_balanced(&map, map.root));
+    }
+
     //
     // Property-based tests of AVL-based TreeMap against std::collections::BTreeMap
     //
@@ -1690,6 +1708,33 @@ mod tests {
             let v1: Vec<(u32, u32)> = a.iter().collect();
             let v2: Vec<(u32, u32)> = b.into_iter().collect();
             v1 == v2
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
+    }
+
+    fn is_balanced<K, V>(map: &TreeMap<K, V>, root: u64) -> bool
+        where
+            K: Debug + Ord + Copy + BorshSerialize + BorshDeserialize,
+            V: Debug + Copy + BorshSerialize + BorshDeserialize,
+    {
+        let node = map.node(root).unwrap();
+        let balance = map.get_balance(&node);
+
+        (balance >= -1 && balance <= 1) &&
+            node.lft.map(|id| is_balanced(map, id)).unwrap_or(true) &&
+            node.rgt.map(|id| is_balanced(map, id)).unwrap_or(true)
+    }
+
+    #[test]
+    fn prop_avl_balance() {
+        test_env::setup_free();
+
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
+            let map = avl(&insert, &remove);
+            map.len() == 0 || is_balanced(&map, map.root)
         }
 
         QuickCheck::new()
