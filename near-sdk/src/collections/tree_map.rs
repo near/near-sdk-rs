@@ -20,7 +20,7 @@ pub struct TreeMap<K, V> {
     tree: Vector<Node<K>>,
 }
 
-#[derive(Copy, Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Node<K> {
     id: u64,
     key: K,             // key stored in a node
@@ -31,7 +31,7 @@ pub struct Node<K> {
 
 impl<K> Node<K>
     where
-        K: Ord + Copy + BorshSerialize + BorshDeserialize
+        K: Ord + Clone + BorshSerialize + BorshDeserialize
 {
     fn of(id: u64, key: K) -> Self {
         Self {
@@ -46,8 +46,8 @@ impl<K> Node<K>
 
 impl<K, V> Default for TreeMap<K, V>
     where
-        K: Ord + Copy + BorshSerialize + BorshDeserialize,
-        V: Copy + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
 {
     fn default() -> Self {
         Self::new(next_trie_id())
@@ -57,8 +57,8 @@ impl<K, V> Default for TreeMap<K, V>
 
 impl<K, V> TreeMap<K, V>
     where
-        K: Ord + Copy + BorshSerialize + BorshDeserialize,
-        V: Copy + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
 {
     pub fn new(id: Vec<u8>) -> Self {
         Self {
@@ -138,7 +138,7 @@ impl<K, V> TreeMap<K, V>
     /// Returns the smallest key that is greater or equal to key given as the parameter
     pub fn ceil_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
-            Some(*key)
+            Some(key.clone())
         } else {
             self.higher(key)
         }
@@ -147,7 +147,7 @@ impl<K, V> TreeMap<K, V>
     /// Returns the largest key that is less or equal to key given as the parameter
     pub fn floor_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
-            Some(*key)
+            Some(key.clone())
         } else {
             self.lower(key)
         }
@@ -206,7 +206,7 @@ impl<K, V> TreeMap<K, V>
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.and_then(|n| n.lft) {
+            match node.clone().and_then(|n| n.lft) {
                 Some(lft) => {
                     at = lft;
                     parent = node;
@@ -226,7 +226,7 @@ impl<K, V> TreeMap<K, V>
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.and_then(|n| n.rgt) {
+            match node.clone().and_then(|n| n.rgt) {
                 Some(rgt) => {
                     parent = node;
                     at = rgt;
@@ -242,7 +242,7 @@ impl<K, V> TreeMap<K, V>
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.map(|n| n.key) {
+            match node.clone().map(|n| n.key) {
                 Some(k) => {
                     if k.le(key) {
                         match node.and_then(|n| n.rgt) {
@@ -267,7 +267,7 @@ impl<K, V> TreeMap<K, V>
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.map(|n| n.key) {
+            match node.clone().map(|n| n.key) {
                 Some(k) => {
                     if k.lt(key) {
                         seen = Some(k);
@@ -291,7 +291,7 @@ impl<K, V> TreeMap<K, V>
     fn insert_at(&mut self, at: u64, id: u64, key: &K) -> u64 {
         match self.node(at) {
             None => {
-                self.save(&Node::of(id, *key));
+                self.save(&Node::of(id, key.clone()));
                 at
             },
             Some(mut node) => {
@@ -523,9 +523,9 @@ impl<K, V> TreeMap<K, V>
                 // k - max key from left subtree
                 // n - node that holds key k, p - immediate parent of n
                 let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
-                let k = n.key;
+                let k = n.key.clone();
 
-                if p.rgt.map(|id| id == n.id).unwrap_or_default() {
+                if p.rgt.clone().map(|id| id == n.id).unwrap_or_default() {
                     // n is on right link of p
                     p.rgt = n.lft;
                 } else {
@@ -555,7 +555,7 @@ impl<K, V> TreeMap<K, V>
                 // k - min key from right subtree
                 // n - node that holds key k, p - immediate parent of n
                 let (n, mut p) = self.min_at(rgt, r_node.id).unwrap();
-                let k = n.key;
+                let k = n.key.clone();
 
                 if p.lft.map(|id| id == n.id).unwrap_or_default() {
                     // n is on left link of p
@@ -619,8 +619,8 @@ impl<K, V> TreeMap<K, V>
 
 impl<'a, K, V> IntoIterator for &'a TreeMap<K, V>
     where
-        K: Ord + Copy + BorshSerialize + BorshDeserialize,
-        V: Copy + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
 {
     type Item = (K, V);
     type IntoIter = Cursor<'a, K, V>;
@@ -632,28 +632,30 @@ impl<'a, K, V> IntoIterator for &'a TreeMap<K, V>
 
 impl<K, V> Iterator for Cursor<'_, K, V>
     where
-        K: Ord + Copy + BorshSerialize + BorshDeserialize,
-        V: Copy + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
 {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let this_key = self.key;
+        let this_key = self.key.clone();
 
-        let next_key = self.key.and_then(|k| {
-            if self.asc {
-                self.map.higher(&k)
-            } else {
-                self.map.lower(&k)
-            }
-        });
-        self.key = next_key.filter(|k| fits(k, self.lo, self.hi));
+        let next_key = self.key.take()
+            .and_then(|k| {
+                if self.asc {
+                    self.map.higher(&k)
+                } else {
+                    self.map.lower(&k)
+                }
+            })
+            .filter(|k| fits(k, &self.lo, &self.hi));
+        self.key = next_key;
 
         this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
     }
 }
 
-fn fits<K: Ord>(key: &K, lo: Bound<K>, hi: Bound<K>) -> bool {
+fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
     (match lo {
         Bound::Included(ref x) => key >= x,
         Bound::Excluded(ref x) => key > x,
@@ -676,8 +678,8 @@ pub struct Cursor<'a, K, V> {
 
 impl<'a, K, V> Cursor<'a, K, V>
     where
-        K: Ord + Copy + BorshSerialize + BorshDeserialize,
-        V: Copy + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
 {
     fn asc(map: &'a TreeMap<K, V>) -> Self {
         let key: Option<K> = map.min();
@@ -724,12 +726,12 @@ impl<'a, K, V> Cursor<'a, K, V>
     }
 
     fn range(map: &'a TreeMap<K, V>, lo: Bound<K>, hi: Bound<K>) -> Self {
-        let key = match lo {
-            Bound::Included(k) if map.contains_key(&k) => Some(k),
-            Bound::Included(k) | Bound::Excluded(k) => map.higher(&k),
+        let key = match &lo {
+            Bound::Included(k) if map.contains_key(k) => Some(k.clone()),
+            Bound::Included(k) | Bound::Excluded(k) => map.higher(k),
             _ => None
         };
-        let key = key.filter(|k| fits(k, lo, hi));
+        let key = key.filter(|k| fits(k, &lo, &hi));
 
         Self {
             asc: true,
@@ -758,8 +760,8 @@ mod tests {
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     fn height<K, V>(tree: &TreeMap<K, V>) -> u64
         where
-            K: Ord + Copy + BorshSerialize + BorshDeserialize,
-            V: Copy + BorshSerialize + BorshDeserialize,
+            K: Ord + Clone + BorshSerialize + BorshDeserialize,
+            V: BorshSerialize + BorshDeserialize,
     {
         tree.node(tree.root).map(|n| n.ht).unwrap_or_default()
     }
@@ -792,7 +794,7 @@ mod tests {
 
     impl<K> Debug for Node<K>
         where
-            K: Ord + Copy + Debug + BorshSerialize + BorshDeserialize,
+            K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
     {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             f.debug_struct("Node")
@@ -807,8 +809,8 @@ mod tests {
 
     impl<K, V> Debug for TreeMap<K, V>
         where
-            K: Ord + Copy + Debug + BorshSerialize + BorshDeserialize,
-            V: Copy + Debug + BorshSerialize + BorshDeserialize,
+            K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
+            V: Debug + BorshSerialize + BorshDeserialize,
     {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             f.debug_struct("TreeMap")
@@ -1657,8 +1659,8 @@ mod tests {
 
     fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> TreeMap<K, V>
         where
-            K: Ord + Copy + BorshSerialize + BorshDeserialize,
-            V: Default + Copy + BorshSerialize + BorshDeserialize,
+            K: Ord + Clone + BorshSerialize + BorshDeserialize,
+            V: Default + BorshSerialize + BorshDeserialize,
     {
         test_env::setup_free();
         let mut map: TreeMap<K, V> = TreeMap::default();
@@ -1671,8 +1673,8 @@ mod tests {
                 map.remove(&remove[i]);
             }
             if i < insert.len() {
-                let (k, v) = insert[i];
-                map.insert(&k, &v);
+                let (k, v) = &insert[i];
+                map.insert(k, v);
             }
         }
         map
@@ -1680,12 +1682,12 @@ mod tests {
 
     fn rb<K, V>(insert: &[(K, V)], remove: &[K]) -> BTreeMap<K, V>
         where
-            K: Ord + Copy + BorshSerialize + BorshDeserialize,
-            V: Default + Copy + BorshSerialize + BorshDeserialize,
+            K: Ord + Clone + BorshSerialize + BorshDeserialize,
+            V: Clone + Default + BorshSerialize + BorshDeserialize,
     {
         let mut map: BTreeMap<K, V> = BTreeMap::default();
         for k in remove {
-            map.insert(*k, Default::default());
+            map.insert(k.clone(), Default::default());
         }
         let n = insert.len().max(remove.len());
         for i in 0..n {
@@ -1693,8 +1695,8 @@ mod tests {
                 map.remove(&remove[i]);
             }
             if i < insert.len() {
-                let (k, v) = insert[i];
-                map.insert(k, v);
+                let (k, v) = &insert[i];
+                map.insert(k.clone(), v.clone());
             }
         }
         map
@@ -1717,8 +1719,8 @@ mod tests {
 
     fn is_balanced<K, V>(map: &TreeMap<K, V>, root: u64) -> bool
         where
-            K: Debug + Ord + Copy + BorshSerialize + BorshDeserialize,
-            V: Debug + Copy + BorshSerialize + BorshDeserialize,
+            K: Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
+            V: Debug + BorshSerialize + BorshDeserialize,
     {
         let node = map.node(root).unwrap();
         let balance = map.get_balance(&node);
