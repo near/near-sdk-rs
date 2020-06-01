@@ -44,9 +44,6 @@ pub use vector::Vector;
 mod unordered_map;
 pub use unordered_map::UnorderedMap;
 
-mod heap;
-pub use heap::Heap;
-
 mod tree_map;
 pub use tree_map::TreeMap;
 
