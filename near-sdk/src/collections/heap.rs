@@ -1,14 +1,20 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::{append, Vector, UnorderedMap};
+use crate::collections::{append, Vector};
 
-/// Max-heap of elements, iterator returns natural ordering of elements (ascending).
+/// Max-heap
+///
+/// Iterator consumes the heap and returns all elements in descending order.
+///
+/// Runtime complexity (worst case):
+/// - `insert`:     O(log(N))
+/// - `remove_max`: O(log(N))
+/// - `get_max`:    O(1)
+/// - iterate:      O(Nlog(N))
+///
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Heap<T> {
-    element_index_prefix: Vec<u8>,
     elements: Vector<T>,
-    // keeps 1-based index in the max-heap of respective element
-    indices: UnorderedMap<T, u64>,
 }
 
 impl<T> Heap<T>
@@ -17,14 +23,8 @@ impl<T> Heap<T>
 {
 
     pub fn new(id: Vec<u8>) -> Self {
-        let element_index_prefix = append(&id, b'h');
-        let elements_prefix = append(&id, b'k');
-        let indices_prefix = append(&id, b'm');
-
         Self {
-            element_index_prefix,
-            elements: Vector::new(elements_prefix),
-            indices: UnorderedMap::new(indices_prefix),
+            elements: Vector::new(append(&id, b'e')),
         }
     }
 
@@ -34,7 +34,6 @@ impl<T> Heap<T>
 
     pub fn clear(&mut self) {
         self.elements.clear();
-        self.indices.clear();
     }
 
     pub fn get_max(&self) -> Option<T> {
@@ -45,10 +44,9 @@ impl<T> Heap<T>
         match self.get_max() {
             Some(max) => {
                 let n = self.len();
-                swap(&mut self.elements, 1, n, &mut self.indices);
-                sink(&mut self.elements, 1, n - 1, &mut self.indices);
+                swap(&mut self.elements, 1, n);
+                sink(&mut self.elements, 1, n - 1);
                 self.elements.pop();
-                self.indices.remove(&max);
                 Some(max)
             },
             None => None
@@ -56,14 +54,9 @@ impl<T> Heap<T>
     }
 
     pub fn insert(&mut self, value: &T) {
-        if self.indices.get(value).is_some() {
-            // value already exists in the heap, nothing to do
-            return;
-        }
         self.elements.push(value);
         let idx = self.elements.len();
-        self.indices.insert(value, &idx);
-        rise(&mut self.elements, idx, &mut self.indices);
+        rise(&mut self.elements, idx);
     }
 
     pub fn into_iter(self) -> impl Iterator<Item = T> {
@@ -128,14 +121,12 @@ fn gt<T: Ord + BorshSerialize + BorshDeserialize>(vec: &Vector<T>, i: u64, j: u6
 }
 
 // Takes 1-based indices of elements to swap
-fn swap<T: BorshSerialize + BorshDeserialize>(vec: &mut Vector<T>, i: u64, j: u64, indices: &mut UnorderedMap<T, u64>) {
+fn swap<T: BorshSerialize + BorshDeserialize>(vec: &mut Vector<T>, i: u64, j: u64) {
     let i_opt = vec.get(i - 1);
     let j_opt = vec.get(j - 1);
     if i_opt.is_some() && j_opt.is_some() {
         vec.replace(i - 1, j_opt.as_ref().unwrap());
         vec.replace(j - 1, i_opt.as_ref().unwrap());
-        indices.insert(i_opt.as_ref().unwrap(), &j);
-        indices.insert(j_opt.as_ref().unwrap(), &i);
     }
 }
 
@@ -150,7 +141,7 @@ fn child(i: u64) -> u64 {
 }
 
 // Takes 1-based index of element to sink
-fn sink<T>(vec: &mut Vector<T>, mut idx: u64, n: u64, indices: &mut UnorderedMap<T, u64>)
+fn sink<T>(vec: &mut Vector<T>, mut idx: u64, n: u64)
     where
         T: Ord + BorshSerialize + BorshDeserialize
 {
@@ -162,13 +153,13 @@ fn sink<T>(vec: &mut Vector<T>, mut idx: u64, n: u64, indices: &mut UnorderedMap
         if !gt(vec, k, idx) {
             break;
         }
-        swap(vec, k, idx, indices);
+        swap(vec, k, idx);
         idx = k;
     }
 }
 
 // Takes 1-based index of element to rise (pop up)
-fn rise<T>(vec: &mut Vector<T>, mut idx: u64, indices: &mut UnorderedMap<T, u64>)
+fn rise<T>(vec: &mut Vector<T>, mut idx: u64)
     where
         T: Ord + BorshSerialize + BorshDeserialize
 {
@@ -177,7 +168,7 @@ fn rise<T>(vec: &mut Vector<T>, mut idx: u64, indices: &mut UnorderedMap<T, u64>
         if !gt(vec, idx, k) {
             break;
         }
-        swap(vec, idx, k, indices);
+        swap(vec, idx, k);
         idx = k;
     }
 }
@@ -187,6 +178,7 @@ fn rise<T>(vec: &mut Vector<T>, mut idx: u64, indices: &mut UnorderedMap<T, u64>
 mod tests {
     use super::*;
     use crate::test_utils::test_env;
+    use quickcheck::QuickCheck;
 
     #[test]
     fn test_empty() {
@@ -237,7 +229,7 @@ mod tests {
             let mut vec: Vector<u8> = Vector::new(vec![b'x']);
             vec.push(&1);
             vec.push(&2);
-            swap(&mut vec, i, j, &mut UnorderedMap::new(vec![b't']));
+            swap(&mut vec, i, j);
             let actual = vec.to_vec();
             vec.clear();
             assert_eq!(actual, expected);
@@ -271,11 +263,9 @@ mod tests {
                 vec.push(x);
             }
             let n = vec.len();
-            let mut map = UnorderedMap::new(vec![b't']);
-            sink(&mut vec, idx, n, &mut map);
+            sink(&mut vec, idx, n);
             let actual = vec.to_vec();
             vec.clear();
-            map.clear();
             assert_eq!(actual, expected,
                        "sink({:?}, {}) expected {:?} but got {:?}", case, idx, expected, actual);
         }
@@ -298,11 +288,9 @@ mod tests {
             for x in &case {
                 vec.push(x);
             }
-            let mut map = UnorderedMap::new(vec![b't']);
-            rise(&mut vec, idx, &mut map);
+            rise(&mut vec, idx);
             let actual = vec.to_vec();
             vec.clear();
-            map.clear();
             assert_eq!(actual, expected,
                        "rise({:?}, {}) expected {:?} but got {:?}", case, idx, expected, actual);
         }
@@ -395,12 +383,10 @@ mod tests {
 
         let mut heap: Heap<u8> = Heap::new(vec![b't']);
         let key = 42u8;
-        assert!(heap.indices.get(&key).is_none());
         assert_eq!(heap.len(), 0);
 
         heap.insert(&key);
         assert_eq!(heap.len(), 1);
-        assert_eq!(heap.indices.get(&key), Some(1));
         heap.clear();
     }
 
@@ -410,15 +396,13 @@ mod tests {
 
         let mut heap: Heap<u8> = Heap::new(vec![b't']);
         let key = 42u8;
-        assert!(heap.indices.get(&key).is_none());
         assert_eq!(heap.len(), 0);
 
-        heap.insert(&key);
-        heap.insert(&key);
-        assert_eq!(heap.len(), 1);
-        assert_eq!(heap.indices.get(&key), Some(1));
-        assert_eq!(heap.indices.len(), 1);
-        assert_eq!(heap.elements.len(), 1);
+        let k = 3;
+        for _ in 0..k {
+            heap.insert(&key);
+        }
+        assert_eq!(heap.len(), k);
 
         heap.clear();
     }
@@ -447,10 +431,33 @@ mod tests {
         for x in vec.iter() {
             heap.insert(&x);
         }
+        assert_eq!(heap.len(), vec.len() as u64);
 
         let n = vec.len();
-        for (i, _) in vec.iter().enumerate() {
-            assert_eq!(heap.remove_max(),  Some((n - i) as u8));
+        for (i, x) in vec.iter().rev().enumerate() {
+            assert_eq!(heap.remove_max(),  Some(*x));
+            assert_eq!(heap.len() as usize, n - 1 - i);
+        }
+
+        assert_eq!(heap.len(), 0);
+
+        heap.clear();
+    }
+
+    #[test]
+    fn test_remove_max_duplicates() {
+        test_env::setup();
+        let mut heap: Heap<u8> = Heap::new(vec![b't']);
+
+        let vec: Vec<u8> = vec![1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5];
+        for x in vec.iter() {
+            heap.insert(&x);
+        }
+        assert_eq!(heap.len(), vec.len() as u64);
+
+        let n = vec.len();
+        for (i, x) in vec.iter().rev().enumerate() {
+            assert_eq!(heap.remove_max(),  Some(*x));
             assert_eq!(heap.len() as usize, n - 1 - i);
         }
 
@@ -469,4 +476,51 @@ mod tests {
         heap.clear();
     }
 
+    #[test]
+    fn prop_max_heap() {
+        test_env::setup_free();
+
+        fn prop(insert: Vec<u32>) -> bool {
+            let mut heap = Heap::new(vec![b't']);
+            for x in insert.iter() {
+                heap.insert(x);
+            }
+
+            let n = heap.len();
+            (0..n).all(|i| {
+                let m = heap.elements.get(0).unwrap();
+
+                let c1 = child(i + 1) - 1; // 1-based
+                let c2 = c1 + 1;
+
+                heap.elements.get(c1).map(|x| x.le(&m)).unwrap_or(true) &&
+                heap.elements.get(c2).map(|x| x.le(&m)).unwrap_or(true)
+            })
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as fn(Vec<u32>) -> bool);
+    }
+
+    #[test]
+    fn prop_max_heap_iter() {
+        test_env::setup_free();
+
+        fn prop(mut insert: Vec<u32>) -> bool {
+            let mut heap = Heap::new(vec![b't']);
+            for x in insert.iter() {
+                heap.insert(x);
+            }
+
+            insert.sort();
+            insert.reverse();
+
+            heap.into_iter().collect::<Vec<u32>>() == insert
+        }
+
+        QuickCheck::new()
+            .tests(300)
+            .quickcheck(prop as fn(Vec<u32>) -> bool);
+    }
 }
