@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{AccountId, Balance, env, near_bindgen};
-use near_sdk::collections::Map;
+use near_sdk::collections::UnorderedMap;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -51,7 +51,7 @@ impl Account {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FunToken {
     /// AccountID -> Account details.
-    pub accounts: Map<AccountId, Account>,
+    pub accounts: UnorderedMap<AccountId, Account>,
 
     /// Total supply of the all token.
     pub total_supply: Balance,
@@ -68,7 +68,7 @@ impl FunToken {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: String) -> Self {
         let total_supply = u128::from_str(&total_supply).expect("Failed to parse total supply");
-        let mut ft = Self { accounts: Map::new(b"a".to_vec()), total_supply };
+        let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
         ft.accounts.insert(&owner_id, &account);

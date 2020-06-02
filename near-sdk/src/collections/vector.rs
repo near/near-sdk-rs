@@ -1,10 +1,9 @@
 //! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
 //! of an element results in the last element being placed in the empty position.
-use crate::collections::next_trie_id;
+use crate::collections::{next_trie_id, append_slice};
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::marker::PhantomData;
-use std::mem::size_of;
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -38,10 +37,7 @@ impl<T> Vector<T> {
     }
 
     fn index_to_lookup_key(&self, index: u64) -> Vec<u8> {
-        let mut lookup_key = Vec::with_capacity(self.prefix.len() + size_of::<u64>());
-        lookup_key.extend_from_slice(&self.prefix);
-        lookup_key.extend_from_slice(&index.to_le_bytes());
-        lookup_key
+        append_slice(&self.prefix, &index.to_le_bytes()[..])
     }
 
     /// Returns the serialized element by index or `None` if it is not present.

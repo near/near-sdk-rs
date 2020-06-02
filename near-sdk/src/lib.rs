@@ -1,3 +1,6 @@
+#[cfg(test)]
+extern crate quickcheck;
+
 pub use near_sdk_macros::{
     callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
     serializer,
@@ -47,3 +50,7 @@ macro_rules! testing_env {
 }
 
 pub use environment::blockchain_interface::BlockchainInterface;
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+pub(crate) mod test_utils;
