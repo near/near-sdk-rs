@@ -47,6 +47,9 @@ pub use unordered_map::UnorderedMap;
 mod tree_map;
 pub use tree_map::TreeMap;
 
+mod priority_queue;
+pub use priority_queue::PriorityQueue;
+
 pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh.";
 pub const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element with Borsh.";
