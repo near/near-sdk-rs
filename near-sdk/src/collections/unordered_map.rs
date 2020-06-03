@@ -1,6 +1,6 @@
 //! A map implemented on a trie. Unlike `std::collections::HashMap` the keys in this map are not
 //! hashed but are instead serialized.
-use crate::collections::{next_trie_id, Vector};
+use crate::collections::{append, append_slice, next_trie_id, Vector};
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
@@ -12,19 +12,19 @@ const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
 
 /// An iterable implementation of a map that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Map<K, V> {
+pub struct UnorderedMap<K, V> {
     key_index_prefix: Vec<u8>,
     keys: Vector<K>,
     values: Vector<V>,
 }
 
-impl<K, V> Default for Map<K, V> {
+impl<K, V> Default for UnorderedMap<K, V> {
     fn default() -> Self {
         Self::new(next_trie_id())
     }
 }
 
-impl<K, V> Map<K, V> {
+impl<K, V> UnorderedMap<K, V> {
     /// Returns the number of elements in the map, also referred to as its size.
     pub fn len(&self) -> u64 {
         let keys_len = self.keys.len();
@@ -49,17 +49,9 @@ impl<K, V> Map<K, V> {
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
-        let mut key_index_prefix = Vec::with_capacity(id.len() + 1);
-        key_index_prefix.extend(&id);
-        key_index_prefix.push(b'i');
-
-        let mut index_key_id = Vec::with_capacity(id.len() + 1);
-        index_key_id.extend(&id);
-        index_key_id.push(b'k');
-
-        let mut index_value_id = Vec::with_capacity(id.len() + 1);
-        index_value_id.extend(&id);
-        index_value_id.push(b'v');
+        let key_index_prefix = append(&id, b'i');
+        let index_key_id = append(&id, b'k');
+        let index_value_id = append(&id, b'v');
 
         Self {
             key_index_prefix,
@@ -79,10 +71,7 @@ impl<K, V> Map<K, V> {
     }
 
     fn raw_key_to_index_lookup(&self, raw_key: &[u8]) -> Vec<u8> {
-        let mut res = Vec::with_capacity(self.key_index_prefix.len() + raw_key.len());
-        res.extend_from_slice(&self.key_index_prefix);
-        res.extend_from_slice(&raw_key);
-        res
+        append_slice(&self.key_index_prefix, raw_key)
     }
 
     /// Returns an index of the given raw key.
@@ -157,7 +146,7 @@ impl<K, V> Map<K, V> {
     }
 }
 
-impl<K, V> Map<K, V>
+impl<K, V> UnorderedMap<K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
@@ -256,62 +245,17 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::collections::Map;
-    use crate::{env, MockedBlockchain};
-    use near_vm_logic::types::AccountId;
-    use near_vm_logic::VMContext;
+    use crate::collections::UnorderedMap;
+    use crate::test_utils::test_env;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
 
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
-    fn set_env() {
-        let context = VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: carol(),
-            input: vec![],
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(16),
-            random_seed: vec![0, 1, 2],
-            is_view: false,
-            output_data_receivers: vec![],
-            epoch_height: 0,
-        };
-        let storage = match env::take_blockchain_interface() {
-            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-            None => Default::default(),
-        };
-        env::set_blockchain_interface(Box::new(MockedBlockchain::new(
-            context,
-            Default::default(),
-            Default::default(),
-            vec![],
-            storage,
-            HashMap::default()
-        )));
-    }
-
     #[test]
     pub fn test_insert() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..1000 {
             let key = rng.gen::<u64>();
@@ -322,8 +266,8 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -343,8 +287,8 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let key1 = 1u64;
         let value1 = 2u64;
         map.insert(&key1, &value1);
@@ -361,8 +305,8 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -389,8 +333,8 @@ mod tests {
 
     #[test]
     pub fn test_get_non_existent() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
@@ -407,8 +351,8 @@ mod tests {
 
     #[test]
     pub fn test_to_vec() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
@@ -423,8 +367,8 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
@@ -440,8 +384,8 @@ mod tests {
 
     #[test]
     pub fn test_keys_values() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
@@ -463,8 +407,8 @@ mod tests {
 
     #[test]
     pub fn test_iter() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
@@ -479,8 +423,8 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        set_env();
-        let mut map = Map::default();
+        test_env::setup();
+        let mut map = UnorderedMap::default();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
