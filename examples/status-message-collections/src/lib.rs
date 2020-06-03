@@ -29,7 +29,7 @@ impl StatusMessage {
     }
 
     pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
-        self.records.get(account_id.account_id())
+        self.records.get(account_id.as_ref())
     }
 }
 

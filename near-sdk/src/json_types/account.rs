@@ -15,13 +15,11 @@ impl ValidAccountId {
     fn is_valid(&self) -> bool {
         is_valid_account_id(&self.0.as_bytes())
     }
+}
 
-    pub fn account_id(&self) -> &AccountId {
+impl AsRef<AccountId> for ValidAccountId {
+    fn as_ref(&self) -> &AccountId {
         &self.0
-    }
-
-    pub fn into_account_id(self) -> AccountId {
-        self.0
     }
 }
 
