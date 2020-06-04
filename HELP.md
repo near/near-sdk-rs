@@ -1,4 +1,4 @@
-# Contract security checklist
+# Contract best practices
 
 ## Init once
 
