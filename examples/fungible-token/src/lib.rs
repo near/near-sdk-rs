@@ -368,6 +368,31 @@ mod tests {
     }
 
     #[test]
+    fn test_saturating_dec_allowance() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        testing_env!(context.clone());
+        contract.dec_allowance(bob(), (total_supply / 2).into());
+        assert_eq!(contract.get_allowance(carol(), bob()), 0.into())
+    }
+
+    #[test]
+    fn test_saturating_inc_allowance() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = std::u128::MAX;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        testing_env!(context.clone());
+        contract.inc_allowance(bob(), total_supply.into());
+        contract.inc_allowance(bob(), total_supply.into());
+        assert_eq!(contract.get_allowance(carol(), bob()), std::u128::MAX.into())
+    }
+
+    #[test]
     #[should_panic(
         expected = "The required attached deposit is 33100000000000000000000, but the given attached deposit is is 0"
     )]
