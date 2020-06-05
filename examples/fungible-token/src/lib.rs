@@ -238,7 +238,11 @@ impl FungibleToken {
     /// Helper method to set the account details for `owner_id` to the state.
     fn set_account(&mut self, owner_id: &AccountId, account: &Account) {
         let account_hash = env::sha256(owner_id.as_bytes());
-        self.accounts.insert(&account_hash, &account);
+        if account.balance > 0 || !account.allowances.is_empty() {
+            self.accounts.insert(&account_hash, &account);
+        } else {
+            self.accounts.remove(&account_hash);
+        }
     }
 
     fn refund_storage(&self, initial_storage: StorageUsage) {
