@@ -7,7 +7,7 @@
 *    abuse of deep tries. Shouldn't be an issue, once NEAR clients implement full hashing of keys.
 *  - The contract tracks the change in storage before and after the call. If the storage increases,
 *    the contract requires the caller of the contract to attach enough deposit to the function call
-*    to cover the storage stake difference.
+*    to cover the storage cost.
 *    This is done to prevent a denial of service attack on the contract by taking all available storage.
 *    If the storage decreases, the contract will issue a refund for the storage fee difference.
 *    The unused tokens from the attached deposit are also refunded, so it's safe to
