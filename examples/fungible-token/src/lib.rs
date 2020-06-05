@@ -5,11 +5,15 @@
 *  - JSON calls should pass U128 as a base-10 string. E.g. "100".
 *  - The contract optimizes the inner trie structure by hashing account IDs. It will prevent some
 *    abuse of deep tries. Shouldn't be an issue, once NEAR clients implement full hashing of keys.
-*  - This contract doesn't optimize the amount of storage, since any account can create unlimited
-*    amount of allowances to other accounts. It's unclear how to address this issue unless, this
-*    contract limits the total number of different allowances possible at the same time.
-*    And even if it limits the total number, it's still possible to transfer small amounts to
-*    multiple accounts.
+*  - The contract tracks the change in storage before and after the call. If the storage increases,
+*    the contract requires the caller of the contract to attach enough deposit to the function call
+*    to cover the storage cost.
+*    This is done to prevent a denial of service attack on the contract by taking all available storage.
+*    If the storage decreases, the contract will issue a refund for the cost of the released storage.
+*    The unused tokens from the attached deposit are also refunded, so it's safe to
+*    attach more deposit than required.
+*  - To prevent the deployed contract from being modified or deleted, it should not have any access
+*    keys on its account.
 */
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
@@ -56,7 +60,6 @@ impl Account {
     }
 }
 
-//
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
