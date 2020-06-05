@@ -5,11 +5,15 @@
 *  - JSON calls should pass U128 as a base-10 string. E.g. "100".
 *  - The contract optimizes the inner trie structure by hashing account IDs. It will prevent some
 *    abuse of deep tries. Shouldn't be an issue, once NEAR clients implement full hashing of keys.
-*  - This contract doesn't optimize the amount of storage, since any account can create unlimited
-*    amount of allowances to other accounts. It's unclear how to address this issue unless, this
-*    contract limits the total number of different allowances possible at the same time.
-*    And even if it limits the total number, it's still possible to transfer small amounts to
-*    multiple accounts.
+*  - The contract tracks the change in storage before and after the call. If the storage increases,
+*    the contract requires the caller of the contract to attach enough deposit to the function call
+*    to cover the storage cost.
+*    This is done to prevent a denial of service attack on the contract by taking all available storage.
+*    If the storage decreases, the contract will issue a refund for the cost of the released storage.
+*    The unused tokens from the attached deposit are also refunded, so it's safe to
+*    attach more deposit than required.
+*  - To prevent the deployed contract from being modified or deleted, it should not have any access
+*    keys on its account.
 */
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
@@ -56,7 +60,6 @@ impl Account {
     }
 }
 
-//
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
@@ -78,7 +81,6 @@ impl FungibleToken {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
-        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let total_supply = total_supply.into();
         assert!(!env::state_exists(), "Already initialized");
         let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
@@ -146,7 +148,6 @@ impl FungibleToken {
     #[payable]
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: U128) {
         let initial_storage = env::storage_usage();
-        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         assert!(
             env::is_valid_account_id(new_owner_id.as_bytes()),
             "New owner's account ID is invalid"
@@ -218,7 +219,6 @@ impl FungibleToken {
     /// receives this information, the allowance may already be changed by the owner.
     /// So this method should only be used on the front-end to see the current allowance.
     pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> U128 {
-        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         assert!(
             env::is_valid_account_id(escrow_account_id.as_bytes()),
             "Escrow account ID is invalid"
@@ -230,6 +230,7 @@ impl FungibleToken {
 impl FungibleToken {
     /// Helper method to get the account details for `owner_id`.
     fn get_account(&self, owner_id: &AccountId) -> Account {
+        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let account_hash = env::sha256(owner_id.as_bytes());
         self.accounts.get(&account_hash).unwrap_or_else(|| Account::new(account_hash))
     }
