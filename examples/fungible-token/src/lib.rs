@@ -88,26 +88,48 @@ impl FungibleToken {
         ft
     }
 
-    /// Sets the `allowance` for `escrow_account_id` on the account of the caller of this contract
+    /// Increments the `allowance` for `escrow_account_id` by `amount` on the account of the caller of this contract
     /// (`predecessor_id`) who is the balance owner.
     /// Requirements:
     /// * Caller of the method has to attach deposit enough to cover storage difference at the
     ///   fixed storage price defined in the contract.
     #[payable]
-    pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: U128) {
+    pub fn inc_allowance(&mut self, escrow_account_id: AccountId, amount: U128) {
         let initial_storage = env::storage_usage();
         assert!(
             env::is_valid_account_id(escrow_account_id.as_bytes()),
             "Escrow account ID is invalid"
         );
-        let allowance = allowance.into();
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
-            env::panic(b"Can not set allowance for yourself");
+            env::panic(b"Can not increment allowance for yourself");
         }
         let mut account = self.get_account(&owner_id);
+        let current_allowance = account.get_allowance(&escrow_account_id);
+        account.set_allowance(&escrow_account_id, current_allowance.saturating_add(amount.0));
+        self.set_account(&owner_id, &account);
+        self.refund_storage(initial_storage);
+    }
 
-        account.set_allowance(&escrow_account_id, allowance);
+    /// Decrements the `allowance` for `escrow_account_id` by `amount` on the account of the caller of this contract
+    /// (`predecessor_id`) who is the balance owner.
+    /// Requirements:
+    /// * Caller of the method has to attach deposit enough to cover storage difference at the
+    ///   fixed storage price defined in the contract.
+    #[payable]
+    pub fn dec_allowance(&mut self, escrow_account_id: AccountId, amount: U128) {
+        let initial_storage = env::storage_usage();
+        assert!(
+            env::is_valid_account_id(escrow_account_id.as_bytes()),
+            "Escrow account ID is invalid"
+        );
+        let owner_id = env::predecessor_account_id();
+        if escrow_account_id == owner_id {
+            env::panic(b"Can not decrement allowance for yourself");
+        }
+        let mut account = self.get_account(&owner_id);
+        let current_allowance = account.get_allowance(&escrow_account_id);
+        account.set_allowance(&escrow_account_id, current_allowance.saturating_sub(amount.0));
         self.set_account(&owner_id, &account);
         self.refund_storage(initial_storage);
     }
@@ -322,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Can not set allowance for yourself")]
+    #[should_panic(expected = "Can not increment allowance for yourself")]
     fn test_self_allowance_fail() {
         let mut context = get_context(carol());
         testing_env!(context.clone());
@@ -330,7 +352,44 @@ mod tests {
         let mut contract = FungibleToken::new(carol(), total_supply.into());
         context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
         testing_env!(context.clone());
-        contract.set_allowance(carol(), (total_supply / 2).into());
+        contract.inc_allowance(carol(), (total_supply / 2).into());
+    }
+
+    #[test]
+    #[should_panic(expected = "Can not decrement allowance for yourself")]
+    fn test_self_dec_allowance_fail() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        testing_env!(context.clone());
+        contract.dec_allowance(carol(), (total_supply / 2).into());
+    }
+
+    #[test]
+    fn test_saturating_dec_allowance() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        testing_env!(context.clone());
+        contract.dec_allowance(bob(), (total_supply / 2).into());
+        assert_eq!(contract.get_allowance(carol(), bob()), 0.into())
+    }
+
+    #[test]
+    fn test_saturating_inc_allowance() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = std::u128::MAX;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        testing_env!(context.clone());
+        contract.inc_allowance(bob(), total_supply.into());
+        contract.inc_allowance(bob(), total_supply.into());
+        assert_eq!(contract.get_allowance(carol(), bob()), std::u128::MAX.into())
     }
 
     #[test]
@@ -344,7 +403,7 @@ mod tests {
         let mut contract = FungibleToken::new(carol(), total_supply.into());
         context.attached_deposit = 0;
         testing_env!(context.clone());
-        contract.set_allowance(bob(), (total_supply / 2).into());
+        contract.inc_allowance(bob(), (total_supply / 2).into());
     }
 
     #[test]
@@ -365,7 +424,7 @@ mod tests {
         context.is_view = false;
         context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
         testing_env!(context.clone());
-        contract.set_allowance(bob(), allowance.into());
+        contract.inc_allowance(bob(), allowance.into());
         context.storage_usage = env::storage_usage();
         context.account_balance = env::account_balance();
 
@@ -409,7 +468,7 @@ mod tests {
         context.is_view = false;
         context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
         testing_env!(context.clone());
-        contract.set_allowance(bob(), allowance.into());
+        contract.inc_allowance(bob(), allowance.into());
         context.storage_usage = env::storage_usage();
         context.account_balance = env::account_balance();
 
@@ -448,7 +507,7 @@ mod tests {
         let initial_storage = context.storage_usage;
         context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
         testing_env!(context.clone());
-        contract.set_allowance(bob(), (total_supply / 2).into());
+        contract.inc_allowance(bob(), (total_supply / 2).into());
         context.storage_usage = env::storage_usage();
         context.account_balance = env::account_balance();
         assert_eq!(
@@ -462,7 +521,7 @@ mod tests {
         testing_env!(context.clone());
         context.attached_deposit = 0;
         testing_env!(context.clone());
-        contract.set_allowance(bob(), 0.into());
+        contract.dec_allowance(bob(), (total_supply / 2).into());
         context.storage_usage = env::storage_usage();
         context.account_balance = env::account_balance();
         assert!(context.storage_usage < initial_storage);
