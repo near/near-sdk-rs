@@ -85,6 +85,6 @@ mod tests {
     #[test]
     fn test_from_str() {
         let key = ValidAccountId::try_from("alice.near").unwrap();
-        assert_eq!(key.into_account_id(), "alice.near".to_string());
+        assert_eq!(key.as_ref(), &"alice.near".to_string());
     }
 }
