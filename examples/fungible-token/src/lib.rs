@@ -5,12 +5,12 @@
 *  - JSON calls should pass U128 as a base-10 string. E.g. "100".
 *  - The contract optimizes the inner trie structure by hashing account IDs. It will prevent some
 *    abuse of deep tries. Shouldn't be an issue, once NEAR clients implement full hashing of keys.
-*  - The contract tracks storage difference before and after the call. If the storage increases,
+*  - The contract tracks the change in storage before and after the call. If the storage increases,
 *    the contract requires the caller of the contract to attach enough deposit to the function call
 *    to cover the storage stake difference.
-*    It's done to prevent denial of service attack on the contract by taking all available storage.
+*    This is done to prevent a denial of service attack on the contract by taking all available storage.
 *    If the storage decreases, the contract will issue a refund for the storage stake difference.
-*    The unused tokens from the attached deposit are also going to be refunded, so it's safe to
+*    The unused tokens from the attached deposit are also refunded, so it's safe to
 *    attach more deposit than required.
 *  - The deployed contract has to be locked. It means it should not have any access keys on the
 *    account of the contract, to prevent contract from being modified or deleted.
