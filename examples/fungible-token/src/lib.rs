@@ -81,7 +81,6 @@ impl FungibleToken {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
-        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let total_supply = total_supply.into();
         assert!(!env::state_exists(), "Already initialized");
         let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
@@ -149,7 +148,6 @@ impl FungibleToken {
     #[payable]
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: U128) {
         let initial_storage = env::storage_usage();
-        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         assert!(
             env::is_valid_account_id(new_owner_id.as_bytes()),
             "New owner's account ID is invalid"
@@ -221,7 +219,6 @@ impl FungibleToken {
     /// receives this information, the allowance may already be changed by the owner.
     /// So this method should only be used on the front-end to see the current allowance.
     pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> U128 {
-        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         assert!(
             env::is_valid_account_id(escrow_account_id.as_bytes()),
             "Escrow account ID is invalid"
@@ -233,6 +230,7 @@ impl FungibleToken {
 impl FungibleToken {
     /// Helper method to get the account details for `owner_id`.
     fn get_account(&self, owner_id: &AccountId) -> Account {
+        assert!(env::is_valid_account_id(owner_id.as_bytes()), "Owner's account ID is invalid");
         let account_hash = env::sha256(owner_id.as_bytes());
         self.accounts.get(&account_hash).unwrap_or_else(|| Account::new(account_hash))
     }
