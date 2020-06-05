@@ -155,6 +155,10 @@ impl FungibleToken {
         if amount == 0 {
             env::panic(b"Can't transfer 0 tokens");
         }
+        assert_ne!(
+            owner_id, new_owner_id,
+            "The new owner should be different from the current owner"
+        );
         // Retrieving the account from the state.
         let mut account = self.get_account(&owner_id);
 
@@ -344,8 +348,23 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "The new owner should be different from the current owner")]
+    fn test_transfer_fail_self() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.storage_usage = env::storage_usage();
+
+        context.attached_deposit = 1000 * STORAGE_PRICE_PER_BYTE;
+        testing_env!(context.clone());
+        let transfer_amount = total_supply / 3;
+        contract.transfer(carol(), transfer_amount.into());
+    }
+
+    #[test]
     #[should_panic(expected = "Can not increment allowance for yourself")]
-    fn test_self_allowance_fail() {
+    fn test_self_inc_allowance_fail() {
         let mut context = get_context(carol());
         testing_env!(context.clone());
         let total_supply = 1_000_000_000_000_000u128;
