@@ -324,6 +324,22 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
 
+/// Compute pairing check
+pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
+    match unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .alt_bn128_pairing_check(value.len() as _, value.as_ptr() as _)
+        })
+    } {
+        0 => false,
+        1 => true,
+        _ => panic!(RETURN_CODE_ERR),
+    }
+}
+
 // ################
 // # Promises API #
 // ################

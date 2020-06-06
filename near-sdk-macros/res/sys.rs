@@ -143,6 +143,7 @@ pub mod sys {
         pub fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_has_key(key_len: u64, key_ptr: u64) -> u64;
+        pub fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64;
         // ###############
         // # Validator API #
         // ###############

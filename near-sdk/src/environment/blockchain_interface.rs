@@ -35,6 +35,7 @@ pub trait BlockchainInterface {
     unsafe fn sha256(&self, value_len: u64, value_ptr: u64, register_id: u64);
     unsafe fn keccak256(&self, value_len: u64, value_ptr: u64, register_id: u64);
     unsafe fn keccak512(&self, value_len: u64, value_ptr: u64, register_id: u64);
+    unsafe fn alt_bn128_pairing_check(&self, value_len: u64, value_ptr: u64) -> u64;
     // #####################
     // # Miscellaneous API #
     // #####################
