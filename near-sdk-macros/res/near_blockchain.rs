@@ -326,6 +326,8 @@ pub mod near_blockchain {
 
         unsafe fn validator_total_stake(&self, stake_ptr: u64) {
             sys::validator_total_stake(stake_ptr)
+        }
+        
         unsafe fn alt_bn128_pairing_check(&self, value_len: u64, value_ptr: u64) -> u64 {
             sys::alt_bn128_pairing_check(value_len, value_ptr)
         }
