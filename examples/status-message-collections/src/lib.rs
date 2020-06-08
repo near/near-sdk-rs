@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{UnorderedMap, Set};
+use near_sdk::collections::{UnorderedMap, UnorderedSet};
 use near_sdk::{env, near_bindgen};
 
 #[global_allocator]
@@ -9,7 +9,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
     pub records: UnorderedMap<String, String>,
-    pub unique_values: Set<String>,
+    pub unique_values: UnorderedSet<String>,
 }
 
 impl Default for StatusMessage {
