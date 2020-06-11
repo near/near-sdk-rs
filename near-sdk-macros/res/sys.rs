@@ -33,6 +33,8 @@ pub mod sys {
         pub fn sha256(value_len: u64, value_ptr: u64, register_id: u64);
         pub fn keccak256(value_len: u64, value_ptr: u64, register_id: u64);
         pub fn keccak512(value_len: u64, value_ptr: u64, register_id: u64);
+        pub fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64;
+        pub fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64);
         // #####################
         // # Miscellaneous API #
         // #####################
@@ -143,7 +145,6 @@ pub mod sys {
         pub fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64;
         pub fn storage_has_key(key_len: u64, key_ptr: u64) -> u64;
-        pub fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64;
         // ###############
         // # Validator API #
         // ###############
