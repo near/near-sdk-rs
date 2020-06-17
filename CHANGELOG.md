@@ -1,3 +1,17 @@
+# Unpublished changes
+
+## Other changes
+
+* Added `ValidAccountId` to `json_types` which validates the input string during deserialization to be a valid account ID.
+* Added `Debug` to `Base58PublicKey`.
+* Bumped dependency version of `borsh` to `0.6.2` for `near-sdk`.
+
+## Contract changes
+
+* Bumped `borsh` version to `0.6.2` everywhere.
+* Explicit depencency versions for fungible token contract.
+
+
 # 0.11.0
 ## API breaking changes
 
