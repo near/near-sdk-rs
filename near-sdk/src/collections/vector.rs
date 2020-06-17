@@ -1,6 +1,5 @@
 //! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
 //! of an element results in the last element being placed in the empty position.
-use std::fmt;
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -16,6 +15,7 @@ const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
 #[derive(BorshSerialize, BorshDeserialize)]
+#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
@@ -246,8 +246,9 @@ where
     }
 }
 
-impl<T: fmt::Debug + BorshDeserialize> fmt::Debug for Vector<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+#[cfg(feature = "expensive-debug")]
+impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.to_vec().fmt(f)
     }
 }
@@ -442,7 +443,14 @@ mod tests {
         for _ in 0..5 {
             assert_eq!(baseline.pop(), vec.pop());
         }
-        assert_eq!(format!("{:#?}", vec), format!("{:#?}", baseline));
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:#?}", vec), format!("{:#?}", baseline));
+        } else {
+            assert_eq!(
+                format!("{:?}", vec),
+                format!("Vector {{ len: 5, prefix: {:?}, el: PhantomData }}", vec.prefix)
+            );
+        }
 
         #[derive(Debug, BorshDeserialize)]
         struct WithoutBorshSerialize(u64);
@@ -450,6 +458,16 @@ mod tests {
         let deserialize_only_vec =
             Vector::<WithoutBorshSerialize> { len: vec.len(), prefix, el: Default::default() };
         let baseline: Vec<_> = baseline.into_iter().map(|x| WithoutBorshSerialize(x)).collect();
-        assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
+        } else {
+            assert_eq!(
+                format!("{:?}", deserialize_only_vec),
+                format!(
+                    "Vector {{ len: 5, prefix: {:?}, el: PhantomData }}",
+                    deserialize_only_vec.prefix
+                )
+            );
+        }
     }
 }
