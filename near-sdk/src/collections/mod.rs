@@ -36,7 +36,7 @@
 //! that seemlessly integrated with the rest of the Rust standard library.
 
 mod set;
-pub use set::Set;
+pub use set::UnorderedSet;
 
 mod vector;
 pub use vector::Vector;
