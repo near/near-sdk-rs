@@ -1,5 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, PromiseResult};
+use near_sdk::{env, near_bindgen, PromiseResult, Balance};
+use near_sdk::json_types::U128;
 use serde_json::json;
 
 #[global_allocator]
@@ -8,16 +9,20 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: u64 = 200000000000000;
 
+// Amount of tokens needed to deploy status message contract.
+const DEPLOY_CONTRACT_AMOUNT: Balance = 20_000_000_000_000_000_000_000_000;
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
+        assert!(amount.0 >= DEPLOY_CONTRACT_AMOUNT, "Not enough tokens to deploy contract");
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
-        env::promise_batch_action_transfer(promise_idx, amount as u128);
+        env::promise_batch_action_transfer(promise_idx, amount.0);
         env::promise_batch_action_add_key_with_full_access(
             promise_idx,
             &env::signer_account_pk(),

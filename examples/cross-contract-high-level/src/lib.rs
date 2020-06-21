@@ -7,13 +7,18 @@ use near_sdk::{
     near_bindgen,
     Promise,
     PromiseOrValue,
+    Balance,
 };
+use near_sdk::json_types::U128;
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc<'_> = wee_alloc::WeeAlloc::INIT;
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: u64 = 200_000_000_000_000;
+
+// Amount of tokens needed to deploy status message contract.
+const DEPLOY_CONTRACT_AMOUNT: Balance = 20_000_000_000_000_000_000_000_000;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -44,10 +49,11 @@ pub trait ExtStatusMessage {
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
+        assert!(amount.0 >= DEPLOY_CONTRACT_AMOUNT, "Not enough tokens to deploy contract");
         Promise::new(account_id)
             .create_account()
-            .transfer(amount as u128)
+            .transfer(amount.0)
             .add_full_access_key(env::signer_account_pk())
             .deploy_contract(
                 include_bytes!("../../status-message/res/status_message.wasm").to_vec(),

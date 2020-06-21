@@ -51,7 +51,7 @@ near deploy --accountId=cross_contract --wasmFile=../examples/cross-contract-hig
 ### Deploying another contract
 Let's deploy another contract using `cross-contract`, factory-style.
 ```bash
-near call cross_contract deploy_status_message "{\"account_id\": \"status_message\", \"amount\":1000000000000000}" --accountId=test_near 
+near call cross_contract deploy_status_message '{"account_id": "status_message", "amount": "20000000000000000000000000"}' --accountId=test_near 
 ```
 
 ### Trying money transfer
