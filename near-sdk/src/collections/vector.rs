@@ -1,9 +1,11 @@
 //! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
 //! of an element results in the last element being placed in the empty position.
-use crate::collections::{next_trie_id, append_slice};
-use crate::env;
-use borsh::{BorshDeserialize, BorshSerialize};
 use std::marker::PhantomData;
+
+use borsh::{BorshDeserialize, BorshSerialize};
+
+use crate::collections::{append_slice, next_trie_id};
+use crate::env;
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -13,6 +15,7 @@ const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
 #[derive(BorshSerialize, BorshDeserialize)]
+#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
@@ -149,27 +152,50 @@ impl<T> Vector<T> {
     }
 }
 
-impl<T> Default for Vector<T> {
-    fn default() -> Self {
-        Self::new(next_trie_id())
+impl<T> Vector<T> {
+    /// Removes all elements from the collection.
+    pub fn clear(&mut self) {
+        for i in 0..self.len {
+            let lookup_key = self.index_to_lookup_key(i);
+            env::storage_remove(&lookup_key);
+        }
+        self.len = 0;
     }
 }
 
 impl<T> Vector<T>
 where
-    T: BorshSerialize + BorshDeserialize,
+    T: BorshSerialize,
+{
+    fn serialize_element(element: &T) -> Vec<u8> {
+        match element.try_to_vec() {
+            Ok(x) => x,
+            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+        }
+    }
+
+    /// Appends an element to the back of the collection.
+    pub fn push(&mut self, element: &T) {
+        let raw_element = Self::serialize_element(element);
+        self.push_raw(&raw_element);
+    }
+
+    /// Extends vector from the given collection.
+    pub fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT) {
+        for el in iter {
+            self.push(&el)
+        }
+    }
+}
+
+impl<T> Vector<T>
+where
+    T: BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
         match T::try_from_slice(&raw_element) {
             Ok(x) => x,
             Err(_) => env::panic(ERR_ELEMENT_DESERIALIZATION),
-        }
-    }
-
-    fn serialize_element(element: &T) -> Vec<u8> {
-        match element.try_to_vec() {
-            Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
         }
     }
 
@@ -190,17 +216,25 @@ where
         Self::deserialize_element(&raw_evicted)
     }
 
-    /// Appends an element to the back of the collection.
-    pub fn push(&mut self, element: &T) {
-        let raw_element = Self::serialize_element(element);
-        self.push_raw(&raw_element);
-    }
-
     /// Removes the last element from a vector and returns it, or `None` if it is empty.
     pub fn pop(&mut self) -> Option<T> {
         self.pop_raw().map(|x| Self::deserialize_element(&x))
     }
 
+    /// Iterate over deserialized elements.
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+        self.iter_raw().map(|raw_element| Self::deserialize_element(&raw_element))
+    }
+
+    pub fn to_vec(&self) -> Vec<T> {
+        self.iter().collect()
+    }
+}
+
+impl<T> Vector<T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
     /// Inserts a element at `index`, returns an evicted element.
     ///
     /// # Panics
@@ -210,41 +244,32 @@ where
         let raw_element = Self::serialize_element(element);
         Self::deserialize_element(&self.replace_raw(index, &raw_element))
     }
+}
 
-    /// Removes all elements from the collection.
-    pub fn clear(&mut self) {
-        for i in 0..self.len {
-            let lookup_key = self.index_to_lookup_key(i);
-            env::storage_remove(&lookup_key);
-        }
-        self.len = 0;
+#[cfg(feature = "expensive-debug")]
+impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_vec().fmt(f)
     }
+}
 
-    /// Iterate over deserialized elements.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
-        self.iter_raw().map(|raw_element| Self::deserialize_element(&raw_element))
-    }
-
-    /// Extends vector from the given collection.
-    pub fn extend<IT: IntoIterator<Item = T>>(&mut self, iter: IT) {
-        for el in iter {
-            self.push(&el)
-        }
-    }
-
-    pub fn to_vec(&self) -> Vec<T> {
-        self.iter().collect()
+impl<T> Default for Vector<T> {
+    fn default() -> Self {
+        Self::new(next_trie_id())
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::collections::Vector;
-    use crate::{env, MockedBlockchain};
+    use borsh::BorshDeserialize;
+    use rand::{Rng, SeedableRng};
+
     use near_vm_logic::types::AccountId;
     use near_vm_logic::VMContext;
-    use rand::{Rng, SeedableRng};
+
+    use crate::collections::{next_trie_id, Vector};
+    use crate::{env, MockedBlockchain};
 
     fn alice() -> AccountId {
         "alice.near".to_string()
@@ -292,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_push_pop() {
+    fn test_push_pop() {
         set_env();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::default();
@@ -399,5 +424,50 @@ mod tests {
         }
         let actual = vec.to_vec();
         assert_eq!(actual, baseline);
+    }
+
+    #[test]
+    fn test_debug() {
+        set_env();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+        let prefix = next_trie_id();
+        let mut vec = Vector::new(prefix.clone());
+        let mut baseline = vec![];
+        for _ in 0..10 {
+            let value = rng.gen::<u64>();
+            vec.push(&value);
+            baseline.push(value);
+        }
+        let actual = vec.to_vec();
+        assert_eq!(actual, baseline);
+        for _ in 0..5 {
+            assert_eq!(baseline.pop(), vec.pop());
+        }
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:#?}", vec), format!("{:#?}", baseline));
+        } else {
+            assert_eq!(
+                format!("{:?}", vec),
+                format!("Vector {{ len: 5, prefix: {:?}, el: PhantomData }}", vec.prefix)
+            );
+        }
+
+        #[derive(Debug, BorshDeserialize)]
+        struct WithoutBorshSerialize(u64);
+
+        let deserialize_only_vec =
+            Vector::<WithoutBorshSerialize> { len: vec.len(), prefix, el: Default::default() };
+        let baseline: Vec<_> = baseline.into_iter().map(|x| WithoutBorshSerialize(x)).collect();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
+        } else {
+            assert_eq!(
+                format!("{:?}", deserialize_only_vec),
+                format!(
+                    "Vector {{ len: 5, prefix: {:?}, el: PhantomData }}",
+                    deserialize_only_vec.prefix
+                )
+            );
+        }
     }
 }
