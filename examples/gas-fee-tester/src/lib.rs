@@ -1,9 +1,9 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
-use serde::{Deserialize, Serialize};
+use near_sdk::serde::{Deserialize, Serialize};
 
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct A {

@@ -3,7 +3,7 @@ use near_sdk::{env, metadata, near_bindgen};
 use std::collections::HashMap;
 
 #[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 metadata! {
 #[near_bindgen]

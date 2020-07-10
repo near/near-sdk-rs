@@ -2,15 +2,16 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, near_bindgen};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub type AccountId = Vec<u8>;
 
 #[near_bindgen]
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct MissionControl {
     account: Account,
     agents: HashMap<AccountId, Agent>,
