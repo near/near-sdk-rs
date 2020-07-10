@@ -38,7 +38,7 @@ macro_rules! testing_env {
             $fee_config,
             vec![],
             storage,
-            $validator
+            $validator,
         )));
     };
     ($context:expr, $config:expr, $fee_config:expr) => {
@@ -54,3 +54,23 @@ pub use environment::blockchain_interface::BlockchainInterface;
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 pub(crate) mod test_utils;
+
+// Exporting common crates
+
+#[doc(hidden)]
+pub use borsh;
+
+#[doc(hidden)]
+pub use base64;
+
+#[doc(hidden)]
+pub use bs58;
+
+#[doc(hidden)]
+pub use serde;
+
+#[doc(hidden)]
+pub use serde_json;
+
+#[doc(hidden)]
+pub use wee_alloc;

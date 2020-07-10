@@ -61,12 +61,13 @@ mod tests {
                     __balance: near_sdk::Balance,
                     __gas: near_sdk::Gas
                 ) -> near_sdk::Promise {
-                    #[derive(serde :: Deserialize, serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                    #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         arr: Vec<u8>,
                     }
                     let args = Input { arr, };
-                    let args = serde_json::to_vec(&args)
+                    let args = near_sdk::serde_json::to_vec(&args)
                         .expect("Failed to serialize the cross contract args using JSON.");
                     near_sdk::Promise::new(__account_id.to_string()).function_call(
                         b"merge_sort".to_vec(),
