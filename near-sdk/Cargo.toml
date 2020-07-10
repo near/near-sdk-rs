@@ -20,7 +20,7 @@ path = "compilation_tests/all.rs"
 # Provide near_bidgen macros.
 serde = { version = "1.0", features = ["derive"] }
 near-sdk-macros = { path = "../near-sdk-macros", version = "0.11.0"}
-borsh = "0.6.1"
+borsh = "0.6.2"
 bs58 = "0.3"
 base64 = "0.11.0"
 near-vm-logic = "0.9.1"
