@@ -322,7 +322,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::default();
         let mut baseline = vec![];
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             vec.push(&value);
             baseline.push(value);
@@ -365,7 +365,7 @@ mod tests {
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut vec = Vector::default();
         let mut baseline = vec![];
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let value = rng.gen::<u64>();
             vec.push(&value);
             baseline.push(value);
