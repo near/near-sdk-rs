@@ -17,7 +17,7 @@ impl Default for StatusMessage {
     fn default() -> Self {
         Self {
             records: UnorderedMap::new(b"r".to_vec()),
-            unique_values: UnorderedSet::new(b"s".to_vec())
+            unique_values: UnorderedSet::new(b"s".to_vec()),
         }
     }
 }
