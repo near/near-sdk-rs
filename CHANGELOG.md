@@ -2,8 +2,16 @@
 
 ## Pending release
 
-- Re-export common crates to be reused directly from near_sdk.
-  - Update contracts
+### Other changes
+
+* Re-export common crates to be reused directly from near_sdk.
+* Added `ValidAccountId` to `json_types` which validates the input string during deserialization to be a valid account ID.
+* Added `Debug` to `Base58PublicKey`.
+* Bumped dependency version of `borsh` to `0.6.2` for `near-sdk`.
+
+## Contract changes
+
+* Use re-exported crate dependencies through `near_sdk` crate
 
 ## 0.11.0
 
