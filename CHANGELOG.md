@@ -2,18 +2,24 @@
 
 ## Pending release
 
+...
+
+## `1.0.0`
+
 ### Other changes
 
-* Re-export common crates to be reused directly from near_sdk.
+* Re-export common crates to be reused directly from `near_sdk`.
 * Added `ValidAccountId` to `json_types` which validates the input string during deserialization to be a valid account ID.
 * Added `Debug` to `Base58PublicKey`.
-* Bumped dependency version of `borsh` to `0.6.2` for `near-sdk`.
+* Bumped dependency version of `borsh` to `0.7.0`.
+* Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `1.0.0`.
+* Implemented Debug trait for Vector collection that can be enabled with `expensive-debug` feature.
 
 ## Contract changes
 
-* Use re-exported crate dependencies through `near_sdk` crate
+* Use re-exported crate dependencies through `near_sdk` crate.
 
-## 0.11.0
+## `0.11.0`
 
 ### API breaking changes
 
