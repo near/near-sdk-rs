@@ -25,9 +25,14 @@ impl AttrSigInfo {
             "Can only generate input struct for when input args are specified"
         );
         let attribute = match &self.input_serializer {
-            SerializerType::JSON => quote! {#[derive(serde::Deserialize, serde::Serialize)]},
+            SerializerType::JSON => quote! {
+                #[derive(near_sdk::serde::Deserialize, near_sdk::serde::Serialize)]
+                #[serde(crate = "near_sdk::serde")]
+            },
             SerializerType::Borsh => {
-                quote! {#[derive(borsh::BorshDeserialize, borsh::BorshSerialize)]}
+                quote! {
+                    #[derive(near_sdk::borsh::BorshDeserialize, near_sdk::borsh::BorshSerialize)]
+                }
             }
         };
         let mut fields = TokenStream2::new();
@@ -159,11 +164,11 @@ impl AttrSigInfo {
             };
                 let invocation = match arg.serializer_ty {
                     SerializerType::JSON => quote! {
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
-                },
+                        near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+                    },
                     SerializerType::Borsh => quote! {
-                    borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
-                },
+                        near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
+                    },
                 };
                 quote! {
                 #acc
@@ -186,11 +191,11 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = match arg.serializer_ty {
                     SerializerType::JSON => quote! {
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
-                },
+                        near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+                    },
                     SerializerType::Borsh => quote! {
-                    borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
-                },
+                        near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
+                    },
                 };
                 quote! {
                 #acc

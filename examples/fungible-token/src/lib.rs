@@ -15,13 +15,13 @@
 *  - To prevent the deployed contract from being modified or deleted, it should not have any access
 *    keys on its account.
 */
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, StorageUsage};
 
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 /// Price per 1 byte of storage from mainnet genesis config.
 const STORAGE_PRICE_PER_BYTE: Balance = 100000000000000000000;

@@ -1,11 +1,11 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{AccountId, Balance, env, near_bindgen};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
+use near_sdk::{env, near_bindgen, AccountId, Balance};
 use std::collections::HashMap;
 use std::str::FromStr;
 
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Account {
@@ -136,7 +136,8 @@ impl FunToken {
     /// Requirements:
     /// * The (`predecessor_id`) should have at least `unlock_amount` locked tokens from `owner_id`.
     pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: String) {
-        let unlock_amount = u128::from_str(&unlock_amount).expect("Failed to parse allow unlock_amount");
+        let unlock_amount =
+            u128::from_str(&unlock_amount).expect("Failed to parse allow unlock_amount");
         if unlock_amount == 0 {
             env::panic(b"Can't unlock 0 tokens");
         }
@@ -257,8 +258,8 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_sdk::{testing_env, VMContext};
     use near_sdk::MockedBlockchain;
+    use near_sdk::{testing_env, VMContext};
 
     use super::*;
 
@@ -312,7 +313,10 @@ mod tests {
         let mut contract = FunToken::new(carol(), total_supply.to_string());
         let transfer_amount = total_supply / 3;
         contract.transfer(bob(), transfer_amount.to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - transfer_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - transfer_amount).to_string()
+        );
         assert_eq!(contract.get_unlocked_balance(bob()), transfer_amount.to_string());
     }
 
@@ -350,7 +354,10 @@ mod tests {
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let lock_amount = total_supply / 3;
         contract.lock(carol(), lock_amount.to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - lock_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - lock_amount).to_string()
+        );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         contract.unlock(carol(), lock_amount.to_string());
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply.to_string());
@@ -368,16 +375,25 @@ mod tests {
         let transfer_amount = lock_amount / 3;
         // Locking
         contract.lock(carol(), lock_amount.to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - lock_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - lock_amount).to_string()
+        );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         for i in 1..=5 {
             // Transfer to bob
             contract.transfer(bob(), transfer_amount.to_string());
             assert_eq!(
                 contract.get_unlocked_balance(carol()),
-                format!("{}", std::cmp::min(total_supply - lock_amount, total_supply - transfer_amount * i))
+                format!(
+                    "{}",
+                    std::cmp::min(total_supply - lock_amount, total_supply - transfer_amount * i)
+                )
             );
-            assert_eq!(contract.get_total_balance(carol()), format!("{}", total_supply - transfer_amount * i));
+            assert_eq!(
+                contract.get_total_balance(carol()),
+                format!("{}", total_supply - transfer_amount * i)
+            );
             assert_eq!(contract.get_unlocked_balance(bob()), format!("{}", transfer_amount * i));
         }
     }
@@ -396,9 +412,15 @@ mod tests {
         // Acting as bob now
         testing_env!(get_context(bob()));
         contract.transfer_from(carol(), alice(), transfer_amount.to_string());
-        assert_eq!(contract.get_total_balance(carol()), (total_supply - transfer_amount).to_string());
+        assert_eq!(
+            contract.get_total_balance(carol()),
+            (total_supply - transfer_amount).to_string()
+        );
         assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount.to_string());
-        assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance - transfer_amount));
+        assert_eq!(
+            contract.get_allowance(carol(), bob()),
+            format!("{}", allowance - transfer_amount)
+        );
     }
 
     #[test]
@@ -417,12 +439,21 @@ mod tests {
         testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount.to_string());
         assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - lock_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - lock_amount).to_string()
+        );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         contract.transfer_from(carol(), alice(), transfer_amount.to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - transfer_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - transfer_amount).to_string()
+        );
         assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount.to_string());
-        assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance - transfer_amount));
+        assert_eq!(
+            contract.get_allowance(carol(), bob()),
+            format!("{}", allowance - transfer_amount)
+        );
     }
 
     #[test]
@@ -440,7 +471,10 @@ mod tests {
         testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount.to_string());
         assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - lock_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - lock_amount).to_string()
+        );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         contract.unlock(carol(), lock_amount.to_string());
         assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance));
@@ -463,7 +497,10 @@ mod tests {
         testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount.to_string());
         assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - lock_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - lock_amount).to_string()
+        );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         // Acting as carol now
         testing_env!(get_context(carol()));
@@ -488,7 +525,10 @@ mod tests {
         testing_env!(get_context(bob()));
         contract.lock(carol(), lock_amount.to_string());
         assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
-        assert_eq!(contract.get_unlocked_balance(carol()), (total_supply - lock_amount).to_string());
+        assert_eq!(
+            contract.get_unlocked_balance(carol()),
+            (total_supply - lock_amount).to_string()
+        );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         // Acting as alice now
         testing_env!(get_context(alice()));
