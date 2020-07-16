@@ -406,6 +406,20 @@ pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32
     }
 }
 
+/// Compute alt_bn128 g1 sum
+pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).alt_bn128_g1_sum(
+                value.len() as _,
+                value.as_ptr() as _,
+                ATOMIC_OP_REGISTER,
+            )
+        });
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+
 /// Compute pairing check
 pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
     match unsafe {
