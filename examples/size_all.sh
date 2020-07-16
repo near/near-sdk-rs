@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+cargo install twiggy
 
 for contract in ./examples/*/; do
     (
