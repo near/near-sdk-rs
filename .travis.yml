@@ -8,6 +8,7 @@ env:
 
 before_install:
   - rm rust-toolchain
+  - cargo install twiggy
 
 before_script:
   - rustup target add wasm32-unknown-unknown
