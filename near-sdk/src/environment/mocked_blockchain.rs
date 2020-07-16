@@ -156,6 +156,10 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().alt_bn128_g1_multiexp(value_len, value_ptr, register_id).unwrap()
     }
 
+    unsafe fn alt_bn128_g1_sum(&self, value_len: u64, value_ptr: u64, register_id: u64) {
+        self.logic.borrow_mut().alt_bn128_g1_sum(value_len, value_ptr, register_id).unwrap()
+    }
+
     unsafe fn alt_bn128_pairing_check(&self, value_len: u64, value_ptr: u64) -> u64 {
         self.logic.borrow_mut().alt_bn128_pairing_check(value_len, value_ptr).unwrap()
     }

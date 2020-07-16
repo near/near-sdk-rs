@@ -335,5 +335,9 @@ pub mod near_blockchain {
         unsafe fn alt_bn128_g1_multiexp(&self, value_len: u64, value_ptr: u64, register_id: u64) {
             sys::alt_bn128_g1_multiexp(value_len, value_ptr, register_id)
         }
+
+        unsafe fn alt_bn128_g1_sum(&self, value_len: u64, value_ptr: u64, register_id: u64) {
+            sys::alt_bn128_g1_sum(value_len, value_ptr, register_id)
+        }
     }
 }
