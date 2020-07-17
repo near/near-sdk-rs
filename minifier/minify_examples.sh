@@ -9,7 +9,7 @@ done
 
 #for p in /work/near/core-contracts/*/res/*.wasm ; do
 #  cp $p ./out/base/
-#done
+# done
 
 cd out
 for p in ./base/*.wasm ; do
@@ -18,7 +18,8 @@ for p in ./base/*.wasm ; do
      --output snipped-$w
   wasm-gc snipped-$w
   wasm-strip snipped-$w
+  wasm-opt -Oz snipped-$w --output opt-snipped-$w
   cp $p stripped-$w
   wasm-strip stripped-$w
-  echo $w `stat -c "%s" stripped-$w` " -> " `stat -c "%s" snipped-$w`
+  echo $w `stat -c "%s" stripped-$w` " -> " `stat -c "%s" opt-snipped-$w`
 done
