@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 pushd ../examples
 KEEP_NAMES=1 ./build_all.sh
 popd
@@ -14,12 +14,8 @@ done
 cd out
 for p in ./base/*.wasm ; do
   w=$(basename -- $p)
-  wasm-snip $p --snip-rust-fmt-code --snip-rust-panicking-code -p core::num::flt2dec::.* -p core::fmt::float::.*  \
-     --output snipped-$w
-  wasm-gc snipped-$w
-  wasm-strip snipped-$w
-  wasm-opt -Oz snipped-$w --output opt-snipped-$w
+  ../minify.sh $p
   cp $p stripped-$w
   wasm-strip stripped-$w
-  echo $w `stat -c "%s" stripped-$w` " -> " `stat -c "%s" opt-snipped-$w`
+  echo $w `stat -c "%s" stripped-$w` " -> " `stat -c "%s" minified-$w`
 done
