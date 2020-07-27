@@ -175,7 +175,7 @@ The general workflow is the following:
     ```
 
 ## Tips
-When working with NEAR smart contracts you will need to handle many large numbers (the minimum allowed amount of NEAR is 1/10<super>24</super> of one NEAR token – put another way, one NEAR token is 1,000,000,000,000,000,000,000,000 yoctoNEAR). To simplify handling such large numbers, we recommend [decimate](https://docs.rs/decimate/).
+When working with NEAR smart contracts you will need to handle very large numbers or numbers with many decimal places (the minimum allowed amount of NEAR is 1/10<super>24</super> of one NEAR token – put another way, one NEAR token is 1,000,000,000,000,000,000,000,000 yoctoNEAR). You should not use floats for such decimal places! To simplify handling both such large numbers and many decimal places, we recommend [decimate](https://docs.rs/decimate/).
 
 ## Building Rust Contract
 We can build the contract using rustc:
