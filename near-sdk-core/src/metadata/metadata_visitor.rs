@@ -121,7 +121,7 @@ mod tests {
                         is_init: false,
                         args: {
                             #[derive(borsh::BorshSchema)]
-                            #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                            #[derive(near_sdk :: serde :: Deserialize)]
                             #[serde(crate = "near_sdk::serde")]
                             struct Input {
                                 arg0: FancyStruct,
@@ -139,7 +139,7 @@ mod tests {
                         is_init: false,
                         args: {
                             #[derive(borsh::BorshSchema)]
-                            #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                            #[derive(near_sdk :: serde :: Deserialize)]
                             #[serde(crate = "near_sdk::serde")]
                             struct Input {
                                 arg0: FancyStruct,
