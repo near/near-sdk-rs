@@ -26,7 +26,7 @@ pub enum SerializerType {
     Borsh,
 }
 
-/// Whether the input struct is used for method serialization or deserialization.
+/// Whether the input struct is used for serialization or deserialization.
 #[derive(PartialEq, Eq)]
 pub enum InputStructType {
     Serialization,
