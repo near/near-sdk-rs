@@ -2,7 +2,9 @@
 
 ## Pending release
 
-...
+### Other changes
+
+* Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `1.2.0` that changed `VMLogic` interface.
 
 ## `1.0.0`
 
@@ -15,7 +17,7 @@
 * Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `1.0.0`.
 * Implemented Debug trait for Vector collection that can be enabled with `expensive-debug` feature.
 
-## Contract changes
+### Contract changes
 
 * Use re-exported crate dependencies through `near_sdk` crate.
 
