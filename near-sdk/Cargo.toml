@@ -24,8 +24,8 @@ near-sdk-macros = { path = "../near-sdk-macros", version = "1.0.0"}
 borsh = "0.7.0"
 bs58 = "0.3"
 base64 = "0.11"
-near-vm-logic = "1.0.0"
-near-runtime-fees = "1.0.0"
+near-vm-logic = "1.2.0"
+near-runtime-fees = "1.2.0"
 # Export dependencies for contracts
 wee_alloc = { version = "0.4.5", default-features = false, features = [] }
 

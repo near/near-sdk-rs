@@ -55,6 +55,7 @@ impl MockedBlockchain {
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
+                None,
             )
         };
 
