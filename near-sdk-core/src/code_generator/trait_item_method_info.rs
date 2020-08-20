@@ -1,4 +1,4 @@
-use crate::info_extractor::{SerializerType, TraitItemMethodInfo};
+use crate::info_extractor::{InputStructType, SerializerType, TraitItemMethodInfo};
 use quote::quote;
 use syn::export::TokenStream2;
 
@@ -16,7 +16,7 @@ impl TraitItemMethodInfo {
             constructor = TokenStream2::new();
             quote! {let args = vec![]; }
         } else {
-            struct_decl = self.attr_sig_info.input_struct();
+            struct_decl = self.attr_sig_info.input_struct(InputStructType::Serialization);
             let constructor_call = self.attr_sig_info.constructor_expr();
             constructor = quote! {let args = #constructor_call;};
             match self.attr_sig_info.result_serializer {

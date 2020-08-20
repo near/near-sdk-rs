@@ -1,4 +1,4 @@
-use crate::{BindgenArgType, ImplItemMethodInfo, SerializerType};
+use crate::{BindgenArgType, ImplItemMethodInfo, InputStructType, SerializerType};
 
 use quote::quote;
 use syn::export::TokenStream2;
@@ -41,7 +41,8 @@ impl ImplItemMethodInfo {
         };
         let is_init = self.attr_signature_info.is_init;
         let args = if self.attr_signature_info.input_args().next().is_some() {
-            let input_struct = self.attr_signature_info.input_struct();
+            let input_struct =
+                self.attr_signature_info.input_struct(InputStructType::Deserialization);
             // If input args are JSON then we need to additionally specify schema for them.
             let additional_schema = match &self.attr_signature_info.input_serializer {
                 SerializerType::Borsh => TokenStream2::new(),

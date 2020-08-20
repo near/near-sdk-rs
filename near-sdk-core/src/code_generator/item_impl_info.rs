@@ -95,7 +95,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
@@ -127,7 +127,7 @@ mod tests {
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic(b"Method doesn't accept deposit");
                     }
-                    #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         k: u64,
@@ -161,7 +161,7 @@ mod tests {
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic(b"Method doesn't accept deposit");
                     }
-                    #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         k: u64,
@@ -217,7 +217,7 @@ mod tests {
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
                     near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         k: u64,
@@ -246,7 +246,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
@@ -276,7 +276,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     y: String,
@@ -352,7 +352,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     y: String,
@@ -395,7 +395,7 @@ mod tests {
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic(b"Method doesn't accept deposit");
                 }
-                #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
@@ -427,7 +427,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
@@ -461,7 +461,7 @@ mod tests {
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic(b"Method doesn't accept deposit");
                 }
-                #[derive(near_sdk :: borsh :: BorshDeserialize, near_sdk :: borsh :: BorshSerialize)]
+                #[derive(near_sdk :: borsh :: BorshDeserialize)]
                 struct Input {
                     k: u64,
                     m: Bar,
@@ -495,7 +495,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(near_sdk :: borsh :: BorshDeserialize, near_sdk :: borsh :: BorshSerialize)]
+                #[derive(near_sdk :: borsh :: BorshDeserialize)]
                 struct Input {
                     y: String,
                 }
