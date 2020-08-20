@@ -35,8 +35,8 @@
 //! The efficiency of `Map` comes at the cost, since it has fewer methods than `HashMap` and is not
 //! that seemlessly integrated with the rest of the Rust standard library.
 
-mod set;
-pub use set::UnorderedSet;
+mod unordered_set;
+pub use unordered_set::UnorderedSet;
 
 mod vector;
 pub use vector::Vector;
@@ -49,6 +49,9 @@ pub use tree_map::TreeMap;
 
 mod lookup_map;
 pub use lookup_map::LookupMap;
+
+mod lookup_set;
+pub use lookup_set::LookupSet;
 
 pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh.";

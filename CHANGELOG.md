@@ -4,7 +4,8 @@
 
 ### Contracts
 
-* Introduce `LockupMap` that is a faster implementation of `UnorderedMap`, but without support for iterators.
+* Introduce `LookupMap` and `LookupSet` that are faster implementations of `UnorderedMap` and `UnorderedSet`, but without support for iterators.
+Most read/lookup/write are done in 1 storage access instead of 2 or 3 for `Unordered*` implementations.
 
 ### Other changes
 

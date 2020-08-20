@@ -12,7 +12,7 @@ const ERR_KEY_SERIALIZATION: &[u8] = b"Cannot serialize key with Borsh";
 const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
 const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
 
-/// An iterable implementation of a map that stores its content directly on the trie.
+/// An non-iterable implementation of a map that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V> {
     key_prefix: Vec<u8>,
@@ -93,6 +93,7 @@ where
         }
     }
 
+    /// Returns true if the map contains a given key.
     pub fn contains_key(&self, key: &K) -> bool {
         self.contains_key_raw(&Self::serialize_key(key))
     }

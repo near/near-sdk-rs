@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{UnorderedMap, UnorderedSet};
+use near_sdk::collections::{LookupMap, LookupSet};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{env, near_bindgen};
 
@@ -9,15 +9,15 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    pub records: UnorderedMap<String, String>,
-    pub unique_values: UnorderedSet<String>,
+    pub records: LookupMap<String, String>,
+    pub unique_values: LookupSet<String>,
 }
 
 impl Default for StatusMessage {
     fn default() -> Self {
         Self {
-            records: UnorderedMap::new(b"r".to_vec()),
-            unique_values: UnorderedSet::new(b"s".to_vec()),
+            records: LookupMap::new(b"r".to_vec()),
+            unique_values: LookupSet::new(b"s".to_vec()),
         }
     }
 }
