@@ -69,7 +69,7 @@ impl<K, V> LookupMap<K, V> {
 
 impl<K, V> LookupMap<K, V>
 where
-    K: BorshSerialize + BorshDeserialize,
+    K: BorshSerialize,
     V: BorshSerialize + BorshDeserialize,
 {
     fn serialize_key(key: &K) -> Vec<u8> {
