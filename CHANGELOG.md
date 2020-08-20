@@ -1,9 +1,10 @@
 # Changelog
 
-## Pending release
+## `1.0.1`
 
 ### Other changes
 
+* Remove requirements for input args types to implement `serde::Serialize` and for return types to implement `serde::Deserialize`.
 * Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `1.2.0` that changed `VMLogic` interface.
 
 ## `1.0.0`
