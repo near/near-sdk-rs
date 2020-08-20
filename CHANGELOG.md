@@ -2,6 +2,10 @@
 
 ## Pending release
 
+### Contracts
+
+* Introduce `LockupMap` that is a faster implementation of `UnorderedMap`, but without support for iterators.
+
 ### Other changes
 
 * Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `1.2.0` that changed `VMLogic` interface.
