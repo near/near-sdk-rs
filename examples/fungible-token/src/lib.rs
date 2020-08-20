@@ -16,7 +16,7 @@
 *    keys on its account.
 */
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::UnorderedMap;
+use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, StorageUsage};
 
@@ -34,22 +34,28 @@ pub struct Account {
     /// Escrow Account ID hash to the allowance amount.
     /// Allowance is the amount of tokens the Escrow Account ID can spent on behalf of the account
     /// owner.
-    pub allowances: UnorderedMap<Vec<u8>, Balance>,
+    pub allowances: LookupMap<Vec<u8>, Balance>,
+    /// The number of allowances
+    pub num_allowances: u32,
 }
 
 impl Account {
     /// Initializes a new Account with 0 balance and no allowances for a given `account_hash`.
     pub fn new(account_hash: Vec<u8>) -> Self {
-        Self { balance: 0, allowances: UnorderedMap::new(account_hash) }
+        Self { balance: 0, allowances: LookupMap::new(account_hash), num_allowances: 0 }
     }
 
     /// Sets allowance for account `escrow_account_id` to `allowance`.
     pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: Balance) {
         let escrow_hash = env::sha256(escrow_account_id.as_bytes());
         if allowance > 0 {
-            self.allowances.insert(&escrow_hash, &allowance);
+            if self.allowances.insert(&escrow_hash, &allowance).is_none() {
+                self.num_allowances += 1;
+            }
         } else {
-            self.allowances.remove(&escrow_hash);
+            if self.allowances.remove(&escrow_hash).is_some() {
+                self.num_allowances -= 1;
+            }
         }
     }
 
@@ -64,7 +70,7 @@ impl Account {
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
     /// sha256(AccountID) -> Account details.
-    pub accounts: UnorderedMap<Vec<u8>, Account>,
+    pub accounts: LookupMap<Vec<u8>, Account>,
 
     /// Total supply of the all token.
     pub total_supply: Balance,
@@ -83,7 +89,7 @@ impl FungibleToken {
     pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
         let total_supply = total_supply.into();
         assert!(!env::state_exists(), "Already initialized");
-        let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
+        let mut ft = Self { accounts: LookupMap::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
         ft.set_account(&owner_id, &account);
@@ -238,7 +244,7 @@ impl FungibleToken {
     /// Helper method to set the account details for `owner_id` to the state.
     fn set_account(&mut self, owner_id: &AccountId, account: &Account) {
         let account_hash = env::sha256(owner_id.as_bytes());
-        if account.balance > 0 || !account.allowances.is_empty() {
+        if account.balance > 0 || account.num_allowances > 0 {
             self.accounts.insert(&account_hash, &account);
         } else {
             self.accounts.remove(&account_hash);
@@ -316,18 +322,6 @@ mod tests {
         let contract = FungibleToken::new(bob(), total_supply.into());
         assert_eq!(contract.get_total_supply().0, total_supply);
         assert_eq!(contract.get_balance(bob()).0, total_supply);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_new_twice_fails() {
-        let context = get_context(carol());
-        testing_env!(context);
-        let total_supply = 1_000_000_000_000_000u128;
-        {
-            let _contract = FungibleToken::new(bob(), total_supply.into());
-        }
-        FungibleToken::new(bob(), total_supply.into());
     }
 
     #[test]
@@ -418,7 +412,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "The required attached deposit is 33100000000000000000000, but the given attached deposit is is 0"
+        expected = "The required attached deposit is 12400000000000000000000, but the given attached deposit is is 0"
     )]
     fn test_self_allowance_fail_no_deposit() {
         let mut context = get_context(carol());

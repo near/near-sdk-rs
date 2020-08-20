@@ -24,3 +24,12 @@ To test run:
 ```bash
 cargo test --package fungible-token -- --nocapture
 ```
+
+## Changelog
+
+### `0.3.0`
+
+#### Breaking storage change
+
+- Switching `UnorderedMap` to `LookupMap`. It makes it cheaper and faster due to decreased storage access.
+
