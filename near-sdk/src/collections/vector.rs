@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::collections::{append_slice, next_trie_id};
+use crate::collections::append_slice;
 use crate::env;
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
@@ -253,26 +253,20 @@ impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
     }
 }
 
-impl<T> Default for Vector<T> {
-    fn default() -> Self {
-        Self::new(next_trie_id())
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use borsh::BorshDeserialize;
     use rand::{Rng, SeedableRng};
 
-    use crate::collections::{next_trie_id, Vector};
+    use crate::collections::Vector;
     use crate::test_utils::test_env;
 
     #[test]
     fn test_push_pop() {
         test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        let mut vec = Vector::default();
+        let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
             let value = rng.gen::<u64>();
@@ -290,7 +284,7 @@ mod tests {
     pub fn test_replace() {
         test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
-        let mut vec = Vector::default();
+        let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
             let value = rng.gen::<u64>();
@@ -315,7 +309,7 @@ mod tests {
     pub fn test_swap_remove() {
         test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
-        let mut vec = Vector::default();
+        let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..500 {
             let value = rng.gen::<u64>();
@@ -341,7 +335,7 @@ mod tests {
     pub fn test_clear() {
         test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
-        let mut vec = Vector::default();
+        let mut vec = Vector::new(b"v".to_vec());
         for _ in 0..100 {
             for _ in 0..(rng.gen::<u64>() % 20 + 1) {
                 let value = rng.gen::<u64>();
@@ -357,7 +351,7 @@ mod tests {
     pub fn test_extend() {
         test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        let mut vec = Vector::default();
+        let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
         for _ in 0..100 {
             let value = rng.gen::<u64>();
@@ -382,7 +376,7 @@ mod tests {
     fn test_debug() {
         test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-        let prefix = next_trie_id();
+        let prefix = b"v".to_vec();
         let mut vec = Vector::new(prefix.clone());
         let mut baseline = vec![];
         for _ in 0..10 {
