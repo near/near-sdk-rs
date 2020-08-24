@@ -1,5 +1,22 @@
 # Changelog
 
+## `2.0.0`
+
+### Contract changes
+
+* Updated `status-message-collections` to use `LookupMap`
+* **BREAKING** Updated `fungible-token` implementation to use `LookupMap`. It changes storage layout.
+
+### API changes
+
+* Introduce `LookupMap` and `LookupSet` that are faster implementations of `UnorderedMap` and `UnorderedSet`, but without support for iterators.
+Most read/lookup/write are done in 1 storage access instead of 2 or 3 for `Unordered*` implementations.
+* **BREAKING** `Default` is removed from `near_sdk::collections` to avoid implicit state conflicts.
+Collections should be initialized by explicitly specifying prefix using `new` method.
+* **BREAKING** `TreeMap` implementation was updated to use `LookupMap`.
+Previous `TreeMap` implementation was renamed to `LegacyTreeMap` and was deprecated.
+It should only be used if the contract was already deployed and state has to be compatible with the previous implementation.
+
 ## `1.0.1`
 
 ### Other changes
