@@ -554,9 +554,9 @@ where
     }
 
     // Move content of node with id = `len - 1` (parent left or right link, left, right, key, height)
-    // to node with give `id`, and remove node `len - 1` (pop the vector of nodes).
-    // This ensures that among n nodes in the tree, max id is n-1, so when new node is inserted,
-    // it gets and id as it's position in the vector.
+    // to node with given `id`, and remove node `len - 1` (pop the vector of nodes).
+    // This ensures that among `n` nodes in the tree, max `id` is `n-1`, so when new node is inserted,
+    // it gets an `id` as its position in the vector.
     fn swap_with_last(&mut self, id: u64) {
         if id == self.len() - 1 {
             // noop: id is already last element in the vector
