@@ -5,6 +5,7 @@ use syn::ReturnType;
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
+    #[cfg(not(feature = "simulation"))]
     pub fn method_wrapper(&self) -> TokenStream2 {
         let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
         // Args provided by `env::input()`.
@@ -142,6 +143,77 @@ impl ImplItemMethodInfo {
                 #callback_deser
                 #callback_vec_deser
                 #body
+            }
+        }
+    }
+
+    #[cfg(feature = "simulation")]
+    pub fn method_wrapper(&self) -> TokenStream2 {
+        let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
+        // Args provided by `env::input()`.
+        let has_input_args = attr_signature_info.input_args().next().is_some();
+
+        let panic_hook = quote! {
+            near_sdk::env::setup_panic_hook();
+        };
+        let env_creation = quote! {
+            near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+        };
+        let pat_type_list = attr_signature_info.pat_type_list();
+        let arg_struct;
+        let arg_parsing;
+        let mut json_args = quote! {
+
+        };
+        if has_input_args {
+            let args: TokenStream2 = attr_signature_info.input_args().fold(None, |acc: Option<TokenStream2>, value| {
+                let ident = &value.ident;
+                let ident_str = format!("{}", ident.to_string());
+                Some(match acc {
+                    None => quote! { #ident_str: #ident },
+                    Some(a) => quote! { #a, #ident_str: #ident }
+                })
+            }).unwrap();
+            json_args = quote! {
+              let args = near_sdk::serde_json::json!({#args});
+            };
+            println!("{}", json_args);
+            
+        } else {
+            arg_struct = TokenStream2::new();
+            arg_parsing = TokenStream2::new();
+        };
+
+        let AttrSigInfo {
+            non_bindgen_attrs,
+            ident,
+            // receiver,
+            // returns,
+            // result_serializer,
+            // is_init,
+            is_view,
+            ..
+        } = attr_signature_info;
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
+        // let func_name = if *is_view {
+        //     quote! {
+        //         view
+        //     }
+        // } else {
+        //     quote! {
+        //         call
+        //     }
+        // };
+        quote! {
+            #non_bindgen_attrs
+            #[cfg(not(target_arch = "wasm32"))]
+            pub fn #ident(#pat_type_list __account_id: &AccountId, __balance: near_sdk::Balance, __gas: near_sdk::Gas) {
+                #json_args
             }
         }
     }

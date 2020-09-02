@@ -21,3 +21,6 @@ overflow-checks = true
 
 [workspace]
 members = []
+
+[features]
+simulation = ["near-sdk/simulation"]

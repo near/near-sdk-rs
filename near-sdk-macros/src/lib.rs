@@ -1,25 +1,50 @@
+// #![feature(trace_macros)]
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-
+// trace_macros!(true);
 use near_sdk_core::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
-use syn::{File, ItemImpl, ItemStruct, ItemTrait};
+use syn::{File, ItemImpl, ItemStruct, ItemTrait, Type, TypePath, Path, PathSegment};
+use syn::export::TokenStream2;
+use syn::punctuated::Punctuated;
 
 #[proc_macro_attribute]
+#[cfg(any(not(test), feature="simulation"))]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let sys_file = rust_file(include_bytes!("../res/sys.rs"));
-        let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
-        TokenStream::from(quote! {
-            #input
-            #sys_file
-            #near_environment
-        })
+        #[cfg(not(feature = "simulation"))]
+        {
+            let sys_file = rust_file(include_bytes!("../res/sys.rs"));
+            let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
+            TokenStream::from(quote! {
+                        #input
+                        #sys_file
+                        #near_environment
+            })
+        }
+        #[cfg(feature = "simulation")]
+        {
+            let ItemStruct { ident, attrs, .. } = input;
+            println!("Struct {} ", ident);
+            let non_bindgen_attrs = attrs.iter().fold(TokenStream2::new(), |acc, value| {
+                quote! {
+                #acc
+                #value
+            }
+            });
+            TokenStream::from(quote! {
+                        #non_bindgen_attrs
+                        struct #ident {
+                        contract_id: String
+                        }
+            })
+        }
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
@@ -27,10 +52,38 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         };
         let generated_code = item_impl_info.wrapper_code();
-        TokenStream::from(quote! {
-            #input
-            #generated_code
-        })
+        #[cfg(not(feature = "simulation"))]
+        {
+            println!("hello I shouldn't be here");
+            TokenStream::from(quote! {
+                #input
+                #generated_code
+            })
+        }
+        #[cfg(feature = "simulation")]
+        {
+            let ItemImpl { self_ty, .. } = input;
+            let syn::Path {segments, ..} = match self_ty.as_ref() {
+                Type::Path(TypePath {
+                               path,..
+                           }) => path,
+                _ => {
+                    return TokenStream::from(
+                        syn::Error::new(
+                            Span::call_site(),
+                            "Error parsing impl.",
+                        )
+                            .to_compile_error(),
+                    )
+                }
+            };
+            let PathSegment {ident, ..} = segments.first().unwrap();
+            TokenStream::from(quote! {
+                impl #ident {
+                   #generated_code
+                }
+            })
+        }
     } else {
         TokenStream::from(
             syn::Error::new(
@@ -40,6 +93,12 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
+}
+
+#[proc_macro_attribute]
+#[cfg(all(test, not(feature = "simulation")))]
+pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
 }
 
 fn rust_file(data: &[u8]) -> File {
