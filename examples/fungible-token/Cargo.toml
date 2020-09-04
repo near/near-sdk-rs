@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk" }
+near-sdk-sim = { path = "../../near-sdk-sim" }
 
 [profile.release]
 codegen-units = 1

@@ -2,18 +2,15 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
-use proc_macro::TokenStream;
-// trace_macros!(true);
 use near_sdk_core::*;
+use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
-use syn::{File, ItemImpl, ItemStruct, ItemTrait, Type, TypePath, Path, PathSegment};
-use syn::export::TokenStream2;
-use syn::punctuated::Punctuated;
+use syn::{File, ItemImpl, ItemStruct, ItemTrait};
 
 #[proc_macro_attribute]
-#[cfg(any(not(test), feature="simulation"))]
+#[cfg(any(not(test), feature = "simulation"))]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         #[cfg(not(feature = "simulation"))]
@@ -28,23 +25,9 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
         #[cfg(feature = "simulation")]
         {
-            let ItemStruct { ident, attrs, .. } = input;
-            println!("Struct {} ", ident);
-            let non_bindgen_attrs = attrs.iter().fold(TokenStream2::new(), |acc, value| {
-                quote! {
-                #acc
-                #value
-            }
-            });
-            TokenStream::from(quote! {
-                        #non_bindgen_attrs
-                        struct #ident {
-                        contract_id: String
-                        }
-            })
+            TokenStream::from(generate_struct(input))
         }
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
@@ -54,7 +37,6 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let generated_code = item_impl_info.wrapper_code();
         #[cfg(not(feature = "simulation"))]
         {
-            println!("hello I shouldn't be here");
             TokenStream::from(quote! {
                 #input
                 #generated_code
@@ -62,22 +44,8 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
         #[cfg(feature = "simulation")]
         {
-            let ItemImpl { self_ty, .. } = input;
-            let syn::Path {segments, ..} = match self_ty.as_ref() {
-                Type::Path(TypePath {
-                               path,..
-                           }) => path,
-                _ => {
-                    return TokenStream::from(
-                        syn::Error::new(
-                            Span::call_site(),
-                            "Error parsing impl.",
-                        )
-                            .to_compile_error(),
-                    )
-                }
-            };
-            let PathSegment {ident, ..} = segments.first().unwrap();
+            use syn::export::ToTokens;
+            let ident = input.self_ty.to_token_stream();
             TokenStream::from(quote! {
                 impl #ident {
                    #generated_code

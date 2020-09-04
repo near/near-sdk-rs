@@ -1,6 +1,9 @@
-use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
+use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo};
+#[cfg(not(features = "simulation"))]
+use crate::{InputStructType, SerializerType};
 use quote::quote;
 use syn::export::TokenStream2;
+#[cfg(not(features = "simulation"))]
 use syn::ReturnType;
 
 impl ImplItemMethodInfo {
@@ -149,71 +152,93 @@ impl ImplItemMethodInfo {
 
     #[cfg(feature = "simulation")]
     pub fn method_wrapper(&self) -> TokenStream2 {
+        use syn::export::ToTokens;
         let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
-        // Args provided by `env::input()`.
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
-        let panic_hook = quote! {
-            near_sdk::env::setup_panic_hook();
-        };
-        let env_creation = quote! {
-            near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-        };
         let pat_type_list = attr_signature_info.pat_type_list();
-        let arg_struct;
-        let arg_parsing;
-        let mut json_args = quote! {
-
-        };
-        if has_input_args {
-            let args: TokenStream2 = attr_signature_info.input_args().fold(None, |acc: Option<TokenStream2>, value| {
-                let ident = &value.ident;
-                let ident_str = format!("{}", ident.to_string());
-                Some(match acc {
-                    None => quote! { #ident_str: #ident },
-                    Some(a) => quote! { #a, #ident_str: #ident }
+        let mut json_args = if has_input_args {
+            let args: TokenStream2 = attr_signature_info
+                .input_args()
+                .fold(None, |acc: Option<TokenStream2>, value| {
+                    let ident = &value.ident;
+                    let ident_str = format!("{}", ident.to_string());
+                    Some(match acc {
+                        None => quote! { #ident_str: #ident },
+                        Some(a) => quote! { #a, #ident_str: #ident },
+                    })
                 })
-            }).unwrap();
-            json_args = quote! {
+                .unwrap();
+            quote! {
               let args = near_sdk::serde_json::json!({#args});
-            };
-            println!("{}", json_args);
-            
+            }
         } else {
-            arg_struct = TokenStream2::new();
-            arg_parsing = TokenStream2::new();
+            quote! {
+             let args = near_sdk::serde_json::json!({});
+            }
         };
 
         let AttrSigInfo {
             non_bindgen_attrs,
             ident,
             // receiver,
-            // returns,
+            returns,
             // result_serializer,
-            // is_init,
+            is_init,
             is_view,
+            // original_sig,
             ..
         } = attr_signature_info;
+        let mut return_ident = returns.to_token_stream();
         let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
             quote! {
                 #acc
                 #value
             }
         });
-        // let func_name = if *is_view {
-        //     quote! {
-        //         view
-        //     }
-        // } else {
-        //     quote! {
-        //         call
-        //     }
-        // };
+        let mut params = quote! {
+            &mut self, #pat_type_list __runtime: &mut near_sdk_sim::TestRuntime, __signer_id: &AccountId, __balance: near_sdk::Balance
+        };
+        let ident_str = format!("{}", ident.to_string());
+        let body = match (*is_view, *is_init) {
+            // View Method
+            (true, _) => {
+                params = quote! { &self, #pat_type_list __runtime: &mut near_sdk_sim::TestRuntime };
+                quote! {
+                    near_sdk::serde_json::from_value(__runtime.view(self.contract_id.clone(), #ident_str, args)).unwrap()
+                }
+            }
+            // Normal Change Method
+            (_, false) => {
+                return_ident = quote! { -> near_sdk_sim::test_user::TxResult };
+                quote! {
+                  __runtime.call(__signer_id.clone(), self.contract_id.clone(), #ident_str, args, __balance.clone())
+                }
+            }
+            // Init Change Method
+            (_, _) => {
+                params = quote! {
+                    #pat_type_list __runtime: &mut near_sdk_sim::TestRuntime, __signer_id: &AccountId, __contract_id: &AccountId, __bytes: &[u8]
+                };
+                quote! {
+                    let _ = __runtime
+                    .deploy(__signer_id.clone(), __contract_id.clone(), __bytes, args)
+                    .unwrap();
+                    unsafe {
+                        let layout = std::alloc::Layout::new::<#struct_type>();
+                        let res = std::alloc::alloc_zeroed(layout) as *mut #struct_type;
+                        (*res).contract_id = __contract_id.clone();
+                        std::mem::transmute_copy(res.as_ref().unwrap())
+                    }
+                }
+            }
+        };
         quote! {
             #non_bindgen_attrs
             #[cfg(not(target_arch = "wasm32"))]
-            pub fn #ident(#pat_type_list __account_id: &AccountId, __balance: near_sdk::Balance, __gas: near_sdk::Gas) {
+            pub fn #ident(#params) #return_ident {
                 #json_args
+                #body
             }
         }
     }

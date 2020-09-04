@@ -1,3 +1,5 @@
+pub mod context;
+
 pub(crate) mod test_env {
     use crate::{env, MockedBlockchain};
     use near_vm_logic::types::AccountId;
