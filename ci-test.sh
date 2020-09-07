@@ -1,4 +1,5 @@
 #!/bin/bash
+
 if [[ "${NEAR_RELEASE}" == "true" ]]; then
     echo "Test with release version of borsh and near-vm-logic"
     sed -n '/^borsh/p' near-sdk/Cargo.toml 
