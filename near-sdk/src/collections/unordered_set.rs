@@ -1,6 +1,6 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
-use crate::collections::{next_trie_id, Vector};
+use crate::collections::{append, append_slice, Vector};
 use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
@@ -10,32 +10,26 @@ const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
 
 /// An iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Set<T> {
+pub struct UnorderedSet<T> {
     element_index_prefix: Vec<u8>,
     elements: Vector<T>,
 }
 
-impl<T> Default for Set<T> {
-    fn default() -> Self {
-        Self::new(next_trie_id())
-    }
-}
-
-impl<T> Set<T> {
+impl<T> UnorderedSet<T> {
     /// Returns the number of elements in the set, also referred to as its size.
     pub fn len(&self) -> u64 {
         self.elements.len()
     }
 
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
     /// Create new map with zero elements. Use `id` as a unique identifier.
     pub fn new(id: Vec<u8>) -> Self {
-        let mut element_index_prefix = Vec::with_capacity(id.len() + 1);
-        element_index_prefix.extend(&id);
-        element_index_prefix.push(b'i');
-
-        let mut elements_prefix = Vec::with_capacity(id.len() + 1);
-        elements_prefix.extend(&id);
-        elements_prefix.push(b'e');
+        let element_index_prefix = append(&id, b'i');
+        let elements_prefix = append(&id, b'e');
 
         Self { element_index_prefix, elements: Vector::new(elements_prefix) }
     }
@@ -51,10 +45,7 @@ impl<T> Set<T> {
     }
 
     fn raw_element_to_index_lookup(&self, element_raw: &[u8]) -> Vec<u8> {
-        let mut res = Vec::with_capacity(self.element_index_prefix.len() + element_raw.len());
-        res.extend_from_slice(&self.element_index_prefix);
-        res.extend_from_slice(&element_raw);
-        res
+        append_slice(&self.element_index_prefix, element_raw)
     }
 
     /// Returns true if the set contains a serialized element.
@@ -115,7 +106,7 @@ impl<T> Set<T> {
     }
 }
 
-impl<T> Set<T>
+impl<T> UnorderedSet<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -178,64 +169,19 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::collections::Set;
-    use crate::{env, MockedBlockchain};
-    use near_vm_logic::types::AccountId;
-    use near_vm_logic::VMContext;
+    use crate::collections::UnorderedSet;
+    use crate::test_utils::test_env;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashSet;
     use std::iter::FromIterator;
 
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
-    fn set_env() {
-        let context = VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: carol(),
-            input: vec![],
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view: false,
-            output_data_receivers: vec![],
-            epoch_height: 0,
-        };
-        let storage = match env::take_blockchain_interface() {
-            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-            None => Default::default(),
-        };
-        env::set_blockchain_interface(Box::new(MockedBlockchain::new(
-            context,
-            Default::default(),
-            Default::default(),
-            vec![],
-            storage,
-            None,
-        )));
-    }
-
     #[test]
     pub fn test_insert() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>();
             set.insert(&key);
         }
@@ -243,8 +189,8 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         for _ in 0..100 {
@@ -260,8 +206,8 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let key1 = 1u64;
         set.insert(&key1);
         let key2 = 2u64;
@@ -276,8 +222,8 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         for _ in 0..100 {
@@ -297,16 +243,16 @@ mod tests {
 
     #[test]
     pub fn test_contains_non_existent() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set_tmp = HashSet::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>() % 20_000;
             set_tmp.insert(key);
             set.insert(&key);
         }
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>() % 20_000;
             assert_eq!(set.contains(&key), set_tmp.contains(&key));
         }
@@ -314,11 +260,11 @@ mod tests {
 
     #[test]
     pub fn test_to_vec() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>();
             keys.insert(key);
             set.insert(&key);
@@ -329,8 +275,8 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
@@ -345,11 +291,11 @@ mod tests {
 
     #[test]
     pub fn test_iter() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
-        for _ in 0..1000 {
+        for _ in 0..500 {
             let key = rng.gen::<u64>();
             keys.insert(key);
             set.insert(&key);
@@ -360,8 +306,8 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        set_env();
-        let mut set = Set::default();
+        test_env::setup();
+        let mut set = UnorderedSet::new(b"s".to_vec());
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..100 {
@@ -369,7 +315,7 @@ mod tests {
             keys.insert(key);
             set.insert(&key);
         }
-        for _ in 0..100 {
+        for _ in 0..10 {
             let mut tmp = vec![];
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
                 let key = rng.gen::<u64>();

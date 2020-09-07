@@ -1,4 +1,4 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
     //    callback,
     //    callback_vec,
@@ -10,10 +10,10 @@ use near_sdk::{
 };
 
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 // Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: u64 = 200000000000000;
+const SINGLE_CALL_GAS: u64 = 200_000_000_000_000;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]

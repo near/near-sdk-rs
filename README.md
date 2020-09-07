@@ -13,8 +13,9 @@
   <p>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
+    <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg" alt="Reference Documentation" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
-    <a href="https://travis-ci.com/near/near-sdk-rs"><img src="https://travis-ci.com/near/near-sdk-rs.svg?branch=master" alt="Travis Build" /></a>
+    <a href="https://buildkite.com/nearprotocol/near-sdk-rs"><img src="https://badge.buildkite.com/3bdfe06edbbfe67700833f865fe573b9ac6db517392bfc97dc.svg" alt="Buildkite Build" /></a>
   </p>
 
    <h3>
@@ -25,6 +26,8 @@
       <a href="https://github.com/near/near-sdk-rs#writing-rust-contract">Writing Rust Contract</a>
       <span> | </span>
       <a href="https://github.com/near/near-sdk-rs#building-rust-contract">Building Rust Contract</a>
+      <span> | </span>
+      <a href="https://docs.rs/near-sdk">Reference Documentation</a>
     </h3>
 </div>
 
@@ -32,6 +35,8 @@
 
 Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
+use near_sdk::{near_bindgen, env};
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
@@ -106,6 +111,17 @@ impl Default for StatusMessage {
 }
 ```
 
+* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call. 
+
+To declare a payable method simply use `#[payable]` decorator:
+```rust
+
+#[payable]
+pub fn my_method(&mut self) {
+...
+}
+```
+
 
 ## Pre-requisites
 To develop Rust contracts you would need to:
@@ -130,6 +146,8 @@ The general workflow is the following:
 
    Here is an example of a smart contract struct:
    ```rust
+   use near_sdk::{near_bindgen, env};
+   
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
@@ -161,3 +179,7 @@ We can build the contract using rustc:
 ```bash
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
+
+## License
+This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
+See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.

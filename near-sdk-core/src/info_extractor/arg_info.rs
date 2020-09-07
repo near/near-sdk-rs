@@ -46,14 +46,14 @@ impl ArgInfo {
         let ident;
         match original.pat.as_ref() {
             Pat::Ident(pat_ident) => {
-                pat_reference = pat_ident.by_ref.clone();
-                pat_mutability = pat_ident.mutability.clone();
+                pat_reference = pat_ident.by_ref;
+                pat_mutability = pat_ident.mutability;
                 ident = pat_ident.ident.clone();
             }
             _ => {
                 return Err(Error::new(
                     Span::call_site(),
-                    format!("Only identity patterns are supported in function arguments."),
+                    "Only identity patterns are supported in function arguments.",
                 ));
             }
         };
@@ -61,10 +61,8 @@ impl ArgInfo {
             x @ Type::Array(_) | x @ Type::Path(_) | x @ Type::Tuple(_) => {
                 (None, None, (*x).clone())
             }
-            Type::Reference(r) => {
-                (Some(r.and_token.clone()), r.mutability.clone(), (*r.elem.as_ref()).clone())
-            }
-            _ => return Err(Error::new(Span::call_site(), format!("Unsupported argument type."))),
+            Type::Reference(r) => (Some(r.and_token), r.mutability, (*r.elem.as_ref()).clone()),
+            _ => return Err(Error::new(Span::call_site(), "Unsupported argument type.")),
         };
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;

@@ -1,11 +1,11 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, metadata, near_bindgen};
 use std::collections::HashMap;
 
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
-metadata!{
+metadata! {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
@@ -14,6 +14,7 @@ pub struct StatusMessage {
 
 #[near_bindgen]
 impl StatusMessage {
+    #[payable]
     pub fn set_status(&mut self, message: String) {
         env::log(b"A");
         let account_id = env::signer_account_id();
@@ -21,6 +22,10 @@ impl StatusMessage {
     }
 
     pub fn get_status(&self, account_id: String) -> Option::<String> {
+        assert!(
+            env::is_valid_account_id(account_id.as_bytes()),
+            "Given account ID is invalid"
+        );
         env::log(b"A");
         self.records.get(&account_id).cloned()
     }

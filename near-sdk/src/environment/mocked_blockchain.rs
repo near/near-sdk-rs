@@ -2,7 +2,7 @@ use crate::environment::blockchain_interface::BlockchainInterface;
 use near_runtime_fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
-use near_vm_logic::types::PromiseResult;
+use near_vm_logic::types::{PromiseResult, AccountId, Balance};
 use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic, VMOutcome};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,6 +22,7 @@ pub struct MockedBlockchain {
 struct LogicFixture {
     ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
+    #[allow(clippy::box_vec)]
     promise_results: Box<Vec<PromiseResult>>,
     config: Box<VMConfig>,
     fees_config: Box<RuntimeFeesConfig>,
@@ -34,10 +35,12 @@ impl MockedBlockchain {
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
+        validators: HashMap<AccountId, Balance>,
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
+        ext.validators = validators;
         let memory = memory_opt.unwrap_or(Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
@@ -53,6 +56,7 @@ impl MockedBlockchain {
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
+                None,
             )
         };
 
@@ -61,7 +65,7 @@ impl MockedBlockchain {
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
-        std::mem::replace(&mut self.logic_fixture.ext.fake_trie, Default::default())
+        std::mem::take(&mut self.logic_fixture.ext.fake_trie)
     }
 
     pub fn created_receipts(&self) -> &Vec<Receipt> {
@@ -411,6 +415,14 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
         self.logic.borrow_mut().storage_has_key(key_len, key_ptr).unwrap()
+    }
+
+    unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
+        self.logic.borrow_mut().validator_stake(account_id_len, account_id_ptr, stake_ptr).unwrap();
+    }
+
+    unsafe fn validator_total_stake(&self, stake_ptr: u64) {
+        self.logic.borrow_mut().validator_total_stake(stake_ptr).unwrap();
     }
 
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {

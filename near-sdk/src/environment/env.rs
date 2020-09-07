@@ -3,7 +3,11 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use crate::environment::blockchain_interface::BlockchainInterface;
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::mem::size_of;
+use std::panic as std_panic;
+
 use near_vm_logic::{
     mocks::mock_external::Receipt,
     types::{
@@ -11,9 +15,7 @@ use near_vm_logic::{
     },
 };
 
-use std::cell::RefCell;
-use std::mem::size_of;
-use std::panic as std_panic;
+use crate::environment::blockchain_interface::BlockchainInterface;
 
 thread_local! {
 /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
@@ -39,6 +41,11 @@ const EVICTED_REGISTER: u64 = std::u64::MAX - 1;
 
 /// Key used to store the state of the contract.
 const STATE_KEY: &[u8] = b"STATE";
+
+/// The minimum length of a valid account ID.
+const MIN_ACCOUNT_ID_LEN: u64 = 2;
+/// The maximum length of a valid account ID.
+const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
@@ -130,6 +137,7 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
     });
     Some(res)
 }
+
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
     let len = BLOCKCHAIN_INTERFACE.with(|b| unsafe {
@@ -149,6 +157,7 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 pub fn current_account_id() -> AccountId {
     String::from_utf8(method_into_register!(current_account_id)).unwrap()
 }
+
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
 pub fn signer_account_id() -> AccountId {
@@ -159,15 +168,18 @@ pub fn signer_account_id() -> AccountId {
 pub fn signer_account_pk() -> PublicKey {
     method_into_register!(signer_account_pk)
 }
+
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
 pub fn predecessor_account_id() -> String {
     String::from_utf8(method_into_register!(predecessor_account_id)).unwrap()
 }
+
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
 pub fn input() -> Option<Vec<u8>> {
     try_method_into_register!(input)
 }
+
 /// Current block index.
 pub fn block_index() -> BlockHeight {
     unsafe {
@@ -175,6 +187,7 @@ pub fn block_index() -> BlockHeight {
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
     }
 }
+
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp() -> u64 {
     unsafe {
@@ -183,6 +196,7 @@ pub fn block_timestamp() -> u64 {
         })
     }
 }
+
 /// Current epoch height.
 pub fn epoch_height() -> u64 {
     unsafe {
@@ -190,6 +204,7 @@ pub fn epoch_height() -> u64 {
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).epoch_height())
     }
 }
+
 /// Current total storage usage of this smart contract that this account would be paying for.
 pub fn storage_usage() -> StorageUsage {
     unsafe {
@@ -215,6 +230,7 @@ pub fn account_balance() -> Balance {
     };
     Balance::from_le_bytes(data)
 }
+
 /// The balance locked for potential validator staking.
 pub fn account_locked_balance() -> Balance {
     let data = [0u8; size_of::<Balance>()];
@@ -228,6 +244,7 @@ pub fn account_locked_balance() -> Balance {
     };
     Balance::from_le_bytes(data)
 }
+
 /// The balance that was attached to the call that will be immediately deposited before the
 /// contract execution starts
 pub fn attached_deposit() -> Balance {
@@ -242,6 +259,7 @@ pub fn attached_deposit() -> Balance {
     };
     Balance::from_le_bytes(data)
 }
+
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
     unsafe {
@@ -249,6 +267,7 @@ pub fn prepaid_gas() -> Gas {
             .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).prepaid_gas())
     }
 }
+
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
     unsafe {
@@ -264,6 +283,7 @@ pub fn used_gas() -> Gas {
 pub fn random_seed() -> Vec<u8> {
     method_into_register!(random_seed)
 }
+
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     unsafe {
@@ -277,6 +297,7 @@ pub fn sha256(value: &[u8]) -> Vec<u8> {
     };
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
+
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
     unsafe {
@@ -290,6 +311,7 @@ pub fn keccak256(value: &[u8]) -> Vec<u8> {
     };
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
+
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
     unsafe {
@@ -332,6 +354,7 @@ pub fn promise_create(
         })
     }
 }
+
 /// Attaches the callback that is executed after promise pointed by `promise_idx` is complete.
 pub fn promise_then(
     promise_idx: PromiseIndex,
@@ -358,6 +381,7 @@ pub fn promise_then(
         })
     }
 }
+
 /// Creates a new promise which completes when time all promises passed as arguments complete.
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; promise_indices.len() * size_of::<PromiseIndex>()];
@@ -374,7 +398,9 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
         })
     }
 }
-pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
+
+pub fn promise_batch_create<A: Borrow<AccountId>>(account_id: A) -> PromiseIndex {
+    let account_id = account_id.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -384,7 +410,12 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
         })
     }
 }
-pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
+
+pub fn promise_batch_then<A: Borrow<AccountId>>(
+    promise_index: PromiseIndex,
+    account_id: A,
+) -> PromiseIndex {
+    let account_id = account_id.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
@@ -395,6 +426,7 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
         })
     }
 }
+
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
@@ -405,6 +437,7 @@ pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
         })
     }
 }
+
 pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
@@ -419,6 +452,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
         })
     }
 }
+
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
     method_name: &[u8],
@@ -443,6 +477,7 @@ pub fn promise_batch_action_function_call(
         })
     }
 }
+
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
@@ -453,11 +488,13 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balanc
         })
     }
 }
-pub fn promise_batch_action_stake(
+
+pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
     promise_index: PromiseIndex,
     amount: Balance,
-    public_key: &PublicKey,
+    public_key: P,
 ) {
+    let public_key = public_key.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_action_stake(
@@ -469,11 +506,12 @@ pub fn promise_batch_action_stake(
         })
     }
 }
-pub fn promise_batch_action_add_key_with_full_access(
+pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
     promise_index: PromiseIndex,
-    public_key: &PublicKey,
+    public_key: P,
     nonce: u64,
 ) {
+    let public_key = public_key.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -488,14 +526,19 @@ pub fn promise_batch_action_add_key_with_full_access(
         })
     }
 }
-pub fn promise_batch_action_add_key_with_function_call(
+pub fn promise_batch_action_add_key_with_function_call<
+    P: Borrow<PublicKey>,
+    A: Borrow<AccountId>,
+>(
     promise_index: PromiseIndex,
-    public_key: &PublicKey,
+    public_key: P,
     nonce: u64,
     allowance: Balance,
-    receiver_id: &AccountId,
+    receiver_id: A,
     method_names: &[u8],
 ) {
+    let public_key = public_key.borrow();
+    let receiver_id = receiver_id.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -515,7 +558,11 @@ pub fn promise_batch_action_add_key_with_function_call(
         })
     }
 }
-pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
+pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
+    promise_index: PromiseIndex,
+    public_key: P,
+) {
+    let public_key = public_key.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -529,10 +576,12 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
         })
     }
 }
-pub fn promise_batch_action_delete_account(
+
+pub fn promise_batch_action_delete_account<A: Borrow<AccountId>>(
     promise_index: PromiseIndex,
-    beneficiary_id: &AccountId,
+    beneficiary_id: A,
 ) {
+    let beneficiary_id = beneficiary_id.borrow();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -586,6 +635,38 @@ pub fn promise_return(promise_idx: PromiseIndex) {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_return(promise_idx)
         })
     }
+}
+
+// ###############
+// # Validator API #
+// ###############
+
+/// For a given account return its current stake. If the account is not a validator, returns 0.
+pub fn validator_stake(account_id: &AccountId) -> Balance {
+    let data = [0u8; size_of::<Balance>()];
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
+        })
+    };
+    Balance::from_le_bytes(data)
+}
+
+/// Returns the total stake of validators in the current epoch.
+pub fn validator_total_stake() -> Balance {
+    let data = [0u8; size_of::<Balance>()];
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .validator_total_stake(data.as_ptr() as u64)
+        })
+    };
+    Balance::from_le_bytes(data)
 }
 
 // #####################
@@ -700,6 +781,18 @@ pub fn storage_has_key(key: &[u8]) -> bool {
         _ => panic!(RETURN_CODE_ERR),
     }
 }
+/// Accessing receipts created by the contract. Only available in unit tests.
+pub fn created_receipts() -> Vec<Receipt> {
+    BLOCKCHAIN_INTERFACE.with(|b| {
+        b.borrow()
+            .as_ref()
+            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+            .as_mocked_blockchain()
+            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
+            .created_receipts()
+            .clone()
+    })
+}
 
 // ############################################
 // # Saving and loading of the contract state #
@@ -715,15 +808,130 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
     storage_write(STATE_KEY, &data);
 }
 
-/// Accessing receipts created by the contract. Only available in unit tests.
-pub fn created_receipts() -> Vec<Receipt> {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        b.borrow()
-            .as_ref()
-            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-            .as_mocked_blockchain()
-            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
-            .created_receipts()
-            .clone()
-    })
+/// Returns `true` if the contract state exists and `false` otherwise.
+pub fn state_exists() -> bool {
+    storage_has_key(STATE_KEY)
+}
+
+// ##################
+// # Helper methods #
+// ##################
+
+/// Returns `true` if the given account ID is valid and `false` otherwise.
+pub fn is_valid_account_id(account_id: &[u8]) -> bool {
+    if (account_id.len() as u64) < MIN_ACCOUNT_ID_LEN
+        || (account_id.len() as u64) > MAX_ACCOUNT_ID_LEN
+    {
+        return false;
+    }
+
+    // NOTE: We don't want to use Regex here, because it requires extra time to compile it.
+    // The valid account ID regex is /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
+    // Instead the implementation is based on the previous character checks.
+
+    // We can safely assume that last char was a separator.
+    let mut last_char_is_separator = true;
+
+    for c in account_id {
+        let current_char_is_separator = match *c {
+            b'a'..=b'z' | b'0'..=b'9' => false,
+            b'-' | b'_' | b'.' => true,
+            _ => return false,
+        };
+        if current_char_is_separator && last_char_is_separator {
+            return false;
+        }
+        last_char_is_separator = current_char_is_separator;
+    }
+    // The account can't end as separator.
+    !last_char_is_separator
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_valid_account_id_strings() {
+        // Valid
+        for account_id in &[
+            "aa",
+            "a-a",
+            "a-aa",
+            "100",
+            "0o",
+            "com",
+            "near",
+            "bowen",
+            "b-o_w_e-n",
+            "b.owen",
+            "bro.wen",
+            "a.ha",
+            "a.b-a.ra",
+            "system",
+            "over.9000",
+            "google.com",
+            "illia.cheapaccounts.near",
+            "0o0ooo00oo00o",
+            "alex-skidanov",
+            "10-4.8-2",
+            "b-o_w_e-n",
+            "no_lols",
+            "0123456789012345678901234567890123456789012345678901234567890123",
+            // Valid, but can't be created
+            "near.a",
+            "a.a",
+        ] {
+            assert!(
+                is_valid_account_id(account_id.as_ref()),
+                "Valid account id {:?} marked invalid",
+                account_id
+            );
+        }
+
+        // Invalid
+        for account_id in &[
+            "",
+            "a",
+            "A",
+            "Abc",
+            "-near",
+            "near-",
+            "-near-",
+            "near.",
+            ".near",
+            "near@",
+            "@near",
+            "неар",
+            "@@@@@",
+            "0__0",
+            "0_-_0",
+            "0_-_0",
+            "..",
+            "a..near",
+            "nEar",
+            "_bowen",
+            "hello world",
+            "abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz",
+            "01234567890123456789012345678901234567890123456789012345678901234",
+            // `@` separators are banned now
+            "some-complex-address@gmail.com",
+            "sub.buy_d1gitz@atata@b0-rg.c_0_m",
+        ] {
+            assert!(
+                !is_valid_account_id(account_id.as_ref()),
+                "Invalid account id {:?} marked valid",
+                account_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_valid_account_id_binary() {
+        assert!(!is_valid_account_id(&[]));
+        assert!(!is_valid_account_id(&[0]));
+        assert!(!is_valid_account_id(&[0, 1]));
+        assert!(!is_valid_account_id(&[0, 1, 2]));
+        assert!(is_valid_account_id(b"near"));
+    }
 }

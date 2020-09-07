@@ -1,4 +1,4 @@
-use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, SerializerType};
+use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::ReturnType;
@@ -19,18 +19,18 @@ impl ImplItemMethodInfo {
         let arg_struct;
         let arg_parsing;
         if has_input_args {
-            arg_struct = attr_signature_info.input_struct();
+            arg_struct = attr_signature_info.input_struct(InputStructType::Deserialization);
             let decomposition = attr_signature_info.decomposition_pattern();
             let serializer_invocation = match attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
-                ).expect("Failed to deserialize input from JSON.")
+                    near_sdk::serde_json::from_slice(
+                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    ).expect("Failed to deserialize input from JSON.")
                 },
                 SerializerType::Borsh => quote! {
-                borsh::BorshDeserialize::try_from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
-                ).expect("Failed to deserialize input from Borsh.")
+                    near_sdk::borsh::BorshDeserialize::try_from_slice(
+                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    ).expect("Failed to deserialize input from Borsh.")
                 },
             };
             arg_parsing = quote! {
@@ -53,10 +53,11 @@ impl ImplItemMethodInfo {
             result_serializer,
             is_init,
             is_payable,
+            is_view,
             ..
         } = attr_signature_info;
-        let deposit_check = if *is_payable {
-            // No check if method is payable
+        let deposit_check = if *is_payable || *is_view {
+            // No check if the method is payable or a view method
             quote! {}
         } else {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
@@ -77,14 +78,13 @@ impl ImplItemMethodInfo {
             let contract_ser;
             if let Some(receiver) = receiver {
                 let mutability = &receiver.mutability;
-                let reference = &receiver.reference;
                 contract_deser = quote! {
                     let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
                 };
                 method_invocation = quote! {
                     contract.#ident(#arg_list)
                 };
-                if mutability.is_some() && reference.is_some() {
+                if !is_view {
                     contract_ser = quote! {
                         near_sdk::env::state_write(&contract);
                     };
@@ -107,10 +107,10 @@ impl ImplItemMethodInfo {
                 ReturnType::Type(_, _) => {
                     let value_ser = match result_serializer {
                         SerializerType::JSON => quote! {
-                            let result = serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                         },
                         SerializerType::Borsh => quote! {
-                            let result = borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
                         },
                     };
                     quote! {
@@ -123,13 +123,12 @@ impl ImplItemMethodInfo {
                 }
             }
         };
-        let non_bindgen_attrs =
-            non_bindgen_attrs.into_iter().fold(TokenStream2::new(), |acc, value| {
-                quote! {
-                    #acc
-                    #value
-                }
-            });
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]

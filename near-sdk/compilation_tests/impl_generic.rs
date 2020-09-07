@@ -1,7 +1,7 @@
 //! Impl block has type parameters.
 
-use near_sdk::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near_bindgen;
 use std::marker::PhantomData;
 
 #[near_bindgen]
