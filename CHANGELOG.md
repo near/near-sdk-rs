@@ -2,7 +2,7 @@
 
 ## `Pending`
 
-* Introduced `#[private]` method macro, that verifies `predecessor_account_id() == current_account_id()`.
+* Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
 NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
 only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
 is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
