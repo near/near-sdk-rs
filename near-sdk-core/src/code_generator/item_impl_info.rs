@@ -95,11 +95,12 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize, serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
                 }
-                let Input { k, }: Input = serde_json::from_slice(
+                let Input { k, }: Input = near_sdk::serde_json::from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
@@ -126,12 +127,13 @@ mod tests {
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic(b"Method doesn't accept deposit");
                     }
-                    #[derive(serde :: Deserialize, serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize)]
+                    #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         k: u64,
                         m: Bar,
                     }
-                    let Input { k, m, }: Input = serde_json::from_slice(
+                    let Input { k, m, }: Input = near_sdk::serde_json::from_slice(
                         &near_sdk::env::input().expect("Expected input since method has arguments.")
                     )
                     .expect("Failed to deserialize input from JSON.");
@@ -159,19 +161,20 @@ mod tests {
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic(b"Method doesn't accept deposit");
                     }
-                    #[derive(serde :: Deserialize, serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize)]
+                    #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         k: u64,
                         m: Bar,
                     }
-                    let Input { k, m, }: Input = serde_json::from_slice(
+                    let Input { k, m, }: Input = near_sdk::serde_json::from_slice(
                         &near_sdk::env::input().expect("Expected input since method has arguments.")
                     )
                     .expect("Failed to deserialize input from JSON.");
                     let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                     let result = contract.method(k, m, );
                     let result =
-                        serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                        near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                     near_sdk::env::value_return(&result);
                     near_sdk::env::state_write(&contract);
                 }
@@ -195,7 +198,7 @@ mod tests {
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 let result = contract.method();
                 let result =
-                    serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                    near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                 near_sdk::env::value_return(&result);
             }
         );
@@ -214,11 +217,12 @@ mod tests {
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
                     near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                    #[derive(serde :: Deserialize, serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Deserialize)]
+                    #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         k: u64,
                     }
-                    let Input { k, }: Input = serde_json::from_slice(
+                    let Input { k, }: Input = near_sdk::serde_json::from_slice(
                         &near_sdk::env::input().expect("Expected input since method has arguments.")
                     )
                     .expect("Failed to deserialize input from JSON.");
@@ -242,11 +246,12 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize, serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
                 }
-                let Input { mut k, }: Input = serde_json::from_slice(
+                let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
@@ -271,11 +276,12 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize, serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     y: String,
                 }
-                let Input { y, }: Input = serde_json::from_slice(
+                let Input { y, }: Input = near_sdk::serde_json::from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
@@ -284,13 +290,13 @@ mod tests {
                     _ => panic!("Callback computation {} was not successful", 0u64)
                 };
                 let mut x: u64 =
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                    near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let data: Vec<u8> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 1u64)
                 };
                 let z: Vec<u8> =
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                    near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, z, );
             }
@@ -317,13 +323,13 @@ mod tests {
                     _ => panic!("Callback computation {} was not successful", 0u64)
                 };
                 let mut x: u64 =
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                    near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let data: Vec<u8> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 1u64)
                 };
                 let y: String =
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                    near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, );
             }
@@ -346,11 +352,12 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize, serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     y: String,
                 }
-                let Input { y, }: Input = serde_json::from_slice(
+                let Input { y, }: Input = near_sdk::serde_json::from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
@@ -360,7 +367,7 @@ mod tests {
                             near_sdk::PromiseResult::Successful(x) => x,
                             _ => panic!("Callback computation {} was not successful", i)
                         };
-                        serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+                        near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
                     })
                     .collect();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -388,11 +395,12 @@ mod tests {
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic(b"Method doesn't accept deposit");
                 }
-                #[derive(serde :: Deserialize, serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
                 }
-                let Input { mut k, }: Input = serde_json::from_slice(
+                let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
@@ -419,11 +427,12 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(serde :: Deserialize, serde :: Serialize)]
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
                 struct Input {
                     k: u64,
                 }
-                let Input { mut k, }: Input = serde_json::from_slice(
+                let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from JSON.");
@@ -452,18 +461,18 @@ mod tests {
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic(b"Method doesn't accept deposit");
                 }
-                #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
+                #[derive(near_sdk :: borsh :: BorshDeserialize)]
                 struct Input {
                     k: u64,
                     m: Bar,
                 }
-                let Input { k, m, }: Input = borsh::BorshDeserialize::try_from_slice(
+                let Input { k, m, }: Input = near_sdk::borsh::BorshDeserialize::try_from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 let result = contract.method(k, m, );
-                let result = borsh::BorshSerialize::try_to_vec(&result)
+                let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result)
                     .expect("Failed to serialize the return value using Borsh.");
                 near_sdk::env::value_return(&result);
                 near_sdk::env::state_write(&contract);
@@ -486,11 +495,11 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-                #[derive(borsh :: BorshDeserialize, borsh :: BorshSerialize)]
+                #[derive(near_sdk :: borsh :: BorshDeserialize)]
                 struct Input {
                     y: String,
                 }
-                let Input { y, }: Input = borsh::BorshDeserialize::try_from_slice(
+                let Input { y, }: Input = near_sdk::borsh::BorshDeserialize::try_from_slice(
                     &near_sdk::env::input().expect("Expected input since method has arguments.")
                 )
                 .expect("Failed to deserialize input from Borsh.");
@@ -498,14 +507,14 @@ mod tests {
                     near_sdk::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 0u64)
                 };
-                let mut x: u64 = borsh::BorshDeserialize::try_from_slice(&data)
+                let mut x: u64 = near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
                     .expect("Failed to deserialize callback using Borsh");
                 let data: Vec<u8> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
                     _ => panic!("Callback computation {} was not successful", 1u64)
                 };
                 let z: Vec<u8> =
-                    serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                    near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, z, );
             }

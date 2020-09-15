@@ -1,20 +1,24 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{UnorderedMap, Set};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::{LookupMap, LookupSet};
+use near_sdk::json_types::ValidAccountId;
 use near_sdk::{env, near_bindgen};
 
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    pub records: UnorderedMap<String, String>,
-    pub unique_values: Set<String>,
+    pub records: LookupMap<String, String>,
+    pub unique_values: LookupSet<String>,
 }
 
 impl Default for StatusMessage {
     fn default() -> Self {
-        Self { records: UnorderedMap::new(b"r".to_vec()), unique_values: Set::new(b"s".to_vec()) }
+        Self {
+            records: LookupMap::new(b"r".to_vec()),
+            unique_values: LookupSet::new(b"s".to_vec()),
+        }
     }
 }
 
@@ -27,8 +31,8 @@ impl StatusMessage {
         self.unique_values.insert(&message)
     }
 
-    pub fn get_status(&self, account_id: String) -> Option<String> {
-        self.records.get(&account_id)
+    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
+        self.records.get(account_id.as_ref())
     }
 }
 
@@ -38,6 +42,7 @@ mod tests {
     use super::*;
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
+    use std::convert::TryInto;
 
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {
@@ -66,7 +71,10 @@ mod tests {
         testing_env!(context);
         let mut contract = StatusMessage::default();
         contract.set_status("hello".to_string());
-        assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
+        assert_eq!(
+            "hello".to_string(),
+            contract.get_status("bob_near".try_into().unwrap()).unwrap()
+        );
     }
 
     #[test]
@@ -91,6 +99,6 @@ mod tests {
         let context = get_context(vec![], true);
         testing_env!(context);
         let contract = StatusMessage::default();
-        assert_eq!(None, contract.get_status("francis.near".to_string()));
+        assert_eq!(None, contract.get_status("francis.near".try_into().unwrap()));
     }
 }

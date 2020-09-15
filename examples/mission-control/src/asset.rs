@@ -1,5 +1,5 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{Deserialize, Serialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::serde::{Deserialize, Serialize};
 
 #[derive(
     PartialEq,
@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
     BorshDeserialize,
     BorshSerialize,
 )]
+#[serde(crate = "near_sdk::serde")]
 pub enum Resource {
     Battery,
     RgbSensor,
@@ -32,6 +33,7 @@ pub enum Resource {
     BorshDeserialize,
     BorshSerialize,
 )]
+#[serde(crate = "near_sdk::serde")]
 pub enum Reward {
     Score,
     Token,
@@ -52,6 +54,7 @@ pub enum Reward {
     BorshDeserialize,
     BorshSerialize,
 )]
+#[serde(crate = "near_sdk::serde")]
 pub enum Asset {
     Resource(Resource),
     Reward(Reward),
@@ -59,7 +62,10 @@ pub enum Asset {
     Trust,
 }
 
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, BorshDeserialize, BorshSerialize)]
+#[derive(
+    PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, BorshDeserialize, BorshSerialize,
+)]
+#[serde(crate = "near_sdk::serde")]
 pub enum Exchange {
     MissionTimeWithResource,
     MissionTimeWithTrust,

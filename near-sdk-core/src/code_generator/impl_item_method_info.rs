@@ -1,4 +1,4 @@
-use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, SerializerType};
+use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::ReturnType;
@@ -19,18 +19,18 @@ impl ImplItemMethodInfo {
         let arg_struct;
         let arg_parsing;
         if has_input_args {
-            arg_struct = attr_signature_info.input_struct();
+            arg_struct = attr_signature_info.input_struct(InputStructType::Deserialization);
             let decomposition = attr_signature_info.decomposition_pattern();
             let serializer_invocation = match attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
-                ).expect("Failed to deserialize input from JSON.")
+                    near_sdk::serde_json::from_slice(
+                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    ).expect("Failed to deserialize input from JSON.")
                 },
                 SerializerType::Borsh => quote! {
-                borsh::BorshDeserialize::try_from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
-                ).expect("Failed to deserialize input from Borsh.")
+                    near_sdk::borsh::BorshDeserialize::try_from_slice(
+                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    ).expect("Failed to deserialize input from Borsh.")
                 },
             };
             arg_parsing = quote! {
@@ -107,10 +107,10 @@ impl ImplItemMethodInfo {
                 ReturnType::Type(_, _) => {
                     let value_ser = match result_serializer {
                         SerializerType::JSON => quote! {
-                            let result = serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                         },
                         SerializerType::Borsh => quote! {
-                            let result = borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
                         },
                     };
                     quote! {
