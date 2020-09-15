@@ -88,7 +88,7 @@ impl StatusMessage {
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
 * **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
-contract.
+contract. NOTE: `#[init_once]` verifies that the contract has not been initialized (the contract state doesn't exist).
 
     ```rust
     #[near_bindgen]
