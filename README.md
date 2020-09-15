@@ -83,7 +83,7 @@ impl StatusMessage {
     * `promise_then` -- attaches the callback back to the current contract once the function is executed;
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
-    
+
     Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
@@ -93,7 +93,7 @@ contract.
     ```rust
     #[near_bindgen]
     impl StatusMessage {
-      #[init]
+      #[init_once]
       pub fn new(user: String, status: String) -> Self {
           let mut res = Self::default();
           res.records.insert(user, status);
@@ -111,7 +111,7 @@ impl Default for StatusMessage {
 }
 ```
 
-* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call. 
+* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
 
 To declare a payable method simply use `#[payable]` decorator:
 ```rust
@@ -147,7 +147,7 @@ The general workflow is the following:
    Here is an example of a smart contract struct:
    ```rust
    use near_sdk::{near_bindgen, env};
-   
+
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {

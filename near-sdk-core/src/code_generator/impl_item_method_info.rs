@@ -52,6 +52,7 @@ impl ImplItemMethodInfo {
             returns,
             result_serializer,
             is_init,
+            is_init_once,
             is_payable,
             is_view,
             ..
@@ -67,8 +68,19 @@ impl ImplItemMethodInfo {
                 }
             }
         };
+        let state_exists_check = if *is_init_once {
+            // The initializer requires to not have a state.
+            quote! {
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic(b"The contract has already been initialized");
+                }
+            }
+        } else {
+            quote! {}
+        };
         let body = if *is_init {
             quote! {
+                #state_exists_check
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);
             }
@@ -114,11 +126,11 @@ impl ImplItemMethodInfo {
                         },
                     };
                     quote! {
-                    #contract_deser
-                    let result = #method_invocation;
-                    #value_ser
-                    near_sdk::env::value_return(&result);
-                    #contract_ser
+                        #contract_deser
+                        let result = #method_invocation;
+                        #value_ser
+                        near_sdk::env::value_return(&result);
+                        #contract_ser
                     }
                 }
             }

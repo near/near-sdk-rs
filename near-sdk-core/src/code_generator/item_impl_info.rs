@@ -412,6 +412,43 @@ mod tests {
     }
 
     #[test]
+    fn simple_init_once() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init_once]
+            pub fn method(k: &mut u64) -> Self { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic(b"Method doesn't accept deposit");
+                }
+                #[derive(near_sdk :: serde :: Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
+                struct Input {
+                    k: u64,
+                }
+                let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
+                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                )
+                .expect("Failed to deserialize input from JSON.");
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic(b"The contract has already been initialized");
+                }
+                let contract = Hello::method(&mut k,);
+                near_sdk::env::state_write(&contract);
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
     fn simple_init_payable() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {

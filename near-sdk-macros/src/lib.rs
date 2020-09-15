@@ -111,6 +111,12 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
+/// `init_once` is a marker attribute it does not generate code by itself.
+#[proc_macro_attribute]
+pub fn init_once(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
 /// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
 /// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
 /// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727

@@ -14,8 +14,12 @@ pub struct AttrSigInfo {
     pub non_bindgen_attrs: Vec<Attribute>,
     /// All arguments of the method.
     pub args: Vec<ArgInfo>,
-    /// Whether method can be used as initializer.
+    /// Whether the method is an initializer.
+    /// NOTE: It's non-inclusive to `is_init_once`.
     pub is_init: bool,
+    /// Whether the method is an initializer and the contract state should't exist.
+    /// NOTE: If it's true, it means `is_init` is true as well.
+    pub is_init_once: bool,
     /// Whether method accepting $NEAR.
     pub is_payable: bool,
     /// The serializer that we use for `env::input()`.
@@ -61,6 +65,7 @@ impl AttrSigInfo {
         let mut non_bindgen_attrs = vec![];
         let mut args = vec![];
         let mut is_init = false;
+        let mut is_init_once = false;
         let mut is_payable = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
@@ -71,6 +76,10 @@ impl AttrSigInfo {
             match attr_str.as_str() {
                 "init" => {
                     is_init = true;
+                }
+                "init_once" => {
+                    is_init = true;
+                    is_init_once = true;
                 }
                 "payable" => {
                     payable_attr = Some(attr);
@@ -113,7 +122,10 @@ impl AttrSigInfo {
 
         original_attrs.retain(|attr| {
             let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "init" && attr_str != "result_serializer" && attr_str != "payable"
+            attr_str != "init"
+                && attr_str != "init_once"
+                && attr_str != "result_serializer"
+                && attr_str != "payable"
         });
 
         let returns = original_sig.output.clone();
@@ -124,6 +136,7 @@ impl AttrSigInfo {
             args,
             input_serializer: SerializerType::JSON,
             is_init,
+            is_init_once,
             is_payable,
             is_view,
             result_serializer,

@@ -85,10 +85,9 @@ impl Default for FungibleToken {
 #[near_bindgen]
 impl FungibleToken {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
-    #[init]
+    #[init_once]
     pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
         let total_supply = total_supply.into();
-        assert!(!env::state_exists(), "Already initialized");
         let mut ft = Self { accounts: LookupMap::new(b"a".to_vec()), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;

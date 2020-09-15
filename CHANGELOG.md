@@ -1,5 +1,9 @@
 # Changelog
 
+## `Pending`
+
+* Introduced `init_once` that is an initializer that requires the contract was not initialized yet.
+
 ## `2.0.0`
 
 ### Contract changes
