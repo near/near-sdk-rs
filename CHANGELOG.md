@@ -1,5 +1,10 @@
 # Changelog
 
+## `Pending`
+
+* Added `#[derive(NoDefault)]` that automatically implements `Default` trait that panics when called.
+This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
+
 ## `2.0.0`
 
 ### Contract changes

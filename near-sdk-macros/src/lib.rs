@@ -35,7 +35,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "near_sdk can only be used on type declarations and impl sections.",
+                "near_bindgen can only be used on type declarations and impl sections.",
             )
             .to_compile_error(),
         )
@@ -132,6 +132,28 @@ pub fn metadata(item: TokenStream) -> TokenStream {
             syn::Error::new(
                 Span::call_site(),
                 "Failed to parse code decorated with `metadata!{}` macro. Only valid Rust is supported.",
+            )
+            .to_compile_error(),
+        )
+    }
+}
+
+#[proc_macro_derive(NoDefault)]
+pub fn derive_no_default(item: TokenStream) -> TokenStream {
+    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        let name = &input.ident;
+        TokenStream::from(quote! {
+            impl Default for #name {
+                fn default() -> Self {
+                    near_sdk::env::panic(b"The contract is not initialized");
+                }
+            }
+        })
+    } else {
+        TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "NoDefault can only be used on type declarations sections.",
             )
             .to_compile_error(),
         )
