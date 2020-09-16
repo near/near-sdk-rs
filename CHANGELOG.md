@@ -6,7 +6,7 @@
 * Added `test_utils` mod from `near_sdk` that contains a bunch of helper methods and structures, e.g.
     * `test_env` - simple test environment mod used internally.
     * Expanded `testing_env` to be able to pass promise results
-    * Added `VMContextBuilder` to help construct a context
+    * Added `VMContextBuilder` to help construct a `VMContext` for tests
     * Added `get_logs` method that returns current logs from the contract execution.
     * **TEST_BREAKING** `env::created_receipts` moved to `test_utils::get_created_receipts`. `env` shouldn't contain testing methods.
     * Updated a few examples to use `log!` macro
