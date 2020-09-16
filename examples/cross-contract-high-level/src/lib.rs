@@ -1,9 +1,10 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    //    callback,
-    //    callback_vec,
     env,
     ext_contract,
+    //    callback,
+    //    callback_vec,
+    log,
     near_bindgen,
     Promise,
     PromiseOrValue,
@@ -107,10 +108,10 @@ impl CrossContract {
         #[serializer(borsh)]
         data1: Vec<u8>,
     ) -> Vec<u8> {
-        env::log(format!("Received {:?} and {:?}", data0, data1).as_bytes());
+        log!("Received {:?} and {:?}", data0, data1);
         assert_eq!(env::current_account_id(), env::predecessor_account_id());
         let result = self.internal_merge(data0, data1);
-        env::log(format!("Merged {:?}", result).as_bytes());
+        log!("Merged {:?}", result);
         result
     }
 
