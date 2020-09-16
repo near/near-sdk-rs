@@ -3,6 +3,7 @@
 ## `Pending`
 
 * Added `log!` macro to log a string from a contract similar to `println!` macro.
+* Added constants for NEAR and yocto-NEAR conversions.
 * Added `test_utils` mod from `near_sdk` that contains a bunch of helper methods and structures, e.g.
     * `test_env` - simple test environment mod used internally.
     * Expanded `testing_env` to be able to pass promise results

@@ -18,13 +18,13 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, StorageUsage};
+use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, StorageUsage, MICRO_NEAR};
 
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 
 /// Price per 1 byte of storage from mainnet genesis config.
-const STORAGE_PRICE_PER_BYTE: Balance = 100000000000000000000;
+const STORAGE_PRICE_PER_BYTE: Balance = 100 * MICRO_NEAR;
 
 /// Contains balance and allowances information for one account.
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -278,8 +278,8 @@ impl FungibleToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
+    use near_sdk::{MockedBlockchain, NEAR};
 
     use super::*;
 
@@ -302,7 +302,7 @@ mod tests {
             input: vec![],
             block_index: 0,
             block_timestamp: 0,
-            account_balance: 1_000_000_000_000_000_000_000_000_000u128,
+            account_balance: 1000 * NEAR,
             account_locked_balance: 0,
             storage_usage: 10u64.pow(6),
             attached_deposit: 0,
