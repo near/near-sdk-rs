@@ -12,7 +12,7 @@
 //! # use near_sdk_macros::near_bindgen;
 //!
 //! #[near_bindgen]
-//! #[derive(Default, BorshDeserialize, BorshSerialize)]
+//! #[derive(BorshDeserialize, BorshSerialize)]
 //! pub struct StatusMessage {
 //!    records: HashMap<String, String>,
 //! }
@@ -23,20 +23,26 @@
 //! ```
 //! # use borsh::{BorshSerialize, BorshDeserialize};
 //! # use near_sdk_macros::near_bindgen;
-//! # use near_sdk::collections::UnorderedMap;
+//! # use near_sdk::collections::LookupMap;
 //!
 //! #[near_bindgen]
-//! #[derive(Default, BorshDeserialize, BorshSerialize)]
+//! #[derive(BorshDeserialize, BorshSerialize)]
 //! pub struct StatusMessage {
-//!    records: UnorderedMap<String, String>,
+//!    records: LookupMap<String, String>,
 //! }
 //! ```
 //!
-//! The efficiency of `Map` comes at the cost, since it has fewer methods than `HashMap` and is not
+//! The efficiency of `LookupMap` comes at the cost, since it has fewer methods than `HashMap` and is not
 //! that seemlessly integrated with the rest of the Rust standard library.
 
-mod set;
-pub use set::UnorderedSet;
+mod legacy_tree_map;
+pub use legacy_tree_map::LegacyTreeMap;
+
+mod lookup_map;
+pub use lookup_map::LookupMap;
+
+mod lookup_set;
+pub use lookup_set::LookupSet;
 
 mod vector;
 pub use vector::Vector;
@@ -44,24 +50,15 @@ pub use vector::Vector;
 mod unordered_map;
 pub use unordered_map::UnorderedMap;
 
+mod unordered_set;
+pub use unordered_set::UnorderedSet;
+
 mod tree_map;
 pub use tree_map::TreeMap;
 
 pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh.";
 pub const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element with Borsh.";
-
-/// Objects stored on the trie directly should have identifiers. If identifier is not provided
-/// explicitly than `Default` trait would use this index to generate an id.
-pub(crate) static mut NEXT_TRIE_OBJECT_INDEX: u64 = 0;
-/// Get next id of the object stored on trie.
-pub(crate) fn next_trie_id() -> Vec<u8> {
-    unsafe {
-        let id = NEXT_TRIE_OBJECT_INDEX;
-        NEXT_TRIE_OBJECT_INDEX += 1;
-        id.to_le_bytes().to_vec()
-    }
-}
 
 pub(crate) fn append(id: &[u8], chr: u8) -> Vec<u8> {
     append_slice(id, &[chr])

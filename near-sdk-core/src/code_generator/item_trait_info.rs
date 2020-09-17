@@ -61,7 +61,7 @@ mod tests {
                     __balance: near_sdk::Balance,
                     __gas: near_sdk::Gas
                 ) -> near_sdk::Promise {
-                    #[derive(near_sdk :: serde :: Deserialize, near_sdk :: serde :: Serialize)]
+                    #[derive(near_sdk :: serde :: Serialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input {
                         arr: Vec<u8>,
