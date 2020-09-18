@@ -134,6 +134,14 @@ To declare a private method use `#[private]` decorator:
 pub fn my_method(&mut self) {
 ...
 }
+/// Which is equivalent to
+
+pub fn my_method(&mut self ) {
+    if env::current_account_id() != env::predecessor_account_id() {
+        near_sdk::env::panic("Method method is private".as_bytes());
+    }
+...
+}
 ```
 
 Now, only the account of the contract itself can call this method, either directly or through a promise.
