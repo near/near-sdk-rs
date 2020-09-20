@@ -154,7 +154,6 @@ impl FungibleToken {
     #[payable]
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: U128) {
         let initial_storage = env::storage_usage();
-
         assert_ne!(
             new_owner_id, env::current_account_id(),
             "Can't transfer tokens to token contract itself"
@@ -171,8 +170,6 @@ impl FungibleToken {
             owner_id, new_owner_id,
             "The new owner should be different from the current owner"
         );
-        
-
         // Retrieving the account from the state.
         let mut account = self.get_account(&owner_id);
 
