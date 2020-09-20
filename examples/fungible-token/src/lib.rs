@@ -287,6 +287,10 @@ mod tests {
 
     use super::*;
 
+    fn contract_id() -> AccountId {
+        "my_contract.near".to_string()
+    }
+
     fn alice() -> AccountId {
         "alice.near".to_string()
     }
@@ -299,7 +303,7 @@ mod tests {
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
-            current_account_id: alice(),
+            current_account_id: contract_id(),
             signer_account_id: bob(),
             signer_account_pk: vec![0, 1, 2],
             predecessor_account_id,
