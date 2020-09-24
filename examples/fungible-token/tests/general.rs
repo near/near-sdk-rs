@@ -24,7 +24,7 @@ fn setup_multi_token_pool() -> (TestRuntime, FungibleToken, String, String, Stri
         &TOKEN_WASM_BYTES,
     );
     let user2 = "user2".to_string();
-    let user_2 = runtime.create_user(root.clone(), user1.clone(), to_yocto("100000"));
+    let user_2 = runtime.create_user(root.clone(), user2.clone(), to_yocto("100000"));
 
     (runtime, token, root, user1, user2)
 }

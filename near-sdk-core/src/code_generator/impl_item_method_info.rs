@@ -197,20 +197,20 @@ impl ImplItemMethodInfo {
             }
         });
         let mut params = quote! {
-            &mut self, #pat_type_list __runtime: &mut near_sdk_sim::TestRuntime, __signer_id: &AccountId, __balance: near_sdk::Balance
+            &mut self, #pat_type_list __runtime: &mut near_sdk_sim::test_runtime::TestRuntime, __signer_id: &AccountId, __balance: near_sdk::Balance
         };
         let ident_str = format!("{}", ident.to_string());
         let body = match (*is_view, *is_init) {
             // View Method
             (true, _) => {
-                params = quote! { &self, #pat_type_list __runtime: &mut near_sdk_sim::TestRuntime };
+                params = quote! { &self, #pat_type_list __runtime: &mut near_sdk_sim::test_runtime::TestRuntime };
                 quote! {
                     near_sdk::serde_json::from_value(__runtime.view(self.contract_id.clone(), #ident_str, args)).unwrap()
                 }
             }
             // Normal Change Method
             (_, false) => {
-                return_ident = quote! { -> near_sdk_sim::test_user::TxResult };
+                return_ident = quote! { -> near_sdk_sim::test_runtime::TxResult };
                 quote! {
                   __runtime.call(__signer_id.clone(), self.contract_id.clone(), #ident_str, args, __balance.clone())
                 }
@@ -218,7 +218,7 @@ impl ImplItemMethodInfo {
             // Init Change Method
             (_, _) => {
                 params = quote! {
-                    #pat_type_list __runtime: &mut near_sdk_sim::TestRuntime, __signer_id: &AccountId, __contract_id: &AccountId, __bytes: &[u8]
+                    #pat_type_list __runtime: &mut near_sdk_sim::test_runtime::TestRuntime, __signer_id: &AccountId, __contract_id: &AccountId, __bytes: &[u8]
                 };
                 quote! {
                     let _ = __runtime
