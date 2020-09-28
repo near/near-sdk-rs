@@ -394,6 +394,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Can't transfer tokens to token contract itself")]
+    fn test_transfer_to_token_contract_fail() {
+        let mut context = get_context(carol());
+        testing_env!(context.clone());
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FungibleToken::new(carol(), total_supply.into());
+        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        testing_env!(context.clone());
+        let transfer_amount = total_supply / 3;
+        contract.transfer(contract_id(), transfer_amount.into());
+    }
+
+    #[test]
     fn test_saturating_dec_allowance() {
         let mut context = get_context(carol());
         testing_env!(context.clone());
