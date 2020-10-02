@@ -3,6 +3,7 @@
 fn tests() {
     let t = trybuild::TestCases::new();
     t.pass("compilation_tests/regular.rs");
+    t.pass("compilation_tests/private.rs");
     t.pass("compilation_tests/trait_impl.rs");
     t.pass("compilation_tests/metadata.rs");
     t.compile_fail("compilation_tests/metadata_invalid_rust.rs");

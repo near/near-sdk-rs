@@ -138,7 +138,7 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(NoDefault)]
+#[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let name = &input.ident;
@@ -153,7 +153,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "NoDefault can only be used on type declarations sections.",
+                "PanicOnDefault can only be used on type declarations sections.",
             )
             .to_compile_error(),
         )

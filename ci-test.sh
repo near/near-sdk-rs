@@ -25,8 +25,12 @@ else
     fi
 
     # Only testing it for one configuration to avoid running the same tests twice
-    echo "Checking compilation of wasm32 for all examples"
-    ./examples/check_all.sh
+    echo "Build wasm32 for all examples"
+    cd examples
+    ./build_all.sh
+    cd -
+    echo "Checking size of all example contracts"
+    ./examples/size_all.sh
     echo "Testing all examples"
     ./examples/test_all.sh
 fi

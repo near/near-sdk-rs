@@ -53,6 +53,7 @@ impl ImplItemMethodInfo {
             result_serializer,
             is_init,
             is_payable,
+            is_private,
             is_view,
             ..
         } = attr_signature_info;
@@ -61,11 +62,22 @@ impl ImplItemMethodInfo {
             quote! {}
         } else {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
+            let error = format!("Method {} doesn't accept deposit", ident.to_string());
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(b"Method doesn't accept deposit");
+                    near_sdk::env::panic(#error.as_bytes());
                 }
             }
+        };
+        let is_private_check = if *is_private {
+            let error = format!("Method {} is private", ident.to_string());
+            quote! {
+                if env::current_account_id() != env::predecessor_account_id() {
+                    near_sdk::env::panic(#error.as_bytes());
+                }
+            }
+        } else {
+            quote! {}
         };
         let body = if *is_init {
             quote! {
@@ -136,6 +148,7 @@ impl ImplItemMethodInfo {
             pub extern "C" fn #ident() {
                 #panic_hook
                 #env_creation
+                #is_private_check
                 #deposit_check
                 #arg_struct
                 #arg_parsing

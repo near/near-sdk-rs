@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-for d in */ ; do
+for d in "status-message" */ ; do
     echo "Building $d"
     pushd $d
     ./build.sh

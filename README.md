@@ -110,10 +110,10 @@ impl Default for StatusMessage {
     }
 }
 ```
-You can also prohibit `Default` trait initialization by using `near_sdk::NoDefault` helper macro. E.g.:
+You can also prohibit `Default` trait initialization by using `near_sdk::PanicOnDefault` helper macro. E.g.:
 ```rust
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, NoDefault)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
@@ -130,6 +130,29 @@ pub fn my_method(&mut self) {
 }
 ```
 
+* **Private methods** Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
+only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
+is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+Macro `#[private]` simplifies it, by making it a single line macro instead and improves readability.
+
+To declare a private method use `#[private]` decorator:
+```rust
+
+#[private]
+pub fn my_method(&mut self) {
+...
+}
+/// Which is equivalent to
+
+pub fn my_method(&mut self ) {
+    if env::current_account_id() != env::predecessor_account_id() {
+        near_sdk::env::panic("Method method is private".as_bytes());
+    }
+...
+}
+```
+
+Now, only the account of the contract itself can call this method, either directly or through a promise.
 
 ## Pre-requisites
 To develop Rust contracts you would need to:
