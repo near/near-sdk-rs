@@ -6,6 +6,15 @@
 NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
 only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
 is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+* Added `log!` macro to log a string from a contract similar to `println!` macro.
+* Added `test_utils` mod from `near_sdk` that contains a bunch of helper methods and structures, e.g.
+    * `test_env` - simple test environment mod used internally.
+    * Expanded `testing_env` to be able to pass promise results
+    * Added `VMContextBuilder` to help construct a `VMContext` for tests
+    * Added `get_logs` method that returns current logs from the contract execution.
+    * **TEST_BREAKING** `env::created_receipts` moved to `test_utils::get_created_receipts`.
+    `env` shouldn't contain testing methods.
+    * Updated a few examples to use `log!` macro
 
 ## `2.0.0`
 
