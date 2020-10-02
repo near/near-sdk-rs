@@ -6,6 +6,7 @@
 NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
 only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
 is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+* Added how to build contracts with reproducible builds.
 
 ## `2.0.0`
 
