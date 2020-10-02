@@ -18,6 +18,8 @@ pub struct AttrSigInfo {
     pub is_init: bool,
     /// Whether method accepting $NEAR.
     pub is_payable: bool,
+    /// Whether method can accept calls from self (current account)
+    pub is_private: bool,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
     /// Whether the method doesn't mutate state
@@ -62,6 +64,7 @@ impl AttrSigInfo {
         let mut args = vec![];
         let mut is_init = false;
         let mut is_payable = false;
+        let mut is_private = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
 
@@ -75,6 +78,9 @@ impl AttrSigInfo {
                 "payable" => {
                     payable_attr = Some(attr);
                     is_payable = true;
+                }
+                "private" => {
+                    is_private = true;
                 }
                 "result_serializer" => {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
@@ -113,7 +119,10 @@ impl AttrSigInfo {
 
         original_attrs.retain(|attr| {
             let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "init" && attr_str != "result_serializer" && attr_str != "payable"
+            attr_str != "init"
+                && attr_str != "result_serializer"
+                && attr_str != "payable"
+                && attr_str != "private"
         });
 
         let returns = original_sig.output.clone();
@@ -125,6 +134,7 @@ impl AttrSigInfo {
             input_serializer: SerializerType::JSON,
             is_init,
             is_payable,
+            is_private,
             is_view,
             result_serializer,
             receiver,

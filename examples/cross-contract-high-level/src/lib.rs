@@ -99,6 +99,7 @@ impl CrossContract {
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
     /// the contract itself.
     #[result_serializer(borsh)]
+    #[private]
     pub fn merge(
         &self,
         #[callback]
@@ -109,7 +110,6 @@ impl CrossContract {
         data1: Vec<u8>,
     ) -> Vec<u8> {
         log!("Received {:?} and {:?}", data0, data1);
-        assert_eq!(env::current_account_id(), env::predecessor_account_id());
         let result = self.internal_merge(data0, data1);
         log!("Merged {:?}", result);
         result
