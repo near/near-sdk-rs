@@ -10,7 +10,6 @@ macro_rules! log {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::test_utils::{get_logs, test_env};
 
     #[test]

@@ -31,52 +31,52 @@ impl VMContextBuilder {
         }
     }
 
-    pub fn current_account_id(mut self, account_id: AccountId) -> Self {
+    pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.current_account_id = account_id;
         self
     }
 
-    pub fn signer_account_id(mut self, account_id: AccountId) -> Self {
+    pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.signer_account_id = account_id;
         self
     }
 
-    pub fn signer_account_pk(mut self, pk: PublicKey) -> Self {
+    pub fn signer_account_pk(&mut self, pk: PublicKey) -> &mut Self {
         self.context.signer_account_pk = pk;
         self
     }
 
-    pub fn predecessor_account_id(mut self, account_id: AccountId) -> Self {
+    pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.predecessor_account_id = account_id;
         self
     }
 
-    pub fn block_index(mut self, block_index: BlockHeight) -> Self {
+    pub fn block_index(&mut self, block_index: BlockHeight) -> &mut Self {
         self.context.block_index = block_index;
         self
     }
 
-    pub fn epoch_height(mut self, epoch_height: EpochHeight) -> Self {
+    pub fn epoch_height(&mut self, epoch_height: EpochHeight) -> &mut Self {
         self.context.epoch_height = epoch_height;
         self
     }
 
-    pub fn attached_deposit(mut self, amount: Balance) -> Self {
+    pub fn attached_deposit(&mut self, amount: Balance) -> &mut Self {
         self.context.attached_deposit = amount;
         self
     }
 
-    pub fn account_balance(mut self, amount: Balance) -> Self {
+    pub fn account_balance(&mut self, amount: Balance) -> &mut Self {
         self.context.account_balance = amount;
         self
     }
 
-    pub fn account_locked_balance(mut self, amount: Balance) -> Self {
+    pub fn account_locked_balance(&mut self, amount: Balance) -> &mut Self {
         self.context.account_locked_balance = amount;
         self
     }
 
-    pub fn is_view(mut self, is_view: bool) -> Self {
+    pub fn is_view(&mut self, is_view: bool) -> &mut Self {
         self.context.is_view = is_view;
         self
     }
