@@ -138,6 +138,10 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
+/// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
+/// message `The contract is not initialized` when `default()` is called.
+/// This is a helpful macro in case the contract is required to be initialized with either `init` or
+/// `init_once`.
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
