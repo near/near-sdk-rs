@@ -15,6 +15,8 @@ is to have an assert that validates that the direct caller (predecessor account 
     * **TEST_BREAKING** `env::created_receipts` moved to `test_utils::get_created_receipts`.
     `env` shouldn't contain testing methods.
     * Updated a few examples to use `log!` macro
+* Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
+This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
 
 ## `2.0.0`
 

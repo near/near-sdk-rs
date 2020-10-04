@@ -18,7 +18,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, Balance, Promise, StorageUsage};
+use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault, Promise, StorageUsage};
 
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
@@ -67,19 +67,13 @@ impl Account {
 }
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FungibleToken {
     /// sha256(AccountID) -> Account details.
     pub accounts: LookupMap<Vec<u8>, Account>,
 
     /// Total supply of the all token.
     pub total_supply: Balance,
-}
-
-impl Default for FungibleToken {
-    fn default() -> Self {
-        panic!("Fun token should be initialized before usage")
-    }
 }
 
 #[near_bindgen]
@@ -322,6 +316,14 @@ mod tests {
         let contract = FungibleToken::new(bob(), total_supply.into());
         assert_eq!(contract.get_total_supply().0, total_supply);
         assert_eq!(contract.get_balance(bob()).0, total_supply);
+    }
+
+    #[test]
+    #[should_panic(expected = "The contract is not initialized")]
+    fn test_default() {
+        let context = get_context(carol());
+        testing_env!(context);
+        let _contract = FungibleToken::default();
     }
 
     #[test]

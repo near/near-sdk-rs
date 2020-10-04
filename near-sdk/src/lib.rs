@@ -3,7 +3,7 @@ extern crate quickcheck;
 
 pub use near_sdk_macros::{
     callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
-    serializer,
+    serializer, PanicOnDefault,
 };
 
 pub mod collections;
