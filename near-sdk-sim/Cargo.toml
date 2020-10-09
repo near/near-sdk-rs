@@ -1,0 +1,21 @@
+[package]
+name = "near-sdk-sim"
+version = "0.1.0"
+authors = ["Illia Polosukhin <illia.polosukhin@gmail.com>"]
+edition = "2018"
+publish = false
+
+
+[dependencies]
+serde_json = "*"
+serde = { version = "*", features = ["derive"] }
+near-sdk = { path = "../near-sdk", version = "2.0.0"}
+# near-sdk = "1.0.0"
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
+#log = "0.4"
+#env_logger = { version = "0.7.1", default-features = false }
+near-crypto = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.12.1" }
+near-primitives = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.12.1" }
+near-runtime-standalone = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.12.1" }
+lazy_static = "1.4.0"

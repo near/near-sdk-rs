@@ -1,0 +1,192 @@
+use crate::{
+    account::{AccessKey, Account},
+    hash::CryptoHash,
+    transaction::{ExecutionOutcome, ExecutionStatus, Transaction},
+    types::{AccountId, Balance, Gas},
+};
+use near_crypto::{InMemorySigner, KeyType, Signer};
+use near_runtime_standalone::{init_runtime_and_signer, RuntimeStandalone};
+use std::{cell::RefCell, rc::Rc};
+
+pub use crate::to_yocto;
+
+pub const DEFAULT_GAS: u64 = 300_000_000_000_000;
+pub const STORAGE_AMOUNT: u128 = 50_000_000_000_000_000_000_000_000;
+
+pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
+
+pub fn outcome_into_result(outcome: ExecutionOutcome) -> TxResult {
+    match outcome.status {
+        ExecutionStatus::SuccessValue(_) => Ok(outcome),
+        ExecutionStatus::Failure(_) => Err(outcome),
+        ExecutionStatus::SuccessReceiptId(_) => panic!("Unresolved ExecutionOutcome run runtime.resolve(tx) to resolve the final outcome of tx"),
+        ExecutionStatus::Unknown => unreachable!()
+    }
+}
+
+pub struct User {
+    runtime: Rc<RefCell<RuntimeStandalone>>,
+    pub account_id: AccountId,
+    pub signer: InMemorySigner,
+}
+
+impl User {
+    pub fn new(
+        runtime: &Rc<RefCell<RuntimeStandalone>>,
+        account_id: AccountId,
+        signer: InMemorySigner,
+    ) -> Self {
+        let runtime = Rc::clone(runtime);
+        Self { runtime, account_id, signer }
+    }
+
+    pub fn account(&self) -> Option<Account> {
+        (*self.runtime).borrow().view_account(&self.account_id)
+    }
+
+    pub fn call(&self, pending_tx: PendingContractTx, deposit: Balance, gas: Gas) -> TxResult {
+        if pending_tx.is_view {
+            panic!("Can not make a change call a view method")
+        };
+        self.submit_transaction(self.transaction(pending_tx.receiver_id).function_call(
+            pending_tx.method.to_string(),
+            pending_tx.args,
+            gas,
+            deposit,
+        ))
+    }
+
+    pub fn deploy_and_init(&self, wasm_bytes: &[u8], pending_tx: PendingContractTx) -> User {
+        let signer = InMemorySigner::from_seed(
+            &pending_tx.receiver_id.clone(),
+            KeyType::ED25519,
+            &pending_tx.receiver_id.clone(),
+        );
+        let account_id = pending_tx.receiver_id.clone();
+        self.submit_transaction(
+            self.transaction(pending_tx.receiver_id)
+                .create_account()
+                .add_key(signer.public_key(), AccessKey::full_access())
+                .transfer(STORAGE_AMOUNT)
+                .deploy_contract(wasm_bytes.to_vec())
+                .function_call("new".to_string(), pending_tx.args, DEFAULT_GAS, 0),
+        )
+        .unwrap();
+        User::new(&self.runtime, account_id, signer)
+    }
+
+    pub fn deploy(&self, wasm_bytes: &[u8], account_id: AccountId) -> User {
+        let signer =
+            InMemorySigner::from_seed(&account_id.clone(), KeyType::ED25519, &account_id.clone());
+        self.submit_transaction(
+            self.transaction(account_id.clone())
+                .create_account()
+                .add_key(signer.public_key(), AccessKey::full_access())
+                .transfer(STORAGE_AMOUNT)
+                .deploy_contract(wasm_bytes.to_vec()),
+        )
+        .unwrap();
+        User::new(&self.runtime, account_id, signer)
+    }
+
+    pub fn transaction(&self, receiver_id: AccountId) -> Transaction {
+        let nonce = (*self.runtime)
+            .borrow()
+            .view_access_key(&self.account_id, &self.signer.public_key())
+            .unwrap()
+            .nonce
+            + 1;
+        Transaction::new(
+            self.account_id.clone(),
+            self.signer.public_key(),
+            receiver_id,
+            nonce,
+            CryptoHash::default(),
+        )
+    }
+
+    pub fn submit_transaction(&self, transaction: Transaction) -> TxResult {
+        let res = (*self.runtime).borrow_mut().resolve_tx(transaction.sign(&self.signer)).unwrap();
+        (*self.runtime).borrow_mut().process_all().unwrap();
+        outcome_into_result(res)
+    }
+
+    pub fn view(&self, pending_tx: PendingContractTx) -> serde_json::Value {
+        if !pending_tx.is_view {
+            panic!("Cannot make a view call on change method {}", pending_tx.method);
+        };
+        serde_json::from_slice(
+            ((*self.runtime)
+                .borrow()
+                .view_method_call(&pending_tx.receiver_id, &pending_tx.method, &pending_tx.args)
+                .unwrap()
+                .0)
+                .as_ref(),
+        )
+        .unwrap()
+    }
+}
+
+pub struct PendingContractTx {
+    pub receiver_id: AccountId,
+    pub method: String,
+    pub args: Vec<u8>,
+    pub is_view: bool,
+}
+
+impl PendingContractTx {
+    pub fn new(receiver_id: &str, method: &str, args: serde_json::Value, is_view: bool) -> Self {
+        Self {
+            receiver_id: receiver_id.to_string(),
+            method: method.to_string(),
+            args: args.to_string().as_bytes().to_vec(),
+            is_view,
+        }
+    }
+}
+
+pub struct TestRuntime {
+    runtime: Rc<RefCell<RuntimeStandalone>>,
+    pub root: User,
+}
+
+impl TestRuntime {
+    pub fn new(runtime: RuntimeStandalone, signer: InMemorySigner, account_id: AccountId) -> Self {
+        let runtime = Rc::new(RefCell::new(runtime));
+        let root = User { runtime: Rc::clone(&runtime), account_id, signer };
+        Self { runtime, root }
+    }
+
+    pub fn get_root(&self) -> &User {
+        &self.root
+    }
+
+    pub fn create_user_from(
+        &self,
+        signer_user: &User,
+        account_id: AccountId,
+        amount: Balance,
+    ) -> User {
+        let signer = InMemorySigner::from_seed(&account_id.clone(), KeyType::ED25519, &account_id);
+        signer_user
+            .submit_transaction(
+                signer_user
+                    .transaction(account_id.clone())
+                    .create_account()
+                    .add_key(signer.public_key(), AccessKey::full_access())
+                    .transfer(amount),
+            )
+            .unwrap();
+        let account_id = account_id.clone();
+        User { runtime: Rc::clone(&self.runtime), account_id, signer }
+    }
+
+    pub fn create_user(&self, account_id: AccountId, amount: Balance) -> User {
+        self.create_user_from(&self.root, account_id, amount)
+    }
+}
+
+pub fn init_test_runtime() -> TestRuntime {
+    let (runtime, signer) = init_runtime_and_signer(&"root".into());
+    TestRuntime::new(runtime, signer, "root".into())
+}

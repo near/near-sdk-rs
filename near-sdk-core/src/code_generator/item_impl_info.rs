@@ -1,5 +1,6 @@
 use crate::ItemImplInfo;
 use syn::export::TokenStream2;
+use syn::Ident;
 
 impl ItemImplInfo {
     /// Generate the code that wraps
@@ -11,6 +12,32 @@ impl ItemImplInfo {
             }
         }
         res
+    }
+
+    pub fn marshall_code(&self) -> TokenStream2 {
+        use quote::{format_ident, quote, ToTokens};
+        let orig_name = self.ty.clone().into_token_stream();
+        let mut name = quote! {Contract};
+        if let Ok(input) = syn::parse::<Ident>(orig_name.into()) {
+            let new_name = format_ident!("{}Contract", input);
+            name = quote! {#new_name};
+        };
+        let mut res = TokenStream2::new();
+        for method in &self.methods {
+            if method.is_public {
+                res.extend(method.marshal_method());
+            }
+        }
+        quote! {
+           #[cfg(not(target_arch = "wasm32"))]
+         pub struct #name {
+           pub account_id: near_sdk::AccountId,
+         }
+           #[cfg(not(target_arch = "wasm32"))]
+         impl #name {
+           #res
+         }
+        }
     }
 }
 // Rustfmt removes comas.
@@ -538,6 +565,22 @@ mod tests {
                 contract.method();
                 near_sdk::env::state_write(&contract);
             }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn marshall_one_arg() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: String) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.marshal_method();
+        let expected = quote!(
+                #[cfg(not(target_arch = "wasm32"))]
+                pub fn method(&self, k: String,) -> near_sdk_sim::PendingContractTx {
+                    let args = near_sdk::serde_json::json!({ "k" : k });
+                    near_sdk_sim::PendingContractTx::new(& self . account_id, "method", args, true)
+                }
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
