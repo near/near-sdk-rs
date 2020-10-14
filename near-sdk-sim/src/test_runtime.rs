@@ -5,7 +5,7 @@ use crate::{
     types::{AccountId, Balance, Gas},
 };
 use near_crypto::{InMemorySigner, KeyType, Signer};
-use near_runtime_standalone::{init_runtime_and_signer, RuntimeStandalone};
+use near_runtime_standalone::{GenesisConfig, RuntimeStandalone};
 use std::{cell::RefCell, rc::Rc};
 
 pub use crate::to_yocto;
@@ -45,9 +45,6 @@ impl User {
     }
 
     pub fn call(&self, pending_tx: PendingContractTx, deposit: Balance, gas: Gas) -> TxResult {
-        if pending_tx.is_view {
-            panic!("Can not make a change call a view method")
-        };
         self.submit_transaction(self.transaction(pending_tx.receiver_id).function_call(
             pending_tx.method.to_string(),
             pending_tx.args,
@@ -127,6 +124,7 @@ impl User {
     }
 }
 
+#[derive(Debug)]
 pub struct PendingContractTx {
     pub receiver_id: AccountId,
     pub method: String,
@@ -184,9 +182,23 @@ impl TestRuntime {
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> User {
         self.create_user_from(&self.root, account_id, amount)
     }
+
+    pub fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionOutcome> {
+        (*self.runtime).borrow().outcome(hash)
+    }
 }
 
-pub fn init_test_runtime() -> TestRuntime {
-    let (runtime, signer) = init_runtime_and_signer(&"root".into());
-    TestRuntime::new(runtime, signer, "root".into())
+pub fn init_test_runtime(genesis_config: Option<GenesisConfig>) -> TestRuntime {
+    let mut genesis: GenesisConfig;
+    if let Some(config) = genesis_config {
+        genesis = config;
+    } else {
+        genesis = GenesisConfig::default();
+        genesis.gas_limit = u64::max_value();
+        genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
+    }
+    let root_account_id = "root".to_string();
+    let signer = genesis.init_root_signer(&root_account_id);
+    let runtime = RuntimeStandalone::new_with_store(genesis);
+    TestRuntime::new(runtime, signer, root_account_id)
 }

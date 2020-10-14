@@ -1,6 +1,9 @@
+pub use lazy_static;
+pub mod outcome;
+pub use outcome::*;
 pub mod test_runtime;
 pub mod units;
-pub use lazy_static;
+#[cfg(not(target_arch = "wasm32"))]
 pub use near_primitives::*;
 pub use test_runtime::*;
 pub use units::*;

@@ -1,4 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
 use near_sdk::{env, near_bindgen, PromiseResult};
 
@@ -14,10 +15,10 @@ pub struct CrossContract {}
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
-        env::promise_batch_action_transfer(promise_idx, amount as u128);
+        env::promise_batch_action_transfer(promise_idx, amount.0);
         env::promise_batch_action_add_key_with_full_access(
             promise_idx,
             &env::signer_account_pk(),
