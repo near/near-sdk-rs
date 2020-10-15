@@ -186,6 +186,13 @@ impl TestRuntime {
     pub fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionOutcome> {
         (*self.runtime).borrow().outcome(hash)
     }
+
+    pub fn get_receipt_outcomes(
+        &self,
+        outcome: &ExecutionOutcome,
+    ) -> Vec<Option<ExecutionOutcome>> {
+        outcome.receipt_ids.iter().map(|id| self.get_outcome(&id)).collect()
+    }
 }
 
 pub fn init_test_runtime(genesis_config: Option<GenesisConfig>) -> TestRuntime {

@@ -65,12 +65,12 @@ impl CrossContract {
         assert_eq!(env::promise_results_count(), 2);
         let data0: Vec<u8> = match env::promise_result(0) {
             PromiseResult::Successful(x) => x,
-            _ => unreachable!(),
+            _ => panic!("Promise with index 0 failed"),
         };
         let data0: Vec<u8> = serde_json::from_slice(&data0).unwrap();
         let data1: Vec<u8> = match env::promise_result(1) {
             PromiseResult::Successful(x) => x,
-            _ => unreachable!(),
+            _ => panic!("Promise with index 1 failed"),
         };
         let data1: Vec<u8> = serde_json::from_slice(&data1).unwrap();
         let mut i = 0usize;

@@ -31,9 +31,9 @@ fn test_sim_transfer() {
         DEFAULT_GAS,
     );
     let res = res.unwrap();
-    let promise_outcome = runtime.get_outcome(&res.receipt_ids[0]);
+    let promise_outcomes = runtime.get_receipt_outcomes(&res);
     // let ExecutionOutcome { status, .. } = res;
-    println!("{:?}\n{:?}", promise_outcome, res);
+    println!("{:#?}\n{:#?}", promise_outcomes, res);
     let message = "hello world";
     let res = root.call(
         contract.complex_call(status_id.clone(), message.to_string()),
@@ -43,11 +43,15 @@ fn test_sim_transfer() {
     let value = get_value(res.unwrap());
     assert_eq!(message, value.to_string().trim_matches(|c| c == '"'));
     let v1: Vec<u8> = vec![42];
-    let _v: Vec<u8> = vec![1, 5, 6, 9, 10, 100, 111, 82, 13, 199, 200, 0];
+    let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11]; //, 2, 82, 13];
     let res = root.call(contract.merge_sort(v1), 0, DEFAULT_GAS * 3);
-    let value = get_value(res.unwrap());
-    println!("{}", value);
-    let res = root.call(contract.merge_sort(_v), 0, DEFAULT_GAS * 3);
-    let value = get_value(res.unwrap());
-    println!("{}", value);
+    let value = get_value(res.clone().unwrap());
+    println!("{}, {:#?}", value, res.unwrap());
+    let res = root.call(contract.merge_sort(_v.clone()), 0, DEFAULT_GAS * 500);
+    let res = res.unwrap();
+    let value = get_value(res.clone());
+    println!("{}, {:#?}", value.clone(), res);
+    let arr = near_sdk::serde_json::from_value::<Vec<u8>>(value).unwrap();
+    let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
+    assert!(b, "array is not sorted.");
 }
