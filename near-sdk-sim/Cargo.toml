@@ -15,7 +15,14 @@ quickcheck = "0.9"
 quickcheck_macros = "0.9"
 #log = "0.4"
 #env_logger = { version = "0.7.1", default-features = false }
-near-crypto = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.12.1" }
-near-primitives = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.12.1" }
-near-runtime-standalone = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.12.1" }
+near-crypto = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.13.1" }
+near-primitives = { git = "https://github.com/nearprotocol/nearcore.git", tag="1.13.1" }
 lazy_static = "1.4.0"
+near-pool = { git = "https://github.com/nearprotocol/nearcore.git", tag = "1.13.1" }
+near-runtime-configs = { git = "https://github.com/nearprotocol/nearcore.git", tag = "1.13.1" }
+near-store = { git = "https://github.com/nearprotocol/nearcore.git", tag = "1.13.1" }
+node-runtime = { git = "https://github.com/nearprotocol/nearcore.git", tag = "1.13.1" }
+
+[features]
+default = []
+no_cache = ["near-store/no_cache", "node-runtime/no_cache"]

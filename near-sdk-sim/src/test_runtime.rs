@@ -1,11 +1,12 @@
+use crate::runtime::{GenesisConfig, RuntimeStandalone};
 use crate::{
     account::{AccessKey, Account},
     hash::CryptoHash,
+    is_success,
     transaction::{ExecutionOutcome, ExecutionStatus, Transaction},
     types::{AccountId, Balance, Gas},
 };
 use near_crypto::{InMemorySigner, KeyType, Signer};
-use near_runtime_standalone::{GenesisConfig, RuntimeStandalone};
 use std::{cell::RefCell, rc::Rc};
 
 pub use crate::to_yocto;
@@ -191,7 +192,24 @@ impl TestRuntime {
         &self,
         outcome: &ExecutionOutcome,
     ) -> Vec<Option<ExecutionOutcome>> {
-        outcome.receipt_ids.iter().map(|id| self.get_outcome(&id)).collect()
+        self.get_outcomes(&outcome.receipt_ids)
+    }
+
+    fn get_outcomes(&self, ids: &Vec<CryptoHash>) -> Vec<Option<ExecutionOutcome>> {
+        ids.iter().map(|id| self.get_outcome(&id)).collect()
+    }
+
+    pub fn get_last_outcomes(&self) -> Vec<Option<ExecutionOutcome>> {
+        self.get_outcomes(&(*self.runtime).borrow().last_outcomes)
+    }
+
+    pub fn find_errors(&self) -> Vec<Option<ExecutionOutcome>> {
+        let mut res = self.get_last_outcomes();
+        res.retain(|outcome| match outcome {
+            Some(o) => !is_success(o),
+            _ => false,
+        });
+        res
     }
 }
 
