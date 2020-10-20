@@ -1,5 +1,5 @@
 use near_sdk_sim::test_runtime::{init_test_runtime, to_yocto};
-use near_sdk_sim::{get_value, TestRuntime, User, DEFAULT_GAS, STORAGE_AMOUNT};
+use near_sdk_sim::{get_json_value, TestRuntime, User, DEFAULT_GAS, STORAGE_AMOUNT};
 extern crate cross_contract_low_level;
 use cross_contract_low_level::CrossContractContract;
 
@@ -40,18 +40,18 @@ fn test_sim_transfer() {
         0,
         DEFAULT_GAS * 3,
     );
-    let value = get_value(res.unwrap());
+    let value = get_json_value(res.unwrap());
     assert_eq!(message, value.to_string().trim_matches(|c| c == '"'));
     let v1: Vec<u8> = vec![42];
     let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11]; //, 2, 82, 13];
     let res = root.call(contract.merge_sort(v1), 0, DEFAULT_GAS * 3);
-    let value = get_value(res.clone().unwrap());
+    let value = get_json_value(res.clone().unwrap());
     println!("{}, {:#?}", value, res.unwrap());
     let res = root.call(contract.merge_sort(_v.clone()), 0, DEFAULT_GAS * 500);
     let outcomes = runtime.get_last_outcomes();
     print!("LAST_OUTCOMES: {:#?}", outcomes);
     let res = res.unwrap();
-    let value = get_value(res.clone());
+    let value = get_json_value(res.clone());
     println!("{}, {:#?}", value.clone(), res);
     let arr = near_sdk::serde_json::from_value::<Vec<u8>>(value).unwrap();
     let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));

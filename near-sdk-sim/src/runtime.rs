@@ -24,12 +24,6 @@ use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
-pub fn init_runtime_and_signer(root_account_id: &AccountId) -> (RuntimeStandalone, InMemorySigner) {
-    let mut genesis = GenesisConfig::default();
-    let signer = genesis.init_root_signer(root_account_id);
-    (RuntimeStandalone::new_with_store(genesis), signer)
-}
-
 #[derive(Debug)]
 pub struct GenesisConfig {
     pub genesis_time: u64,

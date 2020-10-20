@@ -1,20 +1,21 @@
-use crate::runtime::{GenesisConfig, RuntimeStandalone};
+pub use crate::to_yocto;
 use crate::{
     account::{AccessKey, Account},
     hash::CryptoHash,
     is_success,
+    runtime::{GenesisConfig, RuntimeStandalone},
     transaction::{ExecutionOutcome, ExecutionStatus, Transaction},
     types::{AccountId, Balance, Gas},
 };
 use near_crypto::{InMemorySigner, KeyType, Signer};
+use near_sdk::{serde_json, PendingContractTx};
 use std::{cell::RefCell, rc::Rc};
-
-pub use crate::to_yocto;
 
 pub const DEFAULT_GAS: u64 = 300_000_000_000_000;
 pub const STORAGE_AMOUNT: u128 = 50_000_000_000_000_000_000_000_000;
 
 pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
+pub type ViewResult = Result<(Vec<u8>, Vec<String>), Box<dyn std::error::Error>>;
 
 pub fn outcome_into_result(outcome: ExecutionOutcome) -> TxResult {
     match outcome.status {
@@ -110,9 +111,6 @@ impl User {
     }
 
     pub fn view(&self, pending_tx: PendingContractTx) -> serde_json::Value {
-        if !pending_tx.is_view {
-            panic!("Cannot make a view call on change method {}", pending_tx.method);
-        };
         serde_json::from_slice(
             ((*self.runtime)
                 .borrow()
@@ -122,25 +120,6 @@ impl User {
                 .as_ref(),
         )
         .unwrap()
-    }
-}
-
-#[derive(Debug)]
-pub struct PendingContractTx {
-    pub receiver_id: AccountId,
-    pub method: String,
-    pub args: Vec<u8>,
-    pub is_view: bool,
-}
-
-impl PendingContractTx {
-    pub fn new(receiver_id: &str, method: &str, args: serde_json::Value, is_view: bool) -> Self {
-        Self {
-            receiver_id: receiver_id.to_string(),
-            method: method.to_string(),
-            args: args.to_string().as_bytes().to_vec(),
-            is_view,
-        }
     }
 }
 

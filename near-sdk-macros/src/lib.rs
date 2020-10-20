@@ -27,6 +27,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         };
         let generated_code = item_impl_info.wrapper_code();
+        // Add helper type for simulation testing only if not wasm32
         let marshalled_code = item_impl_info.marshall_code();
         TokenStream::from(quote! {
             #marshalled_code

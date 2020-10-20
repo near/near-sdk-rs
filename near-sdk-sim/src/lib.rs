@@ -4,7 +4,6 @@ pub use outcome::*;
 mod runtime;
 pub mod test_runtime;
 pub mod units;
-#[cfg(not(target_arch = "wasm32"))]
 pub use near_primitives::*;
 pub use test_runtime::*;
 pub use units::*;

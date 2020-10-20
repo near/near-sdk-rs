@@ -196,18 +196,18 @@ impl ImplItemMethodInfo {
             // original_sig,
             ..
         } = attr_signature_info;
-        let return_ident = quote! { -> near_sdk_sim::PendingContractTx };
+        let return_ident = quote! { -> near_sdk::PendingContractTx };
         let params = quote! {
             &self, #pat_type_list
         };
         let ident_str = format!("{}", ident.to_string());
         let body = if *is_view {
             quote! {
-                near_sdk_sim::PendingContractTx::new(&self.account_id, #ident_str, args, true)
+                near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, true)
             }
         } else {
             quote! {
-                near_sdk_sim::PendingContractTx::new(&self.account_id, #ident_str, args, false)
+                near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, false)
             }
         };
         quote! {
