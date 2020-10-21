@@ -50,6 +50,6 @@ mod tests {
         let status = SuccessValue(value.clone().to_string().as_bytes().to_vec());
         let mut outcome = ExecutionOutcome::default();
         outcome.status = status;
-        assert_eq!(value, get_value(outcome));
+        assert_eq!(value, get_json_value(outcome));
     }
 }

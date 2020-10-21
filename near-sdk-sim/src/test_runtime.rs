@@ -1,3 +1,4 @@
+use crate::runtime::init_runtime;
 pub use crate::to_yocto;
 use crate::{
     account::{AccessKey, Account},
@@ -193,16 +194,6 @@ impl TestRuntime {
 }
 
 pub fn init_test_runtime(genesis_config: Option<GenesisConfig>) -> TestRuntime {
-    let mut genesis: GenesisConfig;
-    if let Some(config) = genesis_config {
-        genesis = config;
-    } else {
-        genesis = GenesisConfig::default();
-        genesis.gas_limit = u64::max_value();
-        genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
-    }
-    let root_account_id = "root".to_string();
-    let signer = genesis.init_root_signer(&root_account_id);
-    let runtime = RuntimeStandalone::new_with_store(genesis);
+    let (runtime, signer, root_account_id) = init_runtime(genesis_config);
     TestRuntime::new(runtime, signer, root_account_id)
 }

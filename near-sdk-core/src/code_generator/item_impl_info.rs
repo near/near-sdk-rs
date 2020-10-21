@@ -39,6 +39,12 @@ impl ItemImplInfo {
            pub account_id: near_sdk::AccountId,
          }
          impl #name {
+            pub fn _new(account_id: near_sdk::AccountId) -> Self {
+                Self {
+                  account_id
+                }
+            }
+
            #res
          }
         }

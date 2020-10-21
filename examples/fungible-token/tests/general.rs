@@ -16,7 +16,7 @@ fn init(initial_balance: u128) -> (TestRuntime, FungibleTokenContract, User) {
     let runtime = init_test_runtime(None);
     let root = runtime.get_root();
     // let balance: U128 = initial_balance.into();
-    let contract = FungibleTokenContract { account_id: "contract".to_string() };
+    let contract = FungibleTokenContract::_new("contract".to_string());
     let contract_user = root.deploy_and_init(
         &TOKEN_WASM_BYTES,
         contract.new(root.account_id.clone(), initial_balance.into()),

@@ -24,6 +24,23 @@ use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
+pub fn init_runtime(
+    genesis_config: Option<GenesisConfig>,
+) -> (RuntimeStandalone, InMemorySigner, String) {
+    let mut genesis: GenesisConfig;
+    if let Some(config) = genesis_config {
+        genesis = config;
+    } else {
+        genesis = GenesisConfig::default();
+        genesis.gas_limit = u64::max_value();
+        genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
+    }
+    let root_account_id = "root".to_string();
+    let signer = genesis.init_root_signer(&root_account_id);
+    let runtime = RuntimeStandalone::new_with_store(genesis);
+    (runtime, signer, root_account_id)
+}
+
 #[derive(Debug)]
 pub struct GenesisConfig {
     pub genesis_time: u64,
@@ -124,10 +141,15 @@ impl RuntimeStandalone {
     pub fn new(genesis: GenesisConfig, store: Arc<Store>) -> Self {
         let mut genesis_block = Block::genesis(&genesis);
         let mut store_update = store.store_update();
-        let runtime = Runtime::new(genesis.runtime_config.clone());
+        let runtime = Runtime::new();
         let tries = ShardTries::new(store, 1);
-        let (s_update, state_root) =
-            runtime.apply_genesis_state(tries.clone(), 0, &[], &genesis.state_records);
+        let (s_update, state_root) = runtime.apply_genesis_state(
+            tries.clone(),
+            0,
+            &[],
+            &genesis.state_records,
+            &genesis.runtime_config,
+        );
         store_update.merge(s_update);
         store_update.commit().unwrap();
         genesis_block.state_root = state_root;
@@ -213,6 +235,8 @@ impl RuntimeStandalone {
             last_block_hash: CryptoHash::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
+
+            config: Arc::from(self.genesis.runtime_config.clone()),
         };
 
         let apply_result = self.runtime.apply(
@@ -335,9 +359,23 @@ impl RuntimeStandalone {
 mod tests {
     use super::*;
 
+    struct Foo {}
+
+    impl Foo {
+        fn _private(&self) {
+            print!("yay!")
+        }
+    }
+
+    #[test]
+    fn single_test() {
+        let foo = Foo {};
+        foo._private();
+    }
+
     #[test]
     fn single_block() {
-        let (mut runtime, signer) = init_runtime_and_signer(&"root".into());
+        let (mut runtime, signer, _) = init_runtime(None);
         let hash = runtime.send_tx(SignedTransaction::create_account(
             1,
             signer.account_id.clone(),
@@ -356,7 +394,7 @@ mod tests {
 
     #[test]
     fn process_all() {
-        let (mut runtime, signer) = init_runtime_and_signer(&"root".into());
+        let (mut runtime, signer, _) = init_runtime(None);
         assert_eq!(runtime.view_account(&"alice".into()), None);
         let outcome = runtime.resolve_tx(SignedTransaction::create_account(
             1,
@@ -384,14 +422,14 @@ mod tests {
 
     #[test]
     fn test_cross_contract_call() {
-        let (mut runtime, signer) = init_runtime_and_signer(&"root".into());
+        let (mut runtime, signer, _) = init_runtime(None);
 
         assert!(matches!(
             runtime.resolve_tx(SignedTransaction::create_contract(
                 1,
                 signer.account_id.clone(),
                 "status".into(),
-                include_bytes!("../contracts/status-message/res/status_message.wasm")
+                include_bytes!("../../examples/status-message/res/status_message.wasm")
                     .as_ref()
                     .into(),
                 23082408900000000000001000,
@@ -408,7 +446,7 @@ mod tests {
                 signer.account_id.clone(),
                 "caller".into(),
                 include_bytes!(
-                    "../contracts/cross-contract-high-level/res/cross_contract_high_level.wasm"
+                    "../../examples/cross-contract-high-level/res/cross_contract_high_level.wasm"
                 )
                 .as_ref()
                 .into(),
@@ -455,7 +493,7 @@ mod tests {
 
     #[test]
     fn test_force_update_account() {
-        let (mut runtime, _) = init_runtime_and_signer(&"root".into());
+        let (mut runtime, _, _) = init_runtime(None);
         let mut bob_account = runtime.view_account(&"root".into()).unwrap();
         bob_account.locked = 10000;
         runtime.force_account_update("root".into(), &bob_account);
