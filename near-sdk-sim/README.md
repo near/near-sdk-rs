@@ -46,7 +46,7 @@ Next you need to import the simulatior's init method:
 use near_sdk_sim::{init_test_runtime};
 ```
 
-This function takes an optional parameter of gensis configuration. Next you must include the bytes of the contract you want to test.
+This function takes an optional parameter of a genesis configuration. Next you must include the bytes of the contract you want to test.
 
 ```rust
 near_sdk_sim::lazy_static::lazy_static! {
@@ -55,9 +55,9 @@ near_sdk_sim::lazy_static::lazy_static! {
 ```
 
 ```rust
-[#test]
+#[test]
 fn simple_test() {
-      let runtime = init_test_runtime(None);
+      let runtime = init_test_runtime(None); // Passing None uses the default config
       let root = runtime.get_root();
       let initial_balance = near_sdk_sim::to_yocto("100");
       let contract = TokenContract { account_id: "contract".to_string() };
