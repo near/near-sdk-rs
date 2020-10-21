@@ -61,6 +61,8 @@ fn simple_test() {
       let root = runtime.get_root();
       let initial_balance = near_sdk_sim::to_yocto("100");
       let contract = TokenContract { account_id: "contract".to_string() };
+      // Or with constructor
+      let contract = TokenContract::_new("contract".to_string());
       let contract_user = root.deploy_and_init(
           &TOKEN_WASM_BYTES,
           contract.new(root.account_id.clone(), initial_balance.into()),
