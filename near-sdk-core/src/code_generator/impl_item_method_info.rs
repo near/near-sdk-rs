@@ -1,7 +1,7 @@
 use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
 use quote::quote;
 use syn::export::TokenStream2;
-use syn::ReturnType;
+use syn::{ReturnType, Signature};
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -186,14 +186,14 @@ impl ImplItemMethodInfo {
         };
 
         let AttrSigInfo {
-            // non_bindgen_attrs,
+            non_bindgen_attrs,
             ident,
             // receiver,
             // returns,
             // result_serializer,
             // is_init,
             is_view,
-            // original_sig,
+            original_sig,
             ..
         } = attr_signature_info;
         let return_ident = quote! { -> near_sdk::PendingContractTx };
@@ -210,9 +210,17 @@ impl ImplItemMethodInfo {
                 near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, false)
             }
         };
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
+        let Signature { generics, .. } = original_sig;
         quote! {
             #[cfg(not(target_arch = "wasm32"))]
-            pub fn #ident(#params) #return_ident {
+            #non_bindgen_attrs
+            pub fn #ident#generics(#params) #return_ident {
                 #json_args
                 #body
             }

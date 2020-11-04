@@ -30,21 +30,12 @@ impl ItemImplInfo {
         };
         let mut res = TokenStream2::new();
         for method in &self.methods {
-            if method.is_public || self.is_trait_impl {
+            if method.is_public {
                 res.extend(method.marshal_method());
             }
         }
         quote! {
-         pub struct #name {
-           pub account_id: near_sdk::AccountId,
-         }
          impl #name {
-            pub fn _new(account_id: near_sdk::AccountId) -> Self {
-                Self {
-                  account_id
-                }
-            }
-
            #res
          }
         }
@@ -625,9 +616,9 @@ mod tests {
         let actual = method_info.marshal_method();
         let expected = quote!(
                 #[cfg(not(target_arch = "wasm32"))]
-                pub fn method(&self, k: String,) -> near_sdk_sim::PendingContractTx {
+                pub fn method(&self, k: String,) -> near_sdk::PendingContractTx {
                     let args = near_sdk::serde_json::json!({ "k" : k });
-                    near_sdk_sim::PendingContractTx::new(& self . account_id, "method", args, true)
+                    near_sdk::PendingContractTx::new(& self . account_id, "method", args, true)
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());

@@ -1,14 +1,11 @@
-use near_sdk::json_types::U128;
-use near_sdk::serde_json::json;
 use near_sdk_sim::{
-    deploy_default, init_simulator, to_yocto, transaction::ExecutionOutcome, ContractAccount,
-    UserAccount, DEFAULT_GAS, STORAGE_AMOUNT,
+    deploy_default, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS,
+    STORAGE_AMOUNT,
 };
 use std::str::FromStr;
 
 extern crate fungible_token;
 use fungible_token::FungibleTokenContract;
-use near_sdk::PendingContractTx;
 
 near_sdk_sim::lazy_static::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
@@ -17,9 +14,9 @@ near_sdk_sim::lazy_static::lazy_static! {
 fn init(
     initial_balance: u128,
 ) -> (UserAccount, ContractAccount<FungibleTokenContract>, UserAccount) {
+    println!("let's start");
     let master_account = init_simulator(None);
-
-    // default
+    // default values for deposit and gas
     let contract_user = deploy_default!(
         // Contract Proxy
         FungibleTokenContract,
@@ -75,11 +72,10 @@ fn test_sim_transfer() {
         STORAGE_AMOUNT,
         DEFAULT_GAS,
     );
-    use near_sdk_sim::transaction::ExecutionStatus::*;
-    assert!(res.is_success());
+    assert!(res.is_ok());
 
     let value = master_account.view(contract.get_balance(master_account.account_id()));
-    let value: String = near_sdk::serde_json::from_value(value).unwrap();
+    let value: String = value.from_json_value().unwrap();
     let val = u128::from_str(&value).unwrap();
     assert_eq!(initial_balance - transfer_amount, val);
 }

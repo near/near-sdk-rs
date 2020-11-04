@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::ViewResult;
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 use near_pool::{types::PoolIterator, TransactionPool};
 use near_primitives::account::{AccessKey, Account};
@@ -310,7 +311,7 @@ impl RuntimeStandalone {
         account_id: &AccountId,
         method_name: &str,
         args: &[u8],
-    ) -> Result<(Vec<u8>, Vec<String>), Box<dyn std::error::Error>> {
+    ) -> ViewResult {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};
         let mut logs = vec![];
@@ -327,8 +328,8 @@ impl RuntimeStandalone {
             &mut logs,
             self.epoch_info_provider.as_ref(),
             PROTOCOL_VERSION,
-        )?;
-        Ok((result, logs))
+        );
+        ViewResult::new(result, logs)
     }
 
     pub fn current_block(&mut self) -> &mut Block {
@@ -484,8 +485,7 @@ mod tests {
                     "get_status",
                     "{\"account_id\": \"caller\"}".as_bytes(),
                 )
-                .unwrap()
-                .0,
+                .unwrap(),
         )
         .unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);

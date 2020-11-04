@@ -43,7 +43,7 @@ fn test_sim_transfer() {
         DEFAULT_GAS * 3,
     );
     println!("{:#?}", res.clone());
-    if !res.is_success() {
+    if !res.is_ok() {
         println!("{:#?}", res);
         assert!(false);
         return;

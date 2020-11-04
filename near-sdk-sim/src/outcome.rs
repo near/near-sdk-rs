@@ -1,12 +1,14 @@
 use crate::hash::CryptoHash;
-use crate::runtime::RuntimeStandalone;
+use crate::runtime::{init_runtime, RuntimeStandalone};
 use crate::transaction::{ExecutionOutcome, ExecutionStatus};
 use core::fmt;
 use near_primitives::transaction::ExecutionStatus::{SuccessReceiptId, SuccessValue};
 use near_sdk::borsh::BorshDeserialize;
+use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::export::Formatter;
 use near_sdk::serde_json;
 use near_sdk::serde_json::Value;
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::io;
@@ -14,7 +16,6 @@ use std::io::{Error, ErrorKind};
 use std::rc::Rc;
 
 pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
-pub type ViewResult = Result<(Vec<u8>, Vec<String>), Box<dyn std::error::Error>>;
 
 #[derive(Clone)]
 pub struct ExecutionResult {
@@ -25,6 +26,15 @@ pub struct ExecutionResult {
 impl Debug for ExecutionResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExecutionResult").field("outcome", &self.outcome).finish()
+    }
+}
+
+impl Default for ExecutionResult {
+    fn default() -> Self {
+        ExecutionResult::new(
+            ExecutionOutcome::default(),
+            &Rc::new(RefCell::new(init_runtime(None).0)),
+        )
     }
 }
 
@@ -55,7 +65,7 @@ impl ExecutionResult {
         }
     }
 
-    pub fn is_success(&self) -> bool {
+    pub fn is_ok(&self) -> bool {
         match &(self.outcome).status {
             SuccessValue(_) => true,
             SuccessReceiptId(_) => true,
@@ -63,8 +73,15 @@ impl ExecutionResult {
         }
     }
 
+    pub fn has_value(&self) -> bool {
+        match &(self.outcome).status {
+            SuccessValue(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn assert_success(&self) {
-        assert!(self.is_success(), "Outcome was a failure");
+        assert!(self.is_ok(), "Outcome was a failure");
     }
 
     fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionResult> {
@@ -89,10 +106,14 @@ impl ExecutionResult {
     pub fn find_errors(&self) -> Vec<Option<ExecutionResult>> {
         let mut res = self.get_last_outcomes();
         res.retain(|outcome| match outcome {
-            Some(o) => !o.is_success(),
+            Some(o) => !o.is_ok(),
             _ => false,
         });
         res
+    }
+
+    pub fn status(&self) -> ExecutionStatus {
+        self.outcome.status.clone()
     }
 }
 
@@ -108,10 +129,55 @@ pub fn outcome_into_result(
     }
 }
 
+pub struct ViewResult {
+    result: Result<Vec<u8>, Box<dyn std::error::Error>>,
+    logs: Vec<String>,
+}
+
+impl ViewResult {
+    pub fn new(result: Result<Vec<u8>, Box<dyn std::error::Error>>, logs: Vec<String>) -> Self {
+        Self { result, logs }
+    }
+
+    pub fn logs(&self) -> &Vec<String> {
+        &self.logs
+    }
+
+    pub fn is_err(&self) -> bool {
+        self.result.is_err()
+    }
+
+    pub fn is_ok(&self) -> bool {
+        self.result.is_ok()
+    }
+
+    pub fn unwrap(&self) -> Vec<u8> {
+        (&self.result).as_ref().borrow().unwrap().clone()
+    }
+
+    pub fn unwrap_err(&self) -> &dyn std::error::Error {
+        (&self.result).as_ref().borrow().unwrap_err().as_ref().borrow()
+    }
+
+    pub fn get_json_value(&self) -> near_sdk::serde_json::Result<Value> {
+        near_sdk::serde_json::from_slice(&self.result.as_ref().unwrap())
+    }
+
+    pub fn get_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
+        BorshDeserialize::try_from_slice(&self.result.as_ref().unwrap())
+    }
+
+    pub fn from_json_value<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
+        near_sdk::serde_json::from_value(self.get_json_value()?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::init_runtime;
     use near_primitives::transaction::ExecutionStatus::SuccessValue;
+    use near_sdk::serde_json::json;
 
     #[test]
     fn value_test() {
@@ -121,6 +187,7 @@ mod tests {
         let status = SuccessValue(value.clone().to_string().as_bytes().to_vec());
         let mut outcome = ExecutionOutcome::default();
         outcome.status = status;
-        assert_eq!(value, get_json_value(outcome));
+        let result = outcome_into_result(outcome, &Rc::new(RefCell::new(init_runtime(None).0)));
+        assert_eq!(value, result.get_json_value().unwrap());
     }
 }

@@ -7,10 +7,10 @@ use crate::{
     runtime::{GenesisConfig, RuntimeStandalone},
     transaction::Transaction,
     types::{AccountId, Balance, Gas},
-    ExecutionResult,
+    ExecutionResult, ViewResult,
 };
 use near_crypto::{InMemorySigner, KeyType, Signer};
-use near_sdk::{serde_json, PendingContractTx};
+use near_sdk::PendingContractTx;
 use std::{cell::RefCell, rc::Rc};
 
 pub const DEFAULT_GAS: u64 = 300_000_000_000_000;
@@ -124,16 +124,12 @@ impl UserAccount {
         outcome_into_result(res, &self.runtime)
     }
 
-    pub fn view(&self, pending_tx: PendingContractTx) -> serde_json::Value {
-        serde_json::from_slice(
-            ((*self.runtime)
-                .borrow()
-                .view_method_call(&pending_tx.receiver_id, &pending_tx.method, &pending_tx.args)
-                .unwrap()
-                .0)
-                .as_ref(),
+    pub fn view(&self, pending_tx: PendingContractTx) -> ViewResult {
+        (*self.runtime).borrow().view_method_call(
+            &pending_tx.receiver_id,
+            &pending_tx.method,
+            &pending_tx.args,
         )
-        .unwrap()
     }
 
     pub fn create_user_from(
@@ -230,12 +226,4 @@ macro_rules! deploy_default {
                }
            }
        };
-}
-
-#[test]
-fn test_macro() {
-    let master_account = init_simulator(None);
-
-    let contract = CrossContractContract { account_id: "contract".to_string() };
-    let contract_user = master_account.deploy(&TOKEN_WASM_BYTES, "contract".to_string());
 }

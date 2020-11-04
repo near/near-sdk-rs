@@ -14,8 +14,10 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let sys_file = rust_file(include_bytes!("../res/sys.rs"));
         let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
+        let struct_proxy = generate_proxy_struct(&input);
         TokenStream::from(quote! {
             #input
+            #struct_proxy
             #sys_file
             #near_environment
         })
