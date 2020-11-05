@@ -174,26 +174,28 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///  This example deploys and initializes the contract.
 ///
 /// ```
-/// let contract = deploy! {
-///   contract: FungibleTokenContract,
-///   contract_id: "contract",
-///   bytes: &TOKEN_WASM_BYTES,
-///   signer_id: master_account,
-///   init_method: new(master_account.account_id, initial_balance.into())
-/// };
+/// // use near_sdk_sim::deploy;
+/// // let contract = deploy! {
+/// //   contract: FungibleTokenContract,
+/// //   contract_id: "contract",
+/// //   bytes: &TOKEN_WASM_BYTES,
+/// //   signer_id: master_account,
+/// //   init_method: new(master_account.account_id, initial_balance.into())
+/// // };
 /// ```
 /// This example used the default values for the initial deposit to the contract account and gas for the contract call.
 /// So it is the same as:
 /// ```
-/// let contract = deploy! {
-///   contract: FungibleTokenContract,
-///   contract_id: "contract",
-///   bytes: &TOKEN_WASM_BYTES,
-///   signer_id: master_account,
-///   init_method: new(master_account.account_id, initial_balance.into()),
-///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
-///   gas: near_sdk_sim::DEFAULT_GAS,
-/// };
+/// // use near_sdk_sim::deploy;
+/// // let contract = deploy! {
+/// //   contract: FungibleTokenContract,
+/// //   contract_id: "contract",
+/// //   bytes: &TOKEN_WASM_BYTES,
+/// //   signer_id: master_account,
+/// //   init_method: new(master_account.account_id, initial_balance.into()),
+/// //   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
+/// //   gas: near_sdk_sim::DEFAULT_GAS,
+/// // };
 /// ```
 #[macro_export]
 macro_rules! deploy {
@@ -239,14 +241,15 @@ macro_rules! deploy {
 ///
 /// Example:
 /// ```
-/// let contract = deploy! {
-///    contract: TokenContract,
-///    contract_id: "contract",
-///    bytes: &TOKEN_BYTES,
-///    signer_account: master_account
-///   };
-/// let res = call!(contract.transfer(master_account.account_id()), to_yocto("100"));
-/// ```
+/// // use near_sdk_sim::{deploy, call};
+/// // let contract = deploy! {
+/// //    contract: TokenContract,
+/// //    contract_id: "contract",
+/// //    bytes: &TOKEN_BYTES,
+/// //    signer_account: master_account
+/// //   };
+/// // let res = call!(contract.transfer(master_account.account_id()), to_yocto("100"));
+/// // ```
 #[macro_export]
 macro_rules! call {
     ($signer:expr, $deposit: expr, $gas: expr, $contract: ident, $method:ident, $($arg:expr),*) => {
@@ -270,13 +273,15 @@ macro_rules! call {
 ///
 /// Example:
 /// ```
-/// let contract = deploy! {
-///    contract: TokenContract,
-///    contract_id: "contract",
-///    bytes: &TOKEN_BYTES,
-///    signer_account: master_account
-///   };
-/// let res = view!(contract.get_balance(master_account.account_id()));
+/// // use near_sdk_sim::{deploy, view, init_simulator};
+/// // let master_account = init_simulator(None);
+/// // let contract = deploy! {
+/// //    contract: TokenContract,
+/// //    contract_id: "contract",
+/// //    bytes: &TOKEN_BYTES,
+/// //    signer_account: master_account
+/// //   };
+/// // let res = view!(contract.get_balance(master_account.account_id()));
 /// ```
 ///
 #[macro_export]

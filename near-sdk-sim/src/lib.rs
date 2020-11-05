@@ -1,7 +1,7 @@
 pub use lazy_static;
 pub mod outcome;
 pub use outcome::*;
-mod runtime;
+pub mod runtime;
 pub mod units;
 pub mod user;
 pub use near_primitives::*;

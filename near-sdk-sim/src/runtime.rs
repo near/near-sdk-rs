@@ -266,8 +266,8 @@ impl RuntimeStandalone {
     /// # Examples
     ///
     /// ```
-    /// use near_runtime_standalone::init_runtime_and_signer;
-    /// let (mut runtime, _) = init_runtime_and_signer(&"root".into());
+    /// use near_sdk_sim::runtime::init_runtime;
+    /// let (mut runtime, _, _) = init_runtime(None);
     /// runtime.produce_blocks(5);
     /// assert_eq!(runtime.current_block().block_height, 5);
     /// assert_eq!(runtime.current_block().epoch_height, 1);
@@ -455,36 +455,36 @@ mod tests {
             &signer,
             CryptoHash::default(),
         ));
-        println!("{:#?}", &res);
         assert!(matches!(
             res,
             Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
         ));
+        let res = runtime.resolve_tx(SignedTransaction::call(
+            3,
+            signer.account_id.clone(),
+            "caller".into(),
+            &signer,
+            0,
+            "simple_call".into(),
+            "{\"account_id\": \"status\", \"message\": \"caller status is ok!\"}"
+                .as_bytes()
+                .to_vec(),
+            300_000_000_000_000,
+            CryptoHash::default(),
+        ));
+        let res = res.unwrap();
+        runtime.process_all().unwrap();
 
         assert!(matches!(
-            runtime.resolve_tx(SignedTransaction::call(
-                3,
-                signer.account_id.clone(),
-                "caller".into(),
-                &signer,
-                0,
-                "simple_call".into(),
-                "{\"account_id\": \"status\", \"message\": \"caller status is ok!\"}"
-                    .as_bytes()
-                    .to_vec(),
-                300_000_000_000_000,
-                CryptoHash::default(),
-            )),
-            Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
+            res,
+            ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }
         ));
-
-        runtime.process_all().unwrap();
         let res = runtime.view_method_call(
             &"status".into(),
             "get_status",
-            "{\"account_id\": \"caller\"}".as_bytes(),
+            "{\"account_id\": \"root\"}".as_bytes(),
         );
-        println!("{:#?}", &res);
+
         let caller_status = String::from_utf8(res.unwrap()).unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);
     }

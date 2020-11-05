@@ -95,6 +95,10 @@ impl ExecutionResult {
         }
     }
 
+    pub fn outcome(&self) -> &ExecutionOutcome {
+        &self.outcome
+    }
+
     pub fn get_receipt_outcomes(&self) -> Vec<Option<ExecutionResult>> {
         self.get_outcomes(&self.outcome.receipt_ids)
     }
