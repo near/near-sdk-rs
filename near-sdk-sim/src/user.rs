@@ -169,61 +169,119 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 
 /// Deploys a contract. Will either deploy or deploy and initialize a contract.
 /// Returns a `ContractAccount<T>` where `T` is the first argument.
-/// Note: currently init methods are expected to be `new`
 ///
 /// # Examples
-///  This example deploys and
+///  This example deploys and initializes the contract.
+///
 /// ```
-///     let contract_user = deploy!(
-///        // Contract Proxy
-///        FungibleTokenContract,
-///        // Contract account id
-///        "contract",
-///        // Referennce to bytes of contract
-///        &TOKEN_WASM_BYTES,
-///        // User deploying the contract,
-///        master_account,
-///        
-///        // Args to initialize contract
-///        master_account.account_id(),
-///        initial_balance.into(),
-///        
-///    );
+/// let contract = deploy! {
+///   contract: FungibleTokenContract,
+///   contract_id: "contract",
+///   bytes: &TOKEN_WASM_BYTES,
+///   signer_id: master_account,
+///   init_method: new(master_account.account_id, initial_balance.into())
+/// };
+/// ```
+/// This example used the default values for the initial deposit to the contract account and gas for the contract call.
+/// So it is the same as:
+/// ```
+/// let contract = deploy! {
+///   contract: FungibleTokenContract,
+///   contract_id: "contract",
+///   bytes: &TOKEN_WASM_BYTES,
+///   signer_id: master_account,
+///   init_method: new(master_account.account_id, initial_balance.into()),
+///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
+///   gas: near_sdk_sim::DEFAULT_GAS,
+/// };
 /// ```
 #[macro_export]
 macro_rules! deploy {
+    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr) => {
+        deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT)
+    };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr) => {
         ContractAccount {
             user_account: $user.deploy($wasm_bytes, $account_id.to_string(), $deposit),
             contract: $contract { account_id: $account_id.to_string() },
         }
     };
-    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),+ ) => {
+    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* ) => {
            {
                let __contract = $contract { account_id: $account_id.to_string() };
                ContractAccount {
-                   user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),+), $deposit, $gas),
+                   user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
                }
            }
-       };
+   };
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr) => {
+      deploy!($contract, $account_id, $wasm_bytes, $user)
+    };
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr) => {
+        deploy!($contract, $account_id, $wasm_bytes, $user, $deposit)
+    };
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, gas: $gas:expr, init_method: $method: ident($($arg:expr),*) ) => {
+       deploy!($contract, $account_id, $wasm_bytes, $user, $deposit, $gas, $method, $($arg),*)
+    };
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, gas: $gas:expr, init_method: $method: ident($($arg:expr),*) ) => {
+       deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT, $gas, $method, $($arg),*)
+    };
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, init_method: $method: ident($($arg:expr),*) ) => {
+       deploy!($contract, $account_id, $wasm_bytes, $user, $deposit, near_sdk_sim::DEFAULT_GAS, $method, $($arg),*)
+    };
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, init_method: $method: ident($($arg:expr),+) ) => {
+       deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT, near_sdk_sim::DEFAULT_GAS, $method, $($arg),*)
+    };
 }
 
+/// Makes a contract call.
+///
+/// Example:
+/// ```
+/// let contract = deploy! {
+///    contract: TokenContract,
+///    contract_id: "contract",
+///    bytes: &TOKEN_BYTES,
+///    signer_account: master_account
+///   };
+/// let res = call!(contract.transfer(master_account.account_id()), to_yocto("100"));
+/// ```
 #[macro_export]
-macro_rules! deploy_default {
-    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr) => {
-        ContractAccount {
-            user_account: $user.deploy($wasm_bytes, $account_id.to_string(), near_sdk_sim::STORAGE_AMOUNT),
-            contract: $contract { account_id: $account_id.to_string() },
-        }
+macro_rules! call {
+    ($signer:expr, $deposit: expr, $gas: expr, $contract: ident, $method:ident, $($arg:expr),*) => {
+        $signer.call((&$contract).contract.$method($($arg),*), $deposit, $gas)
     };
-    ($contract: ident, $account_id:expr, $wasm_bytes:expr, $user_id:expr, $method:ident, $($arg:expr),+ ) => {
-           {
-               let __contract = $contract { account_id: $account_id.to_string() };
-               ContractAccount {
-                   user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),+), near_sdk_sim::STORAGE_AMOUNT, near_sdk_sim::DEFAULT_GAS),
-                   contract: __contract,
-               }
-           }
-       };
+    ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), $deposit: expr, $gas: expr) => {
+        call!($signer, $deposit, $gas, $contract, $method, $($arg),*)
+    };
+    ($signer:expr, $contract: ident.$method:ident($($arg:expr),*)) => {
+        call!($signer, $contract, $method, 0, near_sdk_sim::DEFAULT_GAS, $($arg),*,)
+    };
+    ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), gas=$gas_or_deposit: expr) => {
+           call!($signer, 0, $gas_or_deposit, $contract, $method, $($arg),*)
+    };
+    ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), deposit=$gas_or_deposit: expr) => {
+        call!($signer, $gas_or_deposit, near_sdk_sim::DEFAULT_GAS, $contract, $method, $($arg),*)
+    };
+}
+
+/// calls a view method on the contract account.
+///
+/// Example:
+/// ```
+/// let contract = deploy! {
+///    contract: TokenContract,
+///    contract_id: "contract",
+///    bytes: &TOKEN_BYTES,
+///    signer_account: master_account
+///   };
+/// let res = view!(contract.get_balance(master_account.account_id()));
+/// ```
+///
+#[macro_export]
+macro_rules! view {
+    ($contract: ident.$method:ident($($arg:expr),*)) => {
+        (&$contract).user_account.view((&$contract).contract.$method($($arg),*))
+    };
 }

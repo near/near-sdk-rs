@@ -236,8 +236,8 @@ impl RuntimeStandalone {
             last_block_hash: CryptoHash::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
-
             config: Arc::from(self.genesis.runtime_config.clone()),
+            cache: None,
         };
 
         let apply_result = self.runtime.apply(
@@ -359,6 +359,7 @@ impl RuntimeStandalone {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::to_yocto;
 
     struct Foo {}
 
@@ -433,29 +434,30 @@ mod tests {
                 include_bytes!("../../examples/status-message/res/status_message.wasm")
                     .as_ref()
                     .into(),
-                23082408900000000000001000,
+                to_yocto("35"),
                 signer.public_key(),
                 &signer,
                 CryptoHash::default(),
             )),
             Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
         ));
-
+        let res = runtime.resolve_tx(SignedTransaction::create_contract(
+            2,
+            signer.account_id.clone(),
+            "caller".into(),
+            include_bytes!(
+                "../../examples/cross-contract-high-level/res/cross_contract_high_level.wasm"
+            )
+            .as_ref()
+            .into(),
+            to_yocto("35"),
+            signer.public_key(),
+            &signer,
+            CryptoHash::default(),
+        ));
+        println!("{:#?}", &res);
         assert!(matches!(
-            runtime.resolve_tx(SignedTransaction::create_contract(
-                2,
-                signer.account_id.clone(),
-                "caller".into(),
-                include_bytes!(
-                    "../../examples/cross-contract-high-level/res/cross_contract_high_level.wasm"
-                )
-                .as_ref()
-                .into(),
-                23082408900000000000001000,
-                signer.public_key(),
-                &signer,
-                CryptoHash::default(),
-            )),
+            res,
             Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
         ));
 
@@ -477,17 +479,13 @@ mod tests {
         ));
 
         runtime.process_all().unwrap();
-
-        let caller_status = String::from_utf8(
-            runtime
-                .view_method_call(
-                    &"status".into(),
-                    "get_status",
-                    "{\"account_id\": \"caller\"}".as_bytes(),
-                )
-                .unwrap(),
-        )
-        .unwrap();
+        let res = runtime.view_method_call(
+            &"status".into(),
+            "get_status",
+            "{\"account_id\": \"caller\"}".as_bytes(),
+        );
+        println!("{:#?}", &res);
+        let caller_status = String::from_utf8(res.unwrap()).unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);
     }
 

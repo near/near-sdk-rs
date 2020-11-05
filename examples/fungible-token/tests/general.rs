@@ -1,6 +1,5 @@
 use near_sdk_sim::{
-    deploy_default, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS,
-    STORAGE_AMOUNT,
+    call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount, STORAGE_AMOUNT,
 };
 use std::str::FromStr;
 
@@ -17,20 +16,17 @@ fn init(
     println!("let's start");
     let master_account = init_simulator(None);
     // default values for deposit and gas
-    let contract_user = deploy_default!(
+    let contract_user = deploy!(
         // Contract Proxy
-        FungibleTokenContract,
+        contract: FungibleTokenContract,
         // Contract account id
-        "contract",
+        contract_id: "contract",
         // Bytes of contract
-        &TOKEN_WASM_BYTES,
+        bytes: &TOKEN_WASM_BYTES,
         // User deploying the contract,
-        master_account,
+        signer_account: master_account,
         // init method
-        new,
-        // Args to initialize contract
-        master_account.account_id(),
-        initial_balance.into()
+        init_method: new(master_account.account_id(), initial_balance.into())
     );
     let alice = master_account.create_user("alice".to_string(), to_yocto("100"));
     (master_account, contract_user, alice)
@@ -65,16 +61,16 @@ pub fn mint_token() {
 fn test_sim_transfer() {
     let transfer_amount = to_yocto("100");
     let initial_balance = to_yocto("100000");
-    let (master_account, contract_account, alice) = init(initial_balance);
-    let contract = contract_account.contract;
-    let res = master_account.call(
+    let (master_account, contract, alice) = init(initial_balance);
+    let res = call!(
+        master_account,
         contract.transfer(alice.account_id.clone(), transfer_amount.into()),
-        STORAGE_AMOUNT,
-        DEFAULT_GAS,
+        deposit = STORAGE_AMOUNT
     );
+    println!("{:#?}", res.status());
     assert!(res.is_ok());
 
-    let value = master_account.view(contract.get_balance(master_account.account_id()));
+    let value = view!(contract.get_balance(master_account.account_id()));
     let value: String = value.from_json_value().unwrap();
     let val = u128::from_str(&value).unwrap();
     assert_eq!(initial_balance - transfer_amount, val);

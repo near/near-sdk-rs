@@ -65,6 +65,10 @@ impl ExecutionResult {
         }
     }
 
+    pub fn from_json_value<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
+        near_sdk::serde_json::from_value(self.get_json_value()?)
+    }
+
     pub fn is_ok(&self) -> bool {
         match &(self.outcome).status {
             SuccessValue(_) => true,
@@ -129,6 +133,7 @@ pub fn outcome_into_result(
     }
 }
 
+#[derive(Debug)]
 pub struct ViewResult {
     result: Result<Vec<u8>, Box<dyn std::error::Error>>,
     logs: Vec<String>,
@@ -163,7 +168,7 @@ impl ViewResult {
         near_sdk::serde_json::from_slice(&self.result.as_ref().unwrap())
     }
 
-    pub fn get_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
+    pub fn from_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
         BorshDeserialize::try_from_slice(&self.result.as_ref().unwrap())
     }
 
