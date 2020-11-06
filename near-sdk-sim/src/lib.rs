@@ -1,4 +1,4 @@
-pub use lazy_static;
+pub use lazy_static::*;
 pub mod outcome;
 pub use outcome::*;
 pub mod runtime;

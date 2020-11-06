@@ -183,7 +183,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// //   init_method: new(master_account.account_id, initial_balance.into())
 /// // };
 /// ```
-/// This example used the default values for the initial deposit to the contract account and gas for the contract call.
+/// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
 /// So it is the same as:
 /// ```
 /// // use near_sdk_sim::deploy;

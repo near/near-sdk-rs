@@ -15,7 +15,7 @@ fn init(
 ) -> (UserAccount, ContractAccount<FungibleTokenContract>, UserAccount) {
     println!("let's start");
     let master_account = init_simulator(None);
-    // default values for deposit and gas
+    // uses default values for deposit and gas
     let contract_user = deploy!(
         // Contract Proxy
         contract: FungibleTokenContract,
