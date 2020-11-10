@@ -13,7 +13,6 @@ near_sdk_sim::lazy_static::lazy_static! {
 fn init(
     initial_balance: u128,
 ) -> (UserAccount, ContractAccount<FungibleTokenContract>, UserAccount) {
-    println!("let's start");
     let master_account = init_simulator(None);
     // uses default values for deposit and gas
     let contract_user = deploy!(
@@ -56,7 +55,6 @@ pub fn mint_token() {
     // let value: String = near_sdk::serde_json::from_value(value).unwrap();
     // assert_eq!(value, to_yocto("100000").to_string());
 }
-
 #[test]
 fn test_sim_transfer() {
     let transfer_amount = to_yocto("100");

@@ -174,14 +174,21 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///  This example deploys and initializes the contract.
 ///
 /// ```
-/// // use near_sdk_sim::deploy;
-/// // let contract = deploy! {
-/// //   contract: FungibleTokenContract,
-/// //   contract_id: "contract",
-/// //   bytes: &TOKEN_WASM_BYTES,
-/// //   signer_id: master_account,
-/// //   init_method: new(master_account.account_id, initial_balance.into())
-/// // };
+/// # #[macro_use] extern crate near_sdk_sim;
+/// # //let TOKEN_WASM_BYTES = near_sdk_sim::get_wasm_bytes();
+/// # lazy_static::lazy_static! {
+/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # }
+/// use fungible_token::FungibleTokenContract;
+/// let master_account = near_sdk_sim::init_simulator(None);
+/// let initial_balance = near_sdk_sim::to_yocto("35");
+/// let contract = deploy! {
+///   contract: FungibleTokenContract,
+///   contract_id: "contract",
+///   bytes: &TOKEN_WASM_BYTES,
+///   signer_account: master_account,
+///   init_method: new(master_account.account_id(), initial_balance.into())
+/// };
 /// ```
 /// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
 /// So it is the same as:
@@ -203,7 +210,7 @@ macro_rules! deploy {
         deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT)
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr) => {
-        ContractAccount {
+        near_sdk_sim::ContractAccount {
             user_account: $user.deploy($wasm_bytes, $account_id.to_string(), $deposit),
             contract: $contract { account_id: $account_id.to_string() },
         }
@@ -211,7 +218,7 @@ macro_rules! deploy {
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* ) => {
            {
                let __contract = $contract { account_id: $account_id.to_string() };
-               ContractAccount {
+               near_sdk_sim::ContractAccount {
                    user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
                }

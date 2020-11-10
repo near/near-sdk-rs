@@ -19,7 +19,9 @@ node-runtime = { git = "https://github.com/near/nearcore.git", branch = "stable_
 [dev-dependencies]
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
+fungible-token = { path="../examples/fungible-token" }
 
 [features]
 default = []
 no_cache = ["near-store/no_cache", "node-runtime/no_cache"]
+no_sim = []
