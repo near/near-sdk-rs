@@ -1,11 +1,18 @@
+//! # near_sdk_sim
+//!
+//! This crate provides an interface for simulating transactions on NEAR's Blockchain.
+//!
+
 pub use lazy_static::*;
 pub mod outcome;
 pub use outcome::*;
 pub mod runtime;
 pub mod units;
 pub mod user;
+#[doc(hidden)]
 pub use near_primitives::*;
 pub use units::*;
+#[doc(inline)]
 pub use user::*;
 
 #[cfg(doctest)]
