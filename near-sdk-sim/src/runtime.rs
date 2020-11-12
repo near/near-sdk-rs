@@ -70,14 +70,16 @@ impl Default for GenesisConfig {
 }
 
 impl GenesisConfig {
-    pub fn init_root_signer(&mut self, account_id: &AccountId) -> InMemorySigner {
+    pub fn init_root_signer(&mut self, account_id: &str) -> InMemorySigner {
         let signer = InMemorySigner::from_seed(account_id, KeyType::ED25519, "test");
         let root_account = account_new(std::u128::MAX, CryptoHash::default());
 
-        self.state_records
-            .push(StateRecord::Account { account_id: account_id.clone(), account: root_account });
+        self.state_records.push(StateRecord::Account {
+            account_id: account_id.to_string(),
+            account: root_account,
+        });
         self.state_records.push(StateRecord::AccessKey {
-            account_id: account_id.clone(),
+            account_id: account_id.to_string(),
             public_key: signer.public_key(),
             access_key: AccessKey::full_access(),
         });
@@ -217,7 +219,7 @@ impl RuntimeStandalone {
     pub fn process_all(&mut self) -> Result<(), RuntimeError> {
         loop {
             self.produce_block()?;
-            if self.pending_receipts.len() == 0 {
+            if self.pending_receipts.is_empty() {
                 return Ok(());
             }
         }
@@ -251,7 +253,7 @@ impl RuntimeStandalone {
         )?;
         self.pending_receipts = apply_result.outgoing_receipts;
         apply_result.outcomes.iter().for_each(|outcome| {
-            self.last_outcomes.push(outcome.id.clone());
+            self.last_outcomes.push(outcome.id);
             self.outcomes.insert(outcome.id, outcome.outcome.clone());
         });
         let (update, _) =
@@ -291,27 +293,19 @@ impl RuntimeStandalone {
         self.cur_block.state_root = new_root;
     }
 
-    pub fn view_account(&self, account_id: &AccountId) -> Option<Account> {
+    pub fn view_account(&self, account_id: &str) -> Option<Account> {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
-        get_account(&trie_update, account_id).expect("Unexpected Storage error")
+        get_account(&trie_update, &account_id.to_string()).expect("Unexpected Storage error")
     }
 
-    pub fn view_access_key(
-        &self,
-        account_id: &AccountId,
-        public_key: &PublicKey,
-    ) -> Option<AccessKey> {
+    pub fn view_access_key(&self, account_id: &str, public_key: &PublicKey) -> Option<AccessKey> {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
-        get_access_key(&trie_update, account_id, public_key).expect("Unexpected Storage error")
+        get_access_key(&trie_update, &account_id.to_string(), public_key)
+            .expect("Unexpected Storage error")
     }
 
     /// Outputs return_value and logs
-    pub fn view_method_call(
-        &self,
-        account_id: &AccountId,
-        method_name: &str,
-        args: &[u8],
-    ) -> ViewResult {
+    pub fn view_method_call(&self, account_id: &str, method_name: &str, args: &[u8]) -> ViewResult {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};
         let mut logs = vec![];
@@ -322,7 +316,7 @@ impl RuntimeStandalone {
             &CryptoHash::default(),
             self.cur_block.epoch_height,
             &EpochId::default(),
-            account_id,
+            &account_id.to_string(),
             method_name,
             args,
             &mut logs,
@@ -343,13 +337,9 @@ impl RuntimeStandalone {
     fn prepare_transactions(tx_pool: &mut TransactionPool) -> Vec<SignedTransaction> {
         let mut res = vec![];
         let mut pool_iter = tx_pool.pool_iterator();
-        loop {
-            if let Some(iter) = pool_iter.next() {
-                if let Some(tx) = iter.next() {
-                    res.push(tx);
-                }
-            } else {
-                break;
+        while let Some(iter) = pool_iter.next() {
+            if let Some(tx) = iter.next() {
+                res.push(tx);
             }
         }
         res
@@ -397,7 +387,7 @@ mod tests {
     #[test]
     fn process_all() {
         let (mut runtime, signer, _) = init_runtime(None);
-        assert_eq!(runtime.view_account(&"alice".into()), None);
+        assert_eq!(runtime.view_account(&"alice"), None);
         let outcome = runtime.resolve_tx(SignedTransaction::create_account(
             1,
             signer.account_id.clone(),
@@ -412,7 +402,7 @@ mod tests {
             Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
         ));
         assert_eq!(
-            runtime.view_account(&"alice".into()),
+            runtime.view_account(&"alice"),
             Some(Account {
                 amount: 165437999999999999999000,
                 code_hash: CryptoHash::default(),
@@ -480,7 +470,7 @@ mod tests {
             ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }
         ));
         let res = runtime.view_method_call(
-            &"status".into(),
+            &"status",
             "get_status",
             "{\"account_id\": \"root\"}".as_bytes(),
         );
@@ -492,9 +482,9 @@ mod tests {
     #[test]
     fn test_force_update_account() {
         let (mut runtime, _, _) = init_runtime(None);
-        let mut bob_account = runtime.view_account(&"root".into()).unwrap();
+        let mut bob_account = runtime.view_account(&"root").unwrap();
         bob_account.locked = 10000;
         runtime.force_account_update("root".into(), &bob_account);
-        assert_eq!(runtime.view_account(&"root".into()).unwrap().locked, 10000);
+        assert_eq!(runtime.view_account(&"root").unwrap().locked, 10000);
     }
 }

@@ -525,6 +525,7 @@ name = "fungible-token"
 version = "0.3.0"
 dependencies = [
  "near-sdk",
+ "near-sdk-sim",
 ]
 
 [[package]]

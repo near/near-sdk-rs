@@ -66,9 +66,9 @@ impl UserAccount {
         gas: Gas,
     ) -> UserAccount {
         let signer = InMemorySigner::from_seed(
-            &pending_tx.receiver_id.clone(),
+            &pending_tx.receiver_id,
             KeyType::ED25519,
-            &pending_tx.receiver_id.clone(),
+            &pending_tx.receiver_id,
         );
         let account_id = pending_tx.receiver_id.clone();
         self.submit_transaction(
@@ -89,8 +89,7 @@ impl UserAccount {
         account_id: AccountId,
         deposit: Balance,
     ) -> UserAccount {
-        let signer =
-            InMemorySigner::from_seed(&account_id.clone(), KeyType::ED25519, &account_id.clone());
+        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
         self.submit_transaction(
             self.transaction(account_id.clone())
                 .create_account()
@@ -124,6 +123,7 @@ impl UserAccount {
         outcome_into_result(res, &self.runtime)
     }
 
+    ///
     pub fn view(&self, pending_tx: PendingContractTx) -> ViewResult {
         (*self.runtime).borrow().view_method_call(
             &pending_tx.receiver_id,
@@ -138,7 +138,7 @@ impl UserAccount {
         account_id: AccountId,
         amount: Balance,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(&account_id.clone(), KeyType::ED25519, &account_id);
+        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
         signer_user
             .submit_transaction(
                 signer_user
@@ -148,10 +148,11 @@ impl UserAccount {
                     .transfer(amount),
             )
             .assert_success();
-        let account_id = account_id.clone();
         UserAccount { runtime: Rc::clone(&self.runtime), account_id, signer }
     }
 
+    /// Create a new user where the creator is the current user.
+    ///
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> UserAccount {
         self.create_user_from(&self, account_id, amount)
     }
@@ -208,9 +209,9 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
-///   init_method: new(master_account.account_id(), initial_balance.into())
 ///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 ///   gas: near_sdk_sim::DEFAULT_GAS,
+///   init_method: new(master_account.account_id(), initial_balance.into())
 /// };
 /// ```
 #[macro_export]
@@ -257,15 +258,31 @@ macro_rules! deploy {
 ///
 /// Example:
 /// ```
-/// // use near_sdk_sim::{deploy, call};
-/// // let contract = deploy! {
-/// //    contract: TokenContract,
-/// //    contract_id: "contract",
-/// //    bytes: &TOKEN_BYTES,
-/// //    signer_account: master_account
-/// //   };
-/// // let res = call!(contract.transfer(master_account.account_id()), to_yocto("100"));
-/// // ```
+/// # #[macro_use] extern crate near_sdk_sim;
+/// # lazy_static::lazy_static! {
+/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # }
+/// # use fungible_token::FungibleTokenContract;
+/// # let master_account = near_sdk_sim::init_simulator(None);
+/// # let initial_balance = near_sdk_sim::to_yocto("35");
+/// # let contract = deploy! {
+/// # contract: FungibleTokenContract,
+/// # contract_id: "contract",
+/// # bytes: &TOKEN_WASM_BYTES,
+/// # signer_account: master_account,
+/// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
+/// # gas: near_sdk_sim::DEFAULT_GAS,
+/// # init_method: new(master_account.account_id(), initial_balance.into())
+/// # };
+/// use near_sdk_sim::to_yocto;
+/// // Uses default values for gas and deposit.
+/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()));
+/// // Equivalent to
+/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()), 0, near_sdk_sim::DEFAULT_GAS);
+/// // Can also specify either deposit or gas
+/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()), deposit=0);
+/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()), gas=near_sdk_sim::DEFAULT_GAS);
+/// ```
 #[macro_export]
 macro_rules! call {
     ($signer:expr, $deposit: expr, $gas: expr, $contract: ident, $method:ident, $($arg:expr),*) => {
@@ -275,7 +292,7 @@ macro_rules! call {
         call!($signer, $deposit, $gas, $contract, $method, $($arg),*)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*)) => {
-        call!($signer, $contract, $method, 0, near_sdk_sim::DEFAULT_GAS, $($arg),*,)
+        call!($signer, 0, near_sdk_sim::DEFAULT_GAS,  $contract, $method, $($arg),*)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), gas=$gas_or_deposit: expr) => {
            call!($signer, 0, $gas_or_deposit, $contract, $method, $($arg),*)
@@ -289,15 +306,23 @@ macro_rules! call {
 ///
 /// Example:
 /// ```
-/// // use near_sdk_sim::{deploy, view, init_simulator};
-/// // let master_account = init_simulator(None);
-/// // let contract = deploy! {
-/// //    contract: TokenContract,
-/// //    contract_id: "contract",
-/// //    bytes: &TOKEN_BYTES,
-/// //    signer_account: master_account
-/// //   };
-/// // let res = view!(contract.get_balance(master_account.account_id()));
+/// # #[macro_use] extern crate near_sdk_sim;
+/// # lazy_static::lazy_static! {
+/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # }
+/// # use fungible_token::FungibleTokenContract;
+/// # let master_account = near_sdk_sim::init_simulator(None);
+/// # let initial_balance = near_sdk_sim::to_yocto("35");
+/// # let contract = deploy! {
+/// # contract: FungibleTokenContract,
+/// # contract_id: "contract",
+/// # bytes: &TOKEN_WASM_BYTES,
+/// # signer_account: master_account,
+/// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
+/// # gas: near_sdk_sim::DEFAULT_GAS,
+/// # init_method: new(master_account.account_id(), initial_balance.into())
+/// # };
+/// let res = view!(contract.get_balance(master_account.account_id()));
 /// ```
 ///
 #[macro_export]

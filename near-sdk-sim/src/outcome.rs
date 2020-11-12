@@ -54,10 +54,7 @@ impl ExecutionResult {
     pub fn get_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => {
-                let res = BorshDeserialize::try_from_slice(&s);
-                res
-            }
+            SuccessValue(s) => BorshDeserialize::try_from_slice(&s),
             _ => std::result::Result::Err(Error::new(
                 ErrorKind::Other,
                 "Cannot get value of failed transaction",
@@ -78,10 +75,7 @@ impl ExecutionResult {
     }
 
     pub fn has_value(&self) -> bool {
-        match &(self.outcome).status {
-            SuccessValue(_) => true,
-            _ => false,
-        }
+        matches!(self.outcome.status, SuccessValue(_))
     }
 
     pub fn assert_success(&self) {
@@ -103,7 +97,7 @@ impl ExecutionResult {
         self.get_outcomes(&self.outcome.receipt_ids)
     }
 
-    fn get_outcomes(&self, ids: &Vec<CryptoHash>) -> Vec<Option<ExecutionResult>> {
+    fn get_outcomes(&self, ids: &[CryptoHash]) -> Vec<Option<ExecutionResult>> {
         ids.iter().map(|id| self.get_outcome(&id)).collect()
     }
 
