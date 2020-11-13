@@ -35,7 +35,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "near_sdk can only be used on type declarations and impl sections.",
+                "near_bindgen can only be used on type declarations and impl sections.",
             )
             .to_compile_error(),
         )
@@ -132,6 +132,32 @@ pub fn metadata(item: TokenStream) -> TokenStream {
             syn::Error::new(
                 Span::call_site(),
                 "Failed to parse code decorated with `metadata!{}` macro. Only valid Rust is supported.",
+            )
+            .to_compile_error(),
+        )
+    }
+}
+
+/// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
+/// message `The contract is not initialized` when `default()` is called.
+/// This is a helpful macro in case the contract is required to be initialized with either `init` or
+/// `init_once`.
+#[proc_macro_derive(PanicOnDefault)]
+pub fn derive_no_default(item: TokenStream) -> TokenStream {
+    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        let name = &input.ident;
+        TokenStream::from(quote! {
+            impl Default for #name {
+                fn default() -> Self {
+                    near_sdk::env::panic(b"The contract is not initialized");
+                }
+            }
+        })
+    } else {
+        TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "PanicOnDefault can only be used on type declarations sections.",
             )
             .to_compile_error(),
         )

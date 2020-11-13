@@ -680,7 +680,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::test_env::{self, next_trie_id};
+    use crate::test_utils::{next_trie_id, test_env};
 
     extern crate rand;
     use self::rand::RngCore;
