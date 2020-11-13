@@ -185,6 +185,10 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().log_utf16(len, ptr).unwrap()
     }
 
+    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> () {
+        self.logic.borrow_mut().abort(msg_ptr, filename_ptr, line, col).unwrap()
+    }
+
     unsafe fn promise_create(
         &self,
         account_id_len: u64,
