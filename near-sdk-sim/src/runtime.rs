@@ -304,7 +304,7 @@ impl RuntimeStandalone {
             .expect("Unexpected Storage error")
     }
 
-    /// Outputs return_value and logs
+    /// Returns a ViewResult containing the value or error and any logs
     pub fn view_method_call(&self, account_id: &str, method_name: &str, args: &[u8]) -> ViewResult {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};

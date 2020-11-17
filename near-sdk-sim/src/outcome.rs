@@ -3,11 +3,12 @@ use crate::runtime::{init_runtime, RuntimeStandalone};
 use crate::transaction::{ExecutionOutcome, ExecutionStatus};
 use core::fmt;
 use near_primitives::transaction::ExecutionStatus::{SuccessReceiptId, SuccessValue};
+use near_primitives::types::AccountId;
 use near_sdk::borsh::BorshDeserialize;
 use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::export::Formatter;
-use near_sdk::serde_json;
 use near_sdk::serde_json::Value;
+use near_sdk::{serde_json, Gas};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -17,6 +18,8 @@ use std::rc::Rc;
 
 pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
 
+/// An ExecutionResult is created by a UserAccount submitting a transaction.
+/// It wraps an ExecutionOutcome which is the same object returned from an RPC call.
 #[derive(Clone)]
 pub struct ExecutionResult {
     runtime: Rc<RefCell<RuntimeStandalone>>,
@@ -39,10 +42,12 @@ impl Default for ExecutionResult {
 }
 
 impl ExecutionResult {
+    #[doc(hidden)]
     pub fn new(outcome: ExecutionOutcome, runtime: &Rc<RefCell<RuntimeStandalone>>) -> Self {
         Self { runtime: Rc::clone(runtime), outcome }
     }
 
+    /// Interpret the SuccessValue as a JSON value
     pub fn get_json_value(&self) -> serde_json::Result<Value> {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
@@ -51,6 +56,7 @@ impl ExecutionResult {
         }
     }
 
+    /// Deserialize SuccessValue from Borsh
     pub fn get_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
@@ -62,10 +68,12 @@ impl ExecutionResult {
         }
     }
 
+    /// Deserialize SuccessValue from JSON
     pub fn from_json_value<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
         near_sdk::serde_json::from_value(self.get_json_value()?)
     }
 
+    /// Check if transaction was successful
     pub fn is_ok(&self) -> bool {
         match &(self.outcome).status {
             SuccessValue(_) => true,
@@ -74,12 +82,19 @@ impl ExecutionResult {
         }
     }
 
+    /// Test whether there is a SuccessValue
     pub fn has_value(&self) -> bool {
         matches!(self.outcome.status, SuccessValue(_))
     }
 
+    /// Asserts that the outcome is successful
     pub fn assert_success(&self) {
-        assert!(self.is_ok(), "Outcome was a failure");
+        assert!(self.is_ok(), "Outcome {:#?} was a failure", self.outcome);
+    }
+
+    /// Lookup an execution result from a hash
+    pub fn lookup_hash(&self, hash: &CryptoHash) -> Option<ExecutionResult> {
+        self.get_outcome(hash)
     }
 
     fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionResult> {
@@ -89,11 +104,13 @@ impl ExecutionResult {
         }
     }
 
+    /// Internal ExecutionOutcome
     pub fn outcome(&self) -> &ExecutionOutcome {
         &self.outcome
     }
 
-    pub fn get_receipt_outcomes(&self) -> Vec<Option<ExecutionResult>> {
+    /// Return results of promises from the `receipt_ids` in the ExecutionOutcome
+    pub fn get_receipt_results(&self) -> Vec<Option<ExecutionResult>> {
         self.get_outcomes(&self.outcome.receipt_ids)
     }
 
@@ -101,12 +118,13 @@ impl ExecutionResult {
         ids.iter().map(|id| self.get_outcome(&id)).collect()
     }
 
-    pub fn get_last_outcomes(&self) -> Vec<Option<ExecutionResult>> {
+    /// Return the results of any promises created since the last transaction
+    pub fn promise_results(&self) -> Vec<Option<ExecutionResult>> {
         self.get_outcomes(&(*self.runtime).borrow().last_outcomes)
     }
 
-    pub fn find_errors(&self) -> Vec<Option<ExecutionResult>> {
-        let mut res = self.get_last_outcomes();
+    pub fn promise_errors(&self) -> Vec<Option<ExecutionResult>> {
+        let mut res = self.promise_results();
         res.retain(|outcome| match outcome {
             Some(o) => !o.is_ok(),
             _ => false,
@@ -114,11 +132,43 @@ impl ExecutionResult {
         res
     }
 
+    /// Execution status. Contains the result in case of successful execution.
+    /// NOTE: Should be the latest field since it contains unparsable by light client
+    /// ExecutionStatus::Failure
     pub fn status(&self) -> ExecutionStatus {
         self.outcome.status.clone()
     }
+
+    /// The amount of the gas burnt by the given transaction or receipt.
+    pub fn gas_burnt(&self) -> Gas {
+        self.outcome.gas_burnt
+    }
+
+    /// The amount of tokens burnt corresponding to the burnt gas amount.
+    /// This value doesn't always equal to the `gas_burnt` multiplied by the gas price, because
+    /// the prepaid gas price might be lower than the actual gas price and it creates a deficit.
+    pub fn tokens_burnt(&self) -> u128 {
+        self.outcome.tokens_burnt
+    }
+
+    /// Logs from this transaction or receipt.
+    pub fn logs(&self) -> &Vec<String> {
+        &self.outcome.logs
+    }
+
+    /// The id of the account on which the execution happens. For transaction this is signer_id,
+    /// for receipt this is receiver_id.
+    pub fn executor_id(&self) -> &AccountId {
+        &self.outcome.executor_id
+    }
+
+    /// Receipt IDs generated by this transaction or receipt.
+    pub fn receipt_ids(&self) -> &Vec<CryptoHash> {
+        &self.outcome.receipt_ids
+    }
 }
 
+#[doc(hidden)]
 pub fn outcome_into_result(
     outcome: ExecutionOutcome,
     runtime: &Rc<RefCell<RuntimeStandalone>>,
@@ -131,6 +181,8 @@ pub fn outcome_into_result(
     }
 }
 
+/// The result of a view call.  Contains the logs made during the view method call and Result value,
+/// which can be unwrapped and deserialized.  
 #[derive(Debug)]
 pub struct ViewResult {
     result: Result<Vec<u8>, Box<dyn std::error::Error>>,
@@ -142,6 +194,7 @@ impl ViewResult {
         Self { result, logs }
     }
 
+    /// Logs made during the view call
     pub fn logs(&self) -> &Vec<String> {
         &self.logs
     }
@@ -154,6 +207,7 @@ impl ViewResult {
         self.result.is_ok()
     }
 
+    /// Attempt unwrap the value returned by the view call and panic if it is an error
     pub fn unwrap(&self) -> Vec<u8> {
         (&self.result).as_ref().borrow().unwrap().clone()
     }
@@ -162,14 +216,17 @@ impl ViewResult {
         (&self.result).as_ref().borrow().unwrap_err().as_ref().borrow()
     }
 
+    /// Interpret the value as a JSON::Value
     pub fn get_json_value(&self) -> near_sdk::serde_json::Result<Value> {
         near_sdk::serde_json::from_slice(&self.result.as_ref().unwrap())
     }
 
+    /// Deserialize the value with Borsh
     pub fn from_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
         BorshDeserialize::try_from_slice(&self.result.as_ref().unwrap())
     }
 
+    /// Deserialize the value with JSON
     pub fn from_json_value<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
         near_sdk::serde_json::from_value(self.get_json_value()?)
     }

@@ -5,7 +5,7 @@ use near_sdk_sim::{
 extern crate cross_contract_high_level;
 use cross_contract_high_level::CrossContractContract;
 
-near_sdk_sim::lazy_static::lazy_static! {
+near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/cross_contract_high_level.wasm").as_ref();
 }
 
@@ -13,8 +13,12 @@ fn init(
     initial_balance: u128,
 ) -> (UserAccount, ContractAccount<CrossContractContract>, UserAccount) {
     let master_account = init_simulator(None);
-    let contract_account =
-        deploy!(CrossContractContract, "contract", &TOKEN_WASM_BYTES, master_account);
+    let contract_account = deploy! {
+        contract: CrossContractContract,
+        contract_id: "contract",
+        bytes: &TOKEN_WASM_BYTES,
+        signer_account: master_account
+    };
     let alice = master_account.create_user("alice".to_string(), initial_balance);
     (master_account, contract_account, alice)
 }
@@ -33,7 +37,7 @@ fn test_sim_transfer() {
         DEFAULT_GAS
     );
 
-    let promise_outcomes = res.get_receipt_outcomes();
+    let promise_outcomes = res.get_receipt_results();
     // let ExecutionOutcome { status, .. } = res;
     println!("{:#?}\n{:#?}", promise_outcomes, &res);
     let message = "hello world";

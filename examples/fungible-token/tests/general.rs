@@ -1,12 +1,15 @@
 use near_sdk_sim::{
-    call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount, STORAGE_AMOUNT,
+    call, deploy, init_simulator, near_crypto::Signer, to_yocto, view, ContractAccount,
+    UserAccount, STORAGE_AMOUNT,
 };
 use std::str::FromStr;
 
 extern crate fungible_token;
 use fungible_token::FungibleTokenContract;
+use near_sdk::json_types::U128;
+use near_sdk_sim::account::AccessKey;
 
-near_sdk_sim::lazy_static::lazy_static! {
+near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
 }
 
@@ -31,8 +34,39 @@ fn init(
     (master_account, contract_user, alice)
 }
 
+fn init2(initial_balance: u128) {
+    let master_account = init_simulator(None);
+    let mut txn = master_account.create_transaction("contract".into());
+    // uses default values for deposit and gas
+    let res = txn
+        .create_account()
+        .add_key(master_account.signer.public_key(), AccessKey::full_access())
+        .transfer(initial_balance)
+        .deploy_contract((&TOKEN_WASM_BYTES).to_vec())
+        .submit();
+    println!("{:#?}", res);
+    // res.assert_success();
+    // let contract_user = UserAccount::new(&self.runtime, account_id, signer)
+    //
+    // let contract_user = deploy!(
+    //     // Contract Proxy
+    //     contract: FungibleTokenContract,
+    //     // Contract account id
+    //     contract_id: "contract",
+    //     // Bytes of contract
+    //     bytes: &TOKEN_WASM_BYTES,
+    //     // User deploying the contract,
+    //     signer_account: master_account,
+    //     // init method
+    //     init_method: new(master_account.account_id(), initial_balance.into())
+    // );
+    // let alice = master_account.create_user("alice".to_string(), to_yocto("100"));
+    // (master_account, contract_user, alice)
+}
+
 #[test]
 pub fn mint_token() {
+    init2(to_yocto("35"));
     // let (runtime, alice, contract) = init_sim();
     // let master_account = init_simulator(None);
     // let balance: U128 = to_yocto("100000").into();
@@ -69,7 +103,6 @@ fn test_sim_transfer() {
     assert!(res.is_ok());
 
     let value = view!(contract.get_balance(master_account.account_id()));
-    let value: String = value.from_json_value().unwrap();
-    let val = u128::from_str(&value).unwrap();
-    assert_eq!(initial_balance - transfer_amount, val);
+    let value: U128 = value.from_json_value().unwrap();
+    assert_eq!(initial_balance - transfer_amount, value.0);
 }

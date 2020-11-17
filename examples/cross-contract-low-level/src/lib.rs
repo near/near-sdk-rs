@@ -10,8 +10,16 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 const SINGLE_CALL_GAS: u64 = 200000000000000;
 
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-pub struct CrossContract {}
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct CrossContract {
+    checked_promise: bool,
+}
+
+impl Default for CrossContract {
+    fn default() -> Self {
+        CrossContract { checked_promise: false }
+    }
+}
 
 #[near_bindgen]
 impl CrossContract {
@@ -117,8 +125,16 @@ impl CrossContract {
             0,
             SINGLE_CALL_GAS,
         );
-        let promise1 = env::promise_then(
+        let promise_1 = env::promise_then(
             promise0,
+            env::current_account_id(),
+            b"check_promise",
+            json!({}).to_string().as_bytes(),
+            0,
+            SINGLE_CALL_GAS,
+        );
+        let promise1 = env::promise_then(
+            promise_1,
             account_id,
             b"get_status",
             json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
@@ -128,8 +144,22 @@ impl CrossContract {
         env::promise_return(promise1);
     }
 
+    pub fn check_promise(&mut self) {
+        match env::promise_result(0) {
+            PromiseResult::Successful(_) => {
+                env::log(b"Check_promise successful");
+                self.checked_promise = true;
+            }
+            _ => panic!("Promise with index 0 failed"),
+        };
+    }
+
     pub fn transfer_money(&mut self, account_id: String, amount: u64) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
+    }
+
+    pub fn promise_checked(&self) -> bool {
+        self.checked_promise
     }
 }

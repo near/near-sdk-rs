@@ -4,6 +4,9 @@ This crate contains tools for simulating transactions on NEAR protocol.
 It also allows testing cross contract calls and inspecting the intermediate state of the transactions
 involved.
 
+# Documentation
+To view locally, clone this repo and from this folder run `cargo doc --open`.
+
 ## Setup
 
 Currently this crate depends on a the github repo of [nearcore](https://github.com/near/nearcore), so this crate must be a git dependency too.
@@ -28,7 +31,7 @@ struct TokenContract {
 
 impl TokenContract {
   pub fn transfer(&self, amount: U128) -> near_sdk::PendingContractTransaction {
-     ...
+     //...
   }
 }
 ```
@@ -40,7 +43,7 @@ extern crate token;
 use token::TokenContract;
 ```
 
-Next you need to import the simulatior's init method and some other imports.
+Next you need to import the simulator's init method and some other imports.
 
 ```rust
 use near_sdk_sim::{init_simulator, deploy, call, to_yocto};
@@ -85,9 +88,8 @@ fn simple_test() {
     assert!(res.is_ok());
     
     let value = view!(contract.get_balance(master_account.account_id()));
-    let value: String = value.from_json_value().unwrap();
-    let val = u128::from_str(&value).unwrap();
-    assert_eq!(initial_balance - transfer_amount, val);
+    let value: U128 = value.from_json_value().unwrap();
+    assert_eq!(initial_balance - transfer_amount, value.0);
 }
 ```
 
