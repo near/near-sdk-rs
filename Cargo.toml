@@ -2,12 +2,12 @@
 members = [
     "near-sdk",
     "near-sdk-core",
-    "examples/fungible-token",
     "near-sdk-macros",
     "near-sdk-sim"
 ]
 exclude = [
     "examples/cross-contract-high-level",
+    "examples/fungible-token",
     "examples/cross-contract-low-level",
     "examples/mission-control",
     "examples/status-message",
