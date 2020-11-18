@@ -264,6 +264,7 @@ impl Promise {
         self.add_full_access_key_with_nonce(public_key, 0)
     }
 
+    /// Add full access key to the given account with a provided nonce.
     pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
         self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
     }
@@ -281,6 +282,7 @@ impl Promise {
         self.add_access_key_with_nonce(public_key, allowance, receiver_id, method_names, 0)
     }
 
+    /// Add an access key with a provided nonce.
     pub fn add_access_key_with_nonce(
         self,
         public_key: PublicKey,
