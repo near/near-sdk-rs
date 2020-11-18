@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-pushd $(dirname $0)
+pushd $(dirname ${BASH_SOURCE[0]})
 
 for d in */ ; do
     pushd $d
