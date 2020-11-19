@@ -245,6 +245,6 @@ mod tests {
         let mut outcome = ExecutionOutcome::default();
         outcome.status = status;
         let result = outcome_into_result(outcome, &Rc::new(RefCell::new(init_runtime(None).0)));
-        assert_eq!(value, result.unwrap_json_value().unwrap());
+        assert_eq!(value, result.unwrap_json_value());
     }
 }
