@@ -57,7 +57,7 @@ impl ExecutionResult {
     }
 
     /// Deserialize SuccessValue from Borsh
-    pub fn get_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
+    pub fn from_borsh<T: BorshDeserialize>(&self) -> io::Result<T> {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
             SuccessValue(s) => BorshDeserialize::try_from_slice(&s),
@@ -69,7 +69,7 @@ impl ExecutionResult {
     }
 
     /// Deserialize SuccessValue from JSON
-    pub fn from_json_value<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
+    pub fn from_json<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
         near_sdk::serde_json::from_value(self.get_json_value()?)
     }
 
@@ -218,12 +218,14 @@ impl ViewResult {
 
     /// Interpret the value as a JSON::Value
     pub fn unwrap_json_value(&self) -> Value {
-        near_sdk::serde_json::from_slice(&self.result.as_ref().expect("ViewResult is an error")).unwrap()
+        near_sdk::serde_json::from_slice(&self.result.as_ref().expect("ViewResult is an error"))
+            .unwrap()
     }
 
     /// Deserialize the value with Borsh
     pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
-        BorshDeserialize::try_from_slice(&self.result.as_ref().expect("ViewResult is an error")).unwrap()
+        BorshDeserialize::try_from_slice(&self.result.as_ref().expect("ViewResult is an error"))
+            .unwrap()
     }
 
     /// Deserialize the value with JSON

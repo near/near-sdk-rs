@@ -117,7 +117,7 @@ impl Block {
         Self {
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
-            block_timestamp: self.block_timestamp + 1,
+            block_timestamp: self.block_timestamp + 1_000_000_000,
             prev_block: Some(Box::new(self.clone())),
             state_root: new_state_root,
             block_height: self.block_height + 1,

@@ -115,8 +115,9 @@ impl CrossContract {
     }
     pub fn complex_call(&mut self, account_id: String, message: String) {
         // 1) call status_message to record a message from the signer.
-        // 2) call status_message to retrieve the message of the signer.
-        // 3) return that message as its own result.
+        // 2) check that the promise succeed
+        // 3) call status_message to retrieve the message of the signer.
+        // 4) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
         let promise0 = env::promise_create(
             account_id.clone(),
@@ -125,7 +126,7 @@ impl CrossContract {
             0,
             SINGLE_CALL_GAS,
         );
-        let promise_1 = env::promise_then(
+        let promise1 = env::promise_then(
             promise0,
             env::current_account_id(),
             b"check_promise",
@@ -133,15 +134,15 @@ impl CrossContract {
             0,
             SINGLE_CALL_GAS,
         );
-        let promise1 = env::promise_then(
-            promise_1,
+        let promise2 = env::promise_then(
+            promise1,
             account_id,
             b"get_status",
             json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
         );
-        env::promise_return(promise1);
+        env::promise_return(promise2);
     }
 
     pub fn check_promise(&mut self) {

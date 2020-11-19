@@ -142,7 +142,7 @@ impl UserAccount {
         self.submit_transaction(self.transaction(to).transfer(deposit))
     }
 
-    /// Make a cantract call.  `pending_tx` includes the reciever, the method to call as well as its arguments.
+    /// Make a contract call.  `pending_tx` includes the receiver, the method to call as well as its arguments.
     /// Note: You will most likely not be using this method directly but rather the [`call!`](./macro.call.html) macro.
     pub fn call(
         &self,
@@ -244,6 +244,7 @@ impl UserAccount {
         )
     }
 
+    /// Creates a user and is signed by the `signer_user`
     pub fn create_user_from(
         &self,
         signer_user: &UserAccount,
@@ -263,12 +264,13 @@ impl UserAccount {
         UserAccount { runtime: Rc::clone(&self.runtime), account_id, signer }
     }
 
-    /// Create a new user where the creator is the current user signs the transaction.
+    /// Create a new user where the signer is this user account
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> UserAccount {
         self.create_user_from(&self, account_id, amount)
     }
 }
 
+/// A account for a contract that includes a reference to the contract proxy and a user account
 pub struct ContractAccount<T> {
     pub user_account: UserAccount,
     pub contract: T,
@@ -368,7 +370,7 @@ macro_rules! deploy {
     };
 }
 
-/// Makes a contract call to a [`ContractAccount`](./struct.ContractAccount.html) returning the [`ExecutionResult`](./struct.ExecutionResult.html).
+/// Makes a contract call to a [`ContractAccount`](./struct.ContractAccount.html) returning a [`ExecutionResult`](./struct.ExecutionResult.html).
 ///
 ///
 /// # Examples:
@@ -392,12 +394,28 @@ macro_rules! deploy {
 /// # };
 /// use near_sdk_sim::to_yocto;
 /// // Uses default values for gas and deposit.
-/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()));
+/// let res = call!(
+///      master_account,
+///      contract.transfer(master_account.account_id(), to_yocto("100").into())
+///     );
 /// // Equivalent to
-/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()), 0, near_sdk_sim::DEFAULT_GAS);
+/// let res = call!(
+///     master_account,
+///     contract.transfer(master_account.account_id(), to_yocto("100").into()),
+///     0,
+///     near_sdk_sim::DEFAULT_GAS
+///    );
 /// // Can also specify either deposit or gas
-/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()), deposit=0);
-/// let res = call!(master_account, contract.transfer(master_account.account_id(), to_yocto("100").into()), gas=near_sdk_sim::DEFAULT_GAS);
+/// let res = call!(
+///     master_account,
+///     contract.transfer(master_account.account_id(), to_yocto("100").into()),
+///     deposit = 0
+///    );
+/// let res = call!(
+///     master_account,
+///     contract.transfer(master_account.account_id(), to_yocto("100").into()),
+///     gas = near_sdk_sim::DEFAULT_GAS
+///    );
 /// ```
 #[macro_export]
 macro_rules! call {

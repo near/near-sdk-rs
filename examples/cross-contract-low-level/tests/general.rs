@@ -32,7 +32,7 @@ fn init_test() {
 fn check_promise() {
     let (master_account, contract, _alice) = init(to_yocto("10000"));
     let res = view!(contract.promise_checked());
-    assert_eq!(res.from_json_value::<bool>().unwrap(), false);
+    assert_eq!(res.unwrap_json::<bool>(), false);
     let status_id = "status".to_string();
     let status_amt = to_yocto("35");
     let res = call!(
@@ -49,9 +49,8 @@ fn check_promise() {
         contract.complex_call(status_id.clone(), message.to_string()),
         gas = DEFAULT_GAS * 3
     );
-    let value = res.get_json_value().unwrap();
     println!("COMPLEX CALL: {:#?}", res.promise_results());
-    assert_eq!(view!(contract.promise_checked()).from_json_value::<bool>().unwrap(), true);
+    assert_eq!(view!(contract.promise_checked()).unwrap_json::<bool>(), true);
 }
 
 #[test]
@@ -67,9 +66,7 @@ fn test_sim_transfer() {
         STORAGE_AMOUNT,
         DEFAULT_GAS
     );
-    // let res = res.unwrap();
-    // let promise_outcomes = runtime.get_receipt_outcomes(&res);
-    // let ExecutionOutcome { status, .. } = res;
+
     let promise_outcomes = res.get_receipt_results();
     println!("{:#?}\n{:#?}", promise_outcomes, res);
     let message = "hello world";
@@ -84,18 +81,17 @@ fn test_sim_transfer() {
     let v1: Vec<u8> = vec![42];
     let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11]; //, 2, 82, 13];
     let res = call!(master_account, contract.merge_sort(v1.clone()), gas = DEFAULT_GAS * 500);
-    let value: Vec<u8> = res.from_json_value().unwrap();
+    let value: Vec<u8> = res.from_json().unwrap();
     println!("{:#?}, {:#?}", value, res);
     assert_eq!(value, v1);
     let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
     let outcomes = res.promise_results();
     print!("LAST_OUTCOMES: {:#?}", outcomes);
-    // let res = res.unwrap();
-    // let value = get_json_value(res.clone());
-    // println!("{}, {:#?}", value.clone(), res);
-    // let arr = near_sdk::serde_json::from_value::<Vec<u8>>(value).unwrap();
-    // let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
-    // assert!(b, "array is not sorted.");
-    // let res = master_account.call(contract.merge_sort(_v.clone()), 0, DEFAULT_GAS);
-    // println!("ERRORS: {:#?}", runtime.find_errors());
+    let arr = res.from_json::<Vec<u8>>().unwrap();
+    let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
+    assert!(b, "array is not sorted.");
+    let res = call!(master_account, contract.merge_sort(_v.clone()));
+    assert!(!res.is_ok(), "Must fail because too little gas.");
+    assert!(!res.promise_errors().is_empty(), "At least one promise must fail.");
+    println!("ERRORS: {:#?}", res.promise_errors());
 }

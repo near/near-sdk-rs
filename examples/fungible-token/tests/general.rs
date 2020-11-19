@@ -34,6 +34,7 @@ fn init(
     (master_account, contract_user, alice)
 }
 
+/// Example of how to create and use an user transaction.
 fn init2(initial_balance: u128) {
     let master_account = init_simulator(None);
     let mut txn = master_account.create_transaction("contract".into());
@@ -45,49 +46,11 @@ fn init2(initial_balance: u128) {
         .deploy_contract((&TOKEN_WASM_BYTES).to_vec())
         .submit();
     println!("{:#?}", res);
-    // res.assert_success();
-    // let contract_user = UserAccount::new(&self.runtime, account_id, signer)
-    //
-    // let contract_user = deploy!(
-    //     // Contract Proxy
-    //     contract: FungibleTokenContract,
-    //     // Contract account id
-    //     contract_id: "contract",
-    //     // Bytes of contract
-    //     bytes: &TOKEN_WASM_BYTES,
-    //     // User deploying the contract,
-    //     signer_account: master_account,
-    //     // init method
-    //     init_method: new(master_account.account_id(), initial_balance.into())
-    // );
-    // let alice = master_account.create_user("alice".to_string(), to_yocto("100"));
-    // (master_account, contract_user, alice)
 }
 
 #[test]
 pub fn mint_token() {
     init2(to_yocto("35"));
-    // let (runtime, alice, contract) = init_sim();
-    // let master_account = init_simulator(None);
-    // let balance: U128 = to_yocto("100000").into();
-    // let initial_tx = PendingContractTx::new(
-    //     "contract",
-    //     "new",
-    //     json!({
-    //       "owner_id": root.account_id.clone(),
-    //       "total_supply": balance
-    //     }),
-    //     false,
-    // );
-    // let contract = root.deploy_and_init(&TOKEN_WASM_BYTES, initial_tx);
-    // let value = root.view(PendingContractTx::new(
-    //     &contract.account_id,
-    //     "get_total_supply",
-    //     json!({}),
-    //     true,
-    // ));
-    // let value: String = near_sdk::serde_json::from_value(value).unwrap();
-    // assert_eq!(value, to_yocto("100000").to_string());
 }
 #[test]
 fn test_sim_transfer() {
@@ -103,6 +66,6 @@ fn test_sim_transfer() {
     assert!(res.is_ok());
 
     let value = view!(contract.get_balance(master_account.account_id()));
-    let value: U128 = value.from_json_value().unwrap();
+    let value: U128 = value.from_json_value();
     assert_eq!(initial_balance - transfer_amount, value.0);
 }

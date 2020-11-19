@@ -58,10 +58,10 @@ fn test_sim_transfer() {
     let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11]; //, 2, 82, 13];
     let res = call!(master_account, contract.merge_sort(v1), gas = DEFAULT_GAS * 3);
 
-    let value = res.get_borsh_value::<Vec<u8>>().unwrap();
+    let value = res.from_borsh::<Vec<u8>>().unwrap();
     println!("{:#?}, {:#?}", value, res);
     let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
-    let arr = res.get_borsh_value::<Vec<u8>>().unwrap();
+    let arr = res.from_borsh::<Vec<u8>>().unwrap();
     println!("{:#?}, {:#?}", arr.clone(), res);
     let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
     assert!(b, "array is not sorted.");
