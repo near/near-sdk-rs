@@ -4,11 +4,14 @@ use near_sdk_sim::{
 };
 use std::str::FromStr;
 
+/// Bring contract crate into namespace
 extern crate fungible_token;
+/// Import the generated proxy contract
 use fungible_token::FungibleTokenContract;
 use near_sdk::json_types::U128;
 use near_sdk_sim::account::AccessKey;
 
+/// Load in contract bytes
 near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
 }
@@ -37,7 +40,7 @@ fn init(
 /// Example of how to create and use an user transaction.
 fn init2(initial_balance: u128) {
     let master_account = init_simulator(None);
-    let mut txn = master_account.create_transaction("contract".into());
+    let txn = master_account.create_transaction("contract".into());
     // uses default values for deposit and gas
     let res = txn
         .create_account()
@@ -57,6 +60,7 @@ fn test_sim_transfer() {
     let transfer_amount = to_yocto("100");
     let initial_balance = to_yocto("100000");
     let (master_account, contract, alice) = init(initial_balance);
+    /// Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
     let res = call!(
         master_account,
         contract.transfer(alice.account_id.clone(), transfer_amount.into()),
@@ -66,6 +70,6 @@ fn test_sim_transfer() {
     assert!(res.is_ok());
 
     let value = view!(contract.get_balance(master_account.account_id()));
-    let value: U128 = value.from_json_value();
+    let value: U128 = value.unwrap_json();
     assert_eq!(initial_balance - transfer_amount, value.0);
 }

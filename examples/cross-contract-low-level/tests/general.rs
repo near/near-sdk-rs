@@ -2,6 +2,8 @@ use near_sdk_sim::{
     call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount, DEFAULT_GAS,
     STORAGE_AMOUNT,
 };
+
+///
 extern crate cross_contract_low_level;
 use cross_contract_low_level::CrossContractContract;
 
@@ -75,19 +77,19 @@ fn test_sim_transfer() {
         contract.complex_call(status_id.clone(), message.to_string()),
         gas = DEFAULT_GAS * 3
     );
-    let value = res.get_json_value().unwrap();
+    let value = res.unwrap_json_value();
     println!("COMPLEX CALL: {:#?}", res.promise_results());
     assert_eq!(message, value.to_string().trim_matches(|c| c == '"'));
     let v1: Vec<u8> = vec![42];
     let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11]; //, 2, 82, 13];
     let res = call!(master_account, contract.merge_sort(v1.clone()), gas = DEFAULT_GAS * 500);
-    let value: Vec<u8> = res.from_json().unwrap();
+    let value: Vec<u8> = res.unwrap_json();
     println!("{:#?}, {:#?}", value, res);
     assert_eq!(value, v1);
     let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
     let outcomes = res.promise_results();
     print!("LAST_OUTCOMES: {:#?}", outcomes);
-    let arr = res.from_json::<Vec<u8>>().unwrap();
+    let arr = res.unwrap_json::<Vec<u8>>();
     let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
     assert!(b, "array is not sorted.");
     let res = call!(master_account, contract.merge_sort(_v.clone()));

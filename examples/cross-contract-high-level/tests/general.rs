@@ -52,16 +52,16 @@ fn test_sim_transfer() {
         assert!(false);
         return;
     }
-    let value = res.get_json_value().unwrap();
+    let value = res.unwrap_json_value();
     assert_eq!(message, value.to_string().trim_matches(|c| c == '"'));
     let v1: Vec<u8> = vec![42];
     let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11]; //, 2, 82, 13];
     let res = call!(master_account, contract.merge_sort(v1), gas = DEFAULT_GAS * 3);
 
-    let value = res.from_borsh::<Vec<u8>>().unwrap();
+    let value = res.unwrap_borsh::<Vec<u8>>();
     println!("{:#?}, {:#?}", value, res);
     let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
-    let arr = res.from_borsh::<Vec<u8>>().unwrap();
+    let arr = res.unwrap_borsh::<Vec<u8>>();
     println!("{:#?}, {:#?}", arr.clone(), res);
     let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
     assert!(b, "array is not sorted.");

@@ -8,12 +8,10 @@ use near_sdk::borsh::BorshDeserialize;
 use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::export::Formatter;
 use near_sdk::serde_json::Value;
-use near_sdk::{serde_json, Gas};
+use near_sdk::Gas;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
-use std::io;
-use std::io::{Error, ErrorKind};
 use std::rc::Rc;
 
 pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
@@ -48,29 +46,26 @@ impl ExecutionResult {
     }
 
     /// Interpret the SuccessValue as a JSON value
-    pub fn get_json_value(&self) -> serde_json::Result<Value> {
+    pub fn unwrap_json_value(&self) -> Value {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => near_sdk::serde_json::from_slice(&s),
+            SuccessValue(s) => near_sdk::serde_json::from_slice(&s).unwrap(),
             err => panic!("Expected Success value but got: {:#?}", err),
         }
     }
 
     /// Deserialize SuccessValue from Borsh
-    pub fn from_borsh<T: BorshDeserialize>(&self) -> io::Result<T> {
+    pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => BorshDeserialize::try_from_slice(&s),
-            _ => std::result::Result::Err(Error::new(
-                ErrorKind::Other,
-                "Cannot get value of failed transaction",
-            )),
+            SuccessValue(s) => BorshDeserialize::try_from_slice(&s).unwrap(),
+            _ => panic!("Cannot get value of failed transaction"),
         }
     }
 
     /// Deserialize SuccessValue from JSON
-    pub fn from_json<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
-        near_sdk::serde_json::from_value(self.get_json_value()?)
+    pub fn unwrap_json<T: DeserializeOwned>(&self) -> T {
+        near_sdk::serde_json::from_value(self.unwrap_json_value()).unwrap()
     }
 
     /// Check if transaction was successful
@@ -104,7 +99,7 @@ impl ExecutionResult {
         }
     }
 
-    /// Internal ExecutionOutcome
+    /// Reference to internal ExecutionOutcome
     pub fn outcome(&self) -> &ExecutionOutcome {
         &self.outcome
     }
@@ -250,6 +245,6 @@ mod tests {
         let mut outcome = ExecutionOutcome::default();
         outcome.status = status;
         let result = outcome_into_result(outcome, &Rc::new(RefCell::new(init_runtime(None).0)));
-        assert_eq!(value, result.get_json_value().unwrap());
+        assert_eq!(value, result.unwrap_json_value().unwrap());
     }
 }

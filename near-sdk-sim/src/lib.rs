@@ -1,7 +1,7 @@
 //! # near_sdk_sim
 //!
 //! This crate provides an interface for simulating transactions on NEAR's Blockchain.
-//! The simulator uses a standalone runtime that can handle any of the [actions]() provided by the
+//! The simulator uses a standalone runtime that can handle any of the [actions](https://nomicon.io/RuntimeSpec/Actions.html) provided by the
 //! real runtime, including: creating accounts, deploying contracts, making contract calls and
 //! calling view methods.
 
