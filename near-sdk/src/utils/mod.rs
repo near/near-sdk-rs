@@ -23,7 +23,7 @@ impl PendingContractTx {
         Self {
             receiver_id: receiver_id.to_string(),
             method: method.to_string(),
-            args: args.to_string().as_bytes().to_vec(),
+            args: args.to_string().into_bytes(),
             is_view,
         }
     }

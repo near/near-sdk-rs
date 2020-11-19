@@ -217,18 +217,18 @@ impl ViewResult {
     }
 
     /// Interpret the value as a JSON::Value
-    pub fn get_json_value(&self) -> near_sdk::serde_json::Result<Value> {
-        near_sdk::serde_json::from_slice(&self.result.as_ref().unwrap())
+    pub fn unwrap_json_value(&self) -> Value {
+        near_sdk::serde_json::from_slice(&self.result.as_ref().expect("ViewResult is an error")).unwrap()
     }
 
     /// Deserialize the value with Borsh
-    pub fn from_borsh_value<T: BorshDeserialize>(&self) -> io::Result<T> {
-        BorshDeserialize::try_from_slice(&self.result.as_ref().unwrap())
+    pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
+        BorshDeserialize::try_from_slice(&self.result.as_ref().expect("ViewResult is an error")).unwrap()
     }
 
     /// Deserialize the value with JSON
-    pub fn from_json_value<T: DeserializeOwned>(&self) -> Result<T, near_sdk::serde_json::Error> {
-        near_sdk::serde_json::from_value(self.get_json_value()?)
+    pub fn unwrap_json<T: DeserializeOwned>(&self) -> T {
+        near_sdk::serde_json::from_value(self.unwrap_json_value()).unwrap()
     }
 }
 
