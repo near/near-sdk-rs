@@ -29,10 +29,24 @@ pub trait Dave {
     fn get_data(&self) -> String;
 }
 
+#[ext_contract(ext_self)]
+pub trait Bob {
+    fn on_data(&mut self, #[callback] data: String) -> String;
+}
+
 #[near_bindgen]
 impl PromiseBob {
     pub fn get_data(&self) -> Promise {
-        log_it("get_data");
-        ext_dave::get_data(&DAVE, NO_DEPOSIT, BASIC_GAS)
+        log_it("bob_get_data");
+        ext_dave::get_data(&DAVE, NO_DEPOSIT, BASIC_GAS).then(ext_self::on_data(
+            &env::current_account_id(),
+            NO_DEPOSIT,
+            BASIC_GAS,
+        ))
+    }
+
+    pub fn on_data(&mut self, #[callback] data: String) -> String {
+        log_it(format!("bob_on_data with data '{}'", data).as_str());
+        format!("bob_on_data '{}'", data)
     }
 }

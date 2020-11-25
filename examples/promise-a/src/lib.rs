@@ -38,8 +38,8 @@ fn log_it(s: &str) {
 
 #[near_bindgen]
 impl PromiseA {
-    pub fn example_2(&mut self) -> Promise {
-        log_it("example_2: alice calls bob with callback and bob redirects");
+    pub fn example_3(&mut self) -> Promise {
+        log_it("example_3: alice calls bob with callback and bob has a callback on dave");
 
         ext_bob::get_data(&BOB, NO_DEPOSIT, BOB_CALL_GAS).then(ext_self_alice::alice_on_data(
             &env::current_account_id(),
@@ -50,6 +50,6 @@ impl PromiseA {
 
     pub fn alice_on_data(&mut self, #[callback] data: String) -> String {
         log_it(format!("alice_on_data with data '{}'", data).as_str());
-        format!("on_data '{}'", data)
+        format!("alice_on_data '{}'", data)
     }
 }
