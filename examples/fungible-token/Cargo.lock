@@ -845,19 +845,6 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffa8dbf8437a28ac40fcb85859ab0d0b8385013935b000c7a51ae79631dd74d9"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
-]
-
-[[package]]
-name = "near-rpc-error-core"
-version = "0.1.0"
 source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
 dependencies = [
  "proc-macro2",
@@ -867,12 +854,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "near-rpc-error-macro"
+name = "near-rpc-error-core"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c6111d713e90c7c551dee937f4a06cb9ea2672243455a4454cc7566387ba2d9"
+checksum = "ffa8dbf8437a28ac40fcb85859ab0d0b8385013935b000c7a51ae79631dd74d9"
 dependencies = [
- "near-rpc-error-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2",
  "quote",
  "serde",
@@ -894,6 +880,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-rpc-error-macro"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c6111d713e90c7c551dee937f4a06cb9ea2672243455a4454cc7566387ba2d9"
+dependencies = [
+ "near-rpc-error-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
 name = "near-runtime-configs"
 version = "0.1.0"
 source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
@@ -901,6 +901,15 @@ dependencies = [
  "near-primitives",
  "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
  "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "serde",
+]
+
+[[package]]
+name = "near-runtime-fees"
+version = "2.2.0"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
+dependencies = [
+ "num-rational",
  "serde",
 ]
 
@@ -915,24 +924,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "near-runtime-fees"
+name = "near-runtime-utils"
 version = "2.2.0"
 source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
-dependencies = [
- "num-rational",
- "serde",
-]
 
 [[package]]
 name = "near-runtime-utils"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1bd4d93a20f7ac0472731fdf00726d1292c25ae96ea784edfa05d61ac77b7448"
-
-[[package]]
-name = "near-runtime-utils"
-version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
 
 [[package]]
 name = "near-sdk"
@@ -1008,17 +1008,6 @@ dependencies = [
 [[package]]
 name = "near-vm-errors"
 version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f19df432b87ae827e1b9dbe557c51cfee24fbc992e72dc5b23d61bbe44c43133"
-dependencies = [
- "borsh",
- "near-rpc-error-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
-]
-
-[[package]]
-name = "near-vm-errors"
-version = "2.2.0"
 source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
 dependencies = [
  "borsh",
@@ -1027,20 +1016,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "near-vm-logic"
+name = "near-vm-errors"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3700022c10e0a6cceb6c380952a4e94a582b83da91392eb37ed15c8a20e06304"
+checksum = "f19df432b87ae827e1b9dbe557c51cfee24fbc992e72dc5b23d61bbe44c43133"
 dependencies = [
- "base64",
- "bs58",
- "byteorder",
- "near-runtime-fees 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-runtime-utils 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "near-vm-errors 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "borsh",
+ "near-rpc-error-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
- "sha2 0.8.2",
- "sha3",
 ]
 
 [[package]]
@@ -1055,6 +1038,23 @@ dependencies = [
  "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
  "near-runtime-utils 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
  "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "serde",
+ "sha2 0.8.2",
+ "sha3",
+]
+
+[[package]]
+name = "near-vm-logic"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3700022c10e0a6cceb6c380952a4e94a582b83da91392eb37ed15c8a20e06304"
+dependencies = [
+ "base64",
+ "bs58",
+ "byteorder",
+ "near-runtime-fees 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-runtime-utils 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "near-vm-errors 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "sha2 0.8.2",
  "sha3",
