@@ -1,5 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, ext_contract, log, near_bindgen, Balance, Gas, Promise};
+use near_sdk::json_types::{Base64VecU8, ValidAccountId};
+use near_sdk::{env, log, near_bindgen, serde_json, AccountId, Balance, Gas, Promise};
 
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
@@ -12,8 +13,6 @@ const NO_DEPOSIT: Balance = 0;
 
 const BASIC_GAS: Gas = 5_000_000_000_000;
 
-const DAVE: &str = "c.place.meta";
-
 fn log_it(s: &str) {
     log!(
         "#{}   I'm @{}. Called by @{}. {}",
@@ -24,15 +23,10 @@ fn log_it(s: &str) {
     );
 }
 
-#[ext_contract(ext_dave)]
-pub trait Dave {
-    fn get_data(&self) -> String;
-}
-
 #[near_bindgen]
 impl PromiseBob {
-    pub fn get_data(&self) -> Promise {
+    pub fn get_data(&self) -> String {
         log_it("get_data");
-        ext_dave::get_data(&DAVE, NO_DEPOSIT, BASIC_GAS)
+        "123".to_string()
     }
 }
