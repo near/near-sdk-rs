@@ -13,6 +13,7 @@
   <p>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2Fnear%2Fnear-sdk-rs?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnear%2Fnear-sdk-rs.svg?type=shield"/></a>
     <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg" alt="Reference Documentation" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
     <a href="https://buildkite.com/nearprotocol/near-sdk-rs"><img src="https://badge.buildkite.com/3bdfe06edbbfe67700833f865fe573b9ac6db517392bfc97dc.svg" alt="Buildkite Build" /></a>
@@ -214,3 +215,6 @@ RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ## License
 This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
 See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnear%2Fnear-sdk-rs.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnear%2Fnear-sdk-rs?ref=badge_large)
