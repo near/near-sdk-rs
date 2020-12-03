@@ -17,6 +17,7 @@ use near_primitives::types::{
     StateChangeCause,
 };
 use near_primitives::version::PROTOCOL_VERSION;
+use near_primitives::views::ViewApplyState;
 use near_runtime_configs::RuntimeConfig;
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
@@ -309,19 +310,23 @@ impl RuntimeStandalone {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};
         let mut logs = vec![];
+        let view_state = ViewApplyState {
+            block_height: self.cur_block.block_height,
+            last_block_hash: self.cur_block.prev_block.as_ref().unwrap().state_root,
+            epoch_id: EpochId::default(),
+            epoch_height: self.cur_block.epoch_height,
+            block_timestamp: self.cur_block.block_timestamp,
+            current_protocol_version: PROTOCOL_VERSION,
+            cache: None,
+        };
         let result = viewer.call_function(
             trie_update,
-            self.cur_block.block_height,
-            self.cur_block.block_timestamp,
-            &CryptoHash::default(),
-            self.cur_block.epoch_height,
-            &EpochId::default(),
+            view_state,
             &account_id.to_string(),
             method_name,
             args,
             &mut logs,
             self.epoch_info_provider.as_ref(),
-            PROTOCOL_VERSION,
         );
         ViewResult::new(result, logs)
     }
