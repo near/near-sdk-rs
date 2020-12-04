@@ -14,13 +14,15 @@ jobs:
         ENV: [true, false]
         toolchan: [stable, nightly]
     steps:
-      - name: Stable with rustfmt and clippy
+      - uses: actions/checkout@v2
+      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           components: rustfmt, clippy
           target: wasm32-unknown-unknown
+      - name: Test
         env:
           NEAR_RELEASE="${{ matrix.ENV }}"
         run: ./ci-tests.sh
