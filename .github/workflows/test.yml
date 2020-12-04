@@ -25,4 +25,4 @@ jobs:
       - name: Test
         env:
           NEAR_RELEASE: ${{ matrix.ENV }}
-        run: ./ci-tests.sh
+        run: ./ci-test.sh
