@@ -868,7 +868,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "near-crypto"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "arrayref",
  "blake2",
@@ -892,7 +892,7 @@ dependencies = [
 [[package]]
 name = "near-metrics"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "lazy_static",
  "log",
@@ -902,7 +902,7 @@ dependencies = [
 [[package]]
 name = "near-pool"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "borsh",
  "near-crypto",
@@ -913,7 +913,7 @@ dependencies = [
 [[package]]
 name = "near-primitives"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "base64",
  "borsh",
@@ -926,8 +926,8 @@ dependencies = [
  "jemallocator",
  "lazy_static",
  "near-crypto",
- "near-rpc-error-macro 0.1.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-rpc-error-macro 0.1.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "num-rational",
  "primitive-types 0.7.3",
  "rand",
@@ -957,7 +957,7 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-core"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -982,9 +982,9 @@ dependencies = [
 [[package]]
 name = "near-rpc-error-macro"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
- "near-rpc-error-core 0.1.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-rpc-error-core 0.1.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "proc-macro2",
  "quote",
  "serde",
@@ -995,11 +995,11 @@ dependencies = [
 [[package]]
 name = "near-runtime-configs"
 version = "0.1.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "near-primitives",
- "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "serde",
 ]
 
@@ -1016,7 +1016,7 @@ dependencies = [
 [[package]]
 name = "near-runtime-fees"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "num-rational",
  "serde",
@@ -1031,7 +1031,7 @@ checksum = "1bd4d93a20f7ac0472731fdf00726d1292c25ae96ea784edfa05d61ac77b7448"
 [[package]]
 name = "near-runtime-utils"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "lazy_static",
  "regex",
@@ -1097,7 +1097,7 @@ dependencies = [
 [[package]]
 name = "near-store"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "borsh",
  "byteorder",
@@ -1130,12 +1130,12 @@ dependencies = [
 [[package]]
 name = "near-vm-errors"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "borsh",
  "ethereum-types",
  "hex",
- "near-rpc-error-macro 0.1.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-rpc-error-macro 0.1.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "serde",
 ]
 
@@ -1159,15 +1159,15 @@ dependencies = [
 [[package]]
 name = "near-vm-logic"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "base64",
  "borsh",
  "bs58",
  "byteorder",
- "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-runtime-utils 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-runtime-utils 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "serde",
  "sha2 0.9.2",
  "sha3",
@@ -1176,14 +1176,14 @@ dependencies = [
 [[package]]
 name = "near-vm-runner"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "borsh",
  "log",
  "near-primitives",
- "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "parity-wasm",
  "pwasm-utils",
  "wasmer-runtime-core-near",
@@ -1206,7 +1206,7 @@ dependencies = [
 [[package]]
 name = "node-runtime"
 version = "2.2.0"
-source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#abee266478b3011a07d49af3349fa9f71a2abc11"
+source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3#abee266478b3011a07d49af3349fa9f71a2abc11"
 dependencies = [
  "borsh",
  "byteorder",
@@ -1218,11 +1218,11 @@ dependencies = [
  "near-metrics",
  "near-primitives",
  "near-runtime-configs",
- "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-runtime-utils 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-runtime-fees 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-runtime-utils 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "near-store",
- "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
- "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2)",
+ "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
+ "near-vm-logic 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "near-vm-runner",
  "num-bigint",
  "num-rational",

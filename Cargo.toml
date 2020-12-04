@@ -16,6 +16,6 @@ exclude = [
 
 # Special triple # comment for ci.
 [patch.crates-io]
-### borsh = { git = "https://github.com/near/borsh", branch = "master" }
-### near-vm-logic = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
-### near-runtime-fees = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
+### near-vm-logic = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.3" }
+### near-runtime-fees = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.3" }
