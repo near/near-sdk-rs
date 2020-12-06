@@ -20,6 +20,7 @@ node-runtime = { git = "https://github.com/near/nearcore.git", tag = "stable_was
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
 fungible-token = { path="../examples/fungible-token" }
+collection-comparison = { path="../examples/collection-comparison" }
 
 [features]
 default = []

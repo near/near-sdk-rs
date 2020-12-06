@@ -335,6 +335,7 @@ name = "collection-comparison"
 version = "0.0.1"
 dependencies = [
  "near-sdk",
+ "near-sdk-sim",
 ]
 
 [[package]]
@@ -593,13 +594,6 @@ name = "fs_extra"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
-
-[[package]]
-name = "fungible-token"
-version = "0.3.0"
-dependencies = [
- "near-sdk",
-]
 
 [[package]]
 name = "gcc"
@@ -952,7 +946,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha2 0.9.2",
+ "sha2 0.8.2",
  "smart-default",
  "validator",
  "validator_derive",
@@ -1064,13 +1058,8 @@ dependencies = [
  "near-runtime-fees 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-sdk-macros",
  "near-vm-logic 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "quickcheck",
- "rand",
- "rand_xorshift",
- "rustversion",
  "serde",
  "serde_json",
- "trybuild",
  "wee_alloc",
 ]
 
@@ -1098,8 +1087,6 @@ dependencies = [
 name = "near-sdk-sim"
 version = "2.0.0"
 dependencies = [
- "collection-comparison",
- "fungible-token",
  "lazy_static",
  "near-crypto",
  "near-pool",
@@ -1108,8 +1095,6 @@ dependencies = [
  "near-sdk",
  "near-store",
  "node-runtime",
- "quickcheck",
- "quickcheck_macros",
 ]
 
 [[package]]
@@ -1187,7 +1172,7 @@ dependencies = [
  "near-runtime-utils 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "near-vm-errors 2.2.0 (git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.3)",
  "serde",
- "sha2 0.9.2",
+ "sha2 0.8.2",
  "sha3",
 ]
 
@@ -1509,29 +1494,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
-name = "quickcheck"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a44883e74aa97ad63db83c4bf8ca490f02b2fc02f92575e720c8551e843c945f"
-dependencies = [
- "env_logger",
- "log",
- "rand",
- "rand_core",
-]
-
-[[package]]
-name = "quickcheck_macros"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "608c156fd8e97febc07dc9c2e2c80bf74cfc6ef26893eae3daf8bc2bc94a4b7f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1583,15 +1545,6 @@ name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
-dependencies = [
- "rand_core",
-]
-
-[[package]]
-name = "rand_xorshift"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d416b86801d23dde1aa643023b775c3a462efc0ed96443add11546cdf1dca8"
 dependencies = [
  "rand_core",
 ]
@@ -1667,12 +1620,6 @@ checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
  "semver",
 ]
-
-[[package]]
-name = "rustversion"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb5d2a036dc6d2d8fd16fde3498b04306e29bd193bf306a57427019b823d5acd"
 
 [[package]]
 name = "ryu"
@@ -1980,29 +1927,6 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
-
-[[package]]
-name = "toml"
-version = "0.5.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75cf45bb0bef80604d001caaec0d09da99611b3c0fd39d3080468875cdb65645"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "trybuild"
-version = "1.0.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d30fe369fd650072b352b1a9cb9587669de6b89be3b8225544012c1c45292d"
-dependencies = [
- "glob",
- "lazy_static",
- "serde",
- "serde_json",
- "termcolor",
- "toml",
-]
 
 [[package]]
 name = "typenum"
