@@ -1,23 +1,24 @@
 use near_sdk_sim::{
-    call, deploy, init_simulator, near_crypto::Signer, to_yocto, view, ContractAccount,
-    UserAccount, STORAGE_AMOUNT,
+    call, deploy, init_simulator, near_crypto::Signer, to_yocto, ContractAccount,
+    UserAccount,
 };
-use std::str::FromStr;
+use near_sdk::serde::{Deserialize};
+use std::io::{BufRead, BufReader};
+use std::fs::File;
+use std::io::Write;
 
 /// Bring contract crate into namespace
 extern crate collection_comparison;
 /// Import the generated proxy contract
 /// Magic function??
 use collection_comparison::CollectionsContract;
-use near_sdk::json_types::U128;
 use near_sdk_sim::account::AccessKey;
 
-/// Load in contract bytes
 near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/collection_comparison.wasm").as_ref();
 }
 
-fn init(initial_balance: u128) -> (UserAccount, ContractAccount<CollectionsContract>, UserAccount) {
+fn init() -> (UserAccount, ContractAccount<CollectionsContract>, UserAccount) {
     // todo: useful comment here
     let master_account = init_simulator(None);
     // uses default values for deposit and gas
@@ -56,22 +57,42 @@ pub fn mint_token() {
     init2(to_yocto("35"));
 }
 
-// Let's not even worry about this test until the ez one passes
-// #[test]
-// fn test_sim_transfer() {
-//     let transfer_amount = to_yocto("100");
-//     let initial_balance = to_yocto("100000");
-//     let (master_account, contract, alice) = init(initial_balance);
-//     /// Uses default gas amount, `near_sdk_sim::DEFAULT_GAS` 300_000_000_000_000
-//     let res = call!(
-//         master_account,
-//         contract.add_tree_map("mykey".to_string(), vec![19, 31]),
-//         deposit = STORAGE_AMOUNT
-//     );
-//     println!("{:#?}", res.status());
-//     assert!(res.is_ok());
-//
-//     let value = view!(contract.get_tree_map("mykey".to_string()));
-//     // let value: U128 = value.unwrap_json();
-//     assert_eq!(vec![19, 31], value);
-// }
+#[test]
+fn test_add_view_gas() {
+    let file = File::open("src/data/alpha-sha.csv").unwrap();
+    let reader = BufReader::new(file);
+
+    let (master_account, contract, _) = init();
+
+    let mut file_adding = File::create("src/data/output-adding.json").unwrap();
+    let mut file_reading = File::create("src/data/output-reading.json").unwrap();
+    writeln!(&mut file_adding, "[").unwrap();
+    writeln!(&mut file_reading, "[").unwrap();
+    for (i, line) in reader.lines().enumerate() {
+        if i != 0 {
+            write!(&mut file_adding, ",\n").unwrap(); // todo do i need unwrap?
+            write!(&mut file_reading, ",\n").unwrap(); // todo do i need unwrap?
+        }
+        let line = line.unwrap();
+        let split = line.split(",");
+        let vec: Vec<&str> = split.collect();
+        let key = vec.get(0).unwrap().to_string();
+        let val = vec.get(1).unwrap().to_string();
+        println!("key: {:#?}, value: {:#?}", key, val);
+
+        let call_result = call!(
+            master_account,
+            contract.add_tree_map(key.clone(), val)
+        );
+        println!("gas used adding key \t\t{:#?}", call_result.gas_burnt());
+        let view_result = call!(
+            master_account,
+            contract.get_tree_map(key)
+        );
+        println!("gas used retrieving key \t{:#?}", view_result.gas_burnt());
+        write!(&mut file_adding, "  {}", call_result.gas_burnt()).unwrap();
+        write!(&mut file_reading, "  {}", view_result.gas_burnt()).unwrap();
+    }
+    writeln!(&mut file_adding, "\n]").unwrap();
+    writeln!(&mut file_reading, "\n]").unwrap();
+}
