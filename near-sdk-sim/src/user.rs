@@ -130,7 +130,7 @@ impl UserAccount {
     }
     /// Look up the account information on chain.
     pub fn account(&self) -> Account {
-        (*self.runtime).borrow().view_account(&self.account_id).unwrap()
+        (*self.runtime).borrow().view_account(&self.account_id()).unwrap()
     }
 
     pub fn amount(&self) -> Balance {
@@ -183,7 +183,7 @@ impl UserAccount {
                 .deploy_contract(wasm_bytes.to_vec()),
         )
         .assert_success();
-        UserAccount::new(&self.runtime, account_id, signer)
+        UserAccount::new(&self.runtime, signer)
     }
 
     /// Deploy a contract and in the same transaction call its initialization method.
@@ -215,12 +215,12 @@ impl UserAccount {
     fn transaction(&self, receiver_id: AccountId) -> Transaction {
         let nonce = (*self.runtime)
             .borrow()
-            .view_access_key(&self.account_id, &self.signer.public_key())
+            .view_access_key(&self.account_id(), &self.signer.public_key())
             .unwrap()
             .nonce
             + 1;
         Transaction::new(
-            self.account_id.clone(),
+            self.account_id(),
             self.signer.public_key(),
             receiver_id,
             nonce,
@@ -267,7 +267,7 @@ impl UserAccount {
         account_id: AccountId,
         amount: Balance,
     ) -> UserAccount {
-        self.create_user_from_with_seed(signer_user, account_id, amount, &account_id)
+        self.create_user_from_with_seed(signer_user, account_id.clone(), amount, &account_id)
     }
 
     /// Creates a user and is signed by the `signer_user`
@@ -310,8 +310,8 @@ pub struct ContractAccount<T> {
 /// The simulator takes an optional GenesisConfig, which sets up the fees and other settings.
 /// It returns the `master_account` which can then create accounts and deploy contracts.
 pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
-    let (runtime, signer, root_account_id) = init_runtime(genesis_config);
-    UserAccount::new(&Rc::new(RefCell::new(runtime)), root_account_id, signer)
+    let (runtime, signer, ..) = init_runtime(genesis_config);
+    UserAccount::new(&Rc::new(RefCell::new(runtime)),  signer)
 }
 
 /// Deploys a contract. Will either deploy or deploy and initialize a contract.
