@@ -88,7 +88,7 @@ fn test_sim_transfer() {
     assert_eq!(value, v1);
     let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
     let outcomes = res.promise_results();
-    print!("LAST_OUTCOMES: {:#?}", outcomes);
+    print!("LAST_OUTCOMES: {:#?}\n{:#?}", outcomes, res.profile_data());
     let arr = res.unwrap_json::<Vec<u8>>();
     let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
     assert!(b, "array is not sorted.");

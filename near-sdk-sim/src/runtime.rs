@@ -23,6 +23,7 @@ use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
 use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
+use near_sdk::{ProfileData, create_profile_data, clone_profile};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
@@ -133,6 +134,7 @@ pub struct RuntimeStandalone {
     tx_pool: TransactionPool,
     transactions: HashMap<CryptoHash, SignedTransaction>,
     outcomes: HashMap<CryptoHash, ExecutionOutcome>,
+    profile: HashMap<CryptoHash, ProfileData>,
     cur_block: Block,
     runtime: Runtime,
     tries: ShardTries,
@@ -164,6 +166,7 @@ impl RuntimeStandalone {
             runtime,
             transactions: HashMap::new(),
             outcomes: HashMap::new(),
+            profile: HashMap::new(),
             cur_block: genesis_block,
             tx_pool: TransactionPool::new(),
             pending_receipts: vec![],
@@ -182,7 +185,7 @@ impl RuntimeStandalone {
     pub fn resolve_tx(
         &mut self,
         mut tx: SignedTransaction,
-    ) -> Result<ExecutionOutcome, RuntimeError> {
+    ) -> Result<(CryptoHash, ExecutionOutcome), RuntimeError> {
         tx.init();
         let mut outcome_hash = tx.get_hash();
         self.transactions.insert(outcome_hash, tx.clone());
@@ -195,7 +198,7 @@ impl RuntimeStandalone {
                     ExecutionStatus::Unknown => unreachable!(), // ExecutionStatus::Unknown is not relevant for a standalone runtime
                     ExecutionStatus::SuccessReceiptId(ref id) => outcome_hash = *id,
                     ExecutionStatus::SuccessValue(_) | ExecutionStatus::Failure(_) => {
-                        return Ok(outcome.clone())
+                        return Ok((outcome_hash, outcome.clone()))
                     }
                 };
             } else if self.pending_receipts.is_empty() {
@@ -216,6 +219,13 @@ impl RuntimeStandalone {
         self.outcomes.get(hash).cloned()
     }
 
+    pub fn profile_of_outcome(&self, hash: &CryptoHash) -> Option<ProfileData> {
+        match self.profile.get(hash) {
+          Some(p) => Some(clone_profile(p)),
+          _ => None
+        }
+    }
+
     /// Processes all transactions and pending receipts until there is no pending_receipts left
     pub fn process_all(&mut self) -> Result<(), RuntimeError> {
         loop {
@@ -228,6 +238,7 @@ impl RuntimeStandalone {
 
     /// Processes one block. Populates outcomes and producining new pending_receipts.
     pub fn produce_block(&mut self) -> Result<(), RuntimeError> {
+        let profile_data = create_profile_data();
         let apply_state = ApplyState {
             block_index: self.cur_block.block_height,
             epoch_height: self.cur_block.epoch_height,
@@ -241,6 +252,7 @@ impl RuntimeStandalone {
             current_protocol_version: PROTOCOL_VERSION,
             config: Arc::from(self.genesis.runtime_config.clone()),
             cache: None,
+            profile: Some(profile_data.clone()),
         };
 
         let apply_result = self.runtime.apply(
@@ -256,6 +268,7 @@ impl RuntimeStandalone {
         apply_result.outcomes.iter().for_each(|outcome| {
             self.last_outcomes.push(outcome.id);
             self.outcomes.insert(outcome.id, outcome.outcome.clone());
+            self.profile.insert(outcome.id, profile_data.clone());
         });
         let (update, _) =
             self.tries.apply_all(&apply_result.trie_changes, 0).expect("Unexpected Storage error");
@@ -404,7 +417,7 @@ mod tests {
         ));
         assert!(matches!(
             outcome,
-            Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
+            Ok((_, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }))
         ));
         assert_eq!(
             runtime.view_account(&"alice"),
@@ -434,7 +447,7 @@ mod tests {
                 &signer,
                 CryptoHash::default(),
             )),
-            Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
+            Ok((_, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }))
         ));
         let res = runtime.resolve_tx(SignedTransaction::create_contract(
             2,
@@ -452,7 +465,7 @@ mod tests {
         ));
         assert!(matches!(
             res,
-            Ok(ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. })
+            Ok((_, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }))
         ));
         let res = runtime.resolve_tx(SignedTransaction::call(
             3,
@@ -467,7 +480,7 @@ mod tests {
             300_000_000_000_000,
             CryptoHash::default(),
         ));
-        let res = res.unwrap();
+        let (_, res) = res.unwrap();
         runtime.process_all().unwrap();
 
         assert!(matches!(

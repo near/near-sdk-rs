@@ -10,7 +10,7 @@ use crate::{
     ExecutionResult, ViewResult,
 };
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
-use near_sdk::PendingContractTx;
+use near_sdk::{PendingContractTx, StorageUsage};
 use std::{cell::RefCell, rc::Rc};
 
 pub const DEFAULT_GAS: u64 = 300_000_000_000_000;
@@ -114,29 +114,37 @@ impl UserTransaction {
 /// A user that can sign transactions.  It includes a signer and an account id.
 pub struct UserAccount {
     runtime: Rc<RefCell<RuntimeStandalone>>,
-    pub account_id: AccountId,
     pub signer: InMemorySigner,
 }
 
 impl UserAccount {
     #[doc(hidden)]
-    pub fn new(
-        runtime: &Rc<RefCell<RuntimeStandalone>>,
-        account_id: AccountId,
-        signer: InMemorySigner,
-    ) -> Self {
+    pub fn new(runtime: &Rc<RefCell<RuntimeStandalone>>, signer: InMemorySigner) -> Self {
         let runtime = Rc::clone(runtime);
-        Self { runtime, account_id, signer }
+        Self { runtime, signer }
     }
 
     /// Returns a copy of the `account_id`
     pub fn account_id(&self) -> AccountId {
-        self.account_id.clone()
+        self.signer.account_id.clone()
     }
     /// Look up the account information on chain.
-    pub fn account(&self) -> Option<Account> {
-        (*self.runtime).borrow().view_account(&self.account_id)
+    pub fn account(&self) -> Account {
+        (*self.runtime).borrow().view_account(&self.account_id()).unwrap()
     }
+
+    pub fn amount(&self) -> Balance {
+        self.account().amount
+    }
+
+    pub fn locked(&self) -> Balance {
+        self.account().locked
+    }
+
+    pub fn storage_usage(&self) -> StorageUsage {
+        self.account().storage_usage
+    }
+
     /// Transfer yoctoNear to another account
     pub fn transfer(&self, to: AccountId, deposit: Balance) -> ExecutionResult {
         self.submit_transaction(self.transaction(to).transfer(deposit))
@@ -175,7 +183,7 @@ impl UserAccount {
                 .deploy_contract(wasm_bytes.to_vec()),
         )
         .assert_success();
-        UserAccount::new(&self.runtime, account_id, signer)
+        UserAccount::new(&self.runtime, signer)
     }
 
     /// Deploy a contract and in the same transaction call its initialization method.
@@ -192,7 +200,6 @@ impl UserAccount {
             KeyType::ED25519,
             &pending_tx.receiver_id,
         );
-        let account_id = pending_tx.receiver_id.clone();
         self.submit_transaction(
             self.transaction(pending_tx.receiver_id)
                 .create_account()
@@ -202,18 +209,18 @@ impl UserAccount {
                 .function_call(pending_tx.method, pending_tx.args, gas, 0),
         )
         .assert_success();
-        UserAccount::new(&self.runtime, account_id, signer)
+        UserAccount::new(&self.runtime, signer)
     }
 
     fn transaction(&self, receiver_id: AccountId) -> Transaction {
         let nonce = (*self.runtime)
             .borrow()
-            .view_access_key(&self.account_id, &self.signer.public_key())
+            .view_access_key(&self.account_id(), &self.signer.public_key())
             .unwrap()
             .nonce
             + 1;
         Transaction::new(
-            self.account_id.clone(),
+            self.account_id(),
             self.signer.public_key(),
             receiver_id,
             nonce,
@@ -221,11 +228,20 @@ impl UserAccount {
         )
     }
 
-    /// Create a user transaction to `receiver_id` to be signed the current user
+    /// Create a user transaction to `receiver_id` to be signed the current user's
     pub fn create_transaction(&self, receiver_id: AccountId) -> UserTransaction {
+        self.create_transaction_with_key(receiver_id, self.signer.clone())
+    }
+
+    /// Create transaction to `receiver_id` to be signed with passed key.
+    pub fn create_transaction_with_key(
+        &self,
+        receiver_id: AccountId,
+        signer: InMemorySigner,
+    ) -> UserTransaction {
         let transaction = self.transaction(receiver_id);
         let runtime = Rc::clone(&self.runtime);
-        UserTransaction { transaction, signer: self.signer.clone(), runtime }
+        UserTransaction { transaction, signer, runtime }
     }
 
     fn submit_transaction(&self, transaction: Transaction) -> ExecutionResult {
@@ -251,7 +267,18 @@ impl UserAccount {
         account_id: AccountId,
         amount: Balance,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
+        self.create_user_from_with_seed(signer_user, account_id.clone(), amount, &account_id)
+    }
+
+    /// Creates a user and is signed by the `signer_user`
+    pub fn create_user_from_with_seed(
+        &self,
+        signer_user: &UserAccount,
+        account_id: AccountId,
+        amount: Balance,
+        seed: &str,
+    ) -> UserAccount {
+        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, seed);
         signer_user
             .submit_transaction(
                 signer_user
@@ -261,12 +288,16 @@ impl UserAccount {
                     .transfer(amount),
             )
             .assert_success();
-        UserAccount { runtime: Rc::clone(&self.runtime), account_id, signer }
+        UserAccount { runtime: Rc::clone(&self.runtime), signer }
     }
-
     /// Create a new user where the signer is this user account
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> UserAccount {
         self.create_user_from(&self, account_id, amount)
+    }
+
+    /// Create a new user account with a different signer
+    pub fn switch_signer(&self, signer: InMemorySigner) -> UserAccount {
+        UserAccount { runtime: Rc::clone(&self.runtime), signer }
     }
 }
 
@@ -279,8 +310,8 @@ pub struct ContractAccount<T> {
 /// The simulator takes an optional GenesisConfig, which sets up the fees and other settings.
 /// It returns the `master_account` which can then create accounts and deploy contracts.
 pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
-    let (runtime, signer, root_account_id) = init_runtime(genesis_config);
-    UserAccount::new(&Rc::new(RefCell::new(runtime)), root_account_id, signer)
+    let (runtime, signer, ..) = init_runtime(genesis_config);
+    UserAccount::new(&Rc::new(RefCell::new(runtime)),  signer)
 }
 
 /// Deploys a contract. Will either deploy or deploy and initialize a contract.
