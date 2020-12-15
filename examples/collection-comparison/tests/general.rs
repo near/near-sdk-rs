@@ -1,11 +1,10 @@
+use near_sdk::serde::Deserialize;
 use near_sdk_sim::{
-    call, deploy, init_simulator, near_crypto::Signer, to_yocto, ContractAccount,
-    UserAccount,
+    call, deploy, init_simulator, near_crypto::Signer, to_yocto, ContractAccount, UserAccount,
 };
-use near_sdk::serde::{Deserialize};
-use std::io::{BufRead, BufReader};
 use std::fs::File;
 use std::io::Write;
+use std::io::{BufRead, BufReader};
 
 /// Bring contract crate into namespace
 extern crate collection_comparison;
@@ -57,6 +56,29 @@ pub fn mint_token() {
     init2(to_yocto("35"));
 }
 
+fn add_one(
+    master_account: &UserAccount,
+    contract: &ContractAccount<CollectionsContract>,
+    line: String,
+    file_adding: &mut File,
+    file_reading: &mut File,
+) {
+    let split = line.split(",");
+    let vec: Vec<&str> = split.collect();
+    let key = vec.get(0).unwrap().to_string();
+    let val = vec.get(1).unwrap().to_string();
+    println!("key: {:#?}, value: {:#?}", key, val);
+
+    let call_result = call!(master_account, contract.add_tree_map(key.clone(), val));
+    println!("gas used adding key \t\t{:#?}", call_result.gas_burnt());
+    let view_result = call!(master_account, contract.get_tree_map(key));
+    println!("gas used retrieving key \t{:#?}", view_result.gas_burnt());
+    write!(file_adding, "  {}", call_result.gas_burnt()).unwrap();
+    write!(file_reading, "  {}", view_result.gas_burnt()).unwrap();
+    std::mem::drop(call_result);
+    std::mem::drop(view_result);
+}
+
 #[test]
 fn test_add_view_gas() {
     let file = File::open("src/data/alpha-sha.csv").unwrap();
@@ -70,28 +92,10 @@ fn test_add_view_gas() {
     writeln!(&mut file_reading, "[").unwrap();
     for (i, line) in reader.lines().enumerate() {
         if i != 0 {
-            write!(&mut file_adding, ",\n").unwrap(); // todo do i need unwrap?
-            write!(&mut file_reading, ",\n").unwrap(); // todo do i need unwrap?
+            write!(&file_adding, ",\n").unwrap(); // todo do i need unwrap?
+            write!(&file_reading, ",\n").unwrap(); // todo do i need unwrap?
         }
-        let line = line.unwrap();
-        let split = line.split(",");
-        let vec: Vec<&str> = split.collect();
-        let key = vec.get(0).unwrap().to_string();
-        let val = vec.get(1).unwrap().to_string();
-        println!("key: {:#?}, value: {:#?}", key, val);
-
-        let call_result = call!(
-            master_account,
-            contract.add_tree_map(key.clone(), val)
-        );
-        println!("gas used adding key \t\t{:#?}", call_result.gas_burnt());
-        let view_result = call!(
-            master_account,
-            contract.get_tree_map(key)
-        );
-        println!("gas used retrieving key \t{:#?}", view_result.gas_burnt());
-        write!(&mut file_adding, "  {}", call_result.gas_burnt()).unwrap();
-        write!(&mut file_reading, "  {}", view_result.gas_burnt()).unwrap();
+        add_one(&master_account, &contract, line.unwrap(), &mut file_adding, &mut file_reading);
     }
     writeln!(&mut file_adding, "\n]").unwrap();
     writeln!(&mut file_reading, "\n]").unwrap();
