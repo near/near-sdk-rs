@@ -1,7 +1,7 @@
-use near_sdk::{ near_bindgen, env };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::{env, near_bindgen};
 // Documentation: https://docs.rs/near-sdk/2.0.0/near_sdk/collections/index.html
-use near_sdk::collections::{ LookupMap, UnorderedMap, TreeMap };
+use near_sdk::collections::{LookupMap, TreeMap, UnorderedMap};
 
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc = near_sdk::wee_alloc::WeeAlloc::INIT;
@@ -11,7 +11,7 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc = near_sdk::wee_alloc::WeeAlloc::INI
 pub struct Collections {
     pub tree_map: TreeMap<String, String>,
     pub unordered_map: UnorderedMap<String, String>,
-    pub lookup_map: LookupMap<String, String>
+    pub lookup_map: LookupMap<String, String>,
 }
 
 impl Default for Collections {
@@ -31,7 +31,7 @@ impl Collections {
         Self {
             tree_map: TreeMap::new(b"t".to_vec()),
             unordered_map: UnorderedMap::new(b"u".to_vec()),
-            lookup_map: LookupMap::new(b"l".to_vec())
+            lookup_map: LookupMap::new(b"l".to_vec()),
         }
     }
 
@@ -60,10 +60,10 @@ impl Collections {
                 env::log(log_message.as_bytes());
                 // Since we found it, return it (note implicit return)
                 value
-            },
+            }
             // did not find the entry
             // note: curly brackets after arrow are optional in simple cases, like other languages
-            None => "none found".to_string()
+            None => "none found".to_string(),
         }
     }
 
@@ -74,8 +74,8 @@ impl Collections {
                 let log_message = format!("Value from UnorderedMap is {:?}", value.clone());
                 env::log(log_message.as_bytes());
                 value
-            },
-            None => "none found".to_string()
+            }
+            None => "none found".to_string(),
         }
     }
 
@@ -86,8 +86,8 @@ impl Collections {
                 let log_message = format!("Value from LookupMap is {:?}", value.clone());
                 env::log(log_message.as_bytes());
                 value
-            },
-            None => "none found".to_string()
+            }
+            None => "none found".to_string(),
         }
     }
 
@@ -95,7 +95,11 @@ impl Collections {
     /// if `tree_map` is `true` this function will clear the values
     /// Same for `unordered_map` but `lookup_map` does not have this
     pub fn reset(&mut self, tree_map: bool, unordered_map: bool) {
-        assert_eq!(env::current_account_id(), env::predecessor_account_id(), "This method must be called by the (implied) contract owner.");
+        assert_eq!(
+            env::current_account_id(),
+            env::predecessor_account_id(),
+            "This method must be called by the (implied) contract owner."
+        );
         if tree_map {
             self.tree_map.clear();
         }

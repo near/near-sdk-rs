@@ -19,11 +19,11 @@ use near_primitives::types::{
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
 use near_runtime_configs::RuntimeConfig;
+use near_sdk::{clone_profile, create_profile_data, ProfileData};
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
 use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
-use near_sdk::{ProfileData, create_profile_data, clone_profile};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
@@ -190,7 +190,7 @@ impl RuntimeStandalone {
         let mut outcome_hash = tx.get_hash();
         self.transactions.insert(outcome_hash, tx.clone());
         self.tx_pool.insert_transaction(tx);
-        self.last_outcomes = vec![];
+        self.last_outcomes.clear();
         loop {
             self.produce_block()?;
             if let Some(outcome) = self.outcomes.get(&outcome_hash) {
@@ -221,8 +221,8 @@ impl RuntimeStandalone {
 
     pub fn profile_of_outcome(&self, hash: &CryptoHash) -> Option<ProfileData> {
         match self.profile.get(hash) {
-          Some(p) => Some(clone_profile(p)),
-          _ => None
+            Some(p) => Some(clone_profile(p)),
+            _ => None,
         }
     }
 
@@ -483,10 +483,12 @@ mod tests {
         let (_, res) = res.unwrap();
         runtime.process_all().unwrap();
 
-        assert!(matches!(
-            res,
-            ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }
-        ));
+        assert!(
+            matches!(
+                res,
+                ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }
+            )
+        );
         let res = runtime.view_method_call(
             &"status",
             "get_status",
