@@ -1,6 +1,6 @@
 #[rustversion::stable]
 #[test]
-fn tests() {
+fn compilation_tests() {
     let t = trybuild::TestCases::new();
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");
@@ -12,6 +12,7 @@ fn tests() {
     t.compile_fail("compilation_tests/bad_argument.rs");
     t.pass("compilation_tests/references.rs");
     t.pass("compilation_tests/init_function.rs");
+    t.pass("compilation_tests/no_default.rs");
     t.pass("compilation_tests/lifetime_method.rs");
     t.pass("compilation_tests/cond_compilation.rs");
     t.compile_fail("compilation_tests/payable_view.rs");

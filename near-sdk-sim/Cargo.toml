@@ -1,0 +1,27 @@
+[package]
+name = "near-sdk-sim"
+version = "2.0.0"
+authors = ["Near Inc <hello@near.org>"]
+edition = "2018"
+publish = false
+
+
+[dependencies]
+near-sdk = { path = "../near-sdk", version = "2.0.0"}
+near-crypto = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+near-primitives = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+lazy_static = "1.4.0"
+near-pool = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+near-runtime-configs = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+near-store = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+node-runtime = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+
+[dev-dependencies]
+quickcheck = "0.9"
+quickcheck_macros = "0.9"
+fungible-token = { path="../examples/fungible-token" }
+
+[features]
+default = []
+no_cache = ["near-store/no_cache", "node-runtime/no_cache"]
+no_sim = []
