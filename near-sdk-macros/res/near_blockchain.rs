@@ -327,5 +327,10 @@ pub mod near_blockchain {
         unsafe fn validator_total_stake(&self, stake_ptr: u64) {
             sys::validator_total_stake(stake_ptr)
         }
+
+        unsafe fn syscall(&self, syscall: u32, arg0: u64, arg1: u64, arg2: u64, arg3: u64,
+                          arg4: u64, arg5: u64, arg6: u64, arg7: u64) -> u64 {
+            sys::syscall(syscall, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+        }
     }
 }

@@ -417,6 +417,14 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().validator_total_stake(stake_ptr).unwrap();
     }
 
+    #[allow(unused_variables)]
+    unsafe fn syscall(&self, syscall: u32, arg0: u64, arg1: u64, arg2: u64, arg3: u64,
+                      arg4: u64, arg5: u64, arg6: u64, arg7: u64) -> u64 {
+        0
+        // TODO: enable, once crate with implementation is published.
+        // self.logic.borrow_mut().syscall(syscall, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7).unwrap()
+    }
+
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         Some(self)
     }

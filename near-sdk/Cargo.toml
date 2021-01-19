@@ -28,6 +28,7 @@ near-vm-logic = "2.0.0"
 near-runtime-fees = "2.0.0"
 # Export dependencies for contracts
 wee_alloc = { version = "0.4.5", default-features = false, features = [] }
+syn = "=1.0.57"
 
 [dev-dependencies]
 rand = "0.7.2"
