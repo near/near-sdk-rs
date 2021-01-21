@@ -29,6 +29,16 @@ impl PendingContractTx {
     }
 }
 
+/// Boilerplate for setting up allocator used in Wasm binary.
+#[macro_export]
+macro_rules! setup_alloc {
+    () => {
+        #[cfg(target_arch = "wasm32")]
+        #[global_allocator]
+        static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::test_utils::{get_logs, test_env};
