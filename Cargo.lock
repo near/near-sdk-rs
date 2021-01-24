@@ -518,6 +518,7 @@ name = "fungible-token"
 version = "0.3.0"
 dependencies = [
  "near-sdk",
+ "near-std",
 ]
 
 [[package]]
@@ -988,6 +989,13 @@ dependencies = [
  "node-runtime",
  "quickcheck",
  "quickcheck_macros",
+]
+
+[[package]]
+name = "near-std"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
 ]
 
 [[package]]

@@ -1,17 +1,17 @@
+/// Bring contract crate into namespace
+extern crate fungible_token;
+
+/// Import the generated proxy contract
+use fungible_token::FungibleTokenContract;
+
+use near_sdk::json_types::U128;
+use near_sdk_sim::account::AccessKey;
 use near_sdk_sim::{
     call, deploy, init_simulator, near_crypto::Signer, to_yocto, view, ContractAccount,
     UserAccount, STORAGE_AMOUNT,
 };
-use std::str::FromStr;
 
-/// Bring contract crate into namespace
-extern crate fungible_token;
-/// Import the generated proxy contract
-use fungible_token::FungibleTokenContract;
-use near_sdk::json_types::U128;
-use near_sdk_sim::account::AccessKey;
-
-/// Load in contract bytes
+// Load in contract bytes
 near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
 }
@@ -55,12 +55,13 @@ fn init2(initial_balance: u128) {
 pub fn mint_token() {
     init2(to_yocto("35"));
 }
+
 #[test]
 fn test_sim_transfer() {
     let transfer_amount = to_yocto("100");
     let initial_balance = to_yocto("100000");
     let (master_account, contract, alice) = init(initial_balance);
-    /// Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
+    // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
     let res = call!(
         master_account,
         contract.transfer(alice.account_id.clone(), transfer_amount.into()),

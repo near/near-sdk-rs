@@ -1,0 +1,16 @@
+[package]
+name = "near-std"
+version = "0.1.0"
+authors = ["Near Inc <hello@near.org>"]
+edition = "2018"
+license = "Apache-2.0"
+categories = ["wasm"]
+repository = "https://github.com/near/near-sdk-rs"
+homepage = "https://github.com/near/near-sdk-rs"
+description = """
+NEAR smart contracts standard library.
+"""
+
+[dependencies]
+near-sdk = { path = "../near-sdk" }
+

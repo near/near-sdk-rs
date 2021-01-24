@@ -519,6 +519,7 @@ version = "0.3.0"
 dependencies = [
  "near-sdk",
  "near-sdk-sim",
+ "near-std",
 ]
 
 [[package]]
@@ -981,6 +982,13 @@ dependencies = [
  "near-sdk",
  "near-store",
  "node-runtime",
+]
+
+[[package]]
+name = "near-std"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
 ]
 
 [[package]]
