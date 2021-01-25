@@ -1,4 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
 use near_sdk::{env, near_bindgen, PromiseResult};
 
@@ -9,15 +10,23 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 const SINGLE_CALL_GAS: u64 = 200000000000000;
 
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-pub struct CrossContract {}
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct CrossContract {
+    checked_promise: bool,
+}
+
+impl Default for CrossContract {
+    fn default() -> Self {
+        CrossContract { checked_promise: false }
+    }
+}
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
-        env::promise_batch_action_transfer(promise_idx, amount as u128);
+        env::promise_batch_action_transfer(promise_idx, amount.0);
         env::promise_batch_action_add_key_with_full_access(
             promise_idx,
             &env::signer_account_pk(),
@@ -64,12 +73,12 @@ impl CrossContract {
         assert_eq!(env::promise_results_count(), 2);
         let data0: Vec<u8> = match env::promise_result(0) {
             PromiseResult::Successful(x) => x,
-            _ => unreachable!(),
+            _ => panic!("Promise with index 0 failed"),
         };
         let data0: Vec<u8> = serde_json::from_slice(&data0).unwrap();
         let data1: Vec<u8> = match env::promise_result(1) {
             PromiseResult::Successful(x) => x,
-            _ => unreachable!(),
+            _ => panic!("Promise with index 1 failed"),
         };
         let data1: Vec<u8> = serde_json::from_slice(&data1).unwrap();
         let mut i = 0usize;
@@ -106,8 +115,9 @@ impl CrossContract {
     }
     pub fn complex_call(&mut self, account_id: String, message: String) {
         // 1) call status_message to record a message from the signer.
-        // 2) call status_message to retrieve the message of the signer.
-        // 3) return that message as its own result.
+        // 2) check that the promise succeed
+        // 3) call status_message to retrieve the message of the signer.
+        // 4) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
         let promise0 = env::promise_create(
             account_id.clone(),
@@ -118,17 +128,39 @@ impl CrossContract {
         );
         let promise1 = env::promise_then(
             promise0,
+            env::current_account_id(),
+            b"check_promise",
+            json!({}).to_string().as_bytes(),
+            0,
+            SINGLE_CALL_GAS,
+        );
+        let promise2 = env::promise_then(
+            promise1,
             account_id,
             b"get_status",
             json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
         );
-        env::promise_return(promise1);
+        env::promise_return(promise2);
+    }
+
+    pub fn check_promise(&mut self) {
+        match env::promise_result(0) {
+            PromiseResult::Successful(_) => {
+                env::log(b"Check_promise successful");
+                self.checked_promise = true;
+            }
+            _ => panic!("Promise with index 0 failed"),
+        };
     }
 
     pub fn transfer_money(&mut self, account_id: String, amount: u64) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
+    }
+
+    pub fn promise_checked(&self) -> bool {
+        self.checked_promise
     }
 }

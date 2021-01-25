@@ -121,13 +121,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
-name = "fungible-token"
-version = "0.3.0"
-dependencies = [
- "near-sdk",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -218,7 +211,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "2.0.1"
+version = "2.0.0"
 dependencies = [
  "base64",
  "borsh",
@@ -233,7 +226,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-core"
-version = "2.0.1"
+version = "2.0.0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -243,7 +236,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "2.0.1"
+version = "2.0.0"
 dependencies = [
  "near-sdk-core",
  "proc-macro2",
@@ -329,9 +322,9 @@ checksum = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.24"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
+checksum = "04f5f085b5d71e2188cb8271e5da0161ad52c3f227a661a3c135fdf28e258b12"
 dependencies = [
  "unicode-xid",
 ]
@@ -410,13 +403,20 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.57"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4211ce9909eb971f111059df92c45640aad50a619cf55cd76476be803c4c68e6"
+checksum = "891d8d6567fe7c7f8835a3a98af4208f3846fba258c1bc3c31d6e506239f11f9"
 dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "test-contract"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
 ]
 
 [[package]]
