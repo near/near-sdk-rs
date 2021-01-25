@@ -39,7 +39,7 @@ impl FungibleToken {
     }
 }
 
-// #[near_bindgen]
+#[near_bindgen]
 impl FT for FungibleToken {
     fn inc_allowance(&mut self, escrow_account_id: AccountId, amount: U128) {
         self.token.inc_allowance(escrow_account_id, amount.into())
