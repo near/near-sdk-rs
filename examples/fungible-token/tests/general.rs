@@ -60,13 +60,13 @@ fn test_sim_transfer() {
     let transfer_amount = to_yocto("100");
     let initial_balance = to_yocto("100000");
     let (master_account, contract, alice) = init(initial_balance);
-    /// Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
+    // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
     let res = call!(
         master_account,
-        contract.transfer(alice.account_id.clone(), transfer_amount.into()),
+        contract.transfer(alice.account_id(), transfer_amount.into()),
         deposit = STORAGE_AMOUNT
     );
-    println!("{:#?}", res.status());
+    println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
     assert!(res.is_ok());
 
     let value = view!(contract.get_balance(master_account.account_id()));
