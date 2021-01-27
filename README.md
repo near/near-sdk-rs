@@ -211,6 +211,14 @@ We can build the contract using rustc:
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
 
+## Building with reproducible builds
+
+Since WebAssembly compiler includes a bunch of debug information into the binary, the resulting binary might be
+different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
+that allows to compile the binary.
+
+**Use [contract-builder](contract-builder/)**
+
 ## License
 This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
 See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.
