@@ -517,9 +517,9 @@ checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 name = "fungible-token"
 version = "0.3.0"
 dependencies = [
+ "near-lib",
  "near-sdk",
  "near-sdk-sim",
- "near-std",
 ]
 
 [[package]]
@@ -792,6 +792,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-lib"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+]
+
+[[package]]
 name = "near-metrics"
 version = "0.1.0"
 source = "git+https://github.com/near/nearcore.git?tag=stable_wasmer_0.17.2#68198d4604b923e6c19fb9e7f85e20f495cdc614"
@@ -982,13 +989,6 @@ dependencies = [
  "near-sdk",
  "near-store",
  "node-runtime",
-]
-
-[[package]]
-name = "near-std"
-version = "0.1.0"
-dependencies = [
- "near-sdk",
 ]
 
 [[package]]
