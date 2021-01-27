@@ -8,13 +8,15 @@ publish = false
 
 [dependencies]
 near-sdk = { path = "../near-sdk", version = "2.0.0"}
-near-crypto = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
-near-primitives = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+near-crypto = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+near-primitives = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+near-vm-logic = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+
 lazy_static = "1.4.0"
-near-pool = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
-near-runtime-configs = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
-near-store = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
-node-runtime = { git = "https://github.com/near/nearcore.git", tag = "stable_wasmer_0.17.2" }
+near-pool = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+near-runtime-configs = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+near-store = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+node-runtime = { git = "https://github.com/near/nearcore.git", tag = "profile_data", features=["costs_counting"] }
 
 [dev-dependencies]
 quickcheck = "0.9"

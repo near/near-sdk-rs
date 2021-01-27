@@ -9,6 +9,7 @@ use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::export::Formatter;
 use near_sdk::serde_json::Value;
 use near_sdk::Gas;
+use near_vm_logic::types::ProfileData;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -22,6 +23,7 @@ pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
 pub struct ExecutionResult {
     runtime: Rc<RefCell<RuntimeStandalone>>,
     outcome: ExecutionOutcome,
+    hash: CryptoHash,
 }
 
 impl Debug for ExecutionResult {
@@ -35,14 +37,19 @@ impl Default for ExecutionResult {
         ExecutionResult::new(
             ExecutionOutcome::default(),
             &Rc::new(RefCell::new(init_runtime(None).0)),
+            CryptoHash::default(),
         )
     }
 }
 
 impl ExecutionResult {
     #[doc(hidden)]
-    pub fn new(outcome: ExecutionOutcome, runtime: &Rc<RefCell<RuntimeStandalone>>) -> Self {
-        Self { runtime: Rc::clone(runtime), outcome }
+    pub fn new(
+        outcome: ExecutionOutcome,
+        runtime: &Rc<RefCell<RuntimeStandalone>>,
+        hash: CryptoHash,
+    ) -> Self {
+        Self { runtime: Rc::clone(runtime), outcome, hash }
     }
 
     /// Interpret the SuccessValue as a JSON value
@@ -94,7 +101,7 @@ impl ExecutionResult {
 
     fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionResult> {
         match (*self.runtime).borrow().outcome(hash) {
-            Some(out) => Some(ExecutionResult::new(out, &self.runtime)),
+            Some(out) => Some(ExecutionResult::new(out, &self.runtime, hash.clone())),
             None => None,
         }
     }
@@ -161,16 +168,20 @@ impl ExecutionResult {
     pub fn receipt_ids(&self) -> &Vec<CryptoHash> {
         &self.outcome.receipt_ids
     }
+
+    pub fn profile_data(&self) -> ProfileData {
+        (*self.runtime).borrow().profile_of_outcome(&self.hash).unwrap()
+    }
 }
 
 #[doc(hidden)]
 pub fn outcome_into_result(
-    outcome: ExecutionOutcome,
+    outcome: (CryptoHash, ExecutionOutcome),
     runtime: &Rc<RefCell<RuntimeStandalone>>,
 ) -> ExecutionResult {
-    match outcome.status {
+    match (outcome.1).status {
         ExecutionStatus::SuccessValue(_) |
-        ExecutionStatus::Failure(_) => ExecutionResult::new(outcome, runtime),
+        ExecutionStatus::Failure(_) => ExecutionResult::new(outcome.1, runtime, outcome.0),
         ExecutionStatus::SuccessReceiptId(_) => panic!("Unresolved ExecutionOutcome run runtime.resolve(tx) to resolve the final outcome of tx"),
         ExecutionStatus::Unknown => unreachable!()
     }
@@ -244,7 +255,10 @@ mod tests {
         let status = SuccessValue(value.clone().to_string().as_bytes().to_vec());
         let mut outcome = ExecutionOutcome::default();
         outcome.status = status;
-        let result = outcome_into_result(outcome, &Rc::new(RefCell::new(init_runtime(None).0)));
+        let result = outcome_into_result(
+            (CryptoHash::default(), outcome),
+            &Rc::new(RefCell::new(init_runtime(None).0)),
+        );
         assert_eq!(value, result.unwrap_json_value());
     }
 }
