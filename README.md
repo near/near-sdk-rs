@@ -83,7 +83,7 @@ impl StatusMessage {
     * `promise_then` -- attaches the callback back to the current contract once the function is executed;
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
-    
+
     Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
@@ -110,8 +110,16 @@ impl Default for StatusMessage {
     }
 }
 ```
+You can also prohibit `Default` trait initialization by using `near_sdk::PanicOnDefault` helper macro. E.g.:
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct StatusMessage {
+    records: HashMap<String, String>,
+}
+```
 
-* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call. 
+* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
 
 To declare a payable method simply use `#[payable]` decorator:
 ```rust
@@ -122,6 +130,29 @@ pub fn my_method(&mut self) {
 }
 ```
 
+* **Private methods** Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
+only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
+is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+Macro `#[private]` simplifies it, by making it a single line macro instead and improves readability.
+
+To declare a private method use `#[private]` decorator:
+```rust
+
+#[private]
+pub fn my_method(&mut self) {
+...
+}
+/// Which is equivalent to
+
+pub fn my_method(&mut self ) {
+    if env::current_account_id() != env::predecessor_account_id() {
+        near_sdk::env::panic("Method method is private".as_bytes());
+    }
+...
+}
+```
+
+Now, only the account of the contract itself can call this method, either directly or through a promise.
 
 ## Pre-requisites
 To develop Rust contracts you would need to:
@@ -147,7 +178,7 @@ The general workflow is the following:
    Here is an example of a smart contract struct:
    ```rust
    use near_sdk::{near_bindgen, env};
-   
+
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
@@ -179,6 +210,14 @@ We can build the contract using rustc:
 ```bash
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
+
+## Building with reproducible builds
+
+Since WebAssembly compiler includes a bunch of debug information into the binary, the resulting binary might be
+different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
+that allows to compile the binary.
+
+**Use [contract-builder](contract-builder/)**
 
 ## License
 This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).

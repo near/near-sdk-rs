@@ -1,7 +1,7 @@
 use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
 use quote::quote;
 use syn::export::TokenStream2;
-use syn::ReturnType;
+use syn::{ReturnType, Signature};
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -53,6 +53,7 @@ impl ImplItemMethodInfo {
             result_serializer,
             is_init,
             is_payable,
+            is_private,
             is_view,
             ..
         } = attr_signature_info;
@@ -61,11 +62,22 @@ impl ImplItemMethodInfo {
             quote! {}
         } else {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
+            let error = format!("Method {} doesn't accept deposit", ident.to_string());
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(b"Method doesn't accept deposit");
+                    near_sdk::env::panic(#error.as_bytes());
                 }
             }
+        };
+        let is_private_check = if *is_private {
+            let error = format!("Method {} is private", ident.to_string());
+            quote! {
+                if env::current_account_id() != env::predecessor_account_id() {
+                    near_sdk::env::panic(#error.as_bytes());
+                }
+            }
+        } else {
+            quote! {}
         };
         let body = if *is_init {
             quote! {
@@ -136,11 +148,80 @@ impl ImplItemMethodInfo {
             pub extern "C" fn #ident() {
                 #panic_hook
                 #env_creation
+                #is_private_check
                 #deposit_check
                 #arg_struct
                 #arg_parsing
                 #callback_deser
                 #callback_vec_deser
+                #body
+            }
+        }
+    }
+
+    pub fn marshal_method(&self) -> TokenStream2 {
+        let ImplItemMethodInfo { attr_signature_info, .. } = self;
+        let has_input_args = attr_signature_info.input_args().next().is_some();
+
+        let pat_type_list = attr_signature_info.pat_type_list();
+        let json_args = if has_input_args {
+            let args: TokenStream2 = attr_signature_info
+                .input_args()
+                .fold(None, |acc: Option<TokenStream2>, value| {
+                    let ident = &value.ident;
+                    let ident_str = format!("{}", ident.to_string());
+                    Some(match acc {
+                        None => quote! { #ident_str: #ident },
+                        Some(a) => quote! { #a, #ident_str: #ident },
+                    })
+                })
+                .unwrap();
+            quote! {
+              let args = near_sdk::serde_json::json!({#args});
+            }
+        } else {
+            quote! {
+             let args = near_sdk::serde_json::json!({});
+            }
+        };
+
+        let AttrSigInfo {
+            non_bindgen_attrs,
+            ident,
+            // receiver,
+            // returns,
+            // result_serializer,
+            // is_init,
+            is_view,
+            original_sig,
+            ..
+        } = attr_signature_info;
+        let return_ident = quote! { -> near_sdk::PendingContractTx };
+        let params = quote! {
+            &self, #pat_type_list
+        };
+        let ident_str = format!("{}", ident.to_string());
+        let body = if *is_view {
+            quote! {
+                near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, true)
+            }
+        } else {
+            quote! {
+                near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, false)
+            }
+        };
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
+        let Signature { generics, .. } = original_sig;
+        quote! {
+            #[cfg(not(target_arch = "wasm32"))]
+            #non_bindgen_attrs
+            pub fn #ident#generics(#params) #return_ident {
+                #json_args
                 #body
             }
         }

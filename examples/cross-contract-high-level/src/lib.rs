@@ -1,9 +1,11 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    //    callback,
-    //    callback_vec,
     env,
     ext_contract,
+    json_types::U128,
+    //    callback,
+    //    callback_vec,
+    log,
     near_bindgen,
     Promise,
     PromiseOrValue,
@@ -44,10 +46,10 @@ pub trait ExtStatusMessage {
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
         Promise::new(account_id)
             .create_account()
-            .transfer(amount as u128)
+            .transfer(amount.0)
             .add_full_access_key(env::signer_account_pk())
             .deploy_contract(
                 include_bytes!("../../status-message/res/status_message.wasm").to_vec(),
@@ -98,6 +100,7 @@ impl CrossContract {
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
     /// the contract itself.
     #[result_serializer(borsh)]
+    #[private]
     pub fn merge(
         &self,
         #[callback]
@@ -107,10 +110,9 @@ impl CrossContract {
         #[serializer(borsh)]
         data1: Vec<u8>,
     ) -> Vec<u8> {
-        env::log(format!("Received {:?} and {:?}", data0, data1).as_bytes());
-        assert_eq!(env::current_account_id(), env::predecessor_account_id());
+        log!("Received {:?} and {:?}", data0, data1);
         let result = self.internal_merge(data0, data1);
-        env::log(format!("Merged {:?}", result).as_bytes());
+        log!("Merged {:?}", result.clone());
         result
     }
 
