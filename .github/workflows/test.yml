@@ -1,0 +1,28 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  test:
+    runs-on: ${{ matrix.platform }}
+    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+        ENV: [true, false]
+        toolchan: [stable, nightly]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+      - name: Test
+        env:
+          NEAR_RELEASE: ${{ matrix.ENV }}
+        run: ./ci-test.sh

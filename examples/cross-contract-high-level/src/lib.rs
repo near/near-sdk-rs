@@ -2,6 +2,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
     env,
     ext_contract,
+    json_types::U128,
     //    callback,
     //    callback_vec,
     log,
@@ -45,10 +46,10 @@ pub trait ExtStatusMessage {
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: u64) {
+    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
         Promise::new(account_id)
             .create_account()
-            .transfer(amount as u128)
+            .transfer(amount.0)
             .add_full_access_key(env::signer_account_pk())
             .deploy_contract(
                 include_bytes!("../../status-message/res/status_message.wasm").to_vec(),
@@ -111,7 +112,7 @@ impl CrossContract {
     ) -> Vec<u8> {
         log!("Received {:?} and {:?}", data0, data1);
         let result = self.internal_merge(data0, data1);
-        log!("Merged {:?}", result);
+        log!("Merged {:?}", result.clone());
         result
     }
 
