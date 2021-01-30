@@ -269,7 +269,8 @@ impl FungibleToken {
     }
 }
 
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(feature = "with_vm")]
+#[cfg(test)]
 mod tests {
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};

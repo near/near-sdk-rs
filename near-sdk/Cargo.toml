@@ -24,12 +24,14 @@ near-sdk-macros = { path = "../near-sdk-macros", version = "2.0.1"}
 borsh = "0.7.0"
 bs58 = "0.3"
 base64 = "0.11"
-near-vm-logic = "2.0.0"
-near-runtime-fees = "2.0.0"
+near-vm-logic = { version = "2.0.0", optional = true }
+near-runtime-fees = { version = "2.0.0", optional = true }
 # Export dependencies for contracts
 wee_alloc = { version = "0.4.5", default-features = false, features = [] }
 
 [dev-dependencies]
+near-vm-logic = "2.0.0"
+near-runtime-fees = "2.0.0"
 rand = "0.7.2"
 trybuild = "1.0"
 rustversion = "1.0"
@@ -38,3 +40,4 @@ quickcheck = "0.9.2"
 
 [features]
 expensive-debug = []
+with_vm = ["near-vm-logic", "near-runtime-fees"]

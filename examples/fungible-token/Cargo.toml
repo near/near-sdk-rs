@@ -13,6 +13,9 @@ near-sdk = { path = "../../near-sdk" }
 [dev-dependencies]
 near-sdk-sim = { path = "../../near-sdk-sim" }
 
+[features]
+with_vm = [ "near-sdk/with_vm" ]
+
 [profile.release]
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.

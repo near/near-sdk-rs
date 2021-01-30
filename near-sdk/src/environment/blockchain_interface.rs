@@ -1,3 +1,4 @@
+#[cfg(feature = "with_vm")]
 use crate::MockedBlockchain;
 
 /// A low-level interface of either real or mocked blockchain that contract interacts with.
@@ -162,10 +163,12 @@ pub trait BlockchainInterface {
     unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64);
     unsafe fn validator_total_stake(&self, stake_ptr: u64);
 
+    #[cfg(feature = "with_vm")]
     fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
         None
     }
 
+    #[cfg(feature = "with_vm")]
     fn as_mocked_blockchain(&self) -> Option<&MockedBlockchain> {
         None
     }

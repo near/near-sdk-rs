@@ -18,10 +18,20 @@ pub use metadata::{Metadata, MethodMetadata};
 
 pub mod json_types;
 
+#[cfg(not(feature = "with_vm"))]
+mod types;
+#[cfg(not(feature = "with_vm"))]
+pub use types::*;
+
+#[cfg(feature = "with_vm")]
 pub use environment::mocked_blockchain::MockedBlockchain;
+#[cfg(feature = "with_vm")]
 pub use near_runtime_fees::RuntimeFeesConfig;
+#[cfg(feature = "with_vm")]
 pub use near_vm_logic::types::*;
+#[cfg(feature = "with_vm")]
 pub use near_vm_logic::VMConfig;
+#[cfg(feature = "with_vm")]
 pub use near_vm_logic::VMContext;
 
 pub mod utils;
@@ -29,6 +39,7 @@ pub use crate::utils::*;
 
 pub use environment::blockchain_interface::BlockchainInterface;
 
+#[cfg(feature = "with_vm")]
 pub mod test_utils;
 
 // Exporting common crates

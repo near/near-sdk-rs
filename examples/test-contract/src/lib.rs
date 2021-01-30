@@ -32,7 +32,7 @@ impl TestContract {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "with_vm")]
 #[cfg(test)]
 mod tests {
     use super::*;
