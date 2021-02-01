@@ -19,6 +19,10 @@ is to have an assert that validates that the direct caller (predecessor account 
 * Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
 This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
 
+## `2.0.1`
+
+* Pinned version of `syn` crate to `=1.0.57`, since `1.0.58` introduced a breaking API change.
+
 ## `2.0.0`
 
 ### Contract changes
