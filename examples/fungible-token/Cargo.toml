@@ -1,6 +1,6 @@
 [package]
 name = "fungible-token"
-version = "0.3.0"
+version = "1.0.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
 
@@ -14,12 +14,9 @@ near-sdk = { path = "../../near-sdk" }
 near-sdk-sim = { path = "../../near-sdk-sim" }
 
 [profile.release]
-codegen-units = 1
-# Tell `rustc` to optimize for small code size.
+codegen-units=1
 opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
-
-
