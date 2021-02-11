@@ -1,5 +1,5 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_runtime_fees::RuntimeFeesConfig;
+use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::{AccountId, Balance, PromiseResult};

@@ -2,6 +2,7 @@ use crate::hash::CryptoHash;
 use crate::runtime::{init_runtime, RuntimeStandalone};
 use crate::transaction::{ExecutionOutcome, ExecutionStatus};
 use core::fmt;
+use near_primitives::profile::ProfileData;
 use near_primitives::transaction::ExecutionStatus::{SuccessReceiptId, SuccessValue};
 use near_primitives::types::AccountId;
 use near_sdk::borsh::BorshDeserialize;
@@ -9,7 +10,6 @@ use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::export::Formatter;
 use near_sdk::serde_json::Value;
 use near_sdk::Gas;
-use near_vm_logic::types::ProfileData;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -188,7 +188,7 @@ pub fn outcome_into_result(
 }
 
 /// The result of a view call.  Contains the logs made during the view method call and Result value,
-/// which can be unwrapped and deserialized.  
+/// which can be unwrapped and deserialized.
 #[derive(Debug)]
 pub struct ViewResult {
     result: Result<Vec<u8>, Box<dyn std::error::Error>>,
