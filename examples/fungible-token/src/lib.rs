@@ -38,6 +38,8 @@ pub struct Contract {
 
     /// The storage size in bytes for one account.
     pub account_storage_usage: StorageUsage,
+
+    pub metadata: FungibleTokenMetadata
 }
 
 impl Default for Contract {
@@ -49,12 +51,19 @@ impl Default for Contract {
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new() -> Self {
+    pub fn new(total_supply: U128, version: String, name: String, symbol: String, reference: String, decimals: u8) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         let mut this = Self {
             accounts: LookupMap::new(b"a".to_vec()),
-            total_supply: 0,
+            total_supply: total_supply.into(),
             account_storage_usage: 0,
+            metadata: FungibleTokenMetadata {
+                version,
+                name,
+                symbol,
+                reference,
+                decimals
+            }
         };
         // Determine cost of insertion into LookupMap
         let initial_storage_usage = env::storage_usage();
@@ -64,6 +73,8 @@ impl Contract {
         this.accounts.remove(&tmp_account_id);
         this
     }
+
+
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -111,13 +122,18 @@ mod fungible_token_tests {
 
     #[test]
     fn contract_creation_with_new() {
-        // let hi = carol();
-        // hi.as_ref().to_string();
-
         testing_env!(get_context(carol().as_ref().to_string()));
-        //let total_supply = 1_000_000_000_000_000u128;
-        let contract = Contract::new();
-        assert_eq!(contract.ft_total_supply().0, ZERO_U128);
+        let contract = Contract::new(
+            U128::from(1_000_000_000_000_000),
+            String::from("0.1.0"),
+            String::from("NEAR Test Token"),
+            String::from("TEST"),
+            String::from(
+                "https://github.com/near/core-contracts/tree/master/w-near-141",
+            ),
+            24
+        );
+        assert_eq!(contract.ft_total_supply().0, 1_000_000_000_000_000);
         assert_eq!(contract.ft_balance_of(alice()).0, ZERO_U128);
         assert_eq!(contract.ft_balance_of(bob().into()).0, ZERO_U128);
         assert_eq!(contract.ft_balance_of(carol().into()).0, ZERO_U128);
