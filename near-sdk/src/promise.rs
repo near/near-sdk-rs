@@ -25,12 +25,14 @@ pub enum PromiseAction {
     },
     AddFullAccessKey {
         public_key: PublicKey,
+        nonce: u64,
     },
     AddAccessKey {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
         method_names: Vec<u8>,
+        nonce: u64,
     },
     DeleteKey {
         public_key: PublicKey,
@@ -63,18 +65,18 @@ impl PromiseAction {
             Stake { amount, public_key } => {
                 crate::env::promise_batch_action_stake(promise_index, *amount, public_key)
             }
-            AddFullAccessKey { public_key } => {
+            AddFullAccessKey { public_key, nonce } => {
                 crate::env::promise_batch_action_add_key_with_full_access(
                     promise_index,
                     public_key,
-                    0,
+                    *nonce,
                 )
             }
-            AddAccessKey { public_key, allowance, receiver_id, method_names } => {
+            AddAccessKey { public_key, allowance, receiver_id, method_names, nonce } => {
                 crate::env::promise_batch_action_add_key_with_function_call(
                     promise_index,
                     public_key,
-                    0,
+                    *nonce,
                     *allowance,
                     receiver_id,
                     &method_names,
@@ -259,7 +261,12 @@ impl Promise {
 
     /// Add full access key to the given account.
     pub fn add_full_access_key(self, public_key: PublicKey) -> Self {
-        self.add_action(PromiseAction::AddFullAccessKey { public_key })
+        self.add_full_access_key_with_nonce(public_key, 0)
+    }
+
+    /// Add full access key to the given account with a provided nonce.
+    pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
+        self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
     }
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
@@ -272,11 +279,24 @@ impl Promise {
         receiver_id: AccountId,
         method_names: Vec<u8>,
     ) -> Self {
+        self.add_access_key_with_nonce(public_key, allowance, receiver_id, method_names, 0)
+    }
+
+    /// Add an access key with a provided nonce.
+    pub fn add_access_key_with_nonce(
+        self,
+        public_key: PublicKey,
+        allowance: Balance,
+        receiver_id: AccountId,
+        method_names: Vec<u8>,
+        nonce: u64,
+    ) -> Self {
         self.add_action(PromiseAction::AddAccessKey {
             public_key,
             allowance,
             receiver_id,
             method_names,
+            nonce,
         })
     }
 
