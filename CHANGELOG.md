@@ -1,6 +1,7 @@
 # Changelog
 
 ## `Pending`
+* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
 
 ## `3.0.0`
 
