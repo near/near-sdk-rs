@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::cache::ContractCache;
 use crate::ViewResult;
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 use near_pool::{types::PoolIterator, TransactionPool};
@@ -141,6 +142,7 @@ pub struct RuntimeStandalone {
     pending_receipts: Vec<Receipt>,
     epoch_info_provider: Box<dyn EpochInfoProvider>,
     pub last_outcomes: Vec<CryptoHash>,
+    cache: ContractCache,
 }
 
 impl RuntimeStandalone {
@@ -173,6 +175,7 @@ impl RuntimeStandalone {
             epoch_info_provider: Box::new(MockEpochInfoProvider::new(
                 validators.into_iter().map(|info| (info.account_id, info.amount)),
             )),
+            cache: ContractCache::new(),
             last_outcomes: vec![],
         }
     }
@@ -251,7 +254,7 @@ impl RuntimeStandalone {
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
             config: Arc::from(self.genesis.runtime_config.clone()),
-            cache: None,
+            cache: Some(self.cache.to_arc()),
             profile: Some(profile_data.clone()),
             block_hash: Default::default(),
         };
@@ -331,7 +334,7 @@ impl RuntimeStandalone {
             epoch_height: self.cur_block.epoch_height,
             block_timestamp: self.cur_block.block_timestamp,
             current_protocol_version: PROTOCOL_VERSION,
-            cache: None,
+            cache: Some(self.cache.to_arc()),
             block_hash: self.cur_block.state_root,
         };
         let result = viewer.call_function(
