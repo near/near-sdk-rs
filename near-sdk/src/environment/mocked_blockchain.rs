@@ -1,5 +1,5 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_runtime_fees::RuntimeFeesConfig;
+use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::{AccountId, Balance, PromiseResult};
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
-/// `VMLogic` to cause panic during the unit test similarly to how errors of `VMLogic` would cause
+/// `VMLogic` to cause panic during the unit tests similarly to how errors of `VMLogic` would cause
 /// the termination of guest program execution. Unit tests can even assert the expected error
 /// message.
 pub struct MockedBlockchain {

@@ -1,6 +1,6 @@
 #[rustversion::stable]
 #[test]
-fn tests() {
+fn compilation_tests() {
     let t = trybuild::TestCases::new();
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");

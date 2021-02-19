@@ -14,8 +14,10 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let sys_file = rust_file(include_bytes!("../res/sys.rs"));
         let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
+        let struct_proxy = generate_proxy_struct(&input);
         TokenStream::from(quote! {
             #input
+            #struct_proxy
             #sys_file
             #near_environment
         })
@@ -27,7 +29,10 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         };
         let generated_code = item_impl_info.wrapper_code();
+        // Add helper type for simulation testing only if not wasm32
+        let marshalled_code = item_impl_info.marshall_code();
         TokenStream::from(quote! {
+            #marshalled_code
             #input
             #generated_code
         })
