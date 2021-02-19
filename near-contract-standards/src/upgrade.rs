@@ -1,7 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::{Duration, Timestamp, WrappedDuration};
 use near_sdk::{env, AccountId, Promise};
-
-use crate::types::{Duration, Timestamp, WrappedDuration};
 
 pub trait Ownable {
     fn assert_owner(&self) {
@@ -33,11 +32,7 @@ pub struct Upgrade {
 
 impl Upgrade {
     pub fn new(owner: AccountId, staging_duration: Duration) -> Self {
-        Self {
-            owner,
-            staging_duration,
-            staging_timestamp: 0,
-        }
+        Self { owner, staging_duration, staging_timestamp: 0 }
     }
 }
 

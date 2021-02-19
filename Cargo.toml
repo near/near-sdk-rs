@@ -4,7 +4,7 @@ members = [
     "near-sdk-core",
     "near-sdk-macros",
     "near-sdk-sim",
-    "near-lib",
+    "near-contract-standards",
 ]
 exclude = [
     "examples/cross-contract-high-level",

@@ -15,7 +15,7 @@
 *  - To prevent the deployed contract from being modified or deleted, it should not have any access
 *    keys on its account.
 */
-use near_lib::token::FungibleToken as FT;
+use near_contract_standards::token::FungibleToken as FT;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault};
@@ -26,7 +26,7 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FungibleToken {
-    token: near_lib::token::Token,
+    token: near_contract_standards::token::Token,
 }
 
 #[near_bindgen]
@@ -35,7 +35,7 @@ impl FungibleToken {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128) -> Self {
         assert!(!env::state_exists(), "Already initialized");
-        Self { token: near_lib::token::Token::new(owner_id, total_supply.into()) }
+        Self { token: near_contract_standards::token::Token::new(owner_id, total_supply.into()) }
     }
 }
 
@@ -72,8 +72,7 @@ impl FT for FungibleToken {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
-    use near_lib::constants::STORAGE_PRICE_PER_BYTE;
-    use near_lib::context::{accounts, VMContextBuilder};
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, Balance, VMContext};
 
@@ -84,7 +83,7 @@ mod tests {
             .current_account_id(accounts(0))
             .signer_account_id(accounts(1))
             .predecessor_account_id(predecessor_account_id)
-            .finish()
+            .build()
     }
 
     #[test]
@@ -113,7 +112,7 @@ mod tests {
         let mut contract = FungibleToken::new(accounts(2), total_supply.into());
         context.storage_usage = env::storage_usage();
 
-        context.attached_deposit = 1000 * STORAGE_PRICE_PER_BYTE;
+        context.attached_deposit = 1000 * env::storage_byte_cost();
         testing_env!(context.clone());
         let transfer_amount = total_supply / 3;
         contract.transfer(accounts(1), transfer_amount.into());
@@ -136,7 +135,7 @@ mod tests {
         let mut contract = FungibleToken::new(accounts(2), total_supply.into());
         context.storage_usage = env::storage_usage();
 
-        context.attached_deposit = 1000 * STORAGE_PRICE_PER_BYTE;
+        context.attached_deposit = 1000 * env::storage_byte_cost();
         testing_env!(context.clone());
         let transfer_amount = total_supply / 3;
         contract.transfer(accounts(2), transfer_amount.into());
@@ -149,7 +148,7 @@ mod tests {
         testing_env!(context.clone());
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FungibleToken::new(accounts(2), total_supply.into());
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.inc_allowance(accounts(2), (total_supply / 2).into());
     }
@@ -161,7 +160,7 @@ mod tests {
         testing_env!(context.clone());
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FungibleToken::new(accounts(2), total_supply.into());
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.dec_allowance(accounts(2), (total_supply / 2).into());
     }
@@ -172,7 +171,7 @@ mod tests {
         testing_env!(context.clone());
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = FungibleToken::new(accounts(2), total_supply.into());
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.dec_allowance(accounts(1), (total_supply / 2).into());
         assert_eq!(contract.get_allowance(accounts(2), accounts(1)), 0.into())
@@ -184,7 +183,7 @@ mod tests {
         testing_env!(context.clone());
         let total_supply = std::u128::MAX;
         let mut contract = FungibleToken::new(accounts(2), total_supply.into());
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.inc_allowance(accounts(1), total_supply.into());
         contract.inc_allowance(accounts(1), total_supply.into());
@@ -221,7 +220,7 @@ mod tests {
         let allowance = total_supply / 3;
         let transfer_amount = allowance / 3;
         context.is_view = false;
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.inc_allowance(accounts(1), allowance.into());
         context.storage_usage = env::storage_usage();
@@ -234,7 +233,7 @@ mod tests {
 
         // Acting as bob now
         context.is_view = false;
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         context.predecessor_account_id = accounts(1);
         testing_env!(context.clone());
         contract.transfer_from(accounts(2), accounts(0), transfer_amount.into());
@@ -265,7 +264,7 @@ mod tests {
         let allowance = total_supply / 3;
         let transfer_amount = allowance / 3;
         context.is_view = false;
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.inc_allowance(accounts(1), allowance.into());
         context.storage_usage = env::storage_usage();
@@ -279,7 +278,7 @@ mod tests {
 
         // Acting as bob now
         context.is_view = false;
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         context.predecessor_account_id = accounts(1);
         testing_env!(context.clone());
         contract.transfer_from(accounts(2), accounts(0), transfer_amount.into());
@@ -304,7 +303,7 @@ mod tests {
 
         let initial_balance = context.account_balance;
         let initial_storage = context.storage_usage;
-        context.attached_deposit = STORAGE_PRICE_PER_BYTE * 1000;
+        context.attached_deposit = env::storage_byte_cost() * 1000;
         testing_env!(context.clone());
         contract.inc_allowance(accounts(1), (total_supply / 2).into());
         context.storage_usage = env::storage_usage();
@@ -312,7 +311,7 @@ mod tests {
         assert_eq!(
             context.account_balance,
             initial_balance
-                + Balance::from(context.storage_usage - initial_storage) * STORAGE_PRICE_PER_BYTE
+                + Balance::from(context.storage_usage - initial_storage) * env::storage_byte_cost()
         );
 
         let initial_balance = context.account_balance;
@@ -328,7 +327,7 @@ mod tests {
         assert_eq!(
             context.account_balance,
             initial_balance
-                - Balance::from(initial_storage - context.storage_usage) * STORAGE_PRICE_PER_BYTE
+                - Balance::from(initial_storage - context.storage_usage) * env::storage_byte_cost()
         );
     }
 }
