@@ -4,11 +4,9 @@ extern crate fungible_token;
 /// Import the generated proxy contract
 use fungible_token::FungibleTokenContract;
 
-use near_sdk::json_types::U128;
 use near_sdk_sim::account::AccessKey;
 use near_sdk_sim::{
-    call, deploy, init_simulator, near_crypto::Signer, to_yocto, view, ContractAccount,
-    UserAccount, STORAGE_AMOUNT,
+    deploy, init_simulator, near_crypto::Signer, to_yocto, ContractAccount, UserAccount,
 };
 
 // Load in contract bytes
@@ -16,6 +14,7 @@ near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
 }
 
+#[allow(dead_code)]
 fn init(
     initial_balance: u128,
 ) -> (UserAccount, ContractAccount<FungibleTokenContract>, UserAccount) {
@@ -56,21 +55,22 @@ pub fn mint_token() {
     init2(to_yocto("35"));
 }
 
-#[test]
-fn test_sim_transfer() {
-    let transfer_amount = to_yocto("100");
-    let initial_balance = to_yocto("100000");
-    let (master_account, contract, alice) = init(initial_balance);
-    // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
-    let res = call!(
-        master_account,
-        contract.transfer(alice.account_id(), transfer_amount.into()),
-        deposit = STORAGE_AMOUNT
-    );
-    println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
-    assert!(res.is_ok());
-
-    let value = view!(contract.get_balance(master_account.account_id()));
-    let value: U128 = value.unwrap_json();
-    assert_eq!(initial_balance - transfer_amount, value.0);
-}
+// TODO(276): blocked by simulations not generating functions from traits
+// #[test]
+// fn test_sim_transfer() {
+//     let transfer_amount = to_yocto("100");
+//     let initial_balance = to_yocto("100000");
+//     let (master_account, contract, alice) = init(initial_balance);
+//     // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
+//     let res = call!(
+//         master_account,
+//         contract.transfer(alice.account_id(), transfer_amount.into()),
+//         deposit = STORAGE_AMOUNT
+//     );
+//     println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
+//     assert!(res.is_ok());
+//
+//     let value = view!(contract.get_balance(master_account.account_id()));
+//     let value: U128 = value.unwrap_json();
+//     assert_eq!(initial_balance - transfer_amount, value.0);
+// }
