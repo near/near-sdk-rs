@@ -1,8 +1,10 @@
 /// Bring contract crate into namespace
 extern crate fungible_token;
 
+use std::convert::TryInto;
+
 /// Import the generated proxy contract
-use fungible_token::FungibleTokenContract;
+use fungible_token::ContractContract;
 
 use near_sdk_sim::account::AccessKey;
 use near_sdk_sim::{
@@ -15,14 +17,12 @@ near_sdk_sim::lazy_static! {
 }
 
 #[allow(dead_code)]
-fn init(
-    initial_balance: u128,
-) -> (UserAccount, ContractAccount<FungibleTokenContract>, UserAccount) {
+fn init(initial_balance: u128) -> (UserAccount, ContractAccount<ContractContract>, UserAccount) {
     let master_account = init_simulator(None);
     // uses default values for deposit and gas
     let contract_user = deploy!(
         // Contract Proxy
-        contract: FungibleTokenContract,
+        contract: ContractContract,
         // Contract account id
         contract_id: "contract",
         // Bytes of contract
@@ -30,7 +30,7 @@ fn init(
         // User deploying the contract,
         signer_account: master_account,
         // init method
-        init_method: new(master_account.account_id(), initial_balance.into())
+        init_method: new(master_account.account_id().try_into().unwrap(), initial_balance.into())
     );
     let alice = master_account.create_user("alice".to_string(), to_yocto("100"));
     (master_account, contract_user, alice)
