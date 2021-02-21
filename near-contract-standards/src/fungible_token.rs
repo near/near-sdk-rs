@@ -36,7 +36,7 @@ pub struct FungibleToken {
 impl FungibleToken {
     pub fn new() -> Self {
         let mut this = Self {
-            accounts: LookupMap::new(b"ta".to_vec()),
+            accounts: LookupMap::new(b"a".to_vec()),
             total_supply: 0,
             account_storage_usage: 0,
         };
