@@ -14,9 +14,18 @@ Furthermore, this crate's dependencies conflict with building the Wasm smart con
 
 ```toml
 [dev-dependencies]
-near-sdk-sim = { git = "https://github.com/near/near-sdk-rs.git", tag="2.0.0" }
+near-sdk-sim = { git = "https://github.com/near/near-sdk-rs.git", tag="3.0.0" }
 
 ```
+
+And update `near-sdk` too:
+
+```toml
+[dependencies]
+near-sdk = { git = "https://github.com/near/near-sdk-rs.git", tag="3.0.0" }
+
+```
+
 
 Note that you need to add the tag of the version.
 
