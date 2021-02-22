@@ -1,22 +1,21 @@
 [package]
 name = "near-sdk-sim"
-version = "2.0.0"
+version = "3.0.0-pre-release"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2018"
 publish = false
 
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "2.0.0"}
-near-crypto = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
-near-primitives = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
-near-vm-logic = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
+near-sdk = { path = "../near-sdk", version = "3.0.0" }
+near-crypto = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
+near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
+near-vm-logic = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 
 lazy_static = "1.4.0"
-near-pool = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
-near-runtime-configs = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
-near-store = { git = "https://github.com/near/nearcore.git", tag = "profile_data" }
-node-runtime = { git = "https://github.com/near/nearcore.git", tag = "profile_data", features=["costs_counting"] }
+near-pool = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
+near-store = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
+node-runtime = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80", features=["costs_counting"] }
 
 [dev-dependencies]
 quickcheck = "0.9"

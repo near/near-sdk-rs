@@ -4,7 +4,7 @@ members = [
     "near-sdk-core",
     "near-sdk-macros",
     "near-sdk-sim",
-    "near-lib",
+    "near-contract-standards",
 ]
 exclude = [
     "examples/cross-contract-high-level",
@@ -18,5 +18,5 @@ exclude = [
 # Special triple # comment for ci.
 [patch.crates-io]
 ### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
-### near-vm-logic = { git = "https://github.com/nearprotocol/nearcore", branch = "master" }
-### near-runtime-fees = { git = "https://github.com/nearprotocol/nearcore", branch = "master" }
+### near-vm-logic = { git = "https://github.com/near/nearcore", branch = "master" }
+### near-primitives-core = { git = "https://github.com/near/nearcore", branch = "master" }

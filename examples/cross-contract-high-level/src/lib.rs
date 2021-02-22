@@ -11,8 +11,7 @@ use near_sdk::{
     PromiseOrValue,
 };
 
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+near_sdk::setup_alloc!();
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: u64 = 200_000_000_000_000;

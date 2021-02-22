@@ -3,8 +3,6 @@ use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{env, ext_contract, AccountId, Balance, PanicOnDefault, Promise, StorageUsage};
 
-use crate::constants::STORAGE_PRICE_PER_BYTE;
-
 /// Trait with FungibleToken interface that implements NEP-21 standard.
 pub trait FungibleToken {
     /// Increments the `allowance` for `escrow_account_id` by `amount` on the account of the caller of this contract
@@ -258,7 +256,7 @@ impl Token {
         let attached_deposit = env::attached_deposit();
         let refund_amount = if current_storage > initial_storage {
             let required_deposit =
-                Balance::from(current_storage - initial_storage) * STORAGE_PRICE_PER_BYTE;
+                Balance::from(current_storage - initial_storage) * env::storage_byte_cost();
             assert!(
                 required_deposit <= attached_deposit,
                 "The required attached deposit is {}, but the given attached deposit is is {}",
@@ -268,7 +266,7 @@ impl Token {
             attached_deposit - required_deposit
         } else {
             attached_deposit
-                + Balance::from(initial_storage - current_storage) * STORAGE_PRICE_PER_BYTE
+                + Balance::from(initial_storage - current_storage) * env::storage_byte_cost()
         };
         if refund_amount > 0 {
             env::log(format!("Refunding {} tokens for storage", refund_amount).as_bytes());

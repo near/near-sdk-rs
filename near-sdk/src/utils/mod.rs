@@ -1,4 +1,4 @@
-use crate::AccountId;
+use crate::{env, AccountId, PromiseResult};
 
 #[macro_export]
 macro_rules! log {
@@ -10,6 +10,28 @@ macro_rules! log {
     };
 }
 
+/// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
+pub fn assert_self() {
+    assert_eq!(env::predecessor_account_id(), env::current_account_id());
+}
+
+/// Returns true if promise was successful.
+/// Fails if called outside a callback that received 1 promise result.
+pub fn is_promise_success() -> bool {
+    promise_result_as_success().is_some()
+}
+
+/// Returns the result of the promise if successful. Otherwise returns None.
+/// Fails if called outside a callback that received 1 promise result.
+pub fn promise_result_as_success() -> Option<Vec<u8>> {
+    assert_eq!(env::promise_results_count(), 1, "Contract expected a result on the callback");
+    match env::promise_result(0) {
+        PromiseResult::Successful(result) => Some(result),
+        _ => None,
+    }
+}
+
+/// Used in the simulation code generator from near_sdk.
 #[derive(Debug)]
 pub struct PendingContractTx {
     pub receiver_id: AccountId,
@@ -27,6 +49,16 @@ impl PendingContractTx {
             is_view,
         }
     }
+}
+
+/// Boilerplate for setting up allocator used in Wasm binary.
+#[macro_export]
+macro_rules! setup_alloc {
+    () => {
+        #[cfg(target_arch = "wasm32")]
+        #[global_allocator]
+        static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+    };
 }
 
 #[cfg(test)]

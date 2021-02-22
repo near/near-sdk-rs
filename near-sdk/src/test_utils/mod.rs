@@ -4,7 +4,7 @@ use crate::env;
 pub mod test_env;
 
 mod context;
-pub use context::VMContextBuilder;
+pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 use near_vm_logic::mocks::mock_external::Receipt;
 
 #[macro_export]

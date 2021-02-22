@@ -1,6 +1,9 @@
 # Changelog
 
 ## `Pending`
+* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
+
+## `3.0.0`
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
 NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should

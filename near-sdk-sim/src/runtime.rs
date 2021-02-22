@@ -7,7 +7,9 @@ use near_pool::{types::PoolIterator, TransactionPool};
 use near_primitives::account::{AccessKey, Account};
 use near_primitives::errors::RuntimeError;
 use near_primitives::hash::CryptoHash;
+use near_primitives::profile::ProfileData;
 use near_primitives::receipt::Receipt;
+use near_primitives::runtime::config::RuntimeConfig;
 use near_primitives::state_record::StateRecord;
 use near_primitives::test_utils::account_new;
 use near_primitives::test_utils::MockEpochInfoProvider;
@@ -18,11 +20,9 @@ use near_primitives::types::{
 };
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
-use near_runtime_configs::RuntimeConfig;
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
-use near_vm_logic::types::ProfileData;
 use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
@@ -241,18 +241,19 @@ impl RuntimeStandalone {
         let profile_data = ProfileData::new();
         let apply_state = ApplyState {
             block_index: self.cur_block.block_height,
+            prev_block_hash: Default::default(),
             epoch_height: self.cur_block.epoch_height,
             gas_price: self.cur_block.gas_price,
             block_timestamp: self.cur_block.block_timestamp,
             gas_limit: None,
             // not used
             random_seed: Default::default(),
-            last_block_hash: CryptoHash::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
             config: Arc::from(self.genesis.runtime_config.clone()),
             cache: None,
             profile: Some(profile_data.clone()),
+            block_hash: Default::default(),
         };
 
         let apply_result = self.runtime.apply(
@@ -325,12 +326,13 @@ impl RuntimeStandalone {
         let mut logs = vec![];
         let view_state = ViewApplyState {
             block_height: self.cur_block.block_height,
-            last_block_hash: self.cur_block.prev_block.as_ref().unwrap().state_root,
+            prev_block_hash: self.cur_block.prev_block.as_ref().unwrap().state_root,
             epoch_id: EpochId::default(),
             epoch_height: self.cur_block.epoch_height,
             block_timestamp: self.cur_block.block_timestamp,
             current_protocol_version: PROTOCOL_VERSION,
             cache: None,
+            block_hash: self.cur_block.state_root,
         };
         let result = viewer.call_function(
             trie_update,
