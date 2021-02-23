@@ -43,72 +43,72 @@ impl VMContextBuilder {
         }
     }
 
-    pub fn current_account_id(mut self, account_id: ValidAccountId) -> Self {
+    pub fn current_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
         self.context.current_account_id = account_id.into();
         self
     }
 
-    pub fn signer_account_id(mut self, account_id: ValidAccountId) -> Self {
+    pub fn signer_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
         self.context.signer_account_id = account_id.into();
         self
     }
 
-    pub fn signer_account_pk(mut self, pk: PublicKey) -> Self {
+    pub fn signer_account_pk(&mut self, pk: PublicKey) -> &mut Self {
         self.context.signer_account_pk = pk;
         self
     }
 
-    pub fn predecessor_account_id(mut self, account_id: ValidAccountId) -> Self {
+    pub fn predecessor_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
         self.context.predecessor_account_id = account_id.into();
         self
     }
 
-    pub fn block_index(mut self, block_index: BlockHeight) -> Self {
+    pub fn block_index(&mut self, block_index: BlockHeight) -> &mut Self {
         self.context.block_index = block_index;
         self
     }
 
-    pub fn block_timestamp(mut self, block_timestamp: u64) -> Self {
+    pub fn block_timestamp(&mut self, block_timestamp: u64) -> &mut Self {
         self.context.block_timestamp = block_timestamp;
         self
     }
 
-    pub fn epoch_height(mut self, epoch_height: EpochHeight) -> Self {
+    pub fn epoch_height(&mut self, epoch_height: EpochHeight) -> &mut Self {
         self.context.epoch_height = epoch_height;
         self
     }
 
-    pub fn account_balance(mut self, amount: Balance) -> Self {
+    pub fn account_balance(&mut self, amount: Balance) -> &mut Self {
         self.context.account_balance = amount;
         self
     }
 
-    pub fn account_locked_balance(mut self, amount: Balance) -> Self {
+    pub fn account_locked_balance(&mut self, amount: Balance) -> &mut Self {
         self.context.account_locked_balance = amount;
         self
     }
 
-    pub fn storage_usage(mut self, usage: StorageUsage) -> Self {
+    pub fn storage_usage(&mut self, usage: StorageUsage) -> &mut Self {
         self.context.storage_usage = usage;
         self
     }
 
-    pub fn attached_deposit(mut self, amount: Balance) -> Self {
+    pub fn attached_deposit(&mut self, amount: Balance) -> &mut Self {
         self.context.attached_deposit = amount;
         self
     }
 
-    pub fn prepaid_gas(mut self, gas: Gas) -> Self {
+    pub fn prepaid_gas(&mut self, gas: Gas) -> &mut Self {
         self.context.prepaid_gas = gas;
         self
     }
 
-    pub fn random_seed(mut self, seed: Vec<u8>) -> Self {
+    pub fn random_seed(&mut self, seed: Vec<u8>) -> &mut Self {
         self.context.random_seed = seed;
         self
     }
 
-    pub fn is_view(mut self, is_view: bool) -> Self {
+    pub fn is_view(&mut self, is_view: bool) -> &mut Self {
         self.context.is_view = is_view;
         self
     }

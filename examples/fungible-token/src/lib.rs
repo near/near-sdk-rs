@@ -47,10 +47,12 @@ impl Contract {
 
 #[near_bindgen]
 impl FungibleTokenCore for Contract {
+    #[payable]
     fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
         self.token.ft_transfer(receiver_id, amount, memo)
     }
 
+    #[payable]
     fn ft_transfer_call(
         &mut self,
         receiver_id: ValidAccountId,
@@ -70,6 +72,7 @@ impl FungibleTokenCore for Contract {
     }
 }
 
+#[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata() -> FungibleTokenMetadata {
         FungibleTokenMetadata {
@@ -84,6 +87,7 @@ impl FungibleTokenMetadataProvider for Contract {
     }
 }
 
+#[near_bindgen]
 impl FungibleTokenResolver for Contract {
     fn ft_resolve_transfer(
         &mut self,
@@ -95,11 +99,14 @@ impl FungibleTokenResolver for Contract {
     }
 }
 
+#[near_bindgen]
 impl StorageManager for Contract {
+    #[payable]
     fn storage_deposit(&mut self, account_id: Option<ValidAccountId>) -> AccountStorageBalance {
         self.token.storage_deposit(account_id)
     }
 
+    #[payable]
     fn storage_withdraw(&mut self, amount: U128) -> AccountStorageBalance {
         self.token.storage_withdraw(amount)
     }
@@ -122,10 +129,12 @@ mod tests {
     use super::*;
 
     fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
-        VMContextBuilder::new()
+        let mut builder = VMContextBuilder::new();
+        builder
             .current_account_id(accounts(0))
             .signer_account_id(accounts(1))
-            .predecessor_account_id(predecessor_account_id)
+            .predecessor_account_id(predecessor_account_id);
+        builder
     }
 
     #[test]
@@ -153,18 +162,19 @@ mod tests {
         let total_supply = 1_000_000_000_000_000u128;
         let mut contract = Contract::new(accounts(2), total_supply.into());
 
-        context = context
+        println!("{:?}", contract.storage_minimum_balance());
+        context
             .storage_usage(env::storage_usage())
             .attached_deposit(contract.storage_minimum_balance().into());
         testing_env!(context.clone().predecessor_account_id(accounts(1)).build());
         contract.storage_deposit(None);
 
-        context = context.storage_usage(env::storage_usage()).attached_deposit(1);
+        context.storage_usage(env::storage_usage()).attached_deposit(1);
         testing_env!(context.build());
         let transfer_amount = total_supply / 3;
         contract.ft_transfer(accounts(1), transfer_amount.into(), None);
 
-        context = context
+        context
             .storage_usage(env::storage_usage())
             .account_balance(env::account_balance())
             .is_view(true)

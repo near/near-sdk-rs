@@ -6,17 +6,14 @@ use std::convert::TryInto;
 /// Import the generated proxy contract
 use fungible_token::ContractContract;
 
-use near_sdk_sim::account::AccessKey;
-use near_sdk_sim::{
-    deploy, init_simulator, near_crypto::Signer, to_yocto, ContractAccount, UserAccount,
-};
+use near_sdk::{env, json_types::U128};
+use near_sdk_sim::{call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount};
 
 // Load in contract bytes
 near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
 }
 
-#[allow(dead_code)]
 fn init(initial_balance: u128) -> (UserAccount, ContractAccount<ContractContract>, UserAccount) {
     let master_account = init_simulator(None);
     // uses default values for deposit and gas
@@ -36,41 +33,32 @@ fn init(initial_balance: u128) -> (UserAccount, ContractAccount<ContractContract
     (master_account, contract_user, alice)
 }
 
-/// Example of how to create and use an user transaction.
-fn init2(initial_balance: u128) {
-    let master_account = init_simulator(None);
-    let txn = master_account.create_transaction("contract".into());
-    // uses default values for deposit and gas
-    let res = txn
-        .create_account()
-        .add_key(master_account.signer.public_key(), AccessKey::full_access())
-        .transfer(initial_balance)
-        .deploy_contract((&TOKEN_WASM_BYTES).to_vec())
-        .submit();
-    println!("{:#?}", res);
-}
-
 #[test]
-pub fn mint_token() {
-    init2(to_yocto("35"));
-}
+fn test_sim_transfer() {
+    let transfer_amount = to_yocto("100");
+    let initial_balance = to_yocto("100000");
+    let (master_account, contract, alice) = init(initial_balance);
 
-// TODO(276): blocked by simulations not generating functions from traits
-// #[test]
-// fn test_sim_transfer() {
-//     let transfer_amount = to_yocto("100");
-//     let initial_balance = to_yocto("100000");
-//     let (master_account, contract, alice) = init(initial_balance);
-//     // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
-//     let res = call!(
-//         master_account,
-//         contract.transfer(alice.account_id(), transfer_amount.into()),
-//         deposit = STORAGE_AMOUNT
-//     );
-//     println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
-//     assert!(res.is_ok());
-//
-//     let value = view!(contract.get_balance(master_account.account_id()));
-//     let value: U128 = value.unwrap_json();
-//     assert_eq!(initial_balance - transfer_amount, value.0);
-// }
+    // Register `alice` account first with required deposit.
+    call!(
+        master_account,
+        contract.storage_deposit(Some(alice.account_id().try_into().unwrap())),
+        deposit = env::storage_byte_cost() * 125
+    )
+    .assert_success();
+
+    // Transfer from master to alice.
+    // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
+    let res = call!(
+        master_account,
+        contract.ft_transfer(alice.account_id().try_into().unwrap(), transfer_amount.into(), None),
+        deposit = 1
+    );
+    println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
+    assert!(res.is_ok());
+
+    // Check master's balance deducted sent funds.
+    let value = view!(contract.ft_balance_of(master_account.account_id().try_into().unwrap()));
+    let value: U128 = value.unwrap_json();
+    assert_eq!(initial_balance - transfer_amount, value.0);
+}
