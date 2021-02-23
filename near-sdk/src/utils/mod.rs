@@ -12,7 +12,12 @@ macro_rules! log {
 
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
-    assert_eq!(env::predecessor_account_id(), env::current_account_id());
+    assert_eq!(env::predecessor_account_id(), env::current_account_id(), "Method is private");
+}
+
+/// Assert that 1 yoctoNEAR was attached.
+pub fn assert_one_yocto() {
+    assert_eq!(env::attached_deposit(), 1, "Requires attached deposit of exactly 1 yoctoNEAR")
 }
 
 /// Returns true if promise was successful.
