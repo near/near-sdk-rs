@@ -321,7 +321,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
 /// # }
 /// # use std::convert::TryInto;
-/// use fungible_token::{ContractContract, ValidAccountId};
+/// use fungible_token::ContractContract;
 /// let master_account = near_sdk_sim::init_simulator(None);
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
