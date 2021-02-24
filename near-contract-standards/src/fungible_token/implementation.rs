@@ -1,16 +1,33 @@
+use crate::fungible_token::core::FungibleTokenCore;
+use crate::fungible_token::resolver::FungibleTokenResolver;
+use crate::storage_manager::{AccountStorageBalance, StorageManager};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
-use near_sdk::utils::{assert_one_yocto, assert_self};
-use near_sdk::{env, AccountId, Balance, Gas, Promise, PromiseResult, StorageUsage};
-
-pub use crate::fungible_token_core::*;
-use crate::storage_manager::{AccountStorageBalance, StorageManager};
+use near_sdk::{
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseResult,
+    StorageUsage,
+};
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
 
 const NO_DEPOSIT: Balance = 0;
+
+#[ext_contract(ext_self)]
+trait FungibleTokenResolver {
+    fn ft_resolve_transfer(
+        &mut self,
+        sender_id: AccountId,
+        receiver_id: AccountId,
+        amount: U128,
+    ) -> U128;
+}
+
+#[ext_contract(ext_fungible_token_receiver)]
+pub trait FungibleTokenReceiver {
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Promise;
+}
 
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
@@ -34,9 +51,9 @@ pub struct FungibleToken {
 }
 
 impl FungibleToken {
-    pub fn new() -> Self {
+    pub fn new(prefix: &[u8]) -> Self {
         let mut this = Self {
-            accounts: LookupMap::new(b"a".to_vec()),
+            accounts: LookupMap::new(prefix.to_vec()),
             total_supply: 0,
             account_storage_usage: 0,
         };
@@ -81,9 +98,9 @@ impl FungibleToken {
         assert!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
-        env::log(format!("Transfer {} from {} to {}", amount, sender_id, receiver_id).as_bytes());
+        log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
         if let Some(memo) = memo {
-            env::log(format!("Memo: {}", memo).as_bytes());
+            log!("Memo: {}", memo);
         }
     }
 
@@ -106,8 +123,8 @@ impl FungibleTokenCore for FungibleToken {
         &mut self,
         receiver_id: ValidAccountId,
         amount: U128,
-        msg: String,
         memo: Option<String>,
+        msg: String,
     ) -> Promise {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
@@ -144,12 +161,13 @@ impl FungibleTokenCore for FungibleToken {
 impl FungibleTokenResolver for FungibleToken {
     fn ft_resolve_transfer(
         &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
+        sender_id: ValidAccountId,
+        receiver_id: ValidAccountId,
         amount: U128,
     ) -> U128 {
-        assert_self();
         let amount: Balance = amount.into();
+        let sender_id: AccountId = sender_id.into();
+        let receiver_id: AccountId = receiver_id.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
@@ -172,16 +190,13 @@ impl FungibleTokenResolver for FungibleToken {
 
                 if let Some(sender_balance) = self.accounts.get(&sender_id) {
                     self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
-                    env::log(
-                        format!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id)
-                            .as_bytes(),
-                    );
+                    log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
                     return (amount - refund_amount).into();
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
                     self.total_supply -= refund_amount;
-                    env::log(b"The account of the sender was deleted");
-                    env::log(format!("Burn {}", refund_amount).as_bytes());
+                    log!("The account of the sender was deleted");
+                    log!("Burn {}", refund_amount);
                 }
             }
         }
@@ -203,9 +218,9 @@ impl StorageManager for FungibleToken {
         AccountStorageBalance { total: amount.into(), available: amount.into() }
     }
 
-    fn storage_withdraw(&mut self, amount: U128) -> AccountStorageBalance {
+    fn storage_withdraw(&mut self, amount: Option<U128>) -> AccountStorageBalance {
         assert_one_yocto();
-        let amount: Balance = amount.into();
+        let amount: Balance = amount.unwrap_or_else(|| self.storage_minimum_balance()).into();
         assert_eq!(
             amount,
             self.storage_minimum_balance().0,

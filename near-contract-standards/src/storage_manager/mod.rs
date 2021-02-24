@@ -11,7 +11,7 @@ pub struct AccountStorageBalance {
 pub trait StorageManager {
     fn storage_deposit(&mut self, account_id: Option<ValidAccountId>) -> AccountStorageBalance;
 
-    fn storage_withdraw(&mut self, amount: U128) -> AccountStorageBalance;
+    fn storage_withdraw(&mut self, amount: Option<U128>) -> AccountStorageBalance;
 
     fn storage_minimum_balance(&self) -> U128;
 

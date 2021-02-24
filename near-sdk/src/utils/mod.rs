@@ -3,10 +3,10 @@ use crate::{env, AccountId, PromiseResult};
 #[macro_export]
 macro_rules! log {
     ($arg:tt) => {
-        crate::env::log($arg.as_bytes())
+        env::log($arg.as_bytes())
     };
     ($($arg:tt)*) => {
-        crate::env::log(format!($($arg)*).as_bytes())
+        env::log(format!($($arg)*).as_bytes())
     };
 }
 

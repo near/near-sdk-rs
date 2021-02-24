@@ -1,7 +1,6 @@
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::json_types::U128;
-use near_sdk::serde::Serialize;
-use near_sdk::{ext_contract, AccountId, Promise};
+use near_sdk::Promise;
 
 pub trait FungibleTokenCore {
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id`.
@@ -43,8 +42,8 @@ pub trait FungibleTokenCore {
         &mut self,
         receiver_id: ValidAccountId,
         amount: U128,
-        msg: String,
         memo: Option<String>,
+        msg: String,
     ) -> Promise;
 
     /// Returns the total supply of the token in a decimal string representation.
@@ -52,60 +51,4 @@ pub trait FungibleTokenCore {
 
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
     fn ft_balance_of(&self, account_id: ValidAccountId) -> U128;
-}
-
-#[ext_contract(ext_fungible_token_receiver)]
-trait FungibleTokenReceiver {
-    /// Called by fungible token contract after `ft_transfer_call` was initiated by
-    /// `sender_id` of the given `amount` with the transfer message given in `msg` field.
-    /// The `amount` of tokens were already transferred to this contract account and ready to be used.
-    ///
-    /// The method must return the amount of tokens that are *not* used/accepted by this contract from the transferred
-    /// amount. Examples:
-    /// - The transferred amount was `500`, the contract completely takes it and must return `0`.
-    /// - The transferred amount was `500`, but this transfer call only needs `450` for the action passed in the `msg`
-    ///   field, then the method must return `50`.
-    /// - The transferred amount was `500`, but the action in `msg` field has expired and the transfer must be
-    ///   cancelled. The method must return `500` or panic.
-    ///
-    /// Arguments:
-    /// - `sender_id` - the account ID that initiated the transfer.
-    /// - `amount` - the amount of tokens that were transferred to this account in a decimal string representation.
-    /// - `msg` - a string message that was passed with this transfer call.
-    ///
-    /// Returns the amount of unused tokens that should be returned to sender, in a decimal string representation.
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Promise;
-}
-
-#[ext_contract(ext_self)]
-pub trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
-
-pub trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
-
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct FungibleTokenMetadata {
-    pub version: String,
-    pub name: String,
-    pub symbol: String,
-    pub reference: String,
-    pub decimals: u8,
-}
-
-pub trait FungibleTokenMetadataProvider {
-    fn ft_metadata() -> FungibleTokenMetadata;
 }

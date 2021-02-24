@@ -1,28 +1,24 @@
-/**
-* Fungible Token implementation with JSON serialization.
-* NOTES:
-*  - The maximum balance value is limited by U128 (2**128 - 1).
-*  - JSON calls should pass U128 as a base-10 string. E.g. "100".
-*  - The contract optimizes the inner trie structure by hashing account IDs. It will prevent some
-*    abuse of deep tries. Shouldn't be an issue, once NEAR clients implement full hashing of keys.
-*  - The contract tracks the change in storage before and after the call. If the storage increases,
-*    the contract requires the caller of the contract to attach enough deposit to the function call
-*    to cover the storage cost.
-*    This is done to prevent a denial of service attack on the contract by taking all available storage.
-*    If the storage decreases, the contract will issue a refund for the cost of the released storage.
-*    The unused tokens from the attached deposit are also refunded, so it's safe to
-*    attach more deposit than required.
-*  - To prevent the deployed contract from being modified or deleted, it should not have any access
-*    keys on its account.
+/*!
+Fungible Token implementation with JSON serialization.
+NOTES:
+  - The maximum balance value is limited by U128 (2**128 - 1).
+  - JSON calls should pass U128 as a base-10 string. E.g. "100".
+  - The contract optimizes the inner trie structure by hashing account IDs. It will prevent some
+    abuse of deep tries. Shouldn't be an issue, once NEAR clients implement full hashing of keys.
+  - The contract tracks the change in storage before and after the call. If the storage increases,
+    the contract requires the caller of the contract to attach enough deposit to the function call
+    to cover the storage cost.
+    This is done to prevent a denial of service attack on the contract by taking all available storage.
+    If the storage decreases, the contract will issue a refund for the cost of the released storage.
+    The unused tokens from the attached deposit are also refunded, so it's safe to
+    attach more deposit than required.
+  - To prevent the deployed contract from being modified or deleted, it should not have any access
+    keys on its account.
 */
-use near_contract_standards::fungible_token::{
-    FungibleToken, FungibleTokenCore, FungibleTokenMetadata, FungibleTokenMetadataProvider,
-    FungibleTokenResolver,
-};
-use near_contract_standards::storage_manager::{AccountStorageBalance, StorageManager};
+use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{ValidAccountId, U128};
-use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, Promise};
+use near_sdk::{env, near_bindgen, PanicOnDefault, Promise};
 
 near_sdk::setup_alloc!();
 
@@ -38,87 +34,22 @@ impl Contract {
     #[init]
     pub fn new(owner_id: ValidAccountId, total_supply: U128) -> Self {
         assert!(!env::state_exists(), "Already initialized");
-        let mut this = Self { token: FungibleToken::new() };
+        let mut this = Self { token: FungibleToken::new(b"a") };
         this.token.internal_register_account(owner_id.as_ref());
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
     }
 }
 
-#[near_bindgen]
-impl FungibleTokenCore for Contract {
-    #[payable]
-    fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
-        self.token.ft_transfer(receiver_id, amount, memo)
-    }
-
-    #[payable]
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: ValidAccountId,
-        amount: U128,
-        msg: String,
-        memo: Option<String>,
-    ) -> Promise {
-        self.token.ft_transfer_call(receiver_id, amount, msg, memo)
-    }
-
-    fn ft_total_supply(&self) -> U128 {
-        self.token.ft_total_supply()
-    }
-
-    fn ft_balance_of(&self, account_id: ValidAccountId) -> U128 {
-        self.token.ft_balance_of(account_id)
-    }
-}
-
-#[near_bindgen]
-impl FungibleTokenMetadataProvider for Contract {
-    fn ft_metadata() -> FungibleTokenMetadata {
-        FungibleTokenMetadata {
-            version: String::from("1.0.0"),
-            name: String::from("Example NEAR fungible token"),
-            symbol: String::from("EXAMPLE"),
-            reference: String::from(
-                "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token",
-            ),
-            decimals: 24,
-        }
-    }
-}
-
-#[near_bindgen]
-impl FungibleTokenResolver for Contract {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128 {
-        self.token.ft_resolve_transfer(sender_id, receiver_id, amount)
-    }
-}
-
-#[near_bindgen]
-impl StorageManager for Contract {
-    #[payable]
-    fn storage_deposit(&mut self, account_id: Option<ValidAccountId>) -> AccountStorageBalance {
-        self.token.storage_deposit(account_id)
-    }
-
-    #[payable]
-    fn storage_withdraw(&mut self, amount: U128) -> AccountStorageBalance {
-        self.token.storage_withdraw(amount)
-    }
-
-    fn storage_minimum_balance(&self) -> U128 {
-        self.token.storage_minimum_balance()
-    }
-
-    fn storage_balance_of(&self, account_id: ValidAccountId) -> AccountStorageBalance {
-        self.token.storage_balance_of(account_id)
-    }
-}
+near_contract_standards::impl_fungible_token!(
+    Contract,
+    token,
+    String::from("1.0.0"),
+    String::from("Example NEAR fungible token"),
+    String::from("EXAMPLE"),
+    String::from("https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token"),
+    24
+);
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
