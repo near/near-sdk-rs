@@ -301,15 +301,16 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// # lazy_static::lazy_static! {
 /// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
 /// # }
-/// use fungible_token::FungibleTokenContract;
+/// # use std::convert::TryInto;
+/// use fungible_token::ContractContract;
 /// let master_account = near_sdk_sim::init_simulator(None);
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
-///   contract: FungibleTokenContract,
+///   contract: ContractContract,
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
-///   init_method: new(master_account.account_id(), initial_balance.into())
+///   init_method: new(master_account.account_id().try_into().unwrap(), initial_balance.into())
 /// };
 /// ```
 /// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
@@ -319,17 +320,18 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// # lazy_static::lazy_static! {
 /// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
 /// # }
-/// use fungible_token::FungibleTokenContract;
+/// # use std::convert::TryInto;
+/// use fungible_token::{ContractContract, ValidAccountId};
 /// let master_account = near_sdk_sim::init_simulator(None);
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
-/// contract: FungibleTokenContract,
+/// contract: ContractContract,
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
 ///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 ///   gas: near_sdk_sim::DEFAULT_GAS,
-///   init_method: new(master_account.account_id(), initial_balance.into())
+///   init_method: new(master_account.account_id().try_into().unwrap(), initial_balance.into())
 /// };
 /// ```
 #[doc(inline)]
@@ -383,40 +385,41 @@ macro_rules! deploy {
 /// # lazy_static::lazy_static! {
 /// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
 /// # }
-/// # use fungible_token::FungibleTokenContract;
+/// # use fungible_token::ContractContract;
+/// # use std::convert::TryInto;
 /// # let master_account = near_sdk_sim::init_simulator(None);
 /// # let initial_balance = near_sdk_sim::to_yocto("35");
 /// # let contract = deploy! {
-/// # contract: FungibleTokenContract,
+/// # contract: ContractContract,
 /// # contract_id: "contract",
 /// # bytes: &TOKEN_WASM_BYTES,
 /// # signer_account: master_account,
 /// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 /// # gas: near_sdk_sim::DEFAULT_GAS,
-/// # init_method: new(master_account.account_id(), initial_balance.into())
+/// # init_method: new(master_account.account_id().try_into().unwrap(), initial_balance.into())
 /// # };
 /// use near_sdk_sim::to_yocto;
 /// // Uses default values for gas and deposit.
 /// let res = call!(
 ///      master_account,
-///      contract.transfer(master_account.account_id(), to_yocto("100").into())
+///      contract.ft_transfer(master_account.account_id().try_into().unwrap(), to_yocto("100").into(), None)
 ///     );
 /// // Equivalent to
 /// let res = call!(
 ///     master_account,
-///     contract.transfer(master_account.account_id(), to_yocto("100").into()),
+///     contract.ft_transfer(master_account.account_id().try_into().unwrap(), to_yocto("100").into(), None),
 ///     0,
 ///     near_sdk_sim::DEFAULT_GAS
 ///    );
 /// // Can also specify either deposit or gas
 /// let res = call!(
 ///     master_account,
-///     contract.transfer(master_account.account_id(), to_yocto("100").into()),
+///     contract.ft_transfer(master_account.account_id().try_into().unwrap(), to_yocto("100").into(), None),
 ///     deposit = 0
 ///    );
 /// let res = call!(
 ///     master_account,
-///     contract.transfer(master_account.account_id(), to_yocto("100").into()),
+///     contract.ft_transfer(master_account.account_id().try_into().unwrap(), to_yocto("100").into(), None),
 ///     gas = near_sdk_sim::DEFAULT_GAS
 ///    );
 /// ```
@@ -447,19 +450,20 @@ macro_rules! call {
 /// # lazy_static::lazy_static! {
 /// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
 /// # }
-/// # use fungible_token::FungibleTokenContract;
+/// # use fungible_token::ContractContract;
+/// # use std::convert::TryInto;
 /// # let master_account = near_sdk_sim::init_simulator(None);
 /// # let initial_balance = near_sdk_sim::to_yocto("35");
 /// # let contract = deploy! {
-/// # contract: FungibleTokenContract,
+/// # contract: ContractContract,
 /// # contract_id: "contract",
 /// # bytes: &TOKEN_WASM_BYTES,
 /// # signer_account: master_account,
 /// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 /// # gas: near_sdk_sim::DEFAULT_GAS,
-/// # init_method: new(master_account.account_id(), initial_balance.into())
+/// # init_method: new(master_account.account_id().try_into().unwrap(), initial_balance.into())
 /// # };
-/// let res = view!(contract.get_balance(master_account.account_id()));
+/// let res = view!(contract.ft_balance_of(master_account.account_id().try_into().unwrap()));
 /// ```
 ///
 #[macro_export]
