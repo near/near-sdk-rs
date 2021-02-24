@@ -68,6 +68,7 @@ macro_rules! setup_alloc {
 
 #[cfg(test)]
 mod tests {
+    use crate::env;
     use crate::test_utils::{get_logs, test_env};
 
     #[test]
