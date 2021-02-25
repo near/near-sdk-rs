@@ -85,20 +85,20 @@ macro_rules! impl_fungible_token_storage {
                 &mut self,
                 account_id: Option<ValidAccountId>,
             ) -> AccountStorageBalance {
-                self.token.storage_deposit(account_id)
+                self.$token.storage_deposit(account_id)
             }
 
             #[payable]
             fn storage_withdraw(&mut self, amount: Option<U128>) -> AccountStorageBalance {
-                self.token.storage_withdraw(amount)
+                self.$token.storage_withdraw(amount)
             }
 
             fn storage_minimum_balance(&self) -> U128 {
-                self.token.storage_minimum_balance()
+                self.$token.storage_minimum_balance()
             }
 
             fn storage_balance_of(&self, account_id: ValidAccountId) -> AccountStorageBalance {
-                self.token.storage_balance_of(account_id)
+                self.$token.storage_balance_of(account_id)
             }
         }
     };
