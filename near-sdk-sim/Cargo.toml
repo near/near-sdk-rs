@@ -1,13 +1,13 @@
 [package]
 name = "near-sdk-sim"
-version = "3.0.0-pre.1"
+version = "3.0.0-pre.2"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2018"
 publish = false
 
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "3.0.0-pre.1" }
+near-sdk = { path = "../near-sdk", version = "=3.0.0-pre.2" }
 near-crypto = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 near-vm-logic = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
