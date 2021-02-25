@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{Duration, Timestamp, WrappedDuration};
-use near_sdk::{env, AccountId, Promise};
+use near_sdk::json_types::WrappedDuration;
+use near_sdk::{env, AccountId, Duration, Promise, Timestamp};
 
 pub trait Ownable {
     fn assert_owner(&self) {
