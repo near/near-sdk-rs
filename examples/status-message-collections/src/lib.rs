@@ -45,7 +45,10 @@ mod tests {
     use std::convert::TryInto;
 
     fn get_context(is_view: bool) -> VMContext {
-        VMContextBuilder::new().signer_account_id("bob_near".to_string()).is_view(is_view).build()
+        VMContextBuilder::new()
+            .signer_account_id("bob_near".try_into().unwrap())
+            .is_view(is_view)
+            .build()
     }
 
     #[test]
