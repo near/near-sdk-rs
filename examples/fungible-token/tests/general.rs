@@ -14,6 +14,9 @@ near_sdk_sim::lazy_static! {
     static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
 }
 
+const REFERENCE: &str = "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
+const REFERENCE_HASH: &str = "Aa4hsn9vdMetr2WDvYWduLCFpi6VZqJ3AzDm16VmSibG";
+
 fn init(initial_balance: u128) -> (UserAccount, ContractAccount<ContractContract>, UserAccount) {
     let master_account = init_simulator(None);
     // uses default values for deposit and gas
@@ -27,7 +30,12 @@ fn init(initial_balance: u128) -> (UserAccount, ContractAccount<ContractContract
         // User deploying the contract,
         signer_account: master_account,
         // init method
-        init_method: new(master_account.account_id().try_into().unwrap(), initial_balance.into())
+        init_method: new(
+            master_account.account_id().try_into().unwrap(),
+            initial_balance.into(),
+            REFERENCE.to_string(),
+            REFERENCE_HASH.try_into().unwrap()
+        )
     );
     let alice = master_account.create_user("alice".to_string(), to_yocto("100"));
     (master_account, contract_user, alice)
@@ -54,7 +62,7 @@ fn test_sim_transfer() {
         contract.ft_transfer(alice.account_id().try_into().unwrap(), transfer_amount.into(), None),
         deposit = 1
     );
-    println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
+    // println!("{:#?}\n Cost:\n{:#?}", res.status(), res.profile_data());
     assert!(res.is_ok());
 
     // Check master's balance deducted sent funds.

@@ -2,7 +2,9 @@ use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::convert::{TryFrom, TryInto};
 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
+)]
 pub struct Base58CryptoHash(CryptoHash);
 
 impl From<Base58CryptoHash> for CryptoHash {
