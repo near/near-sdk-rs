@@ -52,28 +52,6 @@ macro_rules! impl_fungible_token_core {
 }
 
 #[macro_export]
-macro_rules! impl_fungible_token_metadata {
-    ($contract: ident, $version: expr, $name: expr, $symbol: expr, $reference: expr, $decimals: expr) => {
-        use near_contract_standards::fungible_token::metadata::{
-            FungibleTokenMetadata, FungibleTokenMetadataProvider,
-        };
-
-        #[near_bindgen]
-        impl FungibleTokenMetadataProvider for $contract {
-            fn ft_metadata(&self) -> FungibleTokenMetadata {
-                FungibleTokenMetadata {
-                    version: $version,
-                    name: $name,
-                    symbol: $symbol,
-                    reference: $reference,
-                    decimals: $decimals,
-                }
-            }
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! impl_fungible_token_storage {
     ($contract: ident, $token: ident) => {
         use near_contract_standards::storage_manager::{AccountStorageBalance, StorageManager};
@@ -101,16 +79,5 @@ macro_rules! impl_fungible_token_storage {
                 self.$token.storage_balance_of(account_id)
             }
         }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_fungible_token {
-    ($contract: ident, $token: ident, $version: expr, $name: expr, $symbol: expr, $reference: expr, $decimals: expr) => {
-        near_contract_standards::impl_fungible_token_core!($contract, $token);
-        near_contract_standards::impl_fungible_token_metadata!(
-            $contract, $version, $name, $symbol, $reference, $decimals
-        );
-        near_contract_standards::impl_fungible_token_storage!($contract, $token);
     };
 }

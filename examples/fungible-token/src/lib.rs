@@ -15,9 +15,12 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
+use near_contract_standards::fungible_token::metadata::{
+    FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_VERSION,
+};
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::{Base58CryptoHash, ValidAccountId, U128};
 use near_sdk::{env, near_bindgen, PanicOnDefault, Promise};
 
 near_sdk::setup_alloc!();
@@ -26,30 +29,47 @@ near_sdk::setup_alloc!();
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     token: FungibleToken,
+    reference: String,
+    reference_hash: Base58CryptoHash,
 }
 
 #[near_bindgen]
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id`.
     #[init]
-    pub fn new(owner_id: ValidAccountId, total_supply: U128) -> Self {
+    pub fn new(
+        owner_id: ValidAccountId,
+        total_supply: U128,
+        reference: String,
+        reference_hash: Base58CryptoHash,
+    ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
-        let mut this = Self { token: FungibleToken::new(b"a") };
+        let mut this = Self { token: FungibleToken::new(b"a"), reference, reference_hash };
         this.token.internal_register_account(owner_id.as_ref());
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
     }
 }
 
-near_contract_standards::impl_fungible_token!(
-    Contract,
-    token,
-    String::from("1.0.0"),
-    String::from("Example NEAR fungible token"),
-    String::from("EXAMPLE"),
-    String::from("https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token"),
-    24
-);
+near_contract_standards::impl_fungible_token_core!(Contract, token);
+near_contract_standards::impl_fungible_token_storage!(Contract, token);
+
+#[near_bindgen]
+impl FungibleTokenMetadataProvider for Contract {
+    fn ft_metadata(&self) -> FungibleTokenMetadata {
+        FungibleTokenMetadata {
+            spec: FT_METADATA_VERSION.to_string(),
+            name: "Example NEAR fungible token".to_string(),
+            symbol: "EXAMPLE".to_string(),
+            icon: Some(
+                "https://near.org/wp-content/themes/near-19/assets/img/brand-icon.png".to_string(),
+            ),
+            reference: self.reference.clone(),
+            reference_hash: self.reference_hash,
+            decimals: 24,
+        }
+    }
+}
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {

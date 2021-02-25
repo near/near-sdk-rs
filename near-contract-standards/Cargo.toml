@@ -1,6 +1,6 @@
 [package]
 name = "near-contract-standards"
-version = "0.1.0-pre.2"
+version = "3.0.0-pre.2"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2018"
 license = "Apache-2.0"
