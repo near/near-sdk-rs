@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use std::{cell::RefCell, rc::Rc};
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
@@ -119,6 +120,12 @@ pub struct UserAccount {
     runtime: Rc<RefCell<RuntimeStandalone>>,
     pub account_id: AccountId,
     pub signer: InMemorySigner,
+}
+
+impl Debug for UserAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserAccount").field("account_id", &self.account_id).finish()
+    }
 }
 
 impl UserAccount {

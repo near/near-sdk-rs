@@ -26,7 +26,8 @@ trait FungibleTokenResolver {
 
 #[ext_contract(ext_fungible_token_receiver)]
 pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Promise;
+    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String)
+        -> PromiseOrValue;
 }
 
 /// Implementation of a FungibleToken standard.
