@@ -1303,6 +1303,7 @@ dependencies = [
 name = "near-sdk-sim"
 version = "3.0.0-pre-release"
 dependencies = [
+ "funty",
  "lazy_static",
  "near-crypto",
  "near-pool",
