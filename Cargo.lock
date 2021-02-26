@@ -1328,6 +1328,7 @@ name = "near-sdk-sim"
 version = "3.0.0-pre-release"
 dependencies = [
  "fungible-token",
+ "funty",
  "lazy_static",
  "near-crypto",
  "near-pool",
