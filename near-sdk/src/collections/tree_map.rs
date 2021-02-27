@@ -1348,10 +1348,16 @@ mod tests {
         }
     }
 
-    #[derive(Default, PartialEq, Eq, Copy, Clone, BorshSerialize, BorshDeserialize)]
+    #[derive(Default, Eq, Copy, Clone, BorshSerialize, BorshDeserialize)]
     pub struct Pair {
         pub a: u64,
         pub b: u64,
+    }
+
+    impl PartialEq for Pair {
+        fn eq(&self, other: &Self) -> bool {
+            self.cmp(other) == Ordering::Equal
+        }
     }
 
     impl Ord for Pair {
@@ -1367,7 +1373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_regression_1() {
+    fn test_regression_1_custom_ord() {
         test_env::setup();
 
         // Pair compares only by `a`, ignores `b`.
