@@ -686,6 +686,7 @@ mod tests {
     use self::rand::RngCore;
     use quickcheck::QuickCheck;
     use serde::export::Formatter;
+    use std::cmp::Ordering;
     use std::collections::BTreeMap;
     use std::collections::HashSet;
     use std::fmt::{Debug, Result};
@@ -1345,6 +1346,57 @@ mod tests {
 
             map.clear();
         }
+    }
+
+    #[derive(Default, PartialEq, Eq, Copy, Clone, BorshSerialize, BorshDeserialize)]
+    pub struct Rating {
+        pub wins: u64,
+        pub views: u64,
+    }
+
+    const MIN_VIEWS_FOR_RATIO: u64 = 3;
+
+    impl Ord for Rating {
+        fn cmp(&self, other: &Self) -> Ordering {
+            if self.views >= MIN_VIEWS_FOR_RATIO && other.views >= MIN_VIEWS_FOR_RATIO {
+                (self.wins as u128 * other.views as u128)
+                    .cmp(&(self.views as u128 * other.wins as u128))
+            } else {
+                self.wins.cmp(&other.wins)
+            }
+        }
+    }
+
+    impl PartialOrd for Rating {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
+    #[test]
+    fn test_regression_1() {
+        test_env::setup();
+
+        let ins: Vec<u32> = vec![
+            24518600, 22704334, 28465247, 29660010, 23675009, 30232905, 35515346, 29685074,
+            23928192, 27165407, 23915501,
+        ];
+        let ins_ag = 35515346u32;
+
+        let mut map: TreeMap<(Rating, u32), ()> = TreeMap::new(next_trie_id());
+        for &i in &ins {
+            map.remove(&(Rating { wins: 0, views: 0 }, i));
+            map.insert(&(Rating { wins: 1, views: 1 }, i), &());
+            println!("{}", map.len());
+        }
+        map.remove(&(Rating { wins: 1, views: 1 }, ins_ag));
+        map.insert(&(Rating { wins: 1, views: 2 }, ins_ag), &());
+
+        assert_eq!(map.len(), ins.len() as u64);
+        let a: Vec<_> = map.iter_rev().collect();
+        assert_eq!(a.len(), ins.len());
+
+        map.clear();
     }
 
     #[test]
