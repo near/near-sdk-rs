@@ -1354,16 +1354,9 @@ mod tests {
         pub views: u64,
     }
 
-    const MIN_VIEWS_FOR_RATIO: u64 = 3;
-
     impl Ord for Rating {
         fn cmp(&self, other: &Self) -> Ordering {
-            if self.views >= MIN_VIEWS_FOR_RATIO && other.views >= MIN_VIEWS_FOR_RATIO {
-                (self.wins as u128 * other.views as u128)
-                    .cmp(&(self.views as u128 * other.wins as u128))
-            } else {
-                self.wins.cmp(&other.wins)
-            }
+            self.wins.cmp(&other.wins)
         }
     }
 
@@ -1387,7 +1380,6 @@ mod tests {
         for &i in &ins {
             map.remove(&(Rating { wins: 0, views: 0 }, i));
             map.insert(&(Rating { wins: 1, views: 1 }, i), &());
-            println!("{}", map.len());
         }
         map.remove(&(Rating { wins: 1, views: 1 }, ins_ag));
         map.insert(&(Rating { wins: 1, views: 2 }, ins_ag), &());
