@@ -11,11 +11,9 @@ use near_sdk::{env, json_types::U128};
 use near_sdk_sim::{call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount};
 
 // Load in contract bytes
-near_sdk_sim::lazy_static! {
-    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../res/fungible_token.wasm").as_ref();
-}
-near_sdk_sim::lazy_static! {
-    static ref DEFI_WASM_BYTES: &'static [u8] = include_bytes!("../res/defi.wasm").as_ref();
+lazy_static_include::lazy_static_include_bytes! {
+    TOKEN_WASM_BYTES => "res/fungible_token.wasm",
+    DEFI_WASM_BYTES => "res/defi.wasm",
 }
 
 const REFERENCE: &str = "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";

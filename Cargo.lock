@@ -463,13 +463,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "defi"
-version = "0.0.1"
-dependencies = [
- "near-sdk",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -671,10 +664,8 @@ checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 name = "fungible-token"
 version = "1.0.0"
 dependencies = [
- "defi",
  "near-contract-standards",
  "near-sdk",
- "near-sdk-sim",
 ]
 
 [[package]]
