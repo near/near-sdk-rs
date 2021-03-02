@@ -687,7 +687,6 @@ version = "0.0.1"
 dependencies = [
  "defi",
  "fungible-token",
- "funty",
  "lazy-static-include",
  "near-sdk",
  "near-sdk-sim",
@@ -1343,6 +1342,7 @@ dependencies = [
 name = "near-sdk-sim"
 version = "3.0.0-pre.3"
 dependencies = [
+ "funty",
  "lazy_static",
  "near-crypto",
  "near-pool",
