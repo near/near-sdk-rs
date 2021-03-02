@@ -10,7 +10,7 @@ near-sdk-sim = { path = "../../near-sdk-sim" }
 lazy-static-include = "3"
 funty = "=1.1.0"
 
-# include a line for each test contract
+# remember to include a line for each contract
 fungible-token = { path = "./ft" }
 defi = { path = "./test-contract-defi" }
 
@@ -24,7 +24,9 @@ panic = "abort"
 overflow-checks = true
 
 [workspace]
-members = [
-  "ft",
-  "test-contract-defi",
+members = ["*"]
+exclude = [
+  "res",
+  "target",
+  "tests"
 ]
