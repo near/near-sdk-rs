@@ -23,7 +23,7 @@ macro_rules! impl_fungible_token_core {
                 amount: U128,
                 memo: Option<String>,
                 msg: String,
-            ) -> Promise {
+            ) -> PromiseOrValue<U128> {
                 self.$token.ft_transfer_call(receiver_id, amount, memo, msg)
             }
 
@@ -44,8 +44,29 @@ macro_rules! impl_fungible_token_core {
                 sender_id: ValidAccountId,
                 receiver_id: ValidAccountId,
                 amount: U128,
-            ) -> U128 {
+            ) -> PromiseOrValue<U128> {
                 self.$token.ft_resolve_transfer(sender_id, receiver_id, amount)
+            }
+        }
+
+        #[near_bindgen]
+        impl AccountRegistrar for $contract {
+            #[payable]
+            fn ar_register(&mut self, account_id: Option<String>, msg: Option<String>) -> bool {
+                self.$token.ar_register(account_id, msg)
+            }
+
+            fn ar_is_registered(&mut self, account_id: Option<String>) -> bool {
+                self.$token.ar_is_registered(account_id)
+            }
+
+            #[payable]
+            fn ar_unregister(&mut self, force: Option<bool>) -> bool {
+                self.$token.ar_unregister(force)
+            }
+
+            fn ar_registration_fee(&self) -> U128 {
+                self.$token.ar_registration_fee()
             }
         }
     };

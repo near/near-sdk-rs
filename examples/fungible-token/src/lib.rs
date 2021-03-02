@@ -18,10 +18,11 @@ NOTES:
 use near_contract_standards::fungible_token::metadata::{
     FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_VERSION,
 };
+use near_contract_standards::account_registration::AccountRegistrar;
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base58CryptoHash, ValidAccountId, U128};
-use near_sdk::{env, near_bindgen, PanicOnDefault, Promise};
+use near_sdk::{env, near_bindgen, PanicOnDefault, PromiseOrValue};
 
 near_sdk::setup_alloc!();
 
@@ -52,7 +53,6 @@ impl Contract {
 }
 
 near_contract_standards::impl_fungible_token_core!(Contract, token);
-near_contract_standards::impl_fungible_token_storage!(Contract, token);
 
 #[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
