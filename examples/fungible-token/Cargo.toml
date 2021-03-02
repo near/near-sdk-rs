@@ -10,8 +10,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 near-sdk = { path = "../../near-sdk" }
 
-[dev-dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 near-sdk-sim = { path = "../../near-sdk-sim" }
+
+[dev-dependencies]
 
 [profile.release]
 codegen-units = 1
@@ -22,4 +24,7 @@ debug = false
 panic = "abort"
 overflow-checks = true
 
+
+[[example]]
+name = "heavy"
 
