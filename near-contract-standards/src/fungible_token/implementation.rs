@@ -209,7 +209,7 @@ impl AccountRegistrar for FungibleToken {
         }
         let amount = env::attached_deposit();
         if amount != self.account_storage_usage as u128 {
-            env::log("Requires attached deposit of the exact storage minimum balance".as_bytes());
+            env::log(format!("Requires attached deposit of the exact storage minimum balance of {:?} got {:?}", self.account_storage_usage, amount).as_bytes());
             false
         } else {
             let account_id =

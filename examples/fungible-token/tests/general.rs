@@ -7,7 +7,7 @@ use defi::*;
 /// Import the generated proxy contract
 use fungible_token::ContractContract;
 
-use near_sdk::{env, json_types::U128};
+use near_sdk::{json_types::U128};
 use near_sdk_sim::{call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount};
 
 // Load in contract bytes
@@ -53,10 +53,9 @@ fn init(initial_balance: u128) -> (UserAccount, ContractAccount<ContractContract
 fn register_user(contract: &ContractAccount<ContractContract>, user: &UserAccount) {
     call!(
         user,
-        contract.storage_deposit(Some(user.account_id().try_into().unwrap())),
-        deposit = env::storage_byte_cost() * 125
-    )
-    .assert_success();
+        contract.ar_register(Some(user.account_id().try_into().unwrap()), None),
+        deposit = 125
+    ).assert_success();
 }
 
 #[test]
