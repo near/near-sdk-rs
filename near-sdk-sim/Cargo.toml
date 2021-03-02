@@ -21,7 +21,7 @@ node-runtime = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699
 funty = "=1.1.0"
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
-fungible-token = { path="../examples/fungible-token" }
+fungible-token = { path="../examples/fungible-token/ft" }
 
 [features]
 default = []

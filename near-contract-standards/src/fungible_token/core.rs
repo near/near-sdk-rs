@@ -34,8 +34,8 @@ pub trait FungibleTokenCore {
     /// Arguments:
     /// - `receiver_id` - the account ID of the receiver contract. This contract will be called.
     /// - `amount` - the amount of tokens to transfer. Must be a positive number in a decimal string representation.
-    /// - `msg` - a string message that will be passed to `ft_on_transfer` contract call.
     /// - `memo` - an optional string field in a free form to associate a memo with this transfer.
+    /// - `msg` - a string message that will be passed to `ft_on_transfer` contract call.
     ///
     /// Returns a promise which will result in the amount of tokens withdrawn from sender's account.
     fn ft_transfer_call(
