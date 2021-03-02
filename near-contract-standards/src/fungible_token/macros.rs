@@ -44,7 +44,7 @@ macro_rules! impl_fungible_token_core {
                 sender_id: ValidAccountId,
                 receiver_id: ValidAccountId,
                 amount: U128,
-            ) -> PromiseOrValue<U128> {
+            ) -> U128 {
                 self.$token.ft_resolve_transfer(sender_id, receiver_id, amount)
             }
         }
@@ -56,7 +56,7 @@ macro_rules! impl_fungible_token_core {
                 self.$token.ar_register(account_id, msg)
             }
 
-            fn ar_is_registered(&mut self, account_id: Option<String>) -> bool {
+            fn ar_is_registered(&self, account_id: String) -> bool {
                 self.$token.ar_is_registered(account_id)
             }
 

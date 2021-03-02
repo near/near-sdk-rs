@@ -14,7 +14,7 @@ pub trait AccountRegistrar {
     fn ar_register(&mut self, account_id: Option<String>, msg: Option<String>) -> bool;
 
     /// Checks if the `account_id` is registered.
-    fn ar_is_registered(&mut self, account_id: Option<String>) -> bool;
+    fn ar_is_registered(&self, account_id: String) -> bool;
 
     /// Unregisters the caller for accepting token transfers and return the storage NEAR deposit back.
     /// If the caller is not registered, the function should early return without throwing exception.

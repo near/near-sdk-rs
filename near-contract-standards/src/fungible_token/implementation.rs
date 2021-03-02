@@ -18,7 +18,7 @@ trait FungibleTokenResolver {
         sender_id: AccountId,
         receiver_id: AccountId,
         amount: U128,
-    ) -> PromiseOrValue<U128>;
+    ) -> U128;
 }
 
 #[ext_contract(ext_fungible_token_receiver)]
@@ -162,7 +162,7 @@ impl FungibleTokenResolver for FungibleToken {
         sender_id: ValidAccountId,
         receiver_id: ValidAccountId,
         amount: U128,
-    ) -> PromiseOrValue<U128> {
+    ) -> U128 {
         let amount: Balance = amount.into();
         let sender_id: AccountId = sender_id.into();
         let receiver_id: AccountId = receiver_id.into();
@@ -189,7 +189,7 @@ impl FungibleTokenResolver for FungibleToken {
                 if let Some(sender_balance) = self.accounts.get(&sender_id) {
                     self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
                     log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
-                    return PromiseOrValue::Value(U128::from(amount - refund_amount)).into();
+                    return U128::from(amount - refund_amount);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
                     self.total_supply -= refund_amount;
@@ -198,7 +198,7 @@ impl FungibleTokenResolver for FungibleToken {
                 }
             }
         }
-        PromiseOrValue::Value(U128::from(amount)).into()
+        U128::from(amount)
     }
 }
 
@@ -219,8 +219,7 @@ impl AccountRegistrar for FungibleToken {
         }
     }
 
-    fn ar_is_registered(&mut self, account_id: Option<String>) -> bool {
-        let account_id = account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
+    fn ar_is_registered(&self, account_id: String) -> bool {
         self.accounts.contains_key(&account_id)
     }
 

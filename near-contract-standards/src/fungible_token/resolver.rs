@@ -7,5 +7,5 @@ pub trait FungibleTokenResolver {
         sender_id: ValidAccountId,
         receiver_id: ValidAccountId,
         amount: U128,
-    ) -> PromiseOrValue<U128>;
+    ) -> U128;
 }
