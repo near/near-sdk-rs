@@ -15,13 +15,13 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
-use near_contract_standards::fungible_token::metadata::{
-    FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_VERSION,
-};
 use near_contract_standards::account_registration::AccountRegistrar;
+use near_contract_standards::fungible_token::metadata::{
+    FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
+};
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{Base58CryptoHash, ValidAccountId, U128};
+use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::{env, near_bindgen, PanicOnDefault, PromiseOrValue};
 
 near_sdk::setup_alloc!();
@@ -31,7 +31,7 @@ near_sdk::setup_alloc!();
 pub struct Contract {
     token: FungibleToken,
     reference: String,
-    reference_hash: Base58CryptoHash,
+    reference_hash: Base64VecU8,
 }
 
 #[near_bindgen]
@@ -42,9 +42,10 @@ impl Contract {
         owner_id: ValidAccountId,
         total_supply: U128,
         reference: String,
-        reference_hash: Base58CryptoHash,
+        reference_hash: Base64VecU8,
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
+        assert_eq!(reference_hash.0.len(), 32, "Hash has to be 32 bytes");
         let mut this = Self { token: FungibleToken::new(b"a"), reference, reference_hash };
         this.token.internal_register_account(owner_id.as_ref());
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
@@ -58,14 +59,14 @@ near_contract_standards::impl_fungible_token_core!(Contract, token);
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
         FungibleTokenMetadata {
-            spec: FT_METADATA_VERSION.to_string(),
+            spec: FT_METADATA_SPEC.to_string(),
             name: "Example NEAR fungible token".to_string(),
             symbol: "EXAMPLE".to_string(),
             icon: Some(
                 "https://near.org/wp-content/themes/near-19/assets/img/brand-icon.png".to_string(),
             ),
             reference: self.reference.clone(),
-            reference_hash: self.reference_hash,
+            reference_hash: self.reference_hash.clone(),
             decimals: 24,
         }
     }
@@ -78,11 +79,9 @@ mod tests {
     use near_sdk::{testing_env, Balance};
 
     use super::*;
-    use std::convert::TryInto;
 
     const REFERENCE: &str =
         "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
-    const REFERENCE_HASH: &str = "Aa4hsn9vdMetr2WDvYWduLCFpi6VZqJ3AzDm16VmSibG";
     const TOTAL_SUPPLY: Balance = 1_000_000_000_000_000;
 
     fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
@@ -102,7 +101,7 @@ mod tests {
             accounts(1).into(),
             TOTAL_SUPPLY.into(),
             REFERENCE.to_string(),
-            REFERENCE_HASH.try_into().unwrap(),
+            vec![1; 32].into(),
         );
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, TOTAL_SUPPLY);
@@ -125,15 +124,15 @@ mod tests {
             accounts(2).into(),
             TOTAL_SUPPLY.into(),
             REFERENCE.to_string(),
-            REFERENCE_HASH.try_into().unwrap(),
+            vec![1; 32].into(),
         );
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(contract.storage_minimum_balance().into())
+            .attached_deposit(contract.ar_registration_fee().into())
             .predecessor_account_id(accounts(1))
             .build());
         // Paying for account registration, aka storage deposit
-        contract.storage_deposit(None);
+        contract.ar_register(None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
