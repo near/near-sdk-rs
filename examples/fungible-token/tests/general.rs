@@ -64,7 +64,7 @@ fn init(
 fn register_user(contract: &ContractAccount<FtContract>, user: &UserAccount) {
     call!(
         user,
-        contract.ar_register(Some(user.account_id().try_into().unwrap()), None),
+        contract.ar_register(Some(user.account_id().try_into().unwrap())),
         deposit = env::storage_byte_cost() * 125
     )
     .assert_success();

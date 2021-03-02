@@ -1,10 +1,13 @@
+use crate::account_registration::AccountRegistrar;
 use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::resolver::FungibleTokenResolver;
-use crate::account_registration::AccountRegistrar;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
-use near_sdk::{assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseResult, StorageUsage, PromiseOrValue};
+use near_sdk::{
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseOrValue,
+    PromiseResult, StorageUsage,
+};
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
@@ -23,7 +26,12 @@ trait FungibleTokenResolver {
 
 #[ext_contract(ext_fungible_token_receiver)]
 pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128>;
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
 }
 
 /// Implementation of a FungibleToken standard.
@@ -144,7 +152,8 @@ impl FungibleTokenCore for FungibleToken {
             &env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
-        )).into()
+        ))
+        .into()
     }
 
     fn ft_total_supply(&self) -> U128 {
@@ -203,37 +212,52 @@ impl FungibleTokenResolver for FungibleToken {
 }
 
 impl AccountRegistrar for FungibleToken {
-    fn ar_register(&mut self, account_id: Option<String>, msg: Option<String>) -> bool {
-        if msg.is_some() {
-            env::log(format!("{}", msg.unwrap()).as_bytes());
-        }
+    fn ar_register(&mut self, account_id: Option<ValidAccountId>) -> bool {
         let amount = env::attached_deposit();
-        if amount != (self.account_storage_usage as u128 * env::storage_byte_cost()) {
-            env::log(format!("Requires attached deposit of the exact storage minimum balance of {:?} got {:?}", self.account_storage_usage, amount).as_bytes());
-            false
-        } else {
-            let account_id =
-                account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
-            self.internal_register_account(&account_id);
-            true
+        let account_id =
+            account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
+        if self.accounts.contains_key(&account_id) {
+            log!("The account is already registered, refunding the deposit");
+            if amount > 0 {
+                Promise::new(account_id).transfer(amount);
+            }
+            return false;
         }
+        let ar_registration_fee = self.ar_registration_fee().0;
+        if amount < ar_registration_fee {
+            env::panic(b"The attached deposit is less than the account registration fee");
+        }
+
+        self.internal_register_account(&account_id);
+        let refund = amount - ar_registration_fee;
+        if refund > 0 {
+            Promise::new(account_id).transfer(refund);
+        }
+        true
     }
 
-    fn ar_is_registered(&self, account_id: String) -> bool {
-        self.accounts.contains_key(&account_id)
+    fn ar_is_registered(&self, account_id: ValidAccountId) -> bool {
+        self.accounts.contains_key(account_id.as_ref())
     }
 
-    // This fungible token does not implement burning, so the `force` parameter is ignored.
-    #[allow(unused_variables)]
     fn ar_unregister(&mut self, force: Option<bool>) -> bool {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();
-        if let Some(balance) = self.accounts.remove(&account_id) {
+        let force = force.unwrap_or(false);
+        if let Some(balance) = self.accounts.get(&account_id) {
             if balance > 0 {
                 env::log(b"The account has positive token balance");
-                false
+                if force {
+                    // TODO: Handle `force` argument
+                    // self.force_close(&account_id);
+                    Promise::new(account_id).transfer(self.ar_registration_fee().0 + 1);
+                    true
+                } else {
+                    false
+                }
             } else {
-                Promise::new(account_id).transfer((self.account_storage_usage + 1u64) as u128);
+                self.accounts.remove(&account_id);
+                Promise::new(account_id).transfer(self.ar_registration_fee().0 + 1);
                 true
             }
         } else {

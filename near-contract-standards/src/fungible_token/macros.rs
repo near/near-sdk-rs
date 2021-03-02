@@ -48,15 +48,22 @@ macro_rules! impl_fungible_token_core {
                 self.$token.ft_resolve_transfer(sender_id, receiver_id, amount)
             }
         }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_fungible_token_ar {
+    ($contract: ident, $token: ident) => {
+        use near_contract_standards::account_registration::AccountRegistrar;
 
         #[near_bindgen]
         impl AccountRegistrar for $contract {
             #[payable]
-            fn ar_register(&mut self, account_id: Option<String>, msg: Option<String>) -> bool {
-                self.$token.ar_register(account_id, msg)
+            fn ar_register(&mut self, account_id: Option<ValidAccountId>) -> bool {
+                self.$token.ar_register(account_id)
             }
 
-            fn ar_is_registered(&self, account_id: String) -> bool {
+            fn ar_is_registered(&self, account_id: ValidAccountId) -> bool {
                 self.$token.ar_is_registered(account_id)
             }
 
@@ -67,37 +74,6 @@ macro_rules! impl_fungible_token_core {
 
             fn ar_registration_fee(&self) -> U128 {
                 self.$token.ar_registration_fee()
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_fungible_token_storage {
-    ($contract: ident, $token: ident) => {
-        use near_contract_standards::storage_manager::{AccountStorageBalance, StorageManager};
-
-        #[near_bindgen]
-        impl StorageManager for $contract {
-            #[payable]
-            fn storage_deposit(
-                &mut self,
-                account_id: Option<ValidAccountId>,
-            ) -> AccountStorageBalance {
-                self.$token.storage_deposit(account_id)
-            }
-
-            #[payable]
-            fn storage_withdraw(&mut self, amount: Option<U128>) -> AccountStorageBalance {
-                self.$token.storage_withdraw(amount)
-            }
-
-            fn storage_minimum_balance(&self) -> U128 {
-                self.$token.storage_minimum_balance()
-            }
-
-            fn storage_balance_of(&self, account_id: ValidAccountId) -> AccountStorageBalance {
-                self.$token.storage_balance_of(account_id)
             }
         }
     };
