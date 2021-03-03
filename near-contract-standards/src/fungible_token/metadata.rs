@@ -10,8 +10,8 @@ pub struct FungibleTokenMetadata {
     pub name: String,
     pub symbol: String,
     pub icon: Option<String>,
-    pub reference: String,
-    pub reference_hash: Base64VecU8,
+    pub reference: Option<String>,
+    pub reference_hash: Option<Base64VecU8>,
     pub decimals: u8,
 }
 
