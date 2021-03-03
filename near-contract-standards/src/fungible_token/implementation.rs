@@ -1,12 +1,12 @@
+use crate::account_registration::AccountRegistrar;
 use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::resolver::FungibleTokenResolver;
-use crate::storage_manager::{AccountStorageBalance, StorageManager};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseResult,
-    StorageUsage,
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseOrValue,
+    PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -26,15 +26,21 @@ trait FungibleTokenResolver {
 
 #[ext_contract(ext_fungible_token_receiver)]
 pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Promise;
+    fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> PromiseOrValue<U128>;
 }
 
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
-/// There are next traits that any contract must implement:
+/// There are next traits that any contract may implement:
 ///     - FungibleTokenCore -- interface with ft_transfer methods. FungibleToken provides methods for it.
 ///     - FungibleTokenMetaData -- return metadata for the token in NEP-148, up to contract to implement.
-///     - StorageManager -- inteface for NEP-145 for allocating storage per account. FungibleToken provides methods for it.
+///     - StorageManager -- interface for NEP-145 for allocating storage per account. FungibleToken provides methods for it.
+///     - AccountRegistrar -- interface for an account to register and unregister
 ///
 /// For example usage, see examples/fungible-token/src/lib.rs.
 /// ```
@@ -125,7 +131,7 @@ impl FungibleTokenCore for FungibleToken {
         amount: U128,
         memo: Option<String>,
         msg: String,
-    ) -> Promise {
+    ) -> PromiseOrValue<U128> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount = amount.into();
@@ -147,6 +153,7 @@ impl FungibleTokenCore for FungibleToken {
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
         ))
+        .into()
     }
 
     fn ft_total_supply(&self) -> U128 {
@@ -158,15 +165,15 @@ impl FungibleTokenCore for FungibleToken {
     }
 }
 
-impl FungibleTokenResolver for FungibleToken {
-    fn ft_resolve_transfer(
+impl FungibleToken {
+    /// Returns (Used token amount, Burned token amount)
+    pub fn ft_resolve_transfer_detailed(
         &mut self,
-        sender_id: ValidAccountId,
+        sender_id: &AccountId,
         receiver_id: ValidAccountId,
         amount: U128,
-    ) -> U128 {
+    ) -> (u128, u128) {
         let amount: Balance = amount.into();
-        let sender_id: AccountId = sender_id.into();
         let receiver_id: AccountId = receiver_id.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
@@ -191,66 +198,85 @@ impl FungibleTokenResolver for FungibleToken {
                 if let Some(sender_balance) = self.accounts.get(&sender_id) {
                     self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
                     log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
-                    return (amount - refund_amount).into();
+                    return (amount - refund_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
                     self.total_supply -= refund_amount;
                     log!("The account of the sender was deleted");
-                    log!("Burn {}", refund_amount);
+                    return (amount, refund_amount);
                 }
             }
         }
-        amount.into()
+        (amount, 0)
     }
 }
 
-impl StorageManager for FungibleToken {
-    fn storage_deposit(&mut self, account_id: Option<ValidAccountId>) -> AccountStorageBalance {
+impl FungibleTokenResolver for FungibleToken {
+    fn ft_resolve_transfer(
+        &mut self,
+        sender_id: ValidAccountId,
+        receiver_id: ValidAccountId,
+        amount: U128,
+    ) -> U128 {
+        self.ft_resolve_transfer_detailed(sender_id.as_ref(), receiver_id, amount).0.into()
+    }
+}
+
+impl FungibleToken {
+    pub fn ar_unregister_detailed(&mut self, force: Option<bool>) -> Option<(AccountId, Balance)> {
+        assert_one_yocto();
+        let account_id = env::predecessor_account_id();
+        let force = force.unwrap_or(false);
+        if let Some(balance) = self.accounts.get(&account_id) {
+            if balance == 0 || force {
+                self.accounts.remove(&account_id);
+                self.total_supply -= balance;
+                Promise::new(account_id.clone()).transfer(self.ar_registration_fee().0 + 1);
+                Some((account_id, balance))
+            } else {
+                env::panic(b"Can't unregister the account with the positive balance without force")
+            }
+        } else {
+            env::log(b"The account is not registered");
+            None
+        }
+    }
+}
+
+impl AccountRegistrar for FungibleToken {
+    fn ar_register(&mut self, account_id: Option<ValidAccountId>) -> bool {
         let amount = env::attached_deposit();
-        assert_eq!(
-            amount,
-            self.storage_minimum_balance().0,
-            "Requires attached deposit of the exact storage minimum balance"
-        );
         let account_id =
             account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
+        if self.accounts.contains_key(&account_id) {
+            log!("The account is already registered, refunding the deposit");
+            if amount > 0 {
+                Promise::new(account_id).transfer(amount);
+            }
+            return false;
+        }
+        let ar_registration_fee = self.ar_registration_fee().0;
+        if amount < ar_registration_fee {
+            env::panic(b"The attached deposit is less than the account registration fee");
+        }
+
         self.internal_register_account(&account_id);
-        AccountStorageBalance { total: amount.into(), available: amount.into() }
-    }
-
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> AccountStorageBalance {
-        assert_one_yocto();
-        let amount: Balance = amount.unwrap_or_else(|| self.storage_minimum_balance()).into();
-        assert_eq!(
-            amount,
-            self.storage_minimum_balance().0,
-            "The withdrawal amount should be the exact storage minimum balance"
-        );
-        let account_id = env::predecessor_account_id();
-        if let Some(balance) = self.accounts.remove(&account_id) {
-            if balance > 0 {
-                env::panic(b"The account has positive token balance");
-            } else {
-                Promise::new(account_id).transfer(amount + 1);
-                AccountStorageBalance { total: 0.into(), available: 0.into() }
-            }
-        } else {
-            env::panic(b"The account is not registered");
+        let refund = amount - ar_registration_fee;
+        if refund > 0 {
+            Promise::new(account_id).transfer(refund);
         }
+        true
     }
 
-    fn storage_minimum_balance(&self) -> U128 {
+    fn ar_is_registered(&self, account_id: ValidAccountId) -> bool {
+        self.accounts.contains_key(account_id.as_ref())
+    }
+
+    fn ar_unregister(&mut self, force: Option<bool>) -> bool {
+        self.ar_unregister_detailed(force).is_some()
+    }
+
+    fn ar_registration_fee(&self) -> U128 {
         (Balance::from(self.account_storage_usage) * env::storage_byte_cost()).into()
-    }
-
-    fn storage_balance_of(&self, account_id: ValidAccountId) -> AccountStorageBalance {
-        if let Some(balance) = self.accounts.get(account_id.as_ref()) {
-            AccountStorageBalance {
-                total: self.storage_minimum_balance(),
-                available: if balance > 0 { 0.into() } else { self.storage_minimum_balance() },
-            }
-        } else {
-            AccountStorageBalance { total: 0.into(), available: 0.into() }
-        }
     }
 }
