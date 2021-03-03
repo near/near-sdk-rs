@@ -1,7 +1,7 @@
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::Serialize;
 
-pub const FT_METADATA_SPEC: &str = "ftm-1.0.0";
+pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
