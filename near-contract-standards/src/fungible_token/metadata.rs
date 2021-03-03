@@ -1,7 +1,7 @@
-use near_sdk::json_types::Base58CryptoHash;
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::Serialize;
 
-pub const FT_METADATA_VERSION: &str = "ftm-1.0.0";
+pub const FT_METADATA_SPEC: &str = "ftm-1.0.0";
 
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -11,7 +11,7 @@ pub struct FungibleTokenMetadata {
     pub symbol: String,
     pub icon: Option<String>,
     pub reference: String,
-    pub reference_hash: Base58CryptoHash,
+    pub reference_hash: Base64VecU8,
     pub decimals: u8,
 }
 

@@ -304,10 +304,10 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///  This example deploys and initializes the contract.
 ///
 /// ```
-/// # #[macro_use] extern crate near_sdk_sim;
-/// # lazy_static::lazy_static! {
-/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # lazy_static_include::lazy_static_include_bytes! {
+/// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
+/// use near_sdk_sim::*;
 /// use fungible_token::ContractContract;
 /// use std::convert::TryInto;
 /// use near_sdk::json_types::ValidAccountId;
@@ -319,18 +319,18 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
-///   init_method: new(master_account_id, initial_balance.into(), "".to_string(), Default::default())
+///   init_method: new(master_account_id, initial_balance.into(), "".to_string(), vec![1;32].into())
 /// };
 /// ```
 /// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
 /// So it is the same as:
 /// ```
-/// # #[macro_use] extern crate near_sdk_sim;
-/// # lazy_static::lazy_static! {
-/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # lazy_static_include::lazy_static_include_bytes! {
+/// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
 /// use fungible_token::ContractContract;
 /// use std::convert::TryInto;
+/// use near_sdk_sim::*;
 /// use near_sdk::json_types::ValidAccountId;
 /// let master_account = near_sdk_sim::init_simulator(None);
 /// let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
@@ -342,7 +342,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   signer_account: master_account,
 ///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 ///   gas: near_sdk_sim::DEFAULT_GAS,
-///   init_method: new(master_account_id, initial_balance.into(), "".to_string(), Default::default())
+///   init_method: new(master_account_id, initial_balance.into(), "".to_string(), vec![1;32].into())
 /// };
 /// ```
 #[doc(inline)]
@@ -392,10 +392,10 @@ macro_rules! deploy {
 /// # Examples:
 ///
 /// ```
-/// # #[macro_use] extern crate near_sdk_sim;
-/// # lazy_static::lazy_static! {
-/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # lazy_static_include::lazy_static_include_bytes! {
+/// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
+/// # use near_sdk_sim::*;
 /// # use fungible_token::ContractContract;
 /// # use std::convert::TryInto;
 /// # use near_sdk::json_types::ValidAccountId;
@@ -409,7 +409,7 @@ macro_rules! deploy {
 /// # signer_account: master_account,
 /// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 /// # gas: near_sdk_sim::DEFAULT_GAS,
-/// # init_method: new(master_account_id.clone(), initial_balance.into(), "".to_string(), Default::default())
+/// # init_method: new(master_account_id.clone(), initial_balance.into(), "".to_string(), vec![1;32].into())
 /// # };
 /// use near_sdk_sim::to_yocto;
 /// // Uses default values for gas and deposit.
@@ -459,10 +459,10 @@ macro_rules! call {
 ///
 /// Example:
 /// ```
-/// # #[macro_use] extern crate near_sdk_sim;
-/// # lazy_static::lazy_static! {
-/// #    static ref TOKEN_WASM_BYTES: &'static [u8] = include_bytes!("../../examples/fungible-token/res/fungible_token.wasm").as_ref();
+/// # lazy_static_include::lazy_static_include_bytes! {
+/// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
+/// # use near_sdk_sim::*;
 /// # use fungible_token::ContractContract;
 /// # use std::convert::TryInto;
 /// # use near_sdk::json_types::ValidAccountId;
@@ -476,7 +476,7 @@ macro_rules! call {
 /// # signer_account: master_account,
 /// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 /// # gas: near_sdk_sim::DEFAULT_GAS,
-/// # init_method: new(master_account_id.clone(), initial_balance.into(), "".to_string(), Default::default())
+/// # init_method: new(master_account_id.clone(), initial_balance.into(), "".to_string(), vec![1;32].into())
 /// # };
 /// let res = view!(contract.ft_balance_of(master_account_id));
 /// ```

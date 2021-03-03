@@ -7,8 +7,6 @@ edition = "2018"
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk" }
 near-sdk-sim = { path = "../../near-sdk-sim" }
-lazy-static-include = "3"
-funty = "=1.1.0"
 
 # remember to include a line for each contract
 fungible-token = { path = "./ft" }
@@ -24,6 +22,7 @@ panic = "abort"
 overflow-checks = true
 
 [workspace]
+# remember to include a member for each contract
 members = [
   "ft",
   "test-contract-defi",

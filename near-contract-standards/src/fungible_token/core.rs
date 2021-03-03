@@ -1,6 +1,6 @@
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::json_types::U128;
-use near_sdk::Promise;
+use near_sdk::PromiseOrValue;
 
 pub trait FungibleTokenCore {
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id`.
@@ -44,7 +44,7 @@ pub trait FungibleTokenCore {
         amount: U128,
         memo: Option<String>,
         msg: String,
-    ) -> Promise;
+    ) -> PromiseOrValue<U128>;
 
     /// Returns the total supply of the token in a decimal string representation.
     fn ft_total_supply(&self) -> U128;

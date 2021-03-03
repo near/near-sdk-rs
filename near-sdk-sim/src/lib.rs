@@ -5,7 +5,6 @@
 //! real runtime, including: creating accounts, deploying contracts, making contract calls and
 //! calling view methods.
 
-pub use lazy_static::*;
 pub mod outcome;
 #[doc(inline)]
 pub use outcome::*;
@@ -19,3 +18,6 @@ pub use near_primitives::*;
 pub use units::*;
 #[doc(inline)]
 pub use user::*;
+
+#[doc(hidden)]
+pub use lazy_static_include;
