@@ -22,7 +22,7 @@ panic = "abort"
 overflow-checks = true
 
 [workspace]
-# remember to include a line for each contract
+# remember to include a member for each contract
 members = [
   "ft",
   "test-contract-defi",
