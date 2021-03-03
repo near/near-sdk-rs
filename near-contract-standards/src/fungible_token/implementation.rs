@@ -165,15 +165,15 @@ impl FungibleTokenCore for FungibleToken {
     }
 }
 
-impl FungibleTokenResolver for FungibleToken {
-    fn ft_resolve_transfer(
+impl FungibleToken {
+    /// Returns (Used token amount, Burned token amount)
+    pub fn ft_resolve_transfer_detailed(
         &mut self,
-        sender_id: ValidAccountId,
+        sender_id: &AccountId,
         receiver_id: ValidAccountId,
         amount: U128,
-    ) -> U128 {
+    ) -> (u128, u128) {
         let amount: Balance = amount.into();
-        let sender_id: AccountId = sender_id.into();
         let receiver_id: AccountId = receiver_id.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
@@ -198,16 +198,48 @@ impl FungibleTokenResolver for FungibleToken {
                 if let Some(sender_balance) = self.accounts.get(&sender_id) {
                     self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
                     log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
-                    return U128::from(amount - refund_amount);
+                    return (amount - refund_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
                     self.total_supply -= refund_amount;
                     log!("The account of the sender was deleted");
-                    log!("Burn {}", refund_amount);
+                    return (amount, refund_amount);
                 }
             }
         }
-        U128::from(amount)
+        (amount, 0)
+    }
+}
+
+impl FungibleTokenResolver for FungibleToken {
+    fn ft_resolve_transfer(
+        &mut self,
+        sender_id: ValidAccountId,
+        receiver_id: ValidAccountId,
+        amount: U128,
+    ) -> U128 {
+        self.ft_resolve_transfer_detailed(sender_id.as_ref(), receiver_id, amount).0.into()
+    }
+}
+
+impl FungibleToken {
+    pub fn ar_unregister_detailed(&mut self, force: Option<bool>) -> Option<(AccountId, Balance)> {
+        assert_one_yocto();
+        let account_id = env::predecessor_account_id();
+        let force = force.unwrap_or(false);
+        if let Some(balance) = self.accounts.get(&account_id) {
+            if balance == 0 || force {
+                self.accounts.remove(&account_id);
+                self.total_supply -= balance;
+                Promise::new(account_id.clone()).transfer(self.ar_registration_fee().0 + 1);
+                Some((account_id, balance))
+            } else {
+                env::panic(b"Can't unregister the account with the positive balance without force")
+            }
+        } else {
+            env::log(b"The account is not registered");
+            None
+        }
     }
 }
 
@@ -241,29 +273,7 @@ impl AccountRegistrar for FungibleToken {
     }
 
     fn ar_unregister(&mut self, force: Option<bool>) -> bool {
-        assert_one_yocto();
-        let account_id = env::predecessor_account_id();
-        let force = force.unwrap_or(false);
-        if let Some(balance) = self.accounts.get(&account_id) {
-            if balance > 0 {
-                env::log(b"The account has positive token balance");
-                if force {
-                    // TODO: Handle `force` argument
-                    // self.force_close(&account_id);
-                    Promise::new(account_id).transfer(self.ar_registration_fee().0 + 1);
-                    true
-                } else {
-                    false
-                }
-            } else {
-                self.accounts.remove(&account_id);
-                Promise::new(account_id).transfer(self.ar_registration_fee().0 + 1);
-                true
-            }
-        } else {
-            env::log(b"The account is not registered");
-            false
-        }
+        self.ar_unregister_detailed(force).is_some()
     }
 
     fn ar_registration_fee(&self) -> U128 {

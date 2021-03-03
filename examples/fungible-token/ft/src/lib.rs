@@ -21,7 +21,7 @@ use near_contract_standards::fungible_token::metadata::{
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
-use near_sdk::{env, near_bindgen, PanicOnDefault, PromiseOrValue};
+use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
 
 near_sdk::setup_alloc!();
 
@@ -50,10 +50,19 @@ impl Contract {
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
     }
+
+    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
+        log!("Closed @{} with {}", account_id, balance);
+    }
+
+    fn on_tokens_burned(&mut self, account_id: AccountId, amount: Balance) {
+        log!("Account @{} burned {}", account_id, amount);
+    }
 }
 
-near_contract_standards::impl_fungible_token_core!(Contract, token);
-near_contract_standards::impl_fungible_token_ar!(Contract, token);
+near_contract_standards::impl_fungible_token_core!(Contract, token, on_tokens_burned);
+// near_contract_standards::impl_fungible_token_ar!(Contract, token);
+near_contract_standards::impl_fungible_token_ar!(Contract, token, on_account_closed);
 
 #[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
@@ -132,7 +141,7 @@ mod tests {
             .predecessor_account_id(accounts(1))
             .build());
         // Paying for account registration, aka storage deposit
-        contract.ar_register(None, None);
+        contract.ar_register(None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())

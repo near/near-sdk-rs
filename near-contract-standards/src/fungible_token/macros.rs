@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! impl_fungible_token_core {
-    ($contract: ident, $token: ident) => {
+    ($contract: ident, $token: ident, $on_tokens_burned_block: block,) => {
         use near_contract_standards::fungible_token::core::FungibleTokenCore;
         use near_contract_standards::fungible_token::resolver::FungibleTokenResolver;
 
@@ -45,15 +45,31 @@ macro_rules! impl_fungible_token_core {
                 receiver_id: ValidAccountId,
                 amount: U128,
             ) -> U128 {
-                self.$token.ft_resolve_transfer(sender_id, receiver_id, amount)
+                let sender_id: AccountId = sender_id.into();
+                let (used_amount, burned_amount) =
+                    self.$token.ft_resolve_transfer_detailed(&sender_id, receiver_id, amount);
+                if burned_amount > 0 {
+                    $on_tokens_burned_block
+                }
+                used_amount.into()
             }
         }
     };
+    ($contract: ident, $token: ident, $on_tokens_burned: ident) => {
+        near_contract_standards::impl_fungible_token_core!($contract, $token, {
+            self.$on_tokens_burned(sender_id, burned_amount);
+        },);
+    };
+    ($contract: ident, $token: ident) => {
+        near_contract_standards::impl_fungible_token_core!($contract, $token, {},);
+    };
 }
 
+/// Takes name of the Contract struct, the inner field for the token and optional method name to
+/// call when the account was closed.
 #[macro_export]
 macro_rules! impl_fungible_token_ar {
-    ($contract: ident, $token: ident) => {
+    ($contract: ident, $token: ident, $on_account_closed_block: block,) => {
         use near_contract_standards::account_registration::AccountRegistrar;
 
         #[near_bindgen]
@@ -69,12 +85,24 @@ macro_rules! impl_fungible_token_ar {
 
             #[payable]
             fn ar_unregister(&mut self, force: Option<bool>) -> bool {
-                self.$token.ar_unregister(force)
+                #[allow(unused_variables)]
+                if let Some((account_id, balance)) = self.$token.ar_unregister_detailed(force) {
+                    $on_account_closed_block
+                    true
+                } else {
+                    false
+                }
             }
 
             fn ar_registration_fee(&self) -> U128 {
                 self.$token.ar_registration_fee()
             }
         }
+    };
+    ($contract: ident, $token: ident, $on_account_closed: ident) => {
+        near_contract_standards::impl_fungible_token_ar!($contract, $token, {self.$on_account_closed(account_id, balance);},);
+    };
+    ($contract: ident, $token: ident) => {
+        near_contract_standards::impl_fungible_token_ar!($contract, $token, {},);
     };
 }
