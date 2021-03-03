@@ -63,12 +63,16 @@ impl FungibleToken {
             total_supply: 0,
             account_storage_usage: 0,
         };
-        let initial_storage_usage = env::storage_usage();
-        let tmp_account_id = unsafe { String::from_utf8_unchecked(vec![b'a'; 64]) };
-        this.accounts.insert(&tmp_account_id, &0u128);
-        this.account_storage_usage = env::storage_usage() - initial_storage_usage;
-        this.accounts.remove(&tmp_account_id);
+        this.measure_account_storage_usage();
         this
+    }
+
+    fn measure_account_storage_usage(&mut self) {
+        let initial_storage_usage = env::storage_usage();
+        let tmp_account_id = "a".repeat(64);
+        self.accounts.insert(&tmp_account_id, &0u128);
+        self.account_storage_usage = env::storage_usage() - initial_storage_usage;
+        self.accounts.remove(&tmp_account_id);
     }
 
     pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
@@ -121,7 +125,7 @@ impl FungibleTokenCore for FungibleToken {
     fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let amount = amount.into();
+        let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
     }
 
@@ -134,7 +138,7 @@ impl FungibleTokenCore for FungibleToken {
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let amount = amount.into();
+        let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
         // Initiating receiver's call and the callback
         ext_fungible_token_receiver::ft_on_transfer(
@@ -166,6 +170,8 @@ impl FungibleTokenCore for FungibleToken {
 }
 
 impl FungibleToken {
+    /// Internal method that returns the amount of burned tokens in a corner case when the sender
+    /// has deleted (unregistered) their account while the `ft_transfer_call` was still in flight.
     /// Returns (Used token amount, Burned token amount)
     pub fn ft_resolve_transfer_detailed(
         &mut self,
@@ -173,8 +179,8 @@ impl FungibleToken {
         receiver_id: ValidAccountId,
         amount: U128,
     ) -> (u128, u128) {
-        let amount: Balance = amount.into();
         let receiver_id: AccountId = receiver_id.into();
+        let amount: Balance = amount.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
@@ -223,6 +229,8 @@ impl FungibleTokenResolver for FungibleToken {
 }
 
 impl FungibleToken {
+    /// Internal method that returns the Account ID and the balance in case the account was
+    /// unregistered.
     pub fn ar_unregister_detailed(&mut self, force: Option<bool>) -> Option<(AccountId, Balance)> {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();

@@ -1,6 +1,7 @@
 /*!
 Some hypothetical DeFi contract that will do smart things with the transferred tokens
 */
+use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
@@ -40,12 +41,15 @@ impl DeFi {
         assert!(!env::state_exists(), "Already initialized");
         Self { fungible_token_account_id: fungible_token_account_id.into() }
     }
+}
 
+#[near_bindgen]
+impl FungibleTokenReceiver for DeFi {
     /// If given `msg: "take-my-money", immediately returns U128::From(0)
     /// Otherwise, makes a cross-contract call to own `value_please` function, passing `msg`
     /// value_please will attempt to parse `msg` as an integer and return a U128 version of it
-    pub fn ft_on_transfer(
-        &self,
+    fn ft_on_transfer(
+        &mut self,
         sender_id: ValidAccountId,
         amount: U128,
         msg: String,
