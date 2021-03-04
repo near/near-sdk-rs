@@ -89,4 +89,49 @@ mod tests {
         };
         assert_eq!(actual.to_string(), expected.to_string());
     }
+
+    #[test]
+    fn serialize_with_borsh() {
+        let mut t: ItemTrait = syn::parse2(
+            quote!{
+              trait TestExt {
+                #[result_serializer(borsh)]
+                fn test(#[serializer(borsh)] v: Vec<String>) -> Vec<String>;
+              }
+            }
+        ).unwrap();
+        let info = ItemTraitInfo::new(&mut t, None).unwrap();
+        let actual = info.wrapped_module();
+
+        let expected = quote! {
+          pub mod test_ext {
+            use super::*;
+            use near_sdk::{Gas, Balance, AccountId, Promise};
+            use std::string::ToString;
+            pub fn test<T: ToString>(
+                v: Vec<String>,
+                __account_id: &T,
+                __balance: near_sdk::Balance,
+                __gas: near_sdk::Gas
+            ) -> near_sdk::Promise {
+                #[derive(near_sdk :: borsh :: BorshSerialize)]
+                struct Input {
+                    v: Vec<String>,
+                }
+                let args = Input { v, };
+                let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
+                    .expect("Failed to serialize the cross contract args using Borsh.");
+                near_sdk::Promise::new(__account_id.to_string()).function_call(
+                    b"test".to_vec(),
+                    args,
+                    __balance,
+                    __gas,
+                )
+            }
+        }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
 }
+
+

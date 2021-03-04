@@ -24,7 +24,7 @@ impl TraitItemMethodInfo {
                     let args = near_sdk::serde_json::to_vec(&args).expect("Failed to serialize the cross contract args using JSON.");
                 },
                 SerializerType::Borsh => quote! {
-                    let args = let result = near_sdk::borsh::BorshSerialize::try_to_vec(&args).expect("Failed to serialize the cross contract args using Borsh.");
+                    let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args).expect("Failed to serialize the cross contract args using Borsh.");
                 },
             }
         };
