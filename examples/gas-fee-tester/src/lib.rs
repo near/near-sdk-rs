@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::{near_bindgen, ext_contract};
 use near_sdk::serde::{Deserialize, Serialize};
 
 near_sdk::setup_alloc!();
@@ -133,4 +133,10 @@ impl GasFeeTester {
     pub fn output_borsh_vec_string_v(#[serializer(borsh)] v: Vec<String>) -> Vec<String> {
         v
     }
+}
+
+#[ext_contract(ext_test)]
+trait TestExt {
+    #[result_serializer(borsh)]
+    fn test(#[serializer(borsh)] v: Vec<String>) -> Vec<String>;
 }
