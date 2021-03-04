@@ -795,6 +795,18 @@ pub fn state_exists() -> bool {
     storage_has_key(STATE_KEY)
 }
 
+// #####################################
+// # Parameters exposed by the runtime #
+// #####################################
+
+/// Price per 1 byte of storage from mainnet genesis config.
+/// TODO: will be using the host function when it will be available.
+pub const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
+
+pub fn storage_byte_cost() -> Balance {
+    STORAGE_PRICE_PER_BYTE
+}
+
 // ##################
 // # Helper methods #
 // ##################

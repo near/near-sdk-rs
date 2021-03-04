@@ -1,7 +1,19 @@
+use std::convert::TryInto;
+
+use crate::environment::mocked_blockchain::MockedBlockchain;
+use crate::json_types::ValidAccountId;
 use crate::test_utils::test_env::*;
-use crate::{AccountId, Balance, BlockHeight, EpochHeight, PublicKey, VMContext};
+use crate::{
+    Balance, BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage, VMContext,
+};
+
+/// Returns a pre-defined account_id from a list of 6.
+pub fn accounts(id: usize) -> ValidAccountId {
+    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().try_into().unwrap()
+}
 
 /// Simple VMContext builder that allows to quickly create custom context in tests.
+#[derive(Clone)]
 pub struct VMContextBuilder {
     pub context: VMContext,
 }
@@ -31,13 +43,13 @@ impl VMContextBuilder {
         }
     }
 
-    pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.current_account_id = account_id;
+    pub fn current_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+        self.context.current_account_id = account_id.into();
         self
     }
 
-    pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.signer_account_id = account_id;
+    pub fn signer_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+        self.context.signer_account_id = account_id.into();
         self
     }
 
@@ -46,8 +58,8 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.predecessor_account_id = account_id;
+    pub fn predecessor_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+        self.context.predecessor_account_id = account_id.into();
         self
     }
 
@@ -56,13 +68,13 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn epoch_height(&mut self, epoch_height: EpochHeight) -> &mut Self {
-        self.context.epoch_height = epoch_height;
+    pub fn block_timestamp(&mut self, block_timestamp: u64) -> &mut Self {
+        self.context.block_timestamp = block_timestamp;
         self
     }
 
-    pub fn attached_deposit(&mut self, amount: Balance) -> &mut Self {
-        self.context.attached_deposit = amount;
+    pub fn epoch_height(&mut self, epoch_height: EpochHeight) -> &mut Self {
+        self.context.epoch_height = epoch_height;
         self
     }
 
@@ -76,6 +88,26 @@ impl VMContextBuilder {
         self
     }
 
+    pub fn storage_usage(&mut self, usage: StorageUsage) -> &mut Self {
+        self.context.storage_usage = usage;
+        self
+    }
+
+    pub fn attached_deposit(&mut self, amount: Balance) -> &mut Self {
+        self.context.attached_deposit = amount;
+        self
+    }
+
+    pub fn prepaid_gas(&mut self, gas: Gas) -> &mut Self {
+        self.context.prepaid_gas = gas;
+        self
+    }
+
+    pub fn random_seed(&mut self, seed: Vec<u8>) -> &mut Self {
+        self.context.random_seed = seed;
+        self
+    }
+
     pub fn is_view(&mut self, is_view: bool) -> &mut Self {
         self.context.is_view = is_view;
         self
@@ -84,4 +116,21 @@ impl VMContextBuilder {
     pub fn build(&self) -> VMContext {
         self.context.clone()
     }
+}
+
+pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
+    let storage = crate::env::take_blockchain_interface()
+        .unwrap()
+        .as_mut_mocked_blockchain()
+        .unwrap()
+        .take_storage();
+
+    crate::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
+        context,
+        Default::default(),
+        Default::default(),
+        vec![promise_result],
+        storage,
+        Default::default(),
+    )));
 }
