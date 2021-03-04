@@ -672,7 +672,6 @@ version = "1.0.0"
 dependencies = [
  "near-contract-standards",
  "near-sdk",
- "near-sdk-sim",
 ]
 
 [[package]]
