@@ -48,14 +48,15 @@ impl MockedBlockchain {
         let mut logic_fixture = LogicFixture { ext, memory, config, fees_config, promise_results };
 
         let logic = unsafe {
-            VMLogic::new(
+            VMLogic::new_with_protocol_version(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
                 &*(logic_fixture.config.as_mut() as *const VMConfig),
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
-                None,
+                Default::default(),
+                u32::MAX,
             )
         };
 

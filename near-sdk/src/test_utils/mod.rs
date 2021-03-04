@@ -4,23 +4,21 @@ use crate::env;
 pub mod test_env;
 
 mod context;
-pub use context::VMContextBuilder;
+pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 use near_vm_logic::mocks::mock_external::Receipt;
 
 #[macro_export]
 macro_rules! testing_env {
     ($context:expr, $config:expr, $fee_config:expr, $validator:expr, $promise_results:expr) => {
-        let storage = match near_sdk::env::take_blockchain_interface() {
-            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-            None => Default::default(),
-        };
-
         near_sdk::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
             $context,
             $config,
             $fee_config,
             $promise_results,
-            storage,
+            match near_sdk::env::take_blockchain_interface() {
+                Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
+                None => Default::default(),
+            },
             $validator,
         )));
     };
