@@ -1,11 +1,11 @@
 /// Bring contract crate into namespace
-extern crate fungible_token;
+extern crate fungible_token_basic;
 
 use std::convert::TryInto;
 
 use defi::*;
 /// Import the generated proxy contract
-use fungible_token::ContractContract as FtContract;
+use fungible_token_basic::ContractContract as FtContract;
 
 use near_sdk::serde_json::json;
 use near_sdk::{env, json_types::U128};
@@ -15,11 +15,9 @@ use near_sdk_sim::{
 
 // Load in contract bytes at runtime
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
-    TOKEN_WASM_BYTES => "res/fungible_token.wasm",
+    TOKEN_WASM_BYTES => "res/fungible_token_basic.wasm",
     DEFI_WASM_BYTES => "res/defi.wasm",
 }
-
-const REFERENCE: &str = "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
 
 const FT_ID: &str = "ft";
 const DEFI_ID: &str = "defi";
@@ -41,9 +39,7 @@ fn init(
         // init method
         init_method: new(
             root.account_id().try_into().unwrap(),
-            initial_balance.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into()
+            initial_balance.into()
         )
     );
     let alice = root.create_user("alice".to_string(), to_yocto("100"));

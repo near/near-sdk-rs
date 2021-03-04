@@ -29,8 +29,12 @@ near_sdk::setup_alloc!();
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     token: FungibleToken,
-    reference: String,
-    reference_hash: Base64VecU8,
+    name: Option<String>,
+    symbol: Option<String>,
+    icon: Option<String>,
+    reference: Option<String>,
+    reference_hash: Option<Base64VecU8>,
+    decimals: Option<u8>,
 }
 
 #[near_bindgen]
@@ -40,12 +44,29 @@ impl Contract {
     pub fn new(
         owner_id: ValidAccountId,
         total_supply: U128,
-        reference: String,
-        reference_hash: Base64VecU8,
+        name: Option<String>,
+        symbol: Option<String>,
+        icon: Option<String>,
+        reference: Option<String>,
+        reference_hash: Option<Base64VecU8>,
+        decimals: Option<u8>
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
-        assert_eq!(reference_hash.0.len(), 32, "Hash has to be 32 bytes");
-        let mut this = Self { token: FungibleToken::new(b"a"), reference, reference_hash };
+        if reference_hash.is_some() {
+            assert_eq!(reference_hash.clone().unwrap().0.len(), 32, "Hash has to be 32 bytes");
+        }
+        let valid_params = near_contract_standards::fungible_token::metadata::are_valid_metadata_params(name.clone(), symbol.clone(), icon.clone(), reference.clone(), reference_hash.clone(), decimals.clone());
+        assert!(valid_params, "Ensure you have provided all required metadata parameters: name, symbol, and decimals. Note that metadata fields are required.");
+
+        let mut this = Self {
+            token: FungibleToken::new(b"a"),
+            name,
+            symbol,
+            icon,
+            reference,
+            reference_hash,
+            decimals
+        };
         this.token.internal_register_account(owner_id.as_ref());
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
@@ -61,7 +82,6 @@ impl Contract {
 }
 
 near_contract_standards::impl_fungible_token_core!(Contract, token, on_tokens_burned);
-// near_contract_standards::impl_fungible_token_ar!(Contract, token);
 near_contract_standards::impl_fungible_token_ar!(Contract, token, on_account_closed);
 
 #[near_bindgen]
@@ -69,14 +89,12 @@ impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
         FungibleTokenMetadata {
             spec: FT_METADATA_SPEC.to_string(),
-            name: "Example NEAR fungible token".to_string(),
-            symbol: "EXAMPLE".to_string(),
-            icon: Some(
-                "https://near.org/wp-content/themes/near-19/assets/img/brand-icon.png".to_string(),
-            ),
+            name: self.name.clone().unwrap(),
+            symbol: self.symbol.clone().unwrap(),
+            icon: self.icon.clone(),
             reference: self.reference.clone(),
             reference_hash: self.reference_hash.clone(),
-            decimals: 24,
+            decimals: self.decimals.clone().unwrap(),
         }
     }
 }
@@ -109,8 +127,12 @@ mod tests {
         let contract = Contract::new(
             accounts(1).into(),
             TOTAL_SUPPLY.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into(),
+            Some("Mochi Rewards".to_string()),
+            Some("MOCHI".to_string()),
+            Some("https://example.com/mochi.svg".to_string()),
+            Some(REFERENCE.to_string()),
+            Some(Base64VecU8::from(vec![1; 32])),
+            Some(24u8)
         );
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, TOTAL_SUPPLY);
@@ -132,8 +154,12 @@ mod tests {
         let mut contract = Contract::new(
             accounts(2).into(),
             TOTAL_SUPPLY.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into(),
+            Some("Mochi Rewards".to_string()),
+            Some("MOCHI".to_string()),
+            Some("https://example.com/mochi.svg".to_string()),
+            Some(REFERENCE.to_string()),
+            Some(Base64VecU8::from(vec![1; 32])),
+            Some(24u8)
         );
         testing_env!(context
             .storage_usage(env::storage_usage())

@@ -10,11 +10,21 @@ pub struct FungibleTokenMetadata {
     pub name: String,
     pub symbol: String,
     pub icon: Option<String>,
-    pub reference: String,
-    pub reference_hash: Base64VecU8,
+    pub reference: Option<String>,
+    pub reference_hash: Option<Base64VecU8>,
     pub decimals: u8,
 }
 
 pub trait FungibleTokenMetadataProvider {
     fn ft_metadata(&self) -> FungibleTokenMetadata;
+}
+
+pub fn are_valid_metadata_params(name: Option<String>, symbol: Option<String>, icon: Option<String>, reference: Option<String>, reference_hash: Option<Base64VecU8>, decimals: Option<u8>) -> bool {
+    // If any metadata params are specified, all required params must also be specified.
+    if name.is_some() || symbol.is_some() || icon.is_some() || reference.is_some() || reference_hash.is_some() || decimals.is_some() {
+        name.is_some() && symbol.is_some() && decimals.is_some()
+    } else {
+        // This contract requires metadata
+        false
+    }
 }

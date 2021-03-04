@@ -9,7 +9,8 @@ near-sdk = { path = "../../near-sdk" }
 near-sdk-sim = { path = "../../near-sdk-sim" }
 
 # remember to include a line for each contract
-fungible-token = { path = "./ft" }
+fungible-token-basic = { path = "./ft-basic" }
+fungible-token-with-metadata = { path = "./ft-with-metadata" }
 defi = { path = "./test-contract-defi" }
 
 [profile.release]
@@ -24,6 +25,7 @@ overflow-checks = true
 [workspace]
 # remember to include a member for each contract
 members = [
-  "ft",
+  "ft-basic",
+  "ft-with-metadata",
   "test-contract-defi",
 ]

@@ -675,7 +675,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 
 [[package]]
-name = "fungible-token"
+name = "fungible-token-basic"
+version = "1.0.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
+name = "fungible-token-with-metadata"
 version = "1.0.0"
 dependencies = [
  "near-contract-standards",
@@ -687,7 +695,8 @@ name = "fungible-token-wrapper"
 version = "0.0.1"
 dependencies = [
  "defi",
- "fungible-token",
+ "fungible-token-basic",
+ "fungible-token-with-metadata",
  "near-sdk",
  "near-sdk-sim",
 ]
