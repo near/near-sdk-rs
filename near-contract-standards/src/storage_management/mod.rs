@@ -34,6 +34,9 @@ pub trait StorageManagement {
     ///
     /// If predecessor account not registered, contract MUST panic.
     ///
+    /// MUST require exactly 1 yoctoNEAR attached balance to prevent restricted
+    /// function-call access-key call (UX wallet security)
+    ///
     /// Returns the StorageBalance structure showing updated balances.
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance;
 
