@@ -20,6 +20,7 @@ macro_rules! testing_env {
                 None => Default::default(),
             },
             $validator,
+            None,
         )));
     };
     ($context:expr, $config:expr, $fee_config:expr, $validator:expr) => {

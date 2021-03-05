@@ -43,7 +43,9 @@ pub mod near_blockchain {
             sys::block_timestamp()
         }
 
-        unsafe  fn epoch_height(&self) -> u64 { sys::epoch_height() }
+        unsafe fn epoch_height(&self) -> u64 {
+            sys::epoch_height()
+        }
 
         unsafe fn storage_usage(&self) -> u64 {
             sys::storage_usage()
@@ -104,6 +106,8 @@ pub mod near_blockchain {
         unsafe fn log_utf16(&self, len: u64, ptr: u64) {
             sys::log_utf16(len, ptr)
         }
+
+        unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) {}
 
         unsafe fn promise_create(
             &self,
