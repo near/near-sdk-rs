@@ -28,6 +28,7 @@ pub fn setup_with_config(vm_config: VMConfig) {
         vec![],
         storage,
         Default::default(),
+        None,
     )));
 }
 

@@ -77,6 +77,7 @@ macro_rules! method_into_register {
 ///           fees_config,
 ///           vec![],
 ///           storage,
+///           None,
 ///       );
 /// near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// ```
@@ -97,6 +98,7 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 /// #           Default::default(),
 /// #           vec![],
 /// #           Default::default(),
+/// #           None
 /// #       );
 /// # near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// let blockchain_interface = near_sdk::env::take_blockchain_interface();
