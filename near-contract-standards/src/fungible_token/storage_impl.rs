@@ -69,6 +69,7 @@ impl StorageManagement for FungibleToken {
     }
 
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
+        assert_one_yocto();
         if let Some(storage_balance) =
             self.internal_storage_balance_of(&env::predecessor_account_id())
         {

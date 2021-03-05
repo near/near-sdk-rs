@@ -85,6 +85,7 @@ macro_rules! impl_fungible_token_storage {
                 self.$token.storage_deposit(account_id, registration_only)
             }
 
+            #[payable]
             fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
                 self.$token.storage_withdraw(amount)
             }
