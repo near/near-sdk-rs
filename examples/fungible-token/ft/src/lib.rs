@@ -20,6 +20,7 @@ use near_contract_standards::fungible_token::metadata::{
 };
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::LazyOption;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
 
@@ -29,8 +30,10 @@ near_sdk::setup_alloc!();
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     token: FungibleToken,
-    metadata: FungibleTokenMetadata,
+    metadata: LazyOption<FungibleTokenMetadata>,
 }
+
+const BASE_64_NEAR_ICON: &str = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyODggMjg4Ij48ZyBpZD0iTGF5ZXJfMSIgZGF0YS1uYW1lPSJMYXllciAxIj48cGF0aCBkPSJNMTg3LjU4LDc5LjgxbC0zMC4xLDQ0LjY5YTMuMiwzLjIsMCwwLDAsNC43NSw0LjJMMTkxLjg2LDEwM2ExLjIsMS4yLDAsMCwxLDIsLjkxdjgwLjQ2YTEuMiwxLjIsMCwwLDEtMi4xMi43N0wxMDIuMTgsNzcuOTNBMTUuMzUsMTUuMzUsMCwwLDAsOTAuNDcsNzIuNUg4Ny4zNEExNS4zNCwxNS4zNCwwLDAsMCw3Miw4Ny44NFYyMDEuMTZBMTUuMzQsMTUuMzQsMCwwLDAsODcuMzQsMjE2LjVoMGExNS4zNSwxNS4zNSwwLDAsMCwxMy4wOC03LjMxbDMwLjEtNDQuNjlhMy4yLDMuMiwwLDAsMC00Ljc1LTQuMkw5Ni4xNCwxODZhMS4yLDEuMiwwLDAsMS0yLS45MVYxMDQuNjFhMS4yLDEuMiwwLDAsMSwyLjEyLS43N2w4OS41NSwxMDcuMjNhMTUuMzUsMTUuMzUsMCwwLDAsMTEuNzEsNS40M2gzLjEzQTE1LjM0LDE1LjM0LDAsMCwwLDIxNiwyMDEuMTZWODcuODRBMTUuMzQsMTUuMzQsMCwwLDAsMjAwLjY2LDcyLjVoMEExNS4zNSwxNS4zNSwwLDAsMCwxODcuNTgsNzkuODFaIi8+PC9nPjwvc3ZnPg==";
 
 #[near_bindgen]
 impl Contract {
@@ -45,10 +48,7 @@ impl Contract {
                 spec: FT_METADATA_SPEC.to_string(),
                 name: "Example NEAR fungible token".to_string(),
                 symbol: "EXAMPLE".to_string(),
-                icon: Some(
-                    "https://near.org/wp-content/themes/near-19/assets/img/brand-icon.png"
-                        .to_string(),
-                ),
+                icon: Some(BASE_64_NEAR_ICON.to_string()),
                 reference: None,
                 reference_hash: None,
                 decimals: 24,
@@ -66,7 +66,10 @@ impl Contract {
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
-        let mut this = Self { token: FungibleToken::new(b"a"), metadata };
+        let mut this = Self {
+            token: FungibleToken::new(b"a".to_vec()),
+            metadata: LazyOption::new(b"m".to_vec(), Some(&metadata)),
+        };
         this.token.internal_register_account(owner_id.as_ref());
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
@@ -87,7 +90,7 @@ near_contract_standards::impl_fungible_token_ar!(Contract, token, on_account_clo
 #[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
-        self.metadata.clone()
+        self.metadata.get().unwrap()
     }
 }
 
