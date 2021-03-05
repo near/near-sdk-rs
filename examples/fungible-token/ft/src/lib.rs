@@ -20,7 +20,7 @@ use near_contract_standards::fungible_token::metadata::{
 };
 use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
+use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
 
 near_sdk::setup_alloc!();
@@ -29,23 +29,44 @@ near_sdk::setup_alloc!();
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     token: FungibleToken,
-    reference: String,
-    reference_hash: Base64VecU8,
+    metadata: FungibleTokenMetadata,
 }
 
 #[near_bindgen]
 impl Contract {
-    /// Initializes the contract with the given total supply owned by the given `owner_id`.
+    /// Initializes the contract with the given total supply owned by the given `owner_id` with
+    /// default metadata (for example purposes only).
+    #[init]
+    pub fn new_default_meta(owner_id: ValidAccountId, total_supply: U128) -> Self {
+        Self::new(
+            owner_id,
+            total_supply,
+            FungibleTokenMetadata {
+                spec: FT_METADATA_SPEC.to_string(),
+                name: "Example NEAR fungible token".to_string(),
+                symbol: "EXAMPLE".to_string(),
+                icon: Some(
+                    "https://near.org/wp-content/themes/near-19/assets/img/brand-icon.png"
+                        .to_string(),
+                ),
+                reference: None,
+                reference_hash: None,
+                decimals: 24,
+            },
+        )
+    }
+
+    /// Initializes the contract with the given total supply owned by the given `owner_id` with
+    /// the given fungible token metadata.
     #[init]
     pub fn new(
         owner_id: ValidAccountId,
         total_supply: U128,
-        reference: String,
-        reference_hash: Base64VecU8,
+        metadata: FungibleTokenMetadata,
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
-        assert_eq!(reference_hash.0.len(), 32, "Hash has to be 32 bytes");
-        let mut this = Self { token: FungibleToken::new(b"a"), reference, reference_hash };
+        metadata.assert_valid();
+        let mut this = Self { token: FungibleToken::new(b"a"), metadata };
         this.token.internal_register_account(owner_id.as_ref());
         this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
@@ -61,23 +82,12 @@ impl Contract {
 }
 
 near_contract_standards::impl_fungible_token_core!(Contract, token, on_tokens_burned);
-// near_contract_standards::impl_fungible_token_ar!(Contract, token);
 near_contract_standards::impl_fungible_token_ar!(Contract, token, on_account_closed);
 
 #[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
-        FungibleTokenMetadata {
-            spec: FT_METADATA_SPEC.to_string(),
-            name: "Example NEAR fungible token".to_string(),
-            symbol: "EXAMPLE".to_string(),
-            icon: Some(
-                "https://near.org/wp-content/themes/near-19/assets/img/brand-icon.png".to_string(),
-            ),
-            reference: self.reference.clone(),
-            reference_hash: self.reference_hash.clone(),
-            decimals: 24,
-        }
+        self.metadata.clone()
     }
 }
 
@@ -89,8 +99,6 @@ mod tests {
 
     use super::*;
 
-    const REFERENCE: &str =
-        "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
     const TOTAL_SUPPLY: Balance = 1_000_000_000_000_000;
 
     fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
@@ -106,12 +114,7 @@ mod tests {
     fn test_new() {
         let mut context = get_context(accounts(1));
         testing_env!(context.build());
-        let contract = Contract::new(
-            accounts(1).into(),
-            TOTAL_SUPPLY.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into(),
-        );
+        let contract = Contract::new_default_meta(accounts(1).into(), TOTAL_SUPPLY.into());
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, TOTAL_SUPPLY);
         assert_eq!(contract.ft_balance_of(accounts(1)).0, TOTAL_SUPPLY);
@@ -129,12 +132,7 @@ mod tests {
     fn test_transfer() {
         let mut context = get_context(accounts(2));
         testing_env!(context.build());
-        let mut contract = Contract::new(
-            accounts(2).into(),
-            TOTAL_SUPPLY.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into(),
-        );
+        let mut contract = Contract::new_default_meta(accounts(2).into(), TOTAL_SUPPLY.into());
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(contract.ar_registration_fee().into())
