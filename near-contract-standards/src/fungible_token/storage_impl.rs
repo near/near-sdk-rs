@@ -80,7 +80,7 @@ impl StorageManagement for FungibleToken {
                 _ => storage_balance,
             }
         } else {
-            env::panic(b"The account does not exist");
+            env::panic(b"The account is not registered");
         }
     }
 
