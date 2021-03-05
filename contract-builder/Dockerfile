@@ -2,6 +2,7 @@ FROM rust:1.47.0
 
 LABEL description="Container for builds"
 
+RUN rustup install nightly-2020-10-08
 RUN rustup default stable-2020-10-08
 RUN rustup target add wasm32-unknown-unknown
 
