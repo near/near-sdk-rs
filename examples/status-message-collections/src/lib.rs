@@ -3,8 +3,7 @@ use near_sdk::collections::{LookupMap, LookupSet};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{env, near_bindgen};
 
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+near_sdk::setup_alloc!();
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -46,7 +45,10 @@ mod tests {
     use std::convert::TryInto;
 
     fn get_context(is_view: bool) -> VMContext {
-        VMContextBuilder::new().signer_account_id("bob_near".to_string()).is_view(is_view).build()
+        VMContextBuilder::new()
+            .signer_account_id("bob_near".try_into().unwrap())
+            .is_view(is_view)
+            .build()
     }
 
     #[test]

@@ -30,7 +30,7 @@ impl ItemImplInfo {
         };
         let mut res = TokenStream2::new();
         for method in &self.methods {
-            if method.is_public {
+            if method.is_public || self.is_trait_impl {
                 res.extend(method.marshal_method());
             }
         }

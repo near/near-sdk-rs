@@ -4,8 +4,7 @@ use near_sdk::{env, near_bindgen, AccountId, Balance};
 use std::collections::HashMap;
 use std::str::FromStr;
 
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+near_sdk::setup_alloc!();
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Account {

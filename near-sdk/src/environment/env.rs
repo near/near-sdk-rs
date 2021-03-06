@@ -77,6 +77,7 @@ macro_rules! method_into_register {
 ///           fees_config,
 ///           vec![],
 ///           storage,
+///           None,
 ///       );
 /// near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// ```
@@ -97,6 +98,7 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 /// #           Default::default(),
 /// #           vec![],
 /// #           Default::default(),
+/// #           None
 /// #       );
 /// # near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// let blockchain_interface = near_sdk::env::take_blockchain_interface();
@@ -793,6 +795,18 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
 /// Returns `true` if the contract state exists and `false` otherwise.
 pub fn state_exists() -> bool {
     storage_has_key(STATE_KEY)
+}
+
+// #####################################
+// # Parameters exposed by the runtime #
+// #####################################
+
+/// Price per 1 byte of storage from mainnet genesis config.
+/// TODO: will be using the host function when it will be available.
+pub const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
+
+pub fn storage_byte_cost() -> Balance {
+    STORAGE_PRICE_PER_BYTE
 }
 
 // ##################
