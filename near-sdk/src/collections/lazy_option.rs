@@ -129,7 +129,7 @@ mod tests {
     #[test]
     pub fn test_all() {
         test_env::setup();
-        let mut a = LazyOption::new(b"a".to_vec());
+        let mut a = LazyOption::new(b"a".to_vec(), None);
         assert!(a.is_none());
         a.set(&42u32);
         assert!(a.is_some());
@@ -152,8 +152,8 @@ mod tests {
     #[test]
     pub fn test_multi() {
         test_env::setup();
-        let mut a = LazyOption::new(b"a".to_vec());
-        let mut b = LazyOption::new(b"b".to_vec());
+        let mut a = LazyOption::new(b"a".to_vec(), None);
+        let mut b = LazyOption::new(b"b".to_vec(), None);
         assert!(a.is_none());
         assert!(b.is_none());
         a.set(&42u32);
@@ -165,5 +165,13 @@ mod tests {
         assert!(b.is_some());
         assert_eq!(a.get(), Some(42));
         assert_eq!(b.get(), Some(32));
+    }
+
+    #[test]
+    pub fn test_init_value() {
+        test_env::setup();
+        let a = LazyOption::new(b"a".to_vec(), Some(&42u32));
+        assert!(a.is_some());
+        assert_eq!(a.get(), Some(42));
     }
 }
