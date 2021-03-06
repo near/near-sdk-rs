@@ -19,8 +19,6 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     DEFI_WASM_BYTES => "res/defi.wasm",
 }
 
-const REFERENCE: &str = "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
-
 const FT_ID: &str = "ft";
 const DEFI_ID: &str = "defi";
 
@@ -39,11 +37,9 @@ fn init(
         // User deploying the contract,
         signer_account: root,
         // init method
-        init_method: new(
+        init_method: new_default_meta(
             root.account_id().try_into().unwrap(),
-            initial_balance.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into()
+            initial_balance.into()
         )
     );
     let alice = root.create_user("alice".to_string(), to_yocto("100"));

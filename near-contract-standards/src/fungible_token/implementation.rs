@@ -57,12 +57,9 @@ pub struct FungibleToken {
 }
 
 impl FungibleToken {
-    pub fn new(prefix: &[u8]) -> Self {
-        let mut this = Self {
-            accounts: LookupMap::new(prefix.to_vec()),
-            total_supply: 0,
-            account_storage_usage: 0,
-        };
+    pub fn new(prefix: Vec<u8>) -> Self {
+        let mut this =
+            Self { accounts: LookupMap::new(prefix), total_supply: 0, account_storage_usage: 0 };
         this.measure_account_storage_usage();
         this
     }
