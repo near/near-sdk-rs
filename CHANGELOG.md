@@ -1,6 +1,9 @@
 # Changelog
 
 ## `Pending`
+* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
+
+## `3.0.0`
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
 NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
@@ -18,6 +21,10 @@ is to have an assert that validates that the direct caller (predecessor account 
     * Updated a few examples to use `log!` macro
 * Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
 This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
+
+## `2.0.1`
+
+* Pinned version of `syn` crate to `=1.0.57`, since `1.0.58` introduced a breaking API change.
 
 ## `2.0.0`
 
