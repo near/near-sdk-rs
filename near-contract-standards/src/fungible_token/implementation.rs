@@ -224,6 +224,8 @@ impl FungibleTokenResolver for FungibleToken {
         receiver_id: ValidAccountId,
         amount: U128,
     ) -> U128 {
+        //check: MUST only be called as .then() callback from this contract
+        assert_eq!(env::predecessor_account_id(), env::current_account_id());
         self.ft_resolve_transfer_detailed(sender_id.as_ref(), receiver_id, amount).0.into()
     }
 }
