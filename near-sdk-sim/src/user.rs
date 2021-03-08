@@ -319,7 +319,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
-///   init_method: new(master_account_id, initial_balance.into(), "".to_string(), vec![1;32].into())
+///   init_method: new_default_meta(master_account_id, initial_balance.into())
 /// };
 /// ```
 /// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
@@ -342,7 +342,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   signer_account: master_account,
 ///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 ///   gas: near_sdk_sim::DEFAULT_GAS,
-///   init_method: new(master_account_id, initial_balance.into(), "".to_string(), vec![1;32].into())
+///   init_method: new_default_meta(master_account_id, initial_balance.into())
 /// };
 /// ```
 #[doc(inline)]
@@ -409,7 +409,7 @@ macro_rules! deploy {
 /// # signer_account: master_account,
 /// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 /// # gas: near_sdk_sim::DEFAULT_GAS,
-/// # init_method: new(master_account_id.clone(), initial_balance.into(), "".to_string(), vec![1;32].into())
+/// # init_method: new_default_meta(master_account_id.clone(), initial_balance.into())
 /// # };
 /// use near_sdk_sim::to_yocto;
 /// // Uses default values for gas and deposit.
@@ -476,7 +476,7 @@ macro_rules! call {
 /// # signer_account: master_account,
 /// # deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 /// # gas: near_sdk_sim::DEFAULT_GAS,
-/// # init_method: new(master_account_id.clone(), initial_balance.into(), "".to_string(), vec![1;32].into())
+/// # init_method: new_default_meta(master_account_id.clone(), initial_balance.into())
 /// # };
 /// let res = view!(contract.ft_balance_of(master_account_id));
 /// ```
