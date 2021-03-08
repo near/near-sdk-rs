@@ -1,11 +1,10 @@
-use crate::account_registration::AccountRegistrar;
 use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseOrValue,
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, PromiseOrValue,
     PromiseResult, StorageUsage,
 };
 
@@ -170,7 +169,7 @@ impl FungibleToken {
     /// Internal method that returns the amount of burned tokens in a corner case when the sender
     /// has deleted (unregistered) their account while the `ft_transfer_call` was still in flight.
     /// Returns (Used token amount, Burned token amount)
-    pub fn ft_resolve_transfer_detailed(
+    pub fn internal_ft_resolve_transfer(
         &mut self,
         sender_id: &AccountId,
         receiver_id: ValidAccountId,
@@ -221,67 +220,6 @@ impl FungibleTokenResolver for FungibleToken {
         receiver_id: ValidAccountId,
         amount: U128,
     ) -> U128 {
-        self.ft_resolve_transfer_detailed(sender_id.as_ref(), receiver_id, amount).0.into()
-    }
-}
-
-impl FungibleToken {
-    /// Internal method that returns the Account ID and the balance in case the account was
-    /// unregistered.
-    pub fn ar_unregister_detailed(&mut self, force: Option<bool>) -> Option<(AccountId, Balance)> {
-        assert_one_yocto();
-        let account_id = env::predecessor_account_id();
-        let force = force.unwrap_or(false);
-        if let Some(balance) = self.accounts.get(&account_id) {
-            if balance == 0 || force {
-                self.accounts.remove(&account_id);
-                self.total_supply -= balance;
-                Promise::new(account_id.clone()).transfer(self.ar_registration_fee().0 + 1);
-                Some((account_id, balance))
-            } else {
-                env::panic(b"Can't unregister the account with the positive balance without force")
-            }
-        } else {
-            env::log(b"The account is not registered");
-            None
-        }
-    }
-}
-
-impl AccountRegistrar for FungibleToken {
-    fn ar_register(&mut self, account_id: Option<ValidAccountId>) -> bool {
-        let amount = env::attached_deposit();
-        let account_id =
-            account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
-        if self.accounts.contains_key(&account_id) {
-            log!("The account is already registered, refunding the deposit");
-            if amount > 0 {
-                Promise::new(account_id).transfer(amount);
-            }
-            return false;
-        }
-        let ar_registration_fee = self.ar_registration_fee().0;
-        if amount < ar_registration_fee {
-            env::panic(b"The attached deposit is less than the account registration fee");
-        }
-
-        self.internal_register_account(&account_id);
-        let refund = amount - ar_registration_fee;
-        if refund > 0 {
-            Promise::new(account_id).transfer(refund);
-        }
-        true
-    }
-
-    fn ar_is_registered(&self, account_id: ValidAccountId) -> bool {
-        self.accounts.contains_key(account_id.as_ref())
-    }
-
-    fn ar_unregister(&mut self, force: Option<bool>) -> bool {
-        self.ar_unregister_detailed(force).is_some()
-    }
-
-    fn ar_registration_fee(&self) -> U128 {
-        (Balance::from(self.account_storage_usage) * env::storage_byte_cost()).into()
+        self.internal_ft_resolve_transfer(sender_id.as_ref(), receiver_id, amount).0.into()
     }
 }
