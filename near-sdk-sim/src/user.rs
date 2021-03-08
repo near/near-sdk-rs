@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::{cell::RefCell, rc::Rc};
+use std::cell::{Ref, RefMut};
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
@@ -16,8 +17,6 @@ use crate::{
     types::{AccountId, Balance, Gas},
     ExecutionResult, ViewResult,
 };
-use std::cell::{Ref, RefMut};
-use std::{cell::RefCell, rc::Rc};
 
 pub const DEFAULT_GAS: u64 = 300_000_000_000_000;
 pub const STORAGE_AMOUNT: u128 = 50_000_000_000_000_000_000_000_000;
