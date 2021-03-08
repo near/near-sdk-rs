@@ -2,6 +2,8 @@
 
 ## `Pending`
 * Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
+* Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
+* Introduce `LazyOption` to keep a single large value with lazy deserialization.
 
 ## `3.0.0`
 
