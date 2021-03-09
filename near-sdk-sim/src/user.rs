@@ -299,7 +299,7 @@ impl UserAccount {
     /// # Examples
     /// ```
     /// let master_account = near_sdk_sim::init_simulator(None);
-    /// let mut runtime = master_account.runtime();
+    /// let mut runtime = master_account.borrow_runtime_mut();
     ///
     /// // with use
     /// runtime.produce_block().unwrap();
