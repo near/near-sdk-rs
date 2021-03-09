@@ -12,7 +12,7 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
   DEFI_WASM_BYTES => "res/defi.wasm",
 }
 
-const REFERENCE: &str = "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
+const _REFERENCE: &str = "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token";
 
 const FT_ID: &str = "ft";
 const DEFI_ID: &str = "defi";
@@ -37,11 +37,10 @@ fn init(
         // User deploying the contract,
         signer_account: root,
         // init method
-        init_method: new(
+        init_method: 
+          new_default_meta(
             root.account_id().try_into().unwrap(),
-            initial_balance.into(),
-            REFERENCE.to_string(),
-            vec![1; 32].into()
+            initial_balance.into()
         )
     );
     let alice = root.create_user("alice".to_string(), to_yocto("100"));
@@ -65,7 +64,7 @@ fn init(
 fn register_user(contract: &ContractAccount<FtContract>, user: &UserAccount) {
     call!(
         user,
-        contract.ar_register(Some(user.account_id().try_into().unwrap())),
+        contract.storage_deposit(Some(user.account_id().try_into().unwrap()), None),
         deposit = env::storage_byte_cost() * 125
     )
     .assert_success();

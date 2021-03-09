@@ -1,5 +1,4 @@
 use crate::types::CompiledContractCache;
-// use near_store::{create_store, StoreCompiledContractCache};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
@@ -8,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// This provides a disc cache for compiled contracts.
+/// The cached contracts are located `CARGO_MANIFEST_DIR/target/contract_cache`.
 #[derive(Clone)]
 pub struct ContractCache {
     data: Rc<RefCell<HashMap<Vec<u8>, Vec<u8>>>>,
@@ -88,7 +89,7 @@ impl CompiledContractCache for ContractCache {
             let mut file = self.open_file(key)?;
             let mut contents = vec![];
             file.read_to_end(&mut contents)?;
-            self.insert(key, &contents.clone());
+            self.insert(key, &contents);
             return Ok(Some(contents));
         }
         Ok(None)
