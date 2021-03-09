@@ -3,10 +3,10 @@ use crate::{env, AccountId, PromiseResult};
 #[macro_export]
 macro_rules! log {
     ($arg:tt) => {
-        env::log($arg.as_bytes())
+        $crate::env::log($arg.as_bytes())
     };
     ($($arg:tt)*) => {
-        env::log(format!($($arg)*).as_bytes())
+        $crate::env::log(format!($($arg)*).as_bytes())
     };
 }
 
@@ -68,7 +68,6 @@ macro_rules! setup_alloc {
 
 #[cfg(test)]
 mod tests {
-    use crate::env;
     use crate::test_utils::{get_logs, test_env};
 
     #[test]

@@ -85,7 +85,7 @@ impl Contract {
 }
 
 near_contract_standards::impl_fungible_token_core!(Contract, token, on_tokens_burned);
-near_contract_standards::impl_fungible_token_ar!(Contract, token, on_account_closed);
+near_contract_standards::impl_fungible_token_storage!(Contract, token, on_account_closed);
 
 #[near_bindgen]
 impl FungibleTokenMetadataProvider for Contract {
@@ -138,11 +138,11 @@ mod tests {
         let mut contract = Contract::new_default_meta(accounts(2).into(), TOTAL_SUPPLY.into());
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(contract.ar_registration_fee().into())
+            .attached_deposit(contract.storage_balance_bounds().min.into())
             .predecessor_account_id(accounts(1))
             .build());
         // Paying for account registration, aka storage deposit
-        contract.ar_register(None);
+        contract.storage_deposit(None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())

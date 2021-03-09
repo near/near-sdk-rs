@@ -63,7 +63,7 @@ fn init(
 fn register_user(contract: &ContractAccount<FtContract>, user: &UserAccount) {
     call!(
         user,
-        contract.ar_register(Some(user.account_id().try_into().unwrap())),
+        contract.storage_deposit(Some(user.account_id().try_into().unwrap()), None),
         deposit = env::storage_byte_cost() * 125
     )
     .assert_success();
@@ -107,7 +107,7 @@ fn simulate_close_account_empty_balance() {
     let initial_balance = to_yocto("100000");
     let (_root, ft, _, alice) = init(initial_balance);
 
-    let outcome = call!(alice, ft.ar_unregister(None), deposit = 1);
+    let outcome = call!(alice, ft.storage_unregister(None), deposit = 1);
     outcome.assert_success();
     let result: bool = outcome.unwrap_json();
     assert!(result);
@@ -118,12 +118,12 @@ fn simulate_close_account_non_empty_balance() {
     let initial_balance = to_yocto("100000");
     let (root, ft, _, _alice) = init(initial_balance);
 
-    let outcome = call!(root, ft.ar_unregister(None), deposit = 1);
+    let outcome = call!(root, ft.storage_unregister(None), deposit = 1);
     assert!(!outcome.is_ok(), "Should panic");
     assert!(format!("{:?}", outcome.status())
         .contains("Can't unregister the account with the positive balance without force"));
 
-    let outcome = call!(root, ft.ar_unregister(Some(false)), deposit = 1);
+    let outcome = call!(root, ft.storage_unregister(Some(false)), deposit = 1);
     assert!(!outcome.is_ok(), "Should panic");
     assert!(format!("{:?}", outcome.status())
         .contains("Can't unregister the account with the positive balance without force"));
@@ -134,7 +134,7 @@ fn simulate_close_account_force_non_empty_balance() {
     let initial_balance = to_yocto("100000");
     let (root, ft, _, _alice) = init(initial_balance);
 
-    let outcome = call!(root, ft.ar_unregister(Some(true)), deposit = 1);
+    let outcome = call!(root, ft.storage_unregister(Some(true)), deposit = 1);
     assert_eq!(
         outcome.logs()[0],
         format!("Closed @{} with {}", root.account_id(), initial_balance)
@@ -173,7 +173,7 @@ fn simulate_transfer_call_with_burned_amount() {
             1,
         )
         .function_call(
-            "ar_unregister".to_string(),
+            "storage_unregister".to_string(),
             json!({
                 "force": true
             })
