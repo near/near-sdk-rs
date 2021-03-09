@@ -6,7 +6,7 @@ use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, Promise, PromiseOrValue,
-    PromiseResult, StorageUsage,
+    PromiseResult, StorageUsage,utils::assert_self
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -16,6 +16,7 @@ const NO_DEPOSIT: Balance = 0;
 
 #[ext_contract(ext_self)]
 trait FungibleTokenResolver {
+
     fn ft_resolve_transfer(
         &mut self,
         sender_id: AccountId,
@@ -224,8 +225,7 @@ impl FungibleTokenResolver for FungibleToken {
         receiver_id: ValidAccountId,
         amount: U128,
     ) -> U128 {
-        //check: MUST only be called as .then() callback from this contract
-        assert_eq!(env::predecessor_account_id(), env::current_account_id());
+        assert_self(); //check: MUST only be called as .then() callback from this contract
         self.ft_resolve_transfer_detailed(sender_id.as_ref(), receiver_id, amount).0.into()
     }
 }

@@ -3,6 +3,7 @@ use near_sdk_sim::{
     STORAGE_AMOUNT,
 };
 extern crate cross_contract_high_level;
+//Note: the struct xxxxxxContract is created by #[near_bindgen] (near_skd_rs~2.0.4)
 use cross_contract_high_level::CrossContractContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
