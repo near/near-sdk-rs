@@ -7,12 +7,12 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
+    name: "${{ matrix.platform }} ${{ matrix.toolchain }} RELEASE: ${{ matrix.ENV}}"
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         ENV: [true, false]
-        toolchan: [stable, nightly]
+        toolchain: [stable, nightly]
     steps:
       - uses: actions/checkout@v2
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
