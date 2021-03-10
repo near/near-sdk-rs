@@ -23,7 +23,7 @@ use near_primitives::views::ViewApplyState;
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
-use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
+use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
@@ -238,7 +238,7 @@ impl RuntimeStandalone {
 
     /// Processes one block. Populates outcomes and producining new pending_receipts.
     pub fn produce_block(&mut self) -> Result<(), RuntimeError> {
-        let profile_data = ProfileData::new();
+        let profile_data = ProfileData::default();
         let apply_state = ApplyState {
             block_index: self.cur_block.block_height,
             prev_block_hash: Default::default(),
@@ -252,7 +252,7 @@ impl RuntimeStandalone {
             current_protocol_version: PROTOCOL_VERSION,
             config: Arc::from(self.genesis.runtime_config.clone()),
             cache: None,
-            profile: Some(profile_data.clone()),
+            profile: profile_data.clone(),
             block_hash: Default::default(),
         };
 
