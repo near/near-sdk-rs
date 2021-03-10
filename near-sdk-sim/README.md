@@ -217,6 +217,7 @@ fn simulate_some_change_method() {
     let (root, contract) = init();
 
     let result = call!(
+        root,
         contract.change_something("some_value".to_string()),
         gas = DEFAULT_GAS / 2,
         deposit = 0
