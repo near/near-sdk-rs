@@ -184,7 +184,6 @@ use token::TokenContract;
 
 Now you can simplify the `init` & test code from the previous section:
 
-```
 ```rust
 use near_sdk::serde_json::json;
 use near_sdk_sim::{DEFAULT_GAS, STORAGE_AMOUNT, call, deploy, init_simulator, to_yocto, view};
