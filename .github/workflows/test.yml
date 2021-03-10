@@ -16,12 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
-        uses: actions-rs/toolchain@v1
+        uses: hecrj/setup-rust-action@v1
         with:
-          profile: minimal
-          toolchain: ${{ matrix.toolchain }}
+          rust-version: ${{ matrix.toolchain }}
           components: rustfmt, clippy
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
       - name: Test
         env:
           NEAR_RELEASE: ${{ matrix.ENV }}
