@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+rustup target add wasm32-unknown-unknown
 pushd $(dirname ${BASH_SOURCE[0]})
 
 for d in "status-message"  $(ls -d */ | grep -v -e "status-message\/$"); do
