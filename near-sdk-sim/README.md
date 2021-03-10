@@ -226,3 +226,35 @@ fn simulate_some_change_method() {
     assert!(result.is_ok());
 }
 ```
+
+# Common patterns
+
+## Profile gas costs
+
+TODO
+
+
+## Profile storage costs
+
+TODO
+
+
+## Inspect intermediate state of all calls in a complicated chain of transactions 
+
+TODO
+
+
+## Check expected transaction failures
+
+
+# Tweaking the genesis config
+
+For many simulation tests, using `init_simulator(None)` is good enough. This uses the [default genesis configuration settings](https://github.com/near/near-sdk-rs/blob/0a9a56f1590e1f19efc974160c88f32efcb91ef4/near-sdk-sim/src/runtime.rs#L59-L72).
+
+## Why would you want to change these?
+
+TODO
+
+## How do you change them?
+
+TODO
