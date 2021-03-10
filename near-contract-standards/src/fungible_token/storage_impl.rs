@@ -23,7 +23,7 @@ impl FungibleToken {
                 env::panic(b"Can't unregister the account with the positive balance without force")
             }
         } else {
-            env::log(format!("The account {} is not registered", &account_id).as_bytes());
+            log!("The account {} is not registered", &account_id);
             None
         }
     }
