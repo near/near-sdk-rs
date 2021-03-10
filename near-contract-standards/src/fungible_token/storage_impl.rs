@@ -23,7 +23,7 @@ impl FungibleToken {
                 env::panic(b"Can't unregister the account with the positive balance without force")
             }
         } else {
-            env::log(b"The account is not registered");
+            log!("The account {} is not registered", &account_id);
             None
         }
     }
@@ -70,9 +70,8 @@ impl StorageManagement for FungibleToken {
 
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         assert_one_yocto();
-        if let Some(storage_balance) =
-            self.internal_storage_balance_of(&env::predecessor_account_id())
-        {
+        let predecessor_account_id = env::predecessor_account_id();
+        if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
             match amount {
                 Some(amount) if amount.0 > 0 => {
                     env::panic(b"The amount is greater than the available storage balance");
@@ -80,7 +79,9 @@ impl StorageManagement for FungibleToken {
                 _ => storage_balance,
             }
         } else {
-            env::panic(b"The account is not registered");
+            env::panic(
+                format!("The account {} is not registered", &predecessor_account_id).as_bytes(),
+            );
         }
     }
 

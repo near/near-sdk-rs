@@ -1,7 +1,8 @@
 use std::convert::TryInto;
 
 use defi::*;
-/// Import the generated proxy contract
+// Note: the struct xxxxxxContract is created by #[near_bindgen] from near-sdk in combination with
+// near-sdk-sim
 use fungible_token::ContractContract as FtContract;
 
 use near_sdk::serde_json::json;
