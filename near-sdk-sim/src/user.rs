@@ -1,8 +1,10 @@
+use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::{cell::RefCell, rc::Rc};
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
+use near_sdk::json_types::ValidAccountId;
 use near_sdk::utils::PendingContractTx;
 
 use crate::runtime::init_runtime;
@@ -143,6 +145,9 @@ impl UserAccount {
     pub fn account_id(&self) -> AccountId {
         self.account_id.clone()
     }
+    pub fn valid_account_id(&self) -> ValidAccountId {
+        self.account_id().try_into().unwrap()
+    }
     /// Look up the account information on chain.
     pub fn account(&self) -> Option<Account> {
         (*self.runtime).borrow().view_account(&self.account_id)
@@ -160,29 +165,29 @@ impl UserAccount {
         deposit: Balance,
         gas: Gas,
     ) -> ExecutionResult {
-      self.call(pending_tx.receiver_id.clone(),
-          &pending_tx.method,
-          &pending_tx.args,
-          gas,
-          deposit,
-      )
-        
+        self.call(
+            pending_tx.receiver_id.clone(),
+            &pending_tx.method,
+            &pending_tx.args,
+            gas,
+            deposit,
+        )
     }
 
     pub fn call(
-      &self,
-      receiver_id: AccountId,
-      method: &str, 
-      args: &[u8],
-      gas: Gas,
-      deposit: Balance,
-  ) -> ExecutionResult {
+        &self,
+        receiver_id: AccountId,
+        method: &str,
+        args: &[u8],
+        gas: Gas,
+        deposit: Balance,
+    ) -> ExecutionResult {
         self.submit_transaction(self.transaction(receiver_id).function_call(
-          method.to_string(),
-          args.into(),
-          gas,
-          deposit,
-      ))
+            method.to_string(),
+            args.into(),
+            gas,
+            deposit,
+        ))
     }
 
     /// Deploy a contract and create its account for `account_id`.
@@ -240,7 +245,7 @@ impl UserAccount {
             .nonce
             + 1;
         Transaction::new(
-            self.account_id.clone(),
+            self.account_id(),
             self.signer.public_key(),
             receiver_id,
             nonce,
@@ -264,19 +269,11 @@ impl UserAccount {
     /// Call a view method on a contract.
     /// Note: You will most likely not be using this method directly but rather the [`view!`](./macros.view.html) macro.
     pub fn view_method_call(&self, pending_tx: PendingContractTx) -> ViewResult {
-        self.view(
-          pending_tx.receiver_id,
-          &pending_tx.method,
-          &pending_tx.args,
-      )
+        self.view(pending_tx.receiver_id, &pending_tx.method, &pending_tx.args)
     }
 
     pub fn view(&self, receiver_id: AccountId, method: &str, args: &[u8]) -> ViewResult {
-      (*self.runtime).borrow().view_method_call(
-        &receiver_id,
-        method,
-        args,
-    )
+        (*self.runtime).borrow().view_method_call(&receiver_id, method, args)
     }
 
     /// Creates a user and is signed by the `signer_user`
@@ -296,7 +293,7 @@ impl UserAccount {
                     .transfer(amount),
             )
             .assert_success();
-        UserAccount { runtime: Rc::clone(&self.runtime), account_id, signer }
+        UserAccount::new(&self.runtime, account_id, signer)
     }
 
     /// Create a new user where the signer is this user account
@@ -309,6 +306,15 @@ impl UserAccount {
 pub struct ContractAccount<T> {
     pub user_account: UserAccount,
     pub contract: T,
+}
+
+impl<T> ContractAccount<T> {
+    pub fn account_id(&self) -> AccountId {
+        self.user_account.account_id()
+    }
+    pub fn valid_account_id(&self) -> ValidAccountId {
+        self.user_account.valid_account_id()
+    }
 }
 
 /// The simulator takes an optional GenesisConfig, which sets up the fees and other settings.
