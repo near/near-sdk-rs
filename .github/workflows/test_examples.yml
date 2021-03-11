@@ -26,6 +26,6 @@ jobs:
       - name: Build
         env: 
           RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
       - name: Test
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --all
