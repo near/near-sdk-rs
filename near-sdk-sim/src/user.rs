@@ -157,32 +157,32 @@ impl UserAccount {
     pub fn function_call(
         &self,
         pending_tx: PendingContractTx,
-        deposit: Balance,
         gas: Gas,
+        deposit: Balance,
     ) -> ExecutionResult {
-      self.call(pending_tx.receiver_id.clone(),
-          &pending_tx.method,
-          &pending_tx.args,
-          gas,
-          deposit,
-      )
-        
+        self.call(
+            pending_tx.receiver_id.clone(),
+            &pending_tx.method,
+            &pending_tx.args,
+            gas,
+            deposit,
+        )
     }
 
     pub fn call(
-      &self,
-      receiver_id: AccountId,
-      method: &str, 
-      args: &[u8],
-      gas: Gas,
-      deposit: Balance,
-  ) -> ExecutionResult {
+        &self,
+        receiver_id: AccountId,
+        method: &str,
+        args: &[u8],
+        gas: Gas,
+        deposit: Balance,
+    ) -> ExecutionResult {
         self.submit_transaction(self.transaction(receiver_id).function_call(
-          method.to_string(),
-          args.into(),
-          gas,
-          deposit,
-      ))
+            method.to_string(),
+            args.into(),
+            gas,
+            deposit,
+        ))
     }
 
     /// Deploy a contract and create its account for `account_id`.
@@ -264,19 +264,11 @@ impl UserAccount {
     /// Call a view method on a contract.
     /// Note: You will most likely not be using this method directly but rather the [`view!`](./macros.view.html) macro.
     pub fn view_method_call(&self, pending_tx: PendingContractTx) -> ViewResult {
-        self.view(
-          pending_tx.receiver_id,
-          &pending_tx.method,
-          &pending_tx.args,
-      )
+        self.view(pending_tx.receiver_id, &pending_tx.method, &pending_tx.args)
     }
 
     pub fn view(&self, receiver_id: AccountId, method: &str, args: &[u8]) -> ViewResult {
-      (*self.runtime).borrow().view_method_call(
-        &receiver_id,
-        method,
-        args,
-    )
+        (*self.runtime).borrow().view_method_call(&receiver_id, method, args)
     }
 
     /// Creates a user and is signed by the `signer_user`
@@ -464,7 +456,7 @@ macro_rules! deploy {
 #[macro_export]
 macro_rules! call {
     ($signer:expr, $deposit: expr, $gas: expr, $contract: ident, $method:ident, $($arg:expr),*) => {
-        $signer.function_call((&$contract).contract.$method($($arg),*), $deposit, $gas)
+        $signer.function_call((&$contract).contract.$method($($arg),*), $gas, $deposit)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), $deposit: expr, $gas: expr) => {
         call!($signer, $deposit, $gas, $contract, $method, $($arg),*)
