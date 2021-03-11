@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::{cell::RefCell, rc::Rc};
+use std::cell::{Ref, RefMut};
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
@@ -277,6 +278,34 @@ impl UserAccount {
     /// Create a new user where the signer is this user account
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> UserAccount {
         self.create_user_from(&self, account_id, amount)
+    }
+
+    /// Returns a reference to a memory location of the standalone runtime.
+    ///
+    /// # Examples
+    /// ```
+    /// let master_account = near_sdk_sim::init_simulator(None);
+    /// let runtime = master_account.borrow_runtime();
+    ///
+    /// // with use
+    /// let _block = runtime.current_block();
+    /// ```
+    pub fn borrow_runtime(&self) -> Ref<RuntimeStandalone> {
+        (*self.runtime).borrow()
+    }
+
+    /// Returns a mutable memory location to the standalone runtime.
+    ///
+    /// # Examples
+    /// ```
+    /// let master_account = near_sdk_sim::init_simulator(None);
+    /// let mut runtime = master_account.borrow_runtime_mut();
+    ///
+    /// // with use
+    /// runtime.produce_block().unwrap();
+    /// ```
+    pub fn borrow_runtime_mut(&self) -> RefMut<RuntimeStandalone> {
+        (*self.runtime).borrow_mut()
     }
 }
 
