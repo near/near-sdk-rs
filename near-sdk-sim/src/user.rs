@@ -207,30 +207,42 @@ impl UserAccount {
 
     /// Deploy a contract and in the same transaction call its initialization method.
     /// Note: You will most likely not be using this method directly but rather the [`deploy!`](./macro.deploy.html) macro.
-    pub fn deploy_and_init(
+    pub fn deploy_and_initialize(
         &self,
         wasm_bytes: &[u8],
         pending_tx: PendingContractTx,
         deposit: Balance,
         gas: Gas,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(
-            &pending_tx.receiver_id,
-            KeyType::ED25519,
-            &pending_tx.receiver_id,
-        );
-        let account_id = pending_tx.receiver_id.clone();
-        self.submit_transaction(
-            self.transaction(pending_tx.receiver_id)
-                .create_account()
-                .add_key(signer.public_key(), AccessKey::full_access())
-                .transfer(deposit)
-                .deploy_contract(wasm_bytes.to_vec())
-                .function_call(pending_tx.method, pending_tx.args, gas, 0),
-        )
-        .assert_success();
-        UserAccount::new(&self.runtime, account_id, signer)
+        self.deploy_and_init(wasm_bytes, pending_tx.receiver_id, &pending_tx.method, &pending_tx.args, deposit, gas)
     }
+
+    pub fn deploy_and_init(
+      &self,
+      wasm_bytes: &[u8],
+      account_id: AccountId,
+      method: &str, 
+      args: &[u8],
+      deposit: Balance,
+      gas: Gas,
+  ) -> UserAccount {
+      let signer = InMemorySigner::from_seed(
+          &account_id,
+          KeyType::ED25519,
+          &account_id,
+      );
+      let account_id = account_id.clone();
+      self.submit_transaction(
+          self.transaction(account_id.clone())
+              .create_account()
+              .add_key(signer.public_key(), AccessKey::full_access())
+              .transfer(deposit)
+              .deploy_contract(wasm_bytes.to_vec())
+              .function_call(method.to_string(), args.to_vec(), gas, 0),
+      )
+      .assert_success();
+      UserAccount::new(&self.runtime, account_id, signer)
+  }
 
     fn transaction(&self, receiver_id: AccountId) -> Transaction {
         let nonce = (*self.runtime)
@@ -378,7 +390,7 @@ macro_rules! deploy {
            {
                let __contract = $contract { account_id: $account_id.to_string() };
                near_sdk_sim::ContractAccount {
-                   user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
+                   user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
                }
            }
