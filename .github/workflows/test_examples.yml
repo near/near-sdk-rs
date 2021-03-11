@@ -26,6 +26,6 @@ jobs:
           components: rustfmt, clippy
           target: wasm32-unknown-unknown
       - name: Build
-        run: ./examples/${{matrix.example}}.sh
+        run: ./examples/${{matrix.example}}/build.sh
       - name: Test
         run: cargo test --manifest-path=./examples/${{ matrix.example }}/Cargo.toml
