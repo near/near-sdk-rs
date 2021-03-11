@@ -22,4 +22,4 @@ jobs:
           components: rustfmt, clippy
           target: wasm32-unknown-unknown
       - name: Test
-        run: cargo test --all
+        run: ./ci-test.sh
