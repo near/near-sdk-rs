@@ -14,6 +14,8 @@ To view this documentation locally, clone this repo and from this folder run `ca
 
 # Getting started
 
+This section will guide you through our suggested approach to adding simulation tests to your project. Want an example? Check out the [Fungible Token Example](https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token).
+
 ## Dependency versions
 
 Currently this crate depends on a the GitHub repo of [nearcore](https://github.com/near/nearcore), so this crate must be a git dependency too. Furthermore, this crate's dependencies conflict with building the Wasm smart contract, so you must add it under the following:
@@ -71,14 +73,14 @@ Other cleanup:
 * You can remove the nested project's `target`, since all workspace members will be built to the root project's `target` directory
 * If you were building with `cargo build`, you can now build all workspace members at once with `cargo build --all`
 
-**Want an example?** Check out [examples/fungible-token](../examples/fungible-token).
 
+## Test files
 
-## Test file
+In the root of your project (`contract-wrap` in the example above), create a `tests` directory with a Rust file inside. Anything in here will automatically be run by `cargo test`.
 
-In the root of your project (`contract-wrap` in the example above), create a `tests` directory with a Rust file inside. It's common to call this `tests/general.rs`.
+Inside this folder, set up a new test crate for yourself by creating a `tests/sim` directory with a `tests/sim/main.rs` file. This file will glue together the other files (aka modules) in this folder. We'll add things to it soon. For now you can leave it empty.
 
-In this file you will need to include the bytes of the contract(s) you want to test:
+Now create a `tests/sim/utils.rs` file. This file will export common functions for all your tests. In it you need to include the bytes of the contract(s) you want to test:
 
 ```rust
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
@@ -97,58 +99,70 @@ Now you can make a function to initialize your simulator:
 ```rust
 use near_sdk_sim::{init_simulator, to_yocto, STORAGE_AMOUNT};
 
-fn init() {
-    // Use `None` for default genesis configuration
+const CONTRACT_ID: &str = "contract";
+
+pub fn init() -> (UserAccount, UserAccount, UserAccount) {
+    // Use `None` for default genesis configuration; more info below
     let root = init_simulator(None);
 
-    let contract = root.create_user(
-        CONTRACT_ID.to_string(), // account id
-        to_yocto("100"),         // initial balance
-    );
-
-    let contract = contract.deploy(
+    let contract = root.deploy(
         &CONTRACT_WASM_BYTES,
         CONTRACT_ID.to_string(),
-        STORAGE_AMOUNT
+        STORAGE_AMOUNT // attached deposit
     );
 
-    (root, contract)
+    let alice = root.create_user(
+        "alice".to_string(),
+        to_yocto("100") // initial balance
+    );
+
+    (root, contract, alice)
 }
 ```
 
-Now you can start writing tests:
+Now you can add a test file that uses this `init` function in `tests/sim/first_tests.rs`. For every file you add to this directory, you'll need to add a line to `tests/sim/main.rs`. Let's add one for both files so far:
+
+```rust
+// in tests/sim/main.rs
+mod utils;
+mod first_tests;
+```
+
+Now add some tests to `first_tests.rs`:
 
 ```rust
 use near_sdk::serde_json::json;
 use near_sdk_sim::DEFAULT_GAS;
 
+use crate::utils::init;
+
 #[test]
 fn simulate_some_view_function() {
-    let (root, contract) = init();
+    let (root, contract, _alice) = init();
 
     let actual: String = root.view(
-        CONTRACT_ID.to_string(),
-        "view_something".to_string(),
-        json!({
+        contract.account_id(),
+        "view_something",
+        &json!({
             "some_param": "some_value".to_string(),
-        }).to_string().into_bytes()
+        }).to_string().into_bytes(),
     ).unwrap_json();
 
-    assert_eq!("expected", actual);
+    assert_eq!("expected".to_string(), actual);
 }
 
 #[test]
 fn simulate_some_change_method() {
-    let (root, contract) = init();
+    let (root, contract, _alice) = init();
 
     let result = root.call(
-        CONTRACT_ID.to_string(),
-        "change_something".to_string(),
+        contract.account_id(),
+        "change_something",
         json!({
             "some_param": "some_value".to_string(),
-        }).to_string().into_bytes()
-        DEFAULT_GAS / 2,
-        0 // attached deposit
+        }).to_string().into_bytes(),
+        DEFAULT_GAS,
+        1, // deposit
     );
 
     assert!(result.is_ok());
@@ -180,15 +194,21 @@ Then in your simulation test you can import `TokenContract`:
 
 ```rust
 use token::TokenContract;
+
+// or rename it maybe
+use token::TokenContract as OtherNamedContract;
 ```
 
 Now you can simplify the `init` & test code from the previous section:
 
 ```rust
-use near_sdk::serde_json::json;
-use near_sdk_sim::{DEFAULT_GAS, STORAGE_AMOUNT, call, deploy, init_simulator, to_yocto, view};
+// in utils.rs
+use near_sdk_sim::{deploy, init_simulator, to_yocto, STORAGE_AMOUNT};
+use token::TokenContract;
 
-fn init() {
+const CONTRACT_ID: &str = "contract";
+
+pub fn init() -> (UserAccount, ContractAccount<TokenContract>, UserAccount) {
     let root = init_simulator(None);
 
     let contract = deploy!(
@@ -198,12 +218,21 @@ fn init() {
         signer_account: root,
     );
 
-    (root, contract)
+    let alice = root.create_user(
+        "alice".to_string(),
+        to_yocto("100") // initial balance
+    );
+
+    (root, contract, alice)
 }
+
+// in first_tests.rs
+use near_sdk_sim::{call, view};
+use crate::utils::init;
 
 #[test]
 fn simulate_some_view_function() {
-    let (root, contract) = init();
+    let (root, contract, _alice) = init();
 
     let actual: String = view!(
         contract.view_something("some_value".to_string()),
@@ -214,13 +243,13 @@ fn simulate_some_view_function() {
 
 #[test]
 fn simulate_some_change_method() {
-    let (root, contract) = init();
+    let (root, contract, _alice) = init();
 
+    // uses default gas amount
     let result = call!(
         root,
         contract.change_something("some_value".to_string()),
-        gas = DEFAULT_GAS / 2,
-        deposit = 0
+        deposit = 1,
     );
 
     assert!(result.is_ok());
@@ -245,6 +274,8 @@ TODO
 
 
 ## Check expected transaction failures
+
+TODO
 
 
 # Tweaking the genesis config
