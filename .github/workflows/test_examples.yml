@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable, beta]
+        toolchain: [stable-2020-10-08, beta]
         example: [cross-contract-high-level, gas-fee-tester, status-message-collections,cross-contract-low-level, lockable-fungible-token, status-message, fungible-token, mission-control, test-contract]
           
     steps:
@@ -26,6 +26,6 @@ jobs:
       - name: Build
         env: 
           RUSTFLAGS: '-C link-arg=-s'
-        run: cargo build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
       - name: Test
-        run: cargo test --manifest-path=./examples/${{ matrix.example }}/Cargo.toml
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml
