@@ -12,9 +12,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable, beta]
-        example: [cross-contract-high-level, gas-fee-tester, status-message-collections,
-                  cross-contract-low-level, lockable-fungible-token, status-message,
-                  fungible-token, mission-control, test-contract]
+        example: [cross-contract-high-level, gas-fee-tester, status-message-collections,cross-contract-low-level, lockable-fungible-token, status-message, fungible-token, mission-control, test-contract]
           
     steps:
       - uses: actions/checkout@v2
@@ -26,6 +24,8 @@ jobs:
           components: rustfmt, clippy
           target: wasm32-unknown-unknown
       - name: Build
-        run: ./examples/${{matrix.example}}/build.sh
+        env: 
+          RUSTFLAGS: '-C link-arg=-s'
+        run: cargo build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
       - name: Test
         run: cargo test --manifest-path=./examples/${{ matrix.example }}/Cargo.toml
