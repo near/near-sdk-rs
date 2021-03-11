@@ -27,3 +27,7 @@ members = [
   "ft",
   "test-contract-defi",
 ]
+
+[[example]]
+name = "heavy"
+
