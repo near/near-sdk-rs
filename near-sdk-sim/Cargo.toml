@@ -17,7 +17,7 @@ near-store = "0.1.0-pre.1"
 near-runtime = "4.0.0-pre.1"
 
 lazy-static-include = "3"
-
+# Temporary workaround see https://github.com/bitvecto-rs/bitvec/issues/105
 funty = "=1.1.0"
 
 [dev-dependencies]
@@ -29,3 +29,4 @@ fungible-token = { path="../examples/fungible-token/ft" }
 default = []
 no_cache = ["near-store/no_cache", "near-runtime/no_cache"]
 no_sim = []
+no_contract_cache = []
