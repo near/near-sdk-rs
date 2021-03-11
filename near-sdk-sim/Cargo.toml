@@ -16,6 +16,8 @@ lazy-static-include = "3"
 near-pool = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 near-store = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 node-runtime = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80", features=["costs_counting"] }
+
+# Temporary workaround see https://github.com/bitvecto-rs/bitvec/issues/105
 funty = "=1.1.0"
 
 [dev-dependencies]
@@ -27,3 +29,4 @@ fungible-token = { path="../examples/fungible-token/ft" }
 default = []
 no_cache = ["near-store/no_cache", "node-runtime/no_cache"]
 no_sim = []
+no_contract_cache = []
