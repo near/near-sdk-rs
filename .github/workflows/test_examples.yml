@@ -12,7 +12,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable-2020-10-08]
-        example: [cross-contract-high-level, gas-fee-tester, status-message-collections,cross-contract-low-level, lockable-fungible-token, status-message, fungible-token, mission-control, test-contract]
+        example: [cross-contract-high-level, cross-contract-low-level, fungible-token]
           
     steps:
       - uses: actions/checkout@v2
