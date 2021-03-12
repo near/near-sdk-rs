@@ -352,8 +352,20 @@ impl RuntimeStandalone {
         ViewResult::new(result, logs)
     }
 
-    pub fn current_block(&mut self) -> &mut Block {
-        &mut self.cur_block
+    /// Returns a reference to the current block.
+    ///
+    /// # Examples
+    /// ```
+    /// use near_sdk_sim::runtime::init_runtime;
+    /// let (mut runtime, _, _) = init_runtime(None);
+    /// runtime.produce_block().unwrap();
+    /// runtime.current_block();
+    /// assert_eq!(runtime.current_block().block_height, 1);
+    /// runtime.produce_blocks(4).unwrap();
+    /// assert_eq!(runtime.current_block().block_height, 5);
+    /// ```
+    pub fn current_block(&self) -> &Block {
+        &self.cur_block
     }
 
     pub fn pending_receipts(&self) -> &[Receipt] {
@@ -491,12 +503,7 @@ mod tests {
         let (_, res) = res.unwrap();
         runtime.process_all().unwrap();
 
-        assert!(
-            matches!(
-                res,
-                ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }
-            )
-        );
+        assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
         let res = runtime.view_method_call(
             &"status",
             "get_status",
