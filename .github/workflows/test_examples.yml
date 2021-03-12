@@ -7,7 +7,7 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.platform }} ${{ matrix.toolchain }} ${{ matrix.example }}"
+    name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
@@ -16,13 +16,15 @@ jobs:
           
     steps:
       - uses: actions/checkout@v2
-      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
+      - name: "${{ matrix.toolchain }} with and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          components: rustfmt, clippy
           target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: ./examples/${{ matrix.example }}
       - name: Build
         env: 
           RUSTFLAGS: '-C link-arg=-s'
