@@ -30,14 +30,8 @@ const DEFAULT_EPOCH_LENGTH: u64 = 3;
 pub fn init_runtime(
     genesis_config: Option<GenesisConfig>,
 ) -> (RuntimeStandalone, InMemorySigner, String) {
-    let mut genesis: GenesisConfig;
-    if let Some(config) = genesis_config {
-        genesis = config;
-    } else {
-        genesis = GenesisConfig::default();
-        genesis.gas_limit = u64::max_value();
-        genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
-    }
+    let mut genesis = genesis_config.unwrap_or_default();
+    genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
     let root_account_id = "root".to_string();
     let signer = genesis.init_root_signer(&root_account_id);
     let runtime = RuntimeStandalone::new_with_store(genesis);
