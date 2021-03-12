@@ -274,7 +274,7 @@ let outcome = some_account.call(
 );
 
 println!(
-    "profile_data: {:#?}, \n\ntokens_burnt: {}Ⓝ",
+    "profile_data: {:#?} \n\ntokens_burnt: {}Ⓝ",
     outcome.profile_data(),
     (outcome.tokens_burnt()) as f64 / f64::powi(10.0, 24)
 );
@@ -288,6 +288,43 @@ TeraGas units are [explained here](https://docs.near.org/docs/concepts/gas#think
 Remember to run tests with `--nocapture` to see output from `println!`:
 
     cargo test -- --nocapture
+
+The output from this `println!` might look something like this:
+
+    profile_data: ------------------------------
+    Total gas: 1891395594588
+    Host gas: 1595600369775 [84% total]
+    Action gas: 0 [0% total]
+    Wasm execution: 295795224813 [15% total]
+    ------ Host functions --------
+    base -> 7678275219 [0% total, 0% host]
+    contract_compile_base -> 35445963 [0% total, 0% host]
+    contract_compile_bytes -> 48341969250 [2% total, 3% host]
+    read_memory_base -> 28708495200 [1% total, 1% host]
+    read_memory_byte -> 634822611 [0% total, 0% host]
+    write_memory_base -> 25234153749 [1% total, 1% host]
+    write_memory_byte -> 539306856 [0% total, 0% host]
+    read_register_base -> 20137321488 [1% total, 1% host]
+    read_register_byte -> 17938284 [0% total, 0% host]
+    write_register_base -> 25789702374 [1% total, 1% host]
+    write_register_byte -> 821137824 [0% total, 0% host]
+    utf8_decoding_base -> 3111779061 [0% total, 0% host]
+    utf8_decoding_byte -> 15162184908 [0% total, 0% host]
+    log_base -> 3543313050 [0% total, 0% host]
+    log_byte -> 686337132 [0% total, 0% host]
+    storage_write_base -> 192590208000 [10% total, 12% host]
+    storage_write_key_byte -> 1621105941 [0% total, 0% host]
+    storage_write_value_byte -> 2047223574 [0% total, 0% host]
+    storage_write_evicted_byte -> 2119742262 [0% total, 0% host]
+    storage_read_base -> 169070537250 [8% total, 10% host]
+    storage_read_key_byte -> 711908259 [0% total, 0% host]
+    storage_read_value_byte -> 370326330 [0% total, 0% host]
+    touching_trie_node -> 1046627135190 [55% total, 65% host]
+    ------ Actions --------
+    ------------------------------
+    
+    
+    tokens_burnt: 0.00043195379520539996Ⓝ
 
 
 ## Profile [storage](https://docs.near.org/docs/concepts/storage-staking) costs
