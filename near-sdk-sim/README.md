@@ -329,7 +329,7 @@ The output from this `println!` might look something like this:
 
 ## Profile [storage](https://docs.near.org/docs/concepts/storage-staking) costs
 
-For an `ContractAccount` created with `deploy!` or a `UserAccount` created with `root.create_user`, you can call `account()` to get the [Account](https://github.com/near/nearcore/blob/df2d8bac977461c3abded5ef52ac3000f53e9097/core/primitives-core/src/account.rs#L8-L21) information stored in the simulated blockchain.
+For a `ContractAccount` created with `deploy!` or a `UserAccount` created with `root.create_user`, you can call `account()` to get the [Account](https://github.com/near/nearcore/blob/df2d8bac977461c3abded5ef52ac3000f53e9097/core/primitives-core/src/account.rs#L8-L21) information stored in the simulated blockchain.
 
 ```rs
 let account = root.account().unwrap();
