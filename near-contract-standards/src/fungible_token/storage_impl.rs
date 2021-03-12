@@ -23,7 +23,7 @@ impl FungibleToken {
                 env::panic(b"Can't unregister the account with the positive balance without force")
             }
         } else {
-            env::log(b"The account is not registered");
+            log!("The account {} is not registered", &account_id);
             None
         }
     }
@@ -80,7 +80,7 @@ impl StorageManagement for FungibleToken {
                 _ => storage_balance,
             }
         } else {
-            env::panic(b"The account is not registered");
+            env::panic(format!("The account {} is not registered", &env::predecessor_account_id()).as_bytes());
         }
     }
 
