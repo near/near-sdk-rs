@@ -7,7 +7,7 @@ But the true power of blockchains & smart contracts comes from cross-contract ca
 As a first step, you can use this library! With it, you can:
 
 * Test cross-contract calls
-* Accurately check [gas](https://docs.near.org/docs/concepts/gas) & [storage](https://docs.near.org/docs/concepts/storage-staking) usage for your contract
+* Profile [gas](https://docs.near.org/docs/concepts/gas) & [storage](https://docs.near.org/docs/concepts/storage-staking) usage for your contract, establishing lower bounds for costs of deployed contracts and rapidly identifying problematic areas prior to deploying.
 * Inspect intermediate state of all calls in a complicated chain of transactions
 
 To view this documentation locally, clone this repo and from this folder run `cargo doc --open`.
