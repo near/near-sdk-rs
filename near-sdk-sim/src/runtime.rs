@@ -60,7 +60,7 @@ impl Default for GenesisConfig {
     fn default() -> Self {
         Self {
             genesis_time: 0,
-            gas_price: 0,
+            gas_price: 100_000_000,
             gas_limit: std::u64::MAX,
             genesis_height: 0,
             epoch_length: DEFAULT_EPOCH_LENGTH,
