@@ -250,6 +250,12 @@ fn simulate_transfer_call_promise_panics_for_a_full_refund() {
 
     assert_eq!(res.promise_errors().len(), 1);
 
+    println!(
+        "profile_data: {:#?}, \n\ntokens_burnt: {}Ⓝ",
+        res.profile_data(),
+        (res.tokens_burnt()) as f64 / f64::powi(10.0, 24)
+    );
+
     if let ExecutionStatus::Failure(execution_error) =
         &res.promise_errors().remove(0).unwrap().outcome().status
     {
