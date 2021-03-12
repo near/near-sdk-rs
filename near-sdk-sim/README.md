@@ -286,9 +286,18 @@ Remember to run tests with `--nocapture` to see output from `println!`:
     cargo test -- --nocapture
 
 
-## Profile storage costs
+## Profile [storage](https://docs.near.org/docs/concepts/storage-staking) costs
 
-TODO
+For an `ContractAccount` created with `deploy!` or a `UserAccount` created with `root.create_user`, you can call `account()` to get the [Account](https://github.com/near/nearcore/blob/df2d8bac977461c3abded5ef52ac3000f53e9097/core/primitives-core/src/account.rs#L8-L21) information stored in the simulated blockchain.
+
+```rs
+let account = root.account().unwrap();
+let balance = account.amount;
+let locked_in_stake = account.locked;
+let storage_usage = account.storage_usage;
+```
+
+You can use this info to do detailed profiling of how contract calls alter the storage usage of accounts.
 
 
 ## Inspect intermediate state of all calls in a complicated chain of transactions

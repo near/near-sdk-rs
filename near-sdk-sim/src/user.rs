@@ -308,12 +308,16 @@ pub struct ContractAccount<T> {
     pub contract: T,
 }
 
+// TODO: find smarter way to respond to all `self.user_account` methods for a ContractAccount
 impl<T> ContractAccount<T> {
     pub fn account_id(&self) -> AccountId {
         self.user_account.account_id()
     }
     pub fn valid_account_id(&self) -> ValidAccountId {
         self.user_account.valid_account_id()
+    }
+    pub fn account(&self) -> Option<Account> {
+        self.user_account.account()
     }
 }
 
