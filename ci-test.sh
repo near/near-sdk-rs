@@ -33,4 +33,3 @@ else
     echo "Checking size of all example contracts"
     ./examples/size_all.sh
 fi
-
