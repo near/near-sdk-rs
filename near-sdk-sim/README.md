@@ -260,7 +260,26 @@ fn simulate_some_change_method() {
 
 ## Profile gas costs
 
-TODO
+For a chain of transactions kicked off by `call` or `call!`, you can check the `gas_burnt` and `tokens_burnt`, where `tokens_burnt` will equal `gas_burnt` multiplied by the `gas_price` set in the genesis config.
+
+```rust
+let outcome = some_account.call(
+    "some_contract",
+    "method",
+    &json({
+        "some_param": "some_value",
+    }).to_string().into_bytes(),
+    DEFAULT_GAS,
+    0,
+);
+
+println!("tokens_burnt: {}Ⓝ", (res.tokens_burnt()) as f64 / f64::powi(10.0, 24));
+
+let expected_gas_ceiling = 5 * u64::pow(10, 12); // 5 TeraGas
+assert!(res.gas_burnt() < expected_gas_ceiling);
+```
+
+TeraGas units are [explained here](https://docs.near.org/docs/concepts/gas#thinking-in-gas).
 
 
 ## Profile storage costs
@@ -268,24 +287,128 @@ TODO
 TODO
 
 
-## Inspect intermediate state of all calls in a complicated chain of transactions 
+## Inspect intermediate state of all calls in a complicated chain of transactions
 
-TODO
+Say you have a `call` or `call!`:
+
+```rust
+let outcome = some_account.call(
+    "some_contract",
+    "method",
+    &json({
+        "some_param": "some_value",
+    }).to_string().into_bytes(),
+    DEFAULT_GAS,
+    0,
+);
+```
+
+If `some_contract.method` here makes cross-contract calls, `near-sdk-sim` will allow all of these calls to complete. You can then inspect the entire chain of calls via the `outcome` struct. Some useful methods:
+
+* [`outcome.promise_results()`](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/near-sdk-sim/src/outcome.rs#L123-L126)
+* [`outcome.get_receipt_results()`](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/near-sdk-sim/src/outcome.rs#L114-L117)
+* [`outcome.logs()`](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/near-sdk-sim/src/outcome.rs#L156-L159)
+
+You can use these with `println!` and [pretty print interpolation](https://riptutorial.com/rust/example/1248/advanced-usage-of-println-):
+
+```rust
+println!("{:#?}", outcome.promise_results);
+```
+
+Remember to run your tests with `--nocapture` to see the `println!` output:
+
+    cargo test -- --nocapture
+
+You might see something like this:
+
+    [
+        Some(
+            ExecutionResult {
+                outcome: ExecutionOutcome {
+                    logs: [],
+                    receipt_ids: [
+                        `2bCDBfWgRkzGggXLuiXqhnVGbxwRz7RP3qa8WS5nNw8t`,
+                    ],
+                    burnt_gas: 2428220615156,
+                    tokens_burnt: 0,
+                    status: SuccessReceiptId(2bCDBfWgRkzGggXLuiXqhnVGbxwRz7RP3qa8WS5nNw8t),
+                },
+            },
+        ),
+        Some(
+            ExecutionResult {
+                outcome: ExecutionOutcome {
+                    logs: [],
+                    receipt_ids: [],
+                    burnt_gas: 18841799405111,
+                    tokens_burnt: 0,
+                    status: Failure(Action #0: Smart contract panicked: panicked at 'Not an integer: ParseIntError { kind: InvalidDigit }', test-contract/src/lib.rs:85:56),
+                },
+            },
+        )
+    ]
+
+You can see it's a little hard to tell which call is which, since the [ExecutionResult](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/near-sdk-sim/src/outcome.rs#L20-L27) does not yet include the name of the contract or method. To help debug, you can use `log!` in your contract methods. All `log!` output will show up in the `logs` arrays in the ExecutionOutcomes shown above.
 
 
 ## Check expected transaction failures
 
-TODO
+If you want to check something in the `logs` or `status` of one of the transactions in one of these call chains mentioned above, you can use string matching. To check that the Failure above matches your expectations, you could:
+
+```rust
+// add near_primitives to your Cargo.toml:
+// near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
+use near_primitives::transaction::ExecutionStatus;
+
+#[test]
+fn simulate_some_failure() {
+    let outcome = some_account.call(...);
+
+    assert_eq!(res.promise_errors().len(), 1);
+
+    if let ExecutionStatus::Failure(execution_error) =
+        &outcome.promise_errors().remove(0).unwrap().outcome().status
+    {
+        assert!(execution_error.to_string().contains("ParseIntError"));
+    } else {
+        unreachable!();
+    }
+}
+```
+
+This [`promise_errors`](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/near-sdk-sim/src/outcome.rs#L128-L135) returns a filtered version of the `promise_results` method mentioned above.
+
+Parsing `logs` is much simpler, whether [from `get_receipt_results`](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/examples/fungible-token/tests/sim/with_macros.rs#L128-L134) or [from `logs` directly](https://github.com/near/near-sdk-rs/blob/9cf75cf4a537a6f9906d82cfcadd97ae4a3443b6/examples/fungible-token/tests/sim/with_macros.rs#L70-L74).
 
 
 # Tweaking the genesis config
 
-For many simulation tests, using `init_simulator(None)` is good enough. This uses the [default genesis configuration settings](https://github.com/near/near-sdk-rs/blob/0a9a56f1590e1f19efc974160c88f32efcb91ef4/near-sdk-sim/src/runtime.rs#L59-L72).
+For many simulation tests, using `init_simulator(None)` is good enough. This uses the [default genesis configuration settings](https://github.com/near/near-sdk-rs/blob/0a9a56f1590e1f19efc974160c88f32efcb91ef4/near-sdk-sim/src/runtime.rs#L59-L72):
 
-## Why would you want to change these?
+```rust
+// RuntimeConfig comes from near_primitives; if you want to override, add this to Cargo.toml:
+// near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 
-TODO
+GenesisConfig {
+    genesis_time: 0,
+    gas_price: 100_000_000,
+    gas_limit: std::u64::MAX,
+    genesis_height: 0,
+    epoch_length: 3,
+    runtime_config: RuntimeConfig::default(),
+    state_records: vec![],
+    validators: vec![],
+}
+```
 
-## How do you change them?
+If you want to override some of these values, for example to simulate how your contract will behave if [gas price](https://docs.near.org/docs/concepts/gas) goes up 10x:
 
-TODO
+```rs
+use near_sdk_sim::runtime::GenesisConfig;
+
+pub fn init () {
+    let mut genesis = GenesisConfig::default();
+    genesis.gas_price = genesis.gas_price * 10;
+    let root = init_simulator(Some(genesis));
+}
+```

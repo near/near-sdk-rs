@@ -1,3 +1,4 @@
+use near_primitives::transaction::ExecutionStatus;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk_sim::{call, to_yocto, view, DEFAULT_GAS};
@@ -247,8 +248,15 @@ fn simulate_transfer_call_promise_panics_for_a_full_refund() {
     );
     assert!(res.is_ok());
 
-    // uncomment to see failure message from defi::value_please
-    // println!("{:#?}", res.promise_results());
+    assert_eq!(res.promise_errors().len(), 1);
+
+    if let ExecutionStatus::Failure(execution_error) =
+        &res.promise_errors().remove(0).unwrap().outcome().status
+    {
+        assert!(execution_error.to_string().contains("ParseIntError"));
+    } else {
+        unreachable!();
+    }
 
     let root_balance: U128 = view!(ft.ft_balance_of(root.valid_account_id())).unwrap_json();
     let defi_balance: U128 = view!(ft.ft_balance_of(defi.valid_account_id())).unwrap_json();

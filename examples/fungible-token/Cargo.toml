@@ -7,6 +7,7 @@ edition = "2018"
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk" }
 near-sdk-sim = { path = "../../near-sdk-sim" }
+near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
 
 # remember to include a line for each contract
 fungible-token = { path = "./ft" }

@@ -688,6 +688,7 @@ version = "0.0.1"
 dependencies = [
  "defi",
  "fungible-token",
+ "near-primitives",
  "near-sdk",
  "near-sdk-sim",
 ]
