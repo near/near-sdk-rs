@@ -1,4 +1,4 @@
-name: Test
+name: Test Core
 on:
   push:
     branches:
@@ -11,18 +11,16 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        ENV: [true, false]
-        toolchan: [stable, nightly]
+        toolchain: [stable-2020-10-08]
     steps:
       - uses: actions/checkout@v2
-      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
+      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          components: rustfmt, clippy
+          components: rustfmt
           target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v1
       - name: Test
-        env:
-          NEAR_RELEASE: ${{ matrix.ENV }}
-        run: ./ci-test.sh
+        run: cargo test --all
