@@ -155,15 +155,32 @@ impl UserAccount {
 
     /// Make a contract call.  `pending_tx` includes the receiver, the method to call as well as its arguments.
     /// Note: You will most likely not be using this method directly but rather the [`call!`](./macro.call.html) macro.
-    pub fn call(
+    pub fn function_call(
         &self,
         pending_tx: PendingContractTx,
-        deposit: Balance,
         gas: Gas,
+        deposit: Balance,
     ) -> ExecutionResult {
-        self.submit_transaction(self.transaction(pending_tx.receiver_id).function_call(
-            pending_tx.method.to_string(),
-            pending_tx.args,
+        self.call(
+            pending_tx.receiver_id.clone(),
+            &pending_tx.method,
+            &pending_tx.args,
+            gas,
+            deposit,
+        )
+    }
+
+    pub fn call(
+        &self,
+        receiver_id: AccountId,
+        method: &str,
+        args: &[u8],
+        gas: Gas,
+        deposit: Balance,
+    ) -> ExecutionResult {
+        self.submit_transaction(self.transaction(receiver_id).function_call(
+            method.to_string(),
+            args.into(),
             gas,
             deposit,
         ))
@@ -191,30 +208,42 @@ impl UserAccount {
 
     /// Deploy a contract and in the same transaction call its initialization method.
     /// Note: You will most likely not be using this method directly but rather the [`deploy!`](./macro.deploy.html) macro.
-    pub fn deploy_and_init(
+    pub fn deploy_and_initialize(
         &self,
         wasm_bytes: &[u8],
         pending_tx: PendingContractTx,
         deposit: Balance,
         gas: Gas,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(
-            &pending_tx.receiver_id,
-            KeyType::ED25519,
-            &pending_tx.receiver_id,
-        );
-        let account_id = pending_tx.receiver_id.clone();
-        self.submit_transaction(
-            self.transaction(pending_tx.receiver_id)
-                .create_account()
-                .add_key(signer.public_key(), AccessKey::full_access())
-                .transfer(deposit)
-                .deploy_contract(wasm_bytes.to_vec())
-                .function_call(pending_tx.method, pending_tx.args, gas, 0),
-        )
-        .assert_success();
-        UserAccount::new(&self.runtime, account_id, signer)
+        self.deploy_and_init(wasm_bytes, pending_tx.receiver_id, &pending_tx.method, &pending_tx.args, deposit, gas)
     }
+
+    pub fn deploy_and_init(
+      &self,
+      wasm_bytes: &[u8],
+      account_id: AccountId,
+      method: &str, 
+      args: &[u8],
+      deposit: Balance,
+      gas: Gas,
+  ) -> UserAccount {
+      let signer = InMemorySigner::from_seed(
+          &account_id,
+          KeyType::ED25519,
+          &account_id,
+      );
+      let account_id = account_id.clone();
+      self.submit_transaction(
+          self.transaction(account_id.clone())
+              .create_account()
+              .add_key(signer.public_key(), AccessKey::full_access())
+              .transfer(deposit)
+              .deploy_contract(wasm_bytes.to_vec())
+              .function_call(method.to_string(), args.to_vec(), gas, 0),
+      )
+      .assert_success();
+      UserAccount::new(&self.runtime, account_id, signer)
+  }
 
     fn transaction(&self, receiver_id: AccountId) -> Transaction {
         let nonce = (*self.runtime)
@@ -247,12 +276,12 @@ impl UserAccount {
 
     /// Call a view method on a contract.
     /// Note: You will most likely not be using this method directly but rather the [`view!`](./macros.view.html) macro.
-    pub fn view(&self, pending_tx: PendingContractTx) -> ViewResult {
-        (*self.runtime).borrow().view_method_call(
-            &pending_tx.receiver_id,
-            &pending_tx.method,
-            &pending_tx.args,
-        )
+    pub fn view_method_call(&self, pending_tx: PendingContractTx) -> ViewResult {
+        self.view(pending_tx.receiver_id, &pending_tx.method, &pending_tx.args)
+    }
+
+    pub fn view(&self, receiver_id: AccountId, method: &str, args: &[u8]) -> ViewResult {
+        (*self.runtime).borrow().view_method_call(&receiver_id, method, args)
     }
 
     /// Creates a user and is signed by the `signer_user`
@@ -390,7 +419,7 @@ macro_rules! deploy {
            {
                let __contract = $contract { account_id: $account_id.to_string() };
                near_sdk_sim::ContractAccount {
-                   user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
+                   user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
                }
            }
@@ -468,7 +497,7 @@ macro_rules! deploy {
 #[macro_export]
 macro_rules! call {
     ($signer:expr, $deposit: expr, $gas: expr, $contract: ident, $method:ident, $($arg:expr),*) => {
-        $signer.call((&$contract).contract.$method($($arg),*), $deposit, $gas)
+        $signer.function_call((&$contract).contract.$method($($arg),*), $gas, $deposit)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), $deposit: expr, $gas: expr) => {
         call!($signer, $deposit, $gas, $contract, $method, $($arg),*)
@@ -477,7 +506,7 @@ macro_rules! call {
         call!($signer, 0, near_sdk_sim::DEFAULT_GAS,  $contract, $method, $($arg),*)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), gas=$gas_or_deposit: expr) => {
-           call!($signer, 0, $gas_or_deposit, $contract, $method, $($arg),*)
+        call!($signer, 0, $gas_or_deposit, $contract, $method, $($arg),*)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), deposit=$gas_or_deposit: expr) => {
         call!($signer, $gas_or_deposit, near_sdk_sim::DEFAULT_GAS, $contract, $method, $($arg),*)
@@ -513,6 +542,6 @@ macro_rules! call {
 #[macro_export]
 macro_rules! view {
     ($contract: ident.$method:ident($($arg:expr),*)) => {
-        (&$contract).user_account.view((&$contract).contract.$method($($arg),*))
+        (&$contract).user_account.view_method_call((&$contract).contract.$method($($arg),*))
     };
 }
