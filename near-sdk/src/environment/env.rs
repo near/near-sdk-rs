@@ -619,7 +619,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
             PromiseResult::Successful(data)
         }
         2 => PromiseResult::Failed,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => panic!("{}", RETURN_CODE_ERR),
     }
 }
 /// Consider the execution result of promise under `promise_idx` as execution result of this
@@ -722,7 +722,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => panic!("{}", RETURN_CODE_ERR),
     }
 }
 /// Reads the value stored under the given key.
@@ -738,7 +738,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     } {
         0 => None,
         1 => Some(read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)),
-        _ => panic!(RETURN_CODE_ERR),
+        _ => panic!("{}", RETURN_CODE_ERR),
     }
 }
 /// Removes the value stored under the given key.
@@ -755,7 +755,7 @@ pub fn storage_remove(key: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => panic!("{}", RETURN_CODE_ERR),
     }
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
@@ -774,7 +774,7 @@ pub fn storage_has_key(key: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => panic!("{}", RETURN_CODE_ERR),
     }
 }
 
