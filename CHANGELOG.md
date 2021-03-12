@@ -1,10 +1,5 @@
 # Changelog
 
-## `Pending`
-* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
-* Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
-* Introduce `LazyOption` to keep a single large value with lazy deserialization.
-
 ## `3.0.0`
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
@@ -23,6 +18,10 @@ is to have an assert that validates that the direct caller (predecessor account 
     * Updated a few examples to use `log!` macro
 * Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
 This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
+* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
+* Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
+* Introduce `LazyOption` to keep a single large value with lazy deserialization.
+* **BREAKING** `#[init]` now checks that the state is not initialized. This is expected behavior. To ignore state check you can call `#[init(ignore_state)]`
 
 ## `2.0.1`
 
