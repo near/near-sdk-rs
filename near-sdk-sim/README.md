@@ -281,6 +281,10 @@ assert!(res.gas_burnt() < expected_gas_ceiling);
 
 TeraGas units are [explained here](https://docs.near.org/docs/concepts/gas#thinking-in-gas).
 
+Remember to run tests with `--nocapture` to see output from `println!`:
+
+    cargo test -- --nocapture
+
 
 ## Profile storage costs
 
