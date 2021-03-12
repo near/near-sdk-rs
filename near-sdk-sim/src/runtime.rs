@@ -21,10 +21,10 @@ use near_primitives::types::{
 };
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
+use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
-use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
@@ -53,13 +53,14 @@ pub struct GenesisConfig {
 
 impl Default for GenesisConfig {
     fn default() -> Self {
+        let runtime_config = RuntimeConfig::default();
         Self {
             genesis_time: 0,
             gas_price: 100_000_000,
-            gas_limit: std::u64::MAX,
+            gas_limit: runtime_config.wasm_config.limit_config.max_total_prepaid_gas,
             genesis_height: 0,
             epoch_length: DEFAULT_EPOCH_LENGTH,
-            runtime_config: RuntimeConfig::default(),
+            runtime_config,
             state_records: vec![],
             validators: vec![],
         }
