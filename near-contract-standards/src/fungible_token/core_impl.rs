@@ -72,7 +72,7 @@ impl FungibleToken {
     }
 
     pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
-        let balance = self.accounts.get(&account_id).expect("The account is not registered");
+        let balance = self.accounts.get(&account_id).expect(format!("The account {} is not registered", &account_id).as_str());
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(&account_id, &new_balance);
             self.total_supply =
@@ -83,7 +83,7 @@ impl FungibleToken {
     }
 
     pub fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
-        let balance = self.accounts.get(&account_id).expect("The account is not registered");
+        let balance = self.accounts.get(&account_id).expect(format!("The account {} is not registered", &account_id).as_str());
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(&account_id, &new_balance);
             self.total_supply =

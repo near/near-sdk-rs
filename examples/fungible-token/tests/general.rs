@@ -1,6 +1,3 @@
-/// Bring contract crate into namespace
-extern crate fungible_token;
-
 use std::convert::TryInto;
 
 use defi::*;
