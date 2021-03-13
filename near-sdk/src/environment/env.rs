@@ -25,7 +25,6 @@ const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
-const RETURN_CODE_ERR: &str = "Unexpected return code.";
 
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
@@ -619,7 +618,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
             PromiseResult::Successful(data)
         }
         2 => PromiseResult::Failed,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Consider the execution result of promise under `promise_idx` as execution result of this
@@ -722,7 +721,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Reads the value stored under the given key.
@@ -738,7 +737,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     } {
         0 => None,
         1 => Some(read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)),
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Removes the value stored under the given key.
@@ -755,7 +754,7 @@ pub fn storage_remove(key: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
@@ -774,7 +773,7 @@ pub fn storage_has_key(key: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 
@@ -803,7 +802,7 @@ pub fn state_exists() -> bool {
 
 /// Price per 1 byte of storage from mainnet genesis config.
 /// TODO: will be using the host function when it will be available.
-pub const STORAGE_PRICE_PER_BYTE: Balance = 100_000_000_000_000_000_000;
+pub const STORAGE_PRICE_PER_BYTE: Balance = 10_000_000_000_000_000_000;
 
 pub fn storage_byte_cost() -> Balance {
     STORAGE_PRICE_PER_BYTE

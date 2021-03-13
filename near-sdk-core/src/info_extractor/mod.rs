@@ -17,6 +17,10 @@ mod item_trait_info;
 pub use item_trait_info::ItemTraitInfo;
 
 mod item_impl_info;
+
+mod init_attr;
+pub use init_attr::InitAttr;
+
 pub use item_impl_info::ItemImplInfo;
 
 /// Type of serialization we use.
@@ -24,6 +28,15 @@ pub use item_impl_info::ItemImplInfo;
 pub enum SerializerType {
     JSON,
     Borsh,
+}
+
+/// Type of the method.
+#[derive(PartialEq, Eq)]
+pub enum MethodType {
+    Regular,
+    View,
+    Init,
+    InitIgnoreState,
 }
 
 /// Whether the input struct is used for serialization or deserialization.

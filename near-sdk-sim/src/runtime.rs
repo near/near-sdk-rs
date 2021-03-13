@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::cache::{cache_to_arc, create_cache, ContractCache};
 use crate::ViewResult;
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 use near_pool::{types::PoolIterator, TransactionPool};
@@ -23,7 +24,7 @@ use near_primitives::views::ViewApplyState;
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
-use node_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
+use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
 
@@ -135,6 +136,7 @@ pub struct RuntimeStandalone {
     pending_receipts: Vec<Receipt>,
     epoch_info_provider: Box<dyn EpochInfoProvider>,
     pub last_outcomes: Vec<CryptoHash>,
+    cache: ContractCache,
 }
 
 impl RuntimeStandalone {
@@ -167,6 +169,7 @@ impl RuntimeStandalone {
             epoch_info_provider: Box::new(MockEpochInfoProvider::new(
                 validators.into_iter().map(|info| (info.account_id, info.amount)),
             )),
+            cache: create_cache(),
             last_outcomes: vec![],
         }
     }
@@ -232,7 +235,7 @@ impl RuntimeStandalone {
 
     /// Processes one block. Populates outcomes and producining new pending_receipts.
     pub fn produce_block(&mut self) -> Result<(), RuntimeError> {
-        let profile_data = ProfileData::new();
+        let profile_data = ProfileData::default();
         let apply_state = ApplyState {
             block_index: self.cur_block.block_height,
             prev_block_hash: Default::default(),
@@ -245,8 +248,11 @@ impl RuntimeStandalone {
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
             config: Arc::from(self.genesis.runtime_config.clone()),
+            #[cfg(feature = "no_contract_cache")]
             cache: None,
-            profile: Some(profile_data.clone()),
+            #[cfg(not(feature = "no_contract_cache"))]
+            cache: Some(cache_to_arc(&self.cache)),
+            profile: profile_data.clone(),
             block_hash: Default::default(),
         };
 
@@ -325,7 +331,7 @@ impl RuntimeStandalone {
             epoch_height: self.cur_block.epoch_height,
             block_timestamp: self.cur_block.block_timestamp,
             current_protocol_version: PROTOCOL_VERSION,
-            cache: None,
+            cache: Some(cache_to_arc(&self.cache)),
             block_hash: self.cur_block.state_root,
         };
         let result = viewer.call_function(
@@ -340,8 +346,20 @@ impl RuntimeStandalone {
         ViewResult::new(result, logs)
     }
 
-    pub fn current_block(&mut self) -> &mut Block {
-        &mut self.cur_block
+    /// Returns a reference to the current block.
+    ///
+    /// # Examples
+    /// ```
+    /// use near_sdk_sim::runtime::init_runtime;
+    /// let (mut runtime, _, _) = init_runtime(None);
+    /// runtime.produce_block().unwrap();
+    /// runtime.current_block();
+    /// assert_eq!(runtime.current_block().block_height, 1);
+    /// runtime.produce_blocks(4).unwrap();
+    /// assert_eq!(runtime.current_block().block_height, 5);
+    /// ```
+    pub fn current_block(&self) -> &Block {
+        &self.cur_block
     }
 
     pub fn pending_receipts(&self) -> &[Receipt] {
@@ -479,12 +497,7 @@ mod tests {
         let (_, res) = res.unwrap();
         runtime.process_all().unwrap();
 
-        assert!(
-            matches!(
-                res,
-                ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }
-            )
-        );
+        assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
         let res = runtime.view_method_call(
             &"status",
             "get_status",

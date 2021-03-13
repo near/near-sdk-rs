@@ -1,7 +1,6 @@
-use near_primitives::transaction::ExecutionStatus;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk_sim::{call, to_yocto, view, DEFAULT_GAS};
+use near_sdk_sim::{call, to_yocto, transaction::ExecutionStatus, view, DEFAULT_GAS};
 
 use crate::utils::{init_with_macros as init, register_user};
 

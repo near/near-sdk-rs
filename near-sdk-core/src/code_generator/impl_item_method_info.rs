@@ -1,4 +1,6 @@
-use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
+use crate::info_extractor::{
+    AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
+};
 use quote::quote;
 use syn::export::TokenStream2;
 use syn::{ReturnType, Signature};
@@ -51,13 +53,12 @@ impl ImplItemMethodInfo {
             receiver,
             returns,
             result_serializer,
-            is_init,
+            method_type,
             is_payable,
             is_private,
-            is_view,
             ..
         } = attr_signature_info;
-        let deposit_check = if *is_payable || *is_view {
+        let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
             // No check if the method is payable or a view method
             quote! {}
         } else {
@@ -79,7 +80,15 @@ impl ImplItemMethodInfo {
         } else {
             quote! {}
         };
-        let body = if *is_init {
+        let body = if matches!(method_type, &MethodType::Init) {
+            quote! {
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic(b"The contract has already been initialized");
+                }
+                let contract = #struct_type::#ident(#arg_list);
+                near_sdk::env::state_write(&contract);
+            }
+        } else if matches!(method_type, &MethodType::InitIgnoreState) {
             quote! {
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);
@@ -96,7 +105,7 @@ impl ImplItemMethodInfo {
                 method_invocation = quote! {
                     contract.#ident(#arg_list)
                 };
-                if !is_view {
+                if matches!(method_type, &MethodType::Regular) {
                     contract_ser = quote! {
                         near_sdk::env::state_write(&contract);
                     };
@@ -192,7 +201,7 @@ impl ImplItemMethodInfo {
             // returns,
             // result_serializer,
             // is_init,
-            is_view,
+            method_type,
             original_sig,
             ..
         } = attr_signature_info;
@@ -201,7 +210,7 @@ impl ImplItemMethodInfo {
             &self, #pat_type_list
         };
         let ident_str = format!("{}", ident.to_string());
-        let body = if *is_view {
+        let body = if matches!(method_type, MethodType::View) {
             quote! {
                 near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, true)
             }

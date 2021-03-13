@@ -1,11 +1,13 @@
+use std::cell::{Ref, RefCell, RefMut};
 use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::utils::PendingContractTx;
+// use near_sdk::utils::PendingContractTx;
+use near_sdk::PendingContractTx;
 
 use crate::runtime::init_runtime;
 pub use crate::to_yocto;
@@ -162,8 +164,8 @@ impl UserAccount {
     pub fn function_call(
         &self,
         pending_tx: PendingContractTx,
-        deposit: Balance,
         gas: Gas,
+        deposit: Balance,
     ) -> ExecutionResult {
         self.call(
             pending_tx.receiver_id.clone(),
@@ -212,26 +214,41 @@ impl UserAccount {
 
     /// Deploy a contract and in the same transaction call its initialization method.
     /// Note: You will most likely not be using this method directly but rather the [`deploy!`](./macro.deploy.html) macro.
-    pub fn deploy_and_init(
+    pub fn deploy_and_initialize(
         &self,
         wasm_bytes: &[u8],
         pending_tx: PendingContractTx,
         deposit: Balance,
         gas: Gas,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(
-            &pending_tx.receiver_id,
-            KeyType::ED25519,
-            &pending_tx.receiver_id,
-        );
-        let account_id = pending_tx.receiver_id.clone();
+        self.deploy_and_init(
+            wasm_bytes,
+            pending_tx.receiver_id,
+            &pending_tx.method,
+            &pending_tx.args,
+            deposit,
+            gas,
+        )
+    }
+
+    pub fn deploy_and_init(
+        &self,
+        wasm_bytes: &[u8],
+        account_id: AccountId,
+        method: &str,
+        args: &[u8],
+        deposit: Balance,
+        gas: Gas,
+    ) -> UserAccount {
+        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
+        let account_id = account_id.clone();
         self.submit_transaction(
-            self.transaction(pending_tx.receiver_id)
+            self.transaction(account_id.clone())
                 .create_account()
                 .add_key(signer.public_key(), AccessKey::full_access())
                 .transfer(deposit)
                 .deploy_contract(wasm_bytes.to_vec())
-                .function_call(pending_tx.method, pending_tx.args, gas, 0),
+                .function_call(method.to_string(), args.to_vec(), gas, 0),
         )
         .assert_success();
         UserAccount::new(&self.runtime, account_id, signer)
@@ -299,6 +316,34 @@ impl UserAccount {
     /// Create a new user where the signer is this user account
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> UserAccount {
         self.create_user_from(&self, account_id, amount)
+    }
+
+    /// Returns a reference to a memory location of the standalone runtime.
+    ///
+    /// # Examples
+    /// ```
+    /// let master_account = near_sdk_sim::init_simulator(None);
+    /// let runtime = master_account.borrow_runtime();
+    ///
+    /// // with use
+    /// let _block = runtime.current_block();
+    /// ```
+    pub fn borrow_runtime(&self) -> Ref<RuntimeStandalone> {
+        (*self.runtime).borrow()
+    }
+
+    /// Returns a mutable memory location to the standalone runtime.
+    ///
+    /// # Examples
+    /// ```
+    /// let master_account = near_sdk_sim::init_simulator(None);
+    /// let mut runtime = master_account.borrow_runtime_mut();
+    ///
+    /// // with use
+    /// runtime.produce_block().unwrap();
+    /// ```
+    pub fn borrow_runtime_mut(&self) -> RefMut<RuntimeStandalone> {
+        (*self.runtime).borrow_mut()
     }
 }
 
@@ -396,7 +441,7 @@ macro_rules! deploy {
            {
                let __contract = $contract { account_id: $account_id.to_string() };
                near_sdk_sim::ContractAccount {
-                   user_account: $user_id.deploy_and_init($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
+                   user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
                }
            }
@@ -416,7 +461,7 @@ macro_rules! deploy {
     (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, init_method: $method: ident($($arg:expr),*) ) => {
        deploy!($contract, $account_id, $wasm_bytes, $user, $deposit, near_sdk_sim::DEFAULT_GAS, $method, $($arg),*)
     };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, init_method: $method: ident($($arg:expr),+) ) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, init_method: $method: ident($($arg:expr),*) ) => {
        deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT, near_sdk_sim::DEFAULT_GAS, $method, $($arg),*)
     };
 }
@@ -474,7 +519,7 @@ macro_rules! deploy {
 #[macro_export]
 macro_rules! call {
     ($signer:expr, $deposit: expr, $gas: expr, $contract: ident, $method:ident, $($arg:expr),*) => {
-        $signer.function_call((&$contract).contract.$method($($arg),*), $deposit, $gas)
+        $signer.function_call((&$contract).contract.$method($($arg),*), $gas, $deposit)
     };
     ($signer:expr, $contract: ident.$method:ident($($arg:expr),*), $deposit: expr, $gas: expr) => {
         call!($signer, $deposit, $gas, $contract, $method, $($arg),*)

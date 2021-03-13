@@ -51,7 +51,12 @@
     * Updated a few examples to use `log!` macro
 * Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
   This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
+* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
+* Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
+* Introduce `LazyOption` to keep a single large value with lazy deserialization.
+* **BREAKING** `#[init]` now checks that the state is not initialized. This is expected behavior. To ignore state check you can call `#[init(ignore_state)]`
   
+
 **Previous version [CHANGELOG](CHANGELOG.md)**
 
 ## Example
@@ -110,8 +115,7 @@ impl StatusMessage {
     Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
-* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
-contract.
+* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
 
     ```rust
     #[near_bindgen]

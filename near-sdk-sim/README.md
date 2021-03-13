@@ -410,9 +410,7 @@ You can see it's a little hard to tell which call is which, since the [Execution
 If you want to check something in the `logs` or `status` of one of the transactions in one of these call chains mentioned above, you can use string matching. To check that the Failure above matches your expectations, you could:
 
 ```rust
-// add near_primitives to your Cargo.toml:
-// near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
-use near_primitives::transaction::ExecutionStatus;
+use near_sdk_sim::transaction::ExecutionStatus;
 
 #[test]
 fn simulate_some_failure() {
@@ -440,9 +438,6 @@ Parsing `logs` is much simpler, whether [from `get_receipt_results`](https://git
 For many simulation tests, using `init_simulator(None)` is good enough. This uses the [default genesis configuration settings](https://github.com/near/near-sdk-rs/blob/0a9a56f1590e1f19efc974160c88f32efcb91ef4/near-sdk-sim/src/runtime.rs#L59-L72):
 
 ```rust
-// RuntimeConfig comes from near_primitives; if you want to override, add this to Cargo.toml:
-// near-primitives = { git = "https://github.com/near/nearcore.git", rev = "1e88c6c699e3a2c49c6cbd09d284f69885982e80" }
-
 GenesisConfig {
     genesis_time: 0,
     gas_price: 100_000_000,
