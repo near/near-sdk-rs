@@ -276,7 +276,7 @@ let outcome = some_account.call(
 println!(
     "profile_data: {:#?} \n\ntokens_burnt: {}Ⓝ",
     outcome.profile_data(),
-    (outcome.tokens_burnt()) as f64 / f64::powi(10.0, 24)
+    (outcome.tokens_burnt()) as f64 / 1e24
 );
 
 let expected_gas_ceiling = 5 * u64::pow(10, 12); // 5 TeraGas
