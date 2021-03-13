@@ -1,9 +1,12 @@
 use std::cell::{Ref, RefCell, RefMut};
+use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
+use near_sdk::json_types::ValidAccountId;
+// use near_sdk::utils::PendingContractTx;
 use near_sdk::PendingContractTx;
 
 use crate::runtime::init_runtime;
@@ -144,6 +147,9 @@ impl UserAccount {
     pub fn account_id(&self) -> AccountId {
         self.account_id.clone()
     }
+    pub fn valid_account_id(&self) -> ValidAccountId {
+        self.account_id().try_into().unwrap()
+    }
     /// Look up the account information on chain.
     pub fn account(&self) -> Option<Account> {
         (*self.runtime).borrow().view_account(&self.account_id)
@@ -215,35 +221,38 @@ impl UserAccount {
         deposit: Balance,
         gas: Gas,
     ) -> UserAccount {
-        self.deploy_and_init(wasm_bytes, pending_tx.receiver_id, &pending_tx.method, &pending_tx.args, deposit, gas)
+        self.deploy_and_init(
+            wasm_bytes,
+            pending_tx.receiver_id,
+            &pending_tx.method,
+            &pending_tx.args,
+            deposit,
+            gas,
+        )
     }
 
     pub fn deploy_and_init(
-      &self,
-      wasm_bytes: &[u8],
-      account_id: AccountId,
-      method: &str, 
-      args: &[u8],
-      deposit: Balance,
-      gas: Gas,
-  ) -> UserAccount {
-      let signer = InMemorySigner::from_seed(
-          &account_id,
-          KeyType::ED25519,
-          &account_id,
-      );
-      let account_id = account_id.clone();
-      self.submit_transaction(
-          self.transaction(account_id.clone())
-              .create_account()
-              .add_key(signer.public_key(), AccessKey::full_access())
-              .transfer(deposit)
-              .deploy_contract(wasm_bytes.to_vec())
-              .function_call(method.to_string(), args.to_vec(), gas, 0),
-      )
-      .assert_success();
-      UserAccount::new(&self.runtime, account_id, signer)
-  }
+        &self,
+        wasm_bytes: &[u8],
+        account_id: AccountId,
+        method: &str,
+        args: &[u8],
+        deposit: Balance,
+        gas: Gas,
+    ) -> UserAccount {
+        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
+        let account_id = account_id.clone();
+        self.submit_transaction(
+            self.transaction(account_id.clone())
+                .create_account()
+                .add_key(signer.public_key(), AccessKey::full_access())
+                .transfer(deposit)
+                .deploy_contract(wasm_bytes.to_vec())
+                .function_call(method.to_string(), args.to_vec(), gas, 0),
+        )
+        .assert_success();
+        UserAccount::new(&self.runtime, account_id, signer)
+    }
 
     fn transaction(&self, receiver_id: AccountId) -> Transaction {
         let nonce = (*self.runtime)
@@ -253,7 +262,7 @@ impl UserAccount {
             .nonce
             + 1;
         Transaction::new(
-            self.account_id.clone(),
+            self.account_id(),
             self.signer.public_key(),
             receiver_id,
             nonce,
@@ -301,7 +310,7 @@ impl UserAccount {
                     .transfer(amount),
             )
             .assert_success();
-        UserAccount { runtime: Rc::clone(&self.runtime), account_id, signer }
+        UserAccount::new(&self.runtime, account_id, signer)
     }
 
     /// Create a new user where the signer is this user account
@@ -342,6 +351,19 @@ impl UserAccount {
 pub struct ContractAccount<T> {
     pub user_account: UserAccount,
     pub contract: T,
+}
+
+// TODO: find smarter way to respond to all `self.user_account` methods for a ContractAccount
+impl<T> ContractAccount<T> {
+    pub fn account_id(&self) -> AccountId {
+        self.user_account.account_id()
+    }
+    pub fn valid_account_id(&self) -> ValidAccountId {
+        self.user_account.valid_account_id()
+    }
+    pub fn account(&self) -> Option<Account> {
+        self.user_account.account()
+    }
 }
 
 /// The simulator takes an optional GenesisConfig, which sets up the fees and other settings.

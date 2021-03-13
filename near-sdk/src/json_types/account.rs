@@ -1,6 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::Serialize;
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 
 use crate::env::is_valid_account_id;
 use crate::AccountId;
@@ -14,6 +15,15 @@ pub struct ValidAccountId(AccountId);
 impl ValidAccountId {
     fn is_valid(&self) -> bool {
         is_valid_account_id(&self.0.as_bytes())
+    }
+    pub fn to_string(&self) -> String {
+        self.0.clone()
+    }
+}
+
+impl fmt::Display for ValidAccountId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

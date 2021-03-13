@@ -14,7 +14,9 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
 fn init(
     initial_balance: u128,
 ) -> (UserAccount, ContractAccount<CrossContractContract>, UserAccount) {
-    let master_account = init_simulator(None);
+    let mut genesis = near_sdk_sim::runtime::GenesisConfig::default();
+    genesis.gas_price = 0;
+    let master_account = init_simulator(Some(genesis));
     let contract_account = deploy! {
         contract: CrossContractContract,
         contract_id: "contract",
