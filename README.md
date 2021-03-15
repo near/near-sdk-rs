@@ -244,7 +244,7 @@ Since WebAssembly compiler includes a bunch of debug information into the binary
 different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
 that allows to compile the binary.
 
-**Use [contract-builder](contract-builder/)**
+**Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contact-builder)**
 
 ## License
 This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
