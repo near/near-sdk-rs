@@ -39,7 +39,7 @@ pub trait FungibleTokenContract {
 
     fn ft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         amount: U128,
         memo: Option<String>,
         msg: String,
@@ -49,7 +49,7 @@ pub trait FungibleTokenContract {
     fn ft_total_supply(&self) -> U128;
 
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: ValidAccountId) -> U128;
+    fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
 
 /// Implementation of a FungibleToken standard.
