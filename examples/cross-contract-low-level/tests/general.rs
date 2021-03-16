@@ -17,6 +17,7 @@ fn init(
 ) -> (UserAccount, ContractAccount<CrossContractContract>, UserAccount) {
     let mut genesis = near_sdk_sim::runtime::GenesisConfig::default();
     genesis.gas_price = 0;
+    genesis.gas_limit = u64::MAX;
     let master_account = init_simulator(Some(genesis));
     let contract_account = deploy! {
         contract: CrossContractContract,
