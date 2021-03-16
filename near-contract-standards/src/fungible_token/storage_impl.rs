@@ -68,15 +68,12 @@ impl StorageManagement for FungibleToken {
         self.internal_storage_balance_of(&account_id).unwrap()
     }
 
-    /**
-     * While storage_withdraw normally allows the caller to retrieve `available` balance, the basic
-     * Fungible Token implementation sets storage_balance_bounds.min == storage_balance_bounds.max,
-     * which means available balance will always be 0. So this implementation:
-     *
-     * * panics if `amount > 0`
-     * * never transfers Ⓝ to caller
-     * * returns a `storage_balance` struct iff `amount` is 0
-     */
+    /// While storage_withdraw normally allows the caller to retrieve `available` balance, the basic
+    /// Fungible Token implementation sets storage_balance_bounds.min == storage_balance_bounds.max,
+    /// which means available balance will always be 0. So this implementation:
+    /// * panics if `amount > 0`
+    /// * never transfers Ⓝ to caller
+    /// * returns a `storage_balance` struct if `amount` is 0
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         assert_one_yocto();
         let predecessor_account_id = env::predecessor_account_id();
