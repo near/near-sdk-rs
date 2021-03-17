@@ -4,8 +4,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, PromiseOrValue,
-    PromiseResult, StorageUsage,
+    assert_at_least_one_yocto, assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas,
+    PromiseOrValue, PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -158,7 +158,7 @@ impl FungibleTokenCore for FungibleToken {
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        assert_one_yocto();
+        assert_at_least_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
@@ -168,7 +168,7 @@ impl FungibleTokenCore for FungibleToken {
             amount.into(),
             msg,
             receiver_id.as_ref(),
-            NO_DEPOSIT,
+            env::attached_deposit(),
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
         .then(ext_self::ft_resolve_transfer(
