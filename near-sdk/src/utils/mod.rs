@@ -12,12 +12,20 @@ macro_rules! log {
 
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
-    assert_eq!(env::predecessor_account_id(), env::current_account_id(), "Method is private");
+    assert_eq!(
+        env::predecessor_account_id(),
+        env::current_account_id(),
+        "Method is private"
+    );
 }
 
 /// Assert that 1 yoctoNEAR was attached.
 pub fn assert_one_yocto() {
-    assert_eq!(env::attached_deposit(), 1, "Requires attached deposit of exactly 1 yoctoNEAR")
+    assert_eq!(
+        env::attached_deposit(),
+        1,
+        "Requires attached deposit of exactly 1 yoctoNEAR"
+    )
 }
 
 /// Returns true if promise was successful.
@@ -29,7 +37,11 @@ pub fn is_promise_success() -> bool {
 /// Returns the result of the promise if successful. Otherwise returns None.
 /// Fails if called outside a callback that received 1 promise result.
 pub fn promise_result_as_success() -> Option<Vec<u8>> {
-    assert_eq!(env::promise_results_count(), 1, "Contract expected a result on the callback");
+    assert_eq!(
+        env::promise_results_count(),
+        1,
+        "Contract expected a result on the callback"
+    );
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,
@@ -47,10 +59,14 @@ pub struct PendingContractTx {
 
 impl PendingContractTx {
     pub fn new(receiver_id: &str, method: &str, args: serde_json::Value, is_view: bool) -> Self {
+        PendingContractTx::new_from_bytes(receiver_id, method, args.to_string().into_bytes(), is_view)
+    }
+
+    pub fn new_from_bytes(receiver_id: &str, method: &str, args: Vec<u8>, is_view: bool) -> Self {
         Self {
             receiver_id: receiver_id.to_string(),
             method: method.to_string(),
-            args: args.to_string().into_bytes(),
+            args,
             is_view,
         }
     }
