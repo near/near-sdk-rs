@@ -40,7 +40,7 @@ impl TraitItemMethodInfo {
           },
       };
       
-      quote ! {
+      quote! {
         #struct_decl
         #constructor
         #value_ser
