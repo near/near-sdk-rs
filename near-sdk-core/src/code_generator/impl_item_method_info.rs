@@ -8,11 +8,7 @@ use syn::{ReturnType, Signature};
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
     pub fn method_wrapper(&self) -> TokenStream2 {
-        let ImplItemMethodInfo {
-            attr_signature_info,
-            struct_type,
-            ..
-        } = self;
+        let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
         // Args provided by `env::input()`.
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
@@ -148,14 +144,12 @@ impl ImplItemMethodInfo {
                 }
             }
         };
-        let non_bindgen_attrs = non_bindgen_attrs
-            .iter()
-            .fold(TokenStream2::new(), |acc, value| {
-                quote! {
-                    #acc
-                    #value
-                }
-            });
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
@@ -175,17 +169,17 @@ impl ImplItemMethodInfo {
     }
 
     pub fn marshal_method(&self) -> TokenStream2 {
-        let ImplItemMethodInfo {
-            attr_signature_info,
-            ..
-        } = self;
+        let ImplItemMethodInfo { attr_signature_info, .. } = self;
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
         let pat_type_list = attr_signature_info.pat_type_list();
         let serialize_args = if has_input_args {
             match &attr_signature_info.input_serializer {
-              SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(&attr_signature_info, &attr_signature_info.input_serializer),
-              SerializerType::JSON => json_serialize(&attr_signature_info)
+                SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
+                    &attr_signature_info,
+                    &attr_signature_info.input_serializer,
+                ),
+                SerializerType::JSON => json_serialize(&attr_signature_info),
             }
         } else {
             quote! {
@@ -201,7 +195,8 @@ impl ImplItemMethodInfo {
             // result_serializer,
             // is_init,
             method_type,
-            original_sig,            ..
+            original_sig,
+            ..
         } = attr_signature_info;
         let return_ident = quote! { -> near_sdk::PendingContractTx };
         let params = quote! {
@@ -213,15 +208,13 @@ impl ImplItemMethodInfo {
         } else {
             quote! {false}
         };
-        
-        let non_bindgen_attrs = non_bindgen_attrs
-            .iter()
-            .fold(TokenStream2::new(), |acc, value| {
-                quote! {
-                    #acc
-                    #value
-                }
-            });
+
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
         let Signature { generics, .. } = original_sig;
         quote! {
             #[cfg(not(target_arch = "wasm32"))]
@@ -235,18 +228,18 @@ impl ImplItemMethodInfo {
 }
 
 fn json_serialize(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
-  let args: TokenStream2 = attr_signature_info
-  .input_args()
-  .fold(None, |acc: Option<TokenStream2>, value| {
-      let ident = &value.ident;
-      let ident_str = format!("{}", ident.to_string());
-      Some(match acc {
-          None => quote! { #ident_str: #ident },
-          Some(a) => quote! { #a, #ident_str: #ident },
-      })
-  })
-  .unwrap();
-  quote! {
-    let args = near_sdk::serde_json::json!({#args}).to_string().into_bytes();
-  }
+    let args: TokenStream2 = attr_signature_info
+        .input_args()
+        .fold(None, |acc: Option<TokenStream2>, value| {
+            let ident = &value.ident;
+            let ident_str = format!("{}", ident.to_string());
+            Some(match acc {
+                None => quote! { #ident_str: #ident },
+                Some(a) => quote! { #a, #ident_str: #ident },
+            })
+        })
+        .unwrap();
+    quote! {
+      let args = near_sdk::serde_json::json!({#args}).to_string().into_bytes();
+    }
 }

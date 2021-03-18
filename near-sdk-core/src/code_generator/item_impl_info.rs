@@ -669,11 +669,9 @@ mod tests {
     #[test]
     fn marshall_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str(
-r#"
-pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
-"#          
-        ).unwrap();
+        let mut method: ImplItemMethod = syn::parse_str(r#"
+          pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
+        "#).unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.marshal_method();
         let expected = quote!(
