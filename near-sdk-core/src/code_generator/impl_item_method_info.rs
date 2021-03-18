@@ -232,7 +232,7 @@ fn json_serialize(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
         .input_args()
         .fold(None, |acc: Option<TokenStream2>, value| {
             let ident = &value.ident;
-            let ident_str = format!("{}", ident.to_string());
+            let ident_str = ident.to_string();
             Some(match acc {
                 None => quote! { #ident_str: #ident },
                 Some(a) => quote! { #a, #ident_str: #ident },
