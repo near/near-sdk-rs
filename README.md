@@ -245,7 +245,3 @@ different on different machines. To be able to compile the binary in a reproduci
 that allows to compile the binary.
 
 **Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contact-builder)**
-
-## License
-This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
-See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.
