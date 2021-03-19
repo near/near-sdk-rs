@@ -173,24 +173,17 @@ impl ImplItemMethodInfo {
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
         let pat_type_list = attr_signature_info.pat_type_list();
-        let json_args = if has_input_args {
-            let args: TokenStream2 = attr_signature_info
-                .input_args()
-                .fold(None, |acc: Option<TokenStream2>, value| {
-                    let ident = &value.ident;
-                    let ident_str = format!("{}", ident.to_string());
-                    Some(match acc {
-                        None => quote! { #ident_str: #ident },
-                        Some(a) => quote! { #a, #ident_str: #ident },
-                    })
-                })
-                .unwrap();
-            quote! {
-              let args = near_sdk::serde_json::json!({#args});
+        let serialize_args = if has_input_args {
+            match &attr_signature_info.input_serializer {
+                SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
+                    &attr_signature_info,
+                    &attr_signature_info.input_serializer,
+                ),
+                SerializerType::JSON => json_serialize(&attr_signature_info),
             }
         } else {
             quote! {
-             let args = near_sdk::serde_json::json!({});
+             let args = vec![];
             }
         };
 
@@ -210,15 +203,12 @@ impl ImplItemMethodInfo {
             &self, #pat_type_list
         };
         let ident_str = format!("{}", ident.to_string());
-        let body = if matches!(method_type, MethodType::View) {
-            quote! {
-                near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, true)
-            }
+        let is_view = if matches!(method_type, MethodType::View) {
+            quote! {true}
         } else {
-            quote! {
-                near_sdk::PendingContractTx::new(&self.account_id, #ident_str, args, false)
-            }
+            quote! {false}
         };
+
         let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
             quote! {
                 #acc
@@ -230,9 +220,26 @@ impl ImplItemMethodInfo {
             #[cfg(not(target_arch = "wasm32"))]
             #non_bindgen_attrs
             pub fn #ident#generics(#params) #return_ident {
-                #json_args
-                #body
+                #serialize_args
+                near_sdk::PendingContractTx::new_from_bytes(&self.account_id, #ident_str, args, #is_view)
             }
         }
+    }
+}
+
+fn json_serialize(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
+    let args: TokenStream2 = attr_signature_info
+        .input_args()
+        .fold(None, |acc: Option<TokenStream2>, value| {
+            let ident = &value.ident;
+            let ident_str = ident.to_string();
+            Some(match acc {
+                None => quote! { #ident_str: #ident },
+                Some(a) => quote! { #a, #ident_str: #ident },
+            })
+        })
+        .unwrap();
+    quote! {
+      let args = near_sdk::serde_json::json!({#args}).to_string().into_bytes();
     }
 }

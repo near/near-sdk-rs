@@ -657,8 +657,34 @@ mod tests {
         let expected = quote!(
                 #[cfg(not(target_arch = "wasm32"))]
                 pub fn method(&self, k: String,) -> near_sdk::PendingContractTx {
-                    let args = near_sdk::serde_json::json!({ "k" : k });
-                    near_sdk::PendingContractTx::new(& self . account_id, "method", args, true)
+                  let args = near_sdk::serde_json::json!({ "k": k })
+                  .to_string()
+                  .into_bytes();
+                  near_sdk::PendingContractTx::new_from_bytes(&self.account_id, "method", args, true)
+                }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn marshall_borsh() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str(r#"
+          pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
+        "#).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.marshal_method();
+        let expected = quote!(
+                #[cfg(not(target_arch = "wasm32"))]
+                pub fn borsh_test(&self, a: String,) -> near_sdk::PendingContractTx {
+                  #[derive(near_sdk :: borsh :: BorshSerialize)]
+                  struct Input {
+                      a: String,
+                  }
+                  let args = Input { a, };
+                  let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
+                      .expect("Failed to serialize the cross contract args using Borsh.");
+                  near_sdk::PendingContractTx::new_from_bytes(&self.account_id, "borsh_test", args, false)
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());
