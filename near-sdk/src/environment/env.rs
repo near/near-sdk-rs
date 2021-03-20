@@ -182,7 +182,7 @@ pub fn block_index() -> BlockHeight {
     }
 }
 
-/// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
+/// Current block timestamp, i.e, number of non-leap-seconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp() -> u64 {
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
