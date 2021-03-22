@@ -22,5 +22,7 @@ jobs:
           components: rustfmt
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
+      - name: Test Format
+        run: cargo fmt -- --check
       - name: Test
         run: cargo test --all

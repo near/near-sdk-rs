@@ -21,9 +21,7 @@ pub(crate) fn key_to_b58(key: &[u8]) -> String {
 impl ContractCache {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self {
-            data: Rc::new(RefCell::new(HashMap::new())),
-        }
+        Self { data: Rc::new(RefCell::new(HashMap::new())) }
     }
 
     fn path() -> PathBuf {
@@ -37,11 +35,7 @@ impl ContractCache {
         let prefix = path.parent().unwrap();
         std::fs::create_dir_all(prefix).unwrap();
         // Ensure we can read, write, and create file if it doesn't exist
-        OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)
+        OpenOptions::new().read(true).write(true).create(true).open(path)
     }
 
     fn get_path(&self, key: &[u8]) -> PathBuf {
@@ -53,9 +47,7 @@ impl ContractCache {
     }
 
     pub fn insert(&self, key: &[u8], value: &[u8]) -> Option<Vec<u8>> {
-        (*self.data)
-            .borrow_mut()
-            .insert((*key).to_owned(), (*value).to_owned())
+        (*self.data).borrow_mut().insert((*key).to_owned(), (*value).to_owned())
     }
 
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
