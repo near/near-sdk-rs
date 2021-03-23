@@ -33,7 +33,7 @@
 
 ## Release notes
 
-### Version `3.0.0`
+### Version `3.0.1.pre-1`
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
   NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
