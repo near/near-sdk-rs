@@ -1,9 +1,9 @@
 [package]
 name = "near-contract-standards"
-version = "3.0.0-pre.3"
+version = "3.0.1"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2018"
-license = "Apache-2.0"
+license = "GPL-3.0"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"
 homepage = "https://github.com/near/near-sdk-rs/tree/master/near-contract-standards"
@@ -12,4 +12,4 @@ NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "=3.0.0-pre.3" }
+near-sdk = { path = "../near-sdk", version = "=3.0.1" }
