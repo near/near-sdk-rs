@@ -1,6 +1,6 @@
 # Changelog
 
-## `3.0.0`
+## `3.0.1`
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
 NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
@@ -22,6 +22,7 @@ This is helpful to prevent contracts from being initialized using `Default` by r
 * Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
 * Introduce `LazyOption` to keep a single large value with lazy deserialization.
 * **BREAKING** `#[init]` now checks that the state is not initialized. This is expected behavior. To ignore state check you can call `#[init(ignore_state)]`
+* NOTE: `3.0.0` is not published, due to tag conflicts on the `near-sdk-rs` repo.
 
 ## `2.0.1`
 
