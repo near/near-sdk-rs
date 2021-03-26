@@ -31,6 +31,34 @@
     </h3>
 </div>
 
+## Release notes
+
+### Version `3.0.1`
+
+* Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
+  NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
+  only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
+  is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+* Added how to build contracts with reproducible builds.
+* Added `log!` macro to log a string from a contract similar to `println!` macro.
+* Added `test_utils` mod from `near_sdk` that contains a bunch of helper methods and structures, e.g.
+    * `test_env` - simple test environment mod used internally.
+    * Expanded `testing_env` to be able to pass promise results
+    * Added `VMContextBuilder` to help construct a `VMContext` for tests
+    * Added `get_logs` method that returns current logs from the contract execution.
+    * **TEST_BREAKING** `env::created_receipts` moved to `test_utils::get_created_receipts`.
+      `env` shouldn't contain testing methods.
+    * Updated a few examples to use `log!` macro
+* Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
+  This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
+* Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
+* Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
+* Introduce `LazyOption` to keep a single large value with lazy deserialization.
+* **BREAKING** `#[init]` now checks that the state is not initialized. This is expected behavior. To ignore state check you can call `#[init(ignore_state)]`
+* NOTE: `3.0.0` is not published, due to tag conflicts on the `near-sdk-rs` repo.
+
+**Previous version [CHANGELOG](CHANGELOG.md)**
+
 ## Example
 
 Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
@@ -83,12 +111,11 @@ impl StatusMessage {
     * `promise_then` -- attaches the callback back to the current contract once the function is executed;
     * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
     * `promise_return` -- treats the result of execution of the promise as the result of the current function.
-    
+
     Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
-* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
-contract.
+* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
 
     ```rust
     #[near_bindgen]
@@ -110,8 +137,16 @@ impl Default for StatusMessage {
     }
 }
 ```
+You can also prohibit `Default` trait initialization by using `near_sdk::PanicOnDefault` helper macro. E.g.:
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct StatusMessage {
+    records: HashMap<String, String>,
+}
+```
 
-* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call. 
+* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
 
 To declare a payable method simply use `#[payable]` decorator:
 ```rust
@@ -122,6 +157,29 @@ pub fn my_method(&mut self) {
 }
 ```
 
+* **Private methods** Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
+only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
+is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+Macro `#[private]` simplifies it, by making it a single line macro instead and improves readability.
+
+To declare a private method use `#[private]` decorator:
+```rust
+
+#[private]
+pub fn my_method(&mut self) {
+...
+}
+/// Which is equivalent to
+
+pub fn my_method(&mut self ) {
+    if env::current_account_id() != env::predecessor_account_id() {
+        near_sdk::env::panic("Method method is private".as_bytes());
+    }
+...
+}
+```
+
+Now, only the account of the contract itself can call this method, either directly or through a promise.
 
 ## Pre-requisites
 To develop Rust contracts you would need to:
@@ -147,7 +205,7 @@ The general workflow is the following:
    Here is an example of a smart contract struct:
    ```rust
    use near_sdk::{near_bindgen, env};
-   
+
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
@@ -180,6 +238,10 @@ We can build the contract using rustc:
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
 
-## License
-This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
-See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.
+## Building with reproducible builds
+
+Since WebAssembly compiler includes a bunch of debug information into the binary, the resulting binary might be
+different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
+that allows to compile the binary.
+
+**Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contact-builder)**

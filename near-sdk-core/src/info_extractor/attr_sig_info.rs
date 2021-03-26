@@ -1,6 +1,7 @@
 use crate::info_extractor::arg_info::{ArgInfo, BindgenArgType};
 use crate::info_extractor::serializer_attr::SerializerAttr;
 use crate::info_extractor::SerializerType;
+use crate::info_extractor::{InitAttr, MethodType};
 use quote::ToTokens;
 use syn::export::Span;
 use syn::spanned::Spanned;
@@ -14,14 +15,14 @@ pub struct AttrSigInfo {
     pub non_bindgen_attrs: Vec<Attribute>,
     /// All arguments of the method.
     pub args: Vec<ArgInfo>,
-    /// Whether method can be used as initializer.
-    pub is_init: bool,
+    /// Describes the type of the method.
+    pub method_type: MethodType,
     /// Whether method accepting $NEAR.
     pub is_payable: bool,
+    /// Whether method can accept calls from self (current account)
+    pub is_private: bool,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
-    /// Whether the method doesn't mutate state
-    pub is_view: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
@@ -60,8 +61,9 @@ impl AttrSigInfo {
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
         let mut args = vec![];
-        let mut is_init = false;
+        let mut method_type = MethodType::Regular;
         let mut is_payable = false;
+        let mut is_private = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
 
@@ -70,11 +72,19 @@ impl AttrSigInfo {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
-                    is_init = true;
+                    let init_attr: InitAttr = syn::parse2(attr.tokens.clone())?;
+                    if init_attr.ignore_state {
+                        method_type = MethodType::InitIgnoreState;
+                    } else {
+                        method_type = MethodType::Init;
+                    }
                 }
                 "payable" => {
                     payable_attr = Some(attr);
                     is_payable = true;
+                }
+                "private" => {
+                    is_private = true;
                 }
                 "result_serializer" => {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
@@ -96,14 +106,21 @@ impl AttrSigInfo {
             }
         }
 
-        let is_view = if let Some(ref receiver) = receiver {
-            receiver.mutability.is_none()
-        } else {
-            !is_init
+        if let Some(ref receiver) = receiver {
+            if matches!(method_type, MethodType::Regular) {
+                if receiver.mutability.is_none() {
+                    method_type = MethodType::View;
+                }
+            } else {
+                return Err(Error::new(
+                    payable_attr.span(),
+                    "Init methods can't have `self` attribute",
+                ));
+            }
         };
 
         if let Some(payable_attr) = payable_attr {
-            if is_view {
+            if matches!(method_type, MethodType::View) {
                 return Err(Error::new(
                     payable_attr.span(),
                     "Payable method must be mutable (not view)",
@@ -111,11 +128,7 @@ impl AttrSigInfo {
             }
         }
 
-        original_attrs.retain(|attr| {
-            let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "init" && attr_str != "result_serializer" && attr_str != "payable"
-        });
-
+        *original_attrs = non_bindgen_attrs.clone();
         let returns = original_sig.output.clone();
 
         let mut result = Self {
@@ -123,9 +136,9 @@ impl AttrSigInfo {
             non_bindgen_attrs,
             args,
             input_serializer: SerializerType::JSON,
-            is_init,
+            method_type,
             is_payable,
-            is_view,
+            is_private,
             result_serializer,
             receiver,
             returns,

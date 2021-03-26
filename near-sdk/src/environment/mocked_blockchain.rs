@@ -1,15 +1,15 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
-use near_runtime_fees::RuntimeFeesConfig;
+use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
-use near_vm_logic::types::{PromiseResult, AccountId, Balance};
-use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic};
+use near_vm_logic::types::{AccountId, Balance, PromiseResult};
+use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic, VMOutcome};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
-/// `VMLogic` to cause panic during the unit test similarly to how errors of `VMLogic` would cause
+/// `VMLogic` to cause panic during the unit tests similarly to how errors of `VMLogic` would cause
 /// the termination of guest program execution. Unit tests can even assert the expected error
 /// message.
 pub struct MockedBlockchain {
@@ -36,11 +36,12 @@ impl MockedBlockchain {
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
         validators: HashMap<AccountId, Balance>,
+        memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
         ext.validators = validators;
-        let memory = Box::new(MockedMemory {});
+        let memory = memory_opt.unwrap_or(Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results);
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
@@ -48,14 +49,15 @@ impl MockedBlockchain {
         let mut logic_fixture = LogicFixture { ext, memory, config, fees_config, promise_results };
 
         let logic = unsafe {
-            VMLogic::new(
+            VMLogic::new_with_protocol_version(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
                 &*(logic_fixture.config.as_mut() as *const VMConfig),
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
-                None,
+                Default::default(),
+                u32::MAX,
             )
         };
 
@@ -69,6 +71,17 @@ impl MockedBlockchain {
 
     pub fn created_receipts(&self) -> &Vec<Receipt> {
         self.logic_fixture.ext.get_receipt_create_calls()
+    }
+    pub fn outcome(&self) -> VMOutcome {
+        self.logic.borrow().clone_outcome()
+    }
+
+    pub fn gas(&mut self, gas_amount: u32) {
+        self.logic.borrow_mut().gas(gas_amount).unwrap()
+    }
+
+    pub fn logs(&self) -> Vec<String> {
+        self.logic.borrow().clone_outcome().logs
     }
 }
 
@@ -171,6 +184,10 @@ impl BlockchainInterface for MockedBlockchain {
 
     unsafe fn log_utf16(&self, len: u64, ptr: u64) {
         self.logic.borrow_mut().log_utf16(len, ptr).unwrap()
+    }
+
+    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> () {
+        self.logic.borrow_mut().abort(msg_ptr, filename_ptr, line, col).unwrap()
     }
 
     unsafe fn promise_create(

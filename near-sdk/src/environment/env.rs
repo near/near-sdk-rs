@@ -8,11 +8,8 @@ use std::cell::RefCell;
 use std::mem::size_of;
 use std::panic as std_panic;
 
-use near_vm_logic::{
-    mocks::mock_external::Receipt,
-    types::{
-        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
-    },
+use near_vm_logic::types::{
+    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 
 use crate::environment::blockchain_interface::BlockchainInterface;
@@ -25,12 +22,9 @@ thread_local! {
 }
 
 const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
-const NOT_MOCKED_BLOCKCHAIN_ERR: &str =
-    "Operation expects mocked blockchain, e.g. because it can be only called from unit tests.";
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
-const RETURN_CODE_ERR: &str = "Unexpected return code.";
 
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
@@ -82,6 +76,7 @@ macro_rules! method_into_register {
 ///           fees_config,
 ///           vec![],
 ///           storage,
+///           None,
 ///       );
 /// near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// ```
@@ -102,6 +97,7 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 /// #           Default::default(),
 /// #           vec![],
 /// #           Default::default(),
+/// #           None
 /// #       );
 /// # near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// let blockchain_interface = near_sdk::env::take_blockchain_interface();
@@ -622,7 +618,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
             PromiseResult::Successful(data)
         }
         2 => PromiseResult::Failed,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Consider the execution result of promise under `promise_idx` as execution result of this
@@ -644,10 +640,11 @@ pub fn validator_stake(account_id: &AccountId) -> Balance {
     let data = [0u8; size_of::<Balance>()];
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
+            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).validator_stake(
+                account_id.len() as _,
+                account_id.as_ptr() as _,
+                data.as_ptr() as u64,
+            )
         })
     };
     Balance::from_le_bytes(data)
@@ -724,7 +721,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Reads the value stored under the given key.
@@ -740,7 +737,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     } {
         0 => None,
         1 => Some(read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)),
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Removes the value stored under the given key.
@@ -757,7 +754,7 @@ pub fn storage_remove(key: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
@@ -776,20 +773,8 @@ pub fn storage_has_key(key: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => panic!(RETURN_CODE_ERR),
+        _ => unreachable!(),
     }
-}
-/// Accessing receipts created by the contract. Only available in unit tests.
-pub fn created_receipts() -> Vec<Receipt> {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        b.borrow()
-            .as_ref()
-            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-            .as_mocked_blockchain()
-            .expect(NOT_MOCKED_BLOCKCHAIN_ERR)
-            .created_receipts()
-            .clone()
-    })
 }
 
 // ############################################
@@ -809,6 +794,18 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
 /// Returns `true` if the contract state exists and `false` otherwise.
 pub fn state_exists() -> bool {
     storage_has_key(STATE_KEY)
+}
+
+// #####################################
+// # Parameters exposed by the runtime #
+// #####################################
+
+/// Price per 1 byte of storage from mainnet genesis config.
+/// TODO: will be using the host function when it will be available.
+pub const STORAGE_PRICE_PER_BYTE: Balance = 10_000_000_000_000_000_000;
+
+pub fn storage_byte_cost() -> Balance {
+    STORAGE_PRICE_PER_BYTE
 }
 
 // ##################

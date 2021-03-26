@@ -43,6 +43,7 @@ pub trait BlockchainInterface {
     unsafe fn panic_utf8(&self, len: u64, ptr: u64);
     unsafe fn log_utf8(&self, len: u64, ptr: u64);
     unsafe fn log_utf16(&self, len: u64, ptr: u64);
+    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32);
     // ################
     // # Promises API #
     // ################

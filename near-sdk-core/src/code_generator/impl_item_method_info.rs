@@ -1,7 +1,9 @@
-use crate::info_extractor::{AttrSigInfo, ImplItemMethodInfo, InputStructType, SerializerType};
+use crate::info_extractor::{
+    AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
+};
 use quote::quote;
 use syn::export::TokenStream2;
-use syn::ReturnType;
+use syn::{ReturnType, Signature};
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -51,23 +53,42 @@ impl ImplItemMethodInfo {
             receiver,
             returns,
             result_serializer,
-            is_init,
+            method_type,
             is_payable,
-            is_view,
+            is_private,
             ..
         } = attr_signature_info;
-        let deposit_check = if *is_payable || *is_view {
+        let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
             // No check if the method is payable or a view method
             quote! {}
         } else {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
+            let error = format!("Method {} doesn't accept deposit", ident.to_string());
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(b"Method doesn't accept deposit");
+                    near_sdk::env::panic(#error.as_bytes());
                 }
             }
         };
-        let body = if *is_init {
+        let is_private_check = if *is_private {
+            let error = format!("Method {} is private", ident.to_string());
+            quote! {
+                if env::current_account_id() != env::predecessor_account_id() {
+                    near_sdk::env::panic(#error.as_bytes());
+                }
+            }
+        } else {
+            quote! {}
+        };
+        let body = if matches!(method_type, &MethodType::Init) {
+            quote! {
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic(b"The contract has already been initialized");
+                }
+                let contract = #struct_type::#ident(#arg_list);
+                near_sdk::env::state_write(&contract);
+            }
+        } else if matches!(method_type, &MethodType::InitIgnoreState) {
             quote! {
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);
@@ -84,7 +105,7 @@ impl ImplItemMethodInfo {
                 method_invocation = quote! {
                     contract.#ident(#arg_list)
                 };
-                if !is_view {
+                if matches!(method_type, &MethodType::Regular) {
                     contract_ser = quote! {
                         near_sdk::env::state_write(&contract);
                     };
@@ -136,6 +157,7 @@ impl ImplItemMethodInfo {
             pub extern "C" fn #ident() {
                 #panic_hook
                 #env_creation
+                #is_private_check
                 #deposit_check
                 #arg_struct
                 #arg_parsing
@@ -144,5 +166,80 @@ impl ImplItemMethodInfo {
                 #body
             }
         }
+    }
+
+    pub fn marshal_method(&self) -> TokenStream2 {
+        let ImplItemMethodInfo { attr_signature_info, .. } = self;
+        let has_input_args = attr_signature_info.input_args().next().is_some();
+
+        let pat_type_list = attr_signature_info.pat_type_list();
+        let serialize_args = if has_input_args {
+            match &attr_signature_info.input_serializer {
+                SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
+                    &attr_signature_info,
+                    &attr_signature_info.input_serializer,
+                ),
+                SerializerType::JSON => json_serialize(&attr_signature_info),
+            }
+        } else {
+            quote! {
+             let args = vec![];
+            }
+        };
+
+        let AttrSigInfo {
+            non_bindgen_attrs,
+            ident,
+            // receiver,
+            // returns,
+            // result_serializer,
+            // is_init,
+            method_type,
+            original_sig,
+            ..
+        } = attr_signature_info;
+        let return_ident = quote! { -> near_sdk::PendingContractTx };
+        let params = quote! {
+            &self, #pat_type_list
+        };
+        let ident_str = format!("{}", ident.to_string());
+        let is_view = if matches!(method_type, MethodType::View) {
+            quote! {true}
+        } else {
+            quote! {false}
+        };
+
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
+        let Signature { generics, .. } = original_sig;
+        quote! {
+            #[cfg(not(target_arch = "wasm32"))]
+            #non_bindgen_attrs
+            pub fn #ident#generics(#params) #return_ident {
+                #serialize_args
+                near_sdk::PendingContractTx::new_from_bytes(&self.account_id, #ident_str, args, #is_view)
+            }
+        }
+    }
+}
+
+fn json_serialize(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
+    let args: TokenStream2 = attr_signature_info
+        .input_args()
+        .fold(None, |acc: Option<TokenStream2>, value| {
+            let ident = &value.ident;
+            let ident_str = ident.to_string();
+            Some(match acc {
+                None => quote! { #ident_str: #ident },
+                Some(a) => quote! { #a, #ident_str: #ident },
+            })
+        })
+        .unwrap();
+    quote! {
+      let args = near_sdk::serde_json::json!({#args}).to_string().into_bytes();
     }
 }

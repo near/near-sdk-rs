@@ -1,14 +1,16 @@
 [package]
-name = "fungible-token"
-version = "0.3.0"
+name = "fungible-token-wrapper"
+version = "0.0.1"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
-[dependencies]
+[dev-dependencies]
 near-sdk = { path = "../../near-sdk" }
+near-sdk-sim = { path = "../../near-sdk-sim" }
+
+# remember to include a line for each contract
+fungible-token = { path = "./ft" }
+defi = { path = "./test-contract-defi" }
 
 [profile.release]
 codegen-units = 1
@@ -20,4 +22,12 @@ panic = "abort"
 overflow-checks = true
 
 [workspace]
-members = []
+# remember to include a member for each contract
+members = [
+  "ft",
+  "test-contract-defi",
+]
+
+[[example]]
+name = "heavy"
+

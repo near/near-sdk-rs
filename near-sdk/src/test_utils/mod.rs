@@ -1,71 +1,77 @@
-pub(crate) mod test_env {
-    use crate::{env, MockedBlockchain};
-    use near_vm_logic::types::AccountId;
-    use near_vm_logic::{VMConfig, VMContext};
+use crate::env;
 
-    /// Objects stored on the trie directly should have identifiers. If identifier is not provided
-    /// explicitly than `Default` trait would use this index to generate an id.
-    pub(crate) static mut NEXT_TRIE_OBJECT_INDEX: u64 = 0;
-    /// Get next id of the object stored on trie.
-    pub(crate) fn next_trie_id() -> Vec<u8> {
-        unsafe {
-            let id = NEXT_TRIE_OBJECT_INDEX;
-            NEXT_TRIE_OBJECT_INDEX += 1;
-            id.to_le_bytes().to_vec()
-        }
-    }
+#[allow(dead_code)]
+pub mod test_env;
 
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
+mod context;
+pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
+use near_vm_logic::mocks::mock_external::Receipt;
 
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
-    fn setup_with_config(vm_config: VMConfig) {
-        let context = VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: carol(),
-            input: vec![],
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view: false,
-            output_data_receivers: vec![],
-            epoch_height: 0,
-        };
-        let storage = match env::take_blockchain_interface() {
-            Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-            None => Default::default(),
-        };
-        env::set_blockchain_interface(Box::new(MockedBlockchain::new(
-            context,
-            vm_config,
-            Default::default(),
-            vec![],
-            storage,
-            Default::default(),
+#[macro_export]
+macro_rules! testing_env {
+    ($context:expr, $config:expr, $fee_config:expr, $validator:expr, $promise_results:expr) => {
+        near_sdk::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
+            $context,
+            $config,
+            $fee_config,
+            $promise_results,
+            match near_sdk::env::take_blockchain_interface() {
+                Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
+                None => Default::default(),
+            },
+            $validator,
+            None,
         )));
-    }
+    };
+    ($context:expr, $config:expr, $fee_config:expr, $validator:expr) => {
+        testing_env!($context, $config, $fee_config, $validator, Default::default());
+    };
 
-    pub(crate) fn setup() {
-        setup_with_config(VMConfig::default());
-    }
+    ($context:expr, $config:expr, $fee_config:expr) => {
+        testing_env!($context, $config, $fee_config, Default::default());
+    };
+    ($context:expr) => {
+        testing_env!($context, Default::default(), Default::default());
+    };
+}
 
-    // free == effectively unlimited gas
-    pub(crate) fn setup_free() {
-        setup_with_config(VMConfig::free());
+#[allow(dead_code)]
+/// Returns a copy of logs from VMLogic. Only available in unit tests.
+pub fn get_logs() -> Vec<String> {
+    let blockchain_interface =
+        env::take_blockchain_interface().expect("Blockchain interface is not set");
+    let logs = blockchain_interface
+        .as_mocked_blockchain()
+        .expect("MockedBlockchain interface expected")
+        .logs();
+    env::set_blockchain_interface(blockchain_interface);
+    logs
+}
+
+/// Accessing receipts created by the contract. Only available in unit tests.
+#[allow(dead_code)]
+pub fn get_created_receipts() -> Vec<Receipt> {
+    let blockchain_interface =
+        env::take_blockchain_interface().expect("Blockchain interface is not set");
+    let receipts = blockchain_interface
+        .as_mocked_blockchain()
+        .expect("MockedBlockchain interface expected")
+        .created_receipts()
+        .clone();
+    env::set_blockchain_interface(blockchain_interface);
+    receipts
+}
+
+/// Objects stored on the trie directly should have identifiers. If identifier is not provided
+/// explicitly than `Default` trait would use this index to generate an id.
+#[allow(dead_code)]
+pub(crate) static mut NEXT_TRIE_OBJECT_INDEX: u64 = 0;
+/// Get next id of the object stored on trie.
+#[allow(dead_code)]
+pub(crate) fn next_trie_id() -> Vec<u8> {
+    unsafe {
+        let id = NEXT_TRIE_OBJECT_INDEX;
+        NEXT_TRIE_OBJECT_INDEX += 1;
+        id.to_le_bytes().to_vec()
     }
 }
