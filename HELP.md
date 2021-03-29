@@ -1,9 +1,117 @@
 # Contract best practices
 
-## `STATE` storage key
+## Main structure and persistent collections
 
-The contract will save the main structure state under the storage key `STATE`.
-Make sure you don't modify it e.g. through collection prefixes or raw storage access.
+The main contract structure is marked with `#[near_bindgen]`. It has to be serializable and deserializable with [Borsh](https://borsh.io).
+
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize)]
+pub struct Contract {
+    pub data: String,
+    pub owner_id: AccountId,
+    pub value: u128,
+}
+```
+
+Every time an external method is called, the entire structure has to be deserialized.
+The serialized contract data is stored in the persistent storage under the key `STATE`.
+
+Change methods (see below) are serializing the main contract structure at the end and stores the new value into the storage.
+
+Persistent collection helps store extra data in the persistent storage outside of main structure.
+NEAR SDK provides the following collections:
+- `Vector` - An iterable implementation of vector.
+- `LookupMap` - An non-iterable implementation of a map.
+- `LookupSet` - An non-iterable implementation of a set.
+- `UnorderedMap` - An iterable implementation of a map.
+- `UnorderedSet` - An iterable implementation of a set.
+- `TreeMap` - An iterable sorted map based on AVL-tree
+- `LazyOption` - An `Option` for a single value.
+
+Every instance of a persistent collection requires a unique storage prefix.
+The prefix is used to generate internal keys to store data in the persistent storage.
+These internal keys has to be unique to avoid collisions (even with key `STATE`).
+
+## Generating unique prefixes for persistent collections
+
+When a contract gets complicated, there may be multiple different
+collections that may not be all part of the main structure, but instead be part of sub-structure or nested collections.
+They all need to have unique prefixes.
+
+#### The traditional way
+
+Traditionally, we hardcode them in the constructor using a short one letter prefix that was converted to a vec.
+When used nested collection, we had to manually construct a prefix.
+
+```rust
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new() -> Self {
+        Self {
+            accounts: UnorderedMap::new(b"a".to_vec()),
+            tokens: LookupMap::new(b"t".to_vec()),
+            metadata: LazyOption::new(b"m".to_vec()),
+        }
+    }
+
+    fn get_tokens(&self, account_id: &AccountId) -> UnorderedSet<String> {
+        let tokens = self.accounts.get(account_id).unwrap_or_else(|| {
+            // Constructing a unique prefix for a nested UnorderedSet.
+            let mut prefix = Vec::with_capacity(33);
+            // Adding unique prefix.
+            prefix.push(b's');
+            // Adding the hash of the account_id (key of the outer map) to the prefix.
+            // This is needed to differentiate across accounts.
+            prefix.extend(env::sha256(account_id.as_bytes()));
+            UnorderedSet::new(prefix)
+        });
+        tokens
+    }
+}
+```
+
+#### The new way
+
+Instead of manually tracking prefixes, we can introduce an `enum` for tracking them.
+And then use borsh serialization to construct a unique prefix for every collection.
+It's as efficient as manually serializing it, because Borsh enum also only takes one byte,
+but it's less error prone.
+
+```rust
+#[derive(BorshSerialize)]
+pub enum StorageKeys {
+    Accounts,
+    SubAccount { account_hash: Vec<u8> },
+    Tokens,
+    Metadata,
+}
+
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new() -> Self {
+        Self {
+            accounts: UnorderedMap::new(StorageKeys::Accounts.try_to_vec().unwrap()),
+            tokens: LookupMap::new(StorageKeys::Tokens.try_to_vec().unwrap()),
+            metadata: LazyOption::new(StorageKeys::Metadata.try_to_vec().unwrap()),
+        }
+    }
+    
+    fn get_tokens(&self, account_id: &AccountId) -> UnorderedSet<String> {
+        let tokens = self.accounts.get(account_id).unwrap_or_else(|| {
+            UnorderedSet::new(
+                StorageKeys::SubAccount { account_hash: env::sha256(account_id.as_bytes()) }
+                    .try_to_vec()
+                    .unwrap(),
+            )
+        });
+        tokens
+    }
+}
+```
+
 
 ## Upgrading contract
 
@@ -54,7 +162,7 @@ For methods in the implementation under `#[near_bindgen]`:
 
 - `pub fn` makes a method public and exports it in a contract. It means anyone can call it.
 - `fn` makes the method internal and it's not exported from the contract. No one can call it directly. It can only be called
-within a contract directly (not through a promise).
+  within a contract directly (not through a promise).
 - `pub(crate) fn` also will make a method internal. It's helpful to use it when you have a method in a different module.
 
 ```rust
@@ -63,7 +171,7 @@ impl Contract {
     pub fn increment(&mut self) {
         self.internal_increment();
     }
-    
+
     fn internal_increment(&mut self) {
         self.counter += 1;
     }
@@ -94,7 +202,7 @@ Callbacks have to be public methods exported from the contract, they needs to be
 
 If you're using callbacks, makes sure you check the predecessor to avoid someone else from calling it.
 
-There is an macro decorator `#[private]` that checks that the current account ID is equal to the predecessor account ID.  
+There is an macro decorator `#[private]` that checks that the current account ID is equal to the predecessor account ID.
 
 ```rust
 #[near_bindgen]
@@ -106,7 +214,7 @@ impl Contract {
 }
 ```
 
-## JSON types
+## Integer JSON types
 
 NEAR Protocol currently expects contracts to support JSON serialization. JSON can't handle large integers (above 2**53 bits).
 That's why you should use helper classes from the `json_types` in `near_sdk` for `u64` and `u128`.
@@ -134,6 +242,37 @@ You can also access inner values and using `.0` and `U128(5)`, e.g.
 impl Contract {
     pub fn sum(&self, a: U128, b: U128) -> U128 {
         U128(a.0 + b.0)
+    }
+}
+```
+
+## `Base64VecU8` JSON type
+
+Often the contract needs to receive or return a binary data.
+Encoding a `Vec<u8>` with JSON will lead to an integer array, e.g. `[110, 101, 97, 114]`
+This is inefficient in both compute and space.
+
+`Base64VecU8` is a wrapper on top of `Vec<u8>` that allows to pass it as arguments or result.
+
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct Contract {
+    // Notice, internally we store `Vec<u8>` 
+    pub data: Vec<u8>,
+}
+
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new(data: Base64VecU8) -> Self {
+        Self {
+            data: data.into(),
+        }
+    }
+
+    pub fn get_data(self) -> Base64VecU8 {
+        self.data.into()
     }
 }
 ```
@@ -287,7 +426,7 @@ const BASE_GAS: Gas = 5_000_000_000_000;
 #[near_bindgen]
 impl Contract {
     pub fn sum_a_b(&mut self, a: U128, b: U128) -> Promise {
-        let calculator_account_id: AccountId = CALCULATOR_ACCOUNT_ID.to_string(); 
+        let calculator_account_id: AccountId = CALCULATOR_ACCOUNT_ID.to_string();
         ext_calculator::sum(a, b, &calculator_account_id, NO_DEPOSIT, BASE_GAS)
     }
 }
@@ -295,36 +434,283 @@ impl Contract {
 
 ## Reuse crates from `near-sdk`
 
-TODO
+`near-sdk` re-exports the following crates:
+- `borsh`
+- `base64`
+- `bs58`
+- `serde`
+- `serde_json`
+- `wee_alloc`
+
+Most common crates include `borsh` that is needed for internal STATE serialization and
+`serde` for the external JSON serialization.
+
+When marking structs with `serde::Serialize` you need to use `#[serde(crate = "near_sdk::serde")]`
+to point serde into the correct base crate.
+
+```rust
+/// Import `borsh` from `near_sdk` crate 
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// Import `serde` from `near_sdk` crate 
+use near_sdk::serde::{Serialize, Deserialize};
+
+/// Main contract structure serialized with Borsh
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct Contract {
+    pub pair: Pair,
+}
+
+/// Implements both `serde` and `borsh` serialization.
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Pair {
+    pub a: u32,
+    pub b: u32,
+}
+
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new(pair: Pair) -> Self {
+        Self {
+            pair,
+        }
+    }
+
+    pub fn get_pair(self) -> Pair {
+        self.pair
+    }
+}
+```
 
 ## Use `setup_alloc!`
 
-TODO
+NEAR SDK provides a helper macro to setup a global allocator from `wee_alloc` crate:
 
-## `panic!` vs `env::panic`
+```rust
+near_sdk::setup_alloc!();
+```
 
-TODO
+It's equivalent to the following:
 
-## `HashMap` vs `LookupMap`
+```rust
+#[global_allocator]
+static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+```
 
-TODO
+## `std::panic!` vs `env::panic`
+
+- `std::panic!` panics the current thread. It's uses `format!` internally, so it can take arguments.
+  SDK setups a panic hook, which converts the generated `PanicInfo` from `panic!` into a string and uses `env::panic` internally to report it to Runtime.
+  This may provides extra debugging information such as the line number of the source code where the panic happened.
+
+- `env::panic` is directly calling the host method to panic the contract.
+  It doesn't provide any other extra debugging information except for the passed message.
+
+## In-memory `HashMap` vs persistent `UnorderedMap`
+
+- `HashMap` keeps all data in memory. To access it, the contract needs to deserialize the whole map.
+- `UnorderedMap` keeps data in the persistent storage. To access an element, you only need to deserialize this element.
+
+Use `HashMap` in case:
+- Need to iterate over all elements in the collection **in one function call*
+- The number of elements is small or fixed, e.g. less than 10.
+
+Use `UnorderedMap` in case:
+- Need to access a limited sub-set of the collection, e.g. one or two elements per call.
+- Can't fit the collection into memory.
+
+The reason is `HashMap` deserializes (and serializes) the entire collection in one storage operation.
+Accessing the entire collection is cheaper in gas than accessing all elements through `N` storage operations.
+
+Example of `HashMap`:
+
+```rust
+/// Using Default initialization.
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, Default)]
+pub struct Contract {
+    pub status_updates: HashMap<AccountId, String>,
+}
+
+#[near_bindgen]
+impl Contract {
+    pub fn set_status(&mut self, status: String) {
+        self.status_updates.insert(env::predecessor_account_id(), status);
+        assert!(self.status_updates.len() <= 10, "Too many messages");
+    }
+
+    pub fn clear(&mut self) {
+        // Effectively iterating through all removing them.
+        self.status_updates.clear();
+    }
+
+    pub fn get_all_updates(self) -> HashMap<AccountId, String> {
+        self.status_updates
+    }
+}
+```
+
+Example of `UnorderedMap`:
+
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct Contract {
+    pub status_updates: UnorderedMap<AccountId, String>,
+}
+
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new() -> Self {
+        // Initializing `status_updates` with unique key prefix.
+        Self {
+            status_updates: UnorderedMap::new(b"s".to_vec()),
+        }
+    }
+
+    pub fn set_status(&mut self, status: String) {
+        self.status_updates.insert(&env::predecessor_account_id(), &status);
+        // Note, don't need to check size, since `UnorderedMap` doesn't store all data in memory.
+    }
+
+    pub fn delete_status(&mut self) {
+        self.status_updates.remove(&env::predecessor_account_id());
+    }
+
+    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
+        self.status_updates.get(account_id.as_ref())
+    }
+}
+```
+
+## Pagination with persistent collections
+
+Persistent collections such as `UnorderedMap`, `UnorderedSet` and `Vector` may
+contain more elements than the amount of gas available to read them all.
+In order to expose them all through view calls, we can implement pagination.
+
+`Vector` returns elements by index natively using `.get(index)`.
+
+To access elements by index in `UnorderedSet` we can use `.as_vector()` that will return a `Vector` of elements.
+
+For `UnorderedMap` we need to get keys and values as `Vector` collections, using `.keys_as_vector()` and `.values_as_vector()` respectively.
+
+Example of pagination for `UnorderedMap`:
+
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct Contract {
+    pub status_updates: UnorderedMap<AccountId, String>,
+}
+
+#[near_bindgen]
+impl Contract {
+    /// Retrieves multiple elements from the `UnorderedMap`.
+    /// - `from_index` is the index to start from.
+    /// - `limit` is the maximum number of elements to return.
+    pub fn get_updates(&self, from_index: u64, limit: u64) -> Vec<(AccountId, String)> {
+        let keys = self.status_updates.keys_as_vector();
+        let values = self.status_updates.values_as_vector();
+        (from_index..std::cmp::min(from_index + limit, self.status_updates.len()))
+            .map(|index| (keys.get(index).unwrap(), values.get(index).unwrap()))
+            .collect()
+    }
+}
+```
 
 ## `LookupMap` vs `UnorderedMap`
 
-TODO
+#### Functionality
+
+- `UnorderedMap` supports iteration over keys and values, and also supports pagination. Internally, it has the following structures:
+    - a map from a key to an index
+    - a vector of keys
+    - a vector of values
+- `LookupMap` only has a map from a key to a value. Without a vector of keys, it doesn't have the ability to iterate over keys.
+
+#### Performance
+
+`LookupMap` has a better performance and stores less data comparing to the `UnorderedMap`.
+
+- `UnorderedMap` requires `2` storage reads to get the value and `3` storage writes to insert a new entry.
+- `LookupMap` requires only one storage read to get the value and only one storage write to store it.
+
+#### Storage space
+
+`UnorderedMap` requires more storage for an entry comparing to a `LookupMap`.
+
+- `UnorderedMap` stores the key twice (once in the first map and once in the vector of keys) and value once. It also has higher constant for storing the length of vectors and prefixes.
+- `LookupMap` stores key and value once.
 
 ## `LazyOption`
 
-TODO
+It's a type of persistent collection that only stores a single value.
+The goal is prevent contract from deserializing the given value until it's needed.
+An example can be a large blob of metadata that is only needed when it's requested in a view call,
+but not needed for the majority of contract operations.
 
-## `Base64VecU8` 
+It acts like an `Option` that can either hold a value or not and also requires a unique prefix (a key in this case)
+like other persistent collections.
 
-TODO
+Comparing to other collections, the `LazyOption` allows to initialize the value during the constructor.
+
+```rust
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct Contract {
+    pub metadata: LazyOption<Metadata>,
+}
+
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct Metadata {
+    data: String,
+    image: Base64Vec,
+    blobs: Vec<Strings>,
+}
+
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new(metadata: Metadata) -> Self {
+        Self {
+            metadata: LazyOption::new(b"m".to_vec(), Some(metadata)),
+        }
+    }
+
+    pub fn get_metadata(&self) -> Metadata {
+        // `.get()` reads and deserializes the value from the storage. 
+        self.metadata.get().unwrap()
+    }
+}
+```
 
 ## Compile smaller binaries
 
-TODO
+When compiling a contract make sure to pass flag `-C link-arg=-s` to the rust compiler:
+
+```bash
+RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
+```
+
+Here is the parameters we use for the most examples in `Cargo.toml`:
+```toml
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+```
+
+You may want to experiment with using `opt-level = "z"` instead of `opt-level = "s"` to see if generates a smaller binary.
 
 ## Use simulation testing
 
-TODO
+Simulation testing framework allows to run tests for multiple contract in a simulated runtime environment.
+Read more, [near-sdk-sim](https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim)
