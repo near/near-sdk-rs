@@ -76,7 +76,7 @@ impl Contract {
 }
 ```
 
-For a traditional way of handling it, see [instructions below](#traditional-prefixes)
+For a traditional way of handling it, see [instructions below](#the-traditional-way-of-handling-unique-prefixes-for-persistent-collections)
 
 
 ## Upgrading contract
@@ -684,7 +684,6 @@ Read more, [near-sdk-sim](https://github.com/near/near-sdk-rs/tree/master/near-s
 # Appendix
 
 ### The traditional way of handling unique prefixes for persistent collections
-[traditional-prefixes]: #traditional-prefixes
 
 Hardcode prefixes in the constructor using a short one letter prefix that was converted to a vec.
 When used nested collection, we had to manually construct a prefix.
