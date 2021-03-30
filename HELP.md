@@ -39,45 +39,9 @@ When a contract gets complicated, there may be multiple different
 collections that may not be all part of the main structure, but instead be part of sub-structure or nested collections.
 They all need to have unique prefixes.
 
-#### The traditional way
-
-Traditionally, we hardcode them in the constructor using a short one letter prefix that was converted to a vec.
-When used nested collection, we had to manually construct a prefix.
-
-```rust
-#[near_bindgen]
-impl Contract {
-    #[init]
-    pub fn new() -> Self {
-        Self {
-            accounts: UnorderedMap::new(b"a".to_vec()),
-            tokens: LookupMap::new(b"t".to_vec()),
-            metadata: LazyOption::new(b"m".to_vec()),
-        }
-    }
-
-    fn get_tokens(&self, account_id: &AccountId) -> UnorderedSet<String> {
-        let tokens = self.accounts.get(account_id).unwrap_or_else(|| {
-            // Constructing a unique prefix for a nested UnorderedSet.
-            let mut prefix = Vec::with_capacity(33);
-            // Adding unique prefix.
-            prefix.push(b's');
-            // Adding the hash of the account_id (key of the outer map) to the prefix.
-            // This is needed to differentiate across accounts.
-            prefix.extend(env::sha256(account_id.as_bytes()));
-            UnorderedSet::new(prefix)
-        });
-        tokens
-    }
-}
-```
-
-#### The new way
-
-Instead of manually tracking prefixes, we can introduce an `enum` for tracking them.
+We can introduce an `enum` for tracking storage prefixes and keys.
 And then use borsh serialization to construct a unique prefix for every collection.
-It's as efficient as manually serializing it, because Borsh enum also only takes one byte,
-but it's less error prone.
+It's as efficient as manually constructing them, because Borsh enum only takes one byte.
 
 ```rust
 #[derive(BorshSerialize)]
@@ -111,6 +75,8 @@ impl Contract {
     }
 }
 ```
+
+For a traditional way of handling it, see [instructions below](#traditional-prefixes)
 
 
 ## Upgrading contract
@@ -714,3 +680,39 @@ You may want to experiment with using `opt-level = "z"` instead of `opt-level = 
 
 Simulation testing framework allows to run tests for multiple contract in a simulated runtime environment.
 Read more, [near-sdk-sim](https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim)
+
+# Appendix
+
+### The traditional way of handling unique prefixes for persistent collections
+[traditional-prefixes]: #traditional-prefixes
+
+Hardcode prefixes in the constructor using a short one letter prefix that was converted to a vec.
+When used nested collection, we had to manually construct a prefix.
+
+```rust
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new() -> Self {
+        Self {
+            accounts: UnorderedMap::new(b"a".to_vec()),
+            tokens: LookupMap::new(b"t".to_vec()),
+            metadata: LazyOption::new(b"m".to_vec()),
+        }
+    }
+
+    fn get_tokens(&self, account_id: &AccountId) -> UnorderedSet<String> {
+        let tokens = self.accounts.get(account_id).unwrap_or_else(|| {
+            // Constructing a unique prefix for a nested UnorderedSet.
+            let mut prefix = Vec::with_capacity(33);
+            // Adding unique prefix.
+            prefix.push(b's');
+            // Adding the hash of the account_id (key of the outer map) to the prefix.
+            // This is needed to differentiate across accounts.
+            prefix.extend(env::sha256(account_id.as_bytes()));
+            UnorderedSet::new(prefix)
+        });
+        tokens
+    }
+}
+```
