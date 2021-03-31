@@ -17,7 +17,6 @@ pub(crate) fn key_to_b58(key: &[u8]) -> String {
 }
 
 impl ContractCache {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         ContractCache::default()
     }
@@ -45,14 +44,11 @@ impl ContractCache {
     }
 
     pub fn insert(&self, key: &[u8], value: &[u8]) -> Option<Vec<u8>> {
-        (*self.data).lock().unwrap().insert((*key).to_owned(), (*value).to_owned())
+        self.data.lock().unwrap().insert(key.to_vec(), value.to_vec())
     }
 
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        match (*self.data).lock().unwrap().get(key) {
-            Some(v) => Some(v.clone()),
-            _ => None,
-        }
+        self.data.lock().unwrap().get(key).cloned()
     }
 
     #[allow(dead_code)]
@@ -93,4 +89,3 @@ pub fn create_cache() -> ContractCache {
 pub fn cache_to_arc(cache: &ContractCache) -> Arc<ContractCache> {
     cache.to_arc()
 }
-
