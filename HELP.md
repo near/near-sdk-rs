@@ -21,6 +21,7 @@ Change methods (see below) are serializing the main contract structure at the en
 
 Persistent collection helps store extra data in the persistent storage outside of main structure.
 NEAR SDK provides the following collections:
+
 - `Vector` - An iterable implementation of vector.
 - `LookupMap` - An non-iterable implementation of a map.
 - `LookupSet` - An non-iterable implementation of a set.
@@ -31,7 +32,7 @@ NEAR SDK provides the following collections:
 
 Every instance of a persistent collection requires a unique storage prefix.
 The prefix is used to generate internal keys to store data in the persistent storage.
-These internal keys has to be unique to avoid collisions (even with key `STATE`).
+These internal keys have to be unique to avoid collisions (even with key `STATE`).
 
 ## Generating unique prefixes for persistent collections
 
@@ -180,6 +181,20 @@ impl Contract {
 }
 ```
 
+This is equivalent to:
+
+```rust
+#[near_bindgen]
+impl Contract {
+    pub fn resolve_transfer(&mut self) {
+        if env::current_account_id() != env::predecessor_account_id() {
+            near_sdk::env::panic(b"Method resolve_transfer is private");
+        }
+        env::log(b"This is a callback");
+    }
+}
+```
+
 ## Integer JSON types
 
 NEAR Protocol currently expects contracts to support JSON serialization. JSON can't handle large integers (above 2**53 bits).
@@ -247,7 +262,7 @@ impl Contract {
 
 `near_sdk` assumes that the method is a `view` if it uses `&self` or `self` and method is `change` if it has `&mut self`.
 
-View methods don't safe the contract STATE at the end of the method execution.
+View methods don't save the contract STATE at the end of the method execution.
 
 Change methods will save the modified STATE at the end of the method execution. They can also modify the state in persistent collections.
 
@@ -261,7 +276,7 @@ impl Contract {
         self.owner_id.clone()
     }
 
-    /// View method. More efficient, but can't be reused internally, because it consumes self. 
+    /// View method. More efficient, but can't be reused internally, because it consumes self.
     pub fn get_owner_id2(self) -> AccountId {
         self.owner_id
     }
@@ -273,6 +288,8 @@ impl Contract {
 }
 ```
 
+For more information about `&self` versus `self` see the [rust book](https://doc.rust-lang.org/stable/book/ch05-03-method-syntax.html?highlight=capture%20self#defining-methods)
+
 ## Payable methods
 
 To mark a change method as a payable, you need add `#[payable]` macro decorator. This will allow this change method
@@ -283,6 +300,29 @@ to receive attached deposits. Otherwise, if a deposit is attached to non-payable
 impl Contract {
     #[payable]
     pub fn take_my_money(&mut self) {
+        env::log(b"Thanks!");
+    }
+
+    pub fn do_not_take_my_money(&mut self) {
+        env::log(b"Thanks!");
+    }
+}
+```
+
+This is equivalent to:
+
+```rust
+#[near_bindgen]
+impl Contract {
+    pub fn take_my_money(&mut self) {
+        env::log(b"Thanks!");
+    }
+
+    pub fn do_not_take_my_money(&mut self) {
+        let error = format!("", ident.to_string());
+        if near_sdk::env::attached_deposit() != 0 {
+            near_sdk::env::panic(b"Method do_not_take_my_money doesn't accept deposit");
+        }
         env::log(b"Thanks!");
     }
 }
@@ -401,12 +441,13 @@ impl Contract {
 ## Reuse crates from `near-sdk`
 
 `near-sdk` re-exports the following crates:
+
 - `borsh`
 - `base64`
 - `bs58`
 - `serde`
 - `serde_json`
-- `wee_alloc`
+- `wee_alloc` (Though you will likely use the `setup_alloc` macro instead of importing it directly)
 
 Most common crates include `borsh` that is needed for internal STATE serialization and
 `serde` for the external JSON serialization.
@@ -452,7 +493,7 @@ impl Contract {
 
 ## Use `setup_alloc!`
 
-NEAR SDK provides a helper macro to setup a global allocator from `wee_alloc` crate:
+The SDK provides a helper macro to setup a global allocator from `wee_alloc` crate:
 
 ```rust
 near_sdk::setup_alloc!();
@@ -461,6 +502,7 @@ near_sdk::setup_alloc!();
 It's equivalent to the following:
 
 ```rust
+#[cfg(target_arch = "wasm32")]
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 ```
@@ -480,10 +522,12 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 - `UnorderedMap` keeps data in the persistent storage. To access an element, you only need to deserialize this element.
 
 Use `HashMap` in case:
+
 - Need to iterate over all elements in the collection **in one function call*
 - The number of elements is small or fixed, e.g. less than 10.
 
 Use `UnorderedMap` in case:
+
 - Need to access a limited sub-set of the collection, e.g. one or two elements per call.
 - Can't fit the collection into memory.
 
@@ -590,22 +634,22 @@ impl Contract {
 
 ## `LookupMap` vs `UnorderedMap`
 
-#### Functionality
+### Functionality
 
 - `UnorderedMap` supports iteration over keys and values, and also supports pagination. Internally, it has the following structures:
-    - a map from a key to an index
-    - a vector of keys
-    - a vector of values
+  - a map from a key to an index
+  - a vector of keys
+  - a vector of values
 - `LookupMap` only has a map from a key to a value. Without a vector of keys, it doesn't have the ability to iterate over keys.
 
-#### Performance
+### Performance
 
 `LookupMap` has a better performance and stores less data comparing to the `UnorderedMap`.
 
 - `UnorderedMap` requires `2` storage reads to get the value and `3` storage writes to insert a new entry.
 - `LookupMap` requires only one storage read to get the value and only one storage write to store it.
 
-#### Storage space
+### Storage space
 
 `UnorderedMap` requires more storage for an entry comparing to a `LookupMap`.
 
@@ -664,6 +708,7 @@ RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
 
 Here is the parameters we use for the most examples in `Cargo.toml`:
+
 ```toml
 [profile.release]
 codegen-units = 1
@@ -681,12 +726,12 @@ You may want to experiment with using `opt-level = "z"` instead of `opt-level = 
 Simulation testing framework allows to run tests for multiple contract in a simulated runtime environment.
 Read more, [near-sdk-sim](https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim)
 
-# Appendix
+## Appendix
 
 ### The traditional way of handling unique prefixes for persistent collections
 
-Hardcode prefixes in the constructor using a short one letter prefix that was converted to a vec.
-When used nested collection, we had to manually construct a prefix.
+Hardcoded prefixes in the constructor using a short one letter prefix that was converted to a vector of bytes.
+When using nested collection, the prefix must be constructed manually.
 
 ```rust
 #[near_bindgen]
