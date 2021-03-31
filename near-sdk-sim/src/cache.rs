@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 /// This provides a disc cache for compiled contracts.
 /// The cached contracts are located `CARGO_MANIFEST_DIR/target/contract_cache`.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ContractCache {
     data: Rc<RefCell<HashMap<Vec<u8>, Vec<u8>>>>,
 }
@@ -21,7 +21,7 @@ pub(crate) fn key_to_b58(key: &[u8]) -> String {
 impl ContractCache {
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { data: Rc::new(RefCell::new(HashMap::new())) }
+        ContractCache::default()
     }
 
     fn path() -> PathBuf {
