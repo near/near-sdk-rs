@@ -319,7 +319,6 @@ impl Contract {
     }
 
     pub fn do_not_take_my_money(&mut self) {
-        let error = format!("", ident.to_string());
         if near_sdk::env::attached_deposit() != 0 {
             near_sdk::env::panic(b"Method do_not_take_my_money doesn't accept deposit");
         }
