@@ -1,17 +1,15 @@
 use crate::types::CompiledContractCache;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// This provides a disc cache for compiled contracts.
 /// The cached contracts are located `CARGO_MANIFEST_DIR/target/contract_cache`.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ContractCache {
-    data: Rc<RefCell<HashMap<Vec<u8>, Vec<u8>>>>,
+    data: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
 pub(crate) fn key_to_b58(key: &[u8]) -> String {
@@ -19,9 +17,8 @@ pub(crate) fn key_to_b58(key: &[u8]) -> String {
 }
 
 impl ContractCache {
-    #[allow(dead_code)]
     pub fn new() -> Self {
-        Self { data: Rc::new(RefCell::new(HashMap::new())) }
+        ContractCache::default()
     }
 
     fn path() -> PathBuf {
@@ -47,14 +44,11 @@ impl ContractCache {
     }
 
     pub fn insert(&self, key: &[u8], value: &[u8]) -> Option<Vec<u8>> {
-        (*self.data).borrow_mut().insert((*key).to_owned(), (*value).to_owned())
+        self.data.lock().unwrap().insert(key.to_vec(), value.to_vec())
     }
 
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        match (*self.data).borrow_mut().get(key) {
-            Some(v) => Some(v.clone()),
-            _ => None,
-        }
+        self.data.lock().unwrap().get(key).cloned()
     }
 
     #[allow(dead_code)]
@@ -75,7 +69,7 @@ impl CompiledContractCache for ContractCache {
     }
 
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, std::io::Error> {
-        if (*self.data).borrow().contains_key(key) {
+        if (*self.data).lock().unwrap().contains_key(key) {
             return Ok(self.get(key));
         } else if self.file_exists(key) {
             let mut file = self.open_file(key)?;
@@ -95,6 +89,3 @@ pub fn create_cache() -> ContractCache {
 pub fn cache_to_arc(cache: &ContractCache) -> Arc<ContractCache> {
     cache.to_arc()
 }
-
-unsafe impl Send for ContractCache {}
-unsafe impl Sync for ContractCache {}
