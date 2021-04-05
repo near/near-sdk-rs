@@ -4,8 +4,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, PromiseOrValue,
-    PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, IntoStorageKey,
+    PromiseOrValue, PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -75,7 +75,10 @@ pub struct FungibleToken {
 }
 
 impl FungibleToken {
-    pub fn new(prefix: Vec<u8>) -> Self {
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
         let mut this =
             Self { accounts: LookupMap::new(prefix), total_supply: 0, account_storage_usage: 0 };
         this.measure_account_storage_usage();

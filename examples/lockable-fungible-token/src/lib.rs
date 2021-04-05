@@ -67,7 +67,7 @@ impl FunToken {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: String) -> Self {
         let total_supply = u128::from_str(&total_supply).expect("Failed to parse total supply");
-        let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
+        let mut ft = Self { accounts: UnorderedMap::new(b"a"), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
         ft.accounts.insert(&owner_id, &account);

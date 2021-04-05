@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
-use crate::env;
+use crate::{env, IntoStorageKey};
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -35,8 +35,11 @@ impl<T> Vector<T> {
     }
 
     /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
-    pub fn new(id: Vec<u8>) -> Self {
-        Self { len: 0, prefix: id, el: PhantomData }
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        Self { len: 0, prefix: prefix.into_storage_key(), el: PhantomData }
     }
 
     fn index_to_lookup_key(&self, index: u64) -> Vec<u8> {

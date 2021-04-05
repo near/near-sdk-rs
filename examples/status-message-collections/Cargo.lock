@@ -29,12 +29,6 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "base64"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
-
-[[package]]
-name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
@@ -270,11 +264,11 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "near-primitives-core"
-version = "0.1.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92035b79bf9983502fe7b67b5a9fecea7604e979d439727827fd0d8f0d77720e"
+checksum = "c2b3fb5acf3a494aed4e848446ef2d6ebb47dbe91c681105d4d1786c2ee63e52"
 dependencies = [
- "base64 0.11.0",
+ "base64",
  "borsh",
  "bs58",
  "derive_more",
@@ -315,9 +309,9 @@ dependencies = [
 
 [[package]]
 name = "near-runtime-utils"
-version = "3.0.0"
+version = "4.0.0-pre.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47f5c1891cec5a03e3dc99f985031408b19516305e2e59d64c4ce52b409e46a0"
+checksum = "a48d80c4ca1d4cf99bc16490e1e3d49826c150dfc4410ac498918e45c7d98e07"
 dependencies = [
  "lazy_static",
  "regex",
@@ -325,9 +319,9 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "borsh",
  "bs58",
  "near-primitives-core",
@@ -340,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-core"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -350,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "near-sdk-core",
  "proc-macro2",
@@ -360,9 +354,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-errors"
-version = "3.0.0"
+version = "4.0.0-pre.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53a100dda565c5375ac061126167afc5c33cdba1f2e325cfae3ce08f4a5a432a"
+checksum = "e281d8730ed8cb0e3e69fb689acee6b93cdb43824cd69a8ffd7e1bfcbd1177d7"
 dependencies = [
  "borsh",
  "hex",
@@ -372,11 +366,11 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "3.0.0"
+version = "4.0.0-pre.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12201244dd59ae79506767afe7a8f51b5eb7bd0aa237d355dfa635f7b777c4a"
+checksum = "e11cb28a2d07f37680efdaf860f4c9802828c44fc50c08009e7884de75d982c5"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "borsh",
  "bs58",
  "byteorder",
@@ -560,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "status-message-collections"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "near-sdk",
 ]
