@@ -1,17 +1,14 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, LookupSet};
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::{env, near_bindgen, BorshStorageKey};
+use near_sdk::{env, near_bindgen, storage_key};
 
 near_sdk::setup_alloc!();
 
-#[derive(BorshSerialize)]
-enum StorageKey {
+storage_key! {
     Records,
     UniqueValues,
 }
-
-impl BorshStorageKey for StorageKey {}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]

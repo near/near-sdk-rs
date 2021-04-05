@@ -2,19 +2,18 @@
 
 ## `3.1.0`
 
+* Updated dependencies for `near-sdk`
 * Introduce trait `IntoStorageKey` and updating all persistent collections to take it instead of `Vec<u8>`.
   It's a non-breaking change.
-* Introduce trait `BorshStorageKey`. It's useful to create enums for unique storage key. Example:
+* Introduce a macro `storage_key!` that crates a `StorageKey` enum, which can be passed to persistent collections to create unique prefixes. Example:
 ```rust
-#[derive(BorshSerialize)]
-enum StorageKey {
+use near_sdk::storage_key;
+
+// Creates enum `StorageKey` that can be passed to persistent collections.
+storage_key! {
     Records,
     UniqueValues,
 }
-
-// Implement `BorshStorageKey`, so `StorageKey` gets `IntoStorageKey`
-// trait implementation based on `BorshSerialize`.
-impl BorshStorageKey for StorageKey {}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]

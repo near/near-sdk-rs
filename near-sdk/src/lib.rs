@@ -28,7 +28,7 @@ pub use near_vm_logic::VMConfig;
 pub use near_vm_logic::VMContext;
 
 pub mod utils;
-pub use crate::utils::storage_key::*;
+pub use crate::utils::storage_key_impl::*;
 pub use crate::utils::*;
 
 pub use environment::blockchain_interface::BlockchainInterface;

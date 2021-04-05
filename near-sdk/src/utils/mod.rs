@@ -1,4 +1,4 @@
-pub(crate) mod storage_key;
+pub(crate) mod storage_key_impl;
 
 use crate::{env, AccountId, PromiseResult};
 
