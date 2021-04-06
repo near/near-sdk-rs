@@ -15,11 +15,11 @@ pub struct Contract {
 ```
 
 Every time an external method is called, the entire structure has to be deserialized.
-The serialized contract data is stored in the persistent storage under the key `STATE`.
+The serialized contract data is stored in [persistent storage] under the key `STATE`.
 
-Change methods (see below) are serializing the main contract structure at the end and stores the new value into the storage.
+Change methods ([see below](#view-vs-change-method)) serialize the main contract structure at the end and store the new value into storage.
 
-Persistent collection helps store extra data in the persistent storage outside of main structure.
+[Persistent collections](./near-sdk/src/collections) help store extra data in persistent storage outside of the main structure.
 NEAR SDK provides the following collections:
 
 - `Vector` - An iterable implementation of vector.
@@ -31,18 +31,20 @@ NEAR SDK provides the following collections:
 - `LazyOption` - An `Option` for a single value.
 
 Every instance of a persistent collection requires a unique storage prefix.
-The prefix is used to generate internal keys to store data in the persistent storage.
-These internal keys have to be unique to avoid collisions (even with key `STATE`).
+The prefix is used to generate internal keys to store data in persistent storage.
+These internal keys need to be unique to avoid collisions (including collisions with key `STATE`).
+
+  [persistent storage]: https://nomicon.io/DataStructures/Account.html#storage
 
 ## Generating unique prefixes for persistent collections
 
 When a contract gets complicated, there may be multiple different
-collections that may not be all part of the main structure, but instead be part of sub-structure or nested collections.
+collections that are not all part of the main structure, but instead part of a sub-structure or nested collections.
 They all need to have unique prefixes.
 
 We can introduce an `enum` for tracking storage prefixes and keys.
 And then use borsh serialization to construct a unique prefix for every collection.
-It's as efficient as manually constructing them, because Borsh enum only takes one byte.
+It's as efficient as manually constructing them, because with Borsh serialization, an enum only takes one byte.
 
 ```rust
 #[derive(BorshSerialize)]
@@ -80,7 +82,7 @@ impl Contract {
 For a traditional way of handling it, see [instructions below](#the-traditional-way-of-handling-unique-prefixes-for-persistent-collections)
 
 
-## Upgrading contract
+## Upgrading a contract
 
 After `3.0.1` change, `#[init]` macro initializes the contract and verifies that the old state doesn't exist.
 It will panic if the old state (under key `STATE`) is present in the storage.
@@ -96,7 +98,7 @@ impl Contract {
         // Deserialize the state using the old contract structure.
         let old_contract: OldContract = env::state_read().expect("Old state doesn't exist");
         // Verify that the migration can only be done by the owner.
-        // This is not necessarily, if the upgrade is done internally.
+        // This is not necessary, if the upgrade is done internally.
         assert_eq!(
             &env::predecessor_account_id(),
             &old_contract.owner_id,
@@ -111,8 +113,8 @@ impl Contract {
 
 ## Use `PanicOnDefault`
 
-By default `near_sdk` allows a contract to be initialized with the default state.
-Usually, if you have an initializer, you may want to prevent it.
+By default `near_sdk` allows a contract to be initialized with default state.
+Usually, if you have an initializer, you will want to prevent this.
 There is a helper derive macro `PanicOnDefault` to do this, e.g.
 
 ```rust
@@ -163,11 +165,15 @@ impl Contract {
 }
 ```
 
-## Callbacks
+While this style of public and private methods are familiar from other programming contexts, smart contracts also have a more unique need: public methods (exported as part of the contract interface; callable via [cross-contract calls](https://docs.near.org/docs/tutorials/contracts/cross-contract-calls)) that are only callable by the contract itself (such as [`ft_resolve_transfer`](https://nomicon.io/Standards/Tokens/FungibleTokenCore.html#reference-level-explanation) for Fungible Token contracts).
 
-Callbacks have to be public methods exported from the contract, they needs to be called using a function call.
+We call such methods _callbacks_.
 
-If you're using callbacks, makes sure you check the predecessor to avoid someone else from calling it.
+### Callbacks
+
+Callbacks have to be public methods exported from the contract, and need to be called using a function call.
+
+If you're using callbacks, make sure you check the predecessor to prevent someone else from calling it.
 
 There is an macro decorator `#[private]` that checks that the current account ID is equal to the predecessor account ID.
 
@@ -197,9 +203,9 @@ impl Contract {
 
 ## Integer JSON types
 
-NEAR Protocol currently expects contracts to support JSON serialization. JSON can't handle large integers (above 2**53 bits).
-That's why you should use helper classes from the `json_types` in `near_sdk` for `u64` and `u128`.
-We provide types `U64` and `U128`, that wraps the integer into a struct and implements JSON serialization and
+NEAR Protocol currently expects contracts to support JSON serialization. JSON can't handle large integers (above `2**53` bits).
+That's why, for all exported methods, you should use helper classes from the `json_types` in `near_sdk` instead of `u64` and `u128`.
+We provide types `U64` and `U128`, which wrap the integer into a struct and implement JSON serialization and
 deserialization as a base-10 strings.
 
 You can convert from `U64` to `u64` and back using `std::convert::Into`, e.g.
@@ -216,20 +222,51 @@ impl Contract {
 }
 ```
 
-You can also access inner values and using `.0` and `U128(5)`, e.g.
+You can also access inner values and using `.0`:
+
+```diff
+ #[near_bindgen]
+ impl Contract {
+     pub fn mult(&self, a: U64, b: U64) -> U128 {
+-        let a: u64 = a.into();
++        let a = a.0;
+-        let b: u64 = b.into();
++        let b = b.0;
+         let product = u128::from(a) * u128::from(b);
+         product.into()
+     }
+ }
+```
+
+And you can cast the lower-case `u` variants to upper-case `U` variants using `U64(...)` and `U128(...)`:
+
+```diff
+ #[near_bindgen]
+ impl Contract {
+     pub fn mult(&self, a: U64, b: U64) -> U128 {
+         let a = a.0;
+         let b = b.0;
+         let product = u128::from(a) * u128::from(b);
+-        product.into()
++        U128(product)
+     }
+ }
+```
+
+Combining it all:
 
 ```rust
 #[near_bindgen]
 impl Contract {
-    pub fn sum(&self, a: U128, b: U128) -> U128 {
-        U128(a.0 + b.0)
+    pub fn mult(&self, a: U64, b: U64) -> U128 {
+        U128(u128::from(a.0) * u128::from(b.0))
     }
 }
 ```
 
 ## `Base64VecU8` JSON type
 
-Often the contract needs to receive or return a binary data.
+Contracts often need to receive or return binary data.
 Encoding a `Vec<u8>` with JSON will lead to an integer array, e.g. `[110, 101, 97, 114]`
 This is inefficient in both compute and space.
 
@@ -263,8 +300,9 @@ impl Contract {
 `near_sdk` assumes that the method is a `view` if it uses `&self` or `self` and method is `change` if it has `&mut self`.
 
 View methods don't save the contract STATE at the end of the method execution.
+However, a view method COULD modify contract STATE or persistent collection state in-memory, knowing that all changes will be discarded after the method returns.
 
-Change methods will save the modified STATE at the end of the method execution. They can also modify the state in persistent collections.
+Change methods will automatically save the modified STATE at the end of the method execution. They can also modify the state in persistent collections.
 
 Note: Change methods will also check that the function call doesn't have attached deposit, unless the method is marked with the `#[payable]` macro.
 
@@ -285,6 +323,17 @@ impl Contract {
     pub fn set_owner_id(&mut self, new_owner_id: ValidAccountId) {
         self.owner_id = new_owner_id.into();
     }
+
+    /// View method that "modifies" state, for code structure or computational
+    /// efficiency reasons. Changes state in-memory, but does NOT save the new
+    /// state. If called internally by a change method, WILL result in updated
+    /// contract state.
+    pub fn update_stats(&self, account_id: ValidAccountId, score: U64) -> Account {
+        let account = self.accounts.get(account_id)
+            .unwrap_or_panic("account {} not found", account_id);
+        account.total += score;
+        account
+    }
 }
 ```
 
@@ -292,8 +341,8 @@ For more information about `&self` versus `self` see the [rust book](https://doc
 
 ## Payable methods
 
-To mark a change method as a payable, you need add `#[payable]` macro decorator. This will allow this change method
-to receive attached deposits. Otherwise, if a deposit is attached to non-payable change method, the method will panic.
+To mark a change method as a payable, you need to add the `#[payable]` macro decorator. This will allow this change method
+to receive attached deposits. Otherwise, if a deposit is attached to a non-payable change method, the method will panic.
 
 ```rust
 #[near_bindgen]
@@ -338,7 +387,7 @@ overflow-checks = true
 
 ## Use `assert!` early
 
-Try to validate the input, context, state and access first before making any actions. This will save gas for the caller if you panic earlier.
+Try to validate the input, context, state and access first before taking any actions. The earlier you panic, the more [gas](https://docs.near.org/docs/concepts/gas) you will save for the caller.
 
 ```rust
 #[near_bindgen]
@@ -369,9 +418,10 @@ env::log(format!("Transferred {} tokens from {} to {}", amount, sender_id, recei
 
 ## Return `Promise`
 
-If your method makes a cross-contract call, you may want to return the newly created `Promise`.
-It allows the caller to wait for the result of the promise instead of the returning the result immediately.
-Because if the promise fails for some reason, the caller will not know about this or the caller may display the result earlier.
+If your method makes a cross-contract call, you probably want to return the newly created `Promise`.
+This allows the caller (such as a near-cli or near-api-js call) to wait for the result of the promise instead of returning immediately.
+Additionally, if the promise fails for some reason, returning it will let the caller know about the failure, as well as enabling NEAR Explorer and other tools to mark the whole transaction chain as failing.
+This can prevent false-positives when the first or first few transactions in a chain succeed but a subsequent transaction fails.
 
 E.g.
 
@@ -386,7 +436,7 @@ impl Contract {
 
 ## Use high-level cross-contract API
 
-There is a helper macro that allows to make cross-contract calls called `#[ext_contract(...)]`. It takes a Rust Trait and
+There is a helper macro that allows you to make cross-contract calls called `#[ext_contract(...)]`. It takes a Rust Trait and
 converts it to a module with static methods. Each of these static methods takes positional arguments defined by the Trait,
 then the `receiver_id`, the attached deposit and the amount of gas and returns a new `Promise`.
 
@@ -437,6 +487,51 @@ impl Contract {
 }
 ```
 
+### Cross-contract call return values as inputs to callbacks
+
+A common pattern is to call an external contract, then schedule a follow-up call to self in order to react to the outcome of the external call.
+Continuing the example above, `Contract` could use the returned `U128` from `ext_calculator`.
+
+Note that scheduling calls to the current contract can also use `ext_contract`.
+It is common to use `ext_self` as the name when doing so.
+
+E.g.
+
+```rust
+#[ext_contract(ext_self)]
+trait OnCalculate {
+    fn resolve_stats(&self, #[callback] sum: U128, caller: AccountId) -> Account;
+}
+
+#[near_bindgen]
+impl Contract {
+    pub fn calculate_stats(&mut self, a: U128, b: U128) -> Promise {
+        let caller = env::predecessor_account_id();
+        let calculator_account_id: AccountId = CALCULATOR_ACCOUNT_ID.to_string();
+        ext_calculator::sum(a, b, &calculator_account_id, NO_DEPOSIT, BASE_GAS)
+        .then(ext_self::finish_deposit(
+            // note that we only pass `caller` here
+            &caller,
+            &env::current_account_id(),
+            NO_DEPOSIT,
+            BASE_GAS
+        ))
+    }
+
+    pub fn resolve_stats(
+        &mut self,
+        #[callback]
+        sum: U128,
+        caller: AccountId
+    ) -> Account {
+        let account = self.accounts.get(caller)
+            .unwrap_or_panic("account {} not found", caller);
+        account.total += sum.0;
+        account
+    }
+}
+```
+
 ## Reuse crates from `near-sdk`
 
 `near-sdk` re-exports the following crates:
@@ -448,11 +543,11 @@ impl Contract {
 - `serde_json`
 - `wee_alloc` (Though you will likely use the `setup_alloc` macro instead of importing it directly)
 
-Most common crates include `borsh` that is needed for internal STATE serialization and
-`serde` for the external JSON serialization.
+Most common crates include `borsh` which is needed for internal STATE serialization and
+`serde` for external JSON serialization.
 
 When marking structs with `serde::Serialize` you need to use `#[serde(crate = "near_sdk::serde")]`
-to point serde into the correct base crate.
+to point serde to the correct base crate.
 
 ```rust
 /// Import `borsh` from `near_sdk` crate 
@@ -492,7 +587,7 @@ impl Contract {
 
 ## Use `setup_alloc!`
 
-The SDK provides a helper macro to setup a global allocator from `wee_alloc` crate:
+The SDK provides a helper macro to set up a global allocator from `wee_alloc` crate:
 
 ```rust
 near_sdk::setup_alloc!();
@@ -508,26 +603,26 @@ static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc:
 
 ## `std::panic!` vs `env::panic`
 
-- `std::panic!` panics the current thread. It's uses `format!` internally, so it can take arguments.
-  SDK setups a panic hook, which converts the generated `PanicInfo` from `panic!` into a string and uses `env::panic` internally to report it to Runtime.
+- `std::panic!` panics the current thread. It uses `format!` internally, so it can take arguments.
+  SDK sets up a panic hook, which converts the generated `PanicInfo` from `panic!` into a string and uses `env::panic` internally to report it to Runtime.
   This may provides extra debugging information such as the line number of the source code where the panic happened.
 
-- `env::panic` is directly calling the host method to panic the contract.
+- `env::panic` directly calls the host method to panic the contract.
   It doesn't provide any other extra debugging information except for the passed message.
 
 ## In-memory `HashMap` vs persistent `UnorderedMap`
 
 - `HashMap` keeps all data in memory. To access it, the contract needs to deserialize the whole map.
-- `UnorderedMap` keeps data in the persistent storage. To access an element, you only need to deserialize this element.
+- `UnorderedMap` keeps data in persistent storage. To access an element, you only need to deserialize this element.
 
 Use `HashMap` in case:
 
-- Need to iterate over all elements in the collection **in one function call*
+- Need to iterate over all elements in the collection **in one function call**.
 - The number of elements is small or fixed, e.g. less than 10.
 
 Use `UnorderedMap` in case:
 
-- Need to access a limited sub-set of the collection, e.g. one or two elements per call.
+- Need to access a limited subset of the collection, e.g. one or two elements per call.
 - Can't fit the collection into memory.
 
 The reason is `HashMap` deserializes (and serializes) the entire collection in one storage operation.
@@ -643,14 +738,14 @@ impl Contract {
 
 ### Performance
 
-`LookupMap` has a better performance and stores less data comparing to the `UnorderedMap`.
+`LookupMap` has a better performance and stores less data compared to `UnorderedMap`.
 
 - `UnorderedMap` requires `2` storage reads to get the value and `3` storage writes to insert a new entry.
 - `LookupMap` requires only one storage read to get the value and only one storage write to store it.
 
 ### Storage space
 
-`UnorderedMap` requires more storage for an entry comparing to a `LookupMap`.
+`UnorderedMap` requires more storage for an entry compared to a `LookupMap`.
 
 - `UnorderedMap` stores the key twice (once in the first map and once in the vector of keys) and value once. It also has higher constant for storing the length of vectors and prefixes.
 - `LookupMap` stores key and value once.
@@ -658,7 +753,7 @@ impl Contract {
 ## `LazyOption`
 
 It's a type of persistent collection that only stores a single value.
-The goal is prevent contract from deserializing the given value until it's needed.
+The goal is to prevent a contract from deserializing the given value until it's needed.
 An example can be a large blob of metadata that is only needed when it's requested in a view call,
 but not needed for the majority of contract operations.
 
@@ -679,7 +774,7 @@ pub struct Contract {
 pub struct Metadata {
     data: String,
     image: Base64Vec,
-    blobs: Vec<Strings>,
+    blobs: Vec<String>,
 }
 
 #[near_bindgen]
@@ -722,7 +817,7 @@ You may want to experiment with using `opt-level = "z"` instead of `opt-level = 
 
 ## Use simulation testing
 
-Simulation testing framework allows to run tests for multiple contract in a simulated runtime environment.
+Simulation testing allows you to run tests for multiple contracts and cross-contract calls in a simulated runtime environment.
 Read more, [near-sdk-sim](https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim)
 
 ## Appendix
