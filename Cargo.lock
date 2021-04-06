@@ -116,12 +116,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
-
-[[package]]
-name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
@@ -982,7 +976,7 @@ checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 
 [[package]]
 name = "fungible-token"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "near-contract-standards",
  "near-sdk",
@@ -1500,7 +1494,7 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "near-contract-standards"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "near-sdk",
 ]
@@ -1559,7 +1553,7 @@ version = "0.1.0-pre.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75ed2263518ca67a3c158c144813832fd96f48ab239494bb9d7793d315f31417"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "borsh",
  "bs58",
  "byteorder",
@@ -1570,9 +1564,9 @@ dependencies = [
  "jemallocator",
  "lazy_static",
  "near-crypto",
- "near-primitives-core 0.4.0",
+ "near-primitives-core",
  "near-rpc-error-macro",
- "near-vm-errors 4.0.0-pre.1",
+ "near-vm-errors",
  "num-rational",
  "primitive-types",
  "rand 0.7.3",
@@ -1587,29 +1581,11 @@ dependencies = [
 
 [[package]]
 name = "near-primitives-core"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92035b79bf9983502fe7b67b5a9fecea7604e979d439727827fd0d8f0d77720e"
-dependencies = [
- "base64 0.11.0",
- "borsh",
- "bs58",
- "derive_more",
- "hex",
- "lazy_static",
- "num-rational",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "near-primitives-core"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2b3fb5acf3a494aed4e848446ef2d6ebb47dbe91c681105d4d1786c2ee63e52"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "borsh",
  "bs58",
  "derive_more",
@@ -1663,10 +1639,10 @@ dependencies = [
  "near-crypto",
  "near-metrics",
  "near-primitives",
- "near-runtime-utils 4.0.0-pre.1",
+ "near-runtime-utils",
  "near-store",
- "near-vm-errors 4.0.0-pre.1",
- "near-vm-logic 4.0.0-pre.1",
+ "near-vm-errors",
+ "near-vm-logic",
  "near-vm-runner",
  "num-bigint",
  "num-rational",
@@ -1674,16 +1650,6 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "near-runtime-utils"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47f5c1891cec5a03e3dc99f985031408b19516305e2e59d64c4ce52b409e46a0"
-dependencies = [
- "lazy_static",
- "regex",
 ]
 
 [[package]]
@@ -1698,14 +1664,14 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "borsh",
  "bs58",
- "near-primitives-core 0.1.0",
+ "near-primitives-core",
  "near-sdk-macros",
- "near-vm-logic 3.0.0",
+ "near-vm-logic",
  "quickcheck",
  "rand 0.7.3",
  "rand_xorshift",
@@ -1718,7 +1684,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-core"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -1728,7 +1694,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "near-sdk-core",
  "proc-macro2",
@@ -1738,7 +1704,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-sim"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "fungible-token",
  "funty",
@@ -1749,7 +1715,7 @@ dependencies = [
  "near-runtime",
  "near-sdk",
  "near-store",
- "near-vm-logic 4.0.0-pre.1",
+ "near-vm-logic",
  "quickcheck",
  "quickcheck_macros",
 ]
@@ -1778,18 +1744,6 @@ dependencies = [
 
 [[package]]
 name = "near-vm-errors"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53a100dda565c5375ac061126167afc5c33cdba1f2e325cfae3ce08f4a5a432a"
-dependencies = [
- "borsh",
- "hex",
- "near-rpc-error-macro",
- "serde",
-]
-
-[[package]]
-name = "near-vm-errors"
 version = "4.0.0-pre.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e281d8730ed8cb0e3e69fb689acee6b93cdb43824cd69a8ffd7e1bfcbd1177d7"
@@ -1802,35 +1756,17 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12201244dd59ae79506767afe7a8f51b5eb7bd0aa237d355dfa635f7b777c4a"
-dependencies = [
- "base64 0.13.0",
- "borsh",
- "bs58",
- "byteorder",
- "near-primitives-core 0.1.0",
- "near-runtime-utils 3.0.0",
- "near-vm-errors 3.0.0",
- "serde",
- "sha2",
- "sha3",
-]
-
-[[package]]
-name = "near-vm-logic"
 version = "4.0.0-pre.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e11cb28a2d07f37680efdaf860f4c9802828c44fc50c08009e7884de75d982c5"
 dependencies = [
- "base64 0.13.0",
+ "base64",
  "borsh",
  "bs58",
  "byteorder",
- "near-primitives-core 0.4.0",
- "near-runtime-utils 4.0.0-pre.1",
- "near-vm-errors 4.0.0-pre.1",
+ "near-primitives-core",
+ "near-runtime-utils",
+ "near-vm-errors",
  "serde",
  "sha2",
  "sha3",
@@ -1847,8 +1783,8 @@ dependencies = [
  "cached",
  "log",
  "near-primitives",
- "near-vm-errors 4.0.0-pre.1",
- "near-vm-logic 4.0.0-pre.1",
+ "near-vm-errors",
+ "near-vm-logic",
  "parity-wasm",
  "pwasm-utils",
  "tracing",

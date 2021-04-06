@@ -3,7 +3,7 @@ extern crate quickcheck;
 
 pub use near_sdk_macros::{
     callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
-    serializer, PanicOnDefault,
+    serializer, BorshStorageKey, PanicOnDefault,
 };
 
 pub mod collections;
@@ -28,6 +28,7 @@ pub use near_vm_logic::VMConfig;
 pub use near_vm_logic::VMContext;
 
 pub mod utils;
+pub use crate::utils::storage_key_impl::*;
 pub use crate::utils::*;
 
 pub use environment::blockchain_interface::BlockchainInterface;

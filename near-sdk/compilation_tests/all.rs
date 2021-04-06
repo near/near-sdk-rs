@@ -17,4 +17,5 @@ fn compilation_tests() {
     t.pass("compilation_tests/lifetime_method.rs");
     t.pass("compilation_tests/cond_compilation.rs");
     t.compile_fail("compilation_tests/payable_view.rs");
+    t.pass("compilation_tests/borsh_storage_key.rs");
 }
