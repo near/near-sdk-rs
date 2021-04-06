@@ -38,12 +38,12 @@
 * Updated dependencies for `near-sdk`
 * Introduce trait `IntoStorageKey` and updating all persistent collections to take it instead of `Vec<u8>`.
   It's a non-breaking change.
-* Introduce a macro `storage_key!` that crates a `StorageKey` enum, which can be passed to persistent collections to create unique prefixes. Example:
+* Introduce a macro derive `BorshStorageKey` that implements `IntoStorageKey` using borsh serialization. Example:
 ```rust
-use near_sdk::storage_key;
+use near_sdk::BorshStorageKey;
 
-// Creates enum `StorageKey` that can be passed to persistent collections.
-storage_key! {
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
     Records,
     UniqueValues,
 }
