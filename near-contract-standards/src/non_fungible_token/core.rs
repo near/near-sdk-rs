@@ -1,54 +1,81 @@
+use crate::token::JsonToken;
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::json_types::U128;
-use near_sdk::PromiseOrValue;
+use near_sdk::Promise;
 
-pub trait FungibleTokenCore {
-    /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id`.
-    /// Both accounts must be registered with the contract for transfer to succeed. (See [NEP-145](https://github.com/near/NEPs/discussions/145))
-    /// This method must to be able to accept attached deposits, and must not panic on attached deposit.
-    /// Exactly 1 yoctoNEAR must be attached.
-    /// See [the Security section](https://github.com/near/NEPs/issues/141#user-content-security) of the standard.
+pub trait NonFungibleTokenCore {
+    /// Simple transfer. Transfer a given `token_id` from current owner to
+    /// `receiver_id`.
+    ///
+    /// Requirements
+    /// * Caller of the method must attach a deposit of 1 yoctoⓃ for security purposes
+    /// * Contract MUST panic if called by someone other than token owner or,
+    ///   if using Approval Management, one of the approved accounts
+    /// * `approval_id` is for use with Approval Management,
+    ///   see https://nomicon.io/Standards/NonFungibleToken/ApprovalManagement.html
+    /// * If using Approval Management, contract MUST nullify approved accounts on
+    ///   successful transfer.
+    /// * TODO: needed? Both accounts must be registered with the contract for transfer to
+    ///   succeed. See see https://nomicon.io/Standards/StorageManagement.html
     ///
     /// Arguments:
-    /// - `receiver_id` - the account ID of the receiver.
-    /// - `amount` - the amount of tokens to transfer. Must be a positive number in decimal string representation.
-    /// - `memo` - an optional string field in a free form to associate a memo with this transfer.
-    fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>);
-
-    /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id` account. Then
-    /// calls `ft_on_transfer` method on `receiver_id` contract and attaches a callback to resolve this transfer.
-    /// `ft_on_transfer` method must return the amount of tokens unused by the receiver contract, the remaining tokens
-    /// must be refunded to the `predecessor_account_id` at the resolve transfer callback.
-    ///
-    /// Token contract must pass all the remaining unused gas to the `ft_on_transfer` call.
-    ///
-    /// Malicious or invalid behavior by the receiver's contract:
-    /// - If the receiver contract promise fails or returns invalid value, the full transfer amount must be refunded.
-    /// - If the receiver contract overspent the tokens, and the `receiver_id` balance is lower than the required refund
-    /// amount, the remaining balance must be refunded. See [the Security section](https://github.com/near/NEPs/issues/141#user-content-security) of the standard.
-    ///
-    /// Both accounts must be registered with the contract for transfer to succeed. (See #145)
-    /// This method must to be able to accept attached deposits, and must not panic on attached deposit. Exactly 1 yoctoNEAR must be attached. See [the Security
-    /// section](https://github.com/near/NEPs/issues/141#user-content-security) of the standard.
-    ///
-    /// Arguments:
-    /// - `receiver_id` - the account ID of the receiver contract. This contract will be called.
-    /// - `amount` - the amount of tokens to transfer. Must be a positive number in a decimal string representation.
-    /// - `memo` - an optional string field in a free form to associate a memo with this transfer.
-    /// - `msg` - a string message that will be passed to `ft_on_transfer` contract call.
-    ///
-    /// Returns a promise which will result in the amount of tokens withdrawn from sender's account.
-    fn ft_transfer_call(
+    /// * `receiver_id`: the valid NEAR account receiving the token
+    /// * `token_id`: the token to transfer
+    /// * `approval_id`: expected approval ID. A number smaller than
+    ///    2^53, and therefore representable as JSON. See Approval Management
+    ///    standard for full explanation.
+    /// * `memo` (optional): for use cases that may benefit from indexing or
+    ///    providing information for a transfer
+    fn nft_transfer(
         &mut self,
         receiver_id: ValidAccountId,
-        amount: U128,
+        token_id: String,
+        approval_id: Option<U64>,
+        memo: Option<String>,
+    );
+
+    /// Transfer token and call a method on a receiver contract. A successful
+    /// workflow will end in a success execution outcome to the callback on the NFT
+    /// contract at the method `nft_resolve_transfer`.
+    ///
+    /// You can think of this as being similar to attaching native NEAR tokens to a
+    /// function call. It allows you to attach any Non-Fungible Token in a call to a
+    /// receiver contract.
+    ///
+    /// Requirements:
+    /// * Caller of the method must attach a deposit of 1 yoctoⓃ for security
+    ///   purposes
+    /// * Contract MUST panic if called by someone other than token owner or,
+    ///   if using Approval Management, one of the approved accounts
+    /// * The receiving contract must implement `ft_on_transfer` according to the
+    //   standard. If it does not, FT contract's `ft_resolve_transfer` MUST deal
+    ///   with the resulting failed cross-contract call and roll back the transfer.
+    /// * Contract MUST implement the behavior described in `ft_resolve_transfer`
+    /// * `approval_id` is for use with Approval Management extension, see
+    ///   that document for full explanation.
+    /// * If using Approval Management, contract MUST nullify approved accounts on
+    ///   successful transfer.
+    ///
+    /// Arguments:
+    /// * `receiver_id`: the valid NEAR account receiving the token.
+    /// * `token_id`: the token to send.
+    /// * `approval_id`: expected approval ID. A number smaller than
+    ///    2^53, and therefore representable as JSON. See Approval Management
+    ///    standard for full explanation.
+    /// * `memo` (optional): for use cases that may benefit from indexing or
+    ///    providing information for a transfer.
+    /// * `msg`: specifies information needed by the receiving contract in
+    ///    order to properly handle the transfer. Can indicate both a function to
+    ///    call and the parameters to pass to that function.
+    fn nft_transfer_call(
+        &mut self,
+        receiver_id: ValidAccountId,
+        token_id: TokenId,
+        approval_id: Option<U64>,
         memo: Option<String>,
         msg: String,
-    ) -> PromiseOrValue<U128>;
+    ) -> Promise;
 
-    /// Returns the total supply of the token in a decimal string representation.
-    fn ft_total_supply(&self) -> U128;
-
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: ValidAccountId) -> U128;
+    // Returns the token with the given `token_id` or `null` if no such token.
+    fn nft_token(token_id: U128) -> Option<JsonToken>;
 }

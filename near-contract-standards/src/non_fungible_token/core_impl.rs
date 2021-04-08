@@ -4,8 +4,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, PromiseOrValue,
+    PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -14,8 +14,8 @@ const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANS
 const NO_DEPOSIT: Balance = 0;
 
 #[ext_contract(ext_self)]
-trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
+trait NonFungibleTokenResolver {
+    fn nft_resolve_transfer(
         &mut self,
         sender_id: AccountId,
         receiver_id: AccountId,
@@ -24,8 +24,8 @@ trait FungibleTokenResolver {
 }
 
 #[ext_contract(ext_fungible_token_receiver)]
-pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(
+pub trait NonFungibleTokenReceiver {
+    fn nft_on_transfer(
         &mut self,
         sender_id: AccountId,
         amount: U128,
@@ -34,10 +34,10 @@ pub trait FungibleTokenReceiver {
 }
 
 #[ext_contract(ext_fungible_token)]
-pub trait FungibleTokenContract {
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
+pub trait NonFungibleTokenContract {
+    fn nft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
 
-    fn ft_transfer_call(
+    fn nft_transfer_call(
         &mut self,
         receiver_id: AccountId,
         amount: U128,
@@ -46,24 +46,24 @@ pub trait FungibleTokenContract {
     ) -> PromiseOrValue<U128>;
 
     /// Returns the total supply of the token in a decimal string representation.
-    fn ft_total_supply(&self) -> U128;
+    fn nft_total_supply(&self) -> U128;
 
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: AccountId) -> U128;
+    fn nft_balance_of(&self, account_id: AccountId) -> U128;
 }
 
-/// Implementation of a FungibleToken standard.
+/// Implementation of a NonFungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
 /// There are next traits that any contract may implement:
-///     - FungibleTokenCore -- interface with ft_transfer methods. FungibleToken provides methods for it.
-///     - FungibleTokenMetaData -- return metadata for the token in NEP-148, up to contract to implement.
-///     - StorageManager -- interface for NEP-145 for allocating storage per account. FungibleToken provides methods for it.
+///     - NonFungibleTokenCore -- interface with nft_transfer methods. FungibleToken provides methods for it.
+///     - NonFungibleTokenMetaData -- return metadata for the token in NEP-148, up to contract to implement.
+///     - StorageManager -- interface for NEP-145 for allocating storage per account. NonFungibleToken provides methods for it.
 ///     - AccountRegistrar -- interface for an account to register and unregister
 ///
 /// For example usage, see examples/fungible-token/src/lib.rs.
 /// ```
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct FungibleToken {
+pub struct NonFungibleToken {
     /// AccountID -> Account balance.
     pub accounts: LookupMap<AccountId, Balance>,
 
@@ -74,11 +74,8 @@ pub struct FungibleToken {
     pub account_storage_usage: StorageUsage,
 }
 
-impl FungibleToken {
-    pub fn new<S>(prefix: S) -> Self
-    where
-        S: IntoStorageKey,
-    {
+impl NonFungibleToken {
+    pub fn new(prefix: Vec<u8>) -> Self {
         let mut this =
             Self { accounts: LookupMap::new(prefix), total_supply: 0, account_storage_usage: 0 };
         this.measure_account_storage_usage();
@@ -146,15 +143,15 @@ impl FungibleToken {
     }
 }
 
-impl FungibleTokenCore for FungibleToken {
-    fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
+impl NonFungibleTokenCore for FungibleToken {
+    fn nft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
     }
 
-    fn ft_transfer_call(
+    fn nft_transfer_call(
         &mut self,
         receiver_id: ValidAccountId,
         amount: U128,
@@ -166,7 +163,7 @@ impl FungibleTokenCore for FungibleToken {
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
         // Initiating receiver's call and the callback
-        ext_fungible_token_receiver::ft_on_transfer(
+        ext_fungible_token_receiver::nft_on_transfer(
             sender_id.clone(),
             amount.into(),
             msg,
@@ -174,7 +171,7 @@ impl FungibleTokenCore for FungibleToken {
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
-        .then(ext_self::ft_resolve_transfer(
+        .then(ext_self::nft_resolve_transfer(
             sender_id,
             receiver_id.into(),
             amount.into(),
@@ -185,20 +182,20 @@ impl FungibleTokenCore for FungibleToken {
         .into()
     }
 
-    fn ft_total_supply(&self) -> U128 {
+    fn nft_total_supply(&self) -> U128 {
         self.total_supply.into()
     }
 
-    fn ft_balance_of(&self, account_id: ValidAccountId) -> U128 {
+    fn nft_balance_of(&self, account_id: ValidAccountId) -> U128 {
         self.accounts.get(account_id.as_ref()).unwrap_or(0).into()
     }
 }
 
-impl FungibleToken {
+impl NonFungibleToken {
     /// Internal method that returns the amount of burned tokens in a corner case when the sender
-    /// has deleted (unregistered) their account while the `ft_transfer_call` was still in flight.
+    /// has deleted (unregistered) their account while the `nft_transfer_call` was still in flight.
     /// Returns (Used token amount, Burned token amount)
-    pub fn internal_ft_resolve_transfer(
+    pub fn internal_nft_resolve_transfer(
         &mut self,
         sender_id: &AccountId,
         receiver_id: ValidAccountId,
@@ -207,7 +204,7 @@ impl FungibleToken {
         let receiver_id: AccountId = receiver_id.into();
         let amount: Balance = amount.into();
 
-        // Get the unused amount from the `ft_on_transfer` call result.
+        // Get the unused amount from the `nft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
             PromiseResult::NotReady => unreachable!(),
             PromiseResult::Successful(value) => {
@@ -242,13 +239,13 @@ impl FungibleToken {
     }
 }
 
-impl FungibleTokenResolver for FungibleToken {
-    fn ft_resolve_transfer(
+impl NonFungibleTokenResolver for FungibleToken {
+    fn nft_resolve_transfer(
         &mut self,
         sender_id: ValidAccountId,
         receiver_id: ValidAccountId,
         amount: U128,
     ) -> U128 {
-        self.internal_ft_resolve_transfer(sender_id.as_ref(), receiver_id, amount).0.into()
+        self.internal_nft_resolve_transfer(sender_id.as_ref(), receiver_id, amount).0.into()
     }
 }

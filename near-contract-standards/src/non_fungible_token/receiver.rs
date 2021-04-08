@@ -1,8 +1,8 @@
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::PromiseOrValue;
 
-pub trait FungibleTokenReceiver {
-    /// Called by fungible token contract after `ft_transfer_call` was initiated by
+pub trait NonFungibleTokenReceiver {
+    /// Called by fungible token contract after `nft_transfer_call` was initiated by
     /// `sender_id` of the given `amount` with the transfer message given in `msg` field.
     /// The `amount` of tokens were already transferred to this contract account and ready to be used.
     ///
@@ -20,7 +20,7 @@ pub trait FungibleTokenReceiver {
     /// - `msg` - a string message that was passed with this transfer call.
     ///
     /// Returns the amount of unused tokens that should be returned to sender, in a decimal string representation.
-    fn ft_on_transfer(
+    fn nft_on_transfer(
         &mut self,
         sender_id: ValidAccountId,
         amount: U128,
