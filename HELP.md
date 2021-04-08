@@ -563,6 +563,7 @@ pub struct Contract {
 }
 
 /// Implements both `serde` and `borsh` serialization.
+/// `serde` is typically useful when returning a struct in JSON form for a frontend.
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Pair {
@@ -600,6 +601,8 @@ It's equivalent to the following:
 #[global_allocator]
 static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
 ```
+
+Read more about Rust [global allocators here](https://doc.rust-lang.org/edition-guide/rust-2018/platform-and-target-support/global-allocators.html).
 
 ## `std::panic!` vs `env::panic`
 
