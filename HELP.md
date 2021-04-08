@@ -763,7 +763,7 @@ but not needed for the majority of contract operations.
 It acts like an `Option` that can either hold a value or not and also requires a unique prefix (a key in this case)
 like other persistent collections.
 
-Comparing to other collections, the `LazyOption` allows to initialize the value during the constructor.
+Compared to other collections, `LazyOption` only allows you to initialize the value during initialization.
 
 ```rust
 #[near_bindgen]
