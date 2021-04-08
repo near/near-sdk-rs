@@ -750,7 +750,7 @@ impl Contract {
 
 `UnorderedMap` requires more storage for an entry compared to a `LookupMap`.
 
-- `UnorderedMap` stores the key twice (once in the first map and once in the vector of keys) and value once. It also has higher constant for storing the length of vectors and prefixes.
+- `UnorderedMap` stores the key twice (once in the first map and once in the vector of keys) and value once. It also has a higher constant for storing the length of vectors and prefixes.
 - `LookupMap` stores key and value once.
 
 ## `LazyOption`
