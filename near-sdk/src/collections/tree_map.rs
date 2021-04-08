@@ -3,6 +3,7 @@ use std::ops::Bound;
 
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};
+use crate::IntoStorageKey;
 
 /// TreeMap based on AVL-tree
 ///
@@ -43,11 +44,15 @@ where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
-    pub fn new(id: Vec<u8>) -> Self {
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        let prefix = prefix.into_storage_key();
         Self {
             root: 0,
-            val: LookupMap::new(append(&id, b'v')),
-            tree: Vector::new(append(&id, b'n')),
+            val: LookupMap::new(append(&prefix, b'v')),
+            tree: Vector::new(append(&prefix, b'n')),
         }
     }
 
@@ -757,7 +762,7 @@ mod tests {
     fn test_empty() {
         test_env::setup();
 
-        let map: TreeMap<u8, u8> = TreeMap::new(vec![b't']);
+        let map: TreeMap<u8, u8> = TreeMap::new(b't');
         assert_eq!(map.len(), 0);
         assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
@@ -907,7 +912,7 @@ mod tests {
         let n: u64 = 30;
         let vec = random(n);
 
-        let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
+        let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
         for x in vec.iter().rev() {
             map.insert(x, &1);
         }
@@ -923,7 +928,7 @@ mod tests {
         let n: u64 = 30;
         let vec = random(n);
 
-        let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
+        let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
         for x in vec.iter().rev() {
             map.insert(x, &1);
         }

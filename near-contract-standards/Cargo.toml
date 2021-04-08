@@ -1,6 +1,6 @@
 [package]
 name = "near-contract-standards"
-version = "3.0.1"
+version = "3.1.0"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2018"
 license = "GPL-3.0"
@@ -12,4 +12,4 @@ NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "=3.0.1" }
+near-sdk = { path = "../near-sdk", version = "=3.1.0" }

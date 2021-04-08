@@ -1,11 +1,45 @@
 # Changelog
 
+## `3.1.0`
+
+* Updated dependencies for `near-sdk`
+* Introduce trait `IntoStorageKey` and updating all persistent collections to take it instead of `Vec<u8>`.
+  It's a non-breaking change.
+* Introduce a macro derive `BorshStorageKey` that implements `IntoStorageKey` using borsh serialization. Example:
+```rust
+use near_sdk::BorshStorageKey;
+
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
+    Records,
+    UniqueValues,
+}
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+pub struct StatusMessage {
+    pub records: LookupMap<String, String>,
+    pub unique_values: LookupSet<String>,
+}
+
+#[near_bindgen]
+impl StatusMessage {
+    #[init]
+    pub fn new() -> Self {
+        Self {
+            records: LookupMap::new(StorageKey::Records),
+            unique_values: LookupSet::new(StorageKey::UniqueValues),
+        }
+    }
+}
+```
+
 ## `3.0.1`
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
-NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
-only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
-is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
+  NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
+  only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
+  is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
 * Added how to build contracts with reproducible builds.
 * Added `log!` macro to log a string from a contract similar to `println!` macro.
 * Added `test_utils` mod from `near_sdk` that contains a bunch of helper methods and structures, e.g.
@@ -14,10 +48,10 @@ is to have an assert that validates that the direct caller (predecessor account 
     * Added `VMContextBuilder` to help construct a `VMContext` for tests
     * Added `get_logs` method that returns current logs from the contract execution.
     * **TEST_BREAKING** `env::created_receipts` moved to `test_utils::get_created_receipts`.
-    `env` shouldn't contain testing methods.
+      `env` shouldn't contain testing methods.
     * Updated a few examples to use `log!` macro
 * Added `#[derive(PanicOnDefault)]` that automatically implements `Default` trait that panics when called.
-This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
+  This is helpful to prevent contracts from being initialized using `Default` by removing boilerplate code.
 * Introduce `setup_alloc` macro that generates the same boilerplate as before, but also adds a #[cfg(target_arch = "wasm32")], which prevents the allocator from being used when the contract's main file is used in simulation testing.
 * Introduce `Base58CryptoHash` and `CryptoHash` to represent `32` bytes slice of `u8`.
 * Introduce `LazyOption` to keep a single large value with lazy deserialization.
@@ -38,12 +72,12 @@ This is helpful to prevent contracts from being initialized using `Default` by r
 ### API changes
 
 * Introduce `LookupMap` and `LookupSet` that are faster implementations of `UnorderedMap` and `UnorderedSet`, but without support for iterators.
-Most read/lookup/write are done in 1 storage access instead of 2 or 3 for `Unordered*` implementations.
+  Most read/lookup/write are done in 1 storage access instead of 2 or 3 for `Unordered*` implementations.
 * **BREAKING** `Default` is removed from `near_sdk::collections` to avoid implicit state conflicts.
-Collections should be initialized by explicitly specifying prefix using `new` method.
+  Collections should be initialized by explicitly specifying prefix using `new` method.
 * **BREAKING** `TreeMap` implementation was updated to use `LookupMap`.
-Previous `TreeMap` implementation was renamed to `LegacyTreeMap` and was deprecated.
-It should only be used if the contract was already deployed and state has to be compatible with the previous implementation.
+  Previous `TreeMap` implementation was renamed to `LegacyTreeMap` and was deprecated.
+  It should only be used if the contract was already deployed and state has to be compatible with the previous implementation.
 
 ## `1.0.1`
 

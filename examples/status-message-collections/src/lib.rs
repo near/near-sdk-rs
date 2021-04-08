@@ -1,9 +1,15 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, LookupSet};
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::{env, near_bindgen};
+use near_sdk::{env, near_bindgen, BorshStorageKey};
 
 near_sdk::setup_alloc!();
+
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
+    Records,
+    UniqueValues,
+}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -15,8 +21,8 @@ pub struct StatusMessage {
 impl Default for StatusMessage {
     fn default() -> Self {
         Self {
-            records: LookupMap::new(b"r".to_vec()),
-            unique_values: LookupSet::new(b"s".to_vec()),
+            records: LookupMap::new(StorageKey::Records),
+            unique_values: LookupSet::new(StorageKey::UniqueValues),
         }
     }
 }

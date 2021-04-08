@@ -8,6 +8,7 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::env;
+use crate::IntoStorageKey;
 
 const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
 const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
@@ -69,8 +70,11 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     /// Create a new lazy option with the given `storage_key` and the initial value.
-    pub fn new(storage_key: Vec<u8>, value: Option<&T>) -> Self {
-        let mut this = Self { storage_key, el: PhantomData };
+    pub fn new<S>(storage_key: S, value: Option<&T>) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        let mut this = Self { storage_key: storage_key.into_storage_key(), el: PhantomData };
         if let Some(value) = value {
             this.set(&value);
         }
@@ -129,7 +133,7 @@ mod tests {
     #[test]
     pub fn test_all() {
         test_env::setup();
-        let mut a = LazyOption::new(b"a".to_vec(), None);
+        let mut a = LazyOption::new(b"a", None);
         assert!(a.is_none());
         a.set(&42u32);
         assert!(a.is_some());
@@ -152,8 +156,8 @@ mod tests {
     #[test]
     pub fn test_multi() {
         test_env::setup();
-        let mut a = LazyOption::new(b"a".to_vec(), None);
-        let mut b = LazyOption::new(b"b".to_vec(), None);
+        let mut a = LazyOption::new(b"a", None);
+        let mut b = LazyOption::new(b"b", None);
         assert!(a.is_none());
         assert!(b.is_none());
         a.set(&42u32);
@@ -170,7 +174,7 @@ mod tests {
     #[test]
     pub fn test_init_value() {
         test_env::setup();
-        let a = LazyOption::new(b"a".to_vec(), Some(&42u32));
+        let a = LazyOption::new(b"a", Some(&42u32));
         assert!(a.is_some());
         assert_eq!(a.get(), Some(42));
     }

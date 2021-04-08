@@ -17,13 +17,19 @@ impl Default for TestContract {
 impl TestContract {
     #[init]
     pub fn new() -> Self {
-        assert!(!env::state_exists(), "Already initialized");
         Self {}
     }
 
-    #[init]
-    pub fn migrate() -> Self {
-        unimplemented!("Unimplemented");
+    #[init(ignore_state)]
+    pub fn migrate_state() -> Self {
+        #[derive(BorshDeserialize)]
+        struct OldContract {
+            // ...
+        };
+
+        let _old_contract: OldContract = env::state_read().expect("Old state doesn't exist");
+
+        Self {}
     }
 
     pub fn test_panic_macro(&mut self) {

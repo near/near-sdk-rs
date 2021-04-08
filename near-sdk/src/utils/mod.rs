@@ -1,3 +1,5 @@
+pub(crate) mod storage_key_impl;
+
 use crate::{env, AccountId, PromiseResult};
 
 #[macro_export]

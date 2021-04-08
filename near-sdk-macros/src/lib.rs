@@ -7,7 +7,7 @@ use near_sdk_core::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
-use syn::{File, ItemImpl, ItemStruct, ItemTrait};
+use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -146,7 +146,7 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
 /// message `The contract is not initialized` when `default()` is called.
 /// This is a helpful macro in case the contract is required to be initialized with either `init` or
-/// `init_once`.
+/// `init(ignore_state)`.
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
@@ -167,4 +167,27 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
+}
+
+/// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
+/// It allows the type to be passed as a unique prefix for persistent collections.
+/// The type should also implement or derive `BorshSerialize` trait.
+#[proc_macro_derive(BorshStorageKey)]
+pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
+    let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        input.ident
+    } else if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        input.ident
+    } else {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "BorshStorageKey can only be used as a derive on enums or structs.",
+            )
+            .to_compile_error(),
+        );
+    };
+    TokenStream::from(quote! {
+        impl near_sdk::BorshIntoStorageKey for #name {}
+    })
 }
