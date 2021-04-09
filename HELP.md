@@ -47,7 +47,9 @@ And then use borsh serialization to construct a unique prefix for every collecti
 It's as efficient as manually constructing them, because with Borsh serialization, an enum only takes one byte.
 
 ```rust
-#[derive(BorshSerialize)]
+use near_sdk::BorshStorageKey;
+
+#[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
     Accounts,
     SubAccount { account_hash: Vec<u8> },
@@ -60,9 +62,9 @@ impl Contract {
     #[init]
     pub fn new() -> Self {
         Self {
-            accounts: UnorderedMap::new(StorageKeys::Accounts.try_to_vec().unwrap()),
-            tokens: LookupMap::new(StorageKeys::Tokens.try_to_vec().unwrap()),
-            metadata: LazyOption::new(StorageKeys::Metadata.try_to_vec().unwrap()),
+            accounts: UnorderedMap::new(StorageKeys::Accounts),
+            tokens: LookupMap::new(StorageKeys::Tokens),
+            metadata: LazyOption::new(StorageKeys::Metadata),
         }
     }
     
@@ -70,8 +72,6 @@ impl Contract {
         let tokens = self.accounts.get(account_id).unwrap_or_else(|| {
             UnorderedSet::new(
                 StorageKeys::SubAccount { account_hash: env::sha256(account_id.as_bytes()) }
-                    .try_to_vec()
-                    .unwrap(),
             )
         });
         tokens
@@ -329,8 +329,7 @@ impl Contract {
     /// state. If called internally by a change method, WILL result in updated
     /// contract state.
     pub fn update_stats(&self, account_id: ValidAccountId, score: U64) -> Account {
-        let account = self.accounts.get(account_id)
-            .unwrap_or_panic("account {} not found", account_id);
+        let account = self.accounts.get(account_id).expect("account not found");
         account.total += score;
         account
     }
@@ -740,7 +739,7 @@ impl Contract {
     #[init]
     pub fn new(metadata: Metadata) -> Self {
         Self {
-            metadata: LazyOption::new(b"m".to_vec(), Some(metadata)),
+            metadata: LazyOption::new(b"m", Some(metadata)),
         }
     }
 
@@ -791,9 +790,9 @@ impl Contract {
     #[init]
     pub fn new() -> Self {
         Self {
-            accounts: UnorderedMap::new(b"a".to_vec()),
-            tokens: LookupMap::new(b"t".to_vec()),
-            metadata: LazyOption::new(b"m".to_vec()),
+            accounts: UnorderedMap::new(b"a"),
+            tokens: LookupMap::new(b"t"),
+            metadata: LazyOption::new(b"m"),
         }
     }
 
