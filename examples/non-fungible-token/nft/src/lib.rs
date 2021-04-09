@@ -15,10 +15,12 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
-use near_contract_standards::fungible_token::metadata::{
-    FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
+use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
+use near_contract_standards::non_fungible_token::core::{JsonToken, NonFungibleToken};
+use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
+use near_contract_standards::non_fungible_token::metadata::{
+    NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
-use near_contract_standards::fungible_token::FungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::{ValidAccountId, U128};
@@ -31,16 +33,21 @@ near_sdk::setup_alloc!();
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    token: FungibleToken,
-    metadata: LazyOption<FungibleTokenMetadata>,
+    token: NonFungibleToken,
+    metadata: LazyOption<NonFungibleTokenMetadata>,
+    enumeration: NonFungibleTokenEnumeration,
+    approval: NonFungibleTokenApproval,
 }
 
 const DATA_IMAGE_SVG_NEAR_ICON: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 288 288'%3E%3Cg id='l' data-name='l'%3E%3Cpath d='M187.58,79.81l-30.1,44.69a3.2,3.2,0,0,0,4.75,4.2L191.86,103a1.2,1.2,0,0,1,2,.91v80.46a1.2,1.2,0,0,1-2.12.77L102.18,77.93A15.35,15.35,0,0,0,90.47,72.5H87.34A15.34,15.34,0,0,0,72,87.84V201.16A15.34,15.34,0,0,0,87.34,216.5h0a15.35,15.35,0,0,0,13.08-7.31l30.1-44.69a3.2,3.2,0,0,0-4.75-4.2L96.14,186a1.2,1.2,0,0,1-2-.91V104.61a1.2,1.2,0,0,1,2.12-.77l89.55,107.23a15.35,15.35,0,0,0,11.71,5.43h3.13A15.34,15.34,0,0,0,216,201.16V87.84A15.34,15.34,0,0,0,200.66,72.5h0A15.35,15.35,0,0,0,187.58,79.81Z'/%3E%3C/g%3E%3C/svg%3E";
 
 #[derive(BorshSerialize, BorshStorageKey)]
 enum StorageKey {
-    FungibleToken,
+    NonFungibleToken,
     Metadata,
+    TokenMetadata,
+    Enumeration,
+    Approval,
 }
 
 #[near_bindgen]
@@ -52,14 +59,14 @@ impl Contract {
         Self::new(
             owner_id,
             total_supply,
-            FungibleTokenMetadata {
-                spec: FT_METADATA_SPEC.to_string(),
-                name: "Example NEAR fungible token".to_string(),
+            NonFungibleTokenMetadata {
+                spec: NFT_METADATA_SPEC.to_string(),
+                name: "Example NEAR non-fungible token".to_string(),
                 symbol: "EXAMPLE".to_string(),
                 icon: Some(DATA_IMAGE_SVG_NEAR_ICON.to_string()),
+                base_uri: None,
                 reference: None,
                 reference_hash: None,
-                decimals: 24,
             },
         )
     }
@@ -70,17 +77,40 @@ impl Contract {
     pub fn new(
         owner_id: ValidAccountId,
         total_supply: U128,
-        metadata: FungibleTokenMetadata,
+        metadata: NonFungibleTokenMetadata,
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
         let mut this = Self {
-            token: FungibleToken::new(StorageKey::FungibleToken),
+            token: NonFungibleToken::new(StorageKey::FungibleToken),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         };
-        this.token.internal_register_account(owner_id.as_ref());
-        this.token.internal_deposit(owner_id.as_ref(), total_supply.into());
         this
+    }
+
+    pub fn mint(
+        owner_id: ValidAccountId,
+        token_id: Tokenid,
+        token_metadata: TokenMetadata,
+    ) -> JsonToken {
+        // copied from core-contracts
+        // TODO: librarize it
+        let initial_storage_usage = env::storage_usage();
+        self.assert_owner();
+        let token = Token {
+            owner_id: self.owner_id.clone(),
+            approved_account_ids: Default::default(),
+            next_approval_id: 0,
+        };
+        assert!(self.tokens_by_id.insert(&token_id, &token).is_none(), "Token already exists");
+        self.token_metadata_by_id.insert(&token_id, &metadata);
+        self.internal_add_token_to_owner(&token.owner_id, &token_id);
+
+        let new_token_size_in_bytes = env::storage_usage() - initial_storage_usage;
+        let required_storage_in_bytes =
+            self.extra_storage_in_bytes_per_token + new_token_size_in_bytes;
+
+        refund_deposit(required_storage_in_bytes);
     }
 
     fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
@@ -96,8 +126,8 @@ near_contract_standards::impl_fungible_token_core!(Contract, token, on_tokens_bu
 near_contract_standards::impl_fungible_token_storage!(Contract, token, on_account_closed);
 
 #[near_bindgen]
-impl FungibleTokenMetadataProvider for Contract {
-    fn ft_metadata(&self) -> FungibleTokenMetadata {
+impl NonFungibleTokenMetadataProvider for Contract {
+    fn ft_metadata(&self) -> NonFungibleTokenMetadata {
         self.metadata.get().unwrap()
     }
 }
