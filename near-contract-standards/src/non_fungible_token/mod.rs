@@ -1,3 +1,4 @@
+pub mod approvable;
 pub mod approval_receiver;
 pub mod core;
 pub mod core_impl;
