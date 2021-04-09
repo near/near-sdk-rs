@@ -1,4 +1,3 @@
-use crate::token::JsonToken;
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::json_types::U128;
 use near_sdk::Promise;
@@ -48,7 +47,7 @@ pub trait NonFungibleTokenCore {
     /// * Contract MUST panic if called by someone other than token owner or,
     ///   if using Approval Management, one of the approved accounts
     /// * The receiving contract must implement `ft_on_transfer` according to the
-    //   standard. If it does not, FT contract's `ft_resolve_transfer` MUST deal
+    ///   standard. If it does not, FT contract's `ft_resolve_transfer` MUST deal
     ///   with the resulting failed cross-contract call and roll back the transfer.
     /// * Contract MUST implement the behavior described in `ft_resolve_transfer`
     /// * `approval_id` is for use with Approval Management extension, see
@@ -76,6 +75,6 @@ pub trait NonFungibleTokenCore {
         msg: String,
     ) -> Promise;
 
-    // Returns the token with the given `token_id` or `null` if no such token.
+    /// Returns the token with the given `token_id` or `null` if no such token.
     fn nft_token(token_id: U128) -> Option<JsonToken>;
 }
