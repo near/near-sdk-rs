@@ -487,51 +487,6 @@ impl Contract {
 }
 ```
 
-### Cross-contract call return values as inputs to callbacks
-
-A common pattern is to call an external contract, then schedule a follow-up call to self in order to react to the outcome of the external call.
-Continuing the example above, `Contract` could use the returned `U128` from `ext_calculator`.
-
-Note that scheduling calls to the current contract can also use `ext_contract`.
-It is common to use `ext_self` as the name when doing so.
-
-E.g.
-
-```rust
-#[ext_contract(ext_self)]
-trait OnCalculate {
-    fn resolve_stats(&self, #[callback] sum: U128, caller: AccountId) -> Account;
-}
-
-#[near_bindgen]
-impl Contract {
-    pub fn calculate_stats(&mut self, a: U128, b: U128) -> Promise {
-        let caller = env::predecessor_account_id();
-        let calculator_account_id: AccountId = CALCULATOR_ACCOUNT_ID.to_string();
-        ext_calculator::sum(a, b, &calculator_account_id, NO_DEPOSIT, BASE_GAS)
-        .then(ext_self::finish_deposit(
-            // note that we only pass `caller` here
-            &caller,
-            &env::current_account_id(),
-            NO_DEPOSIT,
-            BASE_GAS
-        ))
-    }
-
-    pub fn resolve_stats(
-        &mut self,
-        #[callback]
-        sum: U128,
-        caller: AccountId
-    ) -> Account {
-        let account = self.accounts.get(caller)
-            .unwrap_or_panic("account {} not found", caller);
-        account.total += sum.0;
-        account
-    }
-}
-```
-
 ## Reuse crates from `near-sdk`
 
 `near-sdk` re-exports the following crates:
