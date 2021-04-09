@@ -1,29 +1,27 @@
-use near_sdk::json_types::{ValidAccountId, U128};
-use near_sdk::PromiseOrValue;
+use near_sdk::Promise;
 
 pub trait NonFungibleTokenReceiver {
-    /// Called by fungible token contract after `nft_transfer_call` was initiated by
-    /// `sender_id` of the given `amount` with the transfer message given in `msg` field.
-    /// The `amount` of tokens were already transferred to this contract account and ready to be used.
+    /// Take some action after receiving a non-fungible token
     ///
-    /// The method must return the amount of tokens that are *not* used/accepted by this contract from the transferred
-    /// amount. Examples:
-    /// - The transferred amount was `500`, the contract completely takes it and must return `0`.
-    /// - The transferred amount was `500`, but this transfer call only needs `450` for the action passed in the `msg`
-    ///   field, then the method must return `50`.
-    /// - The transferred amount was `500`, but the action in `msg` field has expired and the transfer must be
-    ///   cancelled. The method must return `500` or panic.
+    /// Requirements:
+    /// * Contract MUST restrict calls to this function to a set of whitelisted NFT
+    ///   contracts
     ///
     /// Arguments:
-    /// - `sender_id` - the account ID that initiated the transfer.
-    /// - `amount` - the amount of tokens that were transferred to this account in a decimal string representation.
-    /// - `msg` - a string message that was passed with this transfer call.
+    /// * `sender_id`: the sender of `nft_transfer_call`
+    /// * `previous_owner_id`: the account that owned the NFT prior to it being
+    ///   transfered to this contract, which can differ from `sender_id` if using
+    ///   Approval Management extension
+    /// * `token_id`: the `token_id` argument given to `nft_transfer_call`
+    /// * `msg`: information necessary for this contract to know how to process the
+    ///   request. This may include method names and/or arguments.
     ///
-    /// Returns the amount of unused tokens that should be returned to sender, in a decimal string representation.
+    /// Returns true if token should be returned to `sender_id`
     fn nft_on_transfer(
         &mut self,
-        sender_id: ValidAccountId,
-        amount: U128,
+        sender_id: AccountId,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
         msg: String,
-    ) -> PromiseOrValue<U128>;
+    ) -> Promise;
 }
