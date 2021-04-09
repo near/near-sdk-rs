@@ -1,0 +1,33 @@
+[package]
+name = "fungible-token-wrapper"
+version = "0.0.2"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+edition = "2018"
+
+[dev-dependencies]
+near-sdk = { path = "../../near-sdk" }
+near-sdk-sim = { path = "../../near-sdk-sim" }
+
+# remember to include a line for each contract
+fungible-token = { path = "./ft" }
+defi = { path = "./test-contract-defi" }
+
+[profile.release]
+codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]
+# remember to include a member for each contract
+members = [
+  "ft",
+  "test-contract-defi",
+]
+
+[[example]]
+name = "heavy"
+
