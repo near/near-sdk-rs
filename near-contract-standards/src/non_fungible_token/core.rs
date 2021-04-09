@@ -28,8 +28,8 @@ pub trait NonFungibleTokenCore {
     fn nft_transfer(
         &mut self,
         receiver_id: ValidAccountId,
-        token_id: String,
-        approval_id: Option<U64>,
+        token_id: TokenId,
+        approval_id: Option<u64>,
         memo: Option<String>,
     );
 
@@ -70,7 +70,7 @@ pub trait NonFungibleTokenCore {
         &mut self,
         receiver_id: ValidAccountId,
         token_id: TokenId,
-        approval_id: Option<U64>,
+        approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,
     ) -> Promise;
