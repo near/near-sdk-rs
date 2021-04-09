@@ -1,4 +1,4 @@
-trait NonFungibleTokenApprovable {
+trait NonFungibleTokenApproval {
     /// Add an approved account for a specific token.
     ///
     /// Requirements

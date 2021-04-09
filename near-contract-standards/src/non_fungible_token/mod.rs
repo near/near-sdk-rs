@@ -1,4 +1,4 @@
-pub mod approvable;
+pub mod approval;
 pub mod approval_receiver;
 pub mod core;
 pub mod core_impl;
