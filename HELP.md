@@ -563,7 +563,7 @@ pub struct Contract {
 }
 
 /// Implements both `serde` and `borsh` serialization.
-/// `serde` is typically useful when returning a struct in JSON form for a frontend.
+/// `serde` is typically useful when returning a struct in JSON format for a frontend.
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Pair {
