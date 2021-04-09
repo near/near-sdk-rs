@@ -1,5 +1,7 @@
-use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::resolver::FungibleTokenResolver;
+use crate::non_fungible_token::approval::NonFungibleTokenApproval;
+use crate::non_fungible_token::core::NonFungibleTokenCore;
+use crate::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
+use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::{ValidAccountId, U128};
@@ -17,67 +19,62 @@ const NO_DEPOSIT: Balance = 0;
 trait NonFungibleTokenResolver {
     fn nft_resolve_transfer(
         &mut self,
-        sender_id: AccountId,
+        owner_id: AccountId,
         receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
+        approved_account_ids: HashMap<AccountId, u64>,
+        token_id: TokenId,
+    ) -> bool;
 }
 
-#[ext_contract(ext_fungible_token_receiver)]
+#[ext_contract(ext_receiver)]
 pub trait NonFungibleTokenReceiver {
     fn nft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        amount: U128,
+        previous_owner_id: AccountId,
+        token_id: TokenId,
         msg: String,
-    ) -> PromiseOrValue<U128>;
-}
-
-#[ext_contract(ext_fungible_token)]
-pub trait NonFungibleTokenContract {
-    fn nft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
-
-    fn nft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-
-    /// Returns the total supply of the token in a decimal string representation.
-    fn nft_total_supply(&self) -> U128;
-
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn nft_balance_of(&self, account_id: AccountId) -> U128;
+    ) -> Promise;
 }
 
 /// Implementation of a NonFungibleToken standard.
-/// Allows to include NEP-141 compatible token to any contract.
+/// Allows to include NEP-171 compatible token to any contract.
 /// There are next traits that any contract may implement:
-///     - NonFungibleTokenCore -- interface with nft_transfer methods. FungibleToken provides methods for it.
-///     - NonFungibleTokenMetaData -- return metadata for the token in NEP-148, up to contract to implement.
-///     - StorageManager -- interface for NEP-145 for allocating storage per account. NonFungibleToken provides methods for it.
-///     - AccountRegistrar -- interface for an account to register and unregister
+///     - NonFungibleTokenCore -- interface with nft_transfer methods. NonFungibleToken provides methods for it.
+///     - NonFungibleTokenApproval -- interface with nft_approve methods. NonFungibleToken provides methods for it.
+///     - NonFungibleTokenEnumeration -- interface for getting lists of tokens. NonFungibleToken provides methods for it.
+///     - NonFungibleTokenMetadata -- return metadata for the token in NEP-177, up to contract to implement.
 ///
-/// For example usage, see examples/fungible-token/src/lib.rs.
-/// ```
+/// For example usage, see examples/non-fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct NonFungibleToken {
-    /// AccountID -> Account balance.
-    pub accounts: LookupMap<AccountId, Balance>,
+    pub tokens_per_owner: LookupMap<AccountId, UnorderedSet<TokenId>>,
 
-    /// Total supply of the all token.
-    pub total_supply: Balance,
+    pub tokens_by_id: LookupMap<TokenId, Token>,
 
-    /// The storage size in bytes for one account.
-    pub account_storage_usage: StorageUsage,
+    // how to include this only in Metadata impl?
+    pub token_metadata_by_id: UnorderedMap<TokenId, TokenMetadata>,
+
+    pub owner_id: AccountId,
+
+    // The storage size in bytes for one account.
+    pub extra_storage_in_bytes_per_token: StorageUsage,
 }
 
 impl NonFungibleToken {
-    pub fn new(prefix: Vec<u8>) -> Self {
-        let mut this =
-            Self { accounts: LookupMap::new(prefix), total_supply: 0, account_storage_usage: 0 };
+    pub fn new(
+        tokens_per_owner_prefix: Vec<u8>,
+        tokens_by_id_prefix: Vec<u8>,
+        token_metadata_prefix: Vec<u8>,
+        owner_id: ValidAccountId, // TODO what is this?
+    ) -> Self {
+        let mut this = Self {
+            tokens_per_owner: LookupMap::new(tokens_per_owner_prefix),
+            tokens_by_id: LookupMap::new(tokens_by_id_prefix),
+            token_metadata_by_id: UnorderedMap::new(token_metadata_prefix),
+            owner_id: owner_id.into(),
+            extra_storage_in_bytes_per_token: 0,
+        };
         this.measure_account_storage_usage();
         this
     }
