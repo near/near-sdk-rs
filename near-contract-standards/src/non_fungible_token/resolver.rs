@@ -29,7 +29,7 @@ trait NonFungibleTokenResolver {
         &mut self,
         owner_id: AccountId,
         receiver_id: AccountId,
-        approved_account_ids: HashMap<AccountId, U64>,
+        approved_account_ids: HashMap<AccountId, u64>,
         token_id: TokenId,
     ) -> bool;
 }

@@ -19,7 +19,7 @@ pub struct TokenMetadata {
     pub description: Option<String>, // free-form description
     pub media: Option<String>, // URL to associated media, preferably to decentralized, content-addressed storage
     pub media_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of content referenced by the `media` field. Required if `media` is included.
-    pub copies: Option<U64>, // number of copies of this set of metadata in existence when token was minted.
+    pub copies: Option<u64>, // number of copies of this set of metadata in existence when token was minted.
     pub issued_at: Option<String>, // ISO 8601 datetime when token was issued or minted
     pub expires_at: Option<String>, // ISO 8601 datetime when token expires
     pub starts_at: Option<String>, // ISO 8601 datetime when token starts being valid
