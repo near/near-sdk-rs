@@ -983,24 +983,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 
 [[package]]
-name = "fungible-token"
-version = "1.1.0"
-dependencies = [
- "near-contract-standards",
- "near-sdk",
-]
-
-[[package]]
-name = "fungible-token-wrapper"
-version = "0.0.2"
-dependencies = [
- "defi",
- "fungible-token",
- "near-sdk",
- "near-sdk-sim",
-]
-
-[[package]]
 name = "funty"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1827,6 +1809,24 @@ checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
 dependencies = [
  "memchr",
  "version_check",
+]
+
+[[package]]
+name = "non-fungible-token"
+version = "1.1.0"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
+name = "non-fungible-token-wrapper"
+version = "0.0.2"
+dependencies = [
+ "defi",
+ "near-sdk",
+ "near-sdk-sim",
+ "non-fungible-token",
 ]
 
 [[package]]

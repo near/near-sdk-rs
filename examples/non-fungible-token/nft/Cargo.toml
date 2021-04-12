@@ -1,5 +1,5 @@
 [package]
-name = "fungible-token"
+name = "non-fungible-token"
 version = "1.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
