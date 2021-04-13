@@ -218,10 +218,8 @@ impl NonFungibleTokenCore for NonFungibleToken {
 
     fn nft_token(self, token_id: TokenId) -> Option<Token> {
         let owner_id = self.owner_by_id.get(&token_id)?;
-        let metadata =
-            if let Some(by_id) = self.token_metadata_by_id { by_id.get(&token_id) } else { None };
-        let approved_account_ids =
-            if let Some(by_id) = self.approvals_by_id { by_id.get(&token_id) } else { None };
+        let metadata = self.token_metadata_by_id.and_then(|by_id| by_id.get(&token_id));
+        let approved_account_ids = self.approvals_by_id.and_then(|by_id| by_id.get(&token_id));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
     }
 }
