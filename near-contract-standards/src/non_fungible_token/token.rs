@@ -1,14 +1,14 @@
-use near_sdk::borsh::{self, BorshSerialize};
+use crate::non_fungible_token::metadata::TokenMetadata;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
+use std::collections::HashMap;
 
 pub type TokenId = String;
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Token {
     pub owner_id: AccountId,
-    pub approved_account_ids: HashMap<AccountId, u64>,
-    pub next_approval_id: u64,
 }
 
 #[derive(Serialize, Deserialize)]

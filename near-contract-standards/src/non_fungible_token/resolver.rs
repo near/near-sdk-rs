@@ -1,4 +1,8 @@
-trait NonFungibleTokenResolver {
+use crate::non_fungible_token::token::TokenId;
+use near_sdk::AccountId;
+use std::collections::HashMap;
+
+pub trait NonFungibleTokenResolver {
     /// Finalize an `nft_transfer_call` chain of cross-contract calls.
     ///
     /// The `nft_transfer_call` process:

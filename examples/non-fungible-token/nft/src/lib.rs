@@ -15,8 +15,6 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
-use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
-use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
@@ -77,20 +75,28 @@ impl Contract {
             tokens: NonFungibleToken::new(
                 StorageKey::NonFungibleToken,
                 owner_id,
+                Some(StorageKey::TokenMetadata),
                 Some(StorageKey::Enumeration),
                 Some(StorageKey::Approval),
-                Some(StorageKey::TokenMetadata),
             ),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
     }
 
+    /// Mint a new token with ID=`token_id` belonging to `token_owner_id`.
+    ///
+    /// Since this example implements metadata, it also requires per-token metadata to be provided
+    /// in this call. `self.tokens.mint` will also require it to be Some, since
+    /// `StorageKey::TokenMetadata` was provided at initialization.
+    ///
+    /// `self.tokens.mint` will enforce `predecessor_account_id` to equal the `owner_id` given in
+    /// initialization call to `new`.
     pub fn mint(
-        token_id: Tokenid,
+        token_id: TokenId,
         token_owner_id: ValidAccountId,
         token_metadata: TokenMetadata,
     ) -> JsonToken {
-        self.tokens.mint(&token_id, &token_owner_id, Some(token_metadata));
+        self.tokens.mint(token_id, token_owner_id, Some(token_metadata));
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::non_fungible_token::token::Token;
 use near_sdk::json_types::U128;
 
 pub trait NonFungibleTokenEnumeration {
@@ -42,6 +43,6 @@ pub trait NonFungibleTokenEnumeration {
         self,
         account_id: String,
         from_index: Option<String>, // default: 0
-        limit: Option<number>,      // default: unlimited (could fail due to gas limit)
+        limit: Option<u64>,         // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
 }

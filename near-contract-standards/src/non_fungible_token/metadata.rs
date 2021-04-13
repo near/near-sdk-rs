@@ -1,4 +1,8 @@
-use crate::*;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::Base64VecU8;
+use near_sdk::serde::{Deserialize, Serialize};
+
+pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
@@ -29,13 +33,30 @@ pub struct TokenMetadata {
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 }
 
-pub trait NonFungibleTokenMetadata {
-    fn nft_metadata(&self) -> NFTMetadata;
+pub trait NonFungibleTokenMetadataProvider {
+    fn nft_metadata(&self) -> NFTContractMetadata;
 }
 
-#[near_bindgen]
-impl NonFungibleTokenMetadata for Contract {
-    fn nft_metadata(&self) -> NFTMetadata {
-        self.metadata.get().unwrap()
+impl NFTContractMetadata {
+    pub fn assert_valid(&self) {
+        assert_eq!(&self.spec, NFT_METADATA_SPEC);
+        assert_eq!(self.reference.is_some(), self.reference_hash.is_some());
+        if let Some(reference_hash) = &self.reference_hash {
+            assert_eq!(reference_hash.0.len(), 32, "Hash has to be 32 bytes");
+        }
+    }
+}
+
+impl TokenMetadata {
+    pub fn assert_valid(&self) {
+        assert_eq!(self.media.is_some(), self.media_hash.is_some());
+        if let Some(media_hash) = &self.media_hash {
+            assert_eq!(media_hash.0.len(), 32, "Media hash has to be 32 bytes");
+        }
+
+        assert_eq!(self.reference.is_some(), self.reference_hash.is_some());
+        if let Some(reference_hash) = &self.reference_hash {
+            assert_eq!(reference_hash.0.len(), 32, "Reference hash has to be 32 bytes");
+        }
     }
 }

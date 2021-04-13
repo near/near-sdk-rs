@@ -1,4 +1,5 @@
-use near_sdk::Promise;
+use crate::non_fungible_token::token::TokenId;
+use near_sdk::{AccountId, Promise};
 
 pub trait NonFungibleTokenReceiver {
     /// Take some action after receiving a non-fungible token

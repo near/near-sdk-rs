@@ -1,4 +1,7 @@
-trait NonFungibleTokenApprovalsReceiver {
+use crate::non_fungible_token::token::TokenId;
+use near_sdk::AccountId;
+
+pub trait NonFungibleTokenApprovalsReceiver {
     /// Respond to notification that contract has been granted approval for a token.
     ///
     /// Notes

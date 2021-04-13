@@ -1,4 +1,8 @@
-trait NonFungibleTokenApproval {
+use crate::non_fungible_token::token::TokenId;
+use near_sdk::json_types::ValidAccountId;
+use near_sdk::Promise;
+
+pub trait NonFungibleTokenApproval {
     /// Add an approved account for a specific token.
     ///
     /// Requirements
