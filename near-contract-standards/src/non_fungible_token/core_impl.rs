@@ -1,7 +1,7 @@
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
-use crate::non_fungible_token::token::{JsonToken, TokenId};
+use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
@@ -216,9 +216,9 @@ impl NonFungibleTokenCore for NonFungibleToken {
         .into()
     }
 
-    fn nft_token(self, token_id: TokenId) -> JsonToken {
+    fn nft_token(self, token_id: TokenId) -> Token {
         // self.accounts.get(account_id.as_ref()).unwrap_or(0).into()
-        JsonToken {}
+        Token {}
     }
 }
 

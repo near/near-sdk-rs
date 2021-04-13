@@ -18,7 +18,7 @@ NOTES:
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
-use near_contract_standards::non_fungible_token::token::JsonToken;
+use near_contract_standards::non_fungible_token::token::Token;
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
@@ -95,7 +95,7 @@ impl Contract {
         token_id: TokenId,
         token_owner_id: ValidAccountId,
         token_metadata: TokenMetadata,
-    ) -> JsonToken {
+    ) -> Token {
         self.tokens.mint(token_id, token_owner_id, Some(token_metadata));
     }
 }

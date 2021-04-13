@@ -1,6 +1,5 @@
-use crate::non_fungible_token::token::{JsonToken, TokenId};
+use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::json_types::U128;
 use near_sdk::Promise;
 
 pub trait NonFungibleTokenCore {
@@ -77,5 +76,5 @@ pub trait NonFungibleTokenCore {
     ) -> Promise;
 
     /// Returns the token with the given `token_id` or `null` if no such token.
-    fn nft_token(self, token_id: TokenId) -> Option<JsonToken>;
+    fn nft_token(self, token_id: TokenId) -> Option<Token>;
 }
