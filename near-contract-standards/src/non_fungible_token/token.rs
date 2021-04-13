@@ -10,6 +10,6 @@ pub type TokenId = String;
 pub struct Token {
     pub token_id: TokenId,
     pub owner_id: AccountId,
-    pub metadata: TokenMetadata,
-    pub approved_account_ids: HashMap<AccountId, u64>,
+    pub metadata: Option<TokenMetadata>,
+    pub approved_account_ids: Option<HashMap<AccountId, u64>>,
 }
