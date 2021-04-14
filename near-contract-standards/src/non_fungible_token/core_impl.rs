@@ -312,7 +312,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         // Initiating receiver's call and the callback
         ext_receiver::nft_on_transfer(
             sender_id.clone(),
-            old_owner,
+            old_owner.clone(),
             token_id.clone(),
             msg,
             receiver_id.as_ref(),
