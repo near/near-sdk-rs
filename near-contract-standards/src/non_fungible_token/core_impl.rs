@@ -82,6 +82,15 @@ impl NonFungibleToken {
         enumeration_prefix: Option<Vec<u8>>,
         approval_prefix: Option<Vec<u8>>,
     ) -> Self {
+        let (approvals_by_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix {
+            (
+                Some(LookupMap::new(prefix.clone())),
+                Some(LookupMap::new([prefix, "n".into()].concat())),
+            )
+        } else {
+            (None, None)
+        };
+
         let mut this = Self {
             owner_id: owner_id.into(),
             extra_storage_in_bytes_per_token: 0,
@@ -96,16 +105,8 @@ impl NonFungibleToken {
             } else {
                 None
             },
-            approvals_by_id: if let Some(prefix) = approval_prefix {
-                Some(LookupMap::new(prefix))
-            } else {
-                None
-            },
-            next_approval_id_by_id: if let Some(prefix) = approval_prefix {
-                Some(LookupMap::new([prefix, "n".into()].concat()))
-            } else {
-                None
-            },
+            approvals_by_id,
+            next_approval_id_by_id,
         };
         this.measure_min_token_storage_cost();
         this
