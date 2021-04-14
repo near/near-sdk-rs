@@ -4,23 +4,48 @@ use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
+use near_sdk::json_types::{Base64VecU8, ValidAccountId};
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas, Promise,
     PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
+use std::mem::size_of;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
 
 const NO_DEPOSIT: Balance = 0;
 
+// TODO: need a way for end users to determine how much an approval will cost.
+pub(crate) fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
+    // The extra 4 bytes are coming from Borsh serialization to store the length of the string.
+    account_id.len() as u64 + 4 + size_of::<u64>() as u64
+}
+
+pub(crate) fn refund_approved_account_ids_iter<'a, I>(
+    account_id: AccountId,
+    approved_account_ids: I,
+) -> Promise
+where
+    I: Iterator<Item = &'a AccountId>,
+{
+    let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
+    Promise::new(account_id).transfer(Balance::from(storage_released) * env::storage_byte_cost())
+}
+
+pub(crate) fn refund_approved_account_ids(
+    account_id: AccountId,
+    approved_account_ids: &HashMap<AccountId, u64>,
+) -> Promise {
+    refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
+}
+
 #[ext_contract(ext_self)]
 trait NFTResolver {
     fn nft_resolve_transfer(
         &mut self,
-        owner_id: AccountId,
+        previous_owner_id: AccountId,
         receiver_id: AccountId,
         approved_account_ids: Option<HashMap<AccountId, u64>>,
         token_id: TokenId,
@@ -29,13 +54,14 @@ trait NFTResolver {
 
 #[ext_contract(ext_receiver)]
 pub trait NonFungibleTokenReceiver {
+    /// Returns true if token should be returned to `sender_id`
     fn nft_on_transfer(
         &mut self,
         sender_id: AccountId,
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    ) -> Promise;
+    ) -> Promise<bool>;
 }
 
 /// Implementation of a NonFungibleToken standard.
@@ -175,9 +201,34 @@ impl NonFungibleToken {
         self.owner_by_id.remove(&tmp_token_id);
     }
 
-    // Transfer from current owner to receiver_id, checking that sender is allowed to transfer.
-    // Clear approvals, if approval extension being used.
-    // Return previous owner and approvals.
+    /// Transfer token_id from `from` to `to`
+    ///
+    /// Do not perform any safety checks or do any logging
+    pub fn internal_transfer_unguarded(
+        &mut self,
+        token_id: &TokenId,
+        from: &AccountId,
+        to: &AccountId,
+    ) {
+        // update owner
+        self.owner_by_id.insert(token_id, from);
+
+        // if using Enumeration standard, update old & new owner's token lists
+        if let Some(tokens_per_owner) = self.tokens_per_owner {
+            let owner_tokens = tokens_per_owner.get(from).expect("unreachable");
+            let receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
+                UnorderedSet::new(StorageKeys::TokensForOwner {
+                    account_hash: env::sha256(to.as_bytes()),
+                })
+            });
+            owner_tokens.remove(&token_id);
+            receiver_tokens.insert(&token_id);
+        }
+    }
+
+    /// Transfer from current owner to receiver_id, checking that sender is allowed to transfer.
+    /// Clear approvals, if approval extension being used.
+    /// Return previous owner and approvals.
     pub fn internal_transfer(
         &mut self,
         sender_id: &AccountId,
@@ -218,22 +269,9 @@ impl NonFungibleToken {
 
         assert_ne!(&owner_id, receiver_id, "Current and next owner must differ");
 
-        // update owner
-        self.owner_by_id.insert(&token_id, &receiver_id);
+        self.internal_transfer_unguarded(&token_id, &owner_id, &receiver_id);
 
-        // if using Enumeration standard, update old & new owner's token lists
-        if let Some(tokens_per_owner) = self.tokens_per_owner {
-            let owner_tokens = tokens_per_owner.get(&owner_id).expect("unreachable");
-            let receiver_tokens = tokens_per_owner.get(&receiver_id).unwrap_or_else(|| {
-                UnorderedSet::new(StorageKeys::TokensForOwner {
-                    account_hash: env::sha256(receiver_id.as_bytes()),
-                })
-            });
-            owner_tokens.remove(&token_id);
-            receiver_tokens.insert(&token_id);
-        }
-
-        // clear approvals
+        // clear approvals, if using Approval Management extension
         let old_approvals = self.approvals_by_id.and_then(|by_id| by_id.remove(token_id));
 
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
@@ -275,14 +313,14 @@ impl NonFungibleTokenCore for NonFungibleToken {
         ext_receiver::nft_on_transfer(
             sender_id.clone(),
             old_owner,
-            token_id,
+            token_id.clone(),
             msg,
             receiver_id.as_ref(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
         .then(ext_self::nft_resolve_transfer(
-            sender_id,
+            old_owner,
             receiver_id.into(),
             old_approvals,
             token_id,
@@ -301,61 +339,66 @@ impl NonFungibleTokenCore for NonFungibleToken {
     }
 }
 
-impl NonFungibleToken {
-    /// Internal method that returns the amount of burned tokens in a corner case when the sender
-    /// has deleted (unregistered) their account while the `nft_transfer_call` was still in flight.
-    /// Returns (Used token amount, Burned token amount)
-    pub fn internal_nft_resolve_transfer(
-        &mut self,
-        sender_id: &AccountId,
-        receiver_id: ValidAccountId,
-        amount: U128,
-    ) -> (u128, u128) {
-        let receiver_id: AccountId = receiver_id.into();
-        let token_id: TokenId = amount.into();
-
-        // Get the unused amount from the `nft_on_transfer` call result.
-        let unused_amount = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
-            PromiseResult::Successful(value) => {
-                if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
-                    std::cmp::min(amount, unused_amount.0)
-                } else {
-                    amount
-                }
-            }
-            PromiseResult::Failed => amount,
-        };
-
-        if unused_amount > 0 {
-            let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(0);
-            if receiver_balance > 0 {
-                let refund_amount = std::cmp::min(receiver_balance, unused_amount);
-                self.accounts.insert(&receiver_id, &(receiver_balance - refund_amount));
-
-                if let Some(sender_balance) = self.accounts.get(&sender_id) {
-                    self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
-                    log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
-                    return (amount - refund_amount, 0);
-                } else {
-                    // Sender's account was deleted, so we need to burn tokens.
-                    self.total_supply -= refund_amount;
-                    log!("The account of the sender was deleted");
-                    return (amount, refund_amount);
-                }
-            }
-        }
-        (amount, 0)
-    }
-}
-
 impl NonFungibleTokenResolver for NonFungibleToken {
+    /// Returns true if token was successfully transferred to `receiver_id`.
     fn nft_resolve_transfer(
         &mut self,
-        sender_id: ValidAccountId,
-        receiver_id: ValidAccountId,
-        amount: U128,
-    ) -> U128 {
-        self.internal_nft_resolve_transfer(sender_id.as_ref(), receiver_id, amount).0.into()
+        previous_owner_id: AccountId,
+        receiver_id: AccountId,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
+        token_id: TokenId,
+    ) -> bool {
+        // Get whether token should be returned
+        let must_revert = match env::promise_result(0) {
+            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::Successful(value) => {
+                if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
+                    yes_or_no
+                } else {
+                    true
+                }
+            }
+            PromiseResult::Failed => true,
+        };
+
+        // if call succeeded, return early
+        if !must_revert {
+            return true;
+        }
+
+        // OTHERWISE, try to set owner back to previous_owner_id and restore approved_account_ids
+
+        // Check that receiver didn't already transfer it away or burn it.
+        if let Some(current_owner) = self.owner_by_id.get(&token_id) {
+            if &current_owner != &receiver_id {
+                // The token is not owned by the receiver anymore. Can't return it.
+                return true;
+            }
+        } else {
+            // The token was burned and doesn't exist anymore.
+            // Refund storage cost for storing approvals to original owner and return early.
+            if let Some(approved_account_ids) = approved_account_ids {
+                refund_approved_account_ids(previous_owner_id, &approved_account_ids);
+            }
+            return true;
+        };
+
+        log!("Return {} from @{} to @{}", token_id, receiver_id, previous_owner_id);
+
+        self.internal_transfer_unguarded(&token_id, &receiver_id, &previous_owner_id);
+
+        // If using Approval Management extension,
+        // 1. revert any approvals receiver already set, refunding storage costs
+        // 2. reset approvals to what previous owner had set before call to nft_transfer_call
+        if let Some(by_id) = &mut self.approvals_by_id {
+            if let Some(receiver_approvals) = by_id.get(&token_id) {
+                refund_approved_account_ids(receiver_id, &receiver_approvals);
+            }
+            if let Some(previous_owner_approvals) = approved_account_ids {
+                by_id.insert(&token_id, &previous_owner_approvals);
+            }
+        }
+
+        false
     }
 }

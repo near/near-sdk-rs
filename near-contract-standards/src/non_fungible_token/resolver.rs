@@ -31,9 +31,9 @@ pub trait NonFungibleTokenResolver {
     /// Returns true if token was successfully transferred to `receiver_id`.
     fn nft_resolve_transfer(
         &mut self,
-        owner_id: AccountId,
+        previous_owner_id: AccountId,
         receiver_id: AccountId,
-        approved_account_ids: HashMap<AccountId, u64>,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
         token_id: TokenId,
     ) -> bool;
 }
