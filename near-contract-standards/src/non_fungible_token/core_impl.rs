@@ -6,7 +6,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, PromiseOrValue,
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas, Promise,
     PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
@@ -68,8 +68,6 @@ pub struct NonFungibleToken {
     pub approvals_by_id: Option<LookupMap<TokenId, HashMap<AccountId, u64>>>,
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
 }
-
-use near_sdk::BorshStorageKey;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
@@ -175,29 +173,100 @@ impl NonFungibleToken {
         }
         self.owner_by_id.remove(&tmp_token_id);
     }
+
+    pub fn internal_transfer(
+        &mut self,
+        sender_id: &AccountId,
+        receiver_id: &AccountId,
+        token_id: &TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+    ) {
+        let owner_id = self.owner_by_id.get(token_id).expect("Token not found");
+
+        let approved_account_ids = self.approvals_by_id.and_then(|by_id| by_id.get(&token_id));
+
+        // check if authorized
+        if sender_id != &owner_id {
+            // if approval extension is NOT being used, or if token has no approved accounts
+            if approved_account_ids.is_none() {
+                env::panic(b"Unauthorized")
+            }
+
+            // Approval extension is being used; get approval_id for sender.
+            let actual_approval_id = approved_account_ids.unwrap().get(sender_id);
+
+            // Panic if not approved at all
+            if actual_approval_id.is_none() {
+                env::panic(b"Sender not approved");
+            }
+
+            // If they included approval_id, check it
+            if let Some(enforced_approval_id) = approval_id {
+                let actual_approval_id = actual_approval_id.unwrap();
+                assert_eq!(
+                    actual_approval_id, &enforced_approval_id,
+                    "The actual approval_id {} is different from the given approval_id {}",
+                    actual_approval_id, enforced_approval_id,
+                );
+            }
+        }
+
+        assert_ne!(sender_id, receiver_id, "Sender and receiver should be different");
+
+        // update owner
+        self.owner_by_id.insert(&token_id, &receiver_id);
+
+        // if using Enumeration standard, update old & new owner's token lists
+        if let Some(tokens_per_owner) = self.tokens_per_owner {
+            let sender_tokens = tokens_per_owner.get(&sender_id).expect("unreachable");
+            let receiver_tokens = tokens_per_owner.get(&receiver_id).unwrap_or_else(|| {
+                UnorderedSet::new(StorageKeys::TokensForOwner {
+                    account_hash: env::sha256(receiver_id.as_bytes()),
+                })
+            });
+            sender_tokens.remove(&token_id);
+            receiver_tokens.insert(&token_id);
+        }
+
+        // clear approvals
+        if let Some(approvals_by_id) = self.approvals_by_id {
+            approvals_by_id.remove(token_id);
+        }
+
+        log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
+        if let Some(memo) = memo {
+            log!("Memo: {}", memo);
+        }
+    }
 }
 
 impl NonFungibleTokenCore for NonFungibleToken {
-    fn nft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
+    fn nft_transfer(
+        &mut self,
+        receiver_id: ValidAccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+    ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
+        self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
     }
 
     fn nft_transfer_call(
         &mut self,
         receiver_id: ValidAccountId,
-        amount: U128,
+        token_id: TokenId,
+        approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,
-    ) -> PromiseOrValue<U128> {
+    ) -> Promise {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
+        self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
-        ext_fungible_token_receiver::nft_on_transfer(
+        ext_receiver::nft_on_transfer(
             sender_id.clone(),
             amount.into(),
             msg,
@@ -235,7 +304,7 @@ impl NonFungibleToken {
         amount: U128,
     ) -> (u128, u128) {
         let receiver_id: AccountId = receiver_id.into();
-        let amount: Balance = amount.into();
+        let token_id: TokenId = amount.into();
 
         // Get the unused amount from the `nft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
