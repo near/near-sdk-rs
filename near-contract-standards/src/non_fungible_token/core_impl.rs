@@ -146,7 +146,7 @@ impl NonFungibleToken {
 
         // 1. set some dummy data
         self.owner_by_id.insert(&tmp_token_id, &tmp_owner_id);
-        if let Some(token_metadata_by_id) = self.token_metadata_by_id {
+        if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.insert(
                 &tmp_token_id,
                 &TokenMetadata {
@@ -165,20 +165,20 @@ impl NonFungibleToken {
                 },
             );
         }
-        if let Some(tokens_per_owner) = self.tokens_per_owner {
-            let token_ids = tokens_per_owner.get(&tmp_owner_id).unwrap_or_else(|| {
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            let mut token_ids = tokens_per_owner.get(&tmp_owner_id).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKeys::TokensForOwner {
                     account_hash: env::sha256(tmp_owner_id.as_bytes()),
                 })
             });
             token_ids.insert(&tmp_token_id);
         }
-        if let Some(approvals_by_id) = self.approvals_by_id {
+        if let Some(approvals_by_id) = &mut self.approvals_by_id {
             let mut approvals = HashMap::new();
             approvals.insert(tmp_owner_id.clone(), 1u64);
             approvals_by_id.insert(&tmp_token_id, &approvals);
         }
-        if let Some(next_approval_id_by_id) = self.next_approval_id_by_id {
+        if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
             next_approval_id_by_id.insert(&tmp_token_id, &1u64);
         }
 
@@ -186,16 +186,16 @@ impl NonFungibleToken {
         self.extra_storage_in_bytes_per_token = env::storage_usage() - initial_storage_usage;
 
         // 3. roll it all back
-        if let Some(next_approval_id_by_id) = self.next_approval_id_by_id {
+        if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
             next_approval_id_by_id.remove(&tmp_token_id);
         }
-        if let Some(approvals_by_id) = self.approvals_by_id {
+        if let Some(approvals_by_id) = &mut self.approvals_by_id {
             approvals_by_id.remove(&tmp_token_id);
         }
-        if let Some(tokens_per_owner) = self.tokens_per_owner {
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             tokens_per_owner.remove(&tmp_owner_id);
         }
-        if let Some(token_metadata_by_id) = self.token_metadata_by_id {
+        if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.remove(&tmp_token_id);
         }
         self.owner_by_id.remove(&tmp_token_id);
@@ -214,9 +214,9 @@ impl NonFungibleToken {
         self.owner_by_id.insert(token_id, from);
 
         // if using Enumeration standard, update old & new owner's token lists
-        if let Some(tokens_per_owner) = self.tokens_per_owner {
-            let owner_tokens = tokens_per_owner.get(from).expect("unreachable");
-            let receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            let mut owner_tokens = tokens_per_owner.get(from).expect("unreachable");
+            let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKeys::TokensForOwner {
                     account_hash: env::sha256(to.as_bytes()),
                 })
