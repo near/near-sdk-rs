@@ -1,6 +1,6 @@
 use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::Promise;
+use near_sdk::PromiseOrValue;
 
 pub trait NonFungibleTokenCore {
     /// Simple transfer. Transfer a given `token_id` from current owner to
@@ -73,7 +73,7 @@ pub trait NonFungibleTokenCore {
         approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,
-    ) -> Promise;
+    ) -> PromiseOrValue<bool>;
 
     /// Returns the token with the given `token_id` or `null` if no such token.
     fn nft_token(self, token_id: TokenId) -> Option<Token>;

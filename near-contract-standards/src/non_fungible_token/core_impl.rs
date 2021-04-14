@@ -7,7 +7,7 @@ use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId};
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas, Promise,
-    PromiseResult, StorageUsage,
+    PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 use std::mem::size_of;
@@ -61,7 +61,7 @@ pub trait NonFungibleTokenReceiver {
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    ) -> Promise<bool>;
+    ) -> PromiseOrValue<bool>;
 }
 
 /// Implementation of a NonFungibleToken standard.
@@ -304,7 +304,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
         msg: String,
-    ) -> Promise {
+    ) -> PromiseOrValue<bool> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
