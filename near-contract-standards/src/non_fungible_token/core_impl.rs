@@ -239,7 +239,10 @@ impl NonFungibleToken {
     ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
         let owner_id = self.owner_by_id.get(token_id).expect("Token not found");
 
-        let approved_account_ids = self.approvals_by_id.and_then(|by_id| by_id.get(&token_id));
+        // clear approvals, if using Approval Management extension
+        // this will be rolled back by a panic if sending fails
+        let approved_account_ids =
+            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(&token_id));
 
         // check if authorized
         if sender_id != &owner_id {
@@ -249,7 +252,7 @@ impl NonFungibleToken {
             }
 
             // Approval extension is being used; get approval_id for sender.
-            let actual_approval_id = approved_account_ids.unwrap().get(sender_id);
+            let actual_approval_id = approved_account_ids.as_ref().unwrap().get(sender_id);
 
             // Panic if sender not approved at all
             if actual_approval_id.is_none() {
@@ -271,16 +274,13 @@ impl NonFungibleToken {
 
         self.internal_transfer_unguarded(&token_id, &owner_id, &receiver_id);
 
-        // clear approvals, if using Approval Management extension
-        let old_approvals = self.approvals_by_id.and_then(|by_id| by_id.remove(token_id));
-
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
         if let Some(memo) = memo {
             log!("Memo: {}", memo);
         }
 
         // return previous owner & approvals
-        (owner_id, old_approvals)
+        (owner_id, approved_account_ids)
     }
 }
 
