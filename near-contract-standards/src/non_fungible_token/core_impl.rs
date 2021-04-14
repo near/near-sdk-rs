@@ -22,7 +22,7 @@ trait NFTResolver {
         &mut self,
         owner_id: AccountId,
         receiver_id: AccountId,
-        approved_account_ids: HashMap<AccountId, u64>,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
         token_id: TokenId,
     ) -> bool;
 }
@@ -174,6 +174,9 @@ impl NonFungibleToken {
         self.owner_by_id.remove(&tmp_token_id);
     }
 
+    // Transfer from current owner to receiver_id, checking that sender is allowed to transfer.
+    // Clear approvals, if approval extension being used.
+    // Return previous owner and approvals.
     pub fn internal_transfer(
         &mut self,
         sender_id: &AccountId,
@@ -181,7 +184,7 @@ impl NonFungibleToken {
         token_id: &TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
-    ) {
+    ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
         let owner_id = self.owner_by_id.get(token_id).expect("Token not found");
 
         let approved_account_ids = self.approvals_by_id.and_then(|by_id| by_id.get(&token_id));
@@ -196,12 +199,12 @@ impl NonFungibleToken {
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = approved_account_ids.unwrap().get(sender_id);
 
-            // Panic if not approved at all
+            // Panic if sender not approved at all
             if actual_approval_id.is_none() {
                 env::panic(b"Sender not approved");
             }
 
-            // If they included approval_id, check it
+            // If approval_id included, check that it matches
             if let Some(enforced_approval_id) = approval_id {
                 let actual_approval_id = actual_approval_id.unwrap();
                 assert_eq!(
@@ -212,32 +215,33 @@ impl NonFungibleToken {
             }
         }
 
-        assert_ne!(sender_id, receiver_id, "Sender and receiver should be different");
+        assert_ne!(&owner_id, receiver_id, "Current and next owner must differ");
 
         // update owner
         self.owner_by_id.insert(&token_id, &receiver_id);
 
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = self.tokens_per_owner {
-            let sender_tokens = tokens_per_owner.get(&sender_id).expect("unreachable");
+            let owner_tokens = tokens_per_owner.get(&owner_id).expect("unreachable");
             let receiver_tokens = tokens_per_owner.get(&receiver_id).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKeys::TokensForOwner {
                     account_hash: env::sha256(receiver_id.as_bytes()),
                 })
             });
-            sender_tokens.remove(&token_id);
+            owner_tokens.remove(&token_id);
             receiver_tokens.insert(&token_id);
         }
 
         // clear approvals
-        if let Some(approvals_by_id) = self.approvals_by_id {
-            approvals_by_id.remove(token_id);
-        }
+        let old_approvals = self.approvals_by_id.and_then(|by_id| by_id.remove(token_id));
 
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
         if let Some(memo) = memo {
             log!("Memo: {}", memo);
         }
+
+        // return previous owner & approvals
+        (owner_id, old_approvals)
     }
 }
 
@@ -264,11 +268,13 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> Promise {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
+        let (old_owner, old_approvals) =
+            self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_receiver::nft_on_transfer(
             sender_id.clone(),
-            amount.into(),
+            old_owner,
+            token_id,
             msg,
             receiver_id.as_ref(),
             NO_DEPOSIT,
@@ -277,7 +283,8 @@ impl NonFungibleTokenCore for NonFungibleToken {
         .then(ext_self::nft_resolve_transfer(
             sender_id,
             receiver_id.into(),
-            amount.into(),
+            old_approvals,
+            token_id,
             &env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
