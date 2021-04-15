@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 pub type TokenId = String;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Token {
     pub token_id: TokenId,

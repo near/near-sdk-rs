@@ -1,8 +1,8 @@
 #[macro_export]
 macro_rules! impl_non_fungible_token_core {
-    ($contract: ident, $token: ident,) => {
-        use near_contract_standards::non_fungible_token::core::FungibleTokenCore;
-        use near_contract_standards::non_fungible_token::resolver::FungibleTokenResolver;
+    ($contract: ident, $token: ident) => {
+        use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
+        use near_contract_standards::non_fungible_token::resolver::NonFungibleTokenResolver;
 
         #[near_bindgen]
         impl NonFungibleTokenCore for $contract {

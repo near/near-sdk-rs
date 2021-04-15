@@ -6,8 +6,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas, Promise,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas,
+    IntoStorageKey, Promise, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 use std::mem::size_of;
@@ -101,14 +101,21 @@ pub enum StorageKeys {
 }
 
 impl NonFungibleToken {
-    pub fn new(
-        owner_by_id_prefix: Vec<u8>,
+    pub fn new<Q, R, S, T>(
+        owner_by_id_prefix: Q,
         owner_id: ValidAccountId,
-        token_metadata_prefix: Option<Vec<u8>>,
-        enumeration_prefix: Option<Vec<u8>>,
-        approval_prefix: Option<Vec<u8>>,
-    ) -> Self {
+        token_metadata_prefix: Option<R>,
+        enumeration_prefix: Option<S>,
+        approval_prefix: Option<T>,
+    ) -> Self
+    where
+        Q: IntoStorageKey,
+        R: IntoStorageKey,
+        S: IntoStorageKey,
+        T: IntoStorageKey,
+    {
         let (approvals_by_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix {
+            let prefix: Vec<u8> = prefix.into_storage_key();
             (
                 Some(LookupMap::new(prefix.clone())),
                 Some(LookupMap::new([prefix, "n".into()].concat())),

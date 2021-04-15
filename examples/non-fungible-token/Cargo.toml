@@ -28,6 +28,3 @@ members = [
   "test-contract-defi",
 ]
 
-[[example]]
-name = "heavy"
-
