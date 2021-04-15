@@ -1,3 +1,4 @@
+use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::PromiseOrValue;
@@ -77,4 +78,22 @@ pub trait NonFungibleTokenCore {
 
     /// Returns the token with the given `token_id` or `null` if no such token.
     fn nft_token(self, token_id: TokenId) -> Option<Token>;
+
+    /// Mint a new token. Not part of official standard, but needed in most situations.
+    /// Consuming contract expected to wrap this with an `nft_mint` function.
+    ///
+    /// Requirements:
+    /// * Caller must be the `owner_id` set during contract initialization.
+    /// * Caller of the method must attach a deposit of 1 yoctoⓃ for security purposes.
+    /// * If contract is using Metadata extension (by having provided `metadata_prefix` during
+    ///   contract initialization), `token_metadata` must be given.
+    /// * token_id must be unique
+    ///
+    /// Returns the newly minted token
+    fn mint(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: ValidAccountId,
+        token_metadata: Option<TokenMetadata>,
+    ) -> Token;
 }

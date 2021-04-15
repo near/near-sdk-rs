@@ -6,8 +6,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas,
-    IntoStorageKey, Promise, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_at_least_one_yocto, assert_one_yocto, env, ext_contract, log, AccountId, Balance,
+    BorshStorageKey, Gas, IntoStorageKey, Promise, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 use std::mem::size_of;
@@ -343,6 +343,51 @@ impl NonFungibleTokenCore for NonFungibleToken {
         let metadata = self.token_metadata_by_id.and_then(|by_id| by_id.get(&token_id));
         let approved_account_ids = self.approvals_by_id.and_then(|by_id| by_id.get(&token_id));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
+    }
+
+    fn mint(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: ValidAccountId,
+        token_metadata: Option<TokenMetadata>,
+    ) -> Token {
+        // TODO: charge someone for storage
+        assert_at_least_one_yocto();
+        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
+            env::panic(b"Must provide metadata");
+        }
+        if let Some(_) = self.owner_by_id.get(&token_id) {
+            env::panic(b"token_id must be unique");
+        }
+
+        let owner_id: AccountId = token_owner_id.into();
+
+        // Core behavior: every token must have an owner
+        self.owner_by_id.insert(&token_id, &owner_id);
+
+        // Metadata extension: Save metadata, keep variable around to return later.
+        // Note that check above already panicked if metadata extension in use but no metadata
+        // provided to call.
+        self.token_metadata_by_id
+            .as_mut()
+            .and_then(|by_id| by_id.insert(&token_id, &token_metadata.as_ref().unwrap()));
+
+        // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
+                UnorderedSet::new(StorageKeys::TokensForOwner {
+                    account_hash: env::sha256(owner_id.as_bytes()),
+                })
+            });
+            token_ids.insert(&token_id);
+        }
+
+        // Approval Management extension: return empty HashMap as part of Token
+        let approved_account_ids =
+            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
+
+        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }
 }
 

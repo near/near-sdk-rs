@@ -82,22 +82,22 @@ impl Contract {
         }
     }
 
-    // /// Mint a new token with ID=`token_id` belonging to `token_owner_id`.
-    // ///
-    // /// Since this example implements metadata, it also requires per-token metadata to be provided
-    // /// in this call. `self.tokens.mint` will also require it to be Some, since
-    // /// `StorageKey::TokenMetadata` was provided at initialization.
-    // ///
-    // /// `self.tokens.mint` will enforce `predecessor_account_id` to equal the `owner_id` given in
-    // /// initialization call to `new`.
-    // pub fn mint(
-    //     &mut self,
-    //     token_id: TokenId,
-    //     token_owner_id: ValidAccountId,
-    //     token_metadata: TokenMetadata,
-    // ) -> Token {
-    //     self.tokens.mint(token_id, token_owner_id, Some(token_metadata))
-    // }
+    /// Mint a new token with ID=`token_id` belonging to `token_owner_id`.
+    ///
+    /// Since this example implements metadata, it also requires per-token metadata to be provided
+    /// in this call. `self.tokens.mint` will also require it to be Some, since
+    /// `StorageKey::TokenMetadata` was provided at initialization.
+    ///
+    /// `self.tokens.mint` will enforce `predecessor_account_id` to equal the `owner_id` given in
+    /// initialization call to `new`.
+    pub fn nft_mint(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: ValidAccountId,
+        token_metadata: TokenMetadata,
+    ) -> Token {
+        self.tokens.mint(token_id, token_owner_id, Some(token_metadata))
+    }
 }
 
 near_contract_standards::impl_non_fungible_token_core!(Contract, tokens);
@@ -126,6 +126,23 @@ mod tests {
         builder
     }
 
+    fn sample_token_metadata() -> TokenMetadata {
+        TokenMetadata {
+            title: Some("Olympus Mons".into()),
+            description: Some("The tallest mountain in the charted solar system".into()),
+            media: None,
+            media_hash: None,
+            copies: Some(1u64),
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: None,
+            reference: None,
+            reference_hash: None,
+        }
+    }
+
     #[test]
     fn test_new() {
         let mut context = get_context(accounts(1));
@@ -141,6 +158,27 @@ mod tests {
         let context = get_context(accounts(1));
         testing_env!(context.build());
         let _contract = Contract::default();
+    }
+
+    #[test]
+    fn test_mint() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new_default_meta(accounts(0).into());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(1)
+            .predecessor_account_id(accounts(0))
+            .build());
+
+        let token_id = "0".to_string();
+        let token = contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
+        println!("{:#?}", token);
+        assert_eq!(token.token_id, token_id);
+        assert_eq!(token.owner_id, accounts(0).to_string());
+        assert_eq!(token.metadata.unwrap(), sample_token_metadata());
+        assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
     }
 
     // #[test]

@@ -32,6 +32,15 @@ macro_rules! impl_non_fungible_token_core {
             fn nft_token(self, token_id: TokenId) -> Option<Token> {
                 self.$token.nft_token(token_id)
             }
+
+            fn mint(
+                &mut self,
+                token_id: TokenId,
+                token_owner_id: ValidAccountId,
+                token_metadata: Option<TokenMetadata>,
+            ) -> Token {
+                self.$token.mint(token_id, token_owner_id, token_metadata)
+            }
         }
 
         #[near_bindgen]
