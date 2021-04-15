@@ -135,14 +135,14 @@ mod tests {
         assert_eq!(contract.nft_token("1".to_string()), None);
     }
 
-    // #[test]
-    // #[should_panic(expected = "The contract is not initialized")]
-    // fn test_default() {
-    //     let context = get_context(accounts(1));
-    //     testing_env!(context.build());
-    //     let _contract = Contract::default();
-    // }
-    //
+    #[test]
+    #[should_panic(expected = "The contract is not initialized")]
+    fn test_default() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let _contract = Contract::default();
+    }
+
     // #[test]
     // fn test_transfer() {
     //     let mut context = get_context(accounts(2));
