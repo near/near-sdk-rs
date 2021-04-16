@@ -1,9 +1,14 @@
 use crate::non_fungible_token::approval::NonFungibleTokenApproval;
 use crate::non_fungible_token::core_impl::NonFungibleToken;
 use crate::non_fungible_token::token::TokenId;
-use crate::non_fungible_token::utils::{bytes_for_approved_account_id, refund_deposit};
+use crate::non_fungible_token::utils::{
+    bytes_for_approved_account_id, refund_approved_account_ids_iter, refund_deposit,
+};
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::{assert_at_least_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
+use near_sdk::{
+    assert_at_least_one_yocto, assert_one_yocto, env, ext_contract, AccountId, Balance, Gas,
+    Promise,
+};
 use std::collections::HashMap;
 
 const GAS_FOR_NFT_APPROVE: Gas = 10_000_000_000_000;
@@ -34,35 +39,33 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
 
-        assert_eq!(
-            &env::predecessor_account_id(),
-            &owner_id,
-            "Predecessor must be the token owner."
-        );
+        assert_eq!(&env::predecessor_account_id(), &owner_id, "Predecessor must be token owner.");
 
+        // get contract-level LookupMap of token_id to approvals HashMap
         let approvals_by_id = self.approvals_by_id.as_mut().unwrap();
 
+        // update HashMap of approvals for this token
         let approved_account_ids =
             &mut approvals_by_id.get(&token_id).unwrap_or_else(|| HashMap::new());
-
         let account_id: AccountId = account_id.into();
-
         let approval_id: u64 =
             self.next_approval_id_by_id.as_ref().unwrap().get(&token_id).unwrap_or_else(|| 1u64);
-
-        self.next_approval_id_by_id.as_mut().unwrap().insert(&token_id, &(approval_id + 1));
-
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
+        // save updated approvals HashMap to contract's LookupMap
         approvals_by_id.insert(&token_id, &approved_account_ids);
 
-        let is_new_approval = old_approval_id.is_none();
+        // increment next_approval_id for this token
+        self.next_approval_id_by_id.as_mut().unwrap().insert(&token_id, &(approval_id + 1));
 
+        // If this approval replaced existing for same account, no storage was used.
+        // Otherwise, require that enough deposit was attached to pay for storage, and refund
+        // excess.
         let storage_used =
-            if is_new_approval { bytes_for_approved_account_id(&account_id) } else { 0 };
-
+            if old_approval_id.is_none() { bytes_for_approved_account_id(&account_id) } else { 0 };
         refund_deposit(storage_used);
 
+        // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         if let Some(msg) = msg {
             Some(ext_approval_receiver::nft_on_approve(
                 token_id,
@@ -78,7 +81,34 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         }
     }
 
-    fn nft_revoke(&mut self, token_id: TokenId, account_id: ValidAccountId) {}
+    fn nft_revoke(&mut self, token_id: TokenId, account_id: ValidAccountId) {
+        assert_one_yocto();
+        if self.approvals_by_id.is_none() {
+            env::panic(b"NFT does not support Approval Management");
+        }
+
+        let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
+        let predecessor_account_id = env::predecessor_account_id();
+
+        assert_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
+
+        // if token has no approvals, do nothing
+        if let Some(approved_account_ids) =
+            &mut self.approvals_by_id.as_mut().unwrap().get(&token_id)
+        {
+            // if account_id was already not approved, do nothing
+            if approved_account_ids.remove(account_id.as_ref()).is_some() {
+                refund_approved_account_ids_iter(
+                    predecessor_account_id,
+                    [account_id.into()].iter(),
+                );
+                // if this was the last approval, remove the whole HashMap to save space.
+                if approved_account_ids.is_empty() {
+                    self.approvals_by_id.as_mut().unwrap().remove(&token_id);
+                }
+            }
+        }
+    }
 
     fn nft_revoke_all(&mut self, token_id: TokenId) {}
 

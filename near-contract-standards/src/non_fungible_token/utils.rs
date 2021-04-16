@@ -8,7 +8,7 @@ pub fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
     account_id.len() as u64 + 4 + size_of::<u64>() as u64
 }
 
-fn refund_approved_account_ids_iter<'a, I>(
+pub fn refund_approved_account_ids_iter<'a, I>(
     account_id: AccountId,
     approved_account_ids: I,
 ) -> Promise
