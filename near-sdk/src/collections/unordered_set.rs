@@ -9,7 +9,7 @@ const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state.
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
 
 /// An iterable implementation of a set that stores its content directly on the trie.
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct UnorderedSet<T> {
     element_index_prefix: Vec<u8>,
     elements: Vector<T>,

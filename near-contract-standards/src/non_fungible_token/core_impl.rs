@@ -173,12 +173,11 @@ impl NonFungibleToken {
             );
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let mut token_ids = tokens_per_owner.get(&tmp_owner_id).unwrap_or_else(|| {
-                UnorderedSet::new(StorageKeys::TokensForOwner {
-                    account_hash: env::sha256(tmp_owner_id.as_bytes()),
-                })
+            let u = &mut UnorderedSet::new(StorageKeys::TokensForOwner {
+                account_hash: env::sha256(tmp_owner_id.as_bytes()),
             });
-            token_ids.insert(&tmp_token_id);
+            u.insert(&tmp_token_id);
+            tokens_per_owner.insert(&tmp_owner_id, &u);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
             let mut approvals = HashMap::new();
@@ -218,17 +217,11 @@ impl NonFungibleToken {
         to: &AccountId,
     ) {
         // update owner
-        self.owner_by_id.insert(token_id, from);
+        self.owner_by_id.insert(token_id, to);
 
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let mut owner_tokens = tokens_per_owner.get(from).expect(
-                format!(
-                    "tokens_per_owner not correctly stored/retrieved for token_id {}",
-                    &token_id,
-                )
-                .as_str(),
-            );
+            let mut owner_tokens = tokens_per_owner.get(from).expect("unreachable");
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKeys::TokensForOwner {
                     account_hash: env::sha256(to.as_bytes()),
@@ -347,7 +340,9 @@ impl NonFungibleTokenCore for NonFungibleToken {
     fn nft_token(self, token_id: TokenId) -> Option<Token> {
         let owner_id = self.owner_by_id.get(&token_id)?;
         let metadata = self.token_metadata_by_id.and_then(|by_id| by_id.get(&token_id));
-        let approved_account_ids = self.approvals_by_id.and_then(|by_id| by_id.get(&token_id));
+        let approved_account_ids = self
+            .approvals_by_id
+            .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
     }
 
@@ -387,6 +382,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
                 })
             });
             token_ids.insert(&token_id);
+            tokens_per_owner.insert(&owner_id, &token_ids);
         }
 
         // Approval Management extension: return empty HashMap as part of Token
