@@ -248,14 +248,7 @@ mod tests {
             .is_view(true)
             .attached_deposit(0)
             .build());
-        if let Some(token) = contract.nft_token(token_id.clone()) {
-            let expected_approvals = &mut HashMap::new();
-            expected_approvals.insert(accounts(1).into(), 1); // ONE!
-            let actual_approvals = &mut token.approved_account_ids.unwrap(); // TODO: for assert_eq, is there some way to remove mutability from expected_approvals?
-            assert_eq!(actual_approvals, expected_approvals);
-        } else {
-            panic!("token not correctly created, or not found by nft_token");
-        }
+        assert!(contract.nft_is_approved(token_id.clone(), accounts(1), Some(1)));
 
         // TODO: fix "borrow of moved value" bug, or move to sim tests
         // // alice approves bob again; notice the lack of attached deposit this time
@@ -340,11 +333,7 @@ mod tests {
             .is_view(true)
             .attached_deposit(0)
             .build());
-        if let Some(token) = contract.nft_token(token_id.clone()) {
-            assert_eq!(token.approved_account_ids, Some(HashMap::new()));
-        } else {
-            panic!("token not correctly created, or not found by nft_token");
-        }
+        assert!(!contract.nft_is_approved(token_id.clone(), accounts(1), None));
     }
 
     #[test]
@@ -382,10 +371,6 @@ mod tests {
             .is_view(true)
             .attached_deposit(0)
             .build());
-        if let Some(token) = contract.nft_token(token_id.clone()) {
-            assert_eq!(token.approved_account_ids, Some(HashMap::new()));
-        } else {
-            panic!("token not correctly created, or not found by nft_token");
-        }
+        assert!(!contract.nft_is_approved(token_id.clone(), accounts(1), Some(1)));
     }
 }

@@ -139,6 +139,31 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         approved_account_id: ValidAccountId,
         approval_id: Option<u64>,
     ) -> bool {
-        false
+        self.owner_by_id.get(&token_id).expect("Token not found");
+
+        if self.approvals_by_id.is_none() {
+            // contract does not support approval management
+            return false;
+        }
+
+        let approved_account_ids = self.approvals_by_id.unwrap().get(&token_id);
+        if approved_account_ids.is_none() {
+            // token has no approvals
+            return false;
+        }
+
+        let account_id: AccountId = approved_account_id.into();
+        let actual_approval_id = approved_account_ids.as_ref().unwrap().get(&account_id);
+        if actual_approval_id.is_none() {
+            // account not in approvals HashMap
+            return false;
+        }
+
+        if let Some(given_approval_id) = approval_id {
+            &given_approval_id == actual_approval_id.unwrap()
+        } else {
+            // account approved, no approval_id given
+            true
+        }
     }
 }
