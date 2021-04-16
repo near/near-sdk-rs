@@ -221,13 +221,16 @@ impl NonFungibleToken {
 
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let mut owner_tokens = tokens_per_owner.get(from).expect("unreachable");
+            let mut owner_tokens = tokens_per_owner.get(from).unwrap();
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKeys::TokensForOwner {
                     account_hash: env::sha256(to.as_bytes()),
                 })
             });
             owner_tokens.remove(&token_id);
+            if owner_tokens.is_empty() {
+                tokens_per_owner.remove(from);
+            }
             receiver_tokens.insert(&token_id);
         }
     }
