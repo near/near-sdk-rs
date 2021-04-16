@@ -2,7 +2,8 @@ use crate::non_fungible_token::approval::NonFungibleTokenApproval;
 use crate::non_fungible_token::core_impl::NonFungibleToken;
 use crate::non_fungible_token::token::TokenId;
 use crate::non_fungible_token::utils::{
-    bytes_for_approved_account_id, refund_approved_account_ids_iter, refund_deposit,
+    bytes_for_approved_account_id, refund_approved_account_ids, refund_approved_account_ids_iter,
+    refund_deposit,
 };
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{
@@ -110,7 +111,27 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         }
     }
 
-    fn nft_revoke_all(&mut self, token_id: TokenId) {}
+    fn nft_revoke_all(&mut self, token_id: TokenId) {
+        assert_one_yocto();
+        if self.approvals_by_id.is_none() {
+            env::panic(b"NFT does not support Approval Management");
+        }
+
+        let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
+        let predecessor_account_id = env::predecessor_account_id();
+
+        assert_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
+
+        // if token has no approvals, do nothing
+        if let Some(approved_account_ids) =
+            &mut self.approvals_by_id.as_mut().unwrap().get(&token_id)
+        {
+            // otherwise, refund owner for storage costs of all approvals...
+            refund_approved_account_ids(predecessor_account_id, &approved_account_ids);
+            // ...and remove whole HashMap of approvals
+            self.approvals_by_id.as_mut().unwrap().remove(&token_id);
+        }
+    }
 
     fn nft_is_approved(
         self,
