@@ -234,6 +234,7 @@ mod tests {
         let token_id = "0".to_string();
         contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
 
+        // alice approves bob
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(150000000000000000000)
@@ -241,10 +242,61 @@ mod tests {
             .build());
         contract.nft_approve(token_id.clone(), accounts(1), None);
 
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .account_balance(env::account_balance())
+            .is_view(true)
+            .attached_deposit(0)
+            .build());
         if let Some(token) = contract.nft_token(token_id.clone()) {
             let expected_approvals = &mut HashMap::new();
-            expected_approvals.insert(accounts(1).into(), 1);
-            // TODO: for assert_eq, is there some way to remove mutability from expected_approvals?
+            expected_approvals.insert(accounts(1).into(), 1); // ONE!
+            let actual_approvals = &mut token.approved_account_ids.unwrap(); // TODO: for assert_eq, is there some way to remove mutability from expected_approvals?
+            assert_eq!(actual_approvals, expected_approvals);
+        } else {
+            panic!("token not correctly created, or not found by nft_token");
+        }
+
+        // alice approves bob again; notice the lack of attached deposit this time
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(1)
+            .predecessor_account_id(accounts(0))
+            .build());
+        contract.nft_approve(token_id.clone(), accounts(1), None);
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .account_balance(env::account_balance())
+            .is_view(true)
+            .attached_deposit(0)
+            .build());
+        if let Some(token) = contract.nft_token(token_id.clone()) {
+            let expected_approvals = &mut HashMap::new();
+            expected_approvals.insert(accounts(1).into(), 2); // TWO!
+            let actual_approvals = &mut token.approved_account_ids.unwrap();
+            assert_eq!(actual_approvals, expected_approvals);
+        } else {
+            panic!("token not correctly created, or not found by nft_token");
+        }
+
+        // alice approves carol
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(150000000000000000000)
+            .predecessor_account_id(accounts(0))
+            .build());
+        contract.nft_approve(token_id.clone(), accounts(2), None);
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .account_balance(env::account_balance())
+            .is_view(true)
+            .attached_deposit(0)
+            .build());
+        if let Some(token) = contract.nft_token(token_id.clone()) {
+            let expected_approvals = &mut HashMap::new();
+            expected_approvals.insert(accounts(3).into(), 3); // THREE!
             let actual_approvals = &mut token.approved_account_ids.unwrap();
             assert_eq!(actual_approvals, expected_approvals);
         } else {
