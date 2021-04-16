@@ -23,7 +23,9 @@ use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::ValidAccountId;
-use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue};
+use near_sdk::{
+    env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+};
 use std::collections::HashMap;
 
 near_sdk::setup_alloc!();
@@ -101,6 +103,7 @@ impl Contract {
 }
 
 near_contract_standards::impl_non_fungible_token_core!(Contract, tokens);
+near_contract_standards::impl_non_fungible_token_approval!(Contract, tokens);
 
 #[near_bindgen]
 impl NonFungibleTokenMetadataProvider for Contract {
@@ -212,6 +215,38 @@ mod tests {
             assert_eq!(token.owner_id, accounts(1).to_string());
             assert_eq!(token.metadata.unwrap(), sample_token_metadata());
             assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
+        } else {
+            panic!("token not correctly created, or not found by nft_token");
+        }
+    }
+
+    #[test]
+    fn test_approve() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new_default_meta(accounts(0).into());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(1)
+            .predecessor_account_id(accounts(0))
+            .build());
+        let token_id = "0".to_string();
+        contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(150000000000000000000)
+            .predecessor_account_id(accounts(0))
+            .build());
+        contract.nft_approve(token_id.clone(), accounts(1), None);
+
+        if let Some(token) = contract.nft_token(token_id.clone()) {
+            let expected_approvals = &mut HashMap::new();
+            expected_approvals.insert(accounts(1).into(), 1);
+            // TODO: for assert_eq, is there some way to remove mutability from expected_approvals?
+            let actual_approvals = &mut token.approved_account_ids.unwrap();
+            assert_eq!(actual_approvals, expected_approvals);
         } else {
             panic!("token not correctly created, or not found by nft_token");
         }

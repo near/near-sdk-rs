@@ -63,3 +63,39 @@ macro_rules! impl_non_fungible_token_core {
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_non_fungible_token_approval {
+    ($contract: ident, $token: ident) => {
+        use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
+
+        #[near_bindgen]
+        impl NonFungibleTokenApproval for $contract {
+            fn nft_approve(
+                &mut self,
+                token_id: TokenId,
+                account_id: ValidAccountId,
+                msg: Option<String>,
+            ) -> Option<Promise> {
+                self.$token.nft_approve(token_id, account_id, msg)
+            }
+
+            fn nft_revoke(&mut self, token_id: TokenId, account_id: ValidAccountId) {
+                self.$token.nft_revoke(token_id, account_id)
+            }
+
+            fn nft_revoke_all(&mut self, token_id: TokenId) {
+                self.$token.nft_revoke_all(token_id)
+            }
+
+            fn nft_is_approved(
+                self,
+                token_id: TokenId,
+                approved_account_id: ValidAccountId,
+                approval_id: Option<u64>,
+            ) -> bool {
+                self.$token.nft_is_approved(token_id, approved_account_id, approval_id)
+            }
+        }
+    };
+}

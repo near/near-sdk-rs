@@ -2,44 +2,20 @@ use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
+use crate::non_fungible_token::utils::refund_approved_account_ids;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId};
 use near_sdk::{
     assert_at_least_one_yocto, assert_one_yocto, env, ext_contract, log, AccountId, Balance,
-    BorshStorageKey, Gas, IntoStorageKey, Promise, PromiseOrValue, PromiseResult, StorageUsage,
+    BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
-use std::mem::size_of;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
 
 const NO_DEPOSIT: Balance = 0;
-
-// TODO: need a way for end users to determine how much an approval will cost.
-pub(crate) fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
-    // The extra 4 bytes are coming from Borsh serialization to store the length of the string.
-    account_id.len() as u64 + 4 + size_of::<u64>() as u64
-}
-
-pub(crate) fn refund_approved_account_ids_iter<'a, I>(
-    account_id: AccountId,
-    approved_account_ids: I,
-) -> Promise
-where
-    I: Iterator<Item = &'a AccountId>,
-{
-    let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
-    Promise::new(account_id).transfer(Balance::from(storage_released) * env::storage_byte_cost())
-}
-
-pub(crate) fn refund_approved_account_ids(
-    account_id: AccountId,
-    approved_account_ids: &HashMap<AccountId, u64>,
-) -> Promise {
-    refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
-}
 
 #[ext_contract(ext_self)]
 trait NFTResolver {
