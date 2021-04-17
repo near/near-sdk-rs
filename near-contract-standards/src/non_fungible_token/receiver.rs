@@ -1,5 +1,5 @@
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::{AccountId, Promise};
+use near_sdk::{AccountId, PromiseOrValue};
 
 pub trait NonFungibleTokenReceiver {
     /// Take some action after receiving a non-fungible token
@@ -24,5 +24,5 @@ pub trait NonFungibleTokenReceiver {
         previous_owner_id: AccountId,
         token_id: TokenId,
         msg: String,
-    ) -> Promise;
+    ) -> PromiseOrValue<bool>;
 }

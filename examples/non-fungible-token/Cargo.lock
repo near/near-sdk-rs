@@ -744,14 +744,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "defi"
-version = "0.0.1"
-dependencies = [
- "near-contract-standards",
- "near-sdk",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1823,10 +1815,11 @@ dependencies = [
 name = "non-fungible-token-wrapper"
 version = "0.0.2"
 dependencies = [
- "defi",
+ "near-contract-standards",
  "near-sdk",
  "near-sdk-sim",
  "non-fungible-token",
+ "token-receiver",
 ]
 
 [[package]]
@@ -2748,6 +2741,14 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
+
+[[package]]
+name = "token-receiver"
+version = "0.0.1"
+dependencies = [
+ "near-contract-standards",
+ "near-sdk",
+]
 
 [[package]]
 name = "toml"

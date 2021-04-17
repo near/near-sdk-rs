@@ -92,6 +92,7 @@ impl Contract {
     ///
     /// `self.tokens.mint` will enforce `predecessor_account_id` to equal the `owner_id` given in
     /// initialization call to `new`.
+    #[payable]
     pub fn nft_mint(
         &mut self,
         token_id: TokenId,

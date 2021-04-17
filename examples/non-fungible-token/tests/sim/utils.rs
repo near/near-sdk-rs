@@ -1,94 +1,80 @@
-use defi::DeFiContract;
-use fungible_token::ContractContract as FtContract;
+use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
+use non_fungible_token::ContractContract as NftContract;
+use token_receiver::TokenReceiverContract;
 
-use near_sdk::json_types::U128;
-use near_sdk::serde_json::json;
-use near_sdk_sim::{
-    deploy, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS, STORAGE_AMOUNT,
-};
+use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
 
 // Load in contract bytes at runtime
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
-    FT_WASM_BYTES => "res/fungible_token.wasm",
-    DEFI_WASM_BYTES => "res/defi.wasm",
+    NFT_WASM_BYTES => "res/non_fungible_token.wasm",
+    TOKEN_RECEIVER_WASM_BYTES => "res/token_receiver.wasm",
 }
 
-const FT_ID: &str = "ft";
-const DEFI_ID: &str = "defi";
+const NFT_ID: &str = "nft";
+const TOKEN_RECEIVER_ID: &str = "token-receiver";
 
-// Register the given `user` with FT contract
-pub fn register_user(user: &near_sdk_sim::UserAccount) {
-    user.call(
-        FT_ID.to_string(),
-        "storage_deposit",
-        &json!({
-            "account_id": user.valid_account_id()
-        })
-        .to_string()
-        .into_bytes(),
-        near_sdk_sim::DEFAULT_GAS / 2,
-        near_sdk::env::storage_byte_cost() * 125, // attached deposit
-    )
-    .assert_success();
-}
+// TODO: how to export String instead of &str? Way too much `into`/`to_string` with &str.
+pub const TOKEN_ID: &str = "1";
 
-pub fn init_no_macros(initial_balance: u128) -> (UserAccount, UserAccount, UserAccount) {
-    let root = init_simulator(None);
-
-    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.into(), STORAGE_AMOUNT);
-
-    ft.call(
-        FT_ID.into(),
-        "new_default_meta",
-        &json!({
-            "owner_id": root.valid_account_id(),
-            "total_supply": U128::from(initial_balance),
-        })
-        .to_string()
-        .into_bytes(),
-        DEFAULT_GAS / 2,
-        0, // attached deposit
-    )
-    .assert_success();
-
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
-    register_user(&alice);
-
-    (root, ft, alice)
-}
-
-pub fn init_with_macros(
-    initial_balance: u128,
-) -> (UserAccount, ContractAccount<FtContract>, ContractAccount<DeFiContract>, UserAccount) {
+/// Initialize simulator and return:
+/// * root: the root user, set as owner_id for NFT contract, owns a token with ID=1
+/// * nft: the NFT contract, callable with `call!` and `view!`
+/// * alice: a user account, does not yet own any tokens
+/// * token_receiver: a contract implementing `nft_on_transfer` for use with `transfer_and_call`
+pub fn init(
+) -> (UserAccount, ContractAccount<NftContract>, UserAccount, ContractAccount<TokenReceiverContract>)
+{
     let root = init_simulator(None);
     // uses default values for deposit and gas
-    let ft = deploy!(
+    let nft = deploy!(
         // Contract Proxy
-        contract: FtContract,
+        contract: NftContract,
         // Contract account id
-        contract_id: FT_ID,
+        contract_id: NFT_ID,
         // Bytes of contract
-        bytes: &FT_WASM_BYTES,
+        bytes: &NFT_WASM_BYTES,
         // User deploying the contract,
         signer_account: root,
         // init method
         init_method: new_default_meta(
-            root.valid_account_id(),
-            initial_balance.into()
+            root.valid_account_id()
         )
     );
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
-    register_user(&alice);
 
-    let defi = deploy!(
-        contract: DeFiContract,
-        contract_id: DEFI_ID,
-        bytes: &DEFI_WASM_BYTES,
+    call!(
+        root,
+        nft.nft_mint(
+            TOKEN_ID.into(),
+            root.valid_account_id(),
+            TokenMetadata {
+                title: Some("Olympus Mons".into()),
+                description: Some("The tallest mountain in the charted solar system".into()),
+                media: None,
+                media_hash: None,
+                copies: Some(1u64),
+                issued_at: None,
+                expires_at: None,
+                starts_at: None,
+                updated_at: None,
+                extra: None,
+                reference: None,
+                reference_hash: None,
+            }
+        ),
+        deposit = 1
+    );
+
+    let alice = root.create_user("alice".to_string(), to_yocto("100"));
+
+    let token_receiver = deploy!(
+        contract: TokenReceiverContract,
+        contract_id: TOKEN_RECEIVER_ID,
+        bytes: &TOKEN_RECEIVER_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            ft.valid_account_id()
+            nft.valid_account_id()
         )
     );
 
-    (root, ft, defi, alice)
+    (root, nft, alice, token_receiver)
 }
