@@ -71,6 +71,7 @@ macro_rules! impl_non_fungible_token_approval {
 
         #[near_bindgen]
         impl NonFungibleTokenApproval for $contract {
+            #[payable]
             fn nft_approve(
                 &mut self,
                 token_id: TokenId,
@@ -80,10 +81,12 @@ macro_rules! impl_non_fungible_token_approval {
                 self.$token.nft_approve(token_id, account_id, msg)
             }
 
+            #[payable]
             fn nft_revoke(&mut self, token_id: TokenId, account_id: ValidAccountId) {
                 self.$token.nft_revoke(token_id, account_id)
             }
 
+            #[payable]
             fn nft_revoke_all(&mut self, token_id: TokenId) {
                 self.$token.nft_revoke_all(token_id)
             }
