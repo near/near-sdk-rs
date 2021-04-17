@@ -63,10 +63,35 @@ fn simulate_simple_approve() {
     assert!(token_receiver_approval_id_is_3);
 }
 
-// #[test]
-// fn simulate_approved_account_transfers_token() {
-//     assert!(false, "not implemented");
-// }
+#[test]
+fn simulate_approved_account_transfers_token() {
+    let (root, nft, alice, _) = init();
+
+    // root approves alice
+    call!(
+        root,
+        nft.nft_approve(TOKEN_ID.into(), alice.valid_account_id(), None),
+        deposit = 170000000000000000000
+    )
+    .assert_success();
+
+    // alice sends to self
+    call!(
+        alice,
+        nft.nft_transfer(
+            alice.valid_account_id(),
+            TOKEN_ID.into(),
+            Some(1),
+            Some("gotcha! bahahaha".to_string())
+        ),
+        deposit = 1
+    )
+    .assert_success();
+
+    // token now owned by alice
+    let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
+    assert_eq!(token.owner_id, alice.account_id());
+}
 
 #[test]
 fn simulate_revoke() {
