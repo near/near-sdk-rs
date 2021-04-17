@@ -7,6 +7,7 @@ use std::collections::HashMap;
 fn simulate_simple_approve() {
     let (root, nft, alice, token_receiver) = init();
 
+    // root approves alice
     call!(
         root,
         nft.nft_approve(TOKEN_ID.into(), alice.valid_account_id(), None),
@@ -14,27 +15,30 @@ fn simulate_simple_approve() {
     )
     .assert_success();
 
+    // check nft_is_approved, don't provide approval_id
     let alice_approved: bool =
         view!(nft.nft_is_approved(TOKEN_ID.into(), alice.valid_account_id(), None)).unwrap_json();
     assert!(alice_approved);
 
+    // check nft_is_approved, with approval_id=1
     let alice_approval_id_is_1: bool =
         view!(nft.nft_is_approved(TOKEN_ID.into(), alice.valid_account_id(), Some(1)))
             .unwrap_json();
     assert!(alice_approval_id_is_1);
 
+    // check nft_is_approved, with approval_id=2
     let alice_approval_id_is_2: bool =
         view!(nft.nft_is_approved(TOKEN_ID.into(), alice.valid_account_id(), Some(2)))
             .unwrap_json();
     assert!(!alice_approval_id_is_2);
 
-    // alternatively, you could check the data returned by nft_token
+    // alternatively, one could check the data returned by nft_token
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     let mut expected_approvals = HashMap::new();
     expected_approvals.insert(alice.account_id(), 1);
     assert_eq!(token.approved_account_ids.unwrap(), expected_approvals);
 
-    // approving alice again changes the approval_id (and doesn't require as much deposit)
+    // root approves alice again, which changes the approval_id and doesn't require as much deposit
     call!(root, nft.nft_approve(TOKEN_ID.into(), alice.valid_account_id(), None), deposit = 1)
         .assert_success();
 
