@@ -27,12 +27,12 @@ pub struct TokenReceiver {
 // Defining cross-contract interface. This allows to create a new promise.
 #[ext_contract(ext_self)]
 pub trait ValueReturnTrait {
-    fn value_please(&self, return_it: bool) -> PromiseOrValue<bool>;
+    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 
 // Have to repeat the same trait for our own implementation.
 trait ValueReturnTrait {
-    fn value_please(&self, return_it: bool) -> PromiseOrValue<bool>;
+    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 
 #[near_bindgen]
@@ -77,7 +77,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
             "return-it-later" => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::value_please(
+                ext_self::ok_go(
                     true,
                     &account_id,
                     NO_DEPOSIT,
@@ -89,7 +89,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
             "keep-it-later" => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::value_please(
+                ext_self::ok_go(
                     false,
                     &account_id,
                     NO_DEPOSIT,
@@ -104,8 +104,8 @@ impl NonFungibleTokenReceiver for TokenReceiver {
 
 #[near_bindgen]
 impl ValueReturnTrait for TokenReceiver {
-    fn value_please(&self, return_it: bool) -> PromiseOrValue<bool> {
-        log!("in value_please, return_it={}", return_it);
+    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
+        log!("in ok_go, return_it={}", return_it);
         PromiseOrValue::Value(return_it)
     }
 }

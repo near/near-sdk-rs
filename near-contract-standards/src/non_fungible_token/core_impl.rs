@@ -197,17 +197,22 @@ impl NonFungibleToken {
 
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            // owner_tokens should always exist, so call `unwrap` without guard
             let mut owner_tokens = tokens_per_owner.get(from).unwrap();
+            owner_tokens.remove(&token_id);
+            if owner_tokens.is_empty() {
+                tokens_per_owner.remove(from);
+            } else {
+                tokens_per_owner.insert(&from, &owner_tokens);
+            }
+
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKeys::TokensForOwner {
                     account_hash: env::sha256(to.as_bytes()),
                 })
             });
-            owner_tokens.remove(&token_id);
-            if owner_tokens.is_empty() {
-                tokens_per_owner.remove(from);
-            }
             receiver_tokens.insert(&token_id);
+            tokens_per_owner.insert(&to, &receiver_tokens);
         }
     }
 
@@ -416,7 +421,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             return true;
         };
 
-        log!("Return {} from @{} to @{}", token_id, receiver_id, previous_owner_id);
+        log!("Return token {} from @{} to @{}", token_id, receiver_id, previous_owner_id);
 
         self.internal_transfer_unguarded(&token_id, &receiver_id, &previous_owner_id);
 
