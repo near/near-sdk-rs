@@ -62,3 +62,59 @@ fn simulate_simple_approve() {
             .unwrap_json();
     assert!(token_receiver_approval_id_is_3);
 }
+
+// #[test]
+// fn simulate_approved_account_transfers_token() {
+//     assert!(false, "not implemented");
+// }
+
+#[test]
+fn simulate_revoke() {
+    let (root, nft, alice, token_receiver) = init();
+
+    // root approves alice
+    call!(
+        root,
+        nft.nft_approve(TOKEN_ID.into(), alice.valid_account_id(), None),
+        deposit = 170000000000000000000
+    )
+    .assert_success();
+
+    // root approves token_receiver
+    call!(
+        root,
+        nft.nft_approve(TOKEN_ID.into(), token_receiver.valid_account_id(), None),
+        deposit = 260000000000000000000
+    )
+    .assert_success();
+
+    // root revokes alice
+    call!(root, nft.nft_revoke(TOKEN_ID.into(), alice.valid_account_id()), deposit = 1)
+        .assert_success();
+
+    // alice is revoked...
+    let alice_approved: bool =
+        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.valid_account_id(), None)).unwrap_json();
+    assert!(!alice_approved);
+
+    // but token_receiver is still approved
+    let token_receiver_approved: bool =
+        view!(nft.nft_is_approved(TOKEN_ID.into(), token_receiver.valid_account_id(), None))
+            .unwrap_json();
+    assert!(token_receiver_approved);
+
+    // root revokes token_receiver
+    call!(root, nft.nft_revoke(TOKEN_ID.into(), token_receiver.valid_account_id()), deposit = 1)
+        .assert_success();
+
+    // alice is still revoked...
+    let alice_approved: bool =
+        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.valid_account_id(), None)).unwrap_json();
+    assert!(!alice_approved);
+
+    // ...and now so is token_receiver
+    let token_receiver_approved: bool =
+        view!(nft.nft_is_approved(TOKEN_ID.into(), token_receiver.valid_account_id(), None))
+            .unwrap_json();
+    assert!(!token_receiver_approved);
+}

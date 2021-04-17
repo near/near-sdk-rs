@@ -106,6 +106,9 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                 // if this was the last approval, remove the whole HashMap to save space.
                 if approved_account_ids.is_empty() {
                     self.approvals_by_id.as_mut().unwrap().remove(&token_id);
+                } else {
+                    // otherwise, update approvals_by_id with updated HashMap
+                    self.approvals_by_id.as_mut().unwrap().insert(&token_id, &approved_account_ids);
                 }
             }
         }
