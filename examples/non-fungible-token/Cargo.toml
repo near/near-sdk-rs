@@ -11,6 +11,7 @@ near-contract-standards = { path = "../../near-contract-standards" }
 
 # remember to include a line for each contract
 non-fungible-token = { path = "./nft" }
+approval-receiver = { path = "./test-approval-receiver" }
 token-receiver = { path = "./test-token-receiver" }
 
 [profile.release]
@@ -26,6 +27,7 @@ overflow-checks = true
 # remember to include a member for each contract
 members = [
   "nft",
+  "test-approval-receiver",
   "test-token-receiver",
 ]
 

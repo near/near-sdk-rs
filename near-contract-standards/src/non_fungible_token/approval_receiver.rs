@@ -1,7 +1,7 @@
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::AccountId;
 
-pub trait NonFungibleTokenApprovalsReceiver {
+pub trait NonFungibleTokenApprovalReceiver {
     /// Respond to notification that contract has been granted approval for a token.
     ///
     /// Notes
@@ -21,5 +21,5 @@ pub trait NonFungibleTokenApprovalsReceiver {
         owner_id: AccountId,
         approval_id: u64,
         msg: String,
-    );
+    ) -> near_sdk::PromiseOrValue<String>; // TODO: how to make "any"?
 }

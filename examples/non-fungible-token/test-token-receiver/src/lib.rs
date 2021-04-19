@@ -59,7 +59,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
         token_id: TokenId,
         msg: String,
     ) -> PromiseOrValue<bool> {
-        // Verifying that we were called by fungible token contract that we expect.
+        // Verifying that we were called by non-fungible token contract that we expect.
         assert_eq!(
             &env::predecessor_account_id(),
             &self.non_fungible_token_account_id,

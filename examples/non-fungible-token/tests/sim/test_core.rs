@@ -4,7 +4,7 @@ use near_sdk_sim::{call, view};
 
 #[test]
 fn simulate_simple_transfer() {
-    let (root, nft, alice, _) = init();
+    let (root, nft, alice, _, _) = init();
 
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     assert_eq!(token.owner_id, root.account_id());
@@ -27,7 +27,7 @@ fn simulate_simple_transfer() {
 
 #[test]
 fn simulate_transfer_call_fast_return_to_sender() {
-    let (root, nft, _, receiver) = init();
+    let (root, nft, _, receiver, _) = init();
 
     call!(
         root,
@@ -47,7 +47,7 @@ fn simulate_transfer_call_fast_return_to_sender() {
 
 #[test]
 fn simulate_transfer_call_slow_return_to_sender() {
-    let (root, nft, _, receiver) = init();
+    let (root, nft, _, receiver, _) = init();
 
     call!(
         root,
@@ -67,7 +67,7 @@ fn simulate_transfer_call_slow_return_to_sender() {
 
 #[test]
 fn simulate_transfer_call_fast_keep_with_sender() {
-    let (root, nft, _, receiver) = init();
+    let (root, nft, _, receiver, _) = init();
 
     call!(
         root,
@@ -87,7 +87,7 @@ fn simulate_transfer_call_fast_keep_with_sender() {
 
 #[test]
 fn simulate_transfer_call_slow_keep_with_sender() {
-    let (root, nft, _, receiver) = init();
+    let (root, nft, _, receiver, _) = init();
 
     call!(
         root,
@@ -107,7 +107,7 @@ fn simulate_transfer_call_slow_keep_with_sender() {
 
 #[test]
 fn simulate_transfer_call_receiver_panics() {
-    let (root, nft, _, receiver) = init();
+    let (root, nft, _, receiver, _) = init();
 
     call!(
         root,

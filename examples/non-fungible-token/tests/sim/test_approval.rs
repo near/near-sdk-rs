@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 #[test]
 fn simulate_simple_approve() {
-    let (root, nft, alice, token_receiver) = init();
+    let (root, nft, alice, token_receiver, _) = init();
 
     // root approves alice
     call!(
@@ -64,8 +64,39 @@ fn simulate_simple_approve() {
 }
 
 #[test]
+fn simulate_approval_with_call() {
+    let (root, nft, _, _, approval_receiver) = init();
+
+    let outcome = call!(
+        root,
+        nft.nft_approve(
+            TOKEN_ID.into(),
+            approval_receiver.valid_account_id(),
+            Some("return-now".to_string())
+        ),
+        deposit = 290000000000000000000
+    );
+    assert!(outcome.is_ok());
+    let res: String = outcome.unwrap_json();
+    assert_eq!("cool".to_string(), res);
+
+    // Approve again; will set different approval_id (ignored by approval_receiver).
+    // The approval_receiver implementation will return given `msg` after subsequent promise call,
+    // if given something other than "return-now".
+    let msg = "hahaha".to_string();
+    let outcome = call!(
+        root,
+        nft.nft_approve(TOKEN_ID.into(), approval_receiver.valid_account_id(), Some(msg.clone())),
+        deposit = 1
+    );
+    assert!(outcome.is_ok());
+    let res: String = outcome.unwrap_json();
+    assert_eq!(msg, res);
+}
+
+#[test]
 fn simulate_approved_account_transfers_token() {
-    let (root, nft, alice, _) = init();
+    let (root, nft, alice, _, _) = init();
 
     // root approves alice
     call!(
@@ -95,7 +126,7 @@ fn simulate_approved_account_transfers_token() {
 
 #[test]
 fn simulate_revoke() {
-    let (root, nft, alice, token_receiver) = init();
+    let (root, nft, alice, token_receiver, _) = init();
 
     // root approves alice
     call!(
@@ -146,7 +177,7 @@ fn simulate_revoke() {
 
 #[test]
 fn simulate_revoke_all() {
-    let (root, nft, alice, token_receiver) = init();
+    let (root, nft, alice, token_receiver, _) = init();
 
     // root approves alice
     call!(
