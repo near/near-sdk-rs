@@ -5,10 +5,10 @@ use crate::{env, AccountId, PromiseResult};
 #[macro_export]
 macro_rules! log {
     ($arg:tt) => {
-        $crate::env::log($arg.as_bytes())
+        $crate::env::log($arg)
     };
     ($($arg:tt)*) => {
-        $crate::env::log(format!($($arg)*).as_bytes())
+        $crate::env::log(format!($($arg)*))
     };
 }
 

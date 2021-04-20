@@ -691,15 +691,14 @@ pub fn panic(message: &[u8]) -> ! {
     unreachable!()
 }
 /// Log the UTF-8 encodable message.
-pub fn log(message: &[u8]) {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .log_utf8(message.len() as _, message.as_ptr() as _)
-        })
-    }
+pub fn log<S: AsRef<str>>(message: S) {
+    let message = message.as_ref();
+    BLOCKCHAIN_INTERFACE.with(|b| unsafe {
+        b.borrow()
+            .as_ref()
+            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+            .log_utf8(message.len() as _, message.as_ptr() as _)
+    })
 }
 
 // ###############
