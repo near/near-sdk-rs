@@ -23,8 +23,8 @@ trait NFTResolver {
         &mut self,
         previous_owner_id: AccountId,
         receiver_id: AccountId,
-        approved_account_ids: Option<HashMap<AccountId, u64>>,
         token_id: TokenId,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool;
 }
 
@@ -312,8 +312,8 @@ impl NonFungibleTokenCore for NonFungibleToken {
         .then(ext_self::nft_resolve_transfer(
             old_owner,
             receiver_id.into(),
-            old_approvals,
             token_id,
+            old_approvals,
             &env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
@@ -383,8 +383,8 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         &mut self,
         previous_owner_id: AccountId,
         receiver_id: AccountId,
-        approved_account_ids: Option<HashMap<AccountId, u64>>,
         token_id: TokenId,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
