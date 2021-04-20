@@ -5,10 +5,10 @@ use crate::{env, AccountId, PromiseResult};
 #[macro_export]
 macro_rules! log {
     ($arg:expr) => {
-        $crate::env::log($arg)
+        $crate::env::log($arg.as_ref())
     };
     ($($arg:tt)*) => {
-        $crate::env::log(format!($($arg)*))
+        $crate::env::log(format!($($arg)*).as_str())
     };
 }
 
