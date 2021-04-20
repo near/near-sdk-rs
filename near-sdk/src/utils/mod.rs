@@ -4,7 +4,7 @@ use crate::{env, AccountId, PromiseResult};
 
 #[macro_export]
 macro_rules! log {
-    ($arg:tt) => {
+    ($arg:expr) => {
         $crate::env::log($arg)
     };
     ($($arg:tt)*) => {
