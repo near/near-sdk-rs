@@ -27,6 +27,7 @@ use near_store::{
 };
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
+const DEFAULT_BLOCK_TIME: u64 = 1_000_000_000; // 1 second in nano seconds
 
 pub fn init_runtime(
     genesis_config: Option<GenesisConfig>,
@@ -46,6 +47,7 @@ pub struct GenesisConfig {
     pub gas_limit: Gas,
     pub genesis_height: u64,
     pub epoch_length: u64,
+    pub block_time: u64,
     pub runtime_config: RuntimeConfig,
     pub state_records: Vec<StateRecord>,
     pub validators: Vec<AccountInfo>,
@@ -60,6 +62,7 @@ impl Default for GenesisConfig {
             gas_limit: runtime_config.wasm_config.limit_config.max_total_prepaid_gas,
             genesis_height: 0,
             epoch_length: DEFAULT_EPOCH_LENGTH,
+            block_time: DEFAULT_BLOCK_TIME,
             runtime_config,
             state_records: vec![],
             validators: vec![],
@@ -111,11 +114,11 @@ impl Block {
         }
     }
 
-    pub fn produce(&self, new_state_root: CryptoHash, epoch_length: u64) -> Block {
+    pub fn produce(&self, new_state_root: CryptoHash, epoch_length: u64, block_time: u64) -> Block {
         Self {
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
-            block_timestamp: self.block_timestamp + 1_000_000_000,
+            block_timestamp: self.block_timestamp + block_time,
             prev_block: Some(Box::new(self.clone())),
             state_root: new_state_root,
             block_height: self.block_height + 1,
@@ -275,7 +278,11 @@ impl RuntimeStandalone {
         let (update, _) =
             self.tries.apply_all(&apply_result.trie_changes, 0).expect("Unexpected Storage error");
         update.commit().expect("Unexpected io error");
-        self.cur_block = self.cur_block.produce(apply_result.state_root, self.genesis.epoch_length);
+        self.cur_block = self.cur_block.produce(
+            apply_result.state_root,
+            self.genesis.epoch_length,
+            self.genesis.block_time,
+        );
 
         Ok(())
     }
