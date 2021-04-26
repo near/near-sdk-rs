@@ -263,6 +263,9 @@ fn simulate_some_change_method() {
 For a chain of transactions kicked off by `call` or `call!`, you can check the `gas_burnt` and `tokens_burnt`, where `tokens_burnt` will equal `gas_burnt` multiplied by the `gas_price` set in the genesis config. You can also print out `profile_data` to see an in-depth gas-use breakdown.
 
 ```rust
+use near_sdk::Gas;
+use near_sdk::ToGas;
+
 let outcome = some_account.call(
     "some_contract",
     "method",
@@ -279,8 +282,7 @@ println!(
     (outcome.tokens_burnt()) as f64 / 1e24
 );
 
-let expected_gas_ceiling = 5 * u64::pow(10, 12); // 5 TeraGas
-assert!(outcome.gas_burnt() < expected_gas_ceiling);
+assert!(outcome.gas_burnt() < Gas::tera(5.1)); // 5.1 TeraGas
 ```
 
 TeraGas units are [explained here](https://docs.near.org/docs/concepts/gas#thinking-in-gas).
