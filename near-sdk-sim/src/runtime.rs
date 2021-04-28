@@ -87,7 +87,7 @@ impl GenesisConfig {
 
 #[derive(Debug, Default, Clone)]
 pub struct Block {
-    prev_block: Option<Box<Block>>,
+    prev_block: Option<Arc<Block>>,
     state_root: CryptoHash,
     gas_burnt: Gas,
     pub epoch_height: EpochHeight,
@@ -95,6 +95,17 @@ pub struct Block {
     pub block_timestamp: u64,
     pub gas_price: Balance,
     pub gas_limit: Gas,
+}
+
+impl Drop for Block {
+    fn drop(&mut self) {
+        // Blocks form a liked list, so the generated recursive drop overflows
+        // the stack. Let's use an explicit loop to avoid that.
+        let mut curr = self.prev_block.take();
+        while let Some(mut next) = curr.and_then(|it| Arc::try_unwrap(it).ok()) {
+            curr = next.prev_block.take();
+        }
+    }
 }
 
 impl Block {
@@ -116,7 +127,7 @@ impl Block {
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
             block_timestamp: self.block_timestamp + 1_000_000_000,
-            prev_block: Some(Box::new(self.clone())),
+            prev_block: Some(Arc::new(self.clone())),
             state_root: new_state_root,
             block_height: self.block_height + 1,
             epoch_height: (self.block_height + 1) / epoch_length,
@@ -516,5 +527,11 @@ mod tests {
         bob_account.locked = 10000;
         runtime.force_account_update("root".into(), &bob_account);
         assert_eq!(runtime.view_account(&"root").unwrap().locked, 10000);
+    }
+
+    #[test]
+    fn can_produce_many_blocks_without_stack_overflow() {
+        let (mut runtime, _signer, _) = init_runtime(None);
+        runtime.produce_blocks(20_000).unwrap();
     }
 }
