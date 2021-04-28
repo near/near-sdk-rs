@@ -91,6 +91,7 @@ impl PendingContractTx {
 }
 
 /// Boilerplate for setting up allocator used in Wasm binary.
+/// This initializes the allocator with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
 #[macro_export]
 macro_rules! setup_alloc {
     () => {
