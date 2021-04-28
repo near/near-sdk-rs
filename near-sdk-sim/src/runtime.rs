@@ -47,7 +47,7 @@ pub struct GenesisConfig {
     pub gas_limit: Gas,
     pub genesis_height: u64,
     pub epoch_length: u64,
-    pub block_time: u64,
+    pub block_time: Duration,
     pub runtime_config: RuntimeConfig,
     pub state_records: Vec<StateRecord>,
     pub validators: Vec<AccountInfo>,
