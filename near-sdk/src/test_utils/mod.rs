@@ -20,7 +20,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 /// about the VM to configure parameters not directly related to the transaction being executed.
 /// - `fee_config`(optional): [`RuntimeFeesConfig`] which configures the
 /// fees for execution and storage of transactions.
-/// - `validator`(optional): a [`HashMap`]<[`AccountId`], [`Balance`]> mocking the
+/// - `validators`(optional): a [`HashMap`]<[`AccountId`], [`Balance`]> mocking the
 /// current validators of the blockchain.
 /// - `promise_results`(optional): a [`Vec`] of [`PromiseResult`] which mocks the results
 /// of callback calls during the execution.
@@ -67,7 +67,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 /// [`HashMap`]: std::collections::HashMap
 #[macro_export]
 macro_rules! testing_env {
-    ($context:expr, $config:expr, $fee_config:expr, $validator:expr, $promise_results:expr) => {
+    ($context:expr, $config:expr, $fee_config:expr, $validators:expr, $promise_results:expr) => {
         near_sdk::env::set_blockchain_interface(Box::new(near_sdk::MockedBlockchain::new(
             $context,
             $config,
@@ -77,12 +77,12 @@ macro_rules! testing_env {
                 Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
                 None => Default::default(),
             },
-            $validator,
+            $validators,
             None,
         )));
     };
-    ($context:expr, $config:expr, $fee_config:expr, $validator:expr) => {
-        testing_env!($context, $config, $fee_config, $validator, Default::default());
+    ($context:expr, $config:expr, $fee_config:expr, $validators:expr) => {
+        testing_env!($context, $config, $fee_config, $validators, Default::default());
     };
 
     ($context:expr, $config:expr, $fee_config:expr) => {
