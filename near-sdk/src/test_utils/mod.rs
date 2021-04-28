@@ -43,13 +43,13 @@ use near_vm_logic::mocks::mock_external::Receipt;
 ///
 /// // Build with just the base context
 /// testing_env!(context.clone());
-/// 
+///
 /// // Or include arguments up to the five optional
 /// testing_env!(
 ///     context,
-///     VMConfig::default(), 
-///     RuntimeFeesConfig::default(), 
-///     HashMap::default(), 
+///     VMConfig::default(),
+///     RuntimeFeesConfig::default(),
+///     HashMap::default(),
 ///     Vec::default()
 /// );
 /// # }
