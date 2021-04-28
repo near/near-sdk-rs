@@ -50,7 +50,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 ///     VMConfig::default(),
 ///     RuntimeFeesConfig::default(),
 ///     HashMap::default(),
-///     Vec::default()
+///     Vec::default(),
 /// );
 /// # }
 /// ```
@@ -67,7 +67,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 /// [`HashMap`]: std::collections::HashMap
 #[macro_export]
 macro_rules! testing_env {
-    ($context:expr, $config:expr, $fee_config:expr, $validators:expr, $promise_results:expr) => {
+    ($context:expr, $config:expr, $fee_config:expr, $validators:expr, $promise_results:expr $(,)?) => {
         near_sdk::env::set_blockchain_interface(Box::new(near_sdk::MockedBlockchain::new(
             $context,
             $config,
@@ -81,11 +81,11 @@ macro_rules! testing_env {
             None,
         )));
     };
-    ($context:expr, $config:expr, $fee_config:expr, $validators:expr) => {
+    ($context:expr, $config:expr, $fee_config:expr, $validators:expr $(,)?) => {
         testing_env!($context, $config, $fee_config, $validators, Default::default());
     };
 
-    ($context:expr, $config:expr, $fee_config:expr) => {
+    ($context:expr, $config:expr, $fee_config:expr $(,)?) => {
         testing_env!($context, $config, $fee_config, Default::default());
     };
     ($context:expr) => {
