@@ -2,6 +2,34 @@ pub(crate) mod storage_key_impl;
 
 use crate::{env, AccountId, PromiseResult};
 
+/// Helper macro to log a message through [`env::log`].
+/// This macro can be used similar to the [`std::format`] macro in most cases.
+///
+/// This differs from [`std::format`] because instead of generating a string, it will log the utf8
+/// bytes as a log through the [`BlockchainInterface`].
+///
+/// The logged message will get persisted on chain.
+///
+/// # Example use
+///
+/// ```no_run
+/// #[macro_use]
+/// extern crate near_sdk;
+///
+/// use near_sdk::env::log;
+///
+/// # fn main() {
+/// log!("test");
+/// let world: &str = "world";
+/// log!(world);
+/// log!("Hello {}", world);
+/// log!("x = {}, y = {y}", 10, y = 30);
+/// # }
+/// ```
+///
+/// [`env::log`]: crate::env::log
+/// [`std::format`]: https://doc.rust-lang.org/std/macro.format.html
+/// [`BlockchainInterface`]: crate::BlockchainInterface
 #[macro_export]
 macro_rules! log {
     ($arg:tt) => {
