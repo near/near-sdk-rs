@@ -119,7 +119,9 @@ impl VMContextBuilder {
 }
 
 // TODO: This probably shouldn't be necessary with the `testing_env` macro.
-/// Initializes the [`BlockchainInterface`] with a single promise result during execution
+/// Initializes the [`BlockchainInterface`] with a single promise result during execution.
+///
+/// [`BlockchainInterface`]: (crate::BlockchainInterface)
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
     let storage = crate::env::take_blockchain_interface()
         .unwrap()
