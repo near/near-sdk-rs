@@ -12,6 +12,12 @@ As a first step, you can use this library! With it, you can:
 
 To view this documentation locally, clone this repo and from this folder run `cargo doc --open`.
 
+## Changelog
+
+### `3.1.1`
+
+* Fixed stack overflow for deep chain [PR #385](https://github.com/near/near-sdk-rs/pull/385).
+
 # Getting started
 
 This section will guide you through our suggested approach to adding simulation tests to your project. Want an example? Check out the [Fungible Token Example](https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token).
@@ -22,7 +28,7 @@ Currently this crate depends on a the GitHub repo of [nearcore](https://github.c
 
 ```toml
 [dev-dependencies]
-near-sdk-sim = "=3.1.0"
+near-sdk-sim = "3.1.1"
 
 ```
 
@@ -30,7 +36,7 @@ And update `near-sdk` too:
 
 ```toml
 [dependencies]
-near-sdk = "=3.1.0"
+near-sdk = "3.1.1"
 
 ```
 
@@ -55,8 +61,8 @@ Now in the root of the project (`contract-wrap`), create a new `Cargo.toml`. You
 
 ```toml
 [dev-dependencies]
-near-sdk = "=3.1.0"
-near-sdk-sim = "=3.1.0"
+near-sdk = "3.1.1"
+near-sdk-sim = "3.1.1"
 contract = { path = "./contract" }
 
 [workspace]
