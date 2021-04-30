@@ -19,6 +19,7 @@ To view this documentation locally, clone this repo and from this folder run `ca
 * Introduce `block_prod_time` duration in nanoseconds to `GenesisConfig` that defines the duration between produced blocks.
 * Expose `cur_block` and `genesis_config` from `RuntimeStandalone`. This allows to manipulate block time.
 * Use `RuntimeConfig::from_protocol_version` that fixes storage costs issue.
+* Set root account balance to one billion tokens.
 
 # Getting started
 

@@ -74,7 +74,7 @@ impl Default for GenesisConfig {
 impl GenesisConfig {
     pub fn init_root_signer(&mut self, account_id: &str) -> InMemorySigner {
         let signer = InMemorySigner::from_seed(account_id, KeyType::ED25519, "test");
-        let root_account = account_new(std::u128::MAX, CryptoHash::default());
+        let root_account = account_new(10u128.pow(33), CryptoHash::default());
 
         self.state_records.push(StateRecord::Account {
             account_id: account_id.to_string(),
