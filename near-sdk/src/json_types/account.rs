@@ -1,10 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::Serialize;
-use std::fmt;
-use std::{
-    convert::{TryFrom, TryInto},
-    str::FromStr,
-};
+use std::{borrow::Cow, fmt};
+use std::{convert::TryFrom, str::FromStr};
 
 use crate::env::is_valid_account_id;
 use crate::AccountId;
@@ -12,7 +9,17 @@ use crate::AccountId;
 // TODO: this should probably be a specific error type instead of a string.
 const INVALID_ACCOUNT_ID_MSG: &str = "The account ID is invalid";
 
-/// Helper class to validate account ID during serialization and deserializiation
+/// Helper class to validate account ID during serialization and deserializiation.
+/// This type wraps an [`AccountId`].
+///
+/// # Example
+/// ```
+/// use near_sdk::AccountId;
+/// use near_sdk::json_types::ValidAccountId;
+///
+/// let id: AccountId = "bob.near".to_string();
+/// let validated: ValidAccountId = id.parse().unwrap();
+/// ```
 #[derive(
     Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Serialize,
 )]
@@ -41,8 +48,9 @@ impl<'de> serde::Deserialize<'de> for ValidAccountId {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
-        s.try_into()
+        let s: Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
+        s.as_ref()
+            .parse()
             .map_err(|err: Box<dyn std::error::Error>| serde::de::Error::custom(err.to_string()))
     }
 }
