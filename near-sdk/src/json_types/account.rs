@@ -88,7 +88,6 @@ impl From<ValidAccountId> for AccountId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn test_deser() {
@@ -101,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_ser() {
-        let key: ValidAccountId = "alice.near".try_into().unwrap();
+        let key: ValidAccountId = "alice.near".parse().unwrap();
         let actual: String = serde_json::to_string(&key).unwrap();
         assert_eq!(actual, "\"alice.near\"");
     }
