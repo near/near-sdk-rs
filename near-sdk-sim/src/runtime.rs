@@ -22,11 +22,13 @@ use near_primitives::types::{
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
 use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
+use near_sdk::Duration;
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
+const DEFAULT_BLOCK_PROD_TIME: Duration = 1_000_000_000;
 
 pub fn init_runtime(
     genesis_config: Option<GenesisConfig>,
@@ -46,6 +48,7 @@ pub struct GenesisConfig {
     pub gas_limit: Gas,
     pub genesis_height: u64,
     pub epoch_length: u64,
+    pub block_prod_time: Duration,
     pub runtime_config: RuntimeConfig,
     pub state_records: Vec<StateRecord>,
     pub validators: Vec<AccountInfo>,
@@ -60,6 +63,7 @@ impl Default for GenesisConfig {
             gas_limit: runtime_config.wasm_config.limit_config.max_total_prepaid_gas,
             genesis_height: 0,
             epoch_length: DEFAULT_EPOCH_LENGTH,
+            block_prod_time: DEFAULT_BLOCK_PROD_TIME,
             runtime_config,
             state_records: vec![],
             validators: vec![],
@@ -122,11 +126,16 @@ impl Block {
         }
     }
 
-    pub fn produce(&self, new_state_root: CryptoHash, epoch_length: u64) -> Block {
+    fn produce(
+        &self,
+        new_state_root: CryptoHash,
+        epoch_length: u64,
+        block_prod_time: Duration,
+    ) -> Block {
         Self {
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
-            block_timestamp: self.block_timestamp + 1_000_000_000,
+            block_timestamp: self.block_timestamp + block_prod_time,
             prev_block: Some(Arc::new(self.clone())),
             state_root: new_state_root,
             block_height: self.block_height + 1,
@@ -286,7 +295,11 @@ impl RuntimeStandalone {
         let (update, _) =
             self.tries.apply_all(&apply_result.trie_changes, 0).expect("Unexpected Storage error");
         update.commit().expect("Unexpected io error");
-        self.cur_block = self.cur_block.produce(apply_result.state_root, self.genesis.epoch_length);
+        self.cur_block = self.cur_block.produce(
+            apply_result.state_root,
+            self.genesis.epoch_length,
+            self.genesis.block_prod_time,
+        );
 
         Ok(())
     }
