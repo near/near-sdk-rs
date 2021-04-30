@@ -56,7 +56,12 @@ pub struct GenesisConfig {
 
 impl Default for GenesisConfig {
     fn default() -> Self {
-        let runtime_config = RuntimeConfig::default();
+        let runtime_config = RuntimeConfig::from_protocol_version(
+            &Arc::new(RuntimeConfig::default()),
+            PROTOCOL_VERSION,
+        )
+        .as_ref()
+        .clone();
         Self {
             genesis_time: 0,
             gas_price: 100_000_000,
@@ -157,7 +162,6 @@ pub struct RuntimeStandalone {
     pending_receipts: Vec<Receipt>,
     epoch_info_provider: Box<dyn EpochInfoProvider>,
     pub last_outcomes: Vec<CryptoHash>,
-    pub runtime_config: Arc<RuntimeConfig>,
     cache: ContractCache,
 }
 
@@ -178,7 +182,6 @@ impl RuntimeStandalone {
         store_update.commit().unwrap();
         genesis_block.state_root = state_root;
         let validators = genesis.validators.clone();
-        let runtime_config = Arc::new(genesis.runtime_config.clone());
         Self {
             genesis,
             tries,
@@ -194,7 +197,6 @@ impl RuntimeStandalone {
             )),
             cache: create_cache(),
             last_outcomes: vec![],
-            runtime_config,
         }
     }
 
@@ -271,7 +273,7 @@ impl RuntimeStandalone {
             random_seed: Default::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
-            config: RuntimeConfig::from_protocol_version(&self.runtime_config, PROTOCOL_VERSION),
+            config: Arc::new(self.genesis.runtime_config.clone()),
             #[cfg(feature = "no_contract_cache")]
             cache: None,
             #[cfg(not(feature = "no_contract_cache"))]
