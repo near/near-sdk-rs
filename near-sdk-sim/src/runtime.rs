@@ -146,17 +146,18 @@ impl Block {
 }
 
 pub struct RuntimeStandalone {
-    genesis: GenesisConfig,
+    pub genesis: GenesisConfig,
     tx_pool: TransactionPool,
     transactions: HashMap<CryptoHash, SignedTransaction>,
     outcomes: HashMap<CryptoHash, ExecutionOutcome>,
     profile: HashMap<CryptoHash, ProfileData>,
-    cur_block: Block,
+    pub cur_block: Block,
     runtime: Runtime,
     tries: ShardTries,
     pending_receipts: Vec<Receipt>,
     epoch_info_provider: Box<dyn EpochInfoProvider>,
     pub last_outcomes: Vec<CryptoHash>,
+    pub runtime_config: Arc<RuntimeConfig>,
     cache: ContractCache,
 }
 
@@ -177,6 +178,7 @@ impl RuntimeStandalone {
         store_update.commit().unwrap();
         genesis_block.state_root = state_root;
         let validators = genesis.validators.clone();
+        let runtime_config = Arc::new(genesis.runtime_config.clone());
         Self {
             genesis,
             tries,
@@ -192,6 +194,7 @@ impl RuntimeStandalone {
             )),
             cache: create_cache(),
             last_outcomes: vec![],
+            runtime_config,
         }
     }
 
@@ -268,7 +271,7 @@ impl RuntimeStandalone {
             random_seed: Default::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
-            config: Arc::from(self.genesis.runtime_config.clone()),
+            config: RuntimeConfig::from_protocol_version(&self.runtime_config, PROTOCOL_VERSION),
             #[cfg(feature = "no_contract_cache")]
             cache: None,
             #[cfg(not(feature = "no_contract_cache"))]
