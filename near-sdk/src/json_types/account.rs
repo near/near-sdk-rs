@@ -1,10 +1,16 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::Serialize;
-use std::convert::{TryFrom, TryInto};
 use std::fmt;
+use std::{
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+};
 
 use crate::env::is_valid_account_id;
 use crate::AccountId;
+
+// TODO: this should probably be a specific error type instead of a string.
+const INVALID_ACCOUNT_ID_MSG: &str = "The account ID is invalid";
 
 /// Helper class to validate account ID during serialization and deserializiation
 #[derive(
@@ -13,9 +19,6 @@ use crate::AccountId;
 pub struct ValidAccountId(AccountId);
 
 impl ValidAccountId {
-    fn is_valid(&self) -> bool {
-        is_valid_account_id(&self.0.as_bytes())
-    }
     pub fn to_string(&self) -> String {
         self.0.clone()
     }
@@ -48,7 +51,7 @@ impl TryFrom<&str> for ValidAccountId {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::try_from(value.to_string())
+        Self::from_str(value)
     }
 }
 
@@ -56,11 +59,22 @@ impl TryFrom<String> for ValidAccountId {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let res = Self(value);
-        if res.is_valid() {
-            Ok(res)
+        if is_valid_account_id(value.as_bytes()) {
+            Ok(Self(value))
         } else {
-            Err("The account ID is invalid".into())
+            Err(INVALID_ACCOUNT_ID_MSG.into())
+        }
+    }
+}
+
+impl FromStr for ValidAccountId {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if is_valid_account_id(s.as_bytes()) {
+            Ok(Self(s.to_string()))
+        } else {
+            Err(INVALID_ACCOUNT_ID_MSG.into())
         }
     }
 }
