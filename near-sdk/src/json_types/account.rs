@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::Serialize;
+use serde::{de, Deserialize, Serialize};
 use std::{borrow::Cow, fmt};
 use std::{convert::TryFrom, str::FromStr};
 
@@ -43,15 +43,13 @@ impl AsRef<AccountId> for ValidAccountId {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for ValidAccountId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as serde::Deserializer<'de>>::Error>
+impl<'de> Deserialize<'de> for ValidAccountId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as de::Deserializer<'de>>::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: de::Deserializer<'de>,
     {
-        let s: Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
-        s.as_ref()
-            .parse()
-            .map_err(|err: Box<dyn std::error::Error>| serde::de::Error::custom(err.to_string()))
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Self::from_str(s.as_ref()).map_err(|err| de::Error::custom(err.to_string()))
     }
 }
 
