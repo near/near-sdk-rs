@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
-use std::{borrow::Cow, fmt};
+use std::fmt;
 use std::{convert::TryFrom, str::FromStr};
 
 use crate::env::is_valid_account_id;
@@ -48,8 +48,8 @@ impl<'de> Deserialize<'de> for ValidAccountId {
     where
         D: de::Deserializer<'de>,
     {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Self::from_str(s.as_ref()).map_err(|err| de::Error::custom(err.to_string()))
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Self::try_from(s).map_err(de::Error::custom)
     }
 }
 
@@ -61,27 +61,29 @@ impl TryFrom<&str> for ValidAccountId {
     }
 }
 
+fn validate_account_id(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if is_valid_account_id(id.as_bytes()) {
+        Ok(())
+    } else {
+        Err(INVALID_ACCOUNT_ID_MSG.into())
+    }
+}
+
 impl TryFrom<String> for ValidAccountId {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        if is_valid_account_id(value.as_bytes()) {
-            Ok(Self(value))
-        } else {
-            Err(INVALID_ACCOUNT_ID_MSG.into())
-        }
+        validate_account_id(value.as_ref())?;
+        Ok(Self(value))
     }
 }
 
 impl FromStr for ValidAccountId {
     type Err = Box<dyn std::error::Error>;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if is_valid_account_id(s.as_bytes()) {
-            Ok(Self(s.to_string()))
-        } else {
-            Err(INVALID_ACCOUNT_ID_MSG.into())
-        }
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        validate_account_id(value)?;
+        Ok(Self(value.to_string()))
     }
 }
 
