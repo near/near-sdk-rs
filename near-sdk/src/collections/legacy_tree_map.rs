@@ -1579,6 +1579,14 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_excl_excl() {
+        test_env::setup();
+        let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
+        let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_incl_incl() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
