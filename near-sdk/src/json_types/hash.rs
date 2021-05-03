@@ -1,9 +1,8 @@
 use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{de, Deserialize};
+use serde::{de, Deserialize, ser};
 use std::borrow::Cow;
 use std::convert::TryFrom;
-use std::str::FromStr;
 
 type Error = Box<dyn std::error::Error>;
 
@@ -24,10 +23,10 @@ impl From<CryptoHash> for Base58CryptoHash {
     }
 }
 
-impl serde::Serialize for Base58CryptoHash {
+impl ser::Serialize for Base58CryptoHash {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: ser::Serializer,
     {
         serializer.serialize_str(&String::from(self))
     }
@@ -36,10 +35,10 @@ impl serde::Serialize for Base58CryptoHash {
 impl<'de> de::Deserialize<'de> for Base58CryptoHash {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: de::Deserializer<'de>,
     {
         let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        Self::from_str(s.as_ref()).map_err(|err| de::Error::custom(err.to_string()))
+        s.parse::<Self>().map_err(|err| de::Error::custom(err.to_string()))
     }
 }
 
@@ -61,7 +60,7 @@ impl TryFrom<&str> for Base58CryptoHash {
     type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
+        value.parse()
     }
 }
 
