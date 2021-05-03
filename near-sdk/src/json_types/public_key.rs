@@ -1,6 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
-use std::convert::{TryFrom, TryInto};
+use std::borrow::Cow;
+use std::convert::TryFrom;
 
 /// PublicKey curve
 #[derive(
@@ -15,6 +16,14 @@ impl TryFrom<String> for CurveType {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse::<Self>()
+    }
+}
+
+impl std::str::FromStr for CurveType {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "ed25519" => Ok(CurveType::ED25519),
             "secp256k1" => Ok(CurveType::SECP256K1),
@@ -24,7 +33,21 @@ impl TryFrom<String> for CurveType {
 }
 
 /// Public key in a binary format with base58 string serialization with human-readable curve.
-/// e.g. `ed25519:3tysLvy7KGoE8pznUgXvSHa4vYyGvrDZFcT8jgb8PEQ6`
+/// The key types currently supported are `secp256k1` and `ed25519`.
+///
+/// # Example
+/// ```
+/// use near_sdk::json_types::Base58PublicKey;
+///
+/// // Compressed ed25519 key
+/// let ed: Base58PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse()
+///             .unwrap();
+///
+/// // Uncompressed secp256k1 key
+/// let secp256k1: Base58PublicKey  = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj"
+///             .parse()
+///             .unwrap();
+/// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize)]
 pub struct Base58PublicKey(pub Vec<u8>);
 
@@ -32,7 +55,7 @@ impl Base58PublicKey {
     fn split_key_type_data(value: &str) -> Result<(CurveType, &str), Box<dyn std::error::Error>> {
         if let Some(idx) = value.find(':') {
             let (prefix, key_data) = value.split_at(idx);
-            Ok((CurveType::try_from(prefix.to_string())?, &key_data[1..]))
+            Ok((prefix.parse::<CurveType>()?, &key_data[1..]))
         } else {
             // If there is no Default is ED25519.
             Ok((CurveType::ED25519, value))
@@ -59,10 +82,7 @@ impl TryFrom<Vec<u8>> for Base58PublicKey {
 }
 
 impl serde::Serialize for Base58PublicKey {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<<S as serde::Serializer>::Ok, <S as serde::Serializer>::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -71,13 +91,12 @@ impl serde::Serialize for Base58PublicKey {
 }
 
 impl<'de> serde::Deserialize<'de> for Base58PublicKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as serde::Deserializer<'de>>::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
-        s.try_into()
-            .map_err(|err: Box<dyn std::error::Error>| serde::de::Error::custom(err.to_string()))
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        s.parse::<Base58PublicKey>().map_err(|err| serde::de::Error::custom(err))
     }
 }
 
@@ -103,6 +122,14 @@ impl TryFrom<&str> for Base58PublicKey {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse::<Self>()
+    }
+}
+
+impl std::str::FromStr for Base58PublicKey {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let (key_type, key_data) = Base58PublicKey::split_key_type_data(&value)?;
         let expected_length = match key_type {
             CurveType::ED25519 => 32,
@@ -125,6 +152,7 @@ impl TryFrom<&str> for Base58PublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::TryInto;
 
     fn binary_key() -> Vec<u8> {
         let mut binary_key = vec![0];
