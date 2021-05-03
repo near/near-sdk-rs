@@ -1,6 +1,8 @@
 use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::convert::{TryFrom, TryInto};
+use serde::{de, Deserialize};
+use std::str::FromStr;
+use std::{borrow::Cow, convert::TryFrom};
 
 #[derive(
     Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
@@ -20,10 +22,7 @@ impl From<CryptoHash> for Base58CryptoHash {
 }
 
 impl serde::Serialize for Base58CryptoHash {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<<S as serde::Serializer>::Ok, <S as serde::Serializer>::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -31,14 +30,13 @@ impl serde::Serialize for Base58CryptoHash {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Base58CryptoHash {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as serde::Deserializer<'de>>::Error>
+impl<'de> de::Deserialize<'de> for Base58CryptoHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
-        s.try_into()
-            .map_err(|err: Box<dyn std::error::Error>| serde::de::Error::custom(err.to_string()))
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        Self::from_str(s.as_ref()).map_err(|err| de::Error::custom(err.to_string()))
     }
 }
 
@@ -60,6 +58,14 @@ impl TryFrom<&str> for Base58CryptoHash {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
+    }
+}
+
+impl FromStr for Base58CryptoHash {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
         let size = bs58::decode(value).into(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
