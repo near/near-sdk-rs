@@ -5,6 +5,8 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
+type Error = Box<dyn std::error::Error>;
+
 #[derive(
     Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
 )]
@@ -48,7 +50,7 @@ impl From<&Base58CryptoHash> for String {
 }
 
 impl TryFrom<String> for Base58CryptoHash {
-    type Error = Box<dyn std::error::Error>;
+    type Error = Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
@@ -56,15 +58,15 @@ impl TryFrom<String> for Base58CryptoHash {
 }
 
 impl TryFrom<&str> for Base58CryptoHash {
-    type Error = Box<dyn std::error::Error>;
+    type Error = Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::from_str(value)
     }
 }
 
-impl FromStr for Base58CryptoHash {
-    type Err = Box<dyn std::error::Error>;
+impl std::str::FromStr for Base58CryptoHash {
+    type Err = Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
