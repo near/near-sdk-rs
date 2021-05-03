@@ -175,7 +175,7 @@ where
             (Bound::Included(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Excluded(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Included(a), Bound::Excluded(b)) if a > b => panic!("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a == b => panic!("Invalid range."),
+            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => panic!("Invalid range."),
             (lo, hi) => (lo, hi),
         };
 
