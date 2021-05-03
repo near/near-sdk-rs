@@ -182,6 +182,8 @@ where
         Cursor::range(&self, lo, hi).into_iter()
     }
 
+    /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`LegacyTreeMap`].
+    /// This function collects elements from [`LegacyTreeMap::iter`].
     pub fn to_vec(&self) -> Vec<(K, V)> {
         self.iter().collect()
     }
@@ -197,7 +199,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.lft) {
+            match node.as_ref().and_then(|n| n.lft) {
                 Some(lft) => {
                     at = lft;
                     parent = node;
@@ -216,7 +218,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.rgt) {
+            match node.as_ref().and_then(|n| n.rgt) {
                 Some(rgt) => {
                     parent = node;
                     at = rgt;
@@ -232,7 +234,7 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.le(key) {
                         match node.and_then(|n| n.rgt) {
@@ -240,7 +242,7 @@ where
                             None => break,
                         }
                     } else {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break,
@@ -257,10 +259,10 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.lt(key) {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break,
@@ -499,7 +501,7 @@ where
                 let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
                 let k = n.key.clone();
 
-                if p.rgt.clone().map(|id| id == n.id).unwrap_or_default() {
+                if p.rgt.as_ref().map(|&id| id == n.id).unwrap_or_default() {
                     // n is on right link of p
                     p.rgt = n.lft;
                 } else {
