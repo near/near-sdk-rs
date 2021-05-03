@@ -393,30 +393,25 @@ where
     // For root node, same node is returned for node and parent node.
     fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
         let mut p: Node<K> = self.node(at).unwrap();
-        loop {
-            match self.node(at) {
-                Some(node) => {
-                    if node.key.eq(key) {
-                        return Some((node, p));
-                    } else if node.key.lt(key) {
-                        match node.rgt {
-                            Some(rgt) => {
-                                p = node;
-                                at = rgt;
-                            }
-                            None => break,
-                        }
-                    } else {
-                        match node.lft {
-                            Some(lft) => {
-                                p = node;
-                                at = lft;
-                            }
-                            None => break,
-                        }
+        while let Some(node) = self.node(at) {
+            if node.key.eq(key) {
+                return Some((node, p));
+            } else if node.key.lt(key) {
+                match node.rgt {
+                    Some(rgt) => {
+                        p = node;
+                        at = rgt;
                     }
+                    None => break,
                 }
-                None => break,
+            } else {
+                match node.lft {
+                    Some(lft) => {
+                        p = node;
+                        at = lft;
+                    }
+                    None => break,
+                }
             }
         }
         None
@@ -432,21 +427,13 @@ where
                     self.enforce_balance(&mut node)
                 } else {
                     if node.key.gt(key) {
-                        match node.lft {
-                            Some(l) => {
-                                let id = self.check_balance(l, key);
-                                node.lft = Some(id);
-                            }
-                            None => (),
+                        if let Some(l) = node.lft {
+                            let id = self.check_balance(l, key);
+                            node.lft = Some(id);
                         }
-                    } else {
-                        match node.rgt {
-                            Some(r) => {
-                                let id = self.check_balance(r, key);
-                                node.rgt = Some(id);
-                            }
-                            None => (),
-                        }
+                    } else if let Some(r) = node.rgt {
+                        let id = self.check_balance(r, key);
+                        node.rgt = Some(id);
                     }
                     self.update_height(&mut node);
                     self.enforce_balance(&mut node)
