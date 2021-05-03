@@ -1,6 +1,6 @@
 use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{de, Deserialize, ser};
+use serde::{de, ser, Deserialize};
 use std::borrow::Cow;
 use std::convert::TryFrom;
 
