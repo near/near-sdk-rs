@@ -2,7 +2,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
-use std::str::FromStr;
 
 use crate::env::is_valid_account_id;
 use crate::AccountId;
@@ -58,7 +57,7 @@ impl TryFrom<&str> for ValidAccountId {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
+        value.parse()
     }
 }
 
@@ -79,7 +78,7 @@ impl TryFrom<String> for ValidAccountId {
     }
 }
 
-impl FromStr for ValidAccountId {
+impl std::str::FromStr for ValidAccountId {
     type Err = Box<dyn std::error::Error>;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
