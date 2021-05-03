@@ -34,7 +34,7 @@ impl std::str::FromStr for CurveType {
 
 /// Public key in a binary format with base58 string serialization with human-readable curve.
 /// The key types currently supported are `secp256k1` and `ed25519`.
-/// 
+///
 /// Ed25519 public keys accepted are 32 bytes and secp256k1 keys are the uncompressed 64 format.
 ///
 /// # Example
