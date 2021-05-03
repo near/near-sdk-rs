@@ -98,7 +98,7 @@ impl<'de> serde::Deserialize<'de> for Base58PublicKey {
         D: serde::Deserializer<'de>,
     {
         let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        s.parse::<Base58PublicKey>().map_err(|err| serde::de::Error::custom(err))
+        s.parse::<Base58PublicKey>().map_err(serde::de::Error::custom)
     }
 }
 
