@@ -14,9 +14,12 @@ To view this documentation locally, clone this repo and from this folder run `ca
 
 ## Changelog
 
-### `3.1.1`
+### `3.2.0`
 
-* Fixed stack overflow for deep chain [PR #385](https://github.com/near/near-sdk-rs/pull/385).
+* Introduce `block_prod_time` duration in nanoseconds to `GenesisConfig` that defines the duration between produced blocks.
+* Expose `cur_block` and `genesis_config` from `RuntimeStandalone`. This allows to manipulate block time.
+* Use `RuntimeConfig::from_protocol_version` that fixes storage costs issue.
+* Set root account balance to one billion tokens.
 
 # Getting started
 
@@ -28,7 +31,7 @@ Currently this crate depends on a the GitHub repo of [nearcore](https://github.c
 
 ```toml
 [dev-dependencies]
-near-sdk-sim = "3.1.1"
+near-sdk-sim = "3.2.0"
 
 ```
 
@@ -36,7 +39,7 @@ And update `near-sdk` too:
 
 ```toml
 [dependencies]
-near-sdk = "3.1.1"
+near-sdk = "3.1.0"
 
 ```
 
@@ -61,8 +64,8 @@ Now in the root of the project (`contract-wrap`), create a new `Cargo.toml`. You
 
 ```toml
 [dev-dependencies]
-near-sdk = "3.1.1"
-near-sdk-sim = "3.1.1"
+near-sdk = "3.1.0"
+near-sdk-sim = "3.2.0"
 contract = { path = "./contract" }
 
 [workspace]
