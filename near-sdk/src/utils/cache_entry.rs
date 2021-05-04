@@ -27,6 +27,7 @@ impl<T> CacheEntry<T> {
         &mut self.value
     }
 
+    #[allow(dead_code)]
     pub fn into_value(self) -> Option<T> {
         self.value
     }
@@ -43,6 +44,22 @@ impl<T> CacheEntry<T> {
 
         old_value
     }
+
+    /// Replaces the state of the cache entry and returns the previous value.
+    pub fn replace_state(&mut self, state: EntryState) -> EntryState {
+        core::mem::replace(&mut self.state, state)
+    }
+
+    /// Returns true if the entry has been modified
+    pub fn is_modified(&self) -> bool {
+        matches!(self.state, EntryState::Cached)
+    }
+
+    #[allow(dead_code)]
+    /// Returns true if the entry state has not been changed.
+    pub fn is_cached(&self) -> bool {
+        !self.is_modified()
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -50,16 +67,4 @@ impl<T> CacheEntry<T> {
 pub(crate) enum EntryState {
     Modified,
     Cached,
-}
-
-impl EntryState {
-    /// Returns true if the entry has been modified
-    pub fn is_modified(self) -> bool {
-        matches!(self, EntryState::Cached)
-    }
-
-    /// Returns true if the entry state has not been changed.
-    pub fn is_cached(self) -> bool {
-        !self.is_modified()
-    }
 }
