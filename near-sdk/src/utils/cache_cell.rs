@@ -1,10 +1,4 @@
-use core::{
-    cell::UnsafeCell,
-    fmt,
-    fmt::Debug,
-    ptr::NonNull,
-};
-
+use core::{cell::UnsafeCell, fmt, fmt::Debug, ptr::NonNull};
 
 pub struct CacheCell<T: ?Sized> {
     inner: UnsafeCell<T>,
@@ -12,9 +6,7 @@ pub struct CacheCell<T: ?Sized> {
 
 impl<T> CacheCell<T> {
     pub fn new(value: T) -> Self {
-        Self {
-            inner: UnsafeCell::new(value),
-        }
+        Self { inner: UnsafeCell::new(value) }
     }
 
     pub fn into_inner(self) -> T {

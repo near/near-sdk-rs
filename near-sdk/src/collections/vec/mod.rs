@@ -163,7 +163,7 @@ impl<T> Vector<T> {
         match self.cache.as_inner_mut().entry(index) {
             Entry::Occupied(mut occupied) => {
                 occupied.get_mut().replace(value);
-            },
+            }
             Entry::Vacant(vacant) => {
                 vacant.insert(Box::new(CacheEntry::new_modified(value)));
             }
@@ -202,7 +202,6 @@ where
 
     /// Appends an element to the back of the collection.
     pub fn push(&mut self, element: T) {
-
         let raw_element = Self::serialize_element(&element);
         let idx = self.len;
         self.push_raw(&raw_element);
@@ -248,6 +247,14 @@ where
 
     /// Removes the last element from a vector and returns it, or `None` if it is empty.
     pub fn pop(&mut self) -> Option<T> {
-        self.pop_raw().map(|x| Self::deserialize_element(&x))
+        if self.is_empty() {
+            None
+        } else {
+            let last_idx = self.len - 1;
+            self.len = last_idx;
+
+            // Replace current value with none, and return the existing value
+            self.load_mut(last_idx).replace(None)
+        }
     }
 }
