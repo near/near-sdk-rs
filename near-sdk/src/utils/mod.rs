@@ -13,10 +13,7 @@ use crate::{env, AccountId, PromiseResult};
 /// # Example use
 ///
 /// ```no_run
-/// #[macro_use]
-/// extern crate near_sdk;
-///
-/// use near_sdk::env::log;
+/// use near_sdk::log;
 ///
 /// # fn main() {
 /// log!("test");
