@@ -1,10 +1,14 @@
 //! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
 //! of an element results in the last element being placed in the empty position.
 
+mod impls;
+mod iter;
+
 use crate::collections::append_slice;
-use crate::{env, IntoStorageKey};
+use crate::{env, CacheCell, CacheEntry, EntryState, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::{cell::RefCell, collections::BTreeMap, marker::PhantomData};
+use std::collections::{btree_map::Entry, BTreeMap};
+use std::ptr::NonNull;
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -24,7 +28,10 @@ pub struct Vector<T> {
     len: u32,
     prefix: Vec<u8>,
     #[borsh_skip]
-    cache: RefCell<BTreeMap<u32, T>>,
+    /// Cache for loads and intermediate changes to the underlying vector.
+    /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
+    /// invalidated.
+    cache: CacheCell<BTreeMap<u32, Box<CacheEntry<T>>>>,
 }
 
 impl<T> Vector<T> {
@@ -147,7 +154,41 @@ impl<T> Vector<T> {
             env::storage_remove(&lookup_key);
         }
         self.len = 0;
-        *self.cache.borrow_mut() = Default::default();
+        *self.cache.as_inner_mut() = Default::default();
+    }
+
+    /// Inserts the current value into cache, does not load value into cache from storage if
+    /// the cache entry if not filled.
+    fn insert(&mut self, index: u32, value: Option<T>) {
+        match self.cache.as_inner_mut().entry(index) {
+            Entry::Occupied(mut occupied) => {
+                occupied.get_mut().replace(value);
+            },
+            Entry::Vacant(vacant) => {
+                vacant.insert(Box::new(CacheEntry::new_modified(value)));
+            }
+        }
+    }
+
+    /// Loads value from storage into cache, if it does not already exist.
+    /// This function must be unsafe because it requires modifying the cache with an immutable
+    /// reference.
+    unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<T>> {
+        // match self.cache.as_inner_mut().entry(index) {
+        //     Entry::Occupied(mut occupied) => {
+        //         occupied.get_mut().replace(value);
+        //     },
+        //     Entry::Vacant(vacant) => {
+        //         vacant.insert(Box::new(CacheEntry::new_modified(value)));
+        //     }
+        // }
+        todo!()
+    }
+
+    /// Loads value from storage into cache, and returns a mutable reference to the loaded value.
+    /// This function is safe because a mutable reference of self is used.
+    fn load_mut(&mut self, index: u32) -> &mut CacheEntry<T> {
+        todo!()
     }
 }
 
@@ -161,16 +202,52 @@ where
 
     /// Appends an element to the back of the collection.
     pub fn push(&mut self, element: T) {
+
         let raw_element = Self::serialize_element(&element);
         let idx = self.len;
         self.push_raw(&raw_element);
-        self.cache.borrow_mut().insert(idx, element);
+
+        // Element guaranteed to not exist in cache, can insert without loading entry
+        self.cache.as_inner_mut().insert(idx, Box::new(CacheEntry::new_modified(Some(element))));
     }
 
+    // TODO move this to extend trait
     /// Extends vector from the given collection.
     pub fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for el in iter {
             self.push(el)
         }
+    }
+}
+
+impl<T> Vector<T>
+where
+    T: BorshDeserialize,
+{
+    fn deserialize_element(raw_element: &[u8]) -> T {
+        T::try_from_slice(&raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
+    }
+
+    /// Returns the element by index or `None` if it is not present.
+    pub fn get(&self, index: u32) -> Option<&T> {
+        // TODO doc safety
+        unsafe { &*self.load(index).as_ptr() }.value().as_ref()
+    }
+
+    /// Removes an element from the vector and returns it.
+    /// The removed element is replaced by the last element of the vector.
+    /// Does not preserve ordering, but is `O(1)`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    pub fn swap_remove(&mut self, index: u32) -> T {
+        let raw_evicted = self.swap_remove_raw(index);
+        Self::deserialize_element(&raw_evicted)
+    }
+
+    /// Removes the last element from a vector and returns it, or `None` if it is empty.
+    pub fn pop(&mut self) -> Option<T> {
+        self.pop_raw().map(|x| Self::deserialize_element(&x))
     }
 }

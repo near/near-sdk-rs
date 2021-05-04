@@ -1,4 +1,8 @@
+mod cache_cell;
 pub(crate) mod storage_key_impl;
+pub(crate) use cache_cell::CacheCell;
+mod cache_entry;
+pub(crate) use cache_entry::{CacheEntry, EntryState};
 
 use crate::{env, AccountId, PromiseResult};
 
