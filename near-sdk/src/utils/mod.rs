@@ -28,7 +28,6 @@ use crate::{env, AccountId, PromiseResult};
 /// ```
 ///
 /// [`env::log`]: crate::env::log
-/// [`std::format`]: https://doc.rust-lang.org/std/macro.format.html
 /// [`BlockchainInterface`]: crate::BlockchainInterface
 #[macro_export]
 macro_rules! log {
@@ -91,7 +90,9 @@ impl PendingContractTx {
 }
 
 /// Boilerplate for setting up allocator used in Wasm binary.
-/// This initializes the allocator with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
+/// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
+///
+/// [GlobalAllocator]: std::alloc::GlobalAlloc
 #[macro_export]
 macro_rules! setup_alloc {
     () => {
