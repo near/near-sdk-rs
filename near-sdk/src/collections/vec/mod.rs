@@ -169,27 +169,6 @@ impl<T> Vector<T> {
             }
         }
     }
-
-    /// Loads value from storage into cache, if it does not already exist.
-    /// This function must be unsafe because it requires modifying the cache with an immutable
-    /// reference.
-    unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<T>> {
-        // match self.cache.as_inner_mut().entry(index) {
-        //     Entry::Occupied(mut occupied) => {
-        //         occupied.get_mut().replace(value);
-        //     },
-        //     Entry::Vacant(vacant) => {
-        //         vacant.insert(Box::new(CacheEntry::new_modified(value)));
-        //     }
-        // }
-        todo!()
-    }
-
-    /// Loads value from storage into cache, and returns a mutable reference to the loaded value.
-    /// This function is safe because a mutable reference of self is used.
-    fn load_mut(&mut self, index: u32) -> &mut CacheEntry<T> {
-        todo!()
-    }
 }
 
 impl<T> Vector<T>
@@ -225,6 +204,31 @@ where
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
         T::try_from_slice(&raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
+    }
+
+    /// Loads value from storage into cache, if it does not already exist.
+    /// This function must be unsafe because it requires modifying the cache with an immutable
+    /// reference.
+    unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<T>> {
+        // TODO safety docs
+        match self.cache.get_ptr().as_mut().entry(index) {
+            Entry::Occupied(mut occupied) => NonNull::from(&mut **occupied.get_mut()),
+            Entry::Vacant(vacant) => {
+                let value = env::storage_read(&self.index_to_lookup_key(index))
+                    .map(|v| Self::deserialize_element(&v));
+                NonNull::from(&mut **vacant.insert(Box::new(CacheEntry::new_modified(value))))
+            }
+        }
+    }
+
+    /// Loads value from storage into cache, and returns a mutable reference to the loaded value.
+    /// This function is safe because a mutable reference of self is used.
+    fn load_mut(&mut self, index: u32) -> &mut CacheEntry<T> {
+        // * SAFETY: A mutable reference can be returned here because it references a value in a
+        //           `Box` and no other references should exist given function takes a mutable
+        //           reference. This has the assumption that other references are not kept around
+        //           past this function call.
+        unsafe { &mut *self.load(index).as_ptr() }
     }
 
     /// Returns the element by index or `None` if it is not present.
