@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! impl_fungible_token_core {
-    ($contract: ident, $token: ident, $on_tokens_burned_block: block,) => {
+    ($contract: ident, $token: ident $(, $on_tokens_burned_fn:ident)?) => {
         use near_contract_standards::fungible_token::core::FungibleTokenCore;
         use near_contract_standards::fungible_token::resolver::FungibleTokenResolver;
 
@@ -49,19 +49,11 @@ macro_rules! impl_fungible_token_core {
                 let (used_amount, burned_amount) =
                     self.$token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
                 if burned_amount > 0 {
-                    $on_tokens_burned_block
+                    $(self.$on_tokens_burned_fn(sender_id, burned_amount);)?
                 }
                 used_amount.into()
             }
         }
-    };
-    ($contract: ident, $token: ident, $on_tokens_burned: ident) => {
-        near_contract_standards::impl_fungible_token_core!($contract, $token, {
-            self.$on_tokens_burned(sender_id, burned_amount);
-        },);
-    };
-    ($contract: ident, $token: ident) => {
-        near_contract_standards::impl_fungible_token_core!($contract, $token, {},);
     };
 }
 
@@ -69,7 +61,7 @@ macro_rules! impl_fungible_token_core {
 /// call when the account was closed.
 #[macro_export]
 macro_rules! impl_fungible_token_storage {
-    ($contract: ident, $token: ident, $on_account_closed_block: block,) => {
+    ($contract: ident, $token: ident $(, $on_account_closed_fn:ident)?) => {
         use near_contract_standards::storage_management::{
             StorageManagement, StorageBalance, StorageBalanceBounds
         };
@@ -94,7 +86,7 @@ macro_rules! impl_fungible_token_storage {
             fn storage_unregister(&mut self, force: Option<bool>) -> bool {
                 #[allow(unused_variables)]
                 if let Some((account_id, balance)) = self.$token.internal_storage_unregister(force) {
-                    $on_account_closed_block
+                    $(self.$on_account_closed_fn(account_id, balance);)?
                     true
                 } else {
                     false
@@ -109,11 +101,5 @@ macro_rules! impl_fungible_token_storage {
                 self.$token.storage_balance_of(account_id)
             }
         }
-    };
-    ($contract: ident, $token: ident, $on_account_closed: ident) => {
-        near_contract_standards::impl_fungible_token_storage!($contract, $token, {self.$on_account_closed(account_id, balance);},);
-    };
-    ($contract: ident, $token: ident) => {
-        near_contract_standards::impl_fungible_token_storage!($contract, $token, {},);
     };
 }

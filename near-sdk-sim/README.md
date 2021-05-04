@@ -12,6 +12,15 @@ As a first step, you can use this library! With it, you can:
 
 To view this documentation locally, clone this repo and from this folder run `cargo doc --open`.
 
+## Changelog
+
+### `3.2.0`
+
+* Introduce `block_prod_time` duration in nanoseconds to `GenesisConfig` that defines the duration between produced blocks.
+* Expose `cur_block` and `genesis_config` from `RuntimeStandalone`. This allows to manipulate block time.
+* Use `RuntimeConfig::from_protocol_version` that fixes storage costs issue.
+* Set root account balance to one billion tokens.
+
 # Getting started
 
 This section will guide you through our suggested approach to adding simulation tests to your project. Want an example? Check out the [Fungible Token Example](https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token).
@@ -22,7 +31,7 @@ Currently this crate depends on a the GitHub repo of [nearcore](https://github.c
 
 ```toml
 [dev-dependencies]
-near-sdk-sim = "=3.1.0"
+near-sdk-sim = "3.2.0"
 
 ```
 
@@ -30,7 +39,7 @@ And update `near-sdk` too:
 
 ```toml
 [dependencies]
-near-sdk = "=3.1.0"
+near-sdk = "3.1.0"
 
 ```
 
@@ -55,8 +64,8 @@ Now in the root of the project (`contract-wrap`), create a new `Cargo.toml`. You
 
 ```toml
 [dev-dependencies]
-near-sdk = "=3.1.0"
-near-sdk-sim = "=3.1.0"
+near-sdk = "3.1.0"
+near-sdk-sim = "3.2.0"
 contract = { path = "./contract" }
 
 [workspace]
