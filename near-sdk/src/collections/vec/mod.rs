@@ -237,6 +237,28 @@ where
         unsafe { &*self.load(index).as_ptr() }.value().as_ref()
     }
 
+    fn swap(&mut self, a: u32, b: u32) {
+        assert!(a < self.len() && b < self.len(), "index used in swap is out of bounds");
+
+        if a == b {
+            // Short circuit if indices are the same, also guarantees uniqueness below
+            return;
+        }
+
+        // * SAFETY: references are guaranteed to be distinct because the indices are checked to not
+        //           be equal above. These mutable references will both be dropped before the end
+        //           of the scope of the swap call.
+        let a_value = unsafe { &mut *self.load(a).as_ptr() };
+        let b_value = unsafe { &mut *self.load(b).as_ptr() };
+
+        if a_value.value().is_none() && b_value.value().is_none() {
+            // Can short circuit here as well, if both indices are not filled.
+            return;
+        }
+
+        core::mem::swap(a_value.value_mut(), b_value.value_mut());
+    }
+
     /// Removes an element from the vector and returns it.
     /// The removed element is replaced by the last element of the vector.
     /// Does not preserve ordering, but is `O(1)`.
@@ -244,9 +266,13 @@ where
     /// # Panics
     ///
     /// Panics if `index` is out of bounds.
-    pub fn swap_remove(&mut self, index: u32) -> T {
-        let raw_evicted = self.swap_remove_raw(index);
-        Self::deserialize_element(&raw_evicted)
+    pub fn swap_remove(&mut self, index: u32) -> Option<T> {
+        if self.is_empty() {
+            return None;
+        }
+
+        self.swap(index, self.len() - 1);
+        self.pop()
     }
 
     /// Removes the last element from a vector and returns it, or `None` if it is empty.
@@ -260,5 +286,21 @@ where
             // Replace current value with none, and return the existing value
             self.load_mut(last_idx).replace(None)
         }
+    }
+}
+
+impl<T> Vector<T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Inserts a element at `index`, returns an evicted element.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is out of bounds.
+    pub fn replace(&mut self, index: u64, element: &T) -> T {
+        todo!();
+        // let raw_element = Self::serialize_element(element);
+        // Self::deserialize_element(&self.replace_raw(index, &raw_element))
     }
 }
