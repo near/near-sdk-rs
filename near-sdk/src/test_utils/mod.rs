@@ -30,9 +30,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 /// # Example use
 ///
 /// ```
-/// #[macro_use]
-/// extern crate near_sdk;
-///
+/// use near_sdk::testing_env;
 /// use near_sdk::test_utils::{accounts, VMContextBuilder};
 /// use near_sdk::{VMConfig, RuntimeFeesConfig};
 /// use std::collections::HashMap;
