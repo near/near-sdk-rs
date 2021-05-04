@@ -38,3 +38,4 @@ quickcheck = "0.9.2"
 
 [features]
 expensive-debug = []
+unstable = []
