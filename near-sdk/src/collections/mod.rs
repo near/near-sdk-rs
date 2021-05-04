@@ -47,6 +47,9 @@ pub use lookup_set::LookupSet;
 mod vector;
 pub use vector::Vector;
 
+#[cfg(feature = "unstable")]
+pub mod vec;
+
 mod unordered_map;
 pub use unordered_map::UnorderedMap;
 
