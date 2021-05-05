@@ -1,5 +1,6 @@
 //! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
 //! of an element results in the last element being placed in the empty position.
+// TODO update these docs
 
 mod impls;
 mod iter;

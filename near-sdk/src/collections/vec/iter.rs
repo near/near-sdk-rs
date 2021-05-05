@@ -1,6 +1,6 @@
 use super::Vector;
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::iter::FusedIterator;
+use std::{convert::TryInto, iter::FusedIterator};
 
 pub struct Iter<'a, T>
 where
@@ -49,7 +49,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         debug_assert!(self.begin <= self.end);
-        let n = n as u32;
+        let n: u32 = n.try_into().ok()?;
         if self.begin + n >= self.end {
             return None;
         }
@@ -72,7 +72,7 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         debug_assert!(self.begin <= self.end);
-        let n = n as u32;
+        let n: u32 = n.try_into().ok()?;
         if self.begin >= self.end.saturating_sub(n) {
             return None;
         }
@@ -145,7 +145,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         debug_assert!(self.begin <= self.end);
-        let n = n as u32;
+        let n: u32 = n.try_into().ok()?;
         if self.begin.saturating_add(n) >= self.end {
             return None;
         }
@@ -168,7 +168,7 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         debug_assert!(self.begin <= self.end);
-        let n = n as u32;
+        let n: u32 = n.try_into().ok()?;
         if self.begin >= self.end.saturating_sub(n) {
             return None;
         }
