@@ -5,12 +5,13 @@
 mod impls;
 mod iter;
 
-use self::iter::{Iter, IterMut};
-use crate::collections::append_slice;
-use crate::{env, CacheCell, CacheEntry, EntryState, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::ptr::NonNull;
+
+use self::iter::{Iter, IterMut};
+use crate::collections::append_slice;
+use crate::{env, CacheCell, CacheEntry, EntryState, IntoStorageKey};
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -29,7 +30,6 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 ///
 /// TODO examples
 #[derive(BorshSerialize, BorshDeserialize)]
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct Vector<T>
 where
     T: BorshSerialize,
@@ -268,6 +268,26 @@ where
     }
 }
 
+#[cfg(not(feature = "expensive-debug"))]
+impl<T> std::fmt::Debug for Vector<T>
+where
+    T: BorshSerialize + std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
+    }
+}
+
+#[cfg(feature = "expensive-debug")]
+impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T>
+where
+    T: BorshSerialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.iter().collect::<Vec<_>>().fmt(f)
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -386,48 +406,46 @@ mod tests {
         assert_eq!(actual, baseline);
     }
 
-    // #[test]
-    // fn test_debug() {
-    //     test_env::setup();
-    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-    //     let prefix = b"v".to_vec();
-    //     let mut vec = Vector::new(prefix.clone());
-    //     let mut baseline = vec![];
-    //     for _ in 0..10 {
-    //         let value = rng.gen::<u64>();
-    //         vec.push(&value);
-    //         baseline.push(value);
-    //     }
-    //     let actual = vec.to_vec();
-    //     assert_eq!(actual, baseline);
-    //     for _ in 0..5 {
-    //         assert_eq!(baseline.pop(), vec.pop());
-    //     }
-    //     if cfg!(feature = "expensive-debug") {
-    //         assert_eq!(format!("{:#?}", vec), format!("{:#?}", baseline));
-    //     } else {
-    //         assert_eq!(
-    //             format!("{:?}", vec),
-    //             format!("Vector {{ len: 5, prefix: {:?}, el: PhantomData }}", vec.prefix)
-    //         );
-    //     }
+    #[test]
+    fn test_debug() {
+        test_env::setup();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+        let prefix = b"v".to_vec();
+        let mut vec = Vector::new(prefix.clone());
+        let mut baseline = vec![];
+        for _ in 0..10 {
+            let value = rng.gen::<u64>();
+            vec.push(value);
+            baseline.push(value);
+        }
+        let actual: Vec<_> = vec.iter().cloned().collect();
+        assert_eq!(actual, baseline);
+        for _ in 0..5 {
+            assert_eq!(baseline.pop(), vec.pop());
+        }
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:#?}", vec), format!("{:#?}", baseline));
+        } else {
+            assert_eq!(
+                format!("{:?}", vec),
+                format!("Vector {{ len: 5, prefix: {:?} }}", vec.prefix)
+            );
+        }
 
-    //     #[derive(Debug, BorshDeserialize)]
-    //     struct WithoutBorshSerialize(u64);
+        use borsh::{BorshDeserialize, BorshSerialize};
+        #[derive(Debug, BorshSerialize, BorshDeserialize)]
+        struct TestType(u64);
 
-    //     let deserialize_only_vec =
-    //         Vector::<WithoutBorshSerialize> { len: vec.len(), prefix, el: Default::default() };
-    //     let baseline: Vec<_> = baseline.into_iter().map(|x| WithoutBorshSerialize(x)).collect();
-    //     if cfg!(feature = "expensive-debug") {
-    //         assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
-    //     } else {
-    //         assert_eq!(
-    //             format!("{:?}", deserialize_only_vec),
-    //             format!(
-    //                 "Vector {{ len: 5, prefix: {:?}, el: PhantomData }}",
-    //                 deserialize_only_vec.prefix
-    //             )
-    //         );
-    //     }
-    // }
+        let deserialize_only_vec =
+            Vector::<TestType> { len: vec.len(), prefix, cache: Default::default() };
+        let baseline: Vec<_> = baseline.into_iter().map(|x| TestType(x)).collect();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
+        } else {
+            assert_eq!(
+                format!("{:?}", deserialize_only_vec),
+                format!("Vector {{ len: 5, prefix: {:?} }}", deserialize_only_vec.prefix)
+            );
+        }
+    }
 }

@@ -1,6 +1,7 @@
-use super::Vector;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::{convert::TryInto, iter::FusedIterator};
+
+use super::Vector;
 
 /// An interator over references to each element in the stored vector.
 #[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
