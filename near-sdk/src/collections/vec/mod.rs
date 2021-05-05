@@ -4,6 +4,7 @@
 mod impls;
 mod iter;
 
+use self::iter::{Iter, IterMut};
 use crate::collections::append_slice;
 use crate::{env, CacheCell, CacheEntry, EntryState, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -183,6 +184,11 @@ where
         unsafe { &*self.load(index).as_ptr() }.value().as_ref()
     }
 
+    /// Returns a mutable reference to the element at the `index` provided.
+    pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
+        self.load_mut(index).value_mut().as_mut()
+    }
+
     fn swap(&mut self, a: u32, b: u32) {
         if a >= self.len() || b >= self.len() {
             env::panic(ERR_INDEX_OUT_OF_BOUNDS);
@@ -235,5 +241,17 @@ where
             let popped_value = expect_consistent_state(self.load_mut(last_idx).replace(None));
             Some(popped_value)
         }
+    }
+
+    /// Returns an iterator over the vector. This iterator will lazily load any values iterated
+    /// over from storage.
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter::new(self)
+    }
+
+    /// Returns an iterator over the [`Vector`] that allows modifying each value. This iterator
+    /// will lazily load any values iterated over from storage.
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
+        IterMut::new(self)
     }
 }
