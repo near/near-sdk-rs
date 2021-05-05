@@ -2,6 +2,8 @@ use super::Vector;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::{convert::TryInto, iter::FusedIterator};
 
+/// An interator over references to each element in the stored vector.
+#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
@@ -81,14 +83,17 @@ where
     }
 }
 
-/// An iterator over exclusive references to the elements of a storage vector.
+/// An iterator over exclusive references to each element of a stored vector.
 #[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct IterMut<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
+    /// Mutable reference to vector used to iterate through.
     vec: &'a mut Vector<T>,
+    /// Start index of the remaining iterator.
     begin: u32,
+    /// End index of the remaining iterator.
     end: u32,
 }
 
@@ -118,7 +123,7 @@ where
             //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
             //*         will only give out one mutable reference for every individual item
             //*         during the iteration, and there is no overlap. This must be checked
-            //*         that no element in this iterator is ever revisited.
+            //*         that no element in this iterator is ever revisited during iteration.
             unsafe { core::mem::transmute::<&'b mut T, &'a mut T>(value) }
         })
     }

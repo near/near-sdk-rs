@@ -244,6 +244,17 @@ where
         }
     }
 
+    // TODO this is not an API that matches std or anything, but is kept because it exists in
+    // the previous version. You can achieve the same with `get_mut` and `mem::replace`
+    /// Inserts a element at `index`, returns an evicted element.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is out of bounds.
+    pub fn replace(&mut self, index: u32, element: T) -> T {
+        expect_consistent_state(self.load_mut(index).replace(Some(element)))
+    }
+
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
     /// over from storage.
     pub fn iter(&self) -> Iter<'_, T> {
@@ -255,4 +266,168 @@ where
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut::new(self)
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod tests {
+    use rand::{Rng, SeedableRng};
+
+    use super::Vector;
+    use crate::test_utils::test_env;
+
+    #[test]
+    fn test_push_pop() {
+        test_env::setup();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut vec = Vector::new(b"v".to_vec());
+        let mut baseline = vec![];
+        for _ in 0..500 {
+            let value = rng.gen::<u64>();
+            vec.push(value);
+            baseline.push(value);
+        }
+        let actual: Vec<u64> = vec.iter().cloned().collect();
+        assert_eq!(actual, baseline);
+        for _ in 0..1001 {
+            assert_eq!(baseline.pop(), vec.pop());
+        }
+    }
+
+    #[test]
+    pub fn test_replace() {
+        test_env::setup();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
+        let mut vec = Vector::new(b"v".to_vec());
+        let mut baseline = vec![];
+        for _ in 0..500 {
+            let value = rng.gen::<u64>();
+            vec.push(value);
+            baseline.push(value);
+        }
+        for _ in 0..500 {
+            let index = rng.gen::<u32>() % vec.len();
+            let value = rng.gen::<u64>();
+            let old_value0 = *vec.get(index).unwrap();
+            let old_value1 = vec.replace(index, value);
+            let old_value2 = baseline[index as usize];
+            assert_eq!(old_value0, old_value1);
+            assert_eq!(old_value0, old_value2);
+            *baseline.get_mut(index as usize).unwrap() = value;
+        }
+        let actual: Vec<_> = vec.iter().cloned().collect();
+        assert_eq!(actual, baseline);
+    }
+
+    #[test]
+    pub fn test_swap_remove() {
+        test_env::setup();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
+        let mut vec = Vector::new(b"v".to_vec());
+        let mut baseline = vec![];
+        for _ in 0..500 {
+            let value = rng.gen::<u64>();
+            vec.push(value);
+            baseline.push(value);
+        }
+        for _ in 0..500 {
+            let index = rng.gen::<u32>() % vec.len();
+            let old_value0 = *vec.get(index).unwrap();
+            let old_value1 = vec.swap_remove(index);
+            let old_value2 = baseline[index as usize];
+            let last_index = baseline.len() - 1;
+            baseline.swap(index as usize, last_index);
+            baseline.pop();
+            assert_eq!(old_value0, old_value1);
+            assert_eq!(old_value0, old_value2);
+        }
+        let actual: Vec<_> = vec.iter().cloned().collect();
+        assert_eq!(actual, baseline);
+    }
+
+    #[test]
+    pub fn test_clear() {
+        test_env::setup();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
+        let mut vec = Vector::new(b"v".to_vec());
+        for _ in 0..100 {
+            for _ in 0..(rng.gen::<u64>() % 20 + 1) {
+                let value = rng.gen::<u64>();
+                vec.push(value);
+            }
+            assert!(!vec.is_empty());
+            vec.clear();
+            assert!(vec.is_empty());
+        }
+    }
+
+    #[test]
+    pub fn test_extend() {
+        test_env::setup();
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut vec = Vector::new(b"v".to_vec());
+        let mut baseline = vec![];
+        for _ in 0..100 {
+            let value = rng.gen::<u64>();
+            vec.push(value);
+            baseline.push(value);
+        }
+
+        for _ in 0..100 {
+            let mut tmp = vec![];
+            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
+                let value = rng.gen::<u64>();
+                tmp.push(value);
+            }
+            baseline.extend(tmp.clone());
+            vec.extend(tmp.clone());
+        }
+        let actual: Vec<_> = vec.iter().cloned().collect();
+        assert_eq!(actual, baseline);
+    }
+
+    // #[test]
+    // fn test_debug() {
+    //     test_env::setup();
+    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+    //     let prefix = b"v".to_vec();
+    //     let mut vec = Vector::new(prefix.clone());
+    //     let mut baseline = vec![];
+    //     for _ in 0..10 {
+    //         let value = rng.gen::<u64>();
+    //         vec.push(&value);
+    //         baseline.push(value);
+    //     }
+    //     let actual = vec.to_vec();
+    //     assert_eq!(actual, baseline);
+    //     for _ in 0..5 {
+    //         assert_eq!(baseline.pop(), vec.pop());
+    //     }
+    //     if cfg!(feature = "expensive-debug") {
+    //         assert_eq!(format!("{:#?}", vec), format!("{:#?}", baseline));
+    //     } else {
+    //         assert_eq!(
+    //             format!("{:?}", vec),
+    //             format!("Vector {{ len: 5, prefix: {:?}, el: PhantomData }}", vec.prefix)
+    //         );
+    //     }
+
+    //     #[derive(Debug, BorshDeserialize)]
+    //     struct WithoutBorshSerialize(u64);
+
+    //     let deserialize_only_vec =
+    //         Vector::<WithoutBorshSerialize> { len: vec.len(), prefix, el: Default::default() };
+    //     let baseline: Vec<_> = baseline.into_iter().map(|x| WithoutBorshSerialize(x)).collect();
+    //     if cfg!(feature = "expensive-debug") {
+    //         assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
+    //     } else {
+    //         assert_eq!(
+    //             format!("{:?}", deserialize_only_vec),
+    //             format!(
+    //                 "Vector {{ len: 5, prefix: {:?}, el: PhantomData }}",
+    //                 deserialize_only_vec.prefix
+    //             )
+    //         );
+    //     }
+    // }
 }
