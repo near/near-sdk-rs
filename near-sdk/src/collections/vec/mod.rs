@@ -308,8 +308,8 @@ mod tests {
         for _ in 0..500 {
             let index = rng.gen::<u32>() % vec.len();
             let value = rng.gen::<u64>();
-            let old_value0 = *vec.get(index).unwrap();
-            let old_value1 = vec.replace(index, value);
+            let old_value0 = vec[index];
+            let old_value1 = core::mem::replace(vec.get_mut(index).unwrap(), value);
             let old_value2 = baseline[index as usize];
             assert_eq!(old_value0, old_value1);
             assert_eq!(old_value0, old_value2);
@@ -332,7 +332,7 @@ mod tests {
         }
         for _ in 0..500 {
             let index = rng.gen::<u32>() % vec.len();
-            let old_value0 = *vec.get(index).unwrap();
+            let old_value0 = vec[index];
             let old_value1 = vec.swap_remove(index);
             let old_value2 = baseline[index as usize];
             let last_index = baseline.len() - 1;
