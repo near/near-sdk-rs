@@ -452,7 +452,7 @@ impl<T: serde::Serialize> serde::Serialize for PromiseOrValue<T> {
             // Only actual value is serialized.
             PromiseOrValue::Value(x) => x.serialize(serializer),
             // The promise is dropped to cause env::promise calls.
-            PromiseOrValue::Promise(_) => serializer.serialize_unit(),
+            PromiseOrValue::Promise(p) => p.serialize(serializer),
         }
     }
 }
@@ -463,7 +463,10 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
             // Only actual value is serialized.
             PromiseOrValue::Value(x) => x.serialize(writer),
             // The promise is dropped to cause env::promise calls.
-            PromiseOrValue::Promise(_) => Ok(()),
+            PromiseOrValue::Promise(p) => {
+                *p.should_return.borrow_mut() = true;
+                Ok(())
+            }
         }
     }
 }
