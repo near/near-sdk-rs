@@ -6,6 +6,7 @@ mod impls;
 mod iter;
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use once_cell::unsync::OnceCell;
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::ptr::NonNull;
 
@@ -41,7 +42,7 @@ where
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
-    cache: CacheCell<BTreeMap<u32, Box<CacheEntry<T>>>>,
+    cache: CacheCell<BTreeMap<u32, Box<CacheEntry<OnceCell<T>>>>>,
 }
 
 impl<T> Vector<T>
@@ -90,7 +91,10 @@ where
                 match v.value().as_ref() {
                     Some(modified) => {
                         // Value was modified, write the updated value to storage
-                        env::storage_write(&key, &Self::serialize_element(modified));
+                        env::storage_write(
+                            &key,
+                            &Self::serialize_element(expect_consistent_state(modified.get())),
+                        );
                     }
                     None => {
                         // Element was removed, clear the storage for the value
@@ -114,10 +118,10 @@ where
 
         match self.cache.as_inner_mut().entry(index) {
             Entry::Occupied(mut occupied) => {
-                occupied.get_mut().replace(Some(value));
+                occupied.get_mut().replace(Some(OnceCell::from(value)));
             }
             Entry::Vacant(vacant) => {
-                vacant.insert(Box::new(CacheEntry::new_modified(Some(value))));
+                vacant.insert(Box::new(CacheEntry::new_modified(Some(OnceCell::from(value)))));
             }
         }
     }
@@ -149,13 +153,18 @@ where
     /// Loads value from storage into cache, if it does not already exist.
     /// This function must be unsafe because it requires modifying the cache with an immutable
     /// reference.
-    unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<T>> {
+    unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<OnceCell<T>>> {
         // TODO safety docs
         match self.cache.get_ptr().as_mut().entry(index) {
             Entry::Occupied(mut occupied) => NonNull::from(&mut **occupied.get_mut()),
             Entry::Vacant(vacant) => {
-                let value = env::storage_read(&self.index_to_lookup_key(index))
-                    .map(|v| Self::deserialize_element(&v));
+                // TODO this check key is redundant, because the value is read after, find
+                // a way to load from storage here and pass through somehow.
+                let value = if env::storage_has_key(&self.index_to_lookup_key(index)) {
+                    Some(OnceCell::new())
+                } else {
+                    None
+                };
                 NonNull::from(&mut **vacant.insert(Box::new(CacheEntry::new_cached(value))))
             }
         }
@@ -163,7 +172,7 @@ where
 
     /// Loads value from storage into cache, and returns a mutable reference to the loaded value.
     /// This function is safe because a mutable reference of self is used.
-    fn load_mut(&mut self, index: u32) -> &mut CacheEntry<T> {
+    fn load_mut(&mut self, index: u32) -> &mut CacheEntry<OnceCell<T>> {
         // * SAFETY: A mutable reference can be returned here because it references a value in a
         //           `Box` and no other references should exist given function takes a mutable
         //           reference. This has the assumption that other references are not kept around
@@ -174,12 +183,25 @@ where
     /// Returns the element by index or `None` if it is not present.
     pub fn get(&self, index: u32) -> Option<&T> {
         // TODO doc safety
-        unsafe { &*self.load(index).as_ptr() }.value().as_ref()
+        let cell = unsafe { &*self.load(index).as_ptr() }.value().as_ref()?;
+        Some(cell.get_or_init(|| {
+            expect_consistent_state(
+                env::storage_read(&self.index_to_lookup_key(index))
+                    .map(|v| Self::deserialize_element(&v)),
+            )
+        }))
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
-        self.load_mut(index).value_mut().as_mut()
+        let index_key = self.index_to_lookup_key(index);
+        let cell = self.load_mut(index).value_mut().as_mut()?;
+        cell.get_or_init(|| {
+            expect_consistent_state(
+                env::storage_read(&index_key).map(|v| Self::deserialize_element(&v)),
+            )
+        });
+        cell.get_mut()
     }
 
     fn swap(&mut self, a: u32, b: u32) {
@@ -232,7 +254,7 @@ where
 
             // Replace current value with none, and return the existing value
             let popped_value = expect_consistent_state(self.load_mut(last_idx).replace(None));
-            Some(popped_value)
+            popped_value.into_inner()
         }
     }
 
@@ -244,7 +266,9 @@ where
     ///
     /// If `index` is out of bounds.
     pub fn replace(&mut self, index: u32, element: T) -> T {
-        expect_consistent_state(self.load_mut(index).replace(Some(element)))
+        let cache =
+            expect_consistent_state(self.load_mut(index).replace(Some(OnceCell::from(element))));
+        expect_consistent_state(cache.into_inner())
     }
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
