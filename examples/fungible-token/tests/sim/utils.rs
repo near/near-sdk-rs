@@ -35,7 +35,7 @@ pub fn register_user(user: &near_sdk_sim::UserAccount) {
 pub fn init_no_macros(initial_balance: u128) -> (UserAccount, UserAccount, UserAccount) {
     let root = init_simulator(None);
 
-    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.into(), STORAGE_AMOUNT);
+    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.into(), to_yocto("5"));
 
     ft.call(
         FT_ID.into(),
