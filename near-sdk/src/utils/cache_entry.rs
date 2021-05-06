@@ -52,7 +52,7 @@ impl<T> CacheEntry<T> {
 
     /// Returns true if the entry has been modified
     pub fn is_modified(&self) -> bool {
-        matches!(self.state, EntryState::Cached)
+        matches!(self.state, EntryState::Modified)
     }
 
     #[allow(dead_code)]

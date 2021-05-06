@@ -136,14 +136,6 @@ where
         self.len += 1;
         self.set(last_idx, element)
     }
-
-    // TODO move this to extend trait
-    /// Extends vector from the given collection.
-    pub fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        for el in iter {
-            self.push(el)
-        }
-    }
 }
 
 impl<T> Vector<T>
