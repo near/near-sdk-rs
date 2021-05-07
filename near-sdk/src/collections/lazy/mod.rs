@@ -52,7 +52,7 @@ where
 /// # Examples
 /// ```
 /// use near_sdk::collections::Lazy;
-/// 
+///
 ///# near_sdk::test_utils::test_env::setup();
 /// let mut a = Lazy::new(b"a", "test string".to_string());
 /// assert_eq!(*a, "test string");
