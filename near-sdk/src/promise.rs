@@ -439,7 +439,7 @@ where
 
 impl<T> From<Promise> for PromiseOrValue<T> {
     fn from(promise: Promise) -> Self {
-        PromiseOrValue::Promise(promise.as_return())
+        PromiseOrValue::Promise(promise)
     }
 }
 
