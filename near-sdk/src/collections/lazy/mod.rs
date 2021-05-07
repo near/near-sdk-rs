@@ -45,6 +45,21 @@ where
 }
 
 /// An persistent lazily loaded value, that stores a value in the storage.
+///
+/// This will only write to the underlying store if the value has changed, and will only read the
+/// existing value from storage once.
+///
+/// # Examples
+/// ```
+/// use near_sdk::collections::Lazy;
+/// 
+///# near_sdk::test_utils::test_env::setup();
+/// let mut a = Lazy::new(b"a", "test string".to_string());
+/// assert_eq!(*a, "test string");
+///
+/// *a = "new string".to_string();
+/// assert_eq!(a.get(), "new string");
+/// ```
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct Lazy<T>
 where
