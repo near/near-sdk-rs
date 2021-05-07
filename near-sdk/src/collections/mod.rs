@@ -56,6 +56,11 @@ pub use unordered_set::UnorderedSet;
 mod lazy_option;
 pub use lazy_option::LazyOption;
 
+#[cfg(feature = "unstable")]
+mod lazy;
+#[cfg(feature = "unstable")]
+pub use lazy::Lazy;
+
 mod tree_map;
 pub use tree_map::TreeMap;
 
