@@ -427,6 +427,8 @@ impl borsh::BorshSerialize for Promise {
     }
 }
 
+#[derive(serde::Serialize)]
+#[serde(untagged)]
 pub enum PromiseOrValue<T> {
     Promise(Promise),
     Value(T),
@@ -450,20 +452,6 @@ where
 impl<T> From<Promise> for PromiseOrValue<T> {
     fn from(promise: Promise) -> Self {
         PromiseOrValue::Promise(promise)
-    }
-}
-
-impl<T: serde::Serialize> serde::Serialize for PromiseOrValue<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            // Only actual value is serialized.
-            PromiseOrValue::Value(x) => x.serialize(serializer),
-            // The promise is dropped to cause env::promise calls.
-            PromiseOrValue::Promise(p) => p.serialize(serializer),
-        }
     }
 }
 
