@@ -1,9 +1,9 @@
 use borsh::BorshSchema;
 use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::rc::Rc;
-use std::{borrow::Borrow, cell::RefCell};
 
 pub enum PromiseAction {
     CreateAccount,
@@ -107,10 +107,8 @@ impl PromiseSingle {
             return *res;
         }
         let promise_index = if let Some(after) = self.after.borrow().as_ref() {
-            println!("THEN: {}", self.account_id);
             crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
         } else {
-            println!("CREATE: {}", self.account_id);
             crate::env::promise_batch_create(&self.account_id)
         };
         let actions_lock = self.actions.borrow();
@@ -479,38 +477,5 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
             // The promise is dropped to cause env::promise calls.
             PromiseOrValue::Promise(_) => Ok(()),
         }
-    }
-}
-
-#[test]
-fn promise_drop() {
-    use crate::testing_env;
-    use crate::{test_utils::VMContextBuilder, VMContext};
-    use std::convert::TryInto;
-
-    fn get_context(is_view: bool) -> VMContext {
-        VMContextBuilder::new()
-            .signer_account_id("bob_near".try_into().unwrap())
-            .is_view(is_view)
-            .build()
-    }
-    let context = get_context(false);
-    testing_env!(context);
-    {
-        let p1 = Promise::new("one.near".try_into().unwrap());
-        let p2 = Promise::new("two.near".try_into().unwrap());
-        let p3 = Promise::new("three.near".try_into().unwrap());
-
-        p1.then(p2).then(p3);
-    }
-
-    println!("~~~~");
-
-    {
-        let p1 = Promise::new("one.near".try_into().unwrap());
-        let p2 = Promise::new("two.near".try_into().unwrap());
-        let p3 = Promise::new("three.near".try_into().unwrap());
-
-        p1.then(p2.then(p3));
     }
 }
