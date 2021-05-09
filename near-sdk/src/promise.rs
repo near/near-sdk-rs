@@ -339,7 +339,7 @@ impl Promise {
     fn queue_after(&mut self, other: Promise) {
         match &mut self.subtype {
             PromiseSubtype::Single(x) => {
-                if let Some(ref mut p) = *x.after.borrow_mut() {
+                if let Some(p) = x.after.borrow_mut().as_mut() {
                     p.queue_after(other);
                     return;
                 }
