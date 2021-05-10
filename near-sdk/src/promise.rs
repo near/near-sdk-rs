@@ -335,21 +335,6 @@ impl Promise {
         }
     }
 
-    /// Helper function for [`Promise::then`] to queue promise after self.
-    fn queue_after(&mut self, other: Promise) {
-        match &mut self.subtype {
-            PromiseSubtype::Single(x) => {
-                if let Some(p) = x.after.borrow_mut().as_mut() {
-                    p.queue_after(other);
-                    return;
-                }
-
-                *x.after.borrow_mut() = Some(other);
-            }
-            PromiseSubtype::Joint(_) => panic!("Cannot callback joint promise."),
-        }
-    }
-
     /// Schedules execution of another promise right after the current promise finish executing.
     ///
     /// In the following code `bob_near` and `dave_near` will be created concurrently. `carol_near`
@@ -365,7 +350,16 @@ impl Promise {
     /// p1.then(p2).and(p3).then(p4);
     /// ```
     pub fn then(self, mut other: Promise) -> Promise {
-        other.queue_after(self);
+        match &mut other.subtype {
+            PromiseSubtype::Single(x) => {
+                let mut after = x.after.borrow_mut();
+                if after.is_some() {
+                    panic!("Cannot callback promise which is already scheduled after another");
+                }
+                *after = Some(self)
+            }
+            PromiseSubtype::Joint(_) => panic!("Cannot callback joint promise."),
+        }
         other
     }
 
