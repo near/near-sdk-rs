@@ -56,7 +56,12 @@ pub struct GenesisConfig {
 
 impl Default for GenesisConfig {
     fn default() -> Self {
-        let runtime_config = RuntimeConfig::default();
+        let runtime_config = RuntimeConfig::from_protocol_version(
+            &Arc::new(RuntimeConfig::default()),
+            PROTOCOL_VERSION,
+        )
+        .as_ref()
+        .clone();
         Self {
             genesis_time: 0,
             gas_price: 100_000_000,
@@ -74,7 +79,7 @@ impl Default for GenesisConfig {
 impl GenesisConfig {
     pub fn init_root_signer(&mut self, account_id: &str) -> InMemorySigner {
         let signer = InMemorySigner::from_seed(account_id, KeyType::ED25519, "test");
-        let root_account = account_new(std::u128::MAX, CryptoHash::default());
+        let root_account = account_new(10u128.pow(33), CryptoHash::default());
 
         self.state_records.push(StateRecord::Account {
             account_id: account_id.to_string(),
@@ -146,12 +151,12 @@ impl Block {
 }
 
 pub struct RuntimeStandalone {
-    genesis: GenesisConfig,
+    pub genesis: GenesisConfig,
     tx_pool: TransactionPool,
     transactions: HashMap<CryptoHash, SignedTransaction>,
     outcomes: HashMap<CryptoHash, ExecutionOutcome>,
     profile: HashMap<CryptoHash, ProfileData>,
-    cur_block: Block,
+    pub cur_block: Block,
     runtime: Runtime,
     tries: ShardTries,
     pending_receipts: Vec<Receipt>,
@@ -268,7 +273,7 @@ impl RuntimeStandalone {
             random_seed: Default::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
-            config: Arc::from(self.genesis.runtime_config.clone()),
+            config: Arc::new(self.genesis.runtime_config.clone()),
             #[cfg(feature = "no_contract_cache")]
             cache: None,
             #[cfg(not(feature = "no_contract_cache"))]
