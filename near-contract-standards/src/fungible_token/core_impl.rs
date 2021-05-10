@@ -61,7 +61,6 @@ pub trait FungibleTokenContract {
 ///     - AccountRegistrar -- interface for an account to register and unregister
 ///
 /// For example usage, see examples/fungible-token/src/lib.rs.
-/// ```
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct FungibleToken {
     /// AccountID -> Account balance.
