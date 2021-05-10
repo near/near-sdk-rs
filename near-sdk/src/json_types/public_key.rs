@@ -1,4 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use bs58::decode::Error as B58Error;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::convert::TryFrom;
@@ -16,18 +17,18 @@ impl TryFrom<String> for CurveType {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse::<Self>()
+        Ok(value.parse::<Self>()?)
     }
 }
 
 impl std::str::FromStr for CurveType {
-    type Err = Box<dyn std::error::Error>;
+    type Err = ParsePublicKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_lowercase().as_str() {
             "ed25519" => Ok(CurveType::ED25519),
             "secp256k1" => Ok(CurveType::SECP256K1),
-            _ => Err("Unknown curve kind".into()),
+            _ => Err(ParsePublicKeyError::UnknownCurve),
         }
     }
 }
@@ -54,7 +55,7 @@ impl std::str::FromStr for CurveType {
 pub struct Base58PublicKey(pub Vec<u8>);
 
 impl Base58PublicKey {
-    fn split_key_type_data(value: &str) -> Result<(CurveType, &str), Box<dyn std::error::Error>> {
+    fn split_key_type_data(value: &str) -> Result<(CurveType, &str), ParsePublicKeyError> {
         if let Some(idx) = value.find(':') {
             let (prefix, key_data) = value.split_at(idx);
             Ok((prefix.parse::<CurveType>()?, &key_data[1..]))
@@ -124,12 +125,12 @@ impl TryFrom<&str> for Base58PublicKey {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        value.parse::<Self>()
+        Ok(value.parse::<Self>()?)
     }
 }
 
 impl std::str::FromStr for Base58PublicKey {
-    type Err = Box<dyn std::error::Error>;
+    type Err = ParsePublicKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let (key_type, key_data) = Base58PublicKey::split_key_type_data(&value)?;
@@ -139,7 +140,7 @@ impl std::str::FromStr for Base58PublicKey {
         };
         let data = bs58::decode(key_data).into_vec()?;
         if data.len() != expected_length {
-            return Err("Invalid length of the public key".into());
+            return Err(ParsePublicKeyError::InvalidLength(data.len()));
         }
         let mut res = Vec::with_capacity(1 + expected_length);
         match key_type {
@@ -150,6 +151,34 @@ impl std::str::FromStr for Base58PublicKey {
         Ok(Self(res))
     }
 }
+
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ParsePublicKeyError {
+    InvalidLength(usize),
+    Base58(B58Error),
+    UnknownCurve,
+}
+
+impl std::fmt::Display for ParsePublicKeyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidLength(l) => {
+                write!(f, "Invalid length of the public key, expected 32 got {}", l)
+            }
+            Self::Base58(e) => write!(f, "Base58 decoding error: {}", e),
+            Self::UnknownCurve => write!(f, "Unknown curve kind"),
+        }
+    }
+}
+
+impl From<B58Error> for ParsePublicKeyError {
+    fn from(e: B58Error) -> Self {
+        Self::Base58(e)
+    }
+}
+
+impl std::error::Error for ParsePublicKeyError {}
 
 #[cfg(test)]
 mod tests {
