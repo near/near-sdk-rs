@@ -1,10 +1,9 @@
 use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
+use bs58::decode::Error as B58Error;
 use serde::{de, ser, Deserialize};
 use std::borrow::Cow;
 use std::convert::TryFrom;
-
-type Error = Box<dyn std::error::Error>;
 
 #[derive(
     Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
@@ -49,7 +48,7 @@ impl From<&Base58CryptoHash> for String {
 }
 
 impl TryFrom<String> for Base58CryptoHash {
-    type Error = Error;
+    type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
@@ -57,22 +56,48 @@ impl TryFrom<String> for Base58CryptoHash {
 }
 
 impl TryFrom<&str> for Base58CryptoHash {
-    type Error = Error;
+    type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        value.parse()
+        Ok(value.parse()?)
     }
 }
 
 impl std::str::FromStr for Base58CryptoHash {
-    type Err = Error;
+    type Err = ParseCryptoHashError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
         let size = bs58::decode(value).into(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
-            return Err("Invalid length of the crypto hash (32)".into());
+            return Err(ParseCryptoHashError::InvalidLength(size));
         }
         Ok(Self(crypto_hash))
     }
 }
+
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ParseCryptoHashError {
+    InvalidLength(usize),
+    Base58(B58Error),
+}
+
+impl std::fmt::Display for ParseCryptoHashError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidLength(l) => {
+                write!(f, "Invalid length of the crypto hash, expected 32 got {}", l)
+            }
+            Self::Base58(e) => write!(f, "Base58 decoding error: {}", e),
+        }
+    }
+}
+
+impl From<B58Error> for ParseCryptoHashError {
+    fn from(e: B58Error) -> Self {
+        Self::Base58(e)
+    }
+}
+
+impl std::error::Error for ParseCryptoHashError {}
