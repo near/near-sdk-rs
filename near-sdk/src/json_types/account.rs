@@ -6,9 +6,6 @@ use std::fmt;
 use crate::env::is_valid_account_id;
 use crate::AccountId;
 
-// TODO: this should probably be a specific error type instead of a string.
-const INVALID_ACCOUNT_ID_MSG: &str = "The account ID is invalid";
-
 /// Helper class to validate account ID during serialization and deserializiation.
 /// This type wraps an [`AccountId`].
 ///
@@ -61,11 +58,11 @@ impl TryFrom<&str> for ValidAccountId {
     }
 }
 
-fn validate_account_id(id: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn validate_account_id(id: &str) -> Result<(), ParseAccountIdError> {
     if is_valid_account_id(id.as_bytes()) {
         Ok(())
     } else {
-        Err(INVALID_ACCOUNT_ID_MSG.into())
+        Err(ParseAccountIdError::InvalidAccountId)
     }
 }
 
@@ -92,6 +89,22 @@ impl From<ValidAccountId> for AccountId {
         value.0
     }
 }
+
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ParseAccountIdError {
+    InvalidAccountId,
+}
+
+impl std::fmt::Display for ParseAccountIdError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidAccountId => write!(f, "The account ID is invalid"),
+        }
+    }
+}
+
+impl std::error::Error for ParseAccountIdError {}
 
 #[cfg(test)]
 mod tests {
