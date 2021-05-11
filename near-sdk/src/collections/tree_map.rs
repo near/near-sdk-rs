@@ -57,7 +57,7 @@ where
     }
 
     pub fn len(&self) -> u64 {
-        self.tree.len() as u64
+        self.tree.len()
     }
 
     pub fn clear(&mut self) {
@@ -144,23 +144,23 @@ where
     }
 
     /// Iterate all entries in ascending order: min to max, both inclusive
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::asc(&self).into_iter()
+    pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::asc(&self)
     }
 
     /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
-    pub fn iter_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::asc_from(&self, key).into_iter()
+    pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::asc_from(&self, key)
     }
 
     /// Iterate all entries in descending order: max to min, both inclusive
-    pub fn iter_rev<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::desc(&self).into_iter()
+    pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::desc(&self)
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
-    pub fn iter_rev_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::desc_from(&self, key).into_iter()
+    pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::desc_from(&self, key)
     }
 
     /// Iterate entries in ascending order according to specified bounds.
@@ -169,7 +169,7 @@ where
     ///
     /// Panics if range start > end.
     /// Panics if range start == end and both bounds are Excluded.
-    pub fn range<'a>(&'a self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + 'a {
+    pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Excluded(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
@@ -178,9 +178,11 @@ where
             (lo, hi) => (lo, hi),
         };
 
-        Cursor::range(&self, lo, hi).into_iter()
+        Cursor::range(&self, lo, hi)
     }
 
+    /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`TreeMap`].
+    /// This function collects elements from [`TreeMap::iter`].
     pub fn to_vec(&self) -> Vec<(K, V)> {
         self.iter().collect()
     }
@@ -196,7 +198,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.lft) {
+            match node.as_ref().and_then(|n| n.lft) {
                 Some(lft) => {
                     at = lft;
                     parent = node;
@@ -215,7 +217,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.rgt) {
+            match node.as_ref().and_then(|n| n.rgt) {
                 Some(rgt) => {
                     parent = node;
                     at = rgt;
@@ -231,7 +233,7 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.le(key) {
                         match node.and_then(|n| n.rgt) {
@@ -239,7 +241,7 @@ where
                             None => break,
                         }
                     } else {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break,
@@ -256,10 +258,10 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.lt(key) {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break,
@@ -390,30 +392,25 @@ where
     // For root node, same node is returned for node and parent node.
     fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
         let mut p: Node<K> = self.node(at).unwrap();
-        loop {
-            match self.node(at) {
-                Some(node) => {
-                    if node.key.eq(key) {
-                        return Some((node, p));
-                    } else if node.key.lt(key) {
-                        match node.rgt {
-                            Some(rgt) => {
-                                p = node;
-                                at = rgt;
-                            }
-                            None => break,
-                        }
-                    } else {
-                        match node.lft {
-                            Some(lft) => {
-                                p = node;
-                                at = lft;
-                            }
-                            None => break,
-                        }
+        while let Some(node) = self.node(at) {
+            if node.key.eq(key) {
+                return Some((node, p));
+            } else if node.key.lt(key) {
+                match node.rgt {
+                    Some(rgt) => {
+                        p = node;
+                        at = rgt;
                     }
+                    None => break,
                 }
-                None => break,
+            } else {
+                match node.lft {
+                    Some(lft) => {
+                        p = node;
+                        at = lft;
+                    }
+                    None => break,
+                }
             }
         }
         None
@@ -429,21 +426,13 @@ where
                     self.enforce_balance(&mut node)
                 } else {
                     if node.key.gt(key) {
-                        match node.lft {
-                            Some(l) => {
-                                let id = self.check_balance(l, key);
-                                node.lft = Some(id);
-                            }
-                            None => (),
+                        if let Some(l) = node.lft {
+                            let id = self.check_balance(l, key);
+                            node.lft = Some(id);
                         }
-                    } else {
-                        match node.rgt {
-                            Some(r) => {
-                                let id = self.check_balance(r, key);
-                                node.rgt = Some(id);
-                            }
-                            None => (),
-                        }
+                    } else if let Some(r) = node.rgt {
+                        let id = self.check_balance(r, key);
+                        node.rgt = Some(id);
                     }
                     self.update_height(&mut node);
                     self.enforce_balance(&mut node)
@@ -498,7 +487,7 @@ where
                 let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
                 let k = n.key.clone();
 
-                if p.rgt.clone().map(|id| id == n.id).unwrap_or_default() {
+                if p.rgt.as_ref().map(|&id| id == n.id).unwrap_or_default() {
                     // n is on right link of p
                     p.rgt = n.lft;
                 } else {
