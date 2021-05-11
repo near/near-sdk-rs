@@ -1,5 +1,7 @@
 use near_primitives_core::hash::CryptoHash;
 
+pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
+
 //* Type aliases from near_primitives_core
 
 /// Account identifier. Provides access to user's state.
