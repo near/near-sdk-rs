@@ -175,7 +175,7 @@ where
             (Bound::Included(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Excluded(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Included(a), Bound::Excluded(b)) if a > b => panic!("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a == b => panic!("Invalid range."),
+            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => panic!("Invalid range."),
             (lo, hi) => (lo, hi),
         };
 
@@ -1564,6 +1564,14 @@ mod tests {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_excl_excl() {
+        test_env::setup();
+        let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
+        let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
     }
 
     #[test]
