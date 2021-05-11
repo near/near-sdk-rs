@@ -70,33 +70,39 @@ impl std::str::FromStr for Base58CryptoHash {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
         let size = bs58::decode(value).into(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
-            return Err(ParseCryptoHashError::InvalidLength(size));
+            return Err(ParseCryptoHashError {
+                kind: ParseCryptoHashErrorKind::InvalidLength(size),
+            });
         }
         Ok(Self(crypto_hash))
     }
 }
 
-#[non_exhaustive]
 #[derive(Debug)]
-pub enum ParseCryptoHashError {
+pub struct ParseCryptoHashError {
+    kind: ParseCryptoHashErrorKind,
+}
+
+#[derive(Debug)]
+enum ParseCryptoHashErrorKind {
     InvalidLength(usize),
     Base58(B58Error),
 }
 
 impl std::fmt::Display for ParseCryptoHashError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidLength(l) => {
+        match self.kind {
+            ParseCryptoHashErrorKind::InvalidLength(l) => {
                 write!(f, "Invalid length of the crypto hash, expected 32 got {}", l)
             }
-            Self::Base58(e) => write!(f, "Base58 decoding error: {}", e),
+            ParseCryptoHashErrorKind::Base58(e) => write!(f, "Base58 decoding error: {}", e),
         }
     }
 }
 
 impl From<B58Error> for ParseCryptoHashError {
     fn from(e: B58Error) -> Self {
-        Self::Base58(e)
+        Self { kind: ParseCryptoHashErrorKind::Base58(e) }
     }
 }
 
