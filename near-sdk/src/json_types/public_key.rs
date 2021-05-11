@@ -28,7 +28,7 @@ impl std::str::FromStr for CurveType {
         match value.to_lowercase().as_str() {
             "ed25519" => Ok(CurveType::ED25519),
             "secp256k1" => Ok(CurveType::SECP256K1),
-            _ => Err(ParsePublicKeyError::UnknownCurve),
+            _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
         }
     }
 }
@@ -140,7 +140,9 @@ impl std::str::FromStr for Base58PublicKey {
         };
         let data = bs58::decode(key_data).into_vec()?;
         if data.len() != expected_length {
-            return Err(ParsePublicKeyError::InvalidLength(data.len()));
+            return Err(ParsePublicKeyError {
+                kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
+            });
         }
         let mut res = Vec::with_capacity(1 + expected_length);
         match key_type {
@@ -152,9 +154,13 @@ impl std::str::FromStr for Base58PublicKey {
     }
 }
 
-#[non_exhaustive]
 #[derive(Debug)]
-pub enum ParsePublicKeyError {
+pub struct ParsePublicKeyError {
+    kind: ParsePublicKeyErrorKind,
+}
+
+#[derive(Debug)]
+enum ParsePublicKeyErrorKind {
     InvalidLength(usize),
     Base58(B58Error),
     UnknownCurve,
@@ -162,19 +168,19 @@ pub enum ParsePublicKeyError {
 
 impl std::fmt::Display for ParsePublicKeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidLength(l) => {
+        match self.kind {
+            ParsePublicKeyErrorKind::InvalidLength(l) => {
                 write!(f, "Invalid length of the public key, expected 32 got {}", l)
             }
-            Self::Base58(e) => write!(f, "Base58 decoding error: {}", e),
-            Self::UnknownCurve => write!(f, "Unknown curve kind"),
+            ParsePublicKeyErrorKind::Base58(e) => write!(f, "Base58 decoding error: {}", e),
+            ParsePublicKeyErrorKind::UnknownCurve => write!(f, "Unknown curve kind"),
         }
     }
 }
 
 impl From<B58Error> for ParsePublicKeyError {
     fn from(e: B58Error) -> Self {
-        Self::Base58(e)
+        Self { kind: ParsePublicKeyErrorKind::Base58(e) }
     }
 }
 
