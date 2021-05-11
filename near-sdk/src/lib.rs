@@ -23,7 +23,7 @@ pub use crate::types::*;
 
 pub use environment::mocked_blockchain::MockedBlockchain;
 pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
-pub use near_vm_logic::types::*;
+// pub use near_vm_logic::types::*;
 pub use near_vm_logic::VMConfig;
 pub use near_vm_logic::VMContext;
 
