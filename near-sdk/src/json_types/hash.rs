@@ -1,6 +1,9 @@
 use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::convert::{TryFrom, TryInto};
+use bs58::decode::Error as B58Error;
+use serde::{de, ser, Deserialize};
+use std::borrow::Cow;
+use std::convert::TryFrom;
 
 #[derive(
     Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
@@ -19,26 +22,22 @@ impl From<CryptoHash> for Base58CryptoHash {
     }
 }
 
-impl serde::Serialize for Base58CryptoHash {
-    fn serialize<S>(
-        &self,
-        serializer: S,
-    ) -> Result<<S as serde::Serializer>::Ok, <S as serde::Serializer>::Error>
+impl ser::Serialize for Base58CryptoHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: ser::Serializer,
     {
         serializer.serialize_str(&String::from(self))
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Base58CryptoHash {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as serde::Deserializer<'de>>::Error>
+impl<'de> de::Deserialize<'de> for Base58CryptoHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: de::Deserializer<'de>,
     {
-        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
-        s.try_into()
-            .map_err(|err: Box<dyn std::error::Error>| serde::de::Error::custom(err.to_string()))
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        s.parse::<Self>().map_err(|err| de::Error::custom(err.to_string()))
     }
 }
 
@@ -60,11 +59,45 @@ impl TryFrom<&str> for Base58CryptoHash {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(value.parse()?)
+    }
+}
+
+impl std::str::FromStr for Base58CryptoHash {
+    type Err = ParseCryptoHashError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
         let size = bs58::decode(value).into(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
-            return Err("Invalid length of the crypto hash (32)".into());
+            return Err(ParseCryptoHashError::InvalidLength(size));
         }
         Ok(Self(crypto_hash))
     }
 }
+
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ParseCryptoHashError {
+    InvalidLength(usize),
+    Base58(B58Error),
+}
+
+impl std::fmt::Display for ParseCryptoHashError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidLength(l) => {
+                write!(f, "Invalid length of the crypto hash, expected 32 got {}", l)
+            }
+            Self::Base58(e) => write!(f, "Base58 decoding error: {}", e),
+        }
+    }
+}
+
+impl From<B58Error> for ParseCryptoHashError {
+    fn from(e: B58Error) -> Self {
+        Self::Base58(e)
+    }
+}
+
+impl std::error::Error for ParseCryptoHashError {}
