@@ -153,7 +153,7 @@ where
     }
 
     /// Iterate over deserialized elements.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = T> + '_ {
         self.elements.iter()
     }
 

@@ -12,6 +12,10 @@ const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
 const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
 
+fn expect_consistent_state<T>(val: Option<T>) -> T {
+    val.unwrap_or_else(|| env::panic(ERR_INCONSISTENT_STATE))
+}
+
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -52,10 +56,7 @@ impl<T> Vector<T> {
             return None;
         }
         let lookup_key = self.index_to_lookup_key(index);
-        match env::storage_read(&lookup_key) {
-            Some(raw_element) => Some(raw_element),
-            None => env::panic(ERR_INCONSISTENT_STATE),
-        }
+        Some(expect_consistent_state(env::storage_read(&lookup_key)))
     }
 
     /// Removes an element from the vector and returns it in serialized form.
@@ -69,18 +70,12 @@ impl<T> Vector<T> {
         if index >= self.len {
             env::panic(ERR_INDEX_OUT_OF_BOUNDS)
         } else if index + 1 == self.len {
-            match self.pop_raw() {
-                Some(x) => x,
-                None => env::panic(ERR_INCONSISTENT_STATE),
-            }
+            expect_consistent_state(self.pop_raw())
         } else {
             let lookup_key = self.index_to_lookup_key(index);
             let raw_last_value = self.pop_raw().expect("checked `index < len` above, so `len > 0`");
             if env::storage_write(&lookup_key, &raw_last_value) {
-                match env::storage_get_evicted() {
-                    Some(x) => x,
-                    None => env::panic(ERR_INCONSISTENT_STATE),
-                }
+                expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic(ERR_INCONSISTENT_STATE)
             }
@@ -104,10 +99,7 @@ impl<T> Vector<T> {
 
             self.len -= 1;
             let raw_last_value = if env::storage_remove(&last_lookup_key) {
-                match env::storage_get_evicted() {
-                    Some(x) => x,
-                    None => env::panic(ERR_INCONSISTENT_STATE),
-                }
+                expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic(ERR_INCONSISTENT_STATE)
             };
@@ -126,10 +118,7 @@ impl<T> Vector<T> {
         } else {
             let lookup_key = self.index_to_lookup_key(index);
             if env::storage_write(&lookup_key, &raw_element) {
-                match env::storage_get_evicted() {
-                    Some(x) => x,
-                    None => env::panic(ERR_INCONSISTENT_STATE),
-                }
+                expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic(ERR_INCONSISTENT_STATE);
             }
@@ -137,13 +126,10 @@ impl<T> Vector<T> {
     }
 
     /// Iterate over raw serialized elements.
-    pub fn iter_raw<'a>(&'a self) -> impl Iterator<Item = Vec<u8>> + 'a {
+    pub fn iter_raw(&self) -> impl Iterator<Item = Vec<u8>> + '_ {
         (0..self.len).map(move |i| {
             let lookup_key = self.index_to_lookup_key(i);
-            match env::storage_read(&lookup_key) {
-                Some(x) => x,
-                None => env::panic(ERR_INCONSISTENT_STATE),
-            }
+            expect_consistent_state(env::storage_read(&lookup_key))
         })
     }
 
@@ -171,10 +157,7 @@ where
     T: BorshSerialize,
 {
     fn serialize_element(element: &T) -> Vec<u8> {
-        match element.try_to_vec() {
-            Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
-        }
+        element.try_to_vec().unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
     }
 
     /// Appends an element to the back of the collection.
@@ -196,10 +179,7 @@ where
     T: BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
-        match T::try_from_slice(&raw_element) {
-            Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_DESERIALIZATION),
-        }
+        T::try_from_slice(&raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
     }
 
     /// Returns the element by index or `None` if it is not present.
@@ -225,7 +205,7 @@ where
     }
 
     /// Iterate over deserialized elements.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = T> + '_ {
         self.iter_raw().map(|raw_element| Self::deserialize_element(&raw_element))
     }
 
