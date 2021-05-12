@@ -30,7 +30,7 @@ near-primitives-core = "=0.4.0"
 wee_alloc = { version = "0.4.5", default-features = false, features = [] }
 
 # Used for caching, might be worth porting only functionality needed.
-once_cell = { version = "1.7.2", optional = true }
+once_cell = { version = "1.7.2", optional = true, default-features = false }
 
 [dev-dependencies]
 rand = "0.7.2"
