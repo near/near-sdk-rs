@@ -170,10 +170,10 @@ impl std::fmt::Display for ParsePublicKeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
             ParsePublicKeyErrorKind::InvalidLength(l) => {
-                write!(f, "Invalid length of the public key, expected 32 got {}", l)
+                write!(f, "invalid length of the public key, expected 32 got {}", l)
             }
-            ParsePublicKeyErrorKind::Base58(e) => write!(f, "Base58 decoding error: {}", e),
-            ParsePublicKeyErrorKind::UnknownCurve => write!(f, "Unknown curve kind"),
+            ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {}", e),
+            ParsePublicKeyErrorKind::UnknownCurve => write!(f, "unknown curve kind"),
         }
     }
 }

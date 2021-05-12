@@ -103,7 +103,7 @@ enum ParseAccountIdErrorKind {
 impl std::fmt::Display for ParseAccountIdError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
-            ParseAccountIdErrorKind::InvalidAccountId => write!(f, "The account ID is invalid"),
+            ParseAccountIdErrorKind::InvalidAccountId => write!(f, "the account ID is invalid"),
         }
     }
 }

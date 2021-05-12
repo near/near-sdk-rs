@@ -93,9 +93,9 @@ impl std::fmt::Display for ParseCryptoHashError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
             ParseCryptoHashErrorKind::InvalidLength(l) => {
-                write!(f, "Invalid length of the crypto hash, expected 32 got {}", l)
+                write!(f, "invalid length of the crypto hash, expected 32 got {}", l)
             }
-            ParseCryptoHashErrorKind::Base58(e) => write!(f, "Base58 decoding error: {}", e),
+            ParseCryptoHashErrorKind::Base58(e) => write!(f, "base58 decoding error: {}", e),
         }
     }
 }
