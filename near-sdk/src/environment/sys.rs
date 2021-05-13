@@ -198,7 +198,7 @@ mod mock_chain {
     }
     #[no_mangle]
     extern "C" fn storage_usage() -> u64 {
-        todo!()
+        with_mock_interface(|b| unsafe { b.storage_usage() })
     }
     #[no_mangle]
     extern "C" fn account_balance(balance_ptr: u64) {
