@@ -8,7 +8,7 @@ pub use near_sdk_macros::{
 
 pub mod collections;
 mod environment;
-pub use environment::env;
+pub use environment::{env, sys};
 
 mod promise;
 pub use promise::{Promise, PromiseOrValue};
