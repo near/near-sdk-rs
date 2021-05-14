@@ -3,6 +3,7 @@ use crate::types::{AccountId, Balance, PromiseResult};
 use crate::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
+use near_vm_logic::types::PromiseResult as VmPromiseResult;
 use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic, VMOutcome};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -23,7 +24,7 @@ struct LogicFixture {
     ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
     #[allow(clippy::box_vec)]
-    promise_results: Box<Vec<PromiseResult>>,
+    promise_results: Box<Vec<VmPromiseResult>>,
     config: Box<VMConfig>,
     fees_config: Box<RuntimeFeesConfig>,
 }
@@ -42,7 +43,7 @@ impl MockedBlockchain {
         ext.fake_trie = storage;
         ext.validators = validators;
         let memory = memory_opt.unwrap_or(Box::new(MockedMemory {}));
-        let promise_results = Box::new(promise_results);
+        let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
 
@@ -54,7 +55,7 @@ impl MockedBlockchain {
                 context,
                 &*(logic_fixture.config.as_mut() as *const VMConfig),
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
-                &*(logic_fixture.promise_results.as_ref().as_slice() as *const [PromiseResult]),
+                &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
                 Default::default(),
                 u32::MAX,
