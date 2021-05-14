@@ -62,7 +62,7 @@ fn validate_account_id(id: &str) -> Result<(), ParseAccountIdError> {
     if is_valid_account_id(id.as_bytes()) {
         Ok(())
     } else {
-        Err(ParseAccountIdError::InvalidAccountId)
+        Err(ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidAccountId })
     }
 }
 
@@ -90,16 +90,20 @@ impl From<ValidAccountId> for AccountId {
     }
 }
 
-#[non_exhaustive]
 #[derive(Debug)]
-pub enum ParseAccountIdError {
+pub struct ParseAccountIdError {
+    kind: ParseAccountIdErrorKind,
+}
+
+#[derive(Debug)]
+enum ParseAccountIdErrorKind {
     InvalidAccountId,
 }
 
 impl std::fmt::Display for ParseAccountIdError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidAccountId => write!(f, "The account ID is invalid"),
+        match self.kind {
+            ParseAccountIdErrorKind::InvalidAccountId => write!(f, "the account ID is invalid"),
         }
     }
 }
