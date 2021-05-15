@@ -1,3 +1,9 @@
+mod vm_types;
+pub use self::vm_types::*;
+
+mod primitives;
+pub use self::primitives::*;
+
 /// Raw type for duration in nanoseconds
 pub type Duration = u64;
 
