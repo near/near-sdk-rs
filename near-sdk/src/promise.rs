@@ -1,9 +1,10 @@
 use borsh::BorshSchema;
-use near_vm_logic::types::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::rc::Rc;
+
+use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 
 pub enum PromiseAction {
     CreateAccount,
