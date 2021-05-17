@@ -418,6 +418,18 @@ impl serde::Serialize for Promise {
     }
 }
 
+impl borsh::BorshSerialize for Promise {
+    fn serialize<W: Write>(&self, _writer: &mut W) -> Result<(), Error> {
+        *self.should_return.borrow_mut() = true;
+
+        // Intentionally no bytes written for the promise, the return value from the promise
+        // will be considered as the return value from the contract call.
+        Ok(())
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(untagged)]
 pub enum PromiseOrValue<T> {
     Promise(Promise),
     Value(T),
@@ -440,21 +452,7 @@ where
 
 impl<T> From<Promise> for PromiseOrValue<T> {
     fn from(promise: Promise) -> Self {
-        PromiseOrValue::Promise(promise.as_return())
-    }
-}
-
-impl<T: serde::Serialize> serde::Serialize for PromiseOrValue<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            // Only actual value is serialized.
-            PromiseOrValue::Value(x) => x.serialize(serializer),
-            // The promise is dropped to cause env::promise calls.
-            PromiseOrValue::Promise(_) => serializer.serialize_unit(),
-        }
+        PromiseOrValue::Promise(promise)
     }
 }
 
@@ -464,7 +462,7 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
             // Only actual value is serialized.
             PromiseOrValue::Value(x) => x.serialize(writer),
             // The promise is dropped to cause env::promise calls.
-            PromiseOrValue::Promise(_) => Ok(()),
+            PromiseOrValue::Promise(p) => p.serialize(writer),
         }
     }
 }

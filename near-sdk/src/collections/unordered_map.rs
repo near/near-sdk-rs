@@ -207,17 +207,17 @@ where
     }
 
     /// An iterator visiting all keys. The iterator element type is `K`.
-    pub fn keys<'a>(&'a self) -> impl Iterator<Item = K> + 'a {
+    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
         self.keys.iter()
     }
 
     /// An iterator visiting all values. The iterator element type is `V`.
-    pub fn values<'a>(&'a self) -> impl Iterator<Item = V> + 'a {
+    pub fn values(&self) -> impl Iterator<Item = V> + '_ {
         self.values.iter()
     }
 
     /// Iterate over deserialized keys and values.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
         self.keys.iter().zip(self.values.iter())
     }
 
