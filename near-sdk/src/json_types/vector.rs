@@ -1,10 +1,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
-#[derive(Debug, Clone, PartialEq, BorshDeserialize, BorshSerialize)]
-pub struct Base64VecU8(pub Vec<u8>);
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+pub struct Base64VecU8(#[serde(with = "base64_bytes")] pub Vec<u8>);
 
 impl From<Vec<u8>> for Base64VecU8 {
     fn from(v: Vec<u8>) -> Self {
@@ -18,22 +17,37 @@ impl From<Base64VecU8> for Vec<u8> {
     }
 }
 
-impl Serialize for Base64VecU8 {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+/// Convenience module to allow anotating a serde structure as base64 bytes.
+///
+/// # Example
+/// ```ignore
+/// use serde::{Serialize, Deserialize};
+/// use near_sdk::json_types::base64_bytes;
+///
+/// #[derive(Serialize, Deserialize)]
+/// struct NewStruct {
+///     #[serde(with = "base64_bytes")]
+///     field: Vec<u8>,
+/// }
+/// ```
+mod base64_bytes {
+    use super::*;
+    use serde::de;
+    use std::borrow::Cow;
+
+    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&base64::encode(&self.0))
+        serializer.serialize_str(&base64::encode(&bytes))
     }
-}
 
-impl<'de> Deserialize<'de> for Base64VecU8 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
-        base64::decode(&s).map_err(|err| Error::custom(err.to_string())).map(Self)
+        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        base64::decode(s.as_ref()).map_err(de::Error::custom)
     }
 }
 

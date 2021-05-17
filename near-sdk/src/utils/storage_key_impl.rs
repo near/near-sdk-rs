@@ -1,7 +1,10 @@
 use borsh::BorshSerialize;
 
-/// Converts Self into a `Vec<u8>` that is used for a storage key.
+/// Converts Self into a [`Vec<u8>`] that is used for a storage key through [`into_storage_key`].
+///
+/// [`into_storage_key`]: IntoStorageKey::into_storage_key
 pub trait IntoStorageKey {
+    /// Consumes self and returns [`Vec<u8>`] bytes which are used as a storage key.
     fn into_storage_key(self) -> Vec<u8>;
 }
 

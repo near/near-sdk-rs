@@ -7,6 +7,30 @@ pub(crate) use cache_entry::{CacheEntry, EntryState};
 
 use crate::{env, AccountId, PromiseResult};
 
+/// Helper macro to log a message through [`env::log`].
+/// This macro can be used similar to the [`std::format`] macro in most cases.
+///
+/// This differs from [`std::format`] because instead of generating a string, it will log the utf8
+/// bytes as a log through the [`BlockchainInterface`].
+///
+/// The logged message will get persisted on chain.
+///
+/// # Example use
+///
+/// ```no_run
+/// use near_sdk::log;
+///
+/// # fn main() {
+/// log!("test");
+/// let world: &str = "world";
+/// log!(world);
+/// log!("Hello {}", world);
+/// log!("x = {}, y = {y}", 10, y = 30);
+/// # }
+/// ```
+///
+/// [`env::log`]: crate::env::log
+/// [`BlockchainInterface`]: crate::BlockchainInterface
 #[macro_export]
 macro_rules! log {
     ($arg:tt) => {
@@ -68,6 +92,9 @@ impl PendingContractTx {
 }
 
 /// Boilerplate for setting up allocator used in Wasm binary.
+/// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
+///
+/// [GlobalAllocator]: std::alloc::GlobalAlloc
 #[macro_export]
 macro_rules! setup_alloc {
     () => {
