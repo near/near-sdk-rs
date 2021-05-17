@@ -8,7 +8,10 @@ pub use near_sdk_macros::{
 
 pub mod collections;
 mod environment;
-pub use environment::{env, sys};
+pub use environment::env;
+
+#[cfg(feature = "unstable")]
+pub use environment::sys;
 
 mod promise;
 pub use promise::{Promise, PromiseOrValue};
