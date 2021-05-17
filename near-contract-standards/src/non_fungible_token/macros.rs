@@ -50,14 +50,14 @@ macro_rules! impl_non_fungible_token_core {
                 &mut self,
                 previous_owner_id: AccountId,
                 receiver_id: AccountId,
-                approved_account_ids: Option<HashMap<AccountId, u64>>,
                 token_id: TokenId,
+                approved_account_ids: Option<HashMap<AccountId, u64>>
             ) -> bool {
                 self.$token.nft_resolve_transfer(
                     previous_owner_id,
                     receiver_id,
-                    approved_account_ids,
                     token_id,
+                    approved_account_ids,
                 )
             }
         }
