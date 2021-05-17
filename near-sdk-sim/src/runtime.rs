@@ -22,11 +22,13 @@ use near_primitives::types::{
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
 use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
+use near_sdk::Duration;
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
 
 const DEFAULT_EPOCH_LENGTH: u64 = 3;
+const DEFAULT_BLOCK_PROD_TIME: Duration = 1_000_000_000;
 
 pub fn init_runtime(
     genesis_config: Option<GenesisConfig>,
@@ -46,6 +48,7 @@ pub struct GenesisConfig {
     pub gas_limit: Gas,
     pub genesis_height: u64,
     pub epoch_length: u64,
+    pub block_prod_time: Duration,
     pub runtime_config: RuntimeConfig,
     pub state_records: Vec<StateRecord>,
     pub validators: Vec<AccountInfo>,
@@ -53,13 +56,19 @@ pub struct GenesisConfig {
 
 impl Default for GenesisConfig {
     fn default() -> Self {
-        let runtime_config = RuntimeConfig::default();
+        let runtime_config = RuntimeConfig::from_protocol_version(
+            &Arc::new(RuntimeConfig::default()),
+            PROTOCOL_VERSION,
+        )
+        .as_ref()
+        .clone();
         Self {
             genesis_time: 0,
             gas_price: 100_000_000,
             gas_limit: runtime_config.wasm_config.limit_config.max_total_prepaid_gas,
             genesis_height: 0,
             epoch_length: DEFAULT_EPOCH_LENGTH,
+            block_prod_time: DEFAULT_BLOCK_PROD_TIME,
             runtime_config,
             state_records: vec![],
             validators: vec![],
@@ -70,7 +79,7 @@ impl Default for GenesisConfig {
 impl GenesisConfig {
     pub fn init_root_signer(&mut self, account_id: &str) -> InMemorySigner {
         let signer = InMemorySigner::from_seed(account_id, KeyType::ED25519, "test");
-        let root_account = account_new(std::u128::MAX, CryptoHash::default());
+        let root_account = account_new(10u128.pow(33), CryptoHash::default());
 
         self.state_records.push(StateRecord::Account {
             account_id: account_id.to_string(),
@@ -87,7 +96,7 @@ impl GenesisConfig {
 
 #[derive(Debug, Default, Clone)]
 pub struct Block {
-    prev_block: Option<Box<Block>>,
+    prev_block: Option<Arc<Block>>,
     state_root: CryptoHash,
     gas_burnt: Gas,
     pub epoch_height: EpochHeight,
@@ -95,6 +104,17 @@ pub struct Block {
     pub block_timestamp: u64,
     pub gas_price: Balance,
     pub gas_limit: Gas,
+}
+
+impl Drop for Block {
+    fn drop(&mut self) {
+        // Blocks form a liked list, so the generated recursive drop overflows
+        // the stack. Let's use an explicit loop to avoid that.
+        let mut curr = self.prev_block.take();
+        while let Some(mut next) = curr.and_then(|it| Arc::try_unwrap(it).ok()) {
+            curr = next.prev_block.take();
+        }
+    }
 }
 
 impl Block {
@@ -111,12 +131,17 @@ impl Block {
         }
     }
 
-    pub fn produce(&self, new_state_root: CryptoHash, epoch_length: u64) -> Block {
+    fn produce(
+        &self,
+        new_state_root: CryptoHash,
+        epoch_length: u64,
+        block_prod_time: Duration,
+    ) -> Block {
         Self {
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
-            block_timestamp: self.block_timestamp + 1_000_000_000,
-            prev_block: Some(Box::new(self.clone())),
+            block_timestamp: self.block_timestamp + block_prod_time,
+            prev_block: Some(Arc::new(self.clone())),
             state_root: new_state_root,
             block_height: self.block_height + 1,
             epoch_height: (self.block_height + 1) / epoch_length,
@@ -126,12 +151,12 @@ impl Block {
 }
 
 pub struct RuntimeStandalone {
-    genesis: GenesisConfig,
+    pub genesis: GenesisConfig,
     tx_pool: TransactionPool,
     transactions: HashMap<CryptoHash, SignedTransaction>,
     outcomes: HashMap<CryptoHash, ExecutionOutcome>,
     profile: HashMap<CryptoHash, ProfileData>,
-    cur_block: Block,
+    pub cur_block: Block,
     runtime: Runtime,
     tries: ShardTries,
     pending_receipts: Vec<Receipt>,
@@ -248,7 +273,7 @@ impl RuntimeStandalone {
             random_seed: Default::default(),
             epoch_id: EpochId::default(),
             current_protocol_version: PROTOCOL_VERSION,
-            config: Arc::from(self.genesis.runtime_config.clone()),
+            config: Arc::new(self.genesis.runtime_config.clone()),
             #[cfg(feature = "no_contract_cache")]
             cache: None,
             #[cfg(not(feature = "no_contract_cache"))]
@@ -275,7 +300,11 @@ impl RuntimeStandalone {
         let (update, _) =
             self.tries.apply_all(&apply_result.trie_changes, 0).expect("Unexpected Storage error");
         update.commit().expect("Unexpected io error");
-        self.cur_block = self.cur_block.produce(apply_result.state_root, self.genesis.epoch_length);
+        self.cur_block = self.cur_block.produce(
+            apply_result.state_root,
+            self.genesis.epoch_length,
+            self.genesis.block_prod_time,
+        );
 
         Ok(())
     }
@@ -516,5 +545,11 @@ mod tests {
         bob_account.locked = 10000;
         runtime.force_account_update("root".into(), &bob_account);
         assert_eq!(runtime.view_account(&"root").unwrap().locked, 10000);
+    }
+
+    #[test]
+    fn can_produce_many_blocks_without_stack_overflow() {
+        let (mut runtime, _signer, _) = init_runtime(None);
+        runtime.produce_blocks(20_000).unwrap();
     }
 }

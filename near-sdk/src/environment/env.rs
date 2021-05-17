@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::mem::size_of;
 use std::panic as std_panic;
 
-use near_vm_logic::types::{
+use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 
