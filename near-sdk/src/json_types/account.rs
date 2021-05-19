@@ -1,21 +1,28 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::Serialize;
-use std::convert::{TryFrom, TryInto};
+use serde::{de, Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::fmt;
 
 use crate::env::is_valid_account_id;
 use crate::AccountId;
 
-/// Helper class to validate account ID during serialization and deserializiation
+/// Helper class to validate account ID during serialization and deserializiation.
+/// This type wraps an [`AccountId`].
+///
+/// # Example
+/// ```
+/// use near_sdk::AccountId;
+/// use near_sdk::json_types::ValidAccountId;
+///
+/// let id: AccountId = "bob.near".to_string();
+/// let validated: ValidAccountId = id.parse().unwrap();
+/// ```
 #[derive(
     Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Serialize,
 )]
 pub struct ValidAccountId(AccountId);
 
 impl ValidAccountId {
-    fn is_valid(&self) -> bool {
-        is_valid_account_id(&self.0.as_bytes())
-    }
     pub fn to_string(&self) -> String {
         self.0.clone()
     }
@@ -33,14 +40,13 @@ impl AsRef<AccountId> for ValidAccountId {
     }
 }
 
-impl<'de> serde::Deserialize<'de> for ValidAccountId {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as serde::Deserializer<'de>>::Error>
+impl<'de> Deserialize<'de> for ValidAccountId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as de::Deserializer<'de>>::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: de::Deserializer<'de>,
     {
-        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
-        s.try_into()
-            .map_err(|err: Box<dyn std::error::Error>| serde::de::Error::custom(err.to_string()))
+        let s: String = Deserialize::deserialize(deserializer)?;
+        Self::try_from(s).map_err(de::Error::custom)
     }
 }
 
@@ -48,7 +54,15 @@ impl TryFrom<&str> for ValidAccountId {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::try_from(value.to_string())
+        value.parse()
+    }
+}
+
+fn validate_account_id(id: &str) -> Result<(), ParseAccountIdError> {
+    if is_valid_account_id(id.as_bytes()) {
+        Ok(())
+    } else {
+        Err(ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidAccountId })
     }
 }
 
@@ -56,12 +70,17 @@ impl TryFrom<String> for ValidAccountId {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let res = Self(value);
-        if res.is_valid() {
-            Ok(res)
-        } else {
-            Err("The account ID is invalid".into())
-        }
+        validate_account_id(value.as_str())?;
+        Ok(Self(value))
+    }
+}
+
+impl std::str::FromStr for ValidAccountId {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        validate_account_id(value)?;
+        Ok(Self(value.to_string()))
     }
 }
 
@@ -71,10 +90,29 @@ impl From<ValidAccountId> for AccountId {
     }
 }
 
+#[derive(Debug)]
+pub struct ParseAccountIdError {
+    kind: ParseAccountIdErrorKind,
+}
+
+#[derive(Debug)]
+enum ParseAccountIdErrorKind {
+    InvalidAccountId,
+}
+
+impl std::fmt::Display for ParseAccountIdError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            ParseAccountIdErrorKind::InvalidAccountId => write!(f, "the account ID is invalid"),
+        }
+    }
+}
+
+impl std::error::Error for ParseAccountIdError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn test_deser() {
@@ -87,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_ser() {
-        let key: ValidAccountId = "alice.near".try_into().unwrap();
+        let key: ValidAccountId = "alice.near".parse().unwrap();
         let actual: String = serde_json::to_string(&key).unwrap();
         assert_eq!(actual, "\"alice.near\"");
     }

@@ -6,6 +6,9 @@ pub use near_sdk_macros::{
     serializer, BorshStorageKey, PanicOnDefault,
 };
 
+#[cfg(feature = "unstable")]
+pub mod store;
+
 pub mod collections;
 mod environment;
 pub use environment::env;
@@ -22,8 +25,6 @@ mod types;
 pub use crate::types::*;
 
 pub use environment::mocked_blockchain::MockedBlockchain;
-pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
-pub use near_vm_logic::types::*;
 pub use near_vm_logic::VMConfig;
 pub use near_vm_logic::VMContext;
 

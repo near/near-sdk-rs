@@ -1,5 +1,4 @@
-#[derive(Clone)]
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
+#[derive(Clone, Debug)]
 pub(crate) struct CacheEntry<T> {
     value: Option<T>,
     state: EntryState,
@@ -62,8 +61,7 @@ impl<T> CacheEntry<T> {
     }
 }
 
-#[derive(Copy, Clone)]
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
+#[derive(Copy, Clone, Debug)]
 pub(crate) enum EntryState {
     Modified,
     Cached,
