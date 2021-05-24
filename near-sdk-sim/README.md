@@ -224,7 +224,7 @@ pub fn init() -> (UserAccount, ContractAccount<TokenContract>, UserAccount) {
         contract: TokenContract,
         contract_id: CONTRACT_ID,
         bytes: &CONTRACT_WASM_BYTES,
-        signer_account: root,
+        signer_account: root
     );
 
     let alice = root.create_user(
