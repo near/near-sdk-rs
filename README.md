@@ -33,41 +33,7 @@
 
 ## Release notes
 
-### `3.1.0`
-
-* Updated dependencies for `near-sdk`
-* Introduce trait `IntoStorageKey` and updating all persistent collections to take it instead of `Vec<u8>`.
-  It's a non-breaking change.
-* Introduce a macro derive `BorshStorageKey` that implements `IntoStorageKey` using borsh serialization. Example:
-```rust
-use near_sdk::BorshStorageKey;
-
-#[derive(BorshSerialize, BorshStorageKey)]
-enum StorageKey {
-    Records,
-    UniqueValues,
-}
-
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-pub struct StatusMessage {
-    pub records: LookupMap<String, String>,
-    pub unique_values: LookupSet<String>,
-}
-
-#[near_bindgen]
-impl StatusMessage {
-    #[init]
-    pub fn new() -> Self {
-        Self {
-            records: LookupMap::new(StorageKey::Records),
-            unique_values: LookupSet::new(StorageKey::UniqueValues),
-        }
-    }
-}
-```
-
-**Previous version [CHANGELOG](CHANGELOG.md)**
+**Release notes and unreleased changes can be found in the [CHANGELOG](CHANGELOG.md)**
 
 ## Example
 
