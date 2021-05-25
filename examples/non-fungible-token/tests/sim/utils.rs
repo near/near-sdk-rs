@@ -4,6 +4,7 @@ use non_fungible_token::ContractContract as NftContract;
 use token_receiver::TokenReceiverContract;
 
 use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
+use near_contract_standards::non_fungible_token::token::TokenId;
 
 // Load in contract bytes at runtime
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
@@ -17,7 +18,7 @@ const TOKEN_RECEIVER_ID: &str = "token-receiver";
 const APPROVAL_RECEIVER_ID: &str = "approval-receiver";
 
 // TODO: how to export String instead of &str? Way too much `into`/`to_string` with &str.
-pub const TOKEN_ID: &str = "1";
+pub const TOKEN_ID: &str = "0";
 
 /// Initialize simulator and return:
 /// * root: the root user, set as owner_id for NFT contract, owns a token with ID=1
@@ -68,7 +69,7 @@ pub fn init() -> (
                 reference_hash: None,
             }
         ),
-        deposit = 1
+        deposit = 7000000000000000000000
     );
 
     let alice = root.create_user("alice".to_string(), to_yocto("100"));
@@ -94,4 +95,29 @@ pub fn init() -> (
     );
 
     (root, nft, alice, token_receiver, approval_receiver)
+}
+
+pub fn helper_mint(token_id: TokenId, root: &UserAccount, nft: &ContractAccount<NftContract>, title: String, desc: String) {
+    call!(
+        root,
+        nft.nft_mint(
+            token_id,
+            root.valid_account_id(),
+            TokenMetadata {
+                title: Some(title),
+                description: Some(desc),
+                media: None,
+                media_hash: None,
+                copies: Some(1u64),
+                issued_at: None,
+                expires_at: None,
+                starts_at: None,
+                updated_at: None,
+                extra: None,
+                reference: None,
+                reference_hash: None,
+            }
+        ),
+        deposit = 7000000000000000000000
+    );
 }

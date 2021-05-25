@@ -102,3 +102,34 @@ macro_rules! impl_non_fungible_token_approval {
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_non_fungible_token_enumeration {
+    ($contract: ident, $token: ident) => {
+        use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
+
+        #[near_bindgen]
+        impl NonFungibleTokenEnumeration for $contract {
+            fn nft_total_supply(self) -> U128 {
+                self.$token.nft_total_supply()
+            }
+
+            fn nft_tokens(&self, from_index: Option<String>, limit: Option<u64>) -> Vec<Token> {
+                self.$token.nft_tokens(from_index, limit)
+            }
+
+            fn nft_supply_for_owner(self, account_id: ValidAccountId) -> U128 {
+                self.$token.nft_supply_for_owner(account_id)
+            }
+
+            fn nft_tokens_for_owner(
+                &self,
+                account_id: ValidAccountId,
+                from_index: Option<TokenId>,
+                limit: Option<u64>
+            ) -> Vec<Token> {
+                self.$token.nft_tokens_for_owner(account_id, from_index, limit)
+            }
+        }
+    };
+}

@@ -1,4 +1,4 @@
-use near_sdk::{env, AccountId, Balance, Promise};
+use near_sdk::{env, AccountId, Balance, Promise, CryptoHash};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -40,4 +40,10 @@ pub fn refund_deposit(storage_used: u64) {
     if refund > 1 {
         Promise::new(env::predecessor_account_id()).transfer(refund);
     }
+}
+
+pub fn hash_account_id(account_id: &AccountId) -> CryptoHash {
+    let mut hash = CryptoHash::default();
+    hash.copy_from_slice(&env::sha256(account_id.as_bytes()));
+    hash
 }

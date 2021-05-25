@@ -1,5 +1,5 @@
-use crate::non_fungible_token::token::Token;
-use near_sdk::json_types::U128;
+use crate::non_fungible_token::token::{Token, TokenId};
+use near_sdk::json_types::{U128, ValidAccountId};
 
 pub trait NonFungibleTokenEnumeration {
     /// Returns the total supply of non-fungible tokens as a string representing an
@@ -15,7 +15,7 @@ pub trait NonFungibleTokenEnumeration {
     ///
     /// Returns an array of Token objects, as described in Core standard
     fn nft_tokens(
-        self,
+        &self,
         from_index: Option<String>, // default: "0"
         limit: Option<u64>,         // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
@@ -28,7 +28,7 @@ pub trait NonFungibleTokenEnumeration {
     /// Returns the number of non-fungible tokens owned by given `account_id` as
     /// a string representing the value as an unsigned 128-bit integer to avoid JSON
     /// number limit of 2^53.
-    fn nft_supply_for_owner(self, account_id: String) -> String;
+    fn nft_supply_for_owner(self, account_id: ValidAccountId) -> U128;
 
     /// Get list of all tokens owned by a given account
     ///
@@ -40,9 +40,9 @@ pub trait NonFungibleTokenEnumeration {
     ///
     /// Returns a paginated list of all tokens owned by this account
     fn nft_tokens_for_owner(
-        self,
-        account_id: String,
-        from_index: Option<String>, // default: 0
+        &self,
+        account_id: ValidAccountId,
+        from_index: Option<TokenId>, // default: "0"
         limit: Option<u64>,         // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
 }

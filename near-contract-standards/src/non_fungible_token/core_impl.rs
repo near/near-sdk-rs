@@ -2,14 +2,11 @@ use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
-use crate::non_fungible_token::utils::refund_approved_account_ids;
+use crate::non_fungible_token::utils::{refund_approved_account_ids, hash_account_id, refund_deposit};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
+use near_sdk::collections::{LookupMap, UnorderedSet, TreeMap};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId};
-use near_sdk::{
-    assert_at_least_one_yocto, assert_one_yocto, env, ext_contract, log, AccountId, Balance,
-    BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
-};
+use near_sdk::{assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage, CryptoHash};
 use std::collections::HashMap;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -58,7 +55,7 @@ pub struct NonFungibleToken {
     pub extra_storage_in_bytes_per_token: StorageUsage,
 
     // always required
-    pub owner_by_id: UnorderedMap<TokenId, AccountId>,
+    pub owner_by_id: TreeMap<TokenId, AccountId>,
 
     // required by metadata extension
     pub token_metadata_by_id: Option<LookupMap<TokenId, TokenMetadata>>,
@@ -72,8 +69,9 @@ pub struct NonFungibleToken {
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
-pub enum StorageKeys {
-    TokensForOwner { account_hash: Vec<u8> },
+pub enum StorageKey {
+    TokensPerOwner { account_hash: Vec<u8> },
+    TokenPerOwnerInner { account_id_hash: CryptoHash },
 }
 
 impl NonFungibleToken {
@@ -103,7 +101,8 @@ impl NonFungibleToken {
         let mut this = Self {
             owner_id: owner_id.into(),
             extra_storage_in_bytes_per_token: 0,
-            owner_by_id: UnorderedMap::new(owner_by_id_prefix),
+            // owner_by_id: UnorderedMap::new(owner_by_id_prefix),
+            owner_by_id: TreeMap::new(owner_by_id_prefix),
             token_metadata_by_id: if let Some(prefix) = token_metadata_prefix {
                 Some(LookupMap::new(prefix))
             } else {
@@ -149,7 +148,7 @@ impl NonFungibleToken {
             );
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let u = &mut UnorderedSet::new(StorageKeys::TokensForOwner {
+            let u = &mut UnorderedSet::new(StorageKey::TokensPerOwner {
                 account_hash: env::sha256(tmp_owner_id.as_bytes()),
             });
             u.insert(&tmp_token_id);
@@ -162,6 +161,16 @@ impl NonFungibleToken {
         }
         if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
             next_approval_id_by_id.insert(&tmp_token_id, &1u64);
+        }
+        let u = UnorderedSet::new(
+            StorageKey::TokenPerOwnerInner {
+                account_id_hash: hash_account_id(&tmp_owner_id),
+            }
+            .try_to_vec()
+            .unwrap(),
+        );
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            tokens_per_owner.insert(&tmp_owner_id, &u);
         }
 
         // 2. see how much space it took
@@ -179,6 +188,9 @@ impl NonFungibleToken {
         }
         if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.remove(&tmp_token_id);
+        }
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            tokens_per_owner.remove(&tmp_owner_id);
         }
         self.owner_by_id.remove(&tmp_token_id);
     }
@@ -207,7 +219,7 @@ impl NonFungibleToken {
             }
 
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
-                UnorderedSet::new(StorageKeys::TokensForOwner {
+                UnorderedSet::new(StorageKey::TokensPerOwner {
                     account_hash: env::sha256(to.as_bytes()),
                 })
             });
@@ -336,8 +348,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         token_owner_id: ValidAccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
-        // TODO: charge someone for storage
-        assert_at_least_one_yocto();
+        let initial_storage_usage = env::storage_usage();
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic(b"Must provide metadata");
@@ -361,7 +372,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
-                UnorderedSet::new(StorageKeys::TokensForOwner {
+                UnorderedSet::new(StorageKey::TokensPerOwner {
                     account_hash: env::sha256(owner_id.as_bytes()),
                 })
             });
@@ -371,7 +382,12 @@ impl NonFungibleTokenCore for NonFungibleToken {
 
         // Approval Management extension: return empty HashMap as part of Token
         let approved_account_ids =
-            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
+            if self.approvals_by_id.is_some() {
+                Some(HashMap::new())
+            } else { None };
+
+        // Return any extra attached deposit not used for storage
+        refund_deposit(env::storage_usage() - initial_storage_usage);
 
         Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }
