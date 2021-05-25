@@ -12,8 +12,8 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let sys_file = rust_file(include_bytes!("../res/sys.rs"));
-        let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
+        let sys_file = rust_file(include_str!("../res/sys.rs"));
+        let near_environment = rust_file(include_str!("../res/near_blockchain.rs"));
         let struct_proxy = generate_proxy_struct(&input);
         TokenStream::from(quote! {
             #input
@@ -47,9 +47,8 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-fn rust_file(data: &[u8]) -> File {
-    let data = std::str::from_utf8(data).unwrap();
-    syn::parse_file(data).unwrap()
+fn rust_file(text: &str) -> File {
+    syn::parse_file(text).unwrap()
 }
 
 #[proc_macro_attribute]
@@ -117,8 +116,8 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
-/// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
-/// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
+// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
+// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
 #[proc_macro]
 pub fn metadata(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<File>(item) {

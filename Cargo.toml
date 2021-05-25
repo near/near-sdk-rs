@@ -10,10 +10,12 @@ exclude = [
     "examples/cross-contract-high-level",
     "examples/fungible-token",
     "examples/non-fungible-token",
+    "examples/lockable-fungible-token",
     "examples/cross-contract-low-level",
     "examples/mission-control",
     "examples/status-message",
     "examples/status-message-collections",
+    "examples/test-contract",
 ]
 
 # Special triple # comment for ci.

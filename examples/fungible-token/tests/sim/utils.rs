@@ -3,9 +3,7 @@ use fungible_token::ContractContract as FtContract;
 
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk_sim::{
-    deploy, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS, STORAGE_AMOUNT,
-};
+use near_sdk_sim::{deploy, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS};
 
 // Load in contract bytes at runtime
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
@@ -35,7 +33,7 @@ pub fn register_user(user: &near_sdk_sim::UserAccount) {
 pub fn init_no_macros(initial_balance: u128) -> (UserAccount, UserAccount, UserAccount) {
     let root = init_simulator(None);
 
-    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.into(), STORAGE_AMOUNT);
+    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.into(), to_yocto("5"));
 
     ft.call(
         FT_ID.into(),
