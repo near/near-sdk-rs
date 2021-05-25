@@ -3,6 +3,7 @@ macro_rules! impl_non_fungible_token_core {
     ($contract: ident, $token: ident) => {
         use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
         use near_contract_standards::non_fungible_token::resolver::NonFungibleTokenResolver;
+        use std::collections::HashMap;
 
         #[near_bindgen]
         impl NonFungibleTokenCore for $contract {
@@ -107,6 +108,7 @@ macro_rules! impl_non_fungible_token_approval {
 macro_rules! impl_non_fungible_token_enumeration {
     ($contract: ident, $token: ident) => {
         use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
+        use near_sdk::json_types::U128;
 
         #[near_bindgen]
         impl NonFungibleTokenEnumeration for $contract {
