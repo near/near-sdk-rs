@@ -114,7 +114,7 @@ macro_rules! impl_non_fungible_token_enumeration {
                 self.$token.nft_total_supply()
             }
 
-            fn nft_tokens(&self, from_index: Option<String>, limit: Option<u64>) -> Vec<Token> {
+            fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token> {
                 self.$token.nft_tokens(from_index, limit)
             }
 
@@ -125,7 +125,7 @@ macro_rules! impl_non_fungible_token_enumeration {
             fn nft_tokens_for_owner(
                 &self,
                 account_id: ValidAccountId,
-                from_index: Option<TokenId>,
+                from_index: Option<U128>,
                 limit: Option<u64>
             ) -> Vec<Token> {
                 self.$token.nft_tokens_for_owner(account_id, from_index, limit)

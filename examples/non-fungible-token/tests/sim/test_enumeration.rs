@@ -28,14 +28,14 @@ fn simulate_enum_nft_tokens() {
     let mut tokens: Vec<Token> = view!(nft.nft_tokens(None, None)).unwrap_json();
     assert_eq!(tokens.len(), 4);
     // Start at "1", with no limit arg
-    tokens = view!(nft.nft_tokens(Some("1".to_string()), None)).unwrap_json();
+    tokens = view!(nft.nft_tokens(Some(U128::from(1)), None)).unwrap_json();
     assert_eq!(tokens.len(), 3);
     assert_eq!(tokens.get(0).unwrap().token_id, "1".to_string());
     assert_eq!(tokens.get(1).unwrap().token_id, "2".to_string());
     assert_eq!(tokens.get(2).unwrap().token_id, "3".to_string());
 
     // Start at "2", with limit 1
-    tokens = view!(nft.nft_tokens(Some("2".to_string()), Some(1u64))).unwrap_json();
+    tokens = view!(nft.nft_tokens(Some(U128::from(2)), Some(1u64))).unwrap_json();
     assert_eq!(tokens.len(), 1);
     assert_eq!(tokens.get(0).unwrap().token_id, "2".to_string());
 
@@ -77,13 +77,13 @@ fn simulate_enum_nft_tokens_for_owner() {
     assert_eq!(owner_tokens.len(), 4);
 
     // With from_index and no limit
-    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some("2".to_string()), None)).unwrap_json();
+    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some(U128::from(2)), None)).unwrap_json();
     assert_eq!(owner_tokens.len(), 2);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "2".to_string());
     assert_eq!(owner_tokens.get(1).unwrap().token_id, "3".to_string());
 
     // With from_index and limit 1
-    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some("1".to_string()), Some(1))).unwrap_json();
+    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some(U128::from(1)), Some(1))).unwrap_json();
     assert_eq!(owner_tokens.len(), 1);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "1".to_string());
 
