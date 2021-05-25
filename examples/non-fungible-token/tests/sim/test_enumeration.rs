@@ -1,13 +1,31 @@
-use crate::utils::{init, helper_mint};
+use crate::utils::{helper_mint, init};
 use near_contract_standards::non_fungible_token::token::Token;
-use non_fungible_token::ContractContract as NftContract;
-use near_sdk_sim::{view, ContractAccount, UserAccount};
 use near_sdk::json_types::U128;
+use near_sdk_sim::{view, ContractAccount, UserAccount};
+use non_fungible_token::ContractContract as NftContract;
 
 fn mint_more(root: &UserAccount, nft: &ContractAccount<NftContract>) {
-    helper_mint("1".to_string(), &root, &nft, "Black as the Night".to_string(), "In charcoal".to_string());
-    helper_mint("2".to_string(), &root, &nft, "Hamakua".to_string(), "Vintage recording".to_string());
-    helper_mint("3".to_string(), &root, &nft, "Aloha ke akua".to_string(), "Original with piano".to_string());
+    helper_mint(
+        "1".to_string(),
+        &root,
+        &nft,
+        "Black as the Night".to_string(),
+        "In charcoal".to_string(),
+    );
+    helper_mint(
+        "2".to_string(),
+        &root,
+        &nft,
+        "Hamakua".to_string(),
+        "Vintage recording".to_string(),
+    );
+    helper_mint(
+        "3".to_string(),
+        &root,
+        &nft,
+        "Aloha ke akua".to_string(),
+        "Original with piano".to_string(),
+    );
 }
 
 #[test]
@@ -51,7 +69,8 @@ fn simulate_enum_nft_supply_for_owner() {
     let (root, nft, alice, _, _) = init();
 
     // Get number from account with no NFTs
-    let mut owner_num_tokens: U128 = view!(nft.nft_supply_for_owner(alice.valid_account_id())).unwrap_json();
+    let mut owner_num_tokens: U128 =
+        view!(nft.nft_supply_for_owner(alice.valid_account_id())).unwrap_json();
     assert_eq!(owner_num_tokens, U128::from(0));
 
     owner_num_tokens = view!(nft.nft_supply_for_owner(root.valid_account_id())).unwrap_json();
@@ -69,26 +88,33 @@ fn simulate_enum_nft_tokens_for_owner() {
     mint_more(&root, &nft);
 
     // Get tokens from account with no NFTs
-    let mut owner_tokens: Vec<Token> = view!(nft.nft_tokens_for_owner(alice.valid_account_id(), None, None)).unwrap_json();
+    let mut owner_tokens: Vec<Token> =
+        view!(nft.nft_tokens_for_owner(alice.valid_account_id(), None, None)).unwrap_json();
     assert_eq!(owner_tokens.len(), 0);
 
     // Get tokens with no optional args
-    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), None, None)).unwrap_json();
+    owner_tokens =
+        view!(nft.nft_tokens_for_owner(root.valid_account_id(), None, None)).unwrap_json();
     assert_eq!(owner_tokens.len(), 4);
 
     // With from_index and no limit
-    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some(U128::from(2)), None)).unwrap_json();
+    owner_tokens =
+        view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some(U128::from(2)), None))
+            .unwrap_json();
     assert_eq!(owner_tokens.len(), 2);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "2".to_string());
     assert_eq!(owner_tokens.get(1).unwrap().token_id, "3".to_string());
 
     // With from_index and limit 1
-    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some(U128::from(1)), Some(1))).unwrap_json();
+    owner_tokens =
+        view!(nft.nft_tokens_for_owner(root.valid_account_id(), Some(U128::from(1)), Some(1)))
+            .unwrap_json();
     assert_eq!(owner_tokens.len(), 1);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "1".to_string());
 
     // No from_index but limit 3
-    owner_tokens = view!(nft.nft_tokens_for_owner(root.valid_account_id(), None, Some(3))).unwrap_json();
+    owner_tokens =
+        view!(nft.nft_tokens_for_owner(root.valid_account_id(), None, Some(3))).unwrap_json();
     assert_eq!(owner_tokens.len(), 3);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "0".to_string());
     assert_eq!(owner_tokens.get(1).unwrap().token_id, "1".to_string());

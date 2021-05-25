@@ -3,8 +3,8 @@ use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use non_fungible_token::ContractContract as NftContract;
 use token_receiver::TokenReceiverContract;
 
-use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
 use near_contract_standards::non_fungible_token::token::TokenId;
+use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
 
 // Load in contract bytes at runtime
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
@@ -97,7 +97,13 @@ pub fn init() -> (
     (root, nft, alice, token_receiver, approval_receiver)
 }
 
-pub fn helper_mint(token_id: TokenId, root: &UserAccount, nft: &ContractAccount<NftContract>, title: String, desc: String) {
+pub fn helper_mint(
+    token_id: TokenId,
+    root: &UserAccount,
+    nft: &ContractAccount<NftContract>,
+    title: String,
+    desc: String,
+) {
     call!(
         root,
         nft.nft_mint(
