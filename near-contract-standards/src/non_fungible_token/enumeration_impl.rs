@@ -42,16 +42,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             // use key below it or minimum key
             let from_index = from_index.unwrap();
             from_index
-            // if let Some(prev_index) = self.owner_by_id.lower(&from_index) {
-            //     prev_index
-            // } else {
-            //     if let Some(min_index) = self.owner_by_id.min() {
-            //         min_index
-            //     } else { "0".to_string() as TokenId }
-            // }
         };
-        println!("alohazzz {:?}", start_index);
-        log!("aloha {:?}", start_index);
 
         if !self.owner_by_id.contains_key(&start_index) { return vec![] }
         let mut token_ids: Vec<TokenId> = vec![start_index.clone()];
