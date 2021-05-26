@@ -628,12 +628,12 @@ where
             self.progress_key();
         }
 
-        let next = self.key.as_ref().and_then(|k| self.map.get(k).map(|v| (k.clone(), v)));
+        let next = self.key.as_ref().and_then(|k| self.map.get(k).map(|v| (k.clone(), v)))?;
 
         // After loading current key, iterate to next key
         self.progress_key();
 
-        next
+        Some(next)
     }
 }
 
