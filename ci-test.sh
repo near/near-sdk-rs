@@ -11,7 +11,7 @@ else
     cp Cargo.toml{,.bak}
     cp Cargo.lock{,.bak}
 
-    sed -i "s|###||g" Cargo.toml
+    sed -i "" "s|###||g" Cargo.toml
     
     set +e
     cargo test --all
