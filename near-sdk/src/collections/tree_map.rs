@@ -635,6 +635,19 @@ where
 
         Some(next)
     }
+
+    fn last(mut self) -> Option<Self::Item> {
+        if matches!(self.hi, Bound::Unbounded) {
+            self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else {
+            // Cannot guarantee what the max is within the range, must load keys until max.
+            let mut key: Option<K> = None;
+            while self.key.is_some() {
+                key = self.progress_key();
+            }
+            key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        }
+    }
 }
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
@@ -693,12 +706,14 @@ where
         Self { asc: true, key, lo, hi, map }
     }
 
-    fn progress_key(&mut self) {
-        self.key = self
+    // Progresses the key one index, will return the previous key
+    fn progress_key(&mut self) -> Option<K> {
+        let new_key = self
             .key
             .as_ref()
             .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
             .filter(|k| fits(k, &self.lo, &self.hi));
+        core::mem::replace(&mut self.key, new_key)
     }
 }
 
