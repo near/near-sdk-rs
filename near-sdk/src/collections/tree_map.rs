@@ -604,7 +604,7 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // Constrains max count
+        // Constrains max count. Not worth it to cause storage reads to make this more accurate.
         (0, Some(self.map.len() as usize))
     }
 
@@ -628,19 +628,19 @@ where
             self.progress_key();
         }
 
-        let next = self.key.as_ref().and_then(|k| self.map.get(k).map(|v| (k.clone(), v)))?;
+        let key = self.progress_key()?;
+        let value = self.map.get(&key)?;
 
-        // After loading current key, iterate to next key
-        self.progress_key();
-
-        Some(next)
+        Some((key, value))
     }
 
     fn last(mut self) -> Option<Self::Item> {
-        if matches!(self.hi, Bound::Unbounded) {
+        if self.asc && matches!(self.hi, Bound::Unbounded) {
             self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
+            self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
         } else {
-            // Cannot guarantee what the max is within the range, must load keys until max.
+            // Cannot guarantee what the last is within the range, must load keys until last.
             let mut key: Option<K> = None;
             while self.key.is_some() {
                 key = self.progress_key();
@@ -713,7 +713,7 @@ where
         Self { asc: true, key, lo, hi, map }
     }
 
-    // Progresses the key one index, will return the previous key
+    /// Progresses the key one index, will return the previous key
     fn progress_key(&mut self) -> Option<K> {
         let new_key = self
             .key
