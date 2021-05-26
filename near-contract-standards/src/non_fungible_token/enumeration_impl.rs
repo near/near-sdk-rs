@@ -59,33 +59,24 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<Token> {
-        let mut tokens: Vec<Token> = Vec::new();
         let tokens_per_owner = self.tokens_per_owner.as_ref().expect(
             "Could not find tokens_per_owner when calling a method on the enumeration standard.",
         );
-        let token_set = tokens_per_owner.get(&account_id.as_ref());
-        if token_set.is_none() {
+        let token_set = if let Some(token_set) = tokens_per_owner.get(account_id.as_ref()) {
+            token_set
+        } else {
             return vec![];
-        }
-
-        let has_limit = limit.is_some();
-        if has_limit {
-            assert_ne!(limit.unwrap(), 0, "limit must be non-zero.")
-        }
-        let mut decrementing_limit = if has_limit { limit.unwrap() } else { 0 };
-        let has_from_index = from_index.clone().is_some();
-        let from_index_val: u128 = if has_from_index { from_index.unwrap().0 } else { 0 };
-
-        for token_id in token_set.unwrap().iter().skip(from_index_val as usize) {
-            tokens.push(self.enum_get_token(account_id.as_ref().parse().unwrap(), token_id));
-            if has_limit {
-                decrementing_limit -= 1;
-                if decrementing_limit == 0 {
-                    break;
-                }
-            }
-        }
-
-        tokens
+        };
+        let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
+        assert_ne!(limit, 0, "Cannot provide limit of 0.");
+        let start_index: u128 = from_index.map(From::from).unwrap_or_default();
+        assert!(token_set.len() as u128 > start_index,
+                "Out of bounds, please use a smaller from_index.");
+        token_set
+            .iter()
+            .skip(start_index as usize)
+            .take(limit)
+            .map(|token_id| self.enum_get_token(account_id.as_ref().clone(), token_id))
+            .collect()
     }
 }
