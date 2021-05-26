@@ -8,8 +8,8 @@ use std::collections::HashMap;
 type TokenId = String;
 
 impl NonFungibleToken {
-    // Helper function used by a enumerations methods
-    // Note: this method is not exposed publicly to end users
+    /// Helper function used by a enumerations methods
+    /// Note: this method is not exposed publicly to end users
     pub fn enum_get_token(&self, owner_id: AccountId, token_id: TokenId) -> Token {
         let metadata = self.token_metadata_by_id.as_ref().unwrap().get(&token_id);
         let approved_account_ids =
