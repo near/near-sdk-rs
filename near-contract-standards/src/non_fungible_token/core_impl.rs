@@ -108,16 +108,8 @@ impl NonFungibleToken {
             extra_storage_in_bytes_per_token: 0,
             // owner_by_id: UnorderedMap::new(owner_by_id_prefix),
             owner_by_id: TreeMap::new(owner_by_id_prefix),
-            token_metadata_by_id: if let Some(prefix) = token_metadata_prefix {
-                Some(LookupMap::new(prefix))
-            } else {
-                None
-            },
-            tokens_per_owner: if let Some(prefix) = enumeration_prefix {
-                Some(LookupMap::new(prefix))
-            } else {
-                None
-            },
+            token_metadata_by_id: token_metadata_prefix.map(|prefix| LookupMap::new(prefix)),
+            tokens_per_owner: enumeration_prefix.map(|prefix| LookupMap::new(prefix)),
             approvals_by_id,
             next_approval_id_by_id,
         };
