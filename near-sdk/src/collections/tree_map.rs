@@ -611,6 +611,21 @@ where
 
         this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
     }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        for _ in 0..n {
+            // Skip over elements not iterated over to get to `nth`. This avoids loading values
+            // from storage.
+            self.progress_key();
+        }
+
+        let next = self.key.as_ref().and_then(|k| self.map.get(k).map(|v| (k.clone(), v)));
+
+        // After loading current key, iterate to next key
+        self.progress_key();
+
+        next
+    }
 }
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
@@ -667,6 +682,14 @@ where
         let key = key.filter(|k| fits(k, &lo, &hi));
 
         Self { asc: true, key, lo, hi, map }
+    }
+
+    fn progress_key(&mut self) {
+        self.key = self
+            .key
+            .as_ref()
+            .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
+            .filter(|k| fits(k, &self.lo, &self.hi));
     }
 }
 
