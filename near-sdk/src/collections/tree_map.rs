@@ -650,6 +650,13 @@ where
     }
 }
 
+impl<K, V> std::iter::FusedIterator for Cursor<'_, K, V>
+where
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: BorshSerialize + BorshDeserialize,
+{
+}
+
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
     (match lo {
         Bound::Included(ref x) => key >= x,
