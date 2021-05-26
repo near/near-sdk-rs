@@ -52,7 +52,7 @@ macro_rules! impl_non_fungible_token_core {
                 previous_owner_id: AccountId,
                 receiver_id: AccountId,
                 token_id: TokenId,
-                approved_account_ids: Option<HashMap<AccountId, u64>>
+                approved_account_ids: Option<HashMap<AccountId, u64>>,
             ) -> bool {
                 self.$token.nft_resolve_transfer(
                     previous_owner_id,
@@ -128,7 +128,7 @@ macro_rules! impl_non_fungible_token_enumeration {
                 &self,
                 account_id: ValidAccountId,
                 from_index: Option<U128>,
-                limit: Option<u64>
+                limit: Option<u64>,
             ) -> Vec<Token> {
                 self.$token.nft_tokens_for_owner(account_id, from_index, limit)
             }

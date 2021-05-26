@@ -1,4 +1,4 @@
-use near_sdk::{env, AccountId, Balance, Promise, CryptoHash};
+use near_sdk::{env, AccountId, Balance, CryptoHash, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
 

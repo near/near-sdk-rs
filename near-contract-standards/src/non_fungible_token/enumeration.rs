@@ -1,5 +1,5 @@
 use crate::non_fungible_token::token::Token;
-use near_sdk::json_types::{U128, ValidAccountId};
+use near_sdk::json_types::{ValidAccountId, U128};
 
 pub trait NonFungibleTokenEnumeration {
     /// Returns the total supply of non-fungible tokens as a string representing an
@@ -17,7 +17,7 @@ pub trait NonFungibleTokenEnumeration {
     fn nft_tokens(
         &self,
         from_index: Option<U128>, // default: "0"
-        limit: Option<u64>,         // default: unlimited (could fail due to gas limit)
+        limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
 
     /// Get number of tokens owned by a given account
@@ -43,6 +43,6 @@ pub trait NonFungibleTokenEnumeration {
         &self,
         account_id: ValidAccountId,
         from_index: Option<U128>, // default: "0"
-        limit: Option<u64>,         // default: unlimited (could fail due to gas limit)
+        limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;
 }

@@ -2,11 +2,16 @@ use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
-use crate::non_fungible_token::utils::{refund_approved_account_ids, hash_account_id, refund_deposit};
+use crate::non_fungible_token::utils::{
+    hash_account_id, refund_approved_account_ids, refund_deposit,
+};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedSet, TreeMap};
+use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId};
-use near_sdk::{assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage, CryptoHash};
+use near_sdk::{
+    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
+    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+};
 use std::collections::HashMap;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
@@ -163,11 +168,9 @@ impl NonFungibleToken {
             next_approval_id_by_id.insert(&tmp_token_id, &1u64);
         }
         let u = UnorderedSet::new(
-            StorageKey::TokenPerOwnerInner {
-                account_id_hash: hash_account_id(&tmp_owner_id),
-            }
-            .try_to_vec()
-            .unwrap(),
+            StorageKey::TokenPerOwnerInner { account_id_hash: hash_account_id(&tmp_owner_id) }
+                .try_to_vec()
+                .unwrap(),
         );
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             tokens_per_owner.insert(&tmp_owner_id, &u);
@@ -382,9 +385,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
 
         // Approval Management extension: return empty HashMap as part of Token
         let approved_account_ids =
-            if self.approvals_by_id.is_some() {
-                Some(HashMap::new())
-            } else { None };
+            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
         // Return any extra attached deposit not used for storage
         refund_deposit(env::storage_usage() - initial_storage_usage);
