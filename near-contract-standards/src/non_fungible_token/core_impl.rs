@@ -107,8 +107,8 @@ impl NonFungibleToken {
             owner_id: owner_id.into(),
             extra_storage_in_bytes_per_token: 0,
             owner_by_id: TreeMap::new(owner_by_id_prefix),
-            token_metadata_by_id: token_metadata_prefix.map(|prefix| LookupMap::new(prefix)),
-            tokens_per_owner: enumeration_prefix.map(|prefix| LookupMap::new(prefix)),
+            token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
+            tokens_per_owner: enumeration_prefix.map(LookupMap::new),
             approvals_by_id,
             next_approval_id_by_id,
         };
