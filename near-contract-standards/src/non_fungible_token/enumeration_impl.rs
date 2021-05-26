@@ -25,42 +25,22 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
     }
 
     fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token> {
-        let mut tokens: Vec<Token> = Vec::new();
-        // Get starting index, whether or not it was explicitly given
-        let start_index: u128 = if from_index.is_none() {
-            // "0" according to the spec here:
-            // https://nomicon.io/Standards/NonFungibleToken/Enumeration.html#interface
-            0
-        } else {
-            // Since TreeMap's iter_from is exclusive to the start index,
-            // use key below it or minimum key
-            from_index.unwrap().0
-        };
-
+        // Get starting index, whether or not it was explicitly given.
+        // Defaults to 0 based on the spec:
+        // https://nomicon.io/Standards/NonFungibleToken/Enumeration.html#interface
+        let start_index: u128 = from_index.map(From::from).unwrap_or_default();
         assert!(
             (self.owner_by_id.len() as u128) > start_index,
             "Out of bounds, please use a smaller from_index."
         );
-        let has_limit = limit.is_some();
-        let mut decrementing_limit = if has_limit {
-            let limit_val = limit.unwrap();
-            assert_ne!(limit_val, 0, "Cannot provide limit of 0.");
-            limit_val
-        } else {
-            0
-        };
-
-        for (token_id, owner_id) in self.owner_by_id.iter().skip(start_index as usize) {
-            tokens.push(self.enum_get_token(owner_id, token_id));
-            if has_limit {
-                decrementing_limit -= 1;
-                if decrementing_limit == 0 {
-                    break;
-                }
-            }
-        }
-
-        tokens
+        let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
+        assert_ne!(limit, 0, "Cannot provide limit of 0.");
+        self.owner_by_id
+            .iter()
+            .skip(start_index as usize)
+            .take(limit)
+            .map(|(token_id, owner_id)| self.enum_get_token(owner_id, token_id))
+            .collect()
     }
 
     fn nft_supply_for_owner(self, account_id: ValidAccountId) -> U128 {
