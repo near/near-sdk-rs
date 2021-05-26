@@ -204,7 +204,7 @@ impl NonFungibleToken {
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             // owner_tokens should always exist, so call `unwrap` without guard
-            let mut owner_tokens = tokens_per_owner.get(from).unwrap();
+            let mut owner_tokens = tokens_per_owner.get(from).expect("Unable to access tokens per owner in unguarded call.");
             owner_tokens.remove(&token_id);
             if owner_tokens.is_empty() {
                 tokens_per_owner.remove(from);
