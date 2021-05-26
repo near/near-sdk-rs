@@ -603,6 +603,11 @@ where
         <Self as Iterator>::nth(self, 0)
     }
 
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // Constrains max count
+        (0, Some(self.map.len() as usize))
+    }
+
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         for _ in 0..n {
             // Skip over elements not iterated over to get to `nth`. This avoids loading values
