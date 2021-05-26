@@ -47,11 +47,10 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         let tokens_per_owner = self.tokens_per_owner.expect(
             "Could not find tokens_per_owner when calling a method on the enumeration standard.",
         );
-        if let Some(account_tokens) = tokens_per_owner.get((&account_id).as_ref()) {
-            U128::from(account_tokens.len() as u128)
-        } else {
-            U128::from(0)
-        }
+        tokens_per_owner
+            .get(account_id.as_ref())
+            .map(|account_tokens| U128::from(account_tokens.len() as u128))
+            .unwrap_or(U128(0))
     }
 
     fn nft_tokens_for_owner(
