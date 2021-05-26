@@ -600,16 +600,7 @@ where
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let this_key = self.key.clone();
-
-        let next_key = self
-            .key
-            .take()
-            .and_then(|k| if self.asc { self.map.higher(&k) } else { self.map.lower(&k) })
-            .filter(|k| fits(k, &self.lo, &self.hi));
-        self.key = next_key;
-
-        this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        <Self as Iterator>::nth(self, 0)
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
