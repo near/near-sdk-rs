@@ -608,6 +608,19 @@ where
         (0, Some(self.map.len() as usize))
     }
 
+    fn count(mut self) -> usize {
+        // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
+        // how many elements are left to iterate without loading keys in order. This could be
+        // optimized in the case of a standard iterator by having a separate type, but this would
+        // be a breaking change, so there will be slightly more reads than necessary in this case.
+        let mut count = 0;
+        while self.key.is_some() {
+            count += 1;
+            self.progress_key();
+        }
+        count
+    }
+
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         for _ in 0..n {
             // Skip over elements not iterated over to get to `nth`. This avoids loading values
