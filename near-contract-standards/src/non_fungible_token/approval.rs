@@ -2,6 +2,15 @@ use crate::non_fungible_token::token::TokenId;
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::Promise;
 
+/// Trait used when it's desired to have a non-fungible token that has a
+/// traditional escrow or approval system. This allows Alice to allow Bob
+/// to take only the token with the unique identifier "19" but not others.
+/// It should be noted that in the [core non-fungible token standard] there
+/// is a method to do "transfer and call" which may be preferred over using
+/// an approval management standard in certain use cases.
+///
+/// [approval management standard]: https://nomicon.io/Standards/NonFungibleToken/ApprovalManagement.html
+/// [core non-fungible token standard]: https://nomicon.io/Standards/NonFungibleToken/Core.html
 pub trait NonFungibleTokenApproval {
     /// Add an approved account for a specific token.
     ///

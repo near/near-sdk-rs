@@ -204,7 +204,9 @@ impl NonFungibleToken {
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             // owner_tokens should always exist, so call `unwrap` without guard
-            let mut owner_tokens = tokens_per_owner.get(from).expect("Unable to access tokens per owner in unguarded call.");
+            let mut owner_tokens = tokens_per_owner
+                .get(from)
+                .expect("Unable to access tokens per owner in unguarded call.");
             owner_tokens.remove(&token_id);
             if owner_tokens.is_empty() {
                 tokens_per_owner.remove(from);
@@ -347,7 +349,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic(b"Must provide metadata");
         }
-        if let Some(_) = self.owner_by_id.get(&token_id) {
+        if self.owner_by_id.get(&token_id).is_some() {
             env::panic(b"token_id must be unique");
         }
 
