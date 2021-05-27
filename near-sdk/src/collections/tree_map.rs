@@ -1427,6 +1427,11 @@ mod tests {
         map.insert(&3, &43);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter().nth(1), Some((2, 42)));
+        assert_eq!(map.iter().count(), 3);
+        assert_eq!(map.iter().last(), Some((3, 43)));
         map.clear();
     }
 
@@ -1435,6 +1440,7 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
@@ -1446,6 +1452,11 @@ mod tests {
         map.insert(&3, &43);
 
         assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev().nth(1), Some((2, 42)));
+        assert_eq!(map.iter_rev().count(), 3);
+        assert_eq!(map.iter_rev().last(), Some((1, 41)));
         map.clear();
     }
 
@@ -1454,6 +1465,7 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
@@ -1486,6 +1498,12 @@ mod tests {
             map.iter_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(35, 42), (40, 42), (45, 42), (50, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
+        assert_eq!(map.iter_from(31).count(), 4);
+        assert_eq!(map.iter_from(31).last(), Some((50, 42)));
+
         map.clear();
     }
 
@@ -1494,6 +1512,7 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
@@ -1526,6 +1545,12 @@ mod tests {
             map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
+        assert_eq!(map.iter_rev_from(31).count(), 6);
+        assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
+
         map.clear();
     }
 
@@ -1566,11 +1591,6 @@ mod tests {
         );
 
         assert_eq!(
-            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (30, 42), (35, 42), (40, 42)]
-        );
-
-        assert_eq!(
             map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
             vec![]
         );
@@ -1584,6 +1604,11 @@ mod tests {
             map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
             vec![]
         ); // the range makes no sense, but `BTreeMap` does not panic in this case
+
+        // Test custom iterator impls
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
 
         map.clear();
     }
