@@ -641,10 +641,7 @@ where
             self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
         } else {
             // Cannot guarantee what the last is within the range, must load keys until last.
-            let mut key: Option<K> = None;
-            while self.key.is_some() {
-                key = self.progress_key();
-            }
+            let key = core::iter::from_fn(|| self.progress_key()).last();
             key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
         }
     }
