@@ -2,7 +2,6 @@ use crate::CryptoHash;
 use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
 use serde::{de, ser, Deserialize};
-use std::borrow::Cow;
 use std::convert::TryFrom;
 
 #[derive(
@@ -36,7 +35,7 @@ impl<'de> de::Deserialize<'de> for Base58CryptoHash {
     where
         D: de::Deserializer<'de>,
     {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        let s: String = Deserialize::deserialize(deserializer)?;
         s.parse::<Self>().map_err(|err| de::Error::custom(err.to_string()))
     }
 }
