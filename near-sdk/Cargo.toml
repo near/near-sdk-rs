@@ -42,3 +42,4 @@ quickcheck = "0.9.2"
 [features]
 expensive-debug = []
 unstable = ["once_cell"]
+custom-allocator = []

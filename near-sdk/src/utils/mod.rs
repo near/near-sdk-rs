@@ -93,14 +93,17 @@ impl PendingContractTx {
 
 /// Boilerplate for setting up allocator used in Wasm binary.
 /// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
+/// 
+/// If `custom-allocator` is not enabled, this will do nothing as the allocator will already be
+/// initialized.
 ///
 /// [GlobalAllocator]: std::alloc::GlobalAlloc
 #[macro_export]
 macro_rules! setup_alloc {
     () => {
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(feature = "custom-allocator", target_arch = "wasm32"))]
         #[global_allocator]
-        static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+        static ALLOC: $crate::wee_alloc::WeeAlloc = $crate::wee_alloc::WeeAlloc::INIT;
     };
 }
 

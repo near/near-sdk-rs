@@ -36,6 +36,11 @@ pub use environment::blockchain_interface::BlockchainInterface;
 
 pub mod test_utils;
 
+// Set up global allocator by default if custom-allocator feature is not set in wasm32 architecture.
+#[cfg(all(not(feature = "custom-allocator"), target_arch = "wasm32"))]
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 // Exporting common crates
 
 #[doc(hidden)]
