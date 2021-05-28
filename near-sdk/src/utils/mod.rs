@@ -93,7 +93,7 @@ impl PendingContractTx {
 
 /// Boilerplate for setting up allocator used in Wasm binary.
 /// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
-/// 
+///
 /// If `custom-allocator` is not enabled, this will do nothing as the allocator will already be
 /// initialized.
 ///
