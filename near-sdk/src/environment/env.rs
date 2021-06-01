@@ -692,6 +692,9 @@ pub fn panic(message: &[u8]) -> ! {
 }
 /// Log the UTF-8 encodable message.
 pub fn log(message: &[u8]) {
+    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+    println!("{}", String::from_utf8_lossy(message));
+
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
