@@ -10,3 +10,5 @@ target
 neardev
 
 .idea
+
+node_modules
