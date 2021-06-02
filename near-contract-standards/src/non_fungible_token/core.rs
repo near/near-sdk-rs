@@ -6,7 +6,7 @@ use near_sdk::PromiseOrValue;
 /// Trait used for all non-fungible tokens. The specification for the
 /// [core non-fungible token standard] lays out the reasoning for each method.
 /// It's important to check out [NonFungibleTokenReceiver](crate::non_fungible_token::receiver::NonFungibleTokenReceiver)
-/// and [`crate::non_fungible_token::resolver::NonFungibleTokenResolver`] to
+/// and [NonFungibleTokenResolver](crate::non_fungible_token::resolver::NonFungibleTokenResolver) to
 /// understand how the cross-contract call work.
 ///
 /// [core non-fungible token standard]: https://nomicon.io/Standards/NonFungibleToken/Core.html
