@@ -1,6 +1,6 @@
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
-use crate::non_fungible_token::resolver::NonFungibleTokenResolver;
+use super::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{
     hash_account_id, refund_approved_account_ids, refund_deposit,

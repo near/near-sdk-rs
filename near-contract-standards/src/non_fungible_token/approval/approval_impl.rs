@@ -1,5 +1,5 @@
 use crate::non_fungible_token::approval::NonFungibleTokenApproval;
-use crate::non_fungible_token::core_impl::NonFungibleToken;
+use crate::non_fungible_token::NonFungibleToken;
 use crate::non_fungible_token::token::TokenId;
 use crate::non_fungible_token::utils::{
     bytes_for_approved_account_id, refund_approved_account_ids, refund_approved_account_ids_iter,

@@ -1,3 +1,5 @@
+mod enumeration_impl;
+
 use crate::non_fungible_token::token::Token;
 use near_sdk::json_types::{ValidAccountId, U128};
 

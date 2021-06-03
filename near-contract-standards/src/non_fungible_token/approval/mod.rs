@@ -1,3 +1,10 @@
+mod approval_impl;
+mod approval_receiver;
+
+pub use approval_impl::*;
+pub use approval_receiver::*;
+
+
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::Promise;
