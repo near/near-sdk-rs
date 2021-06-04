@@ -97,7 +97,9 @@ impl PendingContractTx {
 /// [GlobalAllocator]: std::alloc::GlobalAlloc
 #[deprecated(
     since = "4.0.0",
-    note = "Allocator is already initialized with the default `wee_alloc` feature set."
+    note = "Allocator is already initialized with the default `wee_alloc` feature set. \
+            Please make sure you don't disable default features on the SDK or set the global \
+            allocator manually."
 )]
 #[macro_export]
 macro_rules! setup_alloc {
