@@ -692,6 +692,9 @@ pub fn panic(message: &[u8]) -> ! {
 }
 /// Logs the string message message. This message is stored on chain.
 pub fn log_str(message: &str) {
+    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+    println!("{}", message);
+
     BLOCKCHAIN_INTERFACE.with(|b| unsafe {
         b.borrow()
             .as_ref()
