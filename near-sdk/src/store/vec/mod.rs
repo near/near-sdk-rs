@@ -37,7 +37,6 @@ pub struct Vector<T>
 where
     T: BorshSerialize,
 {
-    // TODO: determine why u64 was used previously -- is it required? u32 faster in wasm env
     len: u32,
     prefix: Vec<u8>,
     #[borsh_skip]
@@ -156,7 +155,10 @@ where
     /// This function must be unsafe because it requires modifying the cache with an immutable
     /// reference.
     unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<OnceCell<T>>> {
-        // TODO safety docs
+        // * SAFETY: The pointer into the values will be valid if the map is updated from a cache
+        //           load and potential move of values because the values are wrapped in a `Box`.
+        //           There also cannot be a re-entrancy bug with modifying an entry twice because
+        //           the deserialization happens outside of the modification of the map.
         let (entry, storage_bytes) = match self.cache.get_ptr().as_mut().entry(index) {
             Entry::Occupied(mut occupied) => (NonNull::from(&mut **occupied.get_mut()), None),
             Entry::Vacant(vacant) => {
