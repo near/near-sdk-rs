@@ -3,8 +3,8 @@
 #[macro_export]
 macro_rules! impl_non_fungible_token_core {
     ($contract: ident, $token: ident) => {
-        use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
-        use near_contract_standards::non_fungible_token::core::NonFungibleTokenResolver;
+        use $crate::non_fungible_token::core::NonFungibleTokenCore;
+        use $crate::non_fungible_token::core::NonFungibleTokenResolver;
         use std::collections::HashMap;
 
         #[near_bindgen]
@@ -72,7 +72,7 @@ macro_rules! impl_non_fungible_token_core {
 #[macro_export]
 macro_rules! impl_non_fungible_token_approval {
     ($contract: ident, $token: ident) => {
-        use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
+        use $crate::non_fungible_token::approval::NonFungibleTokenApproval;
 
         #[near_bindgen]
         impl NonFungibleTokenApproval for $contract {
@@ -113,7 +113,7 @@ macro_rules! impl_non_fungible_token_approval {
 #[macro_export]
 macro_rules! impl_non_fungible_token_enumeration {
     ($contract: ident, $token: ident) => {
-        use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
+        use $crate::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
         use near_sdk::json_types::U128;
 
         #[near_bindgen]
