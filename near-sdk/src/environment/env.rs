@@ -703,12 +703,17 @@ pub fn log_str(message: &str) {
 /// Log the UTF-8 encodable message.
 #[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
 pub fn log(message: &[u8]) {
-    BLOCKCHAIN_INTERFACE.with(|b| unsafe {
-        b.borrow()
-            .as_ref()
-            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-            .log_utf8(message.len() as _, message.as_ptr() as _)
-    })
+    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+    println!("{}", String::from_utf8_lossy(message));
+
+    unsafe {
+        BLOCKCHAIN_INTERFACE.with(|b| {
+            b.borrow()
+                .as_ref()
+                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+                .log_utf8(message.len() as _, message.as_ptr() as _)
+        })
+    }
 }
 
 // ###############
