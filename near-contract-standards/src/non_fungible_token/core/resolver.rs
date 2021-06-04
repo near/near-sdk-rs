@@ -2,6 +2,7 @@ use crate::non_fungible_token::token::TokenId;
 use near_sdk::AccountId;
 use std::collections::HashMap;
 
+/// Used when an NFT is transferred using `nft_transfer_call`. This is the method that's called after `nft_on_transfer`. This trait is implemented on the NFT contract.
 pub trait NonFungibleTokenResolver {
     /// Finalize an `nft_transfer_call` chain of cross-contract calls.
     ///

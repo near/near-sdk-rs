@@ -1,6 +1,6 @@
+use super::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
-use super::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{
     hash_account_id, refund_approved_account_ids, refund_deposit,
@@ -42,7 +42,7 @@ pub trait NonFungibleTokenReceiver {
     ) -> PromiseOrValue<bool>;
 }
 
-/// Implementation of a NonFungibleToken standard.
+/// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
 /// There are next traits that any contract may implement:
 ///     - NonFungibleTokenCore -- interface with nft_transfer methods. NonFungibleToken provides methods for it.

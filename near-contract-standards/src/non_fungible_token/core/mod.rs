@@ -1,8 +1,10 @@
 mod core_impl;
+
 mod receiver;
 mod resolver;
 
 pub use self::core_impl::*;
+
 pub use self::receiver::*;
 pub use self::resolver::*;
 
@@ -11,7 +13,7 @@ use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::PromiseOrValue;
 
-/// Trait used for all non-fungible tokens. The specification for the
+/// Used for all non-fungible tokens. The specification for the
 /// [core non-fungible token standard] lays out the reasoning for each method.
 /// It's important to check out [NonFungibleTokenReceiver](crate::non_fungible_token::receiver::NonFungibleTokenReceiver)
 /// and [NonFungibleTokenResolver](crate::non_fungible_token::resolver::NonFungibleTokenResolver) to
