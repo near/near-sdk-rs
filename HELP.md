@@ -412,7 +412,7 @@ log!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id);
 It's equivalent to the following message:
 
 ```rust
-env::log_str(format!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id));
+env::log_str(format!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id).as_ref());
 ```
 
 ## Return `Promise`
