@@ -3,7 +3,7 @@ use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use non_fungible_token::ContractContract as NftContract;
 use token_receiver::TokenReceiverContract;
 
-use near_contract_standards::non_fungible_token::token::TokenId;
+use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
 
 // Load in contract bytes at runtime

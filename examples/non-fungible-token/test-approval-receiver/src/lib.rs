@@ -1,8 +1,8 @@
 /*!
 A stub contract that implements nft_on_approve for simulation testing nft_approve.
 */
-use near_contract_standards::non_fungible_token::approval_receiver::NonFungibleTokenApprovalReceiver;
-use near_contract_standards::non_fungible_token::token::TokenId;
+use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApprovalReceiver;
+use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{

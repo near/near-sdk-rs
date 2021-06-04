@@ -4,7 +4,7 @@
 macro_rules! impl_non_fungible_token_core {
     ($contract: ident, $token: ident) => {
         use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
-        use near_contract_standards::non_fungible_token::resolver::NonFungibleTokenResolver;
+        use near_contract_standards::non_fungible_token::core::NonFungibleTokenResolver;
         use std::collections::HashMap;
 
         #[near_bindgen]
