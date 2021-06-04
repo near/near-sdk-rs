@@ -3,8 +3,8 @@
 #[macro_export]
 macro_rules! impl_fungible_token_core {
     ($contract: ident, $token: ident $(, $on_tokens_burned_fn:ident)?) => {
-        use near_contract_standards::fungible_token::core::FungibleTokenCore;
-        use near_contract_standards::fungible_token::resolver::FungibleTokenResolver;
+        use $crate::fungible_token::core::FungibleTokenCore;
+        use $crate::fungible_token::resolver::FungibleTokenResolver;
 
         #[near_bindgen]
         impl FungibleTokenCore for $contract {
@@ -67,7 +67,7 @@ macro_rules! impl_fungible_token_core {
 #[macro_export]
 macro_rules! impl_fungible_token_storage {
     ($contract: ident, $token: ident $(, $on_account_closed_fn:ident)?) => {
-        use near_contract_standards::storage_management::{
+        use $crate::storage_management::{
             StorageManagement, StorageBalance, StorageBalanceBounds
         };
 
