@@ -23,6 +23,8 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic(ERR_INCONSISTENT_STATE))
 }
 
+type CacheMap<K, V> = CacheCell<BTreeMap<K, Box<V>>>;
+
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
 ///
@@ -42,7 +44,7 @@ where
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
-    cache: CacheCell<BTreeMap<u32, Box<CacheEntry<OnceCell<T>>>>>,
+    cache: CacheMap<u32, CacheEntry<OnceCell<T>>>,
 }
 
 impl<T> Vector<T>
@@ -155,19 +157,29 @@ where
     /// reference.
     unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<OnceCell<T>>> {
         // TODO safety docs
-        match self.cache.get_ptr().as_mut().entry(index) {
-            Entry::Occupied(mut occupied) => NonNull::from(&mut **occupied.get_mut()),
+        let (entry, storage_bytes) = match self.cache.get_ptr().as_mut().entry(index) {
+            Entry::Occupied(mut occupied) => (NonNull::from(&mut **occupied.get_mut()), None),
             Entry::Vacant(vacant) => {
-                // TODO this check key is redundant, because the value is read after, find
-                // a way to load from storage here and pass through somehow.
-                let value = if env::storage_has_key(&self.index_to_lookup_key(index)) {
-                    Some(OnceCell::new())
-                } else {
-                    None
-                };
-                NonNull::from(&mut **vacant.insert(Box::new(CacheEntry::new_cached(value))))
+                let storage_bytes = env::storage_read(&self.index_to_lookup_key(index));
+                let value = if storage_bytes.is_some() { Some(OnceCell::new()) } else { None };
+
+                (
+                    NonNull::from(&mut **vacant.insert(Box::new(CacheEntry::new_cached(value)))),
+                    storage_bytes,
+                )
             }
+        };
+
+        if let Some(bytes) = storage_bytes {
+            // If storage bytes is `Some`, it is guaranteed that it is an entry with
+            // an empty `OnceCell`. This deserialization must happen outside of the entry load
+            // to avoid re-entrancy issues.
+            let filled = expect_consistent_state(entry.as_ptr().as_ref()).value();
+            expect_consistent_state(filled.as_ref())
+                .get_or_init(|| Self::deserialize_element(&bytes));
         }
+
+        entry
     }
 
     /// Loads value from storage into cache, and returns a mutable reference to the loaded value.
@@ -184,23 +196,15 @@ where
     pub fn get(&self, index: u32) -> Option<&T> {
         // TODO doc safety
         let cell = unsafe { &*self.load(index).as_ptr() }.value().as_ref()?;
-        Some(cell.get_or_init(|| {
-            expect_consistent_state(
-                env::storage_read(&self.index_to_lookup_key(index))
-                    .map(|v| Self::deserialize_element(&v)),
-            )
-        }))
+
+        // Cell is guaranteed to be filled by the `load` call.
+        Some(expect_consistent_state(cell.get()))
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
-        let index_key = self.index_to_lookup_key(index);
         let cell = self.load_mut(index).value_mut().as_mut()?;
-        cell.get_or_init(|| {
-            expect_consistent_state(
-                env::storage_read(&index_key).map(|v| Self::deserialize_element(&v)),
-            )
-        });
+
         cell.get_mut()
     }
 
