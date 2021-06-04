@@ -6,6 +6,9 @@ pub use near_sdk_macros::{
     serializer, BorshStorageKey, PanicOnDefault,
 };
 
+#[cfg(feature = "unstable")]
+pub mod store;
+
 pub mod collections;
 mod environment;
 pub use environment::env;
