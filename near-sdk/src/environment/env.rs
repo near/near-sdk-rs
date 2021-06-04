@@ -690,8 +690,22 @@ pub fn panic(message: &[u8]) -> ! {
     }
     unreachable!()
 }
+/// Logs the string message message. This message is stored on chain.
+pub fn log_str(message: &str) {
+    BLOCKCHAIN_INTERFACE.with(|b| unsafe {
+        b.borrow()
+            .as_ref()
+            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
+            .log_utf8(message.len() as _, message.as_ptr() as _)
+    })
+}
+
 /// Log the UTF-8 encodable message.
-pub fn log(message: &str) {
+#[deprecated(
+    since = "4.0.0",
+    note = "Use env::log_str for logging messages."
+)]
+pub fn log(message: &[u8]) {
     BLOCKCHAIN_INTERFACE.with(|b| unsafe {
         b.borrow()
             .as_ref()
