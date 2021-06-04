@@ -422,22 +422,22 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   signer_account: master_account,
 ///   deposit: near_sdk_sim::STORAGE_AMOUNT, // Deposit required to cover contract storage.
 ///   gas: near_sdk_sim::DEFAULT_GAS,
-///   init_method: new_default_meta(master_account_id, initial_balance.into())
+///   init_method: new_default_meta(master_account_id, initial_balance.into()),
 /// };
 /// ```
 #[doc(inline)]
 #[macro_export]
 macro_rules! deploy {
-    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr) => {
+    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr $(,)?) => {
         deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT)
     };
-    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr) => {
+    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr $(,)?) => {
         near_sdk_sim::ContractAccount {
             user_account: $user.deploy($wasm_bytes, $account_id.to_string(), $deposit),
             contract: $contract { account_id: $account_id.to_string() },
         }
     };
-    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* ) => {
+    ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* $(,)?) => {
            {
                let __contract = $contract { account_id: $account_id.to_string() };
                near_sdk_sim::ContractAccount {
@@ -446,22 +446,22 @@ macro_rules! deploy {
                }
            }
    };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr $(,)?) => {
       deploy!($contract, $account_id, $wasm_bytes, $user)
     };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr $(,)?) => {
         deploy!($contract, $account_id, $wasm_bytes, $user, $deposit)
     };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, gas: $gas:expr, init_method: $method: ident($($arg:expr),*) ) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, gas: $gas:expr, init_method: $method: ident($($arg:expr),*) $(,)?) => {
        deploy!($contract, $account_id, $wasm_bytes, $user, $deposit, $gas, $method, $($arg),*)
     };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, gas: $gas:expr, init_method: $method: ident($($arg:expr),*) ) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, gas: $gas:expr, init_method: $method: ident($($arg:expr),*) $(,)?) => {
        deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT, $gas, $method, $($arg),*)
     };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, init_method: $method: ident($($arg:expr),*) ) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, deposit: $deposit: expr, init_method: $method: ident($($arg:expr),*) $(,)?) => {
        deploy!($contract, $account_id, $wasm_bytes, $user, $deposit, near_sdk_sim::DEFAULT_GAS, $method, $($arg),*)
     };
-    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, init_method: $method: ident($($arg:expr),*) ) => {
+    (contract: $contract: ident, contract_id: $account_id:expr, bytes: $wasm_bytes: expr, signer_account: $user:expr, init_method: $method: ident($($arg:expr),*) $(,)?) => {
        deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT, near_sdk_sim::DEFAULT_GAS, $method, $($arg),*)
     };
 }
