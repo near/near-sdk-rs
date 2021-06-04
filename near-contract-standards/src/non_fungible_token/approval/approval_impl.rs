@@ -1,10 +1,12 @@
+/// Common implementation of the [approval management standard](https://nomicon.io/Standards/NonFungibleToken/ApprovalManagement.html) for NFTs.
+/// on the contract/account that has just been approved. This is not required to implement.
 use crate::non_fungible_token::approval::NonFungibleTokenApproval;
-use crate::non_fungible_token::core_impl::NonFungibleToken;
 use crate::non_fungible_token::token::TokenId;
 use crate::non_fungible_token::utils::{
     assert_at_least_one_yocto, bytes_for_approved_account_id, refund_approved_account_ids,
     refund_approved_account_ids_iter, refund_deposit,
 };
+use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
 use std::collections::HashMap;

@@ -1,5 +1,5 @@
 use crate::utils::{init, TOKEN_ID};
-use near_contract_standards::non_fungible_token::token::Token;
+use near_contract_standards::non_fungible_token::Token;
 use near_sdk_sim::{call, view};
 
 #[test]

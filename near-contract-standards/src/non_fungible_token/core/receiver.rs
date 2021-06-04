@@ -1,6 +1,7 @@
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::{AccountId, PromiseOrValue};
 
+/// Used when an NFT is transferred using `nft_transfer_call`. This trait is implemented on the receiving contract, not on the NFT contract.
 pub trait NonFungibleTokenReceiver {
     /// Take some action after receiving a non-fungible token
     ///
