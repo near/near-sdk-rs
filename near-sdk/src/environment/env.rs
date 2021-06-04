@@ -701,10 +701,7 @@ pub fn log_str(message: &str) {
 }
 
 /// Log the UTF-8 encodable message.
-#[deprecated(
-    since = "4.0.0",
-    note = "Use env::log_str for logging messages."
-)]
+#[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
 pub fn log(message: &[u8]) {
     BLOCKCHAIN_INTERFACE.with(|b| unsafe {
         b.borrow()
