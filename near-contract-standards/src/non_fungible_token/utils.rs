@@ -47,3 +47,8 @@ pub fn hash_account_id(account_id: &AccountId) -> CryptoHash {
     hash.copy_from_slice(&env::sha256(account_id.as_bytes()));
     hash
 }
+
+/// Assert that at least 1 yoctoNEAR was attached.
+pub(crate) fn assert_at_least_one_yocto() {
+    assert!(env::attached_deposit() >= 1, "Requires attached deposit of at least 1 yoctoNEAR")
+}

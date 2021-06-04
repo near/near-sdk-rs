@@ -51,11 +51,6 @@ pub fn assert_one_yocto() {
     assert_eq!(env::attached_deposit(), 1, "Requires attached deposit of exactly 1 yoctoNEAR")
 }
 
-/// Assert that at least 1 yoctoNEAR was attached.
-pub fn assert_at_least_one_yocto() {
-    assert!(env::attached_deposit() >= 1, "Requires attached deposit of at least 1 yoctoNEAR")
-}
-
 /// Returns true if promise was successful.
 /// Fails if called outside a callback that received 1 promise result.
 pub fn is_promise_success() -> bool {
