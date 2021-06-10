@@ -693,7 +693,7 @@ pub fn panic(message: &[u8]) -> ! {
 /// Logs the string message message. This message is stored on chain.
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
-    println!("{}", message);
+    eprintln!("{}", message);
 
     BLOCKCHAIN_INTERFACE.with(|b| unsafe {
         b.borrow()
@@ -707,7 +707,7 @@ pub fn log_str(message: &str) {
 #[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
 pub fn log(message: &[u8]) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
-    println!("{}", String::from_utf8_lossy(message));
+    eprintln!("{}", String::from_utf8_lossy(message));
 
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
