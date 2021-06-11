@@ -3,12 +3,11 @@ mod iter;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
-use std::cell::RefCell;
-use std::collections::BTreeMap;
 
 use self::iter::{Iter, IterMut};
 use crate::collections::append_slice;
 use crate::{env, CacheEntry, EntryState, IntoStorageKey};
+use crate::utils::StableMap;
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -17,43 +16,6 @@ const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic(ERR_INCONSISTENT_STATE))
-}
-
-struct StableMap<K, V> {
-    map: RefCell<BTreeMap<K, Box<V>>>,
-}
-
-impl<K: Ord, V> Default for StableMap<K, V> {
-    fn default() -> Self {
-        StableMap { map: Default::default() }
-    }
-}
-
-impl<K, V> StableMap<K, V> {
-    fn get(&self, k: K) -> &V
-    where
-        K: Ord,
-        V: Default,
-    {
-        let mut map = self.map.borrow_mut();
-        let v: &mut Box<V> = map.entry(k).or_default();
-        let v: &V = &*v;
-        // SAFETY: here, we extend the lifetime of `V` from local `RefCell`
-        // borrow to the `&self`. This is valid because we only append to the
-        // map via `&` reference, and the values are boxed, so we have stability
-        // of addresses.
-        unsafe { &*(v as *const V) }
-    }
-    fn get_mut(&mut self, k: K) -> &mut V
-    where
-        K: Ord,
-        V: Default,
-    {
-        &mut *self.map.get_mut().entry(k).or_default()
-    }
-    fn inner(&mut self) -> &mut BTreeMap<K, Box<V>> {
-        self.map.get_mut()
-    }
 }
 
 /// An iterable implementation of vector that stores its content on the trie. This implementation
