@@ -6,8 +6,8 @@ use once_cell::unsync::OnceCell;
 
 use self::iter::{Iter, IterMut};
 use crate::collections::append_slice;
-use crate::{env, CacheEntry, EntryState, IntoStorageKey};
 use crate::utils::StableMap;
+use crate::{env, CacheEntry, EntryState, IntoStorageKey};
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -40,7 +40,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 ///# near_sdk::test_utils::test_env::setup();
 /// let mut vec = Vector::new(b"a");
 /// assert!(vec.is_empty());
-/// 
+///
 /// vec.push(1);
 /// vec.push(2);
 ///
@@ -52,7 +52,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 ///
 /// vec[0] = 7;
 /// assert_eq!(vec[0], 7);
-/// 
+///
 /// vec.extend([1, 2, 3].iter().copied());
 /// assert!(Iterator::eq(vec.into_iter(), [7, 1, 2, 3].iter()));
 /// ```
