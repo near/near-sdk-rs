@@ -1,10 +1,6 @@
 pub(crate) mod storage_key_impl;
 
 #[cfg(feature = "unstable")]
-pub(crate) use cache_cell::CacheCell;
-#[cfg(feature = "unstable")]
-mod cache_cell;
-#[cfg(feature = "unstable")]
 mod cache_entry;
 #[cfg(feature = "unstable")]
 pub(crate) use cache_entry::{CacheEntry, EntryState};

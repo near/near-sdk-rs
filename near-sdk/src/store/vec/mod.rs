@@ -7,12 +7,12 @@ mod iter;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
-use std::collections::{btree_map::Entry, BTreeMap};
-use std::ptr::NonNull;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 use self::iter::{Iter, IterMut};
 use crate::collections::append_slice;
-use crate::{env, CacheCell, CacheEntry, EntryState, IntoStorageKey};
+use crate::{env, CacheEntry, EntryState, IntoStorageKey};
 
 const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
@@ -23,7 +23,42 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic(ERR_INCONSISTENT_STATE))
 }
 
-type CacheMap<K, V> = CacheCell<BTreeMap<K, Box<V>>>;
+struct StableMap<K, V> {
+    map: RefCell<BTreeMap<K, Box<V>>>,
+}
+
+impl<K: Ord, V> Default for StableMap<K, V> {
+    fn default() -> Self {
+        StableMap { map: Default::default() }
+    }
+}
+
+impl<K, V> StableMap<K, V> {
+    fn get(&self, k: K) -> &V
+    where
+        K: Ord,
+        V: Default,
+    {
+        let mut map = self.map.borrow_mut();
+        let v: &mut Box<V> = map.entry(k).or_default();
+        let v: &V = &*v;
+        // SAFETY: here, we extend the lifetime of `V` from local `RefCell`
+        // borrow to the `&self`. This is valid because we only append to the
+        // map via `&` reference, and the values are boxed, so we have stability
+        // of addresses.
+        unsafe { &*(v as *const V) }
+    }
+    fn get_mut(&mut self, k: K) -> &mut V
+    where
+        K: Ord,
+        V: Default,
+    {
+        &mut *self.map.get_mut().entry(k).or_default()
+    }
+    fn inner(&mut self) -> &mut BTreeMap<K, Box<V>> {
+        self.map.get_mut()
+    }
+}
 
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
@@ -43,7 +78,7 @@ where
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
-    cache: CacheMap<u32, CacheEntry<OnceCell<T>>>,
+    cache: StableMap<u32, OnceCell<CacheEntry<T>>>,
 }
 
 impl<T> Vector<T>
@@ -80,32 +115,31 @@ where
             env::storage_remove(&lookup_key);
         }
         self.len = 0;
-        self.cache.as_inner_mut().clear();
+        self.cache.inner().clear();
     }
 
     // TODO expose this? Could be useful to not force a user to drop to persist changes
     /// Flushes the cache and writes all modified values to storage.
     fn flush(&mut self) {
-        for (k, v) in self.cache.as_inner_mut().iter_mut() {
-            if v.is_modified() {
-                let key = append_slice(&self.prefix, &k.to_le_bytes()[..]);
-                match v.value().as_ref() {
-                    Some(modified) => {
-                        // Value was modified, write the updated value to storage
-                        env::storage_write(
-                            &key,
-                            &Self::serialize_element(expect_consistent_state(modified.get())),
-                        );
+        for (k, v) in self.cache.inner().iter_mut() {
+            if let Some(v) = v.get_mut() {
+                if v.is_modified() {
+                    let key = append_slice(&self.prefix, &k.to_le_bytes()[..]);
+                    match v.value().as_ref() {
+                        Some(modified) => {
+                            // Value was modified, write the updated value to storage
+                            env::storage_write(&key, &Self::serialize_element(modified));
+                        }
+                        None => {
+                            // Element was removed, clear the storage for the value
+                            env::storage_remove(&key);
+                        }
                     }
-                    None => {
-                        // Element was removed, clear the storage for the value
-                        env::storage_remove(&key);
-                    }
-                }
 
-                // Update state of flushed state as cached, to avoid duplicate writes/removes
-                // while also keeping the cached values in memory.
-                v.replace_state(EntryState::Cached);
+                    // Update state of flushed state as cached, to avoid duplicate writes/removes
+                    // while also keeping the cached values in memory.
+                    v.replace_state(EntryState::Cached);
+                }
             }
         }
     }
@@ -117,12 +151,11 @@ where
             env::panic(ERR_INDEX_OUT_OF_BOUNDS);
         }
 
-        match self.cache.as_inner_mut().entry(index) {
-            Entry::Occupied(mut occupied) => {
-                occupied.get_mut().replace(Some(OnceCell::from(value)));
-            }
-            Entry::Vacant(vacant) => {
-                vacant.insert(Box::new(CacheEntry::new_modified(Some(OnceCell::from(value)))));
+        let entry = self.cache.get_mut(index);
+        match entry.get_mut() {
+            Some(entry) => *entry.value_mut() = Some(value),
+            None => {
+                let _ = entry.set(CacheEntry::new_modified(Some(value)));
             }
         }
     }
@@ -151,63 +184,34 @@ where
         T::try_from_slice(&raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
     }
 
-    /// Loads value from storage into cache, if it does not already exist.
-    /// This function must be unsafe because it requires modifying the cache with an immutable
-    /// reference.
-    unsafe fn load(&self, index: u32) -> NonNull<CacheEntry<OnceCell<T>>> {
-        // * SAFETY: The pointer into the values will be valid if the map is updated from a cache
-        //           load and potential move of values because the values are wrapped in a `Box`.
-        //           There also cannot be a re-entrancy bug with modifying an entry twice because
-        //           the deserialization happens outside of the modification of the map.
-        let (entry, storage_bytes) = match self.cache.get_ptr().as_mut().entry(index) {
-            Entry::Occupied(mut occupied) => (NonNull::from(&mut **occupied.get_mut()), None),
-            Entry::Vacant(vacant) => {
-                let storage_bytes = env::storage_read(&self.index_to_lookup_key(index));
-                let value = if storage_bytes.is_some() { Some(OnceCell::new()) } else { None };
-
-                (
-                    NonNull::from(&mut **vacant.insert(Box::new(CacheEntry::new_cached(value)))),
-                    storage_bytes,
-                )
-            }
-        };
-
-        if let Some(bytes) = storage_bytes {
-            // If storage bytes is `Some`, it is guaranteed that it is an entry with
-            // an empty `OnceCell`. This deserialization must happen outside of the entry load
-            // to avoid re-entrancy issues.
-            let filled = expect_consistent_state(entry.as_ptr().as_ref()).value();
-            expect_consistent_state(filled.as_ref())
-                .get_or_init(|| Self::deserialize_element(&bytes));
-        }
-
-        entry
-    }
-
-    /// Loads value from storage into cache, and returns a mutable reference to the loaded value.
-    /// This function is safe because a mutable reference of self is used.
-    fn load_mut(&mut self, index: u32) -> &mut CacheEntry<OnceCell<T>> {
-        // * SAFETY: A mutable reference can be returned here because it references a value in a
-        //           `Box` and no other references should exist given function takes a mutable
-        //           reference. This has the assumption that other references are not kept around
-        //           past this function call.
-        unsafe { &mut *self.load(index).as_ptr() }
-    }
-
     /// Returns the element by index or `None` if it is not present.
     pub fn get(&self, index: u32) -> Option<&T> {
         // TODO doc safety
-        let cell = unsafe { &*self.load(index).as_ptr() }.value().as_ref()?;
+        let entry = self.cache.get(index).get_or_init(|| {
+            let storage_bytes = env::storage_read(&self.index_to_lookup_key(index));
+            let value = storage_bytes.as_deref().map(Self::deserialize_element);
+            CacheEntry::new_cached(value)
+        });
+        entry.value().as_ref()
+    }
 
-        // Cell is guaranteed to be filled by the `load` call.
-        Some(expect_consistent_state(cell.get()))
+    /// Returns a mutable reference to the element at the `index` provided.
+    fn get_mut_inner(&mut self, index: u32) -> &mut CacheEntry<T> {
+        let index_to_lookup_key = self.index_to_lookup_key(index);
+        let entry = self.cache.get_mut(index);
+        entry.get_or_init(|| {
+            let storage_bytes = env::storage_read(&index_to_lookup_key);
+            let value = storage_bytes.as_deref().map(Self::deserialize_element);
+            CacheEntry::new_cached(value)
+        });
+        let entry = entry.get_mut().unwrap();
+        entry
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
-        let cell = self.load_mut(index).value_mut().as_mut()?;
-
-        cell.get_mut()
+        let entry = self.get_mut_inner(index);
+        entry.value_mut().as_mut()
     }
 
     fn swap(&mut self, a: u32, b: u32) {
@@ -220,18 +224,9 @@ where
             return;
         }
 
-        // * SAFETY: references are guaranteed to be distinct because the indices are checked to not
-        //           be equal above. These mutable references will both be dropped before the end
-        //           of the scope of the swap call.
-        let a_value = unsafe { &mut *self.load(a).as_ptr() };
-        let b_value = unsafe { &mut *self.load(b).as_ptr() };
-
-        if a_value.value().is_none() || b_value.value().is_none() {
-            // Should never be able to swap a filled value with an empty value in a vec.
-            env::panic(ERR_INCONSISTENT_STATE);
-        }
-
-        core::mem::swap(a_value.value_mut(), b_value.value_mut());
+        let val_a = self.get_mut_inner(a).replace(None);
+        let val_b = self.get_mut_inner(b).replace(val_a);
+        self.get_mut_inner(a).replace(val_b);
     }
 
     /// Removes an element from the vector and returns it.
@@ -259,8 +254,7 @@ where
             self.len = last_idx;
 
             // Replace current value with none, and return the existing value
-            let popped_value = expect_consistent_state(self.load_mut(last_idx).replace(None));
-            popped_value.into_inner()
+            self.get_mut_inner(last_idx).replace(None)
         }
     }
 
@@ -272,9 +266,7 @@ where
     ///
     /// If `index` is out of bounds.
     pub fn replace(&mut self, index: u32, element: T) -> T {
-        let cache =
-            expect_consistent_state(self.load_mut(index).replace(Some(OnceCell::from(element))));
-        expect_consistent_state(cache.into_inner())
+        self.get_mut_inner(index).replace(Some(element)).unwrap()
     }
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
@@ -453,6 +445,9 @@ mod tests {
                 format!("Vector {{ len: 5, prefix: {:?} }}", vec.prefix)
             );
         }
+
+        // * The storage is reused in the second part of this test, need to flush
+        vec.flush();
 
         use borsh::{BorshDeserialize, BorshSerialize};
         #[derive(Debug, BorshSerialize, BorshDeserialize)]
