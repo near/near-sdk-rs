@@ -120,7 +120,6 @@ where
 {
     fn get_mut<'b>(&'b mut self, at: u32) -> Option<&'a mut T> {
         self.vec.get_mut(at).map(|value| {
-            // TODO double check if there is a better way around this lifetime issue
             //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
             //*         will only give out one mutable reference for every individual item
             //*         during the iteration, and there is no overlap. This must be checked

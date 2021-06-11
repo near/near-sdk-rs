@@ -1,7 +1,3 @@
-//! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
-//! of an element results in the last element being placed in the empty position.
-// TODO update these docs
-
 mod impls;
 mod iter;
 
@@ -60,13 +56,44 @@ impl<K, V> StableMap<K, V> {
     }
 }
 
-/// An iterable implementation of vector that stores its content on the trie.
-/// Uses the following map: index -> element.
+/// An iterable implementation of vector that stores its content on the trie. This implementation
+/// will load and store values in the underlying storage lazily.
+///
+/// Uses the following map: index -> element. Because the data is sharded to avoid reading/writing
+/// large chunks of data, the values cannot be accessed as a contiguous piece of memory.
 ///
 /// This implementation will cache all changes and loads and only updates values that are changed
-/// in storage after it's dropped through it's [`Drop`] implementation.
+/// in storage after it's dropped through it's [`Drop`] implementation. These changes can be updated
+/// in storage before the variable is dropped by using [`Vector::flush`]. During the lifetime of
+/// this type, storage will only be read a maximum of one time per index and only written once per
+/// index unless specifically flushed.
 ///
-/// TODO examples
+/// This type should be a drop in replacement for [`Vec`] in most cases and will provide contracts
+/// a vector structure which scales much better as the contract data grows.
+///
+/// # Examples
+/// ```
+/// use near_sdk::store::Vector;
+///
+///# near_sdk::test_utils::test_env::setup();
+/// let mut vec = Vector::new(b"a");
+/// assert!(vec.is_empty());
+/// 
+/// vec.push(1);
+/// vec.push(2);
+///
+/// assert_eq!(vec.len(), 2);
+/// assert_eq!(vec[0], 1);
+///
+/// assert_eq!(vec.pop(), Some(2));
+/// assert_eq!(vec.len(), 1);
+///
+/// vec[0] = 7;
+/// assert_eq!(vec[0], 7);
+/// 
+/// vec.extend([1, 2, 3].iter().copied());
+/// assert!(Iterator::eq(vec.into_iter(), [7, 1, 2, 3].iter()));
+/// ```
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Vector<T>
 where
@@ -118,9 +145,8 @@ where
         self.cache.inner().clear();
     }
 
-    // TODO expose this? Could be useful to not force a user to drop to persist changes
     /// Flushes the cache and writes all modified values to storage.
-    fn flush(&mut self) {
+    pub fn flush(&mut self) {
         for (k, v) in self.cache.inner().iter_mut() {
             if let Some(v) = v.get_mut() {
                 if v.is_modified() {
@@ -186,7 +212,6 @@ where
 
     /// Returns the element by index or `None` if it is not present.
     pub fn get(&self, index: u32) -> Option<&T> {
-        // TODO doc safety
         let entry = self.cache.get(index).get_or_init(|| {
             let storage_bytes = env::storage_read(&self.index_to_lookup_key(index));
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
@@ -258,8 +283,6 @@ where
         }
     }
 
-    // TODO this is not an API that matches std or anything, but is kept because it exists in
-    // the previous version. You can achieve the same with `get_mut` and `mem::replace`
     /// Inserts a element at `index`, returns an evicted element.
     ///
     /// # Panics
