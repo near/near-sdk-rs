@@ -144,6 +144,87 @@ where
     }
 }
 
+pub struct LazyOption<T> {
+    /// Key bytes to index the contract's storage.
+    storage_key: Vec<u8>,
+
+    /// Cached value which is lazily loaded and deserialized from storage.
+    #[borsh_skip]
+    cache: OnceCell<CacheEntry<T>>,
+}
+
+impl<T> LazyOption<T> {
+    /// Returns `true` if the value is present in the storage.
+    pub fn is_some(&self) -> bool {
+        self.cache.value().is_some()
+    }
+
+    /// Returns `true` if the value is not present in the storage.
+    pub fn is_none(&self) -> bool {
+        !self.is_some()
+    }
+
+    /// Create a new lazy option with the given `storage_key` and the initial value.
+    pub fn new<S>(storage_key: S, value: Option<T>) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        let cache = match value {
+            Some(value) => CacheEntry::new_modified(Some(value)),
+            None => CacheEntry::new_cached(None),
+        }
+
+        let mut this = Self { 
+            storage_key: storage_key.into_storage_key(),
+            cache: OnceCell::from(CacheEntry::new_cached(None))
+        };
+        this
+    }
+}
+
+impl<T> LazyOption<T> 
+where
+    T: BorshSerialize,
+{
+    pub fn set(&mut self, value: Option<T>) {
+        if let Some(v) = self.cache.get_mut() {
+            *v.value_mut() = Some(value);
+        } else {
+            self.cache
+                .set(CacheEntry::new_modified(Some(value)))
+                .ok()
+                .expect("cache is checked to not be filled above");
+        }
+    }
+}
+
+impl<T> LazyOption<T>
+where
+    T: BorshDeserialize,
+{
+    /// Returns a reference to the lazily loaded storage value.
+    /// The load from storage only happens once, and if the value is already cached, it will not
+    /// be reloaded.
+    ///
+    /// This function will panic if the cache is not loaded and the value at the key does not exist.
+    pub fn get(&self) -> Option<&T> {
+        let entry = self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
+        entry.value().as_ref()
+    }
+
+    /// Returns a reference to the lazily loaded storage value.
+    /// The load from storage only happens once, and if the value is already cached, it will not
+    /// be reloaded.
+    ///
+    /// This function will panic if the cache is not loaded and the value at the key does not exist.
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
+        let entry = self.cache.get_mut().expect("cell should be filled above");
+        entry.value_mut().as_mut()
+    }
+}
+
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
