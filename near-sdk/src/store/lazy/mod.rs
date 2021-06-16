@@ -144,6 +144,7 @@ where
     }
 }
 
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct LazyOption<T> {
     /// Key bytes to index the contract's storage.
     storage_key: Vec<u8>,
@@ -156,7 +157,7 @@ pub struct LazyOption<T> {
 impl<T> LazyOption<T> {
     /// Returns `true` if the value is present in the storage.
     pub fn is_some(&self) -> bool {
-        self.cache.value().is_some()
+        self.cache.get().map_or(false, |cache| cache.value().is_some())
     }
 
     /// Returns `true` if the value is not present in the storage.
@@ -172,13 +173,12 @@ impl<T> LazyOption<T> {
         let cache = match value {
             Some(value) => CacheEntry::new_modified(Some(value)),
             None => CacheEntry::new_cached(None),
-        }
-
-        let mut this = Self { 
-            storage_key: storage_key.into_storage_key(),
-            cache: OnceCell::from(CacheEntry::new_cached(None))
         };
-        this
+
+        Self {
+            storage_key: storage_key.into_storage_key(),
+            cache: OnceCell::from(cache),
+        }
     }
 }
 
@@ -186,7 +186,7 @@ impl<T> LazyOption<T>
 where
     T: BorshSerialize,
 {
-    pub fn set(&mut self, value: Option<T>) {
+    pub fn set(&mut self, value: T) {
         if let Some(v) = self.cache.get_mut() {
             *v.value_mut() = Some(value);
         } else {
@@ -194,6 +194,23 @@ where
                 .set(CacheEntry::new_modified(Some(value)))
                 .ok()
                 .expect("cache is checked to not be filled above");
+        }
+    }
+
+    /// Writes any changes to the value to storage. This will automatically be done when the
+    /// value is dropped through [`Drop`] so this should only be used when the changes need to be
+    /// reflected in the underlying storage before then.
+    pub fn flush(&mut self) {
+        if let Some(v) = self.cache.get_mut() {
+            if v.is_modified() {
+                // Value was modified, serialize and put the serialized bytes in storage.
+                let value = expect_consistent_state(v.value().as_ref());
+                serialize_and_store(&self.storage_key, value);
+
+                // Replaces cache entry state to cached because the value in memory matches the
+                // stored value. This avoids writing the same value twice.
+                v.replace_state(EntryState::Cached);
+            }
         }
     }
 }
@@ -262,5 +279,28 @@ mod tests {
         // A value that is not stored in storage yet and one that has not been loaded yet can
         // be checked for equality.
         assert_eq!(lazy_loaded, b);
+    }
+
+    #[test]
+    pub fn test_lazy_option_1() {
+        test_env::setup();
+        let mut a = LazyOption::new(b"a", None);
+        assert!(a.is_none());
+        assert!(!env::storage_has_key(b"a"));
+
+        // Check value has been set in via cache:
+        a.set(42u32);
+        assert!(a.is_some());
+        assert_eq!(a.get(), Some(&42));
+
+        // Flushing, then check if storage has been set:
+        a.flush();
+        assert!(env::storage_has_key(b"a"));
+        assert_eq!(u32::try_from_slice(&env::storage_read(b"a").unwrap()).unwrap(), 42);
+
+        // New value is set
+        a.set(49u32);
+        assert!(a.is_some());
+        assert_eq!(a.get(), Some(&49));
     }
 }
