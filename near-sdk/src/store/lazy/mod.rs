@@ -182,7 +182,7 @@ impl<T> LazyOption<T> {
     }
 }
 
-impl<T> LazyOption<T> 
+impl<T> LazyOption<T>
 where
     T: BorshSerialize,
 {
@@ -195,6 +195,12 @@ where
                 .ok()
                 .expect("cache is checked to not be filled above");
         }
+    }
+
+    /// Replaces the value in the storage and returns the previous value as an option.
+    pub fn replace(&mut self, value: T) -> Option<T> {
+        self.cache.get_mut()
+            .map_or(None, |cache| cache.replace(Some(value)))
     }
 
     /// Writes any changes to the value to storage. This will automatically be done when the
@@ -302,5 +308,10 @@ mod tests {
         a.set(49u32);
         assert!(a.is_some());
         assert_eq!(a.get(), Some(&49));
+
+        // Testing replace
+        let old = a.replace(69u32);
+        assert!(a.is_some());
+        assert_eq!(old, Some(49));
     }
 }
