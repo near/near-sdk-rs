@@ -450,4 +450,32 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    pub fn iterator_checks() {
+        test_env::setup();
+        let mut vec = Vector::new(b"v");
+        let mut baseline = vec![];
+        for i in 0..10 {
+            vec.push(i);
+            baseline.push(i);
+        }
+
+        let mut vec_iter = vec.iter();
+        let mut bl_iter = baseline.iter();
+        assert_eq!(vec_iter.next(), bl_iter.next());
+        assert_eq!(vec_iter.next_back(), bl_iter.next_back());
+        assert_eq!(vec_iter.nth(3), bl_iter.nth(3));
+        assert_eq!(vec_iter.nth_back(2), bl_iter.nth_back(2));
+
+        // Check to make sure indexing overflow is handled correctly
+        assert!(vec_iter.nth(5).is_none());
+        assert!(bl_iter.nth(5).is_none());
+
+        assert!(vec_iter.next().is_none());
+        assert!(bl_iter.next().is_none());
+
+        // Count check
+        assert_eq!(vec.iter().count(), baseline.iter().count());
+    }
 }

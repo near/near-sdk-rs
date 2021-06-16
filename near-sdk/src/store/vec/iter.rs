@@ -1,7 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::{convert::TryInto, iter::FusedIterator};
 
-use super::Vector;
+use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
+use crate::env;
 
 /// An interator over references to each element in the stored vector.
 #[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
@@ -51,14 +52,14 @@ where
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        debug_assert!(self.begin <= self.end);
         let n: u32 = n.try_into().ok()?;
-        if self.begin + n >= self.end {
+        self.begin = self.begin.saturating_add(n);
+        if self.begin >= self.end {
             return None;
         }
-        let cur = self.begin + n;
-        self.begin += 1 + n;
-        self.vec.get(cur).expect("access is within bounds").into()
+        let cur = self.begin;
+        self.begin += 1;
+        self.vec.get(cur).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
 
@@ -74,13 +75,13 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        debug_assert!(self.begin <= self.end);
         let n: u32 = n.try_into().ok()?;
-        if self.begin >= self.end.saturating_sub(n) {
+        self.end = self.end.saturating_sub(n);
+        if self.begin >= self.end {
             return None;
         }
-        self.end -= 1 + n;
-        self.vec.get(self.end).expect("access is within bounds").into()
+        self.end -= 1;
+        self.vec.get(self.end).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
 
@@ -149,14 +150,14 @@ where
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        debug_assert!(self.begin <= self.end);
         let n: u32 = n.try_into().ok()?;
-        if self.begin.saturating_add(n) >= self.end {
+        self.begin = self.begin.saturating_add(n);
+        if self.begin >= self.end {
             return None;
         }
-        let cur = self.begin + n;
-        self.begin += 1 + n;
-        self.get_mut(cur).expect("access is within bounds").into()
+        let cur = self.begin;
+        self.begin += 1;
+        self.get_mut(cur).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
 
@@ -172,12 +173,12 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        debug_assert!(self.begin <= self.end);
         let n: u32 = n.try_into().ok()?;
-        if self.begin >= self.end.saturating_sub(n) {
+        self.end = self.end.saturating_sub(n);
+        if self.begin >= self.end {
             return None;
         }
-        self.end -= 1 + n;
-        self.get_mut(self.end).expect("access is within bounds").into()
+        self.end -= 1;
+        self.get_mut(self.end).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
