@@ -145,7 +145,10 @@ where
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct LazyOption<T> {
+pub struct LazyOption<T>
+where
+    T: BorshSerialize,
+{
     /// Key bytes to index the contract's storage.
     storage_key: Vec<u8>,
 
@@ -154,7 +157,10 @@ pub struct LazyOption<T> {
     cache: OnceCell<CacheEntry<T>>,
 }
 
-impl<T> LazyOption<T> {
+impl<T> LazyOption<T>
+where
+    T: BorshSerialize,
+{
     /// Returns `true` if the value is present in the storage.
     pub fn is_some(&self) -> bool {
         self.cache.get().map_or(false, |cache| cache.value().is_some())
@@ -180,12 +186,30 @@ impl<T> LazyOption<T> {
             cache: OnceCell::from(cache),
         }
     }
-}
 
-impl<T> LazyOption<T>
-where
-    T: BorshSerialize,
-{
+    /// Returns whether the value was present.
+    pub fn remove(&mut self) -> bool {
+        self.take().is_some()
+    }
+
+    /// Replaces the value in the storage and returns the previous value as an option.
+    pub fn replace(&mut self, value: T) -> Option<T> {
+        self.cache.get_mut()
+            .map_or(None, |cache| cache.replace(Some(value)))
+    }
+
+    /// Removes the value from storage without reading it, and returning cached value.
+    pub fn take(&mut self) -> Option<T> {
+        let value = self.cache.get_mut()
+            .map_or(None, |cache| cache.replace(None));
+
+        if value.is_some() {
+            env::storage_remove(&self.storage_key);
+        }
+
+        value
+    }
+
     pub fn set(&mut self, value: T) {
         if let Some(v) = self.cache.get_mut() {
             *v.value_mut() = Some(value);
@@ -197,18 +221,12 @@ where
         }
     }
 
-    /// Replaces the value in the storage and returns the previous value as an option.
-    pub fn replace(&mut self, value: T) -> Option<T> {
-        self.cache.get_mut()
-            .map_or(None, |cache| cache.replace(Some(value)))
-    }
-
     /// Writes any changes to the value to storage. This will automatically be done when the
     /// value is dropped through [`Drop`] so this should only be used when the changes need to be
     /// reflected in the underlying storage before then.
     pub fn flush(&mut self) {
         if let Some(v) = self.cache.get_mut() {
-            if v.is_modified() {
+            if v.is_modified() && v.value().is_some() {
                 // Value was modified, serialize and put the serialized bytes in storage.
                 let value = expect_consistent_state(v.value().as_ref());
                 serialize_and_store(&self.storage_key, value);
@@ -223,7 +241,7 @@ where
 
 impl<T> LazyOption<T>
 where
-    T: BorshDeserialize,
+    T: BorshSerialize + BorshDeserialize,
 {
     /// Returns a reference to the lazily loaded storage value.
     /// The load from storage only happens once, and if the value is already cached, it will not
@@ -313,5 +331,12 @@ mod tests {
         let old = a.replace(69u32);
         assert!(a.is_some());
         assert_eq!(old, Some(49));
+
+
+        // Testing take deletes from internal storage
+        let taken = a.take();
+        assert!(a.is_none());
+        assert_eq!(taken, Some(69));
+        assert!(!env::storage_has_key(b"a"));
     }
 }

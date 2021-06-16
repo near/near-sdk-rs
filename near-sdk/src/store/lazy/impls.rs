@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::Lazy;
+use super::{Lazy, LazyOption};
 
 impl<T> Drop for Lazy<T>
 where
@@ -87,5 +87,14 @@ where
 {
     fn as_mut(&mut self) -> &mut T {
         Self::get_mut(self)
+    }
+}
+
+impl<T> Drop for LazyOption<T>
+where
+    T: BorshSerialize,
+{
+    fn drop(&mut self) {
+        self.flush()
     }
 }
