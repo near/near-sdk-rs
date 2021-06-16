@@ -1,6 +1,8 @@
 mod impls;
 mod iter;
 
+use std::fmt;
+
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
@@ -265,23 +267,16 @@ where
     }
 }
 
-#[cfg(not(feature = "expensive-debug"))]
-impl<T> std::fmt::Debug for Vector<T>
+impl<T> fmt::Debug for Vector<T>
 where
-    T: BorshSerialize + std::fmt::Debug,
+    T: BorshSerialize + BorshDeserialize + fmt::Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
-    }
-}
-
-#[cfg(feature = "expensive-debug")]
-impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T>
-where
-    T: BorshSerialize,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.iter().collect::<Vec<_>>().fmt(f)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if cfg!(feature = "expensive-debug") {
+            self.iter().collect::<Vec<_>>().fmt(f)
+        } else {
+            f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
+        }
     }
 }
 
