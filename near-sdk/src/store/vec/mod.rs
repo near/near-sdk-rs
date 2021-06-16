@@ -75,6 +75,8 @@ where
     T: BorshSerialize,
 {
     /// Returns the number of elements in the vector, also referred to as its size.
+    /// This function returns a `u32` rather than the [`Vec`] equivalent of `usize` to have
+    /// consistency between targets.
     pub fn len(&self) -> u32 {
         self.len
     }
@@ -153,12 +155,8 @@ where
 
     /// Appends an element to the back of the collection.
     pub fn push(&mut self, element: T) {
-        if self.len() >= u32::MAX {
-            env::panic(ERR_INDEX_OUT_OF_BOUNDS);
-        }
-
         let last_idx = self.len();
-        self.len += 1;
+        self.len = self.len.checked_add(1).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS));
         self.set(last_idx, element)
     }
 }
@@ -182,7 +180,10 @@ where
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
-    fn get_mut_inner(&mut self, index: u32) -> &mut CacheEntry<T> {
+    fn get_mut_inner(&mut self, index: u32) -> Option<&mut CacheEntry<T>> {
+        if index >= self.len {
+            return None;
+        }
         let index_to_lookup_key = self.index_to_lookup_key(index);
         let entry = self.cache.get_mut(index);
         entry.get_or_init(|| {
@@ -191,12 +192,12 @@ where
             CacheEntry::new_cached(value)
         });
         let entry = entry.get_mut().unwrap();
-        entry
+        Some(entry)
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
-        let entry = self.get_mut_inner(index);
+        let entry = self.get_mut_inner(index)?;
         entry.value_mut().as_mut()
     }
 
@@ -210,9 +211,9 @@ where
             return;
         }
 
-        let val_a = self.get_mut_inner(a).replace(None);
-        let val_b = self.get_mut_inner(b).replace(val_a);
-        self.get_mut_inner(a).replace(val_b);
+        let val_a = self.get_mut_inner(a).unwrap().replace(None);
+        let val_b = self.get_mut_inner(b).unwrap().replace(val_a);
+        self.get_mut_inner(a).unwrap().replace(val_b);
     }
 
     /// Removes an element from the vector and returns it.
@@ -233,15 +234,10 @@ where
 
     /// Removes the last element from a vector and returns it, or `None` if it is empty.
     pub fn pop(&mut self) -> Option<T> {
-        if self.is_empty() {
-            None
-        } else {
-            let last_idx = self.len - 1;
-            self.len = last_idx;
-
-            // Replace current value with none, and return the existing value
-            self.get_mut_inner(last_idx).replace(None)
-        }
+        let new_idx = self.len.checked_sub(1)?;
+        let prev = self.get_mut_inner(new_idx)?.replace(None);
+        self.len = new_idx;
+        prev
     }
 
     /// Inserts a element at `index`, returns an evicted element.
@@ -250,7 +246,10 @@ where
     ///
     /// If `index` is out of bounds.
     pub fn replace(&mut self, index: u32, element: T) -> T {
-        self.get_mut_inner(index).replace(Some(element)).unwrap()
+        self.get_mut_inner(index)
+            .unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS))
+            .replace(Some(element))
+            .unwrap()
     }
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
@@ -307,7 +306,7 @@ mod tests {
         }
         let actual: Vec<u64> = vec.iter().cloned().collect();
         assert_eq!(actual, baseline);
-        for _ in 0..1001 {
+        for _ in 0..501 {
             assert_eq!(baseline.pop(), vec.pop());
         }
     }

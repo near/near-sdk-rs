@@ -1,4 +1,4 @@
 mod lazy;
 pub use lazy::Lazy;
-mod vec;
+pub mod vec;
 pub use vec::Vector;
