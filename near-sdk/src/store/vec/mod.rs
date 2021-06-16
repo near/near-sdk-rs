@@ -64,7 +64,7 @@ where
     T: BorshSerialize,
 {
     len: u32,
-    prefix: Vec<u8>,
+    prefix: Box<[u8]>,
     #[borsh_skip]
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
@@ -93,7 +93,11 @@ where
     where
         S: IntoStorageKey,
     {
-        Self { len: 0, prefix: prefix.into_storage_key(), cache: Default::default() }
+        Self {
+            len: 0,
+            prefix: prefix.into_storage_key().into_boxed_slice(),
+            cache: Default::default(),
+        }
     }
 
     fn index_to_lookup_key(&self, index: u32) -> Vec<u8> {
@@ -431,8 +435,11 @@ mod tests {
         #[derive(Debug, BorshSerialize, BorshDeserialize)]
         struct TestType(u64);
 
-        let deserialize_only_vec =
-            Vector::<TestType> { len: vec.len(), prefix, cache: Default::default() };
+        let deserialize_only_vec = Vector::<TestType> {
+            len: vec.len(),
+            prefix: prefix.into_boxed_slice(),
+            cache: Default::default(),
+        };
         let baseline: Vec<_> = baseline.into_iter().map(|x| TestType(x)).collect();
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
