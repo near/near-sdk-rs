@@ -273,7 +273,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if cfg!(feature = "expensive-debug") {
-            self.iter().collect::<Vec<_>>().fmt(f)
+            fmt::Debug::fmt(&self.iter().collect::<Vec<_>>(), f)
         } else {
             f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
         }
