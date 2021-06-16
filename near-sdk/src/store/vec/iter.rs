@@ -110,7 +110,7 @@ where
             //*         will only give out one mutable reference for every individual item
             //*         during the iteration, and there is no overlap. This must be checked
             //*         that no element in this iterator is ever revisited during iteration.
-            unsafe { core::mem::transmute::<&'b mut T, &'a mut T>(value) }
+            unsafe { &mut *(value as *mut T) }
         })
     }
 }
