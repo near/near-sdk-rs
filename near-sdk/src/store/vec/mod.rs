@@ -109,14 +109,17 @@ where
 
     /// Flushes the cache and writes all modified values to storage.
     pub fn flush(&mut self) {
+        let mut buf = Vec::new();
         for (k, v) in self.cache.inner().iter_mut() {
             if let Some(v) = v.get_mut() {
                 if v.is_modified() {
                     let key = append_slice(&self.prefix, &k.to_le_bytes()[..]);
                     match v.value().as_ref() {
                         Some(modified) => {
-                            // Value was modified, write the updated value to storage
-                            env::storage_write(&key, &Self::serialize_element(modified));
+                            buf.clear();
+                            BorshSerialize::serialize(modified, &mut buf)
+                                .unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION));
+                            env::storage_write(&key, &buf);
                         }
                         None => {
                             // Element was removed, clear the storage for the value
@@ -146,10 +149,6 @@ where
                 let _ = entry.set(CacheEntry::new_modified(Some(value)));
             }
         }
-    }
-
-    fn serialize_element(element: &T) -> Vec<u8> {
-        element.try_to_vec().unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
     }
 
     /// Appends an element to the back of the collection.
