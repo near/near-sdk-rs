@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::{convert::TryInto, iter::FusedIterator};
+use core::{iter::FusedIterator, ops::Range};
 
 use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
 use crate::env;
@@ -12,10 +12,8 @@ where
 {
     /// Underlying vector to iterate through
     vec: &'a Vector<T>,
-    /// Initial index to start.
-    begin: u32,
-    /// End index to end interation.
-    end: u32,
+    /// Range of indices to iterate.
+    range: Range<u32>,
 }
 
 impl<'a, T> Iter<'a, T>
@@ -23,12 +21,12 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     pub(super) fn new(vec: &'a Vector<T>) -> Self {
-        Self { vec, begin: 0, end: vec.len() }
+        Self { vec, range: Range { start: 0, end: vec.len() } }
     }
 
     /// Returns number of elements left to iterate.
-    fn remaining(&self) -> u32 {
-        self.end - self.begin
+    fn remaining(&self) -> usize {
+        self.range.len()
     }
 }
 
@@ -43,23 +41,17 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.remaining() as usize;
+        let remaining = self.remaining();
         (remaining, Some(remaining))
     }
 
     fn count(self) -> usize {
-        self.remaining() as usize
+        self.remaining()
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let n: u32 = n.try_into().ok()?;
-        self.begin = self.begin.saturating_add(n);
-        if self.begin >= self.end {
-            return None;
-        }
-        let cur = self.begin;
-        self.begin += 1;
-        self.vec.get(cur).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
+        let idx = self.range.nth(n)?;
+        self.vec.get(idx).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
 
@@ -75,13 +67,8 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let n: u32 = n.try_into().ok()?;
-        self.end = self.end.saturating_sub(n);
-        if self.begin >= self.end {
-            return None;
-        }
-        self.end -= 1;
-        self.vec.get(self.end).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
+        let idx = self.range.nth_back(n)?;
+        self.vec.get(idx).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
 
@@ -93,10 +80,8 @@ where
 {
     /// Mutable reference to vector used to iterate through.
     vec: &'a mut Vector<T>,
-    /// Start index of the remaining iterator.
-    begin: u32,
-    /// End index of the remaining iterator.
-    end: u32,
+    /// Range of indices to iterate.
+    range: Range<u32>,
 }
 
 impl<'a, T> IterMut<'a, T>
@@ -105,13 +90,13 @@ where
 {
     /// Creates a new iterator for the given storage vector.
     pub(crate) fn new(vec: &'a mut Vector<T>) -> Self {
-        let len = vec.len();
-        Self { vec, begin: 0, end: len }
+        let end = vec.len();
+        Self { vec, range: Range { start: 0, end } }
     }
 
     /// Returns the amount of remaining elements to yield by the iterator.
-    fn remaining(&self) -> u32 {
-        self.end - self.begin
+    fn remaining(&self) -> usize {
+        self.range.len()
     }
 }
 
@@ -141,23 +126,17 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.remaining() as usize;
+        let remaining = self.remaining();
         (remaining, Some(remaining))
     }
 
     fn count(self) -> usize {
-        self.remaining() as usize
+        self.remaining()
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let n: u32 = n.try_into().ok()?;
-        self.begin = self.begin.saturating_add(n);
-        if self.begin >= self.end {
-            return None;
-        }
-        let cur = self.begin;
-        self.begin += 1;
-        self.get_mut(cur).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
+        let idx = self.range.nth(n)?;
+        self.get_mut(idx).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
 
@@ -173,12 +152,7 @@ where
     }
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
-        let n: u32 = n.try_into().ok()?;
-        self.end = self.end.saturating_sub(n);
-        if self.begin >= self.end {
-            return None;
-        }
-        self.end -= 1;
-        self.get_mut(self.end).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
+        let idx = self.range.nth_back(n)?;
+        self.get_mut(idx).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS)).into()
     }
 }
