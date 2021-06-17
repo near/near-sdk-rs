@@ -200,14 +200,8 @@ where
 
     /// Removes the value from storage without reading it, and returning cached value.
     pub fn take(&mut self) -> Option<T> {
-        let value = self.cache.get_mut()
-            .map_or(None, |cache| cache.replace(None));
-
-        if value.is_some() {
-            env::storage_remove(&self.storage_key);
-        }
-
-        value
+        self.cache.get_mut()
+            .map_or(None, |cache| cache.replace(None))
     }
 
     pub fn set(&mut self, value: T) {
@@ -226,15 +220,18 @@ where
     /// reflected in the underlying storage before then.
     pub fn flush(&mut self) {
         if let Some(v) = self.cache.get_mut() {
-            if v.is_modified() && v.value().is_some() {
-                // Value was modified, serialize and put the serialized bytes in storage.
-                let value = expect_consistent_state(v.value().as_ref());
-                serialize_and_store(&self.storage_key, value);
-
-                // Replaces cache entry state to cached because the value in memory matches the
-                // stored value. This avoids writing the same value twice.
-                v.replace_state(EntryState::Cached);
+            if !v.is_modified() {
+                return;
             }
+
+            match v.value().as_ref() {
+                Some(value) => serialize_and_store(&self.storage_key, value),
+                None => { env::storage_remove(&self.storage_key); () },
+            }
+
+            // Replaces cache entry state to cached because the value in memory matches the
+            // stored value. This avoids writing the same value twice.
+            v.replace_state(EntryState::Cached);
         }
     }
 }
@@ -246,8 +243,6 @@ where
     /// Returns a reference to the lazily loaded storage value.
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
-    ///
-    /// This function will panic if the cache is not loaded and the value at the key does not exist.
     pub fn get(&self) -> &Option<T> {
         let entry = self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
         entry.value()
@@ -256,8 +251,6 @@ where
     /// Returns a reference to the lazily loaded storage value.
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
-    ///
-    /// This function will panic if the cache is not loaded and the value at the key does not exist.
     pub fn get_mut(&mut self) -> &mut Option<T> {
         self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
         let entry = self.cache.get_mut().expect("cell should be filled above");
@@ -336,6 +329,9 @@ mod tests {
         let taken = a.take();
         assert!(a.is_none());
         assert_eq!(taken, Some(69));
+
+        // `flush`/`drop` after `take` should remove from storage:
+        drop(a);
         assert!(!env::storage_has_key(b"a"));
     }
 }
