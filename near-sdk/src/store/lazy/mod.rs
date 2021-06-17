@@ -144,6 +144,22 @@ where
     }
 }
 
+/// An persistent lazily loaded option, that stores a value in the storage.
+///
+/// This will only write to the underlying store if the value has changed, and will only read the
+/// existing value from storage once.
+///
+/// # Examples
+/// ```
+/// use near_sdk::store::LazyOption;
+///
+///# near_sdk::test_utils::test_env::setup();
+/// let mut a = LazyOption::new(b"a", None);
+/// assert_eq!(*a, None);
+///
+/// *a = Some("new value".to_owned());
+/// assert_eq!(a.get(), &Some("new value".to_owned()));
+/// ```
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LazyOption<T>
 where
@@ -187,7 +203,7 @@ where
         }
     }
 
-    /// Returns whether the value was present.
+    /// Removes the value from storage without reading it, and returns whether the value was present.
     pub fn remove(&mut self) -> bool {
         self.take().is_some()
     }
@@ -204,14 +220,18 @@ where
             .map_or(None, |cache| cache.replace(None))
     }
 
-    pub fn set(&mut self, value: T) {
+    /// Updates the value with a new value. This does not load the current value from storage.
+    /// Returns whether the previous value was present.
+    pub fn set(&mut self, value: T) -> bool {
         if let Some(v) = self.cache.get_mut() {
             *v.value_mut() = Some(value);
+            true
         } else {
             self.cache
                 .set(CacheEntry::new_modified(Some(value)))
                 .ok()
                 .expect("cache is checked to not be filled above");
+            false
         }
     }
 
@@ -240,7 +260,7 @@ impl<T> LazyOption<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
-    /// Returns a reference to the lazily loaded storage value.
+    /// Returns a reference to the lazily loaded optional.
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
     pub fn get(&self) -> &Option<T> {
@@ -248,7 +268,7 @@ where
         entry.value()
     }
 
-    /// Returns a reference to the lazily loaded storage value.
+    /// Returns a reference to the lazily loaded optional.
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
     pub fn get_mut(&mut self) -> &mut Option<T> {
