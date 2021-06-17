@@ -6,7 +6,9 @@ use crate::utils::{CacheEntry, EntryState};
 use crate::IntoStorageKey;
 use super::{load_and_deserialize, serialize_and_store};
 
-/// An persistent lazily loaded option, that stores a value in the storage.
+/// An persistent lazily loaded option, that stores a `value` in the storage when `Some(value)`
+/// is set, and not when `None` is set. `LazyOption` also [`Deref`]s into [`Option`] so we get
+/// all its APIs for free.
 ///
 /// This will only write to the underlying store if the value has changed, and will only read the
 /// existing value from storage once.
@@ -17,11 +19,18 @@ use super::{load_and_deserialize, serialize_and_store};
 ///
 ///# near_sdk::test_utils::test_env::setup();
 /// let mut a = LazyOption::new(b"a", None);
-/// assert_eq!(*a, None);
+/// assert!(a.is_none());
 ///
 /// *a = Some("new value".to_owned());
 /// assert_eq!(a.get(), &Some("new value".to_owned()));
+///
+/// // Using Option::replace:
+/// let old_str = a.replace("new new value".to_owned());
+/// assert_eq!(old_str, Some("new value".to_owned()));
+/// assert_eq!(a.get(), &Some("new new value".to_owned()));
 /// ```
+/// [`Option`]: core::option::Option
+/// [`Deref`]: core::ops::Deref
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LazyOption<T>
 where
