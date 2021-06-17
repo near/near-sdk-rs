@@ -226,7 +226,7 @@ where
 
             match v.value().as_ref() {
                 Some(value) => serialize_and_store(&self.storage_key, value),
-                None => { env::storage_remove(&self.storage_key); () },
+                None => { env::storage_remove(&self.storage_key); },
             }
 
             // Replaces cache entry state to cached because the value in memory matches the
