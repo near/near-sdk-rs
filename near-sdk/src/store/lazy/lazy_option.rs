@@ -39,16 +39,6 @@ impl<T> LazyOption<T>
 where
     T: BorshSerialize,
 {
-    /// Returns `true` if the value is present in the storage.
-    pub fn is_some(&self) -> bool {
-        self.cache.get().map_or(false, |cache| cache.value().is_some())
-    }
-
-    /// Returns `true` if the value is not present in the storage.
-    pub fn is_none(&self) -> bool {
-        !self.is_some()
-    }
-
     /// Create a new lazy option with the given `storage_key` and the initial value.
     pub fn new<S>(storage_key: S, value: Option<T>) -> Self
     where
@@ -62,33 +52,15 @@ where
         Self { storage_key: storage_key.into_storage_key(), cache: OnceCell::from(cache) }
     }
 
-    /// Removes the value from storage without reading it, and returns whether the value was present.
-    pub fn remove(&mut self) -> bool {
-        self.take().is_some()
-    }
-
-    /// Replaces the value in the storage and returns the previous value as an option.
-    pub fn replace(&mut self, value: T) -> Option<T> {
-        self.cache.get_mut().map_or(None, |cache| cache.replace(Some(value)))
-    }
-
-    /// Removes the value from storage without reading it, and returning cached value.
-    pub fn take(&mut self) -> Option<T> {
-        self.cache.get_mut().map_or(None, |cache| cache.replace(None))
-    }
-
     /// Updates the value with a new value. This does not load the current value from storage.
-    /// Returns whether the previous value was present.
-    pub fn set(&mut self, value: T) -> bool {
+    pub fn set(&mut self, value: Option<T>) {
         if let Some(v) = self.cache.get_mut() {
-            *v.value_mut() = Some(value);
-            true
+            *v.value_mut() = value;
         } else {
             self.cache
-                .set(CacheEntry::new_modified(Some(value)))
+                .set(CacheEntry::new_modified(value))
                 .ok()
                 .expect("cache is checked to not be filled above");
-            false
         }
     }
 
@@ -151,7 +123,7 @@ mod tests {
         assert!(!env::storage_has_key(b"a"));
 
         // Check value has been set in via cache:
-        a.set(42u32);
+        a.set(Some(42u32));
         assert!(a.is_some());
         assert_eq!(a.get(), &Some(42));
 
@@ -165,17 +137,17 @@ mod tests {
         assert!(a.is_some());
         assert_eq!(a.get(), &Some(49));
 
-        // Testing `replace`
+        // Testing `Option::replace`
         let old = a.replace(69u32);
         assert!(a.is_some());
         assert_eq!(old, Some(49));
 
-        // Testing `take` deletes from internal storage
+        // Testing `Option::take` deletes from internal storage
         let taken = a.take();
         assert!(a.is_none());
         assert_eq!(taken, Some(69));
 
-        // `flush`/`drop` after `take` should remove from storage:
+        // `flush`/`drop` after `Option::take` should remove from storage:
         drop(a);
         assert!(!env::storage_has_key(b"a"));
     }
