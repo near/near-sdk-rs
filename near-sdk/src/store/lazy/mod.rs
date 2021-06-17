@@ -316,7 +316,7 @@ mod tests {
         assert_eq!(u32::try_from_slice(&env::storage_read(b"a").unwrap()).unwrap(), 42);
 
         // New value is set
-        a.set(49u32);
+        *a = Some(49u32);
         assert!(a.is_some());
         assert_eq!(a.get(), &Some(49));
 
