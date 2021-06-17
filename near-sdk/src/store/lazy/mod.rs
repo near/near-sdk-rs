@@ -197,10 +197,7 @@ where
             None => CacheEntry::new_cached(None),
         };
 
-        Self {
-            storage_key: storage_key.into_storage_key(),
-            cache: OnceCell::from(cache),
-        }
+        Self { storage_key: storage_key.into_storage_key(), cache: OnceCell::from(cache) }
     }
 
     /// Removes the value from storage without reading it, and returns whether the value was present.
@@ -210,14 +207,12 @@ where
 
     /// Replaces the value in the storage and returns the previous value as an option.
     pub fn replace(&mut self, value: T) -> Option<T> {
-        self.cache.get_mut()
-            .map_or(None, |cache| cache.replace(Some(value)))
+        self.cache.get_mut().map_or(None, |cache| cache.replace(Some(value)))
     }
 
     /// Removes the value from storage without reading it, and returning cached value.
     pub fn take(&mut self) -> Option<T> {
-        self.cache.get_mut()
-            .map_or(None, |cache| cache.replace(None))
+        self.cache.get_mut().map_or(None, |cache| cache.replace(None))
     }
 
     /// Updates the value with a new value. This does not load the current value from storage.
@@ -246,7 +241,9 @@ where
 
             match v.value().as_ref() {
                 Some(value) => serialize_and_store(&self.storage_key, value),
-                None => { env::storage_remove(&self.storage_key); },
+                None => {
+                    env::storage_remove(&self.storage_key);
+                }
             }
 
             // Replaces cache entry state to cached because the value in memory matches the
@@ -277,7 +274,6 @@ where
         entry.value_mut()
     }
 }
-
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]

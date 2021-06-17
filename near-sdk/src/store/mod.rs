@@ -1,5 +1,2 @@
 mod lazy;
-pub use lazy::{
-    Lazy,
-    LazyOption,
-};
+pub use lazy::{Lazy, LazyOption};
