@@ -248,9 +248,9 @@ where
     /// be reloaded.
     ///
     /// This function will panic if the cache is not loaded and the value at the key does not exist.
-    pub fn get(&self) -> Option<&T> {
+    pub fn get(&self) -> &Option<T> {
         let entry = self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
-        entry.value().as_ref()
+        entry.value()
     }
 
     /// Returns a reference to the lazily loaded storage value.
@@ -258,10 +258,10 @@ where
     /// be reloaded.
     ///
     /// This function will panic if the cache is not loaded and the value at the key does not exist.
-    pub fn get_mut(&mut self) -> Option<&mut T> {
+    pub fn get_mut(&mut self) -> &mut Option<T> {
         self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
         let entry = self.cache.get_mut().expect("cell should be filled above");
-        entry.value_mut().as_mut()
+        entry.value_mut()
     }
 }
 
@@ -315,7 +315,7 @@ mod tests {
         // Check value has been set in via cache:
         a.set(42u32);
         assert!(a.is_some());
-        assert_eq!(a.get(), Some(&42));
+        assert_eq!(a.get(), &Some(42));
 
         // Flushing, then check if storage has been set:
         a.flush();
@@ -325,15 +325,14 @@ mod tests {
         // New value is set
         a.set(49u32);
         assert!(a.is_some());
-        assert_eq!(a.get(), Some(&49));
+        assert_eq!(a.get(), &Some(49));
 
-        // Testing replace
+        // Testing `replace`
         let old = a.replace(69u32);
         assert!(a.is_some());
         assert_eq!(old, Some(49));
 
-
-        // Testing take deletes from internal storage
+        // Testing `take` deletes from internal storage
         let taken = a.take();
         assert!(a.is_none());
         assert_eq!(taken, Some(69));
