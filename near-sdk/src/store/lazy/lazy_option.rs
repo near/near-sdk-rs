@@ -29,15 +29,13 @@ use crate::IntoStorageKey;
 /// assert_eq!(old_str, Some("new value".to_owned()));
 /// assert_eq!(a.get(), &Some("new new value".to_owned()));
 /// ```
-/// [`Option`]: core::option::Option
-/// [`Deref`]: core::ops::Deref
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LazyOption<T>
 where
     T: BorshSerialize,
 {
     /// Key bytes to index the contract's storage.
-    storage_key: Vec<u8>,
+    storage_key: Box<[u8]>,
 
     /// Cached value which is lazily loaded and deserialized from storage.
     #[borsh_skip]
@@ -58,7 +56,10 @@ where
             None => CacheEntry::new_cached(None),
         };
 
-        Self { storage_key: storage_key.into_storage_key(), cache: OnceCell::from(cache) }
+        Self {
+            storage_key: storage_key.into_storage_key().into_boxed_slice(),
+            cache: OnceCell::from(cache),
+        }
     }
 
     /// Updates the value with a new value. This does not load the current value from storage.
