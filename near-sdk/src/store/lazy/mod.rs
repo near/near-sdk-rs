@@ -51,7 +51,7 @@ where
 ///
 /// # Examples
 /// ```
-/// use near_sdk::collections::Lazy;
+/// use near_sdk::store::Lazy;
 ///
 ///# near_sdk::test_utils::test_env::setup();
 /// let mut a = Lazy::new(b"a", "test string".to_string());
