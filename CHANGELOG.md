@@ -1,6 +1,21 @@
 # Changelog
 
-## `3.1.0`
+## [unreleased]
+* Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
+* Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
+* Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
+* fix(promise): `PromiseOrValue` now correctly sets `should_return` flag correctly on serialization. [PR 407](https://github.com/near/near-sdk-rs/pull/407).
+* fix(tree_map): Correctly panic when range indices are exluded and `start > end`. [PR 392](https://github.com/near/near-sdk-rs/pull/392).
+* Implement `FromStr` for json types to allow calling `.parse()` to convert them.
+  * `ValidAccountId` [PR 391](https://github.com/near/near-sdk-rs/pull/391).
+  * `Base58CryptoHash` [PR 398](https://github.com/near/near-sdk-rs/pull/398).
+  * `Base58PublicKey` [PR 400](https://github.com/near/near-sdk-rs/pull/400).
+* expose `cur_block` and `genesis_config` from `RuntimeStandalone` to configure simulation tests. [PR 390](https://github.com/near/near-sdk-rs/pull/390).
+* fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
+* Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
+* Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
+
+## `3.1.0` [04-06-2021]
 
 * Updated dependencies for `near-sdk`
 * Introduce trait `IntoStorageKey` and updating all persistent collections to take it instead of `Vec<u8>`.
@@ -34,7 +49,7 @@ impl StatusMessage {
 }
 ```
 
-## `3.0.1`
+## `3.0.1` [03-25-2021]
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
   NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
@@ -58,11 +73,11 @@ impl StatusMessage {
 * **BREAKING** `#[init]` now checks that the state is not initialized. This is expected behavior. To ignore state check you can call `#[init(ignore_state)]`
 * NOTE: `3.0.0` is not published, due to tag conflicts on the `near-sdk-rs` repo.
 
-## `2.0.1`
+## `2.0.1` [01-13-2021]
 
 * Pinned version of `syn` crate to `=1.0.57`, since `1.0.58` introduced a breaking API change.
 
-## `2.0.0`
+## `2.0.0` [08-25-2020]
 
 ### Contract changes
 
@@ -79,7 +94,7 @@ impl StatusMessage {
   Previous `TreeMap` implementation was renamed to `LegacyTreeMap` and was deprecated.
   It should only be used if the contract was already deployed and state has to be compatible with the previous implementation.
 
-## `1.0.1`
+## `1.0.1` [08-22-2020]
 
 ### Other changes
 
@@ -89,7 +104,7 @@ impl StatusMessage {
 
 * Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `2.0.0` that changed `VMLogic` interface.
 
-## `1.0.0`
+## `1.0.0` [07-13-2020]
 
 ### Other changes
 
@@ -104,7 +119,7 @@ impl StatusMessage {
 
 * Use re-exported crate dependencies through `near_sdk` crate.
 
-## `0.11.0`
+## `0.11.0` [06-08-2020]
 
 ### API breaking changes
 

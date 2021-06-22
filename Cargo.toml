@@ -9,6 +9,7 @@ members = [
 exclude = [
     "examples/cross-contract-high-level",
     "examples/fungible-token",
+    "examples/non-fungible-token",
     "examples/lockable-fungible-token",
     "examples/cross-contract-low-level",
     "examples/mission-control",

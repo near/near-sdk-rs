@@ -33,7 +33,6 @@ impl From<Base64VecU8> for Vec<u8> {
 mod base64_bytes {
     use super::*;
     use serde::de;
-    use std::borrow::Cow;
 
     pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -46,8 +45,8 @@ mod base64_bytes {
     where
         D: Deserializer<'de>,
     {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
-        base64::decode(s.as_ref()).map_err(de::Error::custom)
+        let s: String = Deserialize::deserialize(deserializer)?;
+        base64::decode(s.as_str()).map_err(de::Error::custom)
     }
 }
 

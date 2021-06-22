@@ -600,17 +600,58 @@ where
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let this_key = self.key.clone();
-
-        let next_key = self
-            .key
-            .take()
-            .and_then(|k| if self.asc { self.map.higher(&k) } else { self.map.lower(&k) })
-            .filter(|k| fits(k, &self.lo, &self.hi));
-        self.key = next_key;
-
-        this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        <Self as Iterator>::nth(self, 0)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // Constrains max count. Not worth it to cause storage reads to make this more accurate.
+        (0, Some(self.map.len() as usize))
+    }
+
+    fn count(mut self) -> usize {
+        // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
+        // how many elements are left to iterate without loading keys in order. This could be
+        // optimized in the case of a standard iterator by having a separate type, but this would
+        // be a breaking change, so there will be slightly more reads than necessary in this case.
+        let mut count = 0;
+        while self.key.is_some() {
+            count += 1;
+            self.progress_key();
+        }
+        count
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        for _ in 0..n {
+            // Skip over elements not iterated over to get to `nth`. This avoids loading values
+            // from storage.
+            self.progress_key();
+        }
+
+        let key = self.progress_key()?;
+        let value = self.map.get(&key)?;
+
+        Some((key, value))
+    }
+
+    fn last(mut self) -> Option<Self::Item> {
+        if self.asc && matches!(self.hi, Bound::Unbounded) {
+            self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
+            self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else {
+            // Cannot guarantee what the last is within the range, must load keys until last.
+            let key = core::iter::from_fn(|| self.progress_key()).last();
+            key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        }
+    }
+}
+
+impl<K, V> std::iter::FusedIterator for Cursor<'_, K, V>
+where
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: BorshSerialize + BorshDeserialize,
+{
 }
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
@@ -667,6 +708,16 @@ where
         let key = key.filter(|k| fits(k, &lo, &hi));
 
         Self { asc: true, key, lo, hi, map }
+    }
+
+    /// Progresses the key one index, will return the previous key
+    fn progress_key(&mut self) -> Option<K> {
+        let new_key = self
+            .key
+            .as_ref()
+            .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
+            .filter(|k| fits(k, &self.lo, &self.hi));
+        core::mem::replace(&mut self.key, new_key)
     }
 }
 
@@ -1376,6 +1427,11 @@ mod tests {
         map.insert(&3, &43);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter().nth(1), Some((2, 42)));
+        assert_eq!(map.iter().count(), 3);
+        assert_eq!(map.iter().last(), Some((3, 43)));
         map.clear();
     }
 
@@ -1384,6 +1440,7 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
@@ -1395,6 +1452,11 @@ mod tests {
         map.insert(&3, &43);
 
         assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev().nth(1), Some((2, 42)));
+        assert_eq!(map.iter_rev().count(), 3);
+        assert_eq!(map.iter_rev().last(), Some((1, 41)));
         map.clear();
     }
 
@@ -1403,6 +1465,7 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
@@ -1435,6 +1498,12 @@ mod tests {
             map.iter_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(35, 42), (40, 42), (45, 42), (50, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
+        assert_eq!(map.iter_from(31).count(), 4);
+        assert_eq!(map.iter_from(31).last(), Some((50, 42)));
+
         map.clear();
     }
 
@@ -1443,6 +1512,7 @@ mod tests {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
@@ -1475,6 +1545,12 @@ mod tests {
             map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
+        assert_eq!(map.iter_rev_from(31).count(), 6);
+        assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
+
         map.clear();
     }
 
@@ -1515,11 +1591,6 @@ mod tests {
         );
 
         assert_eq!(
-            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (30, 42), (35, 42), (40, 42)]
-        );
-
-        assert_eq!(
             map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
             vec![]
         );
@@ -1533,6 +1604,11 @@ mod tests {
             map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
             vec![]
         ); // the range makes no sense, but `BTreeMap` does not panic in this case
+
+        // Test custom iterator impls
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
 
         map.clear();
     }
