@@ -27,7 +27,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic(ERR_DELETED))
 }
 
-fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
+pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
 where
     T: BorshDeserialize,
 {
@@ -36,7 +36,7 @@ where
     CacheEntry::new_cached(Some(val))
 }
 
-fn serialize_and_store<T>(key: &[u8], value: &T)
+pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
