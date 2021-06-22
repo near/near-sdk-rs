@@ -14,6 +14,7 @@
 * fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
 * Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
 * Update syscall interface to no longer go through `BLOCKCHAIN_INTERFACE`. Instead uses `near_sdk::sys` which is under the `unstable` feature flag if needed. [PR 417](https://github.com/near/near-sdk-rs/pull/417).
+* Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
 
 ## `3.1.0` [04-06-2021]
 

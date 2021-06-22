@@ -1,4 +1,6 @@
 use defi::DeFiContract;
+
+// #[near_bindgen] token contract generated for simulation see near-sdk-sim for details 
 use fungible_token::ContractContract as FtContract;
 
 use near_sdk::json_types::U128;
