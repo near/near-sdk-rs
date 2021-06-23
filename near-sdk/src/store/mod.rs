@@ -6,4 +6,3 @@ pub use lazy_option::LazyOption;
 
 pub mod vec;
 pub use vec::Vector;
-
