@@ -1,7 +1,7 @@
 # Changelog
 
 ## [unreleased]
-
+* Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
 * Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
 * Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
 * fix(promise): `PromiseOrValue` now correctly sets `should_return` flag correctly on serialization. [PR 407](https://github.com/near/near-sdk-rs/pull/407).
@@ -13,6 +13,7 @@
 * expose `cur_block` and `genesis_config` from `RuntimeStandalone` to configure simulation tests. [PR 390](https://github.com/near/near-sdk-rs/pull/390).
 * fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
 * Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
+* Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
 
 ## `3.1.0` [04-06-2021]
 

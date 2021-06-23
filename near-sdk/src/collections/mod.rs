@@ -18,7 +18,7 @@
 //! }
 //! ```
 //!
-//! The following is an efficient alternative. It will each element individually only when it is
+//! The following is an efficient alternative. It will load each element individually only when it is
 //! read and will save it only when it is written/removed.
 //! ```
 //! # use borsh::{BorshSerialize, BorshDeserialize};
