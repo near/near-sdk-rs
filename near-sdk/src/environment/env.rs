@@ -333,7 +333,7 @@ pub fn promise_create(
     amount: Balance,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_ref().as_bytes();
+    let account_id = account_id.as_bytes();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_create(
@@ -359,7 +359,7 @@ pub fn promise_then(
     amount: Balance,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_ref().as_bytes();
+    let account_id = account_id.as_bytes();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_then(

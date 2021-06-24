@@ -168,7 +168,7 @@ impl UserAccount {
         deposit: Balance,
     ) -> ExecutionResult {
         self.call(
-            pending_tx.receiver_id.clone(),
+            pending_tx.receiver_id.into_string(),
             &pending_tx.method,
             &pending_tx.args,
             gas,
@@ -223,7 +223,7 @@ impl UserAccount {
     ) -> UserAccount {
         self.deploy_and_init(
             wasm_bytes,
-            pending_tx.receiver_id,
+            pending_tx.receiver_id.into_string(),
             &pending_tx.method,
             &pending_tx.args,
             deposit,
@@ -286,7 +286,7 @@ impl UserAccount {
     /// Call a view method on a contract.
     /// Note: You will most likely not be using this method directly but rather the [`view!`](./macros.view.html) macro.
     pub fn view_method_call(&self, pending_tx: PendingContractTx) -> ViewResult {
-        self.view(pending_tx.receiver_id, &pending_tx.method, &pending_tx.args)
+        self.view(pending_tx.receiver_id.into_string(), &pending_tx.method, &pending_tx.args)
     }
 
     pub fn view(&self, receiver_id: AccountId, method: &str, args: &[u8]) -> ViewResult {
@@ -390,9 +390,9 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// use near_sdk_sim::*;
 /// use fungible_token::ContractContract;
 /// use std::convert::TryInto;
-/// use near_sdk::json_types::ValidAccountId;
+/// use near_sdk::AccountId;
 /// let master_account = near_sdk_sim::init_simulator(None);
-/// let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
 ///   contract: ContractContract,
@@ -416,7 +416,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
-/// contract: ContractContract,
+///   contract: ContractContract,
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
@@ -432,14 +432,17 @@ macro_rules! deploy {
         deploy!($contract, $account_id, $wasm_bytes, $user, near_sdk_sim::STORAGE_AMOUNT)
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr $(,)?) => {
+        use std::convert::TryInto;
+        let __acc_id = $account_id.try_into().unwrap()
         near_sdk_sim::ContractAccount {
-            user_account: $user.deploy($wasm_bytes, $account_id.to_string(), $deposit),
-            contract: $contract { account_id: $account_id.to_string() },
+            user_account: $user.deploy($wasm_bytes, __acc_id, $deposit),
+            contract: $contract { account_id: __acc_id },
         }
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* $(,)?) => {
            {
-               let __contract = $contract { account_id: $account_id.to_string() };
+               use std::convert::TryInto;
+               let __contract = $contract { account_id: $account_id.try_into().unwrap() };
                near_sdk_sim::ContractAccount {
                    user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
