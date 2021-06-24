@@ -521,10 +521,7 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
         })
     }
 }
-pub fn promise_batch_action_add_key_with_function_call<
-    P: Borrow<PublicKey>,
-    A: AsRef<str>,
->(
+pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>, A: AsRef<str>>(
     promise_index: PromiseIndex,
     public_key: P,
     nonce: u64,

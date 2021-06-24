@@ -1,4 +1,4 @@
-use near_sdk::{AccountId, json_types::U128};
+use near_sdk::{json_types::U128, AccountId};
 
 pub trait FungibleTokenResolver {
     fn ft_resolve_transfer(
