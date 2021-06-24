@@ -5,6 +5,7 @@
 
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
 
@@ -149,13 +150,13 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 // ###############
 /// The id of the account that owns the current contract.
 pub fn current_account_id() -> AccountId {
-    String::from_utf8(method_into_register!(current_account_id)).unwrap()
+    AccountId::try_from(method_into_register!(current_account_id)).unwrap()
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
 pub fn signer_account_id() -> AccountId {
-    String::from_utf8(method_into_register!(signer_account_id)).unwrap()
+    AccountId::try_from(method_into_register!(signer_account_id)).unwrap()
 }
 
 /// The public key of the account that did the signing.
@@ -165,8 +166,8 @@ pub fn signer_account_pk() -> PublicKey {
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
-pub fn predecessor_account_id() -> String {
-    String::from_utf8(method_into_register!(predecessor_account_id)).unwrap()
+pub fn predecessor_account_id() -> AccountId {
+    AccountId::try_from(method_into_register!(predecessor_account_id)).unwrap()
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
@@ -332,7 +333,7 @@ pub fn promise_create(
     amount: Balance,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id = account_id.as_ref().as_bytes();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_create(
@@ -358,7 +359,7 @@ pub fn promise_then(
     amount: Balance,
     gas: Gas,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id = account_id.as_ref().as_bytes();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_then(
@@ -393,8 +394,8 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     }
 }
 
-pub fn promise_batch_create<A: Borrow<AccountId>>(account_id: A) -> PromiseIndex {
-    let account_id = account_id.borrow();
+pub fn promise_batch_create<A: AsRef<str>>(account_id: A) -> PromiseIndex {
+    let account_id: &str = account_id.as_ref();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -405,11 +406,11 @@ pub fn promise_batch_create<A: Borrow<AccountId>>(account_id: A) -> PromiseIndex
     }
 }
 
-pub fn promise_batch_then<A: Borrow<AccountId>>(
+pub fn promise_batch_then<A: AsRef<str>>(
     promise_index: PromiseIndex,
     account_id: A,
 ) -> PromiseIndex {
-    let account_id = account_id.borrow();
+    let account_id: &str = account_id.as_ref();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
@@ -522,7 +523,7 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
 }
 pub fn promise_batch_action_add_key_with_function_call<
     P: Borrow<PublicKey>,
-    A: Borrow<AccountId>,
+    A: AsRef<str>,
 >(
     promise_index: PromiseIndex,
     public_key: P,
@@ -532,7 +533,7 @@ pub fn promise_batch_action_add_key_with_function_call<
     method_names: &[u8],
 ) {
     let public_key = public_key.borrow();
-    let receiver_id = receiver_id.borrow();
+    let receiver_id: &str = receiver_id.as_ref();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -571,11 +572,11 @@ pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
     }
 }
 
-pub fn promise_batch_action_delete_account<A: Borrow<AccountId>>(
+pub fn promise_batch_action_delete_account<A: AsRef<str>>(
     promise_index: PromiseIndex,
     beneficiary_id: A,
 ) {
-    let beneficiary_id = beneficiary_id.borrow();
+    let beneficiary_id: &str = beneficiary_id.as_ref();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
             b.borrow()
@@ -637,6 +638,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 
 /// For a given account return its current stake. If the account is not a validator, returns 0.
 pub fn validator_stake(account_id: &AccountId) -> Balance {
+    let account_id: &str = account_id.as_ref();
     let data = [0u8; size_of::<Balance>()];
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {

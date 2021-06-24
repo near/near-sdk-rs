@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, log, metadata, near_bindgen, setup_alloc};
+use near_sdk::{env, log, metadata, near_bindgen, setup_alloc, AccountId};
 
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ metadata! {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    records: HashMap<AccountId, String>,
 }
 
 #[near_bindgen]
@@ -21,11 +21,7 @@ impl StatusMessage {
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: String) -> Option::<String> {
-        assert!(
-            env::is_valid_account_id(account_id.as_bytes()),
-            "Given account ID is invalid"
-        );
+    pub fn get_status(&self, account_id: AccountId) -> Option::<String> {
         log!("get_status for account_id {}", account_id);
         self.records.get(&account_id).cloned()
     }

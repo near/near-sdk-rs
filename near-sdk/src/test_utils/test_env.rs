@@ -1,15 +1,15 @@
 use crate::test_utils::VMContextBuilder;
-use crate::{env, AccountId, MockedBlockchain, VMConfig};
+use crate::{env, MockedBlockchain, VMConfig};
 
-pub fn alice() -> AccountId {
+pub fn alice() -> String {
     "alice.near".to_string()
 }
 
-pub fn bob() -> AccountId {
+pub fn bob() -> String {
     "bob.near".to_string()
 }
 
-pub fn carol() -> AccountId {
+pub fn carol() -> String {
     "carol.near".to_string()
 }
 

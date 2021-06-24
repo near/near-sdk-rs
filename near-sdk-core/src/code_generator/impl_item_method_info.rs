@@ -221,7 +221,7 @@ impl ImplItemMethodInfo {
             #non_bindgen_attrs
             pub fn #ident#generics(#params) #return_ident {
                 #serialize_args
-                near_sdk::PendingContractTx::new_from_bytes(&self.account_id, #ident_str, args, #is_view)
+                near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), #ident_str, args, #is_view)
             }
         }
     }

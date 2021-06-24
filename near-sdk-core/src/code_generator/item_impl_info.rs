@@ -660,7 +660,7 @@ mod tests {
                   let args = near_sdk::serde_json::json!({ "k": k })
                   .to_string()
                   .into_bytes();
-                  near_sdk::PendingContractTx::new_from_bytes(&self.account_id, "method", args, true)
+                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "method", args, true)
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -684,7 +684,7 @@ mod tests {
                   let args = Input { a, };
                   let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
                       .expect("Failed to serialize the cross contract args using Borsh.");
-                  near_sdk::PendingContractTx::new_from_bytes(&self.account_id, "borsh_test", args, false)
+                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "borsh_test", args, false)
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());

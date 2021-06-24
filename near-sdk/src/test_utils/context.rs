@@ -1,14 +1,14 @@
 use std::convert::TryInto;
 
 use crate::environment::mocked_blockchain::MockedBlockchain;
-use crate::json_types::ValidAccountId;
+use crate::AccountId;
 use crate::test_utils::test_env::*;
 use crate::{
     Balance, BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage, VMContext,
 };
 
 /// Returns a pre-defined account_id from a list of 6.
-pub fn accounts(id: usize) -> ValidAccountId {
+pub fn accounts(id: usize) -> AccountId {
     ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().try_into().unwrap()
 }
 
@@ -43,12 +43,12 @@ impl VMContextBuilder {
         }
     }
 
-    pub fn current_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+    pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.current_account_id = account_id.into();
         self
     }
 
-    pub fn signer_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+    pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.signer_account_id = account_id.into();
         self
     }
@@ -58,7 +58,7 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn predecessor_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+    pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.predecessor_account_id = account_id.into();
         self
     }
