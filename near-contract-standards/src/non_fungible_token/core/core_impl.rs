@@ -7,7 +7,7 @@ use crate::non_fungible_token::utils::{
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::json_types::{Base64VecU8, ValidAccountId};
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
@@ -82,7 +82,7 @@ pub enum StorageKey {
 impl NonFungibleToken {
     pub fn new<Q, R, S, T>(
         owner_by_id_prefix: Q,
-        owner_id: ValidAccountId,
+        owner_id: AccountId,
         token_metadata_prefix: Option<R>,
         enumeration_prefix: Option<S>,
         approval_prefix: Option<T>,
@@ -341,7 +341,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
     fn mint(
         &mut self,
         token_id: TokenId,
-        token_owner_id: ValidAccountId,
+        token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
         let initial_storage_usage = env::storage_usage();

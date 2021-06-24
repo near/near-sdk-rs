@@ -320,7 +320,7 @@ impl Contract {
     }
 
     /// Change method. Changes the state, and then saves the new state internally.
-    pub fn set_owner_id(&mut self, new_owner_id: ValidAccountId) {
+    pub fn set_owner_id(&mut self, new_owner_id: AccountId) {
         self.owner_id = new_owner_id.into();
     }
 
@@ -328,7 +328,7 @@ impl Contract {
     /// efficiency reasons. Changes state in-memory, but does NOT save the new
     /// state. If called internally by a change method, WILL result in updated
     /// contract state.
-    pub fn update_stats(&self, account_id: ValidAccountId, score: U64) -> Account {
+    pub fn update_stats(&self, account_id: AccountId, score: U64) -> Account {
         let account = self.accounts.get(account_id).expect("account not found");
         account.total += score;
         account
@@ -427,7 +427,7 @@ E.g.
 ```rust
 #[near_bindgen]
 impl Contract {
-    pub fn withdraw_100(&mut self, receiver_id: ValidAccountId) -> Promise {
+    pub fn withdraw_100(&mut self, receiver_id: AccountId) -> Promise {
         Promise::new(receiver_id.into()).transfer(100)
     }
 }

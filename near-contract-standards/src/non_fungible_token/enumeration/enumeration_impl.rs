@@ -1,7 +1,7 @@
 use super::NonFungibleTokenEnumeration;
 use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 
 type TokenId = String;
@@ -43,7 +43,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             .collect()
     }
 
-    fn nft_supply_for_owner(self, account_id: ValidAccountId) -> U128 {
+    fn nft_supply_for_owner(self, account_id: AccountId) -> U128 {
         let tokens_per_owner = self.tokens_per_owner.expect(
             "Could not find tokens_per_owner when calling a method on the enumeration standard.",
         );
@@ -55,7 +55,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
 
     fn nft_tokens_for_owner(
         &self,
-        account_id: ValidAccountId,
+        account_id: AccountId,
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<Token> {

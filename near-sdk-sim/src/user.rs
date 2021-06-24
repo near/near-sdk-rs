@@ -1,12 +1,9 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
-use near_sdk::json_types::ValidAccountId;
-// use near_sdk::utils::PendingContractTx;
 use near_sdk::AccountId;
 use near_sdk::PendingContractTx;
 
@@ -147,9 +144,6 @@ impl UserAccount {
     /// Returns a copy of the `account_id`
     pub fn account_id(&self) -> AccountId {
         self.account_id.clone()
-    }
-    pub fn valid_account_id(&self) -> ValidAccountId {
-        self.account_id().try_into().unwrap()
     }
     /// Look up the account information on chain.
     pub fn account(&self) -> Option<Account> {
@@ -356,9 +350,6 @@ impl<T> ContractAccount<T> {
     pub fn account_id(&self) -> AccountId {
         self.user_account.account_id()
     }
-    pub fn valid_account_id(&self) -> ValidAccountId {
-        self.user_account.valid_account_id()
-    }
     pub fn account(&self) -> Option<Account> {
         self.user_account.account()
     }
@@ -409,9 +400,9 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// use fungible_token::ContractContract;
 /// use std::convert::TryInto;
 /// use near_sdk_sim::*;
-/// use near_sdk::json_types::ValidAccountId;
+/// use near_sdk::AccountId;
 /// let master_account = near_sdk_sim::init_simulator(None);
-/// let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
 ///   contract: ContractContract,
@@ -476,9 +467,9 @@ macro_rules! deploy {
 /// # use near_sdk_sim::*;
 /// # use fungible_token::ContractContract;
 /// # use std::convert::TryInto;
-/// # use near_sdk::json_types::ValidAccountId;
+/// # use near_sdk::AccountId;
 /// # let master_account = near_sdk_sim::init_simulator(None);
-/// # let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// # let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// # let initial_balance = near_sdk_sim::to_yocto("35");
 /// # let contract = deploy! {
 /// # contract: ContractContract,
@@ -543,9 +534,9 @@ macro_rules! call {
 /// # use near_sdk_sim::*;
 /// # use fungible_token::ContractContract;
 /// # use std::convert::TryInto;
-/// # use near_sdk::json_types::ValidAccountId;
+/// # use near_sdk::AccountId;
 /// # let master_account = near_sdk_sim::init_simulator(None);
-/// # let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// # let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// # let initial_balance = near_sdk_sim::to_yocto("35");
 /// # let contract = deploy! {
 /// # contract: ContractContract,
