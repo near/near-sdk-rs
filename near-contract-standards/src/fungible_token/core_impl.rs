@@ -1,8 +1,10 @@
+use std::convert::TryFrom;
+
 use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, IntoStorageKey,
     PromiseOrValue, PromiseResult, StorageUsage,
@@ -86,7 +88,7 @@ impl FungibleToken {
 
     fn measure_account_storage_usage(&mut self) {
         let initial_storage_usage = env::storage_usage();
-        let tmp_account_id = "a".repeat(64);
+        let tmp_account_id = AccountId::try_from("a".repeat(64)).unwrap();
         self.accounts.insert(&tmp_account_id, &0u128);
         self.account_storage_usage = env::storage_usage() - initial_storage_usage;
         self.accounts.remove(&tmp_account_id);
@@ -146,16 +148,16 @@ impl FungibleToken {
 }
 
 impl FungibleTokenCore for FungibleToken {
-    fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
     }
 
     fn ft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         amount: U128,
         memo: Option<String>,
         msg: String,
@@ -163,19 +165,19 @@ impl FungibleTokenCore for FungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         // Initiating receiver's call and the callback
         ext_fungible_token_receiver::ft_on_transfer(
             sender_id.clone(),
             amount.into(),
             msg,
-            receiver_id.as_ref(),
+            &receiver_id,
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
         .then(ext_self::ft_resolve_transfer(
             sender_id,
-            receiver_id.into(),
+            receiver_id,
             amount.into(),
             &env::current_account_id(),
             NO_DEPOSIT,
@@ -188,8 +190,8 @@ impl FungibleTokenCore for FungibleToken {
         self.total_supply.into()
     }
 
-    fn ft_balance_of(&self, account_id: ValidAccountId) -> U128 {
-        self.accounts.get(account_id.as_ref()).unwrap_or(0).into()
+    fn ft_balance_of(&self, account_id: AccountId) -> U128 {
+        self.accounts.get(&account_id).unwrap_or(0).into()
     }
 }
 
@@ -200,7 +202,7 @@ impl FungibleToken {
     pub fn internal_ft_resolve_transfer(
         &mut self,
         sender_id: &AccountId,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         amount: U128,
     ) -> (u128, u128) {
         let receiver_id: AccountId = receiver_id.into();
@@ -244,10 +246,10 @@ impl FungibleToken {
 impl FungibleTokenResolver for FungibleToken {
     fn ft_resolve_transfer(
         &mut self,
-        sender_id: ValidAccountId,
-        receiver_id: ValidAccountId,
+        sender_id: AccountId,
+        receiver_id: AccountId,
         amount: U128,
     ) -> U128 {
-        self.internal_ft_resolve_transfer(sender_id.as_ref(), receiver_id, amount).0.into()
+        self.internal_ft_resolve_transfer(&sender_id, receiver_id, amount).0.into()
     }
 }

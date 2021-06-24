@@ -105,6 +105,6 @@ impl StorageManagement for FungibleToken {
     }
 
     fn storage_balance_of(&self, account_id: ValidAccountId) -> Option<StorageBalance> {
-        self.internal_storage_balance_of(account_id.as_ref())
+        self.internal_storage_balance_of(&account_id)
     }
 }

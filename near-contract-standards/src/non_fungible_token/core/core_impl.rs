@@ -120,7 +120,7 @@ impl NonFungibleToken {
     fn measure_min_token_storage_cost(&mut self) {
         let initial_storage_usage = env::storage_usage();
         let tmp_token_id = "a".repeat(64); // TODO: what's a reasonable max TokenId length?
-        let tmp_owner_id = "a".repeat(64);
+        let tmp_owner_id = AccountId::new_unchecked("a".repeat(64));
 
         // 1. set some dummy data
         self.owner_by_id.insert(&tmp_token_id, &tmp_owner_id);
@@ -285,19 +285,19 @@ impl NonFungibleToken {
 impl NonFungibleTokenCore for NonFungibleToken {
     fn nft_transfer(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
+        self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
     }
 
     fn nft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
@@ -306,14 +306,14 @@ impl NonFungibleTokenCore for NonFungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
-            self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
+            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_receiver::nft_on_transfer(
             sender_id.clone(),
             old_owner.clone(),
             token_id.clone(),
             msg,
-            receiver_id.as_ref(),
+            &receiver_id,
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )

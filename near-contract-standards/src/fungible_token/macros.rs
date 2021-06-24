@@ -11,7 +11,7 @@ macro_rules! impl_fungible_token_core {
             #[payable]
             fn ft_transfer(
                 &mut self,
-                receiver_id: ValidAccountId,
+                receiver_id: AccountId,
                 amount: U128,
                 memo: Option<String>,
             ) {
@@ -21,7 +21,7 @@ macro_rules! impl_fungible_token_core {
             #[payable]
             fn ft_transfer_call(
                 &mut self,
-                receiver_id: ValidAccountId,
+                receiver_id: AccountId,
                 amount: U128,
                 memo: Option<String>,
                 msg: String,
@@ -33,7 +33,7 @@ macro_rules! impl_fungible_token_core {
                 self.$token.ft_total_supply()
             }
 
-            fn ft_balance_of(&self, account_id: ValidAccountId) -> U128 {
+            fn ft_balance_of(&self, account_id: AccountId) -> U128 {
                 self.$token.ft_balance_of(account_id)
             }
         }
@@ -43,8 +43,8 @@ macro_rules! impl_fungible_token_core {
             #[private]
             fn ft_resolve_transfer(
                 &mut self,
-                sender_id: ValidAccountId,
-                receiver_id: ValidAccountId,
+                sender_id: AccountId,
+                receiver_id: AccountId,
                 amount: U128,
             ) -> U128 {
                 let sender_id: AccountId = sender_id.into();
@@ -76,7 +76,7 @@ macro_rules! impl_fungible_token_storage {
             #[payable]
             fn storage_deposit(
                 &mut self,
-                account_id: Option<ValidAccountId>,
+                account_id: Option<AccountId>,
                 registration_only: Option<bool>,
             ) -> StorageBalance {
                 self.$token.storage_deposit(account_id, registration_only)
@@ -102,7 +102,7 @@ macro_rules! impl_fungible_token_storage {
                 self.$token.storage_balance_bounds()
             }
 
-            fn storage_balance_of(&self, account_id: ValidAccountId) -> Option<StorageBalance> {
+            fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
                 self.$token.storage_balance_of(account_id)
             }
         }

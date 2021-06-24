@@ -48,7 +48,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             "Could not find tokens_per_owner when calling a method on the enumeration standard.",
         );
         tokens_per_owner
-            .get(account_id.as_ref())
+            .get(&account_id)
             .map(|account_tokens| U128::from(account_tokens.len() as u128))
             .unwrap_or(U128(0))
     }
@@ -62,7 +62,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         let tokens_per_owner = self.tokens_per_owner.as_ref().expect(
             "Could not find tokens_per_owner when calling a method on the enumeration standard.",
         );
-        let token_set = if let Some(token_set) = tokens_per_owner.get(account_id.as_ref()) {
+        let token_set = if let Some(token_set) = tokens_per_owner.get(&account_id) {
             token_set
         } else {
             return vec![];
@@ -78,7 +78,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             .iter()
             .skip(start_index as usize)
             .take(limit)
-            .map(|token_id| self.enum_get_token(account_id.as_ref().clone(), token_id))
+            .map(|token_id| self.enum_get_token(account_id.clone(), token_id))
             .collect()
     }
 }

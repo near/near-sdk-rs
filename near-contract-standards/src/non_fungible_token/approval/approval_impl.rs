@@ -7,7 +7,6 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::json_types::ValidAccountId;
 use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
 use std::collections::HashMap;
 
@@ -29,7 +28,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     fn nft_approve(
         &mut self,
         token_id: TokenId,
-        account_id: ValidAccountId,
+        account_id: AccountId,
         msg: Option<String>,
     ) -> Option<Promise> {
         assert_at_least_one_yocto();
@@ -81,7 +80,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         }
     }
 
-    fn nft_revoke(&mut self, token_id: TokenId, account_id: ValidAccountId) {
+    fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) {
         assert_one_yocto();
         if self.approvals_by_id.is_none() {
             env::panic(b"NFT does not support Approval Management");
@@ -97,7 +96,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             &mut self.approvals_by_id.as_mut().unwrap().get(&token_id)
         {
             // if account_id was already not approved, do nothing
-            if approved_account_ids.remove(account_id.as_ref()).is_some() {
+            if approved_account_ids.remove(&account_id).is_some() {
                 refund_approved_account_ids_iter(
                     predecessor_account_id,
                     [account_id.into()].iter(),
@@ -138,7 +137,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     fn nft_is_approved(
         self,
         token_id: TokenId,
-        approved_account_id: ValidAccountId,
+        approved_account_id: AccountId,
         approval_id: Option<u64>,
     ) -> bool {
         self.owner_by_id.get(&token_id).expect("Token not found");
