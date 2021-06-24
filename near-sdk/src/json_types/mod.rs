@@ -1,6 +1,5 @@
 //! Helper types for JSON serialization.
 
-// mod account;
 mod hash;
 mod integers;
 mod public_key;
