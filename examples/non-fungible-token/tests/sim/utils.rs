@@ -4,6 +4,7 @@ use non_fungible_token::ContractContract as NftContract;
 use token_receiver::TokenReceiverContract;
 
 use near_contract_standards::non_fungible_token::TokenId;
+use near_sdk::AccountId;
 use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
 
 // Load in contract bytes at runtime
@@ -72,7 +73,7 @@ pub fn init() -> (
         deposit = 7000000000000000000000
     );
 
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
+    let alice = root.create_user(AccountId::new_unchecked("alice".to_string()), to_yocto("100"));
 
     let token_receiver = deploy!(
         contract: TokenReceiverContract,

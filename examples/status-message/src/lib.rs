@@ -53,7 +53,7 @@ mod tests {
         assert_eq!(get_logs(), vec!["bob_near set_status with message hello"]);
         let context = get_context(true);
         testing_env!(context);
-        assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
+        assert_eq!("hello".to_string(), contract.get_status("bob_near".parse().unwrap()).unwrap());
         assert_eq!(get_logs(), vec!["get_status for account_id bob_near"])
     }
 
@@ -62,7 +62,7 @@ mod tests {
         let context = get_context(true);
         testing_env!(context);
         let contract = StatusMessage::default();
-        assert_eq!(None, contract.get_status("francis.near".to_string()));
+        assert_eq!(None, contract.get_status("francis.near".parse().unwrap()));
         assert_eq!(get_logs(), vec!["get_status for account_id francis.near"])
     }
 }

@@ -641,8 +641,8 @@ impl Contract {
         self.status_updates.remove(&env::predecessor_account_id());
     }
 
-    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
-        self.status_updates.get(account_id.as_ref())
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
+        self.status_updates.get(&account_id)
     }
 }
 ```

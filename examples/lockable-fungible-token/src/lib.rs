@@ -263,21 +263,21 @@ mod tests {
     use super::*;
 
     fn alice() -> AccountId {
-        "alice.near".to_string()
+        "alice.near".parse().unwrap()
     }
     fn bob() -> AccountId {
-        "bob.near".to_string()
+        "bob.near".parse().unwrap()
     }
     fn carol() -> AccountId {
-        "carol.near".to_string()
+        "carol.near".parse().unwrap()
     }
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
+            current_account_id: alice().into_string(),
+            signer_account_id: bob().into_string(),
             signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id,
+            predecessor_account_id: predecessor_account_id.into_string(),
             input: vec![],
             block_index: 0,
             block_timestamp: 0,
