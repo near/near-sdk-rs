@@ -23,7 +23,7 @@ pub fn register_user(user: &near_sdk_sim::UserAccount) {
         FT_ID.parse().unwrap(),
         "storage_deposit",
         &json!({
-            "account_id": user.valid_account_id()
+            "account_id": user.account_id()
         })
         .to_string()
         .into_bytes(),
@@ -42,7 +42,7 @@ pub fn init_no_macros(initial_balance: u128) -> (UserAccount, UserAccount, UserA
         FT_ID.parse().unwrap(),
         "new_default_meta",
         &json!({
-            "owner_id": root.valid_account_id(),
+            "owner_id": root.account_id(),
             "total_supply": U128::from(initial_balance),
         })
         .to_string()
@@ -74,7 +74,7 @@ pub fn init_with_macros(
         signer_account: root,
         // init method
         init_method: new_default_meta(
-            root.valid_account_id(),
+            root.account_id(),
             initial_balance.into()
         )
     );
@@ -87,7 +87,7 @@ pub fn init_with_macros(
         bytes: &DEFI_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            ft.valid_account_id()
+            ft.account_id()
         )
     );
 

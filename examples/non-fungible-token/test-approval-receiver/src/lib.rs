@@ -4,7 +4,6 @@ A stub contract that implements nft_on_approve for simulation testing nft_approv
 use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApprovalReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::AccountId;
 use near_sdk::{
     env, ext_contract, log, near_bindgen, setup_alloc, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,

@@ -46,7 +46,7 @@ pub fn init() -> (
         signer_account: root,
         // init method
         init_method: new_default_meta(
-            root.valid_account_id()
+            root.account_id()
         )
     );
 
@@ -54,7 +54,7 @@ pub fn init() -> (
         root,
         nft.nft_mint(
             TOKEN_ID.into(),
-            root.valid_account_id(),
+            root.account_id(),
             TokenMetadata {
                 title: Some("Olympus Mons".into()),
                 description: Some("The tallest mountain in the charted solar system".into()),
@@ -81,7 +81,7 @@ pub fn init() -> (
         bytes: &TOKEN_RECEIVER_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            nft.valid_account_id()
+            nft.account_id()
         )
     );
 
@@ -91,7 +91,7 @@ pub fn init() -> (
         bytes: &APPROVAL_RECEIVER_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            nft.valid_account_id()
+            nft.account_id()
         )
     );
 
@@ -109,7 +109,7 @@ pub fn helper_mint(
         root,
         nft.nft_mint(
             token_id,
-            root.valid_account_id(),
+            root.account_id(),
             TokenMetadata {
                 title: Some(title),
                 description: Some(desc),
