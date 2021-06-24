@@ -25,7 +25,7 @@ impl TestContract {
         #[derive(BorshDeserialize)]
         struct OldContract {
             // ...
-        };
+        }
 
         let _old_contract: OldContract = env::state_read().expect("Old state doesn't exist");
 

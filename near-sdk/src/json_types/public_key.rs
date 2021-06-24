@@ -1,7 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::convert::TryFrom;
 
 /// PublicKey curve
@@ -98,7 +97,7 @@ impl<'de> serde::Deserialize<'de> for Base58PublicKey {
     where
         D: serde::Deserializer<'de>,
     {
-        let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        let s: String = Deserialize::deserialize(deserializer)?;
         s.parse::<Base58PublicKey>().map_err(serde::de::Error::custom)
     }
 }
