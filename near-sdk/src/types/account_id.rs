@@ -5,7 +5,34 @@ use std::fmt;
 
 use crate::env::is_valid_account_id;
 
-/// Account identifier. Provides access to user's state.
+/// Account identifier. This is the human readable utf8 string which is used internally to index
+/// accounts on the network and their respective state.
+///
+/// Because these IDs have to be validated, they have to be converted from a string
+/// with [`FromStr`] or [`TryFrom`] a compatible type. To skip validation on initialization,
+/// [`AccountId::new_unchecked`] can be used.
+///
+/// # Examples
+/// ```
+/// use near_sdk::AccountId;
+/// use std::convert::{TryFrom, TryInto};
+///
+/// // `FromStr` conversion
+/// let alice: AccountId = "alice.near".parse().unwrap();
+/// assert!("invalid.".parse::<AccountId>().is_err());
+///
+/// let alice_string = "alice".to_string();
+///
+/// // From string with validation
+/// let alice = AccountId::try_from(alice_string.clone()).unwrap();
+/// let alice: AccountId = alice_string.try_into().unwrap();
+///
+/// // Initialize without validating
+/// let alice_unchecked = AccountId::new_unchecked("alice".to_string());
+/// assert_eq!(alice, alice_unchecked);
+/// ```
+///
+/// [`FromStr`]: std::str::FromStr
 #[derive(
     Debug,
     Clone,
@@ -34,7 +61,6 @@ impl AccountId {
     pub fn into_string(self) -> String {
         self.0
     }
-    // TODO this should probably be marked as unstable or crate scoped
     /// Constructs new AccountId from `String` without checking validity.
     pub fn new_unchecked(id: String) -> Self {
         Self(id)
