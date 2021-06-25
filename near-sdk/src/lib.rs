@@ -39,9 +39,6 @@ pub use crate::utils::storage_key_impl::*;
 pub use crate::utils::*;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use environment::blockchain_interface::BlockchainInterface;
-
-#[cfg(not(target_arch = "wasm32"))]
 pub mod test_utils;
 
 // Exporting common crates

@@ -123,13 +123,11 @@ impl VMContextBuilder {
 ///
 /// [`BlockchainInterface`]: (crate::BlockchainInterface)
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
-    let storage = crate::env::take_blockchain_interface()
-        .unwrap()
-        .as_mut_mocked_blockchain()
-        .unwrap()
-        .take_storage();
+    let storage = crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow_mut().take_storage());
 
-    crate::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
+    //? This probably shouldn't need to replace the existing mocked blockchain altogether?
+    //? Might be a good time to remove this utility function altogether
+    crate::env::set_blockchain_interface(MockedBlockchain::new(
         context,
         Default::default(),
         Default::default(),
@@ -137,5 +135,5 @@ pub fn testing_env_with_promise_results(context: VMContext, promise_result: Prom
         storage,
         Default::default(),
         None,
-    )));
+    ));
 }

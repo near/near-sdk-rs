@@ -1,4 +1,3 @@
-use crate::environment::blockchain_interface::BlockchainInterface;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{AccountId, Balance, PromiseResult};
 use crate::RuntimeFeesConfig;
@@ -101,7 +100,7 @@ impl MockedBlockchain {
     }
 }
 
-impl BlockchainInterface for MockedBlockchain {
+impl MockedBlockchain {
     unsafe fn read_register(&self, register_id: u64, ptr: u64) {
         self.logic.borrow_mut().read_register(register_id, ptr).unwrap()
     }
@@ -202,6 +201,7 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().log_utf16(len, ptr).unwrap()
     }
 
+    #[allow(dead_code)]
     unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> () {
         self.logic.borrow_mut().abort(msg_ptr, filename_ptr, line, col).unwrap()
     }
@@ -445,28 +445,18 @@ impl BlockchainInterface for MockedBlockchain {
     unsafe fn validator_total_stake(&self, stake_ptr: u64) {
         self.logic.borrow_mut().validator_total_stake(stake_ptr).unwrap();
     }
-
-    fn as_mut_mocked_blockchain(&mut self) -> Option<&mut MockedBlockchain> {
-        Some(self)
-    }
-
-    fn as_mocked_blockchain(&self) -> Option<&MockedBlockchain> {
-        Some(self)
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
-    use crate::{env::BLOCKCHAIN_INTERFACE, BlockchainInterface};
-
-    const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
+    use crate::env::BLOCKCHAIN_INTERFACE;
+    use crate::MockedBlockchain;
 
     fn with_mock_interface<F, R>(f: F) -> R
     where
-        F: FnOnce(&dyn BlockchainInterface) -> R,
+        F: FnOnce(&MockedBlockchain) -> R,
     {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| f(b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).as_ref()))
+        BLOCKCHAIN_INTERFACE.with(|b| f(&b.borrow()))
     }
 
     #[no_mangle]

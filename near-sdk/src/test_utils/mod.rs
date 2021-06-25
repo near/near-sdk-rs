@@ -1,5 +1,3 @@
-use crate::env;
-
 #[allow(dead_code)]
 pub mod test_env;
 
@@ -94,28 +92,13 @@ macro_rules! testing_env {
 #[allow(dead_code)]
 /// Returns a copy of logs from VMLogic. Only available in unit tests.
 pub fn get_logs() -> Vec<String> {
-    let blockchain_interface =
-        env::take_blockchain_interface().expect("Blockchain interface is not set");
-    let logs = blockchain_interface
-        .as_mocked_blockchain()
-        .expect("MockedBlockchain interface expected")
-        .logs();
-    env::set_blockchain_interface(blockchain_interface);
-    logs
+    crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow().logs())
 }
 
 /// Accessing receipts created by the contract. Only available in unit tests.
 #[allow(dead_code)]
 pub fn get_created_receipts() -> Vec<Receipt> {
-    let blockchain_interface =
-        env::take_blockchain_interface().expect("Blockchain interface is not set");
-    let receipts = blockchain_interface
-        .as_mocked_blockchain()
-        .expect("MockedBlockchain interface expected")
-        .created_receipts()
-        .clone();
-    env::set_blockchain_interface(blockchain_interface);
-    receipts
+    crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow().created_receipts().clone())
 }
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
