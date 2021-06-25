@@ -14,7 +14,7 @@ use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 #[cfg(not(target_arch = "wasm32"))]
-use crate::MockedBlockchain;
+use crate::mock::MockedBlockchain;
 
 #[cfg(not(target_arch = "wasm32"))]
 thread_local! {
@@ -74,7 +74,7 @@ macro_rules! method_into_register {
 ///           storage,
 ///           None,
 ///       );
-/// near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
+/// near_sdk::env::set_blockchain_interface(mocked_blockchain);
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {

@@ -450,7 +450,7 @@ impl MockedBlockchain {
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
     use crate::env::BLOCKCHAIN_INTERFACE;
-    use crate::MockedBlockchain;
+    use super::MockedBlockchain;
 
     fn with_mock_interface<F, R>(f: F) -> R
     where

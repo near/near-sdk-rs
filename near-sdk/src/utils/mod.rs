@@ -11,7 +11,7 @@ use crate::{env, AccountId, PromiseResult};
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///
 /// This differs from [`std::format`] because instead of generating a string, it will log the utf8
-/// bytes as a log through the [`BlockchainInterface`].
+/// bytes as a log through [`env::log`].
 ///
 /// The logged message will get persisted on chain.
 ///
@@ -30,7 +30,6 @@ use crate::{env, AccountId, PromiseResult};
 /// ```
 ///
 /// [`env::log`]: crate::env::log
-/// [`BlockchainInterface`]: crate::BlockchainInterface
 #[macro_export]
 macro_rules! log {
     ($arg:tt) => {

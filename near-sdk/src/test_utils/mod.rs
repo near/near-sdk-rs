@@ -6,9 +6,8 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 use near_vm_logic::mocks::mock_external::Receipt;
 
 /// Initializes a testing environment to mock interactions which would otherwise go through a
-/// validator node. This macro will initialize or overwrite the [`BLOCKCHAIN_INTERFACE`]
-/// instance which satisfies the [`BlockchainInterface`] trait for interactions from a
-/// smart contract.
+/// validator node. This macro will initialize or overwrite the [`MockedBlockchain`]
+/// instance for interactions from a smart contract.
 ///
 /// There are five parameters that can be accepted to configure the interface with a
 /// [`MockedBlockchain`], in this order:
@@ -51,8 +50,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 /// # }
 /// ```
 ///
-/// [`BLOCKCHAIN_INTERFACE`]: crate::env::BLOCKCHAIN_INTERFACE
-/// [`BlockchainInterface`]: crate::BlockchainInterface
+/// [`BLOCKCHAIN_INTERFACE`]: crate::mock::MockedBlockchain
 /// [`MockedBlockchain`]: crate::MockedBlockchain
 /// [`VMContext`]: crate::VMContext
 /// [`VMConfig`]: crate::VMConfig
@@ -64,18 +62,15 @@ use near_vm_logic::mocks::mock_external::Receipt;
 #[macro_export]
 macro_rules! testing_env {
     ($context:expr, $config:expr, $fee_config:expr, $validators:expr, $promise_results:expr $(,)?) => {
-        $crate::env::set_blockchain_interface(Box::new($crate::MockedBlockchain::new(
+        $crate::env::set_blockchain_interface($crate::MockedBlockchain::new(
             $context,
             $config,
             $fee_config,
             $promise_results,
-            match $crate::env::take_blockchain_interface() {
-                Some(mut bi) => bi.as_mut_mocked_blockchain().unwrap().take_storage(),
-                None => Default::default(),
-            },
+            $crate::mock::with_mocked_blockchain(|b| b.take_storage()),
             $validators,
             None,
-        )));
+        ));
     };
     ($context:expr, $config:expr, $fee_config:expr, $validators:expr $(,)?) => {
         $crate::testing_env!($context, $config, $fee_config, $validators, Default::default());

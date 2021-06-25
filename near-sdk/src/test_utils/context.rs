@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::environment::mocked_blockchain::MockedBlockchain;
+use crate::mock::MockedBlockchain;
 use crate::json_types::ValidAccountId;
 use crate::test_utils::test_env::*;
 use crate::{
@@ -119,9 +119,7 @@ impl VMContextBuilder {
 }
 
 // TODO: This probably shouldn't be necessary with the `testing_env` macro.
-/// Initializes the [`BlockchainInterface`] with a single promise result during execution.
-///
-/// [`BlockchainInterface`]: (crate::BlockchainInterface)
+/// Initializes the [`MockedBlockchain`] with a single promise result during execution.
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
     let storage = crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow_mut().take_storage());
 
