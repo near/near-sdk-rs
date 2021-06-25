@@ -50,8 +50,7 @@ use near_vm_logic::mocks::mock_external::Receipt;
 /// # }
 /// ```
 ///
-/// [`BLOCKCHAIN_INTERFACE`]: crate::mock::MockedBlockchain
-/// [`MockedBlockchain`]: crate::MockedBlockchain
+/// [`MockedBlockchain`]: crate::mock::MockedBlockchain
 /// [`VMContext`]: crate::VMContext
 /// [`VMConfig`]: crate::VMConfig
 /// [`RuntimeFeesConfig`]: crate::RuntimeFeesConfig
