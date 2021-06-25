@@ -14,6 +14,9 @@
 * fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
 * Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
+* Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`
+  * Removes `ValidAccountId` to avoid having multiple types for account IDs
+  * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
 
 ## `3.1.0` [04-06-2021]
 
