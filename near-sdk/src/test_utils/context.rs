@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 
-use crate::mock::MockedBlockchain;
 use crate::json_types::ValidAccountId;
+use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::{
     Balance, BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage, VMContext,
