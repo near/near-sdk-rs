@@ -1,5 +1,6 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
 use crate::types::{AccountId, Balance, PromiseResult};
+use crate::test_utils::VMContextBuilder;
 use crate::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
@@ -18,6 +19,20 @@ pub struct MockedBlockchain {
     // We keep ownership over logic fixture so that references in `VMLogic` are valid.
     #[allow(dead_code)]
     logic_fixture: LogicFixture,
+}
+
+impl Default for MockedBlockchain {
+    fn default() -> Self {
+        MockedBlockchain::new(
+            VMContextBuilder::new().build(),
+            Default::default(),
+            Default::default(),
+            vec![],
+            Default::default(),
+            Default::default(),
+            None,
+        )
+    }
 }
 
 struct LogicFixture {
