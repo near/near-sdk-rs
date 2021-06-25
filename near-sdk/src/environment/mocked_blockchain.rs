@@ -1,6 +1,6 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
-use crate::types::{AccountId, Balance, PromiseResult};
 use crate::test_utils::VMContextBuilder;
+use crate::types::{AccountId, Balance, PromiseResult};
 use crate::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
