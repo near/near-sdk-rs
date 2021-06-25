@@ -100,464 +100,118 @@ impl MockedBlockchain {
     }
 }
 
-impl MockedBlockchain {
-    unsafe fn read_register(&self, register_id: u64, ptr: u64) {
-        self.logic.borrow_mut().read_register(register_id, ptr).unwrap()
-    }
-
-    unsafe fn register_len(&self, register_id: u64) -> u64 {
-        self.logic.borrow_mut().register_len(register_id).unwrap()
-    }
-
-    unsafe fn current_account_id(&self, register_id: u64) {
-        self.logic.borrow_mut().current_account_id(register_id).unwrap()
-    }
-
-    unsafe fn signer_account_id(&self, register_id: u64) {
-        self.logic.borrow_mut().signer_account_id(register_id).unwrap()
-    }
-
-    unsafe fn signer_account_pk(&self, register_id: u64) {
-        self.logic.borrow_mut().signer_account_pk(register_id).unwrap()
-    }
-
-    unsafe fn predecessor_account_id(&self, register_id: u64) {
-        self.logic.borrow_mut().predecessor_account_id(register_id).unwrap()
-    }
-
-    unsafe fn input(&self, register_id: u64) {
-        self.logic.borrow_mut().input(register_id).unwrap()
-    }
-
-    unsafe fn block_index(&self) -> u64 {
-        self.logic.borrow_mut().block_index().unwrap()
-    }
-
-    unsafe fn block_timestamp(&self) -> u64 {
-        self.logic.borrow_mut().block_timestamp().unwrap()
-    }
-
-    unsafe fn epoch_height(&self) -> u64 {
-        self.logic.borrow_mut().epoch_height().unwrap()
-    }
-
-    unsafe fn storage_usage(&self) -> u64 {
-        self.logic.borrow_mut().storage_usage().unwrap()
-    }
-
-    unsafe fn account_balance(&self, balance_ptr: u64) {
-        self.logic.borrow_mut().account_balance(balance_ptr).unwrap()
-    }
-
-    unsafe fn account_locked_balance(&self, balance_ptr: u64) {
-        self.logic.borrow_mut().account_locked_balance(balance_ptr).unwrap()
-    }
-
-    unsafe fn attached_deposit(&self, balance_ptr: u64) {
-        self.logic.borrow_mut().attached_deposit(balance_ptr).unwrap()
-    }
-
-    unsafe fn prepaid_gas(&self) -> u64 {
-        self.logic.borrow_mut().prepaid_gas().unwrap()
-    }
-
-    unsafe fn used_gas(&self) -> u64 {
-        self.logic.borrow_mut().used_gas().unwrap()
-    }
-
-    unsafe fn random_seed(&self, register_id: u64) {
-        self.logic.borrow_mut().random_seed(register_id).unwrap()
-    }
-
-    unsafe fn sha256(&self, value_len: u64, value_ptr: u64, register_id: u64) {
-        self.logic.borrow_mut().sha256(value_len, value_ptr, register_id).unwrap()
-    }
-
-    unsafe fn keccak256(&self, value_len: u64, value_ptr: u64, register_id: u64) {
-        self.logic.borrow_mut().keccak256(value_len, value_ptr, register_id).unwrap()
-    }
-
-    unsafe fn keccak512(&self, value_len: u64, value_ptr: u64, register_id: u64) {
-        self.logic.borrow_mut().keccak512(value_len, value_ptr, register_id).unwrap()
-    }
-
-    unsafe fn value_return(&self, value_len: u64, value_ptr: u64) {
-        self.logic.borrow_mut().value_return(value_len, value_ptr).unwrap()
-    }
-
-    unsafe fn panic(&self) {
-        self.logic.borrow_mut().panic().unwrap()
-    }
-
-    unsafe fn panic_utf8(&self, len: u64, ptr: u64) {
-        self.logic.borrow_mut().panic_utf8(len, ptr).unwrap()
-    }
-
-    unsafe fn log_utf8(&self, len: u64, ptr: u64) {
-        self.logic.borrow_mut().log_utf8(len, ptr).unwrap()
-    }
-
-    unsafe fn log_utf16(&self, len: u64, ptr: u64) {
-        self.logic.borrow_mut().log_utf16(len, ptr).unwrap()
-    }
-
-    #[allow(dead_code)]
-    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> () {
-        self.logic.borrow_mut().abort(msg_ptr, filename_ptr, line, col).unwrap()
-    }
-
-    unsafe fn promise_create(
-        &self,
-        account_id_len: u64,
-        account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
-        arguments_len: u64,
-        arguments_ptr: u64,
-        amount_ptr: u64,
-        gas: u64,
-    ) -> u64 {
-        self.logic
-            .borrow_mut()
-            .promise_create(
-                account_id_len,
-                account_id_ptr,
-                method_name_len,
-                method_name_ptr,
-                arguments_len,
-                arguments_ptr,
-                amount_ptr,
-                gas,
-            )
-            .unwrap()
-    }
-
-    unsafe fn promise_then(
-        &self,
-        promise_index: u64,
-        account_id_len: u64,
-        account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
-        arguments_len: u64,
-        arguments_ptr: u64,
-        amount_ptr: u64,
-        gas: u64,
-    ) -> u64 {
-        self.logic
-            .borrow_mut()
-            .promise_then(
-                promise_index,
-                account_id_len,
-                account_id_ptr,
-                method_name_len,
-                method_name_ptr,
-                arguments_len,
-                arguments_ptr,
-                amount_ptr,
-                gas,
-            )
-            .unwrap()
-    }
-
-    unsafe fn promise_and(&self, promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
-        self.logic.borrow_mut().promise_and(promise_idx_ptr, promise_idx_count).unwrap()
-    }
-
-    unsafe fn promise_batch_create(&self, account_id_len: u64, account_id_ptr: u64) -> u64 {
-        self.logic.borrow_mut().promise_batch_create(account_id_len, account_id_ptr).unwrap()
-    }
-    unsafe fn promise_batch_then(
-        &self,
-        promise_index: u64,
-        account_id_len: u64,
-        account_id_ptr: u64,
-    ) -> u64 {
-        self.logic
-            .borrow_mut()
-            .promise_batch_then(promise_index, account_id_len, account_id_ptr)
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_create_account(&self, promise_index: u64) {
-        self.logic.borrow_mut().promise_batch_action_create_account(promise_index).unwrap()
-    }
-    unsafe fn promise_batch_action_deploy_contract(
-        &self,
-        promise_index: u64,
-        code_len: u64,
-        code_ptr: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_function_call(
-        &self,
-        promise_index: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
-        arguments_len: u64,
-        arguments_ptr: u64,
-        amount_ptr: u64,
-        gas: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_function_call(
-                promise_index,
-                method_name_len,
-                method_name_ptr,
-                arguments_len,
-                arguments_ptr,
-                amount_ptr,
-                gas,
-            )
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_transfer(&self, promise_index: u64, amount_ptr: u64) {
-        self.logic.borrow_mut().promise_batch_action_transfer(promise_index, amount_ptr).unwrap()
-    }
-    unsafe fn promise_batch_action_stake(
-        &self,
-        promise_index: u64,
-        amount_ptr: u64,
-        public_key_len: u64,
-        public_key_ptr: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr)
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_add_key_with_full_access(
-        &self,
-        promise_index: u64,
-        public_key_len: u64,
-        public_key_ptr: u64,
-        nonce: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_add_key_with_full_access(
-                promise_index,
-                public_key_len,
-                public_key_ptr,
-                nonce,
-            )
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_add_key_with_function_call(
-        &self,
-        promise_index: u64,
-        public_key_len: u64,
-        public_key_ptr: u64,
-        nonce: u64,
-        allowance_ptr: u64,
-        receiver_id_len: u64,
-        receiver_id_ptr: u64,
-        method_names_len: u64,
-        method_names_ptr: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_add_key_with_function_call(
-                promise_index,
-                public_key_len,
-                public_key_ptr,
-                nonce,
-                allowance_ptr,
-                receiver_id_len,
-                receiver_id_ptr,
-                method_names_len,
-                method_names_ptr,
-            )
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_delete_key(
-        &self,
-        promise_index: u64,
-        public_key_len: u64,
-        public_key_ptr: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
-            .unwrap()
-    }
-    unsafe fn promise_batch_action_delete_account(
-        &self,
-        promise_index: u64,
-        beneficiary_id_len: u64,
-        beneficiary_id_ptr: u64,
-    ) {
-        self.logic
-            .borrow_mut()
-            .promise_batch_action_delete_account(
-                promise_index,
-                beneficiary_id_len,
-                beneficiary_id_ptr,
-            )
-            .unwrap()
-    }
-    unsafe fn promise_results_count(&self) -> u64 {
-        self.logic.borrow_mut().promise_results_count().unwrap()
-    }
-
-    unsafe fn promise_result(&self, result_idx: u64, register_id: u64) -> u64 {
-        self.logic.borrow_mut().promise_result(result_idx, register_id).unwrap()
-    }
-
-    unsafe fn promise_return(&self, promise_id: u64) {
-        self.logic.borrow_mut().promise_return(promise_id).unwrap()
-    }
-
-    unsafe fn storage_write(
-        &self,
-        key_len: u64,
-        key_ptr: u64,
-        value_len: u64,
-        value_ptr: u64,
-        register_id: u64,
-    ) -> u64 {
-        self.logic
-            .borrow_mut()
-            .storage_write(key_len, key_ptr, value_len, value_ptr, register_id)
-            .unwrap()
-    }
-
-    unsafe fn storage_read(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-        self.logic.borrow_mut().storage_read(key_len, key_ptr, register_id).unwrap()
-    }
-
-    unsafe fn storage_remove(&self, key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-        self.logic.borrow_mut().storage_remove(key_len, key_ptr, register_id).unwrap()
-    }
-
-    unsafe fn storage_has_key(&self, key_len: u64, key_ptr: u64) -> u64 {
-        self.logic.borrow_mut().storage_has_key(key_len, key_ptr).unwrap()
-    }
-
-    unsafe fn validator_stake(&self, account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
-        self.logic.borrow_mut().validator_stake(account_id_len, account_id_ptr, stake_ptr).unwrap();
-    }
-
-    unsafe fn validator_total_stake(&self, stake_ptr: u64) {
-        self.logic.borrow_mut().validator_total_stake(stake_ptr).unwrap();
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
-    use super::MockedBlockchain;
+    use near_vm_logic::{VMLogic, VMLogicError};
+
     use crate::env::BLOCKCHAIN_INTERFACE;
 
     fn with_mock_interface<F, R>(f: F) -> R
     where
-        F: FnOnce(&MockedBlockchain) -> R,
+        F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,
     {
-        BLOCKCHAIN_INTERFACE.with(|b| f(&b.borrow()))
+        BLOCKCHAIN_INTERFACE.with(|b| f(&mut b.borrow().logic.borrow_mut()).unwrap())
     }
 
     #[no_mangle]
     extern "C" fn read_register(register_id: u64, ptr: u64) {
-        with_mock_interface(|b| unsafe { b.read_register(register_id, ptr) })
+        with_mock_interface(|b| b.read_register(register_id, ptr))
     }
     #[no_mangle]
     extern "C" fn register_len(register_id: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.register_len(register_id) })
+        with_mock_interface(|b| b.register_len(register_id))
     }
     #[no_mangle]
     extern "C" fn current_account_id(register_id: u64) {
-        with_mock_interface(|b| unsafe { b.current_account_id(register_id) })
+        with_mock_interface(|b| b.current_account_id(register_id))
     }
     #[no_mangle]
     extern "C" fn signer_account_id(register_id: u64) {
-        with_mock_interface(|b| unsafe { b.signer_account_id(register_id) })
+        with_mock_interface(|b| b.signer_account_id(register_id))
     }
     #[no_mangle]
     extern "C" fn signer_account_pk(register_id: u64) {
-        with_mock_interface(|b| unsafe { b.signer_account_pk(register_id) })
+        with_mock_interface(|b| b.signer_account_pk(register_id))
     }
     #[no_mangle]
     extern "C" fn predecessor_account_id(register_id: u64) {
-        with_mock_interface(|b| unsafe { b.predecessor_account_id(register_id) })
+        with_mock_interface(|b| b.predecessor_account_id(register_id))
     }
     #[no_mangle]
     extern "C" fn input(register_id: u64) {
-        with_mock_interface(|b| unsafe { b.input(register_id) })
+        with_mock_interface(|b| b.input(register_id))
     }
     #[no_mangle]
     extern "C" fn block_index() -> u64 {
-        with_mock_interface(|b| unsafe { b.block_index() })
+        with_mock_interface(|b| b.block_index())
     }
     #[no_mangle]
     extern "C" fn block_timestamp() -> u64 {
-        with_mock_interface(|b| unsafe { b.block_timestamp() })
+        with_mock_interface(|b| b.block_timestamp())
     }
     #[no_mangle]
     extern "C" fn epoch_height() -> u64 {
-        with_mock_interface(|b| unsafe { b.epoch_height() })
+        with_mock_interface(|b| b.epoch_height())
     }
     #[no_mangle]
     extern "C" fn storage_usage() -> u64 {
-        with_mock_interface(|b| unsafe { b.storage_usage() })
+        with_mock_interface(|b| b.storage_usage())
     }
     #[no_mangle]
     extern "C" fn account_balance(balance_ptr: u64) {
-        with_mock_interface(|b| unsafe { b.account_balance(balance_ptr) })
+        with_mock_interface(|b| b.account_balance(balance_ptr))
     }
     #[no_mangle]
     extern "C" fn account_locked_balance(balance_ptr: u64) {
-        with_mock_interface(|b| unsafe { b.account_locked_balance(balance_ptr) })
+        with_mock_interface(|b| b.account_locked_balance(balance_ptr))
     }
     #[no_mangle]
     extern "C" fn attached_deposit(balance_ptr: u64) {
-        with_mock_interface(|b| unsafe { b.attached_deposit(balance_ptr) })
+        with_mock_interface(|b| b.attached_deposit(balance_ptr))
     }
     #[no_mangle]
     extern "C" fn prepaid_gas() -> u64 {
-        with_mock_interface(|b| unsafe { b.prepaid_gas() })
+        with_mock_interface(|b| b.prepaid_gas())
     }
     #[no_mangle]
     extern "C" fn used_gas() -> u64 {
-        with_mock_interface(|b| unsafe { b.used_gas() })
+        with_mock_interface(|b| b.used_gas())
     }
     #[no_mangle]
     extern "C" fn random_seed(register_id: u64) {
-        with_mock_interface(|b| unsafe { b.random_seed(register_id) })
+        with_mock_interface(|b| b.random_seed(register_id))
     }
     #[no_mangle]
     extern "C" fn sha256(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| unsafe { b.sha256(value_len, value_ptr, register_id) })
+        with_mock_interface(|b| b.sha256(value_len, value_ptr, register_id))
     }
     #[no_mangle]
     extern "C" fn keccak256(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| unsafe { b.keccak256(value_len, value_ptr, register_id) })
+        with_mock_interface(|b| b.keccak256(value_len, value_ptr, register_id))
     }
     #[no_mangle]
     extern "C" fn keccak512(value_len: u64, value_ptr: u64, register_id: u64) {
-        with_mock_interface(|b| unsafe { b.keccak512(value_len, value_ptr, register_id) })
+        with_mock_interface(|b| b.keccak512(value_len, value_ptr, register_id))
     }
     #[no_mangle]
     extern "C" fn value_return(value_len: u64, value_ptr: u64) {
-        with_mock_interface(|b| unsafe { b.value_return(value_len, value_ptr) })
+        with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }
     #[no_mangle]
     extern "C" fn panic() {
-        with_mock_interface(|b| unsafe { b.panic() })
+        with_mock_interface(|b| b.panic())
     }
     #[no_mangle]
     extern "C" fn panic_utf8(len: u64, ptr: u64) {
-        with_mock_interface(|b| unsafe { b.panic_utf8(len, ptr) })
+        with_mock_interface(|b| b.panic_utf8(len, ptr))
     }
     #[no_mangle]
     extern "C" fn log_utf8(len: u64, ptr: u64) {
-        with_mock_interface(|b| unsafe { b.log_utf8(len, ptr) })
+        with_mock_interface(|b| b.log_utf8(len, ptr))
     }
     #[no_mangle]
     extern "C" fn log_utf16(len: u64, ptr: u64) {
-        with_mock_interface(|b| unsafe { b.log_utf16(len, ptr) })
+        with_mock_interface(|b| b.log_utf16(len, ptr))
     }
     #[no_mangle]
     extern "C" fn promise_create(
@@ -570,7 +224,7 @@ mod mock_chain {
         amount_ptr: u64,
         gas: u64,
     ) -> u64 {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_create(
                 account_id_len,
                 account_id_ptr,
@@ -595,7 +249,7 @@ mod mock_chain {
         amount_ptr: u64,
         gas: u64,
     ) -> u64 {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_then(
                 promise_index,
                 account_id_len,
@@ -611,11 +265,11 @@ mod mock_chain {
     }
     #[no_mangle]
     extern "C" fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.promise_and(promise_idx_ptr, promise_idx_count) })
+        with_mock_interface(|b| b.promise_and(promise_idx_ptr, promise_idx_count))
     }
     #[no_mangle]
     extern "C" fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.promise_batch_create(account_id_len, account_id_ptr) })
+        with_mock_interface(|b| b.promise_batch_create(account_id_len, account_id_ptr))
     }
     #[no_mangle]
     extern "C" fn promise_batch_then(
@@ -623,13 +277,11 @@ mod mock_chain {
         account_id_len: u64,
         account_id_ptr: u64,
     ) -> u64 {
-        with_mock_interface(|b| unsafe {
-            b.promise_batch_then(promise_index, account_id_len, account_id_ptr)
-        })
+        with_mock_interface(|b| b.promise_batch_then(promise_index, account_id_len, account_id_ptr))
     }
     #[no_mangle]
     extern "C" fn promise_batch_action_create_account(promise_index: u64) {
-        with_mock_interface(|b| unsafe { b.promise_batch_action_create_account(promise_index) })
+        with_mock_interface(|b| b.promise_batch_action_create_account(promise_index))
     }
     #[no_mangle]
     extern "C" fn promise_batch_action_deploy_contract(
@@ -637,7 +289,7 @@ mod mock_chain {
         code_len: u64,
         code_ptr: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
         })
     }
@@ -651,7 +303,7 @@ mod mock_chain {
         amount_ptr: u64,
         gas: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_function_call(
                 promise_index,
                 method_name_len,
@@ -665,9 +317,7 @@ mod mock_chain {
     }
     #[no_mangle]
     extern "C" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
-        with_mock_interface(|b| unsafe {
-            b.promise_batch_action_transfer(promise_index, amount_ptr)
-        })
+        with_mock_interface(|b| b.promise_batch_action_transfer(promise_index, amount_ptr))
     }
     #[no_mangle]
     extern "C" fn promise_batch_action_stake(
@@ -676,7 +326,7 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr)
         })
     }
@@ -687,7 +337,7 @@ mod mock_chain {
         public_key_ptr: u64,
         nonce: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_add_key_with_full_access(
                 promise_index,
                 public_key_len,
@@ -708,7 +358,7 @@ mod mock_chain {
         method_names_len: u64,
         method_names_ptr: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_add_key_with_function_call(
                 promise_index,
                 public_key_len,
@@ -728,7 +378,7 @@ mod mock_chain {
         public_key_len: u64,
         public_key_ptr: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr)
         })
     }
@@ -738,7 +388,7 @@ mod mock_chain {
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     ) {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.promise_batch_action_delete_account(
                 promise_index,
                 beneficiary_id_len,
@@ -748,15 +398,15 @@ mod mock_chain {
     }
     #[no_mangle]
     extern "C" fn promise_results_count() -> u64 {
-        with_mock_interface(|b| unsafe { b.promise_results_count() })
+        with_mock_interface(|b| b.promise_results_count())
     }
     #[no_mangle]
     extern "C" fn promise_result(result_idx: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.promise_result(result_idx, register_id) })
+        with_mock_interface(|b| b.promise_result(result_idx, register_id))
     }
     #[no_mangle]
     extern "C" fn promise_return(promise_id: u64) {
-        with_mock_interface(|b| unsafe { b.promise_return(promise_id) })
+        with_mock_interface(|b| b.promise_return(promise_id))
     }
     #[no_mangle]
     extern "C" fn storage_write(
@@ -766,30 +416,28 @@ mod mock_chain {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        with_mock_interface(|b| unsafe {
+        with_mock_interface(|b| {
             b.storage_write(key_len, key_ptr, value_len, value_ptr, register_id)
         })
     }
     #[no_mangle]
     extern "C" fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.storage_read(key_len, key_ptr, register_id) })
+        with_mock_interface(|b| b.storage_read(key_len, key_ptr, register_id))
     }
     #[no_mangle]
     extern "C" fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.storage_remove(key_len, key_ptr, register_id) })
+        with_mock_interface(|b| b.storage_remove(key_len, key_ptr, register_id))
     }
     #[no_mangle]
     extern "C" fn storage_has_key(key_len: u64, key_ptr: u64) -> u64 {
-        with_mock_interface(|b| unsafe { b.storage_has_key(key_len, key_ptr) })
+        with_mock_interface(|b| b.storage_has_key(key_len, key_ptr))
     }
     #[no_mangle]
     extern "C" fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
-        with_mock_interface(|b| unsafe {
-            b.validator_stake(account_id_len, account_id_ptr, stake_ptr)
-        })
+        with_mock_interface(|b| b.validator_stake(account_id_len, account_id_ptr, stake_ptr))
     }
     #[no_mangle]
     extern "C" fn validator_total_stake(stake_ptr: u64) {
-        with_mock_interface(|b| unsafe { b.validator_total_stake(stake_ptr) })
+        with_mock_interface(|b| b.validator_total_stake(stake_ptr))
     }
 }
