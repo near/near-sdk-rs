@@ -105,13 +105,15 @@ impl PendingContractTx {
 /// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
 ///
 /// [GlobalAllocator]: std::alloc::GlobalAlloc
+#[deprecated(
+    since = "4.0.0",
+    note = "Allocator is already initialized with the default `wee_alloc` feature set. \
+            Please make sure you don't disable default features on the SDK or set the global \
+            allocator manually."
+)]
 #[macro_export]
 macro_rules! setup_alloc {
-    () => {
-        #[cfg(target_arch = "wasm32")]
-        #[global_allocator]
-        static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-    };
+    () => {};
 }
 
 #[cfg(test)]
