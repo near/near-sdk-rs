@@ -22,7 +22,7 @@ thread_local! {
 /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
 /// for interacting with the real and fake blockchains.
     pub static BLOCKCHAIN_INTERFACE: RefCell<Option<Box<dyn BlockchainInterface>>>
-         = RefCell::new(None);
+         = RefCell::new(Some(Box::new(crate::MockedBlockchain::default())));
 }
 
 const REGISTER_EXPECTED_ERR: &str =
