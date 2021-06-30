@@ -178,14 +178,23 @@ impl std::str::FromStr for Base58PublicKey {
 
 impl BorshDeserialize for Base58PublicKey {
     fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        Ok(Self { curve: CurveType::deserialize(buf)?, data: BorshDeserialize::deserialize(buf)? })
+        let buf = Vec::<u8>::deserialize(buf)?;
+        Self::try_from(buf).map_err(|err| io::Error::new(io::ErrorKind::Other, err))
     }
 }
 
 impl BorshSerialize for Base58PublicKey {
     fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        self.curve.serialize(writer)?;
-        BorshSerialize::serialize(&self.data, writer)
+        let len = match self.curve {
+            CurveType::ED25519 => 32,
+            CurveType::SECP256K1 => 64,
+        };
+
+        let mut data = Vec::with_capacity(1 + len);
+        data.push(self.curve as u8);
+        data.extend(&self.data);
+
+        BorshSerialize::serialize(&data, writer)
     }
 }
 
@@ -264,10 +273,21 @@ mod tests {
     }
 
     #[test]
-    fn test_public_key_borsh() {
-        let key: Base58PublicKey = expected_key();
-        let encoded_key = key.clone().try_to_vec().unwrap();
-        let decoded_key = Base58PublicKey::try_from_slice(&encoded_key).unwrap();
-        assert_eq!(key, decoded_key);
+    fn test_public_key_borsh_format_change() {
+        // Original struct to reference Borsh serialization from
+        #[derive(BorshSerialize, BorshDeserialize)]
+        struct Base58PublicKeyRef(Vec<u8>);
+
+        let mut data = vec![CurveType::ED25519 as u8];
+        data.extend(
+            bs58::decode("6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp").into_vec().unwrap(),
+        );
+
+        // Test internal serialization of Vec<u8> is the same:
+        let old_key = Base58PublicKeyRef(data.clone());
+        let old_encoded_key = old_key.try_to_vec().unwrap();
+        let new_key: Base58PublicKey = data.try_into().unwrap();
+        let new_encoded_key = new_key.clone().try_to_vec().unwrap();
+        assert_eq!(old_encoded_key, new_encoded_key);
     }
 }
