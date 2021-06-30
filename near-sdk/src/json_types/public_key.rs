@@ -3,17 +3,7 @@ use bs58::decode::Error as B58Error;
 use std::convert::TryFrom;
 
 /// PublicKey curve
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialOrd,
-    Ord,
-    Eq,
-    PartialEq,
-    BorshDeserialize,
-    BorshSerialize,
-)]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
 #[repr(u8)]
 pub enum CurveType {
     ED25519 = 0,
@@ -188,10 +178,7 @@ impl std::str::FromStr for Base58PublicKey {
 
 impl BorshDeserialize for Base58PublicKey {
     fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        Ok(Self {
-            curve: CurveType::deserialize(buf)?,
-            data: BorshDeserialize::deserialize(buf)?,
-        })
+        Ok(Self { curve: CurveType::deserialize(buf)?, data: BorshDeserialize::deserialize(buf)? })
     }
 }
 
