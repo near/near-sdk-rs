@@ -3,8 +3,6 @@ use near_sdk::collections::{LookupMap, LookupSet};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{env, near_bindgen, BorshStorageKey};
 
-near_sdk::setup_alloc!();
-
 #[derive(BorshSerialize, BorshStorageKey)]
 enum StorageKey {
     Records,

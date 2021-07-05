@@ -1,9 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, log, metadata, near_bindgen, setup_alloc};
+use near_sdk::{env, log, metadata, near_bindgen};
 
 use std::collections::HashMap;
-
-setup_alloc!();
 
 metadata! {
 #[near_bindgen]
