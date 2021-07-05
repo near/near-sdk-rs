@@ -154,7 +154,7 @@ impl CrossContract {
         };
     }
 
-    pub fn transfer_money(&mut self, account_id: String, amount: u64) {
+    pub fn transfer_money(&mut self, account_id: AccountId, amount: u64) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
     }

@@ -401,7 +401,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     }
 }
 
-pub fn promise_batch_create<A: AsRef<str>>(account_id: A) -> PromiseIndex {
+pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
@@ -413,10 +413,7 @@ pub fn promise_batch_create<A: AsRef<str>>(account_id: A) -> PromiseIndex {
     }
 }
 
-pub fn promise_batch_then<A: AsRef<str>>(
-    promise_index: PromiseIndex,
-    account_id: A,
-) -> PromiseIndex {
+pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
         BLOCKCHAIN_INTERFACE.with(|b| {
@@ -528,12 +525,12 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
         })
     }
 }
-pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>, A: AsRef<str>>(
+pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
     promise_index: PromiseIndex,
     public_key: P,
     nonce: u64,
     allowance: Balance,
-    receiver_id: A,
+    receiver_id: &AccountId,
     method_names: &[u8],
 ) {
     let public_key = public_key.borrow();
@@ -576,9 +573,9 @@ pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
     }
 }
 
-pub fn promise_batch_action_delete_account<A: AsRef<str>>(
+pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
-    beneficiary_id: A,
+    beneficiary_id: &AccountId,
 ) {
     let beneficiary_id: &str = beneficiary_id.as_ref();
     unsafe {
