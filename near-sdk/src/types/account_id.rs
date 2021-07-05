@@ -57,10 +57,6 @@ impl AccountId {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
-    /// Consumes `self` to return inner [`String`] representation.
-    pub fn into_string(self) -> String {
-        self.0
-    }
     /// Constructs new AccountId from `String` without checking validity.
     /// Creating an invalid account id will result in a runtime error when being used.
     ///
@@ -164,8 +160,8 @@ enum ParseAccountIdErrorKind {
     InvalidUtf8,
 }
 
-impl std::fmt::Display for ParseAccountIdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for ParseAccountIdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind {
             ParseAccountIdErrorKind::InvalidAccountId => write!(f, "the account ID is invalid"),
             ParseAccountIdErrorKind::InvalidUtf8 => write!(f, "bytes are not valid utf-8"),

@@ -112,7 +112,7 @@ impl UserTransaction {
 
     /// Delete an account and send remaining balance to `beneficiary_id`
     pub fn delete_account(mut self, beneficiary_id: AccountId) -> Self {
-        self.transaction = self.transaction.delete_account(beneficiary_id.into_string());
+        self.transaction = self.transaction.delete_account(String::from(beneficiary_id));
         self
     }
 }
@@ -253,9 +253,9 @@ impl UserAccount {
             .nonce
             + 1;
         Transaction::new(
-            self.account_id().into_string(),
+            String::from(self.account_id()),
             self.signer.public_key(),
-            receiver_id.into_string(),
+            String::from(receiver_id),
             nonce,
             CryptoHash::default(),
         )

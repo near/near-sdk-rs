@@ -330,7 +330,7 @@ impl RuntimeStandalone {
     /// Force alter account and change state_root.
     pub fn force_account_update(&mut self, account_id: AccountId, account: &Account) {
         let mut trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
-        set_account(&mut trie_update, account_id.into_string(), account);
+        set_account(&mut trie_update, String::from(account_id), account);
         trie_update.commit(StateChangeCause::ValidatorAccountsUpdate);
         let (trie_changes, _) = trie_update.finalize().expect("Unexpected Storage error");
         let (store_update, new_root) = self.tries.apply_all(&trie_changes, 0).unwrap();

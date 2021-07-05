@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::environment::mocked_blockchain::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::AccountId;
@@ -9,7 +7,7 @@ use crate::{
 
 /// Returns a pre-defined account_id from a list of 6.
 pub fn accounts(id: usize) -> AccountId {
-    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().try_into().unwrap()
+    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().parse().unwrap()
 }
 
 /// Simple VMContext builder that allows to quickly create custom context in tests.
@@ -23,10 +21,10 @@ impl VMContextBuilder {
     pub fn new() -> Self {
         Self {
             context: VMContext {
-                current_account_id: alice(),
-                signer_account_id: bob(),
+                current_account_id: alice().into(),
+                signer_account_id: bob().into(),
                 signer_account_pk: vec![0u8; 32],
-                predecessor_account_id: bob(),
+                predecessor_account_id: bob().into(),
                 input: vec![],
                 block_index: 0,
                 block_timestamp: 0,
