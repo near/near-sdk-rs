@@ -62,14 +62,18 @@ impl AccountId {
         self.0
     }
     /// Constructs new AccountId from `String` without checking validity.
+    /// Creating an invalid account id will result in a runtime error when being used.
+    ///
+    /// For more information, read: https://docs.near.org/docs/concepts/account#account-id-rules
     pub fn new_unchecked(id: String) -> Self {
+        debug_assert!(is_valid_account_id(id.as_bytes()));
         Self(id)
     }
 }
 
 impl fmt::Display for AccountId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        fmt::Display::fmt(&self.0, f)
     }
 }
 
@@ -108,8 +112,8 @@ impl TryFrom<&[u8]> for AccountId {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         core::str::from_utf8(value)
-            .map_err(|_| ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidUtf8 })?
-            .parse()
+            .map_err(|_| ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidUtf8 })
+            .and_then(str::parse)
     }
 }
 
@@ -125,10 +129,9 @@ impl TryFrom<Vec<u8>> for AccountId {
     type Error = ParseAccountIdError;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        Self::try_from(
-            String::from_utf8(value)
-                .map_err(|_| ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidUtf8 })?,
-        )
+        String::from_utf8(value)
+            .map_err(|_| ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidUtf8 })
+            .and_then(Self::try_from)
     }
 }
 
@@ -150,12 +153,12 @@ impl std::str::FromStr for AccountId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseAccountIdError {
     kind: ParseAccountIdErrorKind,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ParseAccountIdErrorKind {
     InvalidAccountId,
     InvalidUtf8,

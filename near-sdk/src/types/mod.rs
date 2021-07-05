@@ -5,7 +5,7 @@ mod primitives;
 pub use self::primitives::*;
 
 mod account_id;
-pub use self::account_id::*;
+pub use self::account_id::{AccountId, ParseAccountIdError};
 
 /// Raw type for duration in nanoseconds
 pub type Duration = u64;
