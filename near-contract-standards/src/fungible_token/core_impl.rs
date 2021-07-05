@@ -203,7 +203,6 @@ impl FungibleToken {
         receiver_id: AccountId,
         amount: U128,
     ) -> (u128, u128) {
-        let receiver_id: AccountId = receiver_id.into();
         let amount: Balance = amount.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.

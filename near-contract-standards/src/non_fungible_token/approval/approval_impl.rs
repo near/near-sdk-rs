@@ -46,7 +46,6 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         // update HashMap of approvals for this token
         let approved_account_ids =
             &mut approvals_by_id.get(&token_id).unwrap_or_else(|| HashMap::new());
-        let account_id: AccountId = account_id.into();
         let approval_id: u64 =
             self.next_approval_id_by_id.as_ref().unwrap().get(&token_id).unwrap_or_else(|| 1u64);
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
@@ -99,7 +98,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             if approved_account_ids.remove(&account_id).is_some() {
                 refund_approved_account_ids_iter(
                     predecessor_account_id,
-                    [account_id.into()].iter(),
+                    core::iter::once(&account_id),
                 );
                 // if this was the last approval, remove the whole HashMap to save space.
                 if approved_account_ids.is_empty() {
@@ -153,8 +152,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             return false;
         }
 
-        let account_id: AccountId = approved_account_id.into();
-        let actual_approval_id = approved_account_ids.as_ref().unwrap().get(&account_id);
+        let actual_approval_id = approved_account_ids.as_ref().unwrap().get(&approved_account_id);
         if actual_approval_id.is_none() {
             // account not in approvals HashMap
             return false;

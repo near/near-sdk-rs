@@ -47,7 +47,6 @@ macro_rules! impl_fungible_token_core {
                 receiver_id: AccountId,
                 amount: U128,
             ) -> U128 {
-                let sender_id: AccountId = sender_id.into();
                 let (used_amount, burned_amount) =
                     self.$token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
                 if burned_amount > 0 {

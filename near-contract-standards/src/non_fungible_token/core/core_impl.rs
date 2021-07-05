@@ -104,7 +104,7 @@ impl NonFungibleToken {
         };
 
         let mut this = Self {
-            owner_id: owner_id.into(),
+            owner_id,
             extra_storage_in_bytes_per_token: 0,
             owner_by_id: TreeMap::new(owner_by_id_prefix),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
@@ -319,7 +319,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         )
         .then(ext_self::nft_resolve_transfer(
             old_owner,
-            receiver_id.into(),
+            receiver_id,
             token_id,
             old_approvals,
             &env::current_account_id(),
@@ -353,7 +353,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             env::panic(b"token_id must be unique");
         }
 
-        let owner_id: AccountId = token_owner_id.into();
+        let owner_id: AccountId = token_owner_id;
 
         // Core behavior: every token must have an owner
         self.owner_by_id.insert(&token_id, &owner_id);

@@ -232,7 +232,6 @@ impl UserAccount {
     ) -> UserAccount {
         let signer =
             InMemorySigner::from_seed(account_id.as_str(), KeyType::ED25519, account_id.as_str());
-        let account_id = account_id.clone();
         self.submit_transaction(
             self.transaction(account_id.clone())
                 .create_account()
