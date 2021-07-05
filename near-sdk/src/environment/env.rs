@@ -5,7 +5,6 @@
 
 use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
 
@@ -150,13 +149,13 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 // ###############
 /// The id of the account that owns the current contract.
 pub fn current_account_id() -> AccountId {
-    AccountId::try_from(method_into_register!(current_account_id)).unwrap()
+    assert_valid_account_id(method_into_register!(current_account_id))
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
 pub fn signer_account_id() -> AccountId {
-    AccountId::try_from(method_into_register!(signer_account_id)).unwrap()
+    assert_valid_account_id(method_into_register!(signer_account_id))
 }
 
 /// The public key of the account that did the signing.
@@ -167,7 +166,15 @@ pub fn signer_account_pk() -> PublicKey {
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
 pub fn predecessor_account_id() -> AccountId {
-    AccountId::try_from(method_into_register!(predecessor_account_id)).unwrap()
+    assert_valid_account_id(method_into_register!(predecessor_account_id))
+}
+
+/// Helper function to convert and check the account ID from bytes from the runtime.
+fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
+    String::from_utf8(bytes)
+        .ok()
+        .and_then(|it| it.parse::<AccountId>().ok())
+        .unwrap_or_else(|| unreachable!())
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.

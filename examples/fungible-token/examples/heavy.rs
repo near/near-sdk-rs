@@ -83,7 +83,7 @@ fn transfer(
 
 fn main() {
     let iterations: u64 = if std::env::args().len() >= 2 {
-        (&std::env::args().collect::<Vec<String>>()[1]).parse().unwrap()
+        std::env::args().nth(1).unwrap().parse().unwrap()
     } else {
         10
     };
