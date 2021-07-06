@@ -7,7 +7,9 @@ use crate::{
 
 /// Returns a pre-defined account_id from a list of 6.
 pub fn accounts(id: usize) -> AccountId {
-    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().parse().unwrap()
+    AccountId::new_unchecked(
+        ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string(),
+    )
 }
 
 /// Simple VMContext builder that allows to quickly create custom context in tests.

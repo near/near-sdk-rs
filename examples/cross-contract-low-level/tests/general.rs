@@ -1,3 +1,4 @@
+use near_sdk::AccountId;
 use near_sdk_sim::{
     call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount, DEFAULT_GAS,
     STORAGE_AMOUNT,

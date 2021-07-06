@@ -35,7 +35,7 @@ pub fn init_runtime(
 ) -> (RuntimeStandalone, InMemorySigner, AccountId) {
     let mut genesis = genesis_config.unwrap_or_default();
     genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
-    let root_account_id: AccountId = "root".parse().unwrap();
+    let root_account_id: AccountId = AccountId::new_unchecked("root".to_string());
     let signer = genesis.init_root_signer(root_account_id.as_str());
     let runtime = RuntimeStandalone::new_with_store(genesis);
     (runtime, signer, root_account_id)

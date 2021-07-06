@@ -397,11 +397,10 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
 /// use fungible_token::ContractContract;
-/// use std::convert::TryInto;
 /// use near_sdk_sim::*;
 /// use near_sdk::AccountId;
 /// let master_account = near_sdk_sim::init_simulator(None);
-/// let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
+/// let master_account_id: AccountId = master_account.account_id();
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
 ///   contract: ContractContract,
@@ -421,13 +420,13 @@ macro_rules! deploy {
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr $(,)?) => {
         near_sdk_sim::ContractAccount {
-            user_account: $user.deploy($wasm_bytes, AccountId::new_unchecked($account_id.to_string()), $deposit),
-            contract: $contract { account_id: AccountId::new_unchecked($account_id.to_string()) },
+            user_account: $user.deploy($wasm_bytes, near_sdk::AccountId::new_unchecked($account_id.to_string()), $deposit),
+            contract: $contract { account_id: near_sdk::AccountId::new_unchecked($account_id.to_string()) },
         }
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* $(,)?) => {
            {
-               let __contract = $contract { account_id: AccountId::new_unchecked($account_id.to_string()) };
+               let __contract = $contract { account_id: near_sdk::AccountId::new_unchecked($account_id.to_string()) };
                near_sdk_sim::ContractAccount {
                    user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
