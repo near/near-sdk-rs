@@ -10,18 +10,6 @@ pub enum CurveType {
     SECP256K1 = 1,
 }
 
-impl TryFrom<u8> for CurveType {
-    type Error = ParsePublicKeyError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::ED25519),
-            1 => Ok(Self::SECP256K1),
-            _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
-        }
-    }
-}
-
 impl TryFrom<String> for CurveType {
     type Error = ParsePublicKeyError;
 
@@ -92,7 +80,7 @@ impl Base58PublicKey {
     }
 
     /// Get info about the CurveType for this public key
-    pub fn curve(&self) -> CurveType {
+    pub fn curve_type(&self) -> CurveType {
         self.curve
     }
 }
@@ -113,7 +101,13 @@ impl TryFrom<Vec<u8>> for Base58PublicKey {
                 kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
             });
         }
-        let curve = CurveType::try_from(data.remove(0))?;
+
+        let curve = match data.remove(0) {
+            0 => Ok(CurveType::ED25519),
+            1 => Ok(CurveType::SECP256K1),
+            _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
+        }?;
+
         Self::from_parts(curve, data)
     }
 }
@@ -139,14 +133,18 @@ impl<'de> serde::Deserialize<'de> for Base58PublicKey {
 
 impl From<&Base58PublicKey> for String {
     fn from(str_public_key: &Base58PublicKey) -> Self {
-        match str_public_key.curve {
-            CurveType::ED25519 => {
-                ["ed25519:", &bs58::encode(&str_public_key.data).into_string()].concat()
-            }
-            CurveType::SECP256K1 => {
-                ["secp256k1:", &bs58::encode(&str_public_key.data).into_string()].concat()
-            }
-        }
+        let upper_bound = (str_public_key.data.len() / 5 + 1) * 8;
+        let (pad, curve_as_str) = match str_public_key.curve {
+            CurveType::ED25519 => (8, "ed25519:"),
+            CurveType::SECP256K1 => (10, "secp256k1:"),
+        };
+
+        // Efficient concat of "curve_type:" + bs58 encoded bytes:
+        let mut buf = vec![0u8; pad + upper_bound];
+        buf.splice(..pad, curve_as_str.as_bytes().iter().cloned());
+        let size = bs58::encode(&str_public_key.data).into(&mut buf[8..]).unwrap();
+        buf.truncate(pad + size);
+        String::from_utf8(buf).unwrap()
     }
 }
 
