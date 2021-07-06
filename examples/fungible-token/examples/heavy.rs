@@ -47,7 +47,7 @@ fn init(
         bytes: &DEFI_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            FT_ID.try_into().unwrap()
+            FT_ID.parse().unwrap()
         )
     );
 
