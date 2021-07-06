@@ -25,7 +25,8 @@ fn init(
         bytes: &TOKEN_WASM_BYTES,
         signer_account: master_account
     };
-    let alice = master_account.create_user("alice".parse().unwrap(), initial_balance);
+    let alice =
+        master_account.create_user(AccountId::new_unchecked("alice".to_string()), initial_balance);
     (master_account, contract_account, alice)
 }
 

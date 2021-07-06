@@ -421,13 +421,13 @@ macro_rules! deploy {
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr $(,)?) => {
         near_sdk_sim::ContractAccount {
-            user_account: $user.deploy($wasm_bytes, $account_id.parse().unwrap(), $deposit),
-            contract: $contract { account_id: $account_id.parse().unwrap() },
+            user_account: $user.deploy($wasm_bytes, AccountId::new_unchecked($account_id.to_string()), $deposit),
+            contract: $contract { account_id: AccountId::new_unchecked($account_id.to_string()) },
         }
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* $(,)?) => {
            {
-               let __contract = $contract { account_id: $account_id.parse().unwrap() };
+               let __contract = $contract { account_id: AccountId::new_unchecked($account_id.to_string()) };
                near_sdk_sim::ContractAccount {
                    user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
