@@ -2,6 +2,7 @@ use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
+use std::io::{self, ErrorKind};
 
 use crate::env::is_valid_account_id;
 
@@ -34,17 +35,7 @@ use crate::env::is_valid_account_id;
 ///
 /// [`FromStr`]: std::str::FromStr
 #[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    PartialOrd,
-    Ord,
-    Eq,
-    BorshDeserialize,
-    BorshSerialize,
-    Serialize,
-    Hash,
-    BorshSchema,
+    Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash, BorshSchema,
 )]
 pub struct AccountId(String);
 
@@ -90,16 +81,15 @@ impl<'de> Deserialize<'de> for AccountId {
     where
         D: de::Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Self::try_from(s).map_err(de::Error::custom)
+        <String as Deserialize>::deserialize(deserializer)
+            .and_then(|s| Self::try_from(s).map_err(de::Error::custom))
     }
 }
 
-impl TryFrom<&str> for AccountId {
-    type Error = ParseAccountIdError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        value.parse()
+impl BorshDeserialize for AccountId {
+    fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
+        <String as BorshDeserialize>::deserialize(buf)
+            .and_then(|s| Self::try_from(s).map_err(|e| io::Error::new(ErrorKind::InvalidData, e)))
     }
 }
 
@@ -193,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_from_str() {
-        let key = AccountId::try_from("alice.near").unwrap();
+        let key = "alice.near".parse::<AccountId>().unwrap();
         assert_eq!(key.as_ref(), &"alice.near".to_string());
     }
 
