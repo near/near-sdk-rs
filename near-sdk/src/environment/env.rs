@@ -172,7 +172,10 @@ pub fn predecessor_account_id() -> AccountId {
 
 /// Helper function to convert and check the account ID from bytes from the runtime.
 fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
-    AccountId::try_from(bytes).ok().unwrap_or_else(|| unreachable!())
+    String::from_utf8(bytes)
+        .ok()
+        .and_then(|s| AccountId::try_from(s).ok())
+        .unwrap_or_else(|| unreachable!())
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.

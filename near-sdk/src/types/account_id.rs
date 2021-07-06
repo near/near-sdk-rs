@@ -93,31 +93,11 @@ impl BorshDeserialize for AccountId {
     }
 }
 
-impl TryFrom<&[u8]> for AccountId {
-    type Error = ParseAccountIdError;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        core::str::from_utf8(value)
-            .map_err(|_| ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidUtf8 })
-            .and_then(str::parse)
-    }
-}
-
 fn validate_account_id(id: &str) -> Result<(), ParseAccountIdError> {
     if is_valid_account_id(id.as_bytes()) {
         Ok(())
     } else {
         Err(ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidAccountId })
-    }
-}
-
-impl TryFrom<Vec<u8>> for AccountId {
-    type Error = ParseAccountIdError;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        String::from_utf8(value)
-            .map_err(|_| ParseAccountIdError { kind: ParseAccountIdErrorKind::InvalidUtf8 })
-            .and_then(Self::try_from)
     }
 }
 
@@ -147,14 +127,12 @@ pub struct ParseAccountIdError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ParseAccountIdErrorKind {
     InvalidAccountId,
-    InvalidUtf8,
 }
 
 impl fmt::Display for ParseAccountIdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind {
             ParseAccountIdErrorKind::InvalidAccountId => write!(f, "the account ID is invalid"),
-            ParseAccountIdErrorKind::InvalidUtf8 => write!(f, "bytes are not valid utf-8"),
         }
     }
 }
