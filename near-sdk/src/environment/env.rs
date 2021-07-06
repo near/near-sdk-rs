@@ -5,6 +5,7 @@
 
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
 
@@ -171,10 +172,7 @@ pub fn predecessor_account_id() -> AccountId {
 
 /// Helper function to convert and check the account ID from bytes from the runtime.
 fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
-    String::from_utf8(bytes)
-        .ok()
-        .and_then(|it| it.parse::<AccountId>().ok())
-        .unwrap_or_else(|| unreachable!())
+    AccountId::try_from(bytes).ok().unwrap_or_else(|| unreachable!())
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
