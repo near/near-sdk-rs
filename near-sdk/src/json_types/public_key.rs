@@ -142,7 +142,7 @@ impl From<&Base58PublicKey> for String {
         // Efficient concat of "curve_type:" + bs58 encoded bytes:
         let mut buf = vec![0u8; pad + upper_bound];
         buf.splice(..pad, curve_as_str.as_bytes().iter().cloned());
-        let size = bs58::encode(&str_public_key.data).into(&mut buf[8..]).unwrap();
+        let size = bs58::encode(&str_public_key.data).into(&mut buf[pad..]).unwrap();
         buf.truncate(pad + size);
         String::from_utf8(buf).unwrap()
     }
