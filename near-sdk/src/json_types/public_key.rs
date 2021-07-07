@@ -22,10 +22,12 @@ impl std::str::FromStr for CurveType {
     type Err = ParsePublicKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_lowercase().as_str() {
-            "ed25519" => Ok(CurveType::ED25519),
-            "secp256k1" => Ok(CurveType::SECP256K1),
-            _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
+        if value.eq_ignore_ascii_case("ed25519") {
+            Ok(CurveType::ED25519)
+        } else if value.eq_ignore_ascii_case("secp256k1") {
+            Ok(CurveType::SECP256K1)
+        } else {
+            Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve })
         }
     }
 }
