@@ -4,24 +4,26 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use std::borrow::Borrow;
+#[cfg(not(target_arch = "wasm32"))]
 use std::cell::RefCell;
 use std::mem::size_of;
 use std::panic as std_panic;
 
+use super::sys;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::environment::blockchain_interface::BlockchainInterface;
 
+#[cfg(not(target_arch = "wasm32"))]
 thread_local! {
 /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
 /// for interacting with the real and fake blockchains.
     pub static BLOCKCHAIN_INTERFACE: RefCell<Option<Box<dyn BlockchainInterface>>>
-         = RefCell::new(None);
+         = RefCell::new(Some(Box::new(crate::MockedBlockchain::default())));
 }
-
-const BLOCKCHAIN_INTERFACE_NOT_SET_ERR: &str = "Blockchain interface not set.";
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -44,12 +46,7 @@ const MAX_ACCOUNT_ID_LEN: u64 = 64;
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
     ( $method:ident ) => {{
-        BLOCKCHAIN_INTERFACE.with(|b| unsafe {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .$method(ATOMIC_OP_REGISTER);
-        });
+        unsafe { sys::$method(ATOMIC_OP_REGISTER) };
         read_register(ATOMIC_OP_REGISTER)
     }};
 }
@@ -80,6 +77,7 @@ macro_rules! method_into_register {
 ///       );
 /// near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
 /// ```
+#[cfg(not(target_arch = "wasm32"))]
 pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterface>) {
     BLOCKCHAIN_INTERFACE.with(|b| {
         *b.borrow_mut() = Some(blockchain_interface);
@@ -104,6 +102,7 @@ pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterfac
 /// // The following will panic, because there is no blockchain interface set:
 /// // env::account_balance();
 /// ```
+#[cfg(not(target_arch = "wasm32"))]
 pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
     BLOCKCHAIN_INTERFACE.with(|b| b.replace(None))
 }
@@ -123,20 +122,13 @@ pub fn setup_panic_hook() {
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
     let len = register_len(register_id)?;
     let res = vec![0u8; len as usize];
-    BLOCKCHAIN_INTERFACE.with(|b| unsafe {
-        b.borrow()
-            .as_ref()
-            .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-            .read_register(register_id, res.as_ptr() as _)
-    });
+    unsafe { sys::read_register(register_id, res.as_ptr() as _) };
     Some(res)
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
-    let len = BLOCKCHAIN_INTERFACE.with(|b| unsafe {
-        b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).register_len(register_id)
-    });
+    let len = unsafe { sys::register_len(register_id) };
     if len == std::u64::MAX {
         None
     } else {
@@ -176,35 +168,22 @@ pub fn input() -> Option<Vec<u8>> {
 
 /// Current block index.
 pub fn block_index() -> BlockHeight {
-    unsafe {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_index())
-    }
+    unsafe { sys::block_index() }
 }
 
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp() -> u64 {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).block_timestamp()
-        })
-    }
+    unsafe { sys::block_timestamp() }
 }
 
 /// Current epoch height.
 pub fn epoch_height() -> u64 {
-    unsafe {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).epoch_height())
-    }
+    unsafe { sys::epoch_height() }
 }
 
 /// Current total storage usage of this smart contract that this account would be paying for.
 pub fn storage_usage() -> StorageUsage {
-    unsafe {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_usage())
-    }
+    unsafe { sys::storage_usage() }
 }
 
 // #################
@@ -214,28 +193,14 @@ pub fn storage_usage() -> StorageUsage {
 /// attached to the transaction
 pub fn account_balance() -> Balance {
     let data = [0u8; size_of::<Balance>()];
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .account_balance(data.as_ptr() as u64)
-        })
-    };
+    unsafe { sys::account_balance(data.as_ptr() as u64) };
     Balance::from_le_bytes(data)
 }
 
 /// The balance locked for potential validator staking.
 pub fn account_locked_balance() -> Balance {
     let data = [0u8; size_of::<Balance>()];
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .account_locked_balance(data.as_ptr() as u64)
-        })
-    };
+    unsafe { sys::account_locked_balance(data.as_ptr() as u64) };
     Balance::from_le_bytes(data)
 }
 
@@ -243,31 +208,18 @@ pub fn account_locked_balance() -> Balance {
 /// contract execution starts
 pub fn attached_deposit() -> Balance {
     let data = [0u8; size_of::<Balance>()];
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .attached_deposit(data.as_ptr() as u64)
-        })
-    };
+    unsafe { sys::attached_deposit(data.as_ptr() as u64) };
     Balance::from_le_bytes(data)
 }
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    unsafe {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).prepaid_gas())
-    }
+    unsafe { sys::prepaid_gas() }
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
-    unsafe {
-        BLOCKCHAIN_INTERFACE
-            .with(|b| b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).used_gas())
-    }
+    unsafe { sys::used_gas() }
 }
 
 // ############
@@ -280,43 +232,19 @@ pub fn random_seed() -> Vec<u8> {
 
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).sha256(
-                value.len() as _,
-                value.as_ptr() as _,
-                ATOMIC_OP_REGISTER,
-            )
-        });
-    };
+    unsafe { sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
 
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).keccak256(
-                value.len() as _,
-                value.as_ptr() as _,
-                ATOMIC_OP_REGISTER,
-            )
-        });
-    };
+    unsafe { sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
 
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).keccak512(
-                value.len() as _,
-                value.as_ptr() as _,
-                ATOMIC_OP_REGISTER,
-            )
-        });
-    };
+    unsafe { sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
 
@@ -334,18 +262,16 @@ pub fn promise_create(
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_create(
-                account_id.len() as _,
-                account_id.as_ptr() as _,
-                method_name.len() as _,
-                method_name.as_ptr() as _,
-                arguments.len() as _,
-                arguments.as_ptr() as _,
-                &amount as *const Balance as _,
-                gas,
-            )
-        })
+        sys::promise_create(
+            account_id.len() as _,
+            account_id.as_ptr() as _,
+            method_name.len() as _,
+            method_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas,
+        )
     }
 }
 
@@ -360,19 +286,17 @@ pub fn promise_then(
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_then(
-                promise_idx,
-                account_id.len() as _,
-                account_id.as_ptr() as _,
-                method_name.len() as _,
-                method_name.as_ptr() as _,
-                arguments.len() as _,
-                arguments.as_ptr() as _,
-                &amount as *const Balance as _,
-                gas,
-            )
-        })
+        sys::promise_then(
+            promise_idx,
+            account_id.len() as _,
+            account_id.as_ptr() as _,
+            method_name.len() as _,
+            method_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas,
+        )
     }
 }
 
@@ -383,26 +307,12 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
         data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
             .copy_from_slice(&promise_indices[i].to_le_bytes());
     }
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_and(data.as_ptr() as _, promise_indices.len() as _)
-        })
-    }
+    unsafe { sys::promise_and(data.as_ptr() as _, promise_indices.len() as _) }
 }
 
 pub fn promise_batch_create<A: Borrow<AccountId>>(account_id: A) -> PromiseIndex {
     let account_id = account_id.borrow();
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_create(account_id.len() as _, account_id.as_ptr() as _)
-        })
-    }
+    unsafe { sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _) }
 }
 
 pub fn promise_batch_then<A: Borrow<AccountId>>(
@@ -411,39 +321,21 @@ pub fn promise_batch_then<A: Borrow<AccountId>>(
 ) -> PromiseIndex {
     let account_id = account_id.borrow();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_then(
-                promise_index,
-                account_id.len() as _,
-                account_id.as_ptr() as _,
-            )
-        })
+        sys::promise_batch_then(promise_index, account_id.len() as _, account_id.as_ptr() as _)
     }
 }
 
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_create_account(promise_index)
-        })
-    }
+    unsafe { sys::promise_batch_action_create_account(promise_index) }
 }
 
 pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_deploy_contract(
-                    promise_index,
-                    code.len() as _,
-                    code.as_ptr() as _,
-                )
-        })
+        sys::promise_batch_action_deploy_contract(
+            promise_index,
+            code.len() as _,
+            code.as_ptr() as _,
+        )
     }
 }
 
@@ -455,32 +347,20 @@ pub fn promise_batch_action_function_call(
     gas: Gas,
 ) {
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_function_call(
-                    promise_index,
-                    method_name.len() as _,
-                    method_name.as_ptr() as _,
-                    arguments.len() as _,
-                    arguments.as_ptr() as _,
-                    &amount as *const Balance as _,
-                    gas,
-                )
-        })
+        sys::promise_batch_action_function_call(
+            promise_index,
+            method_name.len() as _,
+            method_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas,
+        )
     }
 }
 
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_transfer(promise_index, &amount as *const Balance as _)
-        })
-    }
+    unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
 }
 
 pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
@@ -490,14 +370,12 @@ pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
 ) {
     let public_key = public_key.borrow();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_batch_action_stake(
-                promise_index,
-                &amount as *const Balance as _,
-                public_key.len() as _,
-                public_key.as_ptr() as _,
-            )
-        })
+        sys::promise_batch_action_stake(
+            promise_index,
+            &amount as *const Balance as _,
+            public_key.len() as _,
+            public_key.as_ptr() as _,
+        )
     }
 }
 pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
@@ -507,17 +385,12 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
 ) {
     let public_key = public_key.borrow();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_add_key_with_full_access(
-                    promise_index,
-                    public_key.len() as _,
-                    public_key.as_ptr() as _,
-                    nonce,
-                )
-        })
+        sys::promise_batch_action_add_key_with_full_access(
+            promise_index,
+            public_key.len() as _,
+            public_key.as_ptr() as _,
+            nonce,
+        )
     }
 }
 pub fn promise_batch_action_add_key_with_function_call<
@@ -534,22 +407,17 @@ pub fn promise_batch_action_add_key_with_function_call<
     let public_key = public_key.borrow();
     let receiver_id = receiver_id.borrow();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_add_key_with_function_call(
-                    promise_index,
-                    public_key.len() as _,
-                    public_key.as_ptr() as _,
-                    nonce,
-                    &allowance as *const Balance as _,
-                    receiver_id.len() as _,
-                    receiver_id.as_ptr() as _,
-                    method_names.len() as _,
-                    method_names.as_ptr() as _,
-                )
-        })
+        sys::promise_batch_action_add_key_with_function_call(
+            promise_index,
+            public_key.len() as _,
+            public_key.as_ptr() as _,
+            nonce,
+            &allowance as *const Balance as _,
+            receiver_id.len() as _,
+            receiver_id.as_ptr() as _,
+            method_names.len() as _,
+            method_names.as_ptr() as _,
+        )
     }
 }
 pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
@@ -558,16 +426,11 @@ pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
 ) {
     let public_key = public_key.borrow();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_delete_key(
-                    promise_index,
-                    public_key.len() as _,
-                    public_key.as_ptr() as _,
-                )
-        })
+        sys::promise_batch_action_delete_key(
+            promise_index,
+            public_key.len() as _,
+            public_key.as_ptr() as _,
+        )
     }
 }
 
@@ -577,16 +440,11 @@ pub fn promise_batch_action_delete_account<A: Borrow<AccountId>>(
 ) {
     let beneficiary_id = beneficiary_id.borrow();
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_batch_action_delete_account(
-                    promise_index,
-                    beneficiary_id.len() as _,
-                    beneficiary_id.as_ptr() as _,
-                )
-        })
+        sys::promise_batch_action_delete_account(
+            promise_index,
+            beneficiary_id.len() as _,
+            beneficiary_id.as_ptr() as _,
+        )
     }
 }
 
@@ -594,23 +452,12 @@ pub fn promise_batch_action_delete_account<A: Borrow<AccountId>>(
 /// promises that caused the callback. This function returns the number of complete and
 /// incomplete callbacks.
 pub fn promise_results_count() -> u64 {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_results_count()
-        })
-    }
+    unsafe { sys::promise_results_count() }
 }
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .promise_result(result_idx, ATOMIC_OP_REGISTER)
-        })
-    } {
+    match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
         0 => PromiseResult::NotReady,
         1 => {
             let data = read_register(ATOMIC_OP_REGISTER)
@@ -624,11 +471,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 /// Consider the execution result of promise under `promise_idx` as execution result of this
 /// function.
 pub fn promise_return(promise_idx: PromiseIndex) {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).promise_return(promise_idx)
-        })
-    }
+    unsafe { sys::promise_return(promise_idx) }
 }
 
 // ###############
@@ -639,13 +482,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 pub fn validator_stake(account_id: &AccountId) -> Balance {
     let data = [0u8; size_of::<Balance>()];
     unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).validator_stake(
-                account_id.len() as _,
-                account_id.as_ptr() as _,
-                data.as_ptr() as u64,
-            )
-        })
+        sys::validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
     };
     Balance::from_le_bytes(data)
 }
@@ -653,14 +490,7 @@ pub fn validator_stake(account_id: &AccountId) -> Balance {
 /// Returns the total stake of validators in the current epoch.
 pub fn validator_total_stake() -> Balance {
     let data = [0u8; size_of::<Balance>()];
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .validator_total_stake(data.as_ptr() as u64)
-        })
-    };
+    unsafe { sys::validator_total_stake(data.as_ptr() as u64) };
     Balance::from_le_bytes(data)
 }
 
@@ -669,40 +499,18 @@ pub fn validator_total_stake() -> Balance {
 // #####################
 /// Sets the blob of data as the return value of the contract.
 pub fn value_return(value: &[u8]) {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .value_return(value.len() as _, value.as_ptr() as _)
-        })
-    }
+    unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
 pub fn panic(message: &[u8]) -> ! {
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .panic_utf8(message.len() as _, message.as_ptr() as _)
-        })
-    }
+    unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
     unreachable!()
 }
 /// Log the UTF-8 encodable message.
 pub fn log(message: &[u8]) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
-    println!("{}", String::from_utf8_lossy(message));
-
-    unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .log_utf8(message.len() as _, message.as_ptr() as _)
-        })
-    }
+    eprintln!("{}", String::from_utf8_lossy(message));
+    unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
 // ###############
@@ -712,15 +520,13 @@ pub fn log(message: &[u8]) {
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_write(
-                key.len() as _,
-                key.as_ptr() as _,
-                value.len() as _,
-                value.as_ptr() as _,
-                EVICTED_REGISTER,
-            )
-        })
+        sys::storage_write(
+            key.len() as _,
+            key.as_ptr() as _,
+            value.len() as _,
+            value.as_ptr() as _,
+            EVICTED_REGISTER,
+        )
     } {
         0 => false,
         1 => true,
@@ -729,15 +535,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 }
 /// Reads the value stored under the given key.
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
-    match unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_read(
-                key.len() as _,
-                key.as_ptr() as _,
-                ATOMIC_OP_REGISTER,
-            )
-        })
-    } {
+    match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
         1 => Some(read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)),
         _ => unreachable!(),
@@ -746,15 +544,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// Removes the value stored under the given key.
 /// If key-value existed returns `true`, otherwise `false`.
 pub fn storage_remove(key: &[u8]) -> bool {
-    match unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow().as_ref().expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR).storage_remove(
-                key.len() as _,
-                key.as_ptr() as _,
-                EVICTED_REGISTER,
-            )
-        })
-    } {
+    match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
         1 => true,
         _ => unreachable!(),
@@ -766,14 +556,7 @@ pub fn storage_get_evicted() -> Option<Vec<u8>> {
 }
 /// Checks if there is a key-value in the storage.
 pub fn storage_has_key(key: &[u8]) -> bool {
-    match unsafe {
-        BLOCKCHAIN_INTERFACE.with(|b| {
-            b.borrow()
-                .as_ref()
-                .expect(BLOCKCHAIN_INTERFACE_NOT_SET_ERR)
-                .storage_has_key(key.len() as _, key.as_ptr() as _)
-        })
-    } {
+    match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
         1 => true,
         _ => unreachable!(),

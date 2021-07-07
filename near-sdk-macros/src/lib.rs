@@ -12,14 +12,10 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let sys_file = rust_file(include_str!("../res/sys.rs"));
-        let near_environment = rust_file(include_str!("../res/near_blockchain.rs"));
         let struct_proxy = generate_proxy_struct(&input);
         TokenStream::from(quote! {
             #input
             #struct_proxy
-            #sys_file
-            #near_environment
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -45,10 +41,6 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
-}
-
-fn rust_file(text: &str) -> File {
-    syn::parse_file(text).unwrap()
 }
 
 #[proc_macro_attribute]
