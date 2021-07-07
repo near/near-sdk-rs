@@ -13,10 +13,13 @@
 * expose `cur_block` and `genesis_config` from `RuntimeStandalone` to configure simulation tests. [PR 390](https://github.com/near/near-sdk-rs/pull/390).
 * fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
 * Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
+* Update syscall interface to no longer go through `BLOCKCHAIN_INTERFACE`. Instead uses `near_sdk::sys` which is under the `unstable` feature flag if needed. [PR 417](https://github.com/near/near-sdk-rs/pull/417).
 * Set up global allocator by default for WASM architectures. [PR 429](https://github.com/near/near-sdk-rs/pull/429).
   * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.
   * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overriden to a custom one or set manually if intended.
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
+* Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
+  * This default only affects outside of `wasm32` environments and is optional/backwards compatible
 
 ## `3.1.0` [04-06-2021]
 
