@@ -15,9 +15,6 @@ impl ImplItemMethodInfo {
         let panic_hook = quote! {
             near_sdk::env::setup_panic_hook();
         };
-        let env_creation = quote! {
-            near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-        };
         let arg_struct;
         let arg_parsing;
         if has_input_args {
@@ -156,7 +153,6 @@ impl ImplItemMethodInfo {
             #[no_mangle]
             pub extern "C" fn #ident() {
                 #panic_hook
-                #env_creation
                 #is_private_check
                 #deposit_check
                 #arg_struct
