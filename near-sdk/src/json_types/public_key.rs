@@ -135,18 +135,14 @@ impl<'de> serde::Deserialize<'de> for Base58PublicKey {
 
 impl From<&Base58PublicKey> for String {
     fn from(str_public_key: &Base58PublicKey) -> Self {
-        let upper_bound = (str_public_key.data.len() / 5 + 1) * 8;
-        let (pad, curve_as_str) = match str_public_key.curve {
-            CurveType::ED25519 => (8, "ed25519:"),
-            CurveType::SECP256K1 => (10, "secp256k1:"),
-        };
-
-        // Efficient concat of "curve_type:" + bs58 encoded bytes:
-        let mut buf = vec![0u8; pad + upper_bound];
-        buf.splice(..pad, curve_as_str.as_bytes().iter().cloned());
-        let size = bs58::encode(&str_public_key.data).into(&mut buf[pad..]).unwrap();
-        buf.truncate(pad + size);
-        String::from_utf8(buf).unwrap()
+        match str_public_key.curve {
+            CurveType::ED25519 => {
+                ["ed25519:", &bs58::encode(&str_public_key.data).into_string()].concat()
+            }
+            CurveType::SECP256K1 => {
+                ["secp256k1:", &bs58::encode(&str_public_key.data).into_string()].concat()
+            }
+        }
     }
 }
 
