@@ -1,10 +1,13 @@
+#[cfg(not(target_arch = "wasm32"))]
 use near_primitives_core::hash::CryptoHash;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 
 //* Type aliases from near_primitives_core
 
 /// Hash used by a struct implementing the Merkle tree.
+#[cfg(not(target_arch = "wasm32"))]
 pub type MerkleHash = CryptoHash;
 /// Validator identifier in current group.
 pub type ValidatorId = u64;

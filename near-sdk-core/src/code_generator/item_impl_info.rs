@@ -61,7 +61,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
             }
@@ -80,7 +79,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
             }
@@ -99,7 +97,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
                 }
@@ -122,7 +119,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
@@ -151,7 +147,6 @@ mod tests {
                 #[no_mangle]
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
-                    near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
                     }
@@ -185,7 +180,6 @@ mod tests {
                 #[no_mangle]
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
-                    near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
                     }
@@ -222,7 +216,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 let result = contract.method();
                 let result =
@@ -244,7 +237,6 @@ mod tests {
                 #[no_mangle]
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
-                    near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                     #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input {
@@ -273,7 +265,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
@@ -303,7 +294,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
                 }
@@ -348,7 +338,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
                 }
@@ -385,7 +374,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
                 }
@@ -428,7 +416,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
                 }
@@ -465,7 +452,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
                 }
@@ -500,7 +486,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
                 struct Input {
@@ -534,7 +519,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
                 }
@@ -571,7 +555,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
                 }
@@ -613,7 +596,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
                 near_sdk::env::state_write(&contract);
@@ -633,7 +615,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn private_method() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method private_method is private".as_bytes());
                 }
