@@ -25,7 +25,8 @@ base64 = "0.13"
 borsh = "0.8.1"
 bs58 = "0.4"
 # Export dependencies for contracts
-wee_alloc = { version = "0.4.5", default-features = false, features = [] }
+wee_alloc = { version = "0.4.5", default-features = false, optional = true }
+
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.7.2", optional = true, default-features = false }
 
@@ -41,5 +42,6 @@ rand_xorshift = "0.2.0"
 quickcheck = "0.9.2"
 
 [features]
+default = ["wee_alloc"]
 expensive-debug = []
 unstable = ["once_cell"]
