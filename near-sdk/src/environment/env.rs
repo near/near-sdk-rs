@@ -8,6 +8,7 @@ use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::mem::size_of;
 use std::panic as std_panic;
+use std::convert::TryFrom;
 
 use super::sys;
 use crate::types::{
@@ -152,7 +153,7 @@ pub fn signer_account_id() -> AccountId {
 
 /// The public key of the account that did the signing.
 pub fn signer_account_pk() -> PublicKey {
-    method_into_register!(signer_account_pk)
+    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap()
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.

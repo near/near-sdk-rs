@@ -1,6 +1,7 @@
 use borsh::{maybestd::io, BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
 use std::convert::TryFrom;
+use core::ops::Deref;
 
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
@@ -8,6 +9,16 @@ use std::convert::TryFrom;
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
+}
+
+impl CurveType {
+    fn from_u8(val: u8) -> Result<Self, ParsePublicKeyError> {
+        match val {
+            0 => Ok(CurveType::ED25519),
+            1 => Ok(CurveType::SECP256K1),
+            _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
+        }
+    }
 }
 
 impl TryFrom<String> for CurveType {
@@ -52,7 +63,6 @@ impl std::str::FromStr for CurveType {
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Base58PublicKey {
-    curve: CurveType,
     data: Vec<u8>,
 }
 
@@ -77,19 +87,29 @@ impl Base58PublicKey {
                 kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
             });
         }
+        let mut bytes = Vec::with_capacity(1 + expected_length);
+        bytes.push(curve as u8);
+        bytes.extend(data);
 
-        Ok(Self { curve, data })
+        Ok(Self { data: bytes })
     }
 
     /// Get info about the CurveType for this public key
     pub fn curve_type(&self) -> CurveType {
-        self.curve
+        CurveType::from_u8(self.data[0]).unwrap()
+    }
+}
+
+impl Deref for Base58PublicKey {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }
 
 impl From<Base58PublicKey> for Vec<u8> {
-    fn from(mut v: Base58PublicKey) -> Vec<u8> {
-        v.data.insert(0, v.curve as u8);
+    fn from(v: Base58PublicKey) -> Vec<u8> {
         v.data
     }
 }
@@ -104,12 +124,7 @@ impl TryFrom<Vec<u8>> for Base58PublicKey {
             });
         }
 
-        let curve = match data.remove(0) {
-            0 => Ok(CurveType::ED25519),
-            1 => Ok(CurveType::SECP256K1),
-            _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
-        }?;
-
+        let curve = CurveType::from_u8(data.remove(0))?;
         Self::from_parts(curve, data)
     }
 }
@@ -135,12 +150,12 @@ impl<'de> serde::Deserialize<'de> for Base58PublicKey {
 
 impl From<&Base58PublicKey> for String {
     fn from(str_public_key: &Base58PublicKey) -> Self {
-        match str_public_key.curve {
+        match str_public_key.curve_type() {
             CurveType::ED25519 => {
-                ["ed25519:", &bs58::encode(&str_public_key.data).into_string()].concat()
+                ["ed25519:", &bs58::encode(&str_public_key.data[1..]).into_string()].concat()
             }
             CurveType::SECP256K1 => {
-                ["secp256k1:", &bs58::encode(&str_public_key.data).into_string()].concat()
+                ["secp256k1:", &bs58::encode(&str_public_key.data[1..]).into_string()].concat()
             }
         }
     }
@@ -181,16 +196,7 @@ impl BorshDeserialize for Base58PublicKey {
 
 impl BorshSerialize for Base58PublicKey {
     fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        let len = match self.curve {
-            CurveType::ED25519 => 32,
-            CurveType::SECP256K1 => 64,
-        };
-
-        let mut data = Vec::with_capacity(1 + len);
-        data.push(self.curve as u8);
-        data.extend(&self.data);
-
-        BorshSerialize::serialize(&data, writer)
+        BorshSerialize::serialize(&self.data, writer)
     }
 }
 

@@ -1,9 +1,10 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
+use crate::json_types::Base58PublicKey;
 
 //* Types from near_vm_logic
 
-pub type PublicKey = Vec<u8>;
+pub type PublicKey = Base58PublicKey;
 pub type PromiseIndex = u64;
 pub type ReceiptIndex = u64;
 pub type IteratorIndex = u64;
