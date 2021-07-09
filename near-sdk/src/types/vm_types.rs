@@ -1,6 +1,6 @@
+use crate::json_types::Base58PublicKey;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
-use crate::json_types::Base58PublicKey;
 
 //* Types from near_vm_logic
 

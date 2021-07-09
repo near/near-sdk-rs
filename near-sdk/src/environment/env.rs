@@ -6,9 +6,9 @@
 use std::borrow::Borrow;
 #[cfg(not(target_arch = "wasm32"))]
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
-use std::convert::TryFrom;
 
 use super::sys;
 use crate::types::{
