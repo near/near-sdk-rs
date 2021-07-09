@@ -97,7 +97,7 @@ impl PendingContractTx {
         args: Vec<u8>,
         is_view: bool,
     ) -> Self {
-        Self { receiver_id: receiver_id, method: method.to_string(), args, is_view }
+        Self { receiver_id, method: method.to_string(), args, is_view }
     }
 }
 
