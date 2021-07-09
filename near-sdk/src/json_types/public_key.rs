@@ -1,7 +1,7 @@
-use borsh::{maybestd::io, BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
-use std::convert::TryFrom;
 use core::ops::Deref;
+use std::convert::TryFrom;
 
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
@@ -61,7 +61,7 @@ impl std::str::FromStr for CurveType {
 ///             .parse()
 ///             .unwrap();
 /// ```
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize)]
 pub struct Base58PublicKey {
     data: Vec<u8>,
 }
@@ -186,20 +186,6 @@ impl std::str::FromStr for Base58PublicKey {
         Self::from_parts(curve, data)
     }
 }
-
-impl BorshDeserialize for Base58PublicKey {
-    fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        let buf = Vec::<u8>::deserialize(buf)?;
-        Self::try_from(buf).map_err(|err| io::Error::new(io::ErrorKind::Other, err))
-    }
-}
-
-impl BorshSerialize for Base58PublicKey {
-    fn serialize<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        BorshSerialize::serialize(&self.data, writer)
-    }
-}
-
 #[derive(Debug)]
 pub struct ParsePublicKeyError {
     kind: ParsePublicKeyErrorKind,
