@@ -97,7 +97,7 @@ fn validate_account_id(id: &str) -> Result<(), ParseAccountIdError> {
     if is_valid_account_id(id.as_bytes()) {
         Ok(())
     } else {
-        Err(ParseAccountIdError)
+        Err(ParseAccountIdError {})
     }
 }
 
@@ -120,7 +120,8 @@ impl std::str::FromStr for AccountId {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseAccountIdError;
+#[non_exhaustive]
+pub struct ParseAccountIdError {}
 
 impl fmt::Display for ParseAccountIdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
