@@ -45,9 +45,6 @@ impl MetadataVisitor {
         let panic_hook = quote! {
             near_sdk::env::setup_panic_hook();
         };
-        let env_creation = quote! {
-            near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-        };
         let methods: Vec<TokenStream2> = self
             .impl_item_infos
             .iter()
@@ -59,7 +56,6 @@ impl MetadataVisitor {
             #[no_mangle]
             pub extern "C" fn metadata() {
                 #panic_hook
-                #env_creation
                 use borsh::*;
                 let metadata = near_sdk::Metadata::new(vec![
                     #(#methods),*
@@ -103,7 +99,6 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn metadata() {
                 near_sdk::env::setup_panic_hook();
-                near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
                 use borsh::*;
                 let metadata = near_sdk::Metadata::new(vec![
                     near_sdk::MethodMetadata {
