@@ -5,7 +5,7 @@ pub use approval_impl::*;
 pub use approval_receiver::*;
 
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::json_types::ValidAccountId;
+use near_sdk::AccountId;
 use near_sdk::Promise;
 
 /// Trait used when it's desired to have a non-fungible token that has a
@@ -43,7 +43,7 @@ pub trait NonFungibleTokenApproval {
     fn nft_approve(
         &mut self,
         token_id: TokenId,
-        account_id: ValidAccountId,
+        account_id: AccountId,
         msg: Option<String>,
     ) -> Option<Promise>;
 
@@ -59,7 +59,7 @@ pub trait NonFungibleTokenApproval {
     /// Arguments:
     /// * `token_id`: the token for which to revoke an approval
     /// * `account_id`: the account to remove from `approvals`
-    fn nft_revoke(&mut self, token_id: TokenId, account_id: ValidAccountId);
+    fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId);
 
     /// Revoke all approved accounts for a specific token.
     ///
@@ -88,7 +88,7 @@ pub trait NonFungibleTokenApproval {
     fn nft_is_approved(
         self,
         token_id: TokenId,
-        approved_account_id: ValidAccountId,
+        approved_account_id: AccountId,
         approval_id: Option<u64>,
     ) -> bool;
 }
