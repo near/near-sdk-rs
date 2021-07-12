@@ -257,8 +257,8 @@ mod tests {
 
     #[test]
     fn test_public_key_from_str() {
-        let key = PublicKey::try_from("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp")
-            .unwrap();
+        let key =
+            PublicKey::try_from("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp").unwrap();
         assert_eq!(key, expected_key());
     }
 
