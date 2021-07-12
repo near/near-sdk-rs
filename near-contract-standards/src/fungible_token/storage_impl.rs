@@ -1,6 +1,6 @@
 use crate::fungible_token::FungibleToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
 
 impl FungibleToken {
@@ -42,12 +42,11 @@ impl StorageManagement for FungibleToken {
     #[allow(unused_variables)]
     fn storage_deposit(
         &mut self,
-        account_id: Option<ValidAccountId>,
+        account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
         let amount: Balance = env::attached_deposit();
-        let account_id =
-            account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
+        let account_id = account_id.unwrap_or_else(|| env::predecessor_account_id());
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {
@@ -104,7 +103,7 @@ impl StorageManagement for FungibleToken {
         }
     }
 
-    fn storage_balance_of(&self, account_id: ValidAccountId) -> Option<StorageBalance> {
-        self.internal_storage_balance_of(account_id.as_ref())
+    fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
+        self.internal_storage_balance_of(&account_id)
     }
 }

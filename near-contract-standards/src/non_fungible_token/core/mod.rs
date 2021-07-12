@@ -10,7 +10,7 @@ pub use self::resolver::*;
 
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
-use near_sdk::json_types::ValidAccountId;
+use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
 
 /// Used for all non-fungible tokens. The specification for the
@@ -45,7 +45,7 @@ pub trait NonFungibleTokenCore {
     ///    providing information for a transfer
     fn nft_transfer(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
@@ -86,7 +86,7 @@ pub trait NonFungibleTokenCore {
     ///    call and the parameters to pass to that function.
     fn nft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
@@ -110,7 +110,7 @@ pub trait NonFungibleTokenCore {
     fn mint(
         &mut self,
         token_id: TokenId,
-        token_owner_id: ValidAccountId,
+        token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token;
 }

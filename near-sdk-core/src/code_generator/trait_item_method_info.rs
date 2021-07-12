@@ -18,7 +18,7 @@ impl TraitItemMethodInfo {
         quote! {
             pub fn #ident<T: ToString>(#pat_type_list __account_id: &T, __balance: near_sdk::Balance, __gas: near_sdk::Gas) -> near_sdk::Promise {
                 #serialize
-                near_sdk::Promise::new(__account_id.to_string())
+                near_sdk::Promise::new(AccountId::new_unchecked(__account_id.to_string()))
                 .function_call(
                     #ident_byte_str.to_vec(),
                     args,

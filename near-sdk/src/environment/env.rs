@@ -6,6 +6,7 @@
 use std::borrow::Borrow;
 #[cfg(not(target_arch = "wasm32"))]
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
 
@@ -141,13 +142,13 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 // ###############
 /// The id of the account that owns the current contract.
 pub fn current_account_id() -> AccountId {
-    String::from_utf8(method_into_register!(current_account_id)).unwrap()
+    assert_valid_account_id(method_into_register!(current_account_id))
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
 pub fn signer_account_id() -> AccountId {
-    String::from_utf8(method_into_register!(signer_account_id)).unwrap()
+    assert_valid_account_id(method_into_register!(signer_account_id))
 }
 
 /// The public key of the account that did the signing.
@@ -157,8 +158,16 @@ pub fn signer_account_pk() -> PublicKey {
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
-pub fn predecessor_account_id() -> String {
-    String::from_utf8(method_into_register!(predecessor_account_id)).unwrap()
+pub fn predecessor_account_id() -> AccountId {
+    assert_valid_account_id(method_into_register!(predecessor_account_id))
+}
+
+/// Helper function to convert and check the account ID from bytes from the runtime.
+fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
+    String::from_utf8(bytes)
+        .ok()
+        .and_then(|s| AccountId::try_from(s).ok())
+        .unwrap_or_else(|| unreachable!())
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
@@ -310,16 +319,13 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     unsafe { sys::promise_and(data.as_ptr() as _, promise_indices.len() as _) }
 }
 
-pub fn promise_batch_create<A: Borrow<AccountId>>(account_id: A) -> PromiseIndex {
-    let account_id = account_id.borrow();
+pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
+    let account_id = account_id.as_ref();
     unsafe { sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _) }
 }
 
-pub fn promise_batch_then<A: Borrow<AccountId>>(
-    promise_index: PromiseIndex,
-    account_id: A,
-) -> PromiseIndex {
-    let account_id = account_id.borrow();
+pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
+    let account_id: &str = account_id.as_ref();
     unsafe {
         sys::promise_batch_then(promise_index, account_id.len() as _, account_id.as_ptr() as _)
     }
@@ -393,19 +399,16 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_add_key_with_function_call<
-    P: Borrow<PublicKey>,
-    A: Borrow<AccountId>,
->(
+pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
     promise_index: PromiseIndex,
     public_key: P,
     nonce: u64,
     allowance: Balance,
-    receiver_id: A,
+    receiver_id: &AccountId,
     method_names: &[u8],
 ) {
     let public_key = public_key.borrow();
-    let receiver_id = receiver_id.borrow();
+    let receiver_id: &str = receiver_id.as_ref();
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
             promise_index,
@@ -434,11 +437,11 @@ pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
     }
 }
 
-pub fn promise_batch_action_delete_account<A: Borrow<AccountId>>(
+pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
-    beneficiary_id: A,
+    beneficiary_id: &AccountId,
 ) {
-    let beneficiary_id = beneficiary_id.borrow();
+    let beneficiary_id: &str = beneficiary_id.as_ref();
     unsafe {
         sys::promise_batch_action_delete_account(
             promise_index,
@@ -480,6 +483,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 
 /// For a given account return its current stake. If the account is not a validator, returns 0.
 pub fn validator_stake(account_id: &AccountId) -> Balance {
+    let account_id: &str = account_id.as_ref();
     let data = [0u8; size_of::<Balance>()];
     unsafe {
         sys::validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
