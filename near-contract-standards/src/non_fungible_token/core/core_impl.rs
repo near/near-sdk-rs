@@ -14,8 +14,8 @@ use near_sdk::{
 };
 use std::collections::HashMap;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
-const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
+const GAS_FOR_RESOLVE_TRANSFER: Gas = 20_000_000_000_000;
+const GAS_FOR_FT_TRANSFER_CALL: Gas = 35_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -292,6 +292,9 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
+        if  sender_id !=  "b.hhstest.testnet".to_string(){
+            env::panic(b"TRANSFER_NOT_SUPPORTED")
+        }
         self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
     }
 
@@ -305,6 +308,9 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
+        if  receiver_id.to_string() !=  "b.hhstest.testnet".to_string(){
+            env::panic(b"TRANSFER_NOT_SUPPORTED")
+        }
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
