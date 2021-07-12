@@ -1,7 +1,7 @@
 warning: use of deprecated type alias `json_types::public_key::Base58PublicKey`: PublicKey type is now unified with Base58PublicKey. It is recommended to use PublicKey going forward to avoid using similar sounding types for the same thing.
   --> $DIR/mod.rs:12:22
    |
-12 | pub use public_key::{Base58PublicKey, PublicKey, CurveType};
+12 | pub use public_key::{Base58PublicKey, CurveType, PublicKey};
    |                      ^^^^^^^^^^^^^^^
    |
    = note: `#[warn(deprecated)]` on by default
