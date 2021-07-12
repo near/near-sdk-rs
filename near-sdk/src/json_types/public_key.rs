@@ -1,6 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
-use core::ops::Deref;
 use std::convert::TryFrom;
 
 /// PublicKey curve
@@ -94,17 +93,19 @@ impl Base58PublicKey {
         Ok(Self { data: bytes })
     }
 
+    /// Returns a byte slice of this `PublicKey`'s contents.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
+
+    /// Converts a `PublicKey` into a byte vector.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.data
+    }
+
     /// Get info about the CurveType for this public key
     pub fn curve_type(&self) -> CurveType {
-        CurveType::from_u8(self.data[0]).unwrap()
-    }
-}
-
-impl Deref for Base58PublicKey {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.data
+        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| unreachable!())
     }
 }
 
