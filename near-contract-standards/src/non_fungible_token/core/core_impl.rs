@@ -292,7 +292,9 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        assert_eq!(sender_id, "b.hhstest.testnet".to_string(), "transfer not support");
+        if  sender_id !=  "b.hhstest.testnet".to_string(){
+            env::panic(b"TRANSFER_NOT_SUPPORTED")
+        }
         self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
     }
 
@@ -305,8 +307,10 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
-        assert_eq!(receiver_id.to_string(), ("b.hhstest.testnet").to_string(), "transfer call not support");
         let sender_id = env::predecessor_account_id();
+        if  receiver_id.to_string() !=  "b.hhstest.testnet".to_string(){
+            env::panic(b"TRANSFER_NOT_SUPPORTED")
+        }
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
