@@ -305,7 +305,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
-        assert_eq!(receiver_id, "b.hhstest.testnet".to_string(), "transfer call not support");
+        assert_eq!(receiver_id.to_string(), ("b.hhstest.testnet").to_string(), "transfer call not support");
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
