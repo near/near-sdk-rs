@@ -20,6 +20,7 @@
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
 * Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
   * This default only affects outside of `wasm32` environments and is optional/backwards compatible
+* `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 464](https://github.com/near/near-sdk-rs/pull/464)
 
 ## `3.1.0` [04-06-2021]
 
