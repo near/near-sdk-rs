@@ -4,7 +4,6 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::ValidAccountId;
 use near_sdk::{
     env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
@@ -36,8 +35,8 @@ trait ValueReturnTrait {
 #[near_bindgen]
 impl TokenReceiver {
     #[init]
-    pub fn new(non_fungible_token_account_id: ValidAccountId) -> Self {
-        Self { non_fungible_token_account_id: non_fungible_token_account_id.into() }
+    pub fn new(non_fungible_token_account_id: AccountId) -> Self {
+        Self { non_fungible_token_account_id }
     }
 }
 

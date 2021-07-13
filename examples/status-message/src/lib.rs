@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, log, metadata, near_bindgen};
+use near_sdk::{env, log, metadata, near_bindgen, AccountId};
 
 use std::collections::HashMap;
 
@@ -7,7 +7,7 @@ metadata! {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    records: HashMap<AccountId, String>,
 }
 
 #[near_bindgen]
@@ -19,11 +19,7 @@ impl StatusMessage {
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: String) -> Option::<String> {
-        assert!(
-            env::is_valid_account_id(account_id.as_bytes()),
-            "Given account ID is invalid"
-        );
+    pub fn get_status(&self, account_id: AccountId) -> Option::<String> {
         log!("get_status for account_id {}", account_id);
         self.records.get(&account_id).cloned()
     }
@@ -35,13 +31,12 @@ impl StatusMessage {
 mod tests {
     use super::*;
     use near_sdk::test_utils::{get_logs, VMContextBuilder};
-    use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
     use std::convert::TryInto;
 
     fn get_context(is_view: bool) -> VMContext {
         VMContextBuilder::new()
-            .signer_account_id("bob_near".try_into().unwrap())
+            .signer_account_id("bob_near".parse().unwrap())
             .is_view(is_view)
             .build()
     }
@@ -55,7 +50,7 @@ mod tests {
         assert_eq!(get_logs(), vec!["bob_near set_status with message hello"]);
         let context = get_context(true);
         testing_env!(context);
-        assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
+        assert_eq!("hello".to_string(), contract.get_status("bob_near".parse().unwrap()).unwrap());
         assert_eq!(get_logs(), vec!["get_status for account_id bob_near"])
     }
 
@@ -64,7 +59,7 @@ mod tests {
         let context = get_context(true);
         testing_env!(context);
         let contract = StatusMessage::default();
-        assert_eq!(None, contract.get_status("francis.near".to_string()));
+        assert_eq!(None, contract.get_status("francis.near".parse().unwrap()));
         assert_eq!(get_logs(), vec!["get_status for account_id francis.near"])
     }
 }

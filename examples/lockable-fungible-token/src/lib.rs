@@ -255,27 +255,18 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use near_sdk::test_utils::test_env::{alice, bob, carol};
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
 
     use super::*;
 
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
+            current_account_id: alice().into(),
+            signer_account_id: bob().into(),
             signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id,
+            predecessor_account_id: predecessor_account_id.into(),
             input: vec![],
             block_index: 0,
             block_timestamp: 0,

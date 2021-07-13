@@ -3,6 +3,7 @@ use defi::DeFiContract;
 // #[near_bindgen] token contract generated for simulation see near-sdk-sim for details 
 use fungible_token::ContractContract as FtContract;
 
+use near_sdk::AccountId;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk_sim::{deploy, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS};
@@ -19,10 +20,10 @@ const DEFI_ID: &str = "defi";
 // Register the given `user` with FT contract
 pub fn register_user(user: &near_sdk_sim::UserAccount) {
     user.call(
-        FT_ID.to_string(),
+        FT_ID.parse().unwrap(),
         "storage_deposit",
         &json!({
-            "account_id": user.valid_account_id()
+            "account_id": user.account_id()
         })
         .to_string()
         .into_bytes(),
@@ -35,13 +36,13 @@ pub fn register_user(user: &near_sdk_sim::UserAccount) {
 pub fn init_no_macros(initial_balance: u128) -> (UserAccount, UserAccount, UserAccount) {
     let root = init_simulator(None);
 
-    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.into(), to_yocto("5"));
+    let ft = root.deploy(&FT_WASM_BYTES, FT_ID.parse().unwrap(), to_yocto("5"));
 
     ft.call(
-        FT_ID.into(),
+        FT_ID.parse().unwrap(),
         "new_default_meta",
         &json!({
-            "owner_id": root.valid_account_id(),
+            "owner_id": root.account_id(),
             "total_supply": U128::from(initial_balance),
         })
         .to_string()
@@ -51,7 +52,7 @@ pub fn init_no_macros(initial_balance: u128) -> (UserAccount, UserAccount, UserA
     )
     .assert_success();
 
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
+    let alice = root.create_user(AccountId::new_unchecked("alice".to_string()), to_yocto("100"));
     register_user(&alice);
 
     (root, ft, alice)
@@ -73,11 +74,11 @@ pub fn init_with_macros(
         signer_account: root,
         // init method
         init_method: new_default_meta(
-            root.valid_account_id(),
+            root.account_id(),
             initial_balance.into()
         )
     );
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
+    let alice = root.create_user(AccountId::new_unchecked("alice".to_string()), to_yocto("100"));
     register_user(&alice);
 
     let defi = deploy!(
@@ -86,7 +87,7 @@ pub fn init_with_macros(
         bytes: &DEFI_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            ft.valid_account_id()
+            ft.account_id()
         )
     );
 

@@ -320,16 +320,16 @@ impl Contract {
     }
 
     /// Change method. Changes the state, and then saves the new state internally.
-    pub fn set_owner_id(&mut self, new_owner_id: ValidAccountId) {
-        self.owner_id = new_owner_id.into();
+    pub fn set_owner_id(&mut self, new_owner_id: AccountId) {
+        self.owner_id = new_owner_id;
     }
 
     /// View method that "modifies" state, for code structure or computational
     /// efficiency reasons. Changes state in-memory, but does NOT save the new
     /// state. If called internally by a change method, WILL result in updated
     /// contract state.
-    pub fn update_stats(&self, account_id: ValidAccountId, score: U64) -> Account {
-        let account = self.accounts.get(account_id).expect("account not found");
+    pub fn update_stats(&self, account_id: AccountId, score: U64) -> Account {
+        let account = self.accounts.get(&account_id).expect("account not found");
         account.total += score;
         account
     }
@@ -427,8 +427,8 @@ E.g.
 ```rust
 #[near_bindgen]
 impl Contract {
-    pub fn withdraw_100(&mut self, receiver_id: ValidAccountId) -> Promise {
-        Promise::new(receiver_id.into()).transfer(100)
+    pub fn withdraw_100(&mut self, receiver_id: AccountId) -> Promise {
+        Promise::new(receiver_id).transfer(100)
     }
 }
 ```
@@ -622,8 +622,8 @@ impl Contract {
         self.status_updates.remove(&env::predecessor_account_id());
     }
 
-    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
-        self.status_updates.get(account_id.as_ref())
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
+        self.status_updates.get(&account_id)
     }
 }
 ```
