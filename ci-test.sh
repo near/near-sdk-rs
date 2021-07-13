@@ -28,8 +28,27 @@ else
     echo "Build wasm32 for all examples"
 
     ./examples/build_all.sh
-    echo "Testing all examples"
-    ./examples/test_all.sh
-    echo "Checking size of all example contracts"
-    ./examples/size_all.sh
+    # echo "Testing all examples"
+    # ./examples/test_all.sh
+    # echo "Checking size of all example contracts"
+    # ./examples/size_all.sh
+
+    # After build_all, check for changes in wasm blobs and commit it to branch
+    if ! git diff-index --quiet HEAD ./examples/**/*.wasm; then
+      echo "Setting up git for pushing wasm blobs"
+      git config user.name "Buildkite"
+      git config user.email "robot@near.org"
+
+      git fetch upstream "${BUILDKITE_BRANCH}:${BUILDKITE_BRANCH}"
+      git checkout ${BUILDKITE_BRANCH}
+
+      echo "--- Committing changes"
+      git add ./examples/**/*.wasm
+      git commit -m "Updated wasm blobs | build #${BUILDKITE_BUILD_NUMBER}"
+
+      echo "--- Pushing to origin"
+      git push --set-upstream origin ${BUILDKITE_BRANCH}
+    else
+      echo "No diff in wasm blobs found"
+    fi
 fi
