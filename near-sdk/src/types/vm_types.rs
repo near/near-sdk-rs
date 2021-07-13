@@ -2,7 +2,6 @@
 pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 
 //* Types from near_vm_logic
-// pub use super::public_key::PublicKey;
 pub type PromiseIndex = u64;
 pub type ReceiptIndex = u64;
 pub type IteratorIndex = u64;
