@@ -12,7 +12,7 @@ pub use vector::Base64VecU8;
 // but will likely work in the future. Also included just to note that it is
 // indeed deprecated and not just a random export.
 #[deprecated(
-    sinec = "4.0.0",
+    since = "4.0.0",
     note = "This import is deprecated. Best to import directly from near_sdk"
 )]
 pub use crate::types::CurveType;
