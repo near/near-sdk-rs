@@ -18,6 +18,9 @@
   * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.
   * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overriden to a custom one or set manually if intended.
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
+* Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`
+  * Removes `ValidAccountId` to avoid having multiple types for account IDs
+  * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
 * Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
   * This default only affects outside of `wasm32` environments and is optional/backwards compatible
 * `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 464](https://github.com/near/near-sdk-rs/pull/464)

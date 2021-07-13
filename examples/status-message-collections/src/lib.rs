@@ -1,7 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, LookupSet};
-use near_sdk::json_types::ValidAccountId;
-use near_sdk::{env, near_bindgen, BorshStorageKey};
+use near_sdk::{env, near_bindgen, BorshStorageKey, AccountId};
 
 near_sdk::setup_alloc!();
 
@@ -14,7 +13,7 @@ enum StorageKey {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    pub records: LookupMap<String, String>,
+    pub records: LookupMap<AccountId, String>,
     pub unique_values: LookupSet<String>,
 }
 
@@ -36,8 +35,8 @@ impl StatusMessage {
         self.unique_values.insert(&message)
     }
 
-    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
-        self.records.get(account_id.as_ref())
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
+        self.records.get(&account_id)
     }
 }
 
@@ -52,7 +51,7 @@ mod tests {
 
     fn get_context(is_view: bool) -> VMContext {
         VMContextBuilder::new()
-            .signer_account_id("bob_near".try_into().unwrap())
+            .signer_account_id("bob_near".parse().unwrap())
             .is_view(is_view)
             .build()
     }
@@ -65,7 +64,7 @@ mod tests {
         contract.set_status("hello".to_string());
         assert_eq!(
             "hello".to_string(),
-            contract.get_status("bob_near".try_into().unwrap()).unwrap()
+            contract.get_status("bob_near".parse().unwrap()).unwrap()
         );
     }
 
@@ -91,6 +90,6 @@ mod tests {
         let context = get_context(true);
         testing_env!(context);
         let contract = StatusMessage::default();
-        assert_eq!(None, contract.get_status("francis.near".try_into().unwrap()));
+        assert_eq!(None, contract.get_status("francis.near".parse().unwrap()));
     }
 }

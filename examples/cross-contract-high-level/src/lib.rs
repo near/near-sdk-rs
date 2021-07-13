@@ -7,6 +7,7 @@ use near_sdk::{
     //    callback_vec,
     log,
     near_bindgen,
+    AccountId,
     Promise,
     PromiseOrValue,
 };
@@ -37,12 +38,12 @@ pub trait ExtCrossContract {
 #[ext_contract]
 pub trait ExtStatusMessage {
     fn set_status(&mut self, message: String);
-    fn get_status(&self, account_id: String) -> Option<String>;
+    fn get_status(&self, account_id: AccountId) -> Option<String>;
 }
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
+    pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         Promise::new(account_id)
             .create_account()
             .transfer(amount.0)
@@ -119,10 +120,10 @@ impl CrossContract {
     //        self.internal_merge(arrs.pop().unwrap(), arrs.pop().unwrap())
     //    }
 
-    pub fn simple_call(&mut self, account_id: String, message: String) {
+    pub fn simple_call(&mut self, account_id: AccountId, message: String) {
         ext_status_message::set_status(message, &account_id, 0, env::prepaid_gas() / 2);
     }
-    pub fn complex_call(&mut self, account_id: String, message: String) -> Promise {
+    pub fn complex_call(&mut self, account_id: AccountId, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
@@ -139,7 +140,7 @@ impl CrossContract {
         )
     }
 
-    pub fn transfer_money(&mut self, account_id: String, amount: u64) {
+    pub fn transfer_money(&mut self, account_id: AccountId, amount: u64) {
         Promise::new(account_id).transfer(amount as u128);
     }
 }

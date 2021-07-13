@@ -2,12 +2,11 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
+use near_sdk::AccountId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;
-
-pub type AccountId = Vec<u8>;
 
 #[near_bindgen]
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
@@ -21,17 +20,15 @@ pub struct MissionControl {
 #[near_bindgen]
 impl MissionControl {
     pub fn add_agent(&mut self) {
-        let account_id = env::signer_account_id().as_bytes().to_vec();
+        let account_id = env::signer_account_id();
         self.agents.insert(account_id, Agent { account: agent_default(), is_alive: true });
     }
 
-    pub fn assets_quantity(&self, account_id: String, asset: Asset) -> Option<Quantity> {
-        let account_id = account_id.into_bytes();
+    pub fn assets_quantity(&self, account_id: AccountId, asset: Asset) -> Option<Quantity> {
         self.agents.get(&account_id).and_then(|agent| (agent.account.0).get(&asset).cloned())
     }
 
-    pub fn simulate(&mut self, account_id: String) -> Option<bool> {
-        let account_id = account_id.into_bytes();
+    pub fn simulate(&mut self, account_id: AccountId) -> Option<bool> {
         let Self { agents, rates, account } = self;
         agents.get_mut(&account_id).map(|agent| {
             agent.simulate(rates, account);

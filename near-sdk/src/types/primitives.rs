@@ -6,8 +6,6 @@ pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 
 //* Type aliases from near_primitives_core
 
-/// Account identifier. Provides access to user's state.
-pub type AccountId = String;
 /// Hash used by a struct implementing the Merkle tree.
 #[cfg(not(target_arch = "wasm32"))]
 pub type MerkleHash = CryptoHash;

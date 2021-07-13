@@ -25,7 +25,7 @@ fn simulate_simple_transfer() {
         ft.account_id(),
         "ft_transfer",
         &json!({
-            "receiver_id": alice.valid_account_id(),
+            "receiver_id": alice.account_id(),
             "amount": U128::from(transfer_amount)
         })
         .to_string()
@@ -40,7 +40,7 @@ fn simulate_simple_transfer() {
             ft.account_id(),
             "ft_balance_of",
             &json!({
-                "account_id": root.valid_account_id()
+                "account_id": root.account_id()
             })
             .to_string()
             .into_bytes(),
@@ -51,7 +51,7 @@ fn simulate_simple_transfer() {
             ft.account_id(),
             "ft_balance_of",
             &json!({
-                "account_id": alice.valid_account_id()
+                "account_id": alice.account_id()
             })
             .to_string()
             .into_bytes(),
