@@ -23,7 +23,7 @@
   * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
 * Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
   * This default only affects outside of `wasm32` environments and is optional/backwards compatible
-* `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 464](https://github.com/near/near-sdk-rs/pull/464)
+* `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
 
 ## `3.1.0` [04-06-2021]
 
