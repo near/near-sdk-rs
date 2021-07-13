@@ -1,12 +1,10 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
 use near_crypto::{InMemorySigner, KeyType, PublicKey, Signer};
 
-use near_sdk::json_types::ValidAccountId;
-// use near_sdk::utils::PendingContractTx;
+use near_sdk::AccountId;
 use near_sdk::PendingContractTx;
 
 use crate::runtime::init_runtime;
@@ -17,7 +15,7 @@ use crate::{
     outcome_into_result,
     runtime::{GenesisConfig, RuntimeStandalone},
     transaction::Transaction,
-    types::{AccountId, Balance, Gas},
+    types::{Balance, Gas},
     ExecutionResult, ViewResult,
 };
 
@@ -35,10 +33,10 @@ type Runtime = Rc<RefCell<RuntimeStandalone>>;
 /// use near_sdk_sim::{to_yocto, account::AccessKey};
 /// use near_crypto::{InMemorySigner, KeyType, Signer};
 /// let master_account = near_sdk_sim::init_simulator(None);
-/// let account_id = "alice".to_string();
-/// let transaction = master_account.create_transaction(account_id.clone());
+/// let account_id = "alice";
+/// let transaction = master_account.create_transaction(account_id.parse().unwrap());
 /// // Creates a signer which contains a public key.
-/// let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
+/// let signer = InMemorySigner::from_seed(account_id, KeyType::ED25519, account_id);
 /// let res = transaction.create_account()
 ///                      .add_key(signer.public_key(), AccessKey::full_access())
 ///                      .transfer(to_yocto("10"))
@@ -114,7 +112,7 @@ impl UserTransaction {
 
     /// Delete an account and send remaining balance to `beneficiary_id`
     pub fn delete_account(mut self, beneficiary_id: AccountId) -> Self {
-        self.transaction = self.transaction.delete_account(beneficiary_id);
+        self.transaction = self.transaction.delete_account(String::from(beneficiary_id));
         self
     }
 }
@@ -147,12 +145,9 @@ impl UserAccount {
     pub fn account_id(&self) -> AccountId {
         self.account_id.clone()
     }
-    pub fn valid_account_id(&self) -> ValidAccountId {
-        self.account_id().try_into().unwrap()
-    }
     /// Look up the account information on chain.
     pub fn account(&self) -> Option<Account> {
-        (*self.runtime).borrow().view_account(&self.account_id)
+        (*self.runtime).borrow().view_account(self.account_id.as_str())
     }
     /// Transfer yoctoNear to another account
     pub fn transfer(&self, to: AccountId, deposit: Balance) -> ExecutionResult {
@@ -167,13 +162,7 @@ impl UserAccount {
         gas: Gas,
         deposit: Balance,
     ) -> ExecutionResult {
-        self.call(
-            pending_tx.receiver_id.clone(),
-            &pending_tx.method,
-            &pending_tx.args,
-            gas,
-            deposit,
-        )
+        self.call(pending_tx.receiver_id, &pending_tx.method, &pending_tx.args, gas, deposit)
     }
 
     pub fn call(
@@ -200,7 +189,8 @@ impl UserAccount {
         account_id: AccountId,
         deposit: Balance,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
+        let signer =
+            InMemorySigner::from_seed(account_id.as_str(), KeyType::ED25519, account_id.as_str());
         self.submit_transaction(
             self.transaction(account_id.clone())
                 .create_account()
@@ -240,8 +230,8 @@ impl UserAccount {
         deposit: Balance,
         gas: Gas,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
-        let account_id = account_id.clone();
+        let signer =
+            InMemorySigner::from_seed(account_id.as_str(), KeyType::ED25519, account_id.as_str());
         self.submit_transaction(
             self.transaction(account_id.clone())
                 .create_account()
@@ -257,14 +247,14 @@ impl UserAccount {
     fn transaction(&self, receiver_id: AccountId) -> Transaction {
         let nonce = (*self.runtime)
             .borrow()
-            .view_access_key(&self.account_id, &self.signer.public_key())
+            .view_access_key(self.account_id.as_str(), &self.signer.public_key())
             .unwrap()
             .nonce
             + 1;
         Transaction::new(
-            self.account_id(),
+            String::from(self.account_id()),
             self.signer.public_key(),
-            receiver_id,
+            String::from(receiver_id),
             nonce,
             CryptoHash::default(),
         )
@@ -290,7 +280,7 @@ impl UserAccount {
     }
 
     pub fn view(&self, receiver_id: AccountId, method: &str, args: &[u8]) -> ViewResult {
-        (*self.runtime).borrow().view_method_call(&receiver_id, method, args)
+        (*self.runtime).borrow().view_method_call(receiver_id.as_str(), method, args)
     }
 
     /// Creates a user and is signed by the `signer_user`
@@ -300,7 +290,8 @@ impl UserAccount {
         account_id: AccountId,
         amount: Balance,
     ) -> UserAccount {
-        let signer = InMemorySigner::from_seed(&account_id, KeyType::ED25519, &account_id);
+        let signer =
+            InMemorySigner::from_seed(account_id.as_str(), KeyType::ED25519, account_id.as_str());
         signer_user
             .submit_transaction(
                 signer_user
@@ -358,9 +349,6 @@ impl<T> ContractAccount<T> {
     pub fn account_id(&self) -> AccountId {
         self.user_account.account_id()
     }
-    pub fn valid_account_id(&self) -> ValidAccountId {
-        self.user_account.valid_account_id()
-    }
     pub fn account(&self) -> Option<Account> {
         self.user_account.account()
     }
@@ -390,9 +378,9 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// use near_sdk_sim::*;
 /// use fungible_token::ContractContract;
 /// use std::convert::TryInto;
-/// use near_sdk::json_types::ValidAccountId;
+/// use near_sdk::AccountId;
 /// let master_account = near_sdk_sim::init_simulator(None);
-/// let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
 ///   contract: ContractContract,
@@ -409,14 +397,13 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
 /// use fungible_token::ContractContract;
-/// use std::convert::TryInto;
 /// use near_sdk_sim::*;
-/// use near_sdk::json_types::ValidAccountId;
+/// use near_sdk::AccountId;
 /// let master_account = near_sdk_sim::init_simulator(None);
-/// let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// let master_account_id: AccountId = master_account.account_id();
 /// let initial_balance = near_sdk_sim::to_yocto("35");
 /// let contract = deploy! {
-/// contract: ContractContract,
+///   contract: ContractContract,
 ///   contract_id: "contract",
 ///   bytes: &TOKEN_WASM_BYTES,
 ///   signer_account: master_account,
@@ -433,13 +420,13 @@ macro_rules! deploy {
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr, $deposit: expr $(,)?) => {
         near_sdk_sim::ContractAccount {
-            user_account: $user.deploy($wasm_bytes, $account_id.to_string(), $deposit),
-            contract: $contract { account_id: $account_id.to_string() },
+            user_account: $user.deploy($wasm_bytes, near_sdk::AccountId::new_unchecked($account_id.to_string()), $deposit),
+            contract: $contract { account_id: near_sdk::AccountId::new_unchecked($account_id.to_string()) },
         }
     };
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user_id:expr, $deposit:expr, $gas:expr, $method: ident, $($arg:expr),* $(,)?) => {
            {
-               let __contract = $contract { account_id: $account_id.to_string() };
+               let __contract = $contract { account_id: near_sdk::AccountId::new_unchecked($account_id.to_string()) };
                near_sdk_sim::ContractAccount {
                    user_account: $user_id.deploy_and_initialize($wasm_bytes, __contract.$method($($arg),*), $deposit, $gas),
                    contract: __contract,
@@ -478,9 +465,9 @@ macro_rules! deploy {
 /// # use near_sdk_sim::*;
 /// # use fungible_token::ContractContract;
 /// # use std::convert::TryInto;
-/// # use near_sdk::json_types::ValidAccountId;
+/// # use near_sdk::AccountId;
 /// # let master_account = near_sdk_sim::init_simulator(None);
-/// # let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// # let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// # let initial_balance = near_sdk_sim::to_yocto("35");
 /// # let contract = deploy! {
 /// # contract: ContractContract,
@@ -545,9 +532,9 @@ macro_rules! call {
 /// # use near_sdk_sim::*;
 /// # use fungible_token::ContractContract;
 /// # use std::convert::TryInto;
-/// # use near_sdk::json_types::ValidAccountId;
+/// # use near_sdk::AccountId;
 /// # let master_account = near_sdk_sim::init_simulator(None);
-/// # let master_account_id: ValidAccountId = master_account.account_id().try_into().unwrap();
+/// # let master_account_id: AccountId = master_account.account_id().try_into().unwrap();
 /// # let initial_balance = near_sdk_sim::to_yocto("35");
 /// # let contract = deploy! {
 /// # contract: ContractContract,

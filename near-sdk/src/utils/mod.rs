@@ -76,7 +76,12 @@ pub struct PendingContractTx {
 }
 
 impl PendingContractTx {
-    pub fn new(receiver_id: &str, method: &str, args: serde_json::Value, is_view: bool) -> Self {
+    pub fn new(
+        receiver_id: AccountId,
+        method: &str,
+        args: serde_json::Value,
+        is_view: bool,
+    ) -> Self {
         PendingContractTx::new_from_bytes(
             receiver_id,
             method,
@@ -85,8 +90,13 @@ impl PendingContractTx {
         )
     }
 
-    pub fn new_from_bytes(receiver_id: &str, method: &str, args: Vec<u8>, is_view: bool) -> Self {
-        Self { receiver_id: receiver_id.to_string(), method: method.to_string(), args, is_view }
+    pub fn new_from_bytes(
+        receiver_id: AccountId,
+        method: &str,
+        args: Vec<u8>,
+        is_view: bool,
+    ) -> Self {
+        Self { receiver_id, method: method.to_string(), args, is_view }
     }
 }
 

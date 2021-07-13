@@ -1,15 +1,15 @@
-use std::convert::TryInto;
-
-use crate::json_types::ValidAccountId;
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
+use crate::AccountId;
 use crate::{
     Balance, BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage, VMContext,
 };
 
 /// Returns a pre-defined account_id from a list of 6.
-pub fn accounts(id: usize) -> ValidAccountId {
-    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().try_into().unwrap()
+pub fn accounts(id: usize) -> AccountId {
+    AccountId::new_unchecked(
+        ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string(),
+    )
 }
 
 /// Simple VMContext builder that allows to quickly create custom context in tests.
@@ -23,10 +23,10 @@ impl VMContextBuilder {
     pub fn new() -> Self {
         Self {
             context: VMContext {
-                current_account_id: alice(),
-                signer_account_id: bob(),
+                current_account_id: alice().into(),
+                signer_account_id: bob().into(),
                 signer_account_pk: vec![0u8; 32],
-                predecessor_account_id: bob(),
+                predecessor_account_id: bob().into(),
                 input: vec![],
                 block_index: 0,
                 block_timestamp: 0,
@@ -43,12 +43,12 @@ impl VMContextBuilder {
         }
     }
 
-    pub fn current_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+    pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.current_account_id = account_id.into();
         self
     }
 
-    pub fn signer_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+    pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.signer_account_id = account_id.into();
         self
     }
@@ -58,7 +58,7 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn predecessor_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
+    pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.predecessor_account_id = account_id.into();
         self
     }

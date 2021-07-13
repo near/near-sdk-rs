@@ -29,7 +29,7 @@ fn init() -> (UserAccount, ContractAccount<CrossContractContract>) {
 fn test_sim_transfer() {
     let (master_account, contract) = init();
 
-    let status_id = "status".to_string();
+    let status_id: near_sdk::AccountId = "status".parse().unwrap();
     let status_amt = to_yocto("35");
     call!(
         master_account,
