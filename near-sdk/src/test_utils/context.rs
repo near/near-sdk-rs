@@ -99,7 +99,7 @@ impl VMContextBuilder {
     }
 
     pub fn prepaid_gas(&mut self, gas: Gas) -> &mut Self {
-        self.context.prepaid_gas = gas;
+        self.context.prepaid_gas = u64::from(gas);
         self
     }
 

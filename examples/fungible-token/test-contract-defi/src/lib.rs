@@ -11,9 +11,9 @@ use near_sdk::{
 
 setup_alloc!();
 
-const BASE_GAS: Gas = 5_000_000_000_000;
-const PROMISE_CALL: Gas = 5_000_000_000_000;
-const GAS_FOR_FT_ON_TRANSFER: Gas = BASE_GAS + PROMISE_CALL;
+const BASE_GAS: u64 = 5_000_000_000_000;
+const PROMISE_CALL: u64 = 5_000_000_000_000;
+const GAS_FOR_FT_ON_TRANSFER: Gas = Gas::new(BASE_GAS + PROMISE_CALL);
 
 const NO_DEPOSIT: Balance = 0;
 

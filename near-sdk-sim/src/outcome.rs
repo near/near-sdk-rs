@@ -143,7 +143,7 @@ impl ExecutionResult {
 
     /// The amount of the gas burnt by the given transaction or receipt.
     pub fn gas_burnt(&self) -> Gas {
-        self.outcome.gas_burnt
+        Gas::new(self.outcome.gas_burnt)
     }
 
     /// The amount of tokens burnt corresponding to the burnt gas amount.

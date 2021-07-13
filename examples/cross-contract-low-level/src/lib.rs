@@ -1,12 +1,12 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
-use near_sdk::{env, near_bindgen, AccountId, PromiseResult};
+use near_sdk::{env, Gas, near_bindgen, AccountId, PromiseResult};
 
 near_sdk::setup_alloc!();
 
 // Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: u64 = 200000000000000;
+const SINGLE_CALL_GAS: Gas = Gas::new(200000000000000);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
