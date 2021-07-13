@@ -1,7 +1,8 @@
 mod enumeration_impl;
 
 use crate::non_fungible_token::token::Token;
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
+use near_sdk::AccountId;
 
 /// Offers methods helpful in determining account ownership of NFTs and provides a way to page through NFTs per owner, determine total supply, etc.
 pub trait NonFungibleTokenEnumeration {
@@ -31,7 +32,7 @@ pub trait NonFungibleTokenEnumeration {
     /// Returns the number of non-fungible tokens owned by given `account_id` as
     /// a string representing the value as an unsigned 128-bit integer to avoid JSON
     /// number limit of 2^53.
-    fn nft_supply_for_owner(self, account_id: ValidAccountId) -> U128;
+    fn nft_supply_for_owner(self, account_id: AccountId) -> U128;
 
     /// Get list of all tokens owned by a given account
     ///
@@ -44,7 +45,7 @@ pub trait NonFungibleTokenEnumeration {
     /// Returns a paginated list of all tokens owned by this account
     fn nft_tokens_for_owner(
         &self,
-        account_id: ValidAccountId,
+        account_id: AccountId,
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
     ) -> Vec<Token>;

@@ -1,6 +1,6 @@
 use crate::environment::blockchain_interface::BlockchainInterface;
 use crate::test_utils::VMContextBuilder;
-use crate::types::{AccountId, Balance, PromiseResult};
+use crate::types::{Balance, PromiseResult};
 use crate::RuntimeFeesConfig;
 use near_vm_logic::mocks::mock_external::{MockedExternal, Receipt};
 use near_vm_logic::mocks::mock_memory::MockedMemory;
@@ -51,7 +51,7 @@ impl MockedBlockchain {
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
-        validators: HashMap<AccountId, Balance>,
+        validators: HashMap<String, Balance>,
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());

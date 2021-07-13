@@ -1,5 +1,6 @@
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::serde::Serialize;
+use near_sdk::AccountId;
 
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -20,7 +21,7 @@ pub trait StorageManagement {
     //     refund full deposit if the account exists.
     fn storage_deposit(
         &mut self,
-        account_id: Option<ValidAccountId>,
+        account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance;
 
@@ -55,5 +56,5 @@ pub trait StorageManagement {
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds;
 
-    fn storage_balance_of(&self, account_id: ValidAccountId) -> Option<StorageBalance>;
+    fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance>;
 }
