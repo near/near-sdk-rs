@@ -2,8 +2,6 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, LookupSet};
 use near_sdk::{env, near_bindgen, BorshStorageKey, AccountId};
 
-near_sdk::setup_alloc!();
-
 #[derive(BorshSerialize, BorshStorageKey)]
 enum StorageKey {
     Records,
