@@ -39,7 +39,7 @@ else
       git config user.name "Buildkite"
       git config user.email "robot@near.org"
 
-      git fetch upstream "${BUILDKITE_BRANCH}:${BUILDKITE_BRANCH}"
+      git fetch origin ${BUILDKITE_BRANCH}
       git checkout ${BUILDKITE_BRANCH}
 
       echo "--- Committing changes"
@@ -47,7 +47,7 @@ else
       git commit -m "Updated wasm blobs | build #${BUILDKITE_BUILD_NUMBER}"
 
       echo "--- Pushing to origin"
-      git push --set-upstream origin ${BUILDKITE_BRANCH}
+      git push -u origin ${BUILDKITE_BRANCH}
     else
       echo "No diff in wasm blobs found"
     fi
