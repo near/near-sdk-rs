@@ -12,7 +12,7 @@ fn simulate_simple_transfer() {
     call!(
         root,
         nft.nft_transfer(
-            alice.valid_account_id(),
+            alice.account_id(),
             TOKEN_ID.into(),
             None,
             Some("simple transfer".to_string())
@@ -32,7 +32,7 @@ fn simulate_transfer_call_fast_return_to_sender() {
     call!(
         root,
         nft.nft_transfer_call(
-            receiver.valid_account_id(),
+            receiver.account_id(),
             TOKEN_ID.into(),
             None,
             Some("transfer & call".into()),
@@ -52,7 +52,7 @@ fn simulate_transfer_call_slow_return_to_sender() {
     call!(
         root,
         nft.nft_transfer_call(
-            receiver.valid_account_id(),
+            receiver.account_id(),
             TOKEN_ID.into(),
             None,
             Some("transfer & call".into()),
@@ -72,7 +72,7 @@ fn simulate_transfer_call_fast_keep_with_sender() {
     call!(
         root,
         nft.nft_transfer_call(
-            receiver.valid_account_id(),
+            receiver.account_id(),
             TOKEN_ID.into(),
             None,
             Some("transfer & call".into()),
@@ -92,7 +92,7 @@ fn simulate_transfer_call_slow_keep_with_sender() {
     call!(
         root,
         nft.nft_transfer_call(
-            receiver.valid_account_id(),
+            receiver.account_id(),
             TOKEN_ID.into(),
             None,
             Some("transfer & call".into()),
@@ -112,7 +112,7 @@ fn simulate_transfer_call_receiver_panics() {
     call!(
         root,
         nft.nft_transfer_call(
-            receiver.valid_account_id(),
+            receiver.account_id(),
             TOKEN_ID.into(),
             None,
             Some("transfer & call".into()),

@@ -16,13 +16,13 @@ use near_primitives::test_utils::account_new;
 use near_primitives::test_utils::MockEpochInfoProvider;
 use near_primitives::transaction::{ExecutionOutcome, ExecutionStatus, SignedTransaction};
 use near_primitives::types::{
-    AccountId, AccountInfo, Balance, BlockHeight, EpochHeight, EpochId, EpochInfoProvider, Gas,
+    AccountInfo, Balance, BlockHeight, EpochHeight, EpochId, EpochInfoProvider, Gas,
     StateChangeCause,
 };
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
 use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
-use near_sdk::Duration;
+use near_sdk::{AccountId, Duration};
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
@@ -32,11 +32,11 @@ const DEFAULT_BLOCK_PROD_TIME: Duration = 1_000_000_000;
 
 pub fn init_runtime(
     genesis_config: Option<GenesisConfig>,
-) -> (RuntimeStandalone, InMemorySigner, String) {
+) -> (RuntimeStandalone, InMemorySigner, AccountId) {
     let mut genesis = genesis_config.unwrap_or_default();
     genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
-    let root_account_id = "root".to_string();
-    let signer = genesis.init_root_signer(&root_account_id);
+    let root_account_id: AccountId = AccountId::new_unchecked("root".to_string());
+    let signer = genesis.init_root_signer(root_account_id.as_str());
     let runtime = RuntimeStandalone::new_with_store(genesis);
     (runtime, signer, root_account_id)
 }
@@ -330,7 +330,7 @@ impl RuntimeStandalone {
     /// Force alter account and change state_root.
     pub fn force_account_update(&mut self, account_id: AccountId, account: &Account) {
         let mut trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
-        set_account(&mut trie_update, account_id, account);
+        set_account(&mut trie_update, String::from(account_id), account);
         trie_update.commit(StateChangeCause::ValidatorAccountsUpdate);
         let (trie_changes, _) = trie_update.finalize().expect("Unexpected Storage error");
         let (store_update, new_root) = self.tries.apply_all(&trie_changes, 0).unwrap();
@@ -543,7 +543,7 @@ mod tests {
         let (mut runtime, _, _) = init_runtime(None);
         let mut bob_account = runtime.view_account(&"root").unwrap();
         bob_account.locked = 10000;
-        runtime.force_account_update("root".into(), &bob_account);
+        runtime.force_account_update("root".parse().unwrap(), &bob_account);
         assert_eq!(runtime.view_account(&"root").unwrap().locked, 10000);
     }
 

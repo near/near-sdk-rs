@@ -121,7 +121,7 @@ pub fn init() -> (UserAccount, UserAccount, UserAccount) {
     );
 
     let alice = root.create_user(
-        "alice".to_string(),
+        "alice".parse().unwrap(),
         to_yocto("100") // initial balance
     );
 
@@ -228,7 +228,7 @@ pub fn init() -> (UserAccount, ContractAccount<TokenContract>, UserAccount) {
     );
 
     let alice = root.create_user(
-        "alice".to_string(),
+        "alice".parse().unwrap(),
         to_yocto("100") // initial balance
     );
 
