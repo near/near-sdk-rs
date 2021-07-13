@@ -2,14 +2,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
 use std::convert::TryFrom;
 
-#[deprecated(
-    since = "4.0.0",
-    note = "PublicKey type is now unified with Base58PublicKey. It is \
-            recommended to use PublicKey going forward to avoid using \
-            similar sounding types for the same thing."
-)]
-pub type Base58PublicKey = PublicKey;
-
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
 #[repr(u8)]
@@ -57,7 +49,7 @@ impl std::str::FromStr for CurveType {
 ///
 /// # Example
 /// ```
-/// use near_sdk::json_types::PublicKey;
+/// use near_sdk::PublicKey;
 ///
 /// // Compressed ed25519 key
 /// let ed: PublicKey = "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse()
