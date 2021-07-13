@@ -35,9 +35,9 @@ else
 
     # After build_all, check for changes in wasm blobs and commit it to branch
     if ! git diff-index --quiet HEAD ./examples/**/*.wasm; then
-      echo "Setting up git for pushing wasm blobs"
-      git config user.name "Buildkite"
-      git config user.email "robot@near.org"
+      echo "--- Setting up git for pushing wasm blobs"
+      git config user.name "BuildKite"
+      git config user.email ${BUILDKITE_BUILD_AUTHOR_EMAIL}
 
       git fetch origin ${BUILDKITE_BRANCH}
       git checkout ${BUILDKITE_BRANCH}
