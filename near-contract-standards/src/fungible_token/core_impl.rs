@@ -8,9 +8,8 @@ use near_sdk::{
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 
-const GAS_FOR_RESOLVE_TRANSFER_INT: u64 = 5_000_000_000_000;
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::new(GAS_FOR_RESOLVE_TRANSFER_INT);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::new(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER_INT);
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::new(5_000_000_000_000);
+const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::new(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 

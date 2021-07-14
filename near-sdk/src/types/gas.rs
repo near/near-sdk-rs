@@ -1,8 +1,10 @@
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use core::ops;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Represents the amount of NEAR tokens in "gas units" which are used to fund transactions.
 #[derive(
+    Default,
     Debug,
     Clone,
     Copy,
@@ -15,7 +17,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     Hash,
     BorshSchema,
 )]
-pub struct Gas(u64);
+pub struct Gas(pub u64);
 
 impl Gas {
     pub const fn new(amount: u64) -> Self {
@@ -54,7 +56,7 @@ impl From<Gas> for u64 {
     }
 }
 
-impl core::ops::Add for Gas {
+impl ops::Add for Gas {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
@@ -62,19 +64,19 @@ impl core::ops::Add for Gas {
     }
 }
 
-impl core::ops::AddAssign for Gas {
+impl ops::AddAssign for Gas {
     fn add_assign(&mut self, other: Self) {
         self.0 += other.0;
     }
 }
 
-impl core::ops::SubAssign for Gas {
+impl ops::SubAssign for Gas {
     fn sub_assign(&mut self, other: Self) {
         self.0 -= other.0;
     }
 }
 
-impl core::ops::Sub for Gas {
+impl ops::Sub for Gas {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
@@ -82,23 +84,7 @@ impl core::ops::Sub for Gas {
     }
 }
 
-impl core::ops::Add<u64> for Gas {
-    type Output = Self;
-
-    fn add(self, other: u64) -> Self {
-        Self(self.0 + other)
-    }
-}
-
-impl core::ops::Sub<u64> for Gas {
-    type Output = Self;
-
-    fn sub(self, other: u64) -> Self {
-        Self(self.0 - other)
-    }
-}
-
-impl core::ops::Mul<u64> for Gas {
+impl ops::Mul<u64> for Gas {
     type Output = Self;
 
     fn mul(self, other: u64) -> Self {
@@ -106,10 +92,18 @@ impl core::ops::Mul<u64> for Gas {
     }
 }
 
-impl core::ops::Div<u64> for Gas {
+impl ops::Div<u64> for Gas {
     type Output = Self;
 
     fn div(self, other: u64) -> Self {
         Self(self.0 / other)
+    }
+}
+
+impl ops::Rem<u64> for Gas {
+    type Output = Self;
+
+    fn rem(self, rhs: u64) -> Self::Output {
+        Self(self.0.rem(rhs))
     }
 }

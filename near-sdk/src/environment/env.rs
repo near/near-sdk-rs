@@ -279,7 +279,7 @@ pub fn promise_create(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            u64::from(gas),
+            gas.0,
         )
     }
 }
@@ -304,7 +304,7 @@ pub fn promise_then(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            u64::from(gas),
+            gas.0,
         )
     }
 }
@@ -360,7 +360,7 @@ pub fn promise_batch_action_function_call(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            u64::from(gas),
+            gas.0,
         )
     }
 }
