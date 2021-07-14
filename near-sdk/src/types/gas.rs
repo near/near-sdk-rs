@@ -30,7 +30,18 @@ impl Serialize for Gas {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.0.to_string())
+        let mut buf = [0u8; 20];
+        let remainder = {
+            use std::io::Write;
+
+            let mut w: &mut [u8] = &mut buf;
+            write!(w, "{}", self.0).ok().unwrap();
+            w.len()
+        };
+        let len = buf.len() - remainder;
+
+        let s = std::str::from_utf8(&buf[..len]).ok().unwrap();
+        serializer.serialize_str(s)
     }
 }
 
@@ -107,3 +118,24 @@ impl ops::Rem<u64> for Gas {
         Self(self.0.rem(rhs))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_json_ser(val: u64) {
+        let gas = Gas::new(val);
+        let ser = serde_json::to_string(&gas).unwrap();
+        assert_eq!(ser, format!("\"{}\"", val));
+        let de: Gas = serde_json::from_str(&ser).unwrap();
+        assert_eq!(de.0, val);
+    }
+
+    #[test]
+    fn json_ser() {
+        test_json_ser(u64::MAX);
+        test_json_ser(8);
+        test_json_ser(0);
+    }
+}
+
