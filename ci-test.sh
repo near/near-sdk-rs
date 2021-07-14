@@ -38,6 +38,8 @@ else
       echo "--- Setting up git for pushing wasm blobs"
       git config user.name "BuildKite"
       git config user.email ${BUILDKITE_BUILD_AUTHOR_EMAIL}
+
+      ssh -o StrictHostKeyChecking=no git@github.com
       git remote set-url origin git@github.com:near/near-sdk-rs.git
 
       git fetch origin ${BUILDKITE_BRANCH}
