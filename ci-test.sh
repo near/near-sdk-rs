@@ -2,7 +2,7 @@
 
 if [[ "${NEAR_RELEASE}" == "true" ]]; then
     echo "Test with release version of borsh and near-vm-logic"
-    sed -n '/^borsh/p' near-sdk/Cargo.toml 
+    sed -n '/^borsh/p' near-sdk/Cargo.toml
     sed -n '/^near-vm-logic/p' near-sdk/Cargo.toml
     cargo test --all
 else
@@ -12,7 +12,7 @@ else
     cp Cargo.lock{,.bak}
 
     sed -i "" "s|###||g" Cargo.toml
-    
+
     set +e
     cargo test --all
     status=$?
@@ -38,6 +38,7 @@ else
       echo "--- Setting up git for pushing wasm blobs"
       git config user.name "BuildKite"
       git config user.email ${BUILDKITE_BUILD_AUTHOR_EMAIL}
+      git remote set-url origin git@github.com:near/near-sdk-rs.git
 
       git fetch origin ${BUILDKITE_BRANCH}
       git checkout ${BUILDKITE_BRANCH}
