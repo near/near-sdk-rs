@@ -495,7 +495,6 @@ impl Contract {
 - `bs58`
 - `serde`
 - `serde_json`
-- `wee_alloc` (Though you will likely use the `setup_alloc` macro instead of importing it directly)
 
 Most common crates include `borsh` which is needed for internal STATE serialization and
 `serde` for external JSON serialization.
@@ -539,24 +538,6 @@ impl Contract {
     }
 }
 ```
-
-## Use `setup_alloc!`
-
-The SDK provides a helper macro to set up a global allocator from `wee_alloc` crate:
-
-```rust
-near_sdk::setup_alloc!();
-```
-
-It's equivalent to the following:
-
-```rust
-#[cfg(target_arch = "wasm32")]
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-```
-
-Read more about Rust [global allocators here](https://doc.rust-lang.org/edition-guide/rust-2018/platform-and-target-support/global-allocators.html).
 
 ## `std::panic!` vs `env::panic`
 

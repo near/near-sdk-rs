@@ -4,8 +4,6 @@ use near_sdk::{env, near_bindgen, AccountId, Balance};
 use std::collections::HashMap;
 use std::str::FromStr;
 
-near_sdk::setup_alloc!();
-
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Account {
     /// Current unlocked balance.
