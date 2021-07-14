@@ -138,4 +138,3 @@ mod tests {
         test_json_ser(0);
     }
 }
-
