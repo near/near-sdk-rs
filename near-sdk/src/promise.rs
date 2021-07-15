@@ -363,7 +363,7 @@ impl Promise {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, near_bindgen, Promise};
+    /// # use near_sdk::{ext_contract, Gas, near_bindgen, Promise};
     /// # use borsh::{BorshDeserialize, BorshSerialize};
     /// #[ext_contract]
     /// pub trait ContractB {
@@ -377,11 +377,11 @@ impl Promise {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::b(&"bob_near".to_string(), 0, 1_000).as_return();
+    ///        contract_b::b(&"bob_near".to_string(), 0, Gas::new(1_000)).as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::b(&"bob_near".to_string(), 0, 1_000)
+    ///        contract_b::b(&"bob_near".to_string(), 0, Gas::new(1_000))
     ///     }
     /// }
     /// ```

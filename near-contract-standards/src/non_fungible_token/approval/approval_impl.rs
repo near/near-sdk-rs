@@ -10,7 +10,7 @@ use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
 use std::collections::HashMap;
 
-const GAS_FOR_NFT_APPROVE: Gas = 10_000_000_000_000;
+const GAS_FOR_NFT_APPROVE: Gas = Gas::new(10_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
 
 #[ext_contract(ext_approval_receiver)]
