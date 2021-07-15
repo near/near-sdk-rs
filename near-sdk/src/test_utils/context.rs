@@ -54,7 +54,7 @@ impl VMContextBuilder {
     }
 
     pub fn signer_account_pk(&mut self, pk: PublicKey) -> &mut Self {
-        self.context.signer_account_pk = pk;
+        self.context.signer_account_pk = pk.into();
         self
     }
 

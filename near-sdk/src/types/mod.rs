@@ -1,6 +1,9 @@
 mod vm_types;
 pub use self::vm_types::*;
 
+mod public_key;
+pub use self::public_key::{CurveType, PublicKey};
+
 mod primitives;
 pub use self::primitives::*;
 

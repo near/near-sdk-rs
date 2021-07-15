@@ -153,7 +153,7 @@ pub fn signer_account_id() -> AccountId {
 
 /// The public key of the account that did the signing.
 pub fn signer_account_pk() -> PublicKey {
-    method_into_register!(signer_account_pk)
+    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| unreachable!())
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
@@ -379,8 +379,8 @@ pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
         sys::promise_batch_action_stake(
             promise_index,
             &amount as *const Balance as _,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
         )
     }
 }
@@ -393,8 +393,8 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
     unsafe {
         sys::promise_batch_action_add_key_with_full_access(
             promise_index,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
             nonce,
         )
     }
@@ -412,8 +412,8 @@ pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
             promise_index,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
             nonce,
             &allowance as *const Balance as _,
             receiver_id.len() as _,
@@ -431,8 +431,8 @@ pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
     unsafe {
         sys::promise_batch_action_delete_key(
             promise_index,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
         )
     }
 }
