@@ -32,7 +32,7 @@ macro_rules! impl_non_fungible_token_core {
                 self.$token.nft_transfer_call(receiver_id, token_id, approval_id, memo, msg)
             }
 
-            fn nft_token(self, token_id: TokenId) -> Option<Token> {
+            fn nft_token(&self, token_id: TokenId) -> Option<Token> {
                 self.$token.nft_token(token_id)
             }
 
