@@ -164,22 +164,6 @@ impl From<&PublicKey> for String {
     }
 }
 
-impl TryFrom<String> for PublicKey {
-    type Error = ParsePublicKeyError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
-impl TryFrom<&str> for PublicKey {
-    type Error = ParsePublicKeyError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(value.parse::<Self>()?)
-    }
-}
-
 impl std::str::FromStr for PublicKey {
     type Err = ParsePublicKeyError;
 
@@ -225,6 +209,7 @@ impl std::error::Error for ParsePublicKeyError {}
 mod tests {
     use super::*;
     use std::convert::TryInto;
+    use std::str::FromStr;
 
     fn expected_key() -> PublicKey {
         let mut key = vec![CurveType::ED25519 as u8];
@@ -252,7 +237,7 @@ mod tests {
     #[test]
     fn test_public_key_from_str() {
         let key =
-            PublicKey::try_from("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp").unwrap();
+            PublicKey::from_str("ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp").unwrap();
         assert_eq!(key, expected_key());
     }
 
