@@ -4,6 +4,8 @@ mod hash;
 mod integers;
 mod vector;
 
+use crate::types::PublicKey;
+
 pub use hash::Base58CryptoHash;
 pub use integers::{I128, I64, U128, U64};
 pub use vector::Base64VecU8;
@@ -16,7 +18,6 @@ pub use vector::Base64VecU8;
     note = "This import is deprecated. Best to import directly from near_sdk"
 )]
 pub use crate::types::CurveType;
-use crate::types::PublicKey;
 
 #[deprecated(
     since = "4.0.0",
