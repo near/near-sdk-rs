@@ -13,6 +13,7 @@
 * expose `cur_block` and `genesis_config` from `RuntimeStandalone` to configure simulation tests. [PR 390](https://github.com/near/near-sdk-rs/pull/390).
 * fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
 * Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
+* Deprecate `env::log` in favour of `env::log_str`. The logs assume that the bytes are utf8, so this will be a cleaner interface to use. [PR 366](https://github.com/near/near-sdk-rs/pull/366).
 * Update syscall interface to no longer go through `BLOCKCHAIN_INTERFACE`. Instead uses `near_sdk::sys` which is under the `unstable` feature flag if needed. [PR 417](https://github.com/near/near-sdk-rs/pull/417).
 * Set up global allocator by default for WASM architectures. [PR 429](https://github.com/near/near-sdk-rs/pull/429).
   * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.

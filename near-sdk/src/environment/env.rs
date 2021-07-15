@@ -510,10 +510,20 @@ pub fn panic(message: &[u8]) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
     unreachable!()
 }
+/// Logs the string message message. This message is stored on chain.
+pub fn log_str(message: &str) {
+    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+    eprintln!("{}", message);
+
+    unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
+}
+
 /// Log the UTF-8 encodable message.
+#[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
 pub fn log(message: &[u8]) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", String::from_utf8_lossy(message));
+
     unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
