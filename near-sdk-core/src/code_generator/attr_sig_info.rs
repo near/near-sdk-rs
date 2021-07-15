@@ -165,10 +165,7 @@ impl AttrSigInfo {
         self
             .args
             .iter()
-            .filter(|arg| match arg.bindgen_ty {
-                BindgenArgType::CallbackArg => true,
-                _ => false,
-            })
+            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArg))
             .enumerate()
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
@@ -200,10 +197,7 @@ impl AttrSigInfo {
         self
             .args
             .iter()
-            .filter(|arg| match arg.bindgen_ty {
-                BindgenArgType::CallbackArgVec => true,
-                _ => false,
-            })
+            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
             .fold(TokenStream2::new(), |acc, arg| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = match arg.serializer_ty {

@@ -116,6 +116,7 @@ impl<K, V> UnorderedMap<K, V> {
         let index_lookup = self.raw_key_to_index_lookup(key_raw);
         match env::storage_read(&index_lookup) {
             Some(index_raw) => {
+                #[allow(clippy::branches_sharing_code)]
                 if self.len() == 1 {
                     // If there is only one element then swap remove simply removes it without
                     // swapping with the last element.
@@ -415,7 +416,7 @@ mod tests {
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
-        let actual: HashMap<u64, u64> = HashMap::from_iter(map.iter());
+        let actual: HashMap<u64, u64> = map.iter().collect();
         assert_eq!(actual, key_to_value);
     }
 
@@ -442,7 +443,7 @@ mod tests {
             map.extend(tmp.iter().cloned());
         }
 
-        let actual: HashMap<u64, u64> = HashMap::from_iter(map.iter());
+        let actual: HashMap<u64, u64> = map.iter().collect();
         assert_eq!(actual, key_to_value);
     }
 }

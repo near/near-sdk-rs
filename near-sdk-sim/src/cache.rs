@@ -22,7 +22,7 @@ impl ContractCache {
     }
 
     fn path() -> PathBuf {
-        let s = std::env::var("CARGO_MANIFEST_DIR").unwrap().to_string();
+        let s = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         Path::new(&s).join("target").join("contract_cache")
     }
 

@@ -16,10 +16,7 @@ impl ImplItemMethodInfo {
     pub fn new(original: &mut ImplItemMethod, struct_type: Type) -> syn::Result<Self> {
         let ImplItemMethod { attrs, sig, .. } = original;
         let attr_signature_info = AttrSigInfo::new(attrs, sig)?;
-        let is_public = match original.vis {
-            Visibility::Public(_) => true,
-            _ => false,
-        };
+        let is_public = matches!(original.vis, Visibility::Public(_));
         Ok(Self { attr_signature_info, is_public, struct_type })
     }
 }

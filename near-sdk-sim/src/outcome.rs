@@ -77,11 +77,7 @@ impl ExecutionResult {
 
     /// Check if transaction was successful
     pub fn is_ok(&self) -> bool {
-        match &(self.outcome).status {
-            SuccessValue(_) => true,
-            SuccessReceiptId(_) => true,
-            _ => false,
-        }
+        matches!(&(self.outcome).status, SuccessValue(_) | SuccessReceiptId(_))
     }
 
     /// Test whether there is a SuccessValue
@@ -100,10 +96,10 @@ impl ExecutionResult {
     }
 
     fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionResult> {
-        match (*self.runtime).borrow().outcome(hash) {
-            Some(out) => Some(ExecutionResult::new(out, &self.runtime, hash.clone())),
-            None => None,
-        }
+        (*self.runtime)
+            .borrow()
+            .outcome(hash)
+            .map(|out| ExecutionResult::new(out, &self.runtime, *hash))
     }
 
     /// Reference to internal ExecutionOutcome
@@ -252,9 +248,8 @@ mod tests {
         let value = json!({
           "id": "hello"
         });
-        let status = SuccessValue(value.clone().to_string().as_bytes().to_vec());
-        let mut outcome = ExecutionOutcome::default();
-        outcome.status = status;
+        let status = SuccessValue(value.to_string().as_bytes().to_vec());
+        let outcome = ExecutionOutcome { status, ..Default::default() };
         let result = outcome_into_result(
             (CryptoHash::default(), outcome),
             &Rc::new(RefCell::new(init_runtime(None).0)),

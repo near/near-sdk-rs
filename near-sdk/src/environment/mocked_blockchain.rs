@@ -57,12 +57,12 @@ impl MockedBlockchain {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
         ext.validators = validators;
-        let memory = memory_opt.unwrap_or(Box::new(MockedMemory {}));
+        let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
 
-        let mut logic_fixture = LogicFixture { ext, memory, config, fees_config, promise_results };
+        let mut logic_fixture = LogicFixture { ext, memory, promise_results, config, fees_config };
 
         let logic = unsafe {
             VMLogic::new_with_protocol_version(
@@ -202,7 +202,7 @@ impl BlockchainInterface for MockedBlockchain {
         self.logic.borrow_mut().log_utf16(len, ptr).unwrap()
     }
 
-    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) -> () {
+    unsafe fn abort(&self, msg_ptr: u32, filename_ptr: u32, line: u32, col: u32) {
         self.logic.borrow_mut().abort(msg_ptr, filename_ptr, line, col).unwrap()
     }
 

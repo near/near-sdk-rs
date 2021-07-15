@@ -81,6 +81,7 @@ impl<T> UnorderedSet<T> {
         let index_lookup = self.raw_element_to_index_lookup(element_raw);
         match env::storage_read(&index_lookup) {
             Some(index_raw) => {
+                #[allow(clippy::branches_sharing_code)]
                 if self.len() == 1 {
                     // If there is only one element then swap remove simply removes it without
                     // swapping with the last element.
@@ -304,7 +305,7 @@ mod tests {
             keys.insert(key);
             set.insert(&key);
         }
-        let actual: HashSet<u64> = HashSet::from_iter(set.iter());
+        let actual: HashSet<u64> = set.iter().collect();
         assert_eq!(actual, keys);
     }
 
@@ -329,7 +330,7 @@ mod tests {
             set.extend(tmp.iter().cloned());
         }
 
-        let actual: HashSet<u64> = HashSet::from_iter(set.iter());
+        let actual: HashSet<u64> = set.iter().collect();
         assert_eq!(actual, keys);
     }
 }
