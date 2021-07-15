@@ -182,7 +182,7 @@ There is an macro decorator `#[private]` that checks that the current account ID
 impl Contract {
     #[private]
     pub fn resolve_transfer(&mut self) {
-        env::log(b"This is a callback");
+        env::log_str("This is a callback");
     }
 }
 ```
@@ -196,7 +196,7 @@ impl Contract {
         if env::current_account_id() != env::predecessor_account_id() {
             near_sdk::env::panic(b"Method resolve_transfer is private");
         }
-        env::log(b"This is a callback");
+        env::log_str("This is a callback");
     }
 }
 ```
@@ -348,11 +348,11 @@ to receive attached deposits. Otherwise, if a deposit is attached to a non-payab
 impl Contract {
     #[payable]
     pub fn take_my_money(&mut self) {
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 
     pub fn do_not_take_my_money(&mut self) {
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 }
 ```
@@ -363,14 +363,14 @@ This is equivalent to:
 #[near_bindgen]
 impl Contract {
     pub fn take_my_money(&mut self) {
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 
     pub fn do_not_take_my_money(&mut self) {
         if near_sdk::env::attached_deposit() != 0 {
             near_sdk::env::panic(b"Method do_not_take_my_money doesn't accept deposit");
         }
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 }
 ```
@@ -412,7 +412,7 @@ log!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id);
 It's equivalent to the following message:
 
 ```rust
-env::log(format!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id).as_bytes());
+env::log_str(format!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id).as_ref());
 ```
 
 ## Return `Promise`

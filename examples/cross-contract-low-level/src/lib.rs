@@ -145,7 +145,7 @@ impl CrossContract {
     pub fn check_promise(&mut self) {
         match env::promise_result(0) {
             PromiseResult::Successful(_) => {
-                env::log(b"Check_promise successful");
+                env::log_str("Check_promise successful");
                 self.checked_promise = true;
             }
             _ => panic!("Promise with index 0 failed"),
