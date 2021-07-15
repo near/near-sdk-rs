@@ -18,13 +18,13 @@ impl CurveType {
             _ => Err(ParsePublicKeyError { kind: ParsePublicKeyErrorKind::UnknownCurve }),
         }
     }
-}
 
-impl TryFrom<String> for CurveType {
-    type Error = ParsePublicKeyError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(value.parse::<Self>()?)
+    /// Get the length of bytes associated to this CurveType
+    const fn data_len(&self) -> usize {
+        match self {
+            CurveType::ED25519 => 32,
+            CurveType::SECP256K1 => 64,
+        }
     }
 }
 
@@ -77,10 +77,7 @@ impl PublicKey {
     }
 
     fn from_parts(curve: CurveType, data: Vec<u8>) -> Result<Self, ParsePublicKeyError> {
-        let expected_length = match curve {
-            CurveType::ED25519 => 32,
-            CurveType::SECP256K1 => 64,
-        };
+        let expected_length = curve.data_len();
         if data.len() != expected_length {
             return Err(ParsePublicKeyError {
                 kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
@@ -118,15 +115,20 @@ impl From<PublicKey> for Vec<u8> {
 impl TryFrom<Vec<u8>> for PublicKey {
     type Error = ParsePublicKeyError;
 
-    fn try_from(mut data: Vec<u8>) -> Result<Self, Self::Error> {
+    fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
         if data.len() == 0 {
             return Err(ParsePublicKeyError {
                 kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
             });
         }
 
-        let curve = CurveType::from_u8(data.remove(0))?;
-        Self::from_parts(curve, data)
+        let curve = CurveType::from_u8(data[0])?;
+        if data.len() != curve.data_len() + 1 {
+            return Err(ParsePublicKeyError {
+                kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
+            });
+        }
+        Ok(Self { data })
     }
 }
 
