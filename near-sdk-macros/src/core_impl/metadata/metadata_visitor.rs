@@ -54,7 +54,7 @@ impl MetadataVisitor {
         Ok(quote! {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn metadata() {
+            pub fn metadata() {
                 #panic_hook
                 use borsh::*;
                 let metadata = near_sdk::Metadata::new(vec![
@@ -97,7 +97,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn metadata() {
+            pub fn metadata() {
                 near_sdk::env::setup_panic_hook();
                 use borsh::*;
                 let metadata = near_sdk::Metadata::new(vec![
