@@ -14,12 +14,6 @@ impl ItemImplInfo {
         res
     }
 
-    #[cfg(target_arch = "wasm32")]
-    pub fn marshall_code(&self) -> TokenStream2 {
-        quote! {}
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn marshall_code(&self) -> TokenStream2 {
         use quote::{format_ident, quote, ToTokens};
         let orig_name = self.ty.clone().into_token_stream();
@@ -35,6 +29,7 @@ impl ItemImplInfo {
             }
         }
         quote! {
+         #[cfg(not(target_arch = "wasm32"))]
          impl #name {
            #res
          }
@@ -47,7 +42,7 @@ impl ItemImplInfo {
 mod tests {
     use syn::{Type, ImplItemMethod, parse_quote};
     use quote::quote;
-    use crate::info_extractor::ImplItemMethodInfo;
+    use crate::core_impl::info_extractor::ImplItemMethodInfo;
 
 
     #[test]
@@ -59,7 +54,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
@@ -77,7 +72,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
@@ -95,7 +90,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
@@ -117,7 +112,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -145,7 +140,7 @@ mod tests {
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
-                pub extern "C" fn method() {
+                pub fn method() {
                     near_sdk::env::setup_panic_hook();
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
@@ -178,7 +173,7 @@ mod tests {
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
-                pub extern "C" fn method() {
+                pub fn method() {
                     near_sdk::env::setup_panic_hook();
                     if near_sdk::env::attached_deposit() != 0 {
                         near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
@@ -214,7 +209,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 let result = contract.method();
@@ -235,7 +230,7 @@ mod tests {
         let expected = quote!(
                 #[cfg(target_arch = "wasm32")]
                 #[no_mangle]
-                pub extern "C" fn method() {
+                pub fn method() {
                     near_sdk::env::setup_panic_hook();
                     #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
@@ -263,7 +258,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -292,7 +287,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
@@ -336,7 +331,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
@@ -372,7 +367,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
@@ -414,7 +409,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
@@ -450,7 +445,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
@@ -484,7 +479,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -517,7 +512,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
@@ -553,7 +548,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method method is private".as_bytes());
@@ -594,7 +589,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn method() {
+            pub fn method() {
                 near_sdk::env::setup_panic_hook();
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
@@ -613,7 +608,7 @@ mod tests {
         let expected = quote!(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn private_method() {
+            pub fn private_method() {
                 near_sdk::env::setup_panic_hook();
                 if env::current_account_id() != env::predecessor_account_id() {
                     near_sdk::env::panic("Method private_method is private".as_bytes());
