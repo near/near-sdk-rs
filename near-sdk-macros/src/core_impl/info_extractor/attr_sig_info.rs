@@ -1,4 +1,4 @@
-use super::{InitAttr, MethodType, ArgInfo, BindgenArgType, SerializerAttr, SerializerType};
+use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
 use quote::ToTokens;
 use syn::export::Span;
 use syn::spanned::Spanned;
