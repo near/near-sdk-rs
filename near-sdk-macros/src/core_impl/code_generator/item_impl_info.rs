@@ -47,7 +47,7 @@ impl ItemImplInfo {
 mod tests {
     use syn::{Type, ImplItemMethod, parse_quote};
     use quote::quote;
-    use crate::info_extractor::ImplItemMethodInfo;
+    use crate::core_impl::info_extractor::ImplItemMethodInfo;
 
 
     #[test]
