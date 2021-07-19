@@ -116,7 +116,7 @@ impl TryFrom<Vec<u8>> for PublicKey {
     type Error = ParsePublicKeyError;
 
     fn try_from(data: Vec<u8>) -> Result<Self, Self::Error> {
-        if data.len() == 0 {
+        if data.is_empty() {
             return Err(ParsePublicKeyError {
                 kind: ParsePublicKeyErrorKind::InvalidLength(data.len()),
             });
