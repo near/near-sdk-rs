@@ -525,11 +525,7 @@ mod tests {
         runtime.process_all().unwrap();
 
         assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
-        let res = runtime.view_method_call(
-            &"status",
-            "get_status",
-            "{\"account_id\": \"root\"}".as_bytes(),
-        );
+        let res = runtime.view_method_call(&"status", "get_status", b"{\"account_id\": \"root\"}");
 
         let caller_status = String::from_utf8(res.unwrap()).unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);

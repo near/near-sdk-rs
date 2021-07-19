@@ -263,7 +263,7 @@ mod tests {
         let old_key = PublicKeyRef(data.clone());
         let old_encoded_key = old_key.try_to_vec().unwrap();
         let new_key: PublicKey = data.try_into().unwrap();
-        let new_encoded_key = new_key.clone().try_to_vec().unwrap();
+        let new_encoded_key = new_key.try_to_vec().unwrap();
         assert_eq!(old_encoded_key, new_encoded_key);
     }
 }
