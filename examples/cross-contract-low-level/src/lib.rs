@@ -3,8 +3,6 @@ use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
 use near_sdk::{env, near_bindgen, AccountId, PromiseResult};
 
-near_sdk::setup_alloc!();
-
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: u64 = 200000000000000;
 
@@ -147,7 +145,7 @@ impl CrossContract {
     pub fn check_promise(&mut self) {
         match env::promise_result(0) {
             PromiseResult::Successful(_) => {
-                env::log(b"Check_promise successful");
+                env::log_str("Check_promise successful");
                 self.checked_promise = true;
             }
             _ => panic!("Promise with index 0 failed"),

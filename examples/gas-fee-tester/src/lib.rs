@@ -2,8 +2,6 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{near_bindgen, ext_contract};
 use near_sdk::serde::{Deserialize, Serialize};
 
-near_sdk::setup_alloc!();
-
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct A {

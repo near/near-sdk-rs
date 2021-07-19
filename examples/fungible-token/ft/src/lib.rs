@@ -26,8 +26,6 @@ use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 
-near_sdk::setup_alloc!();
-
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
