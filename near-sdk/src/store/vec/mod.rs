@@ -6,7 +6,7 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use self::iter::{Iter, IterMut};
+pub use self::iter::{Iter, IterMut};
 use crate::collections::append_slice;
 use crate::utils::StableMap;
 use crate::{env, CacheEntry, EntryState, IntoStorageKey};

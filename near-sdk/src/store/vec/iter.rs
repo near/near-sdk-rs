@@ -5,7 +5,7 @@ use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
 use crate::env;
 
 /// An interator over references to each element in the stored vector.
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
+#[derive(Debug)]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
@@ -73,7 +73,7 @@ where
 }
 
 /// An iterator over exclusive references to each element of a stored vector.
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
+#[derive(Debug)]
 pub struct IterMut<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
