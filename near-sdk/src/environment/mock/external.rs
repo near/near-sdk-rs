@@ -1,7 +1,10 @@
 use super::{Receipt, VmAction};
-use crate::types::{AccountId, Balance};
+use crate::{
+    types::{AccountId, Balance},
+    PublicKey,
+};
 use near_vm_logic::{External, HostError, ValuePtr};
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryFrom};
 
 type Result<T> = ::core::result::Result<T, near_vm_logic::VMLogicError>;
 
@@ -122,6 +125,7 @@ impl External for SdkExternal {
         stake: u128,
         public_key: Vec<u8>,
     ) -> Result<()> {
+        let public_key = PublicKey::try_from(public_key).unwrap();
         self.receipts
             .get_mut(receipt_index as usize)
             .unwrap()
@@ -136,6 +140,7 @@ impl External for SdkExternal {
         public_key: Vec<u8>,
         nonce: u64,
     ) -> Result<()> {
+        let public_key = PublicKey::try_from(public_key).unwrap();
         self.receipts
             .get_mut(receipt_index as usize)
             .unwrap()
@@ -153,6 +158,7 @@ impl External for SdkExternal {
         receiver_id: String,
         method_names: Vec<Vec<u8>>,
     ) -> Result<()> {
+        let public_key = PublicKey::try_from(public_key).unwrap();
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
             VmAction::AddKeyWithFunctionCall {
                 public_key,
@@ -166,6 +172,7 @@ impl External for SdkExternal {
     }
 
     fn append_action_delete_key(&mut self, receipt_index: u64, public_key: Vec<u8>) -> Result<()> {
+        let public_key = PublicKey::try_from(public_key).unwrap();
         self.receipts
             .get_mut(receipt_index as usize)
             .unwrap()
