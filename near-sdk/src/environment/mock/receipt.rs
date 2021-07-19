@@ -9,6 +9,7 @@ pub struct Receipt {
 }
 
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub enum VmAction {
     CreateAccount,
     DeployContract {
