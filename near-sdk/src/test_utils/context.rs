@@ -18,6 +18,12 @@ pub struct VMContextBuilder {
     pub context: VMContext,
 }
 
+impl Default for VMContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 impl VMContextBuilder {
     pub fn new() -> Self {

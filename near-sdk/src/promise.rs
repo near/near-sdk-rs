@@ -385,6 +385,7 @@ impl Promise {
     ///     }
     /// }
     /// ```
+    #[allow(clippy::wrong_self_convention)]
     pub fn as_return(self) -> Self {
         *self.should_return.borrow_mut() = true;
         self

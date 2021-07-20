@@ -194,7 +194,7 @@ impl NonFungibleToken {
     /// Do not perform any safety checks or do any logging
     pub fn internal_transfer_unguarded(
         &mut self,
-        token_id: &TokenId,
+        #[allow(clippy::ptr_arg)] token_id: &TokenId,
         from: &AccountId,
         to: &AccountId,
     ) {
@@ -231,7 +231,7 @@ impl NonFungibleToken {
         &mut self,
         sender_id: &AccountId,
         receiver_id: &AccountId,
-        token_id: &TokenId,
+        #[allow(clippy::ptr_arg)] token_id: &TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
@@ -309,7 +309,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_receiver::nft_on_transfer(
-            sender_id.clone(),
+            sender_id,
             old_owner.clone(),
             token_id.clone(),
             msg,
@@ -418,7 +418,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
 
         // Check that receiver didn't already transfer it away or burn it.
         if let Some(current_owner) = self.owner_by_id.get(&token_id) {
-            if &current_owner != &receiver_id {
+            if current_owner != receiver_id {
                 // The token is not owned by the receiver anymore. Can't return it.
                 return true;
             }
