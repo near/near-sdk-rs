@@ -18,6 +18,12 @@ pub struct VMContextBuilder {
     pub context: VMContext,
 }
 
+impl Default for VMContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 impl VMContextBuilder {
     pub fn new() -> Self {
@@ -99,7 +105,7 @@ impl VMContextBuilder {
     }
 
     pub fn prepaid_gas(&mut self, gas: Gas) -> &mut Self {
-        self.context.prepaid_gas = gas;
+        self.context.prepaid_gas = gas.0;
         self
     }
 

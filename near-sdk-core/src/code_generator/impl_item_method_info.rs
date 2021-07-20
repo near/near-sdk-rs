@@ -198,7 +198,7 @@ impl ImplItemMethodInfo {
         let params = quote! {
             &self, #pat_type_list
         };
-        let ident_str = format!("{}", ident.to_string());
+        let ident_str = ident.to_string();
         let is_view = if matches!(method_type, MethodType::View) {
             quote! {true}
         } else {

@@ -46,7 +46,7 @@ impl StorageManagement for FungibleToken {
         registration_only: Option<bool>,
     ) -> StorageBalance {
         let amount: Balance = env::attached_deposit();
-        let account_id = account_id.unwrap_or_else(|| env::predecessor_account_id());
+        let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {

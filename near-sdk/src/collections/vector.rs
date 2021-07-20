@@ -386,7 +386,7 @@ mod tests {
 
         let deserialize_only_vec =
             Vector::<WithoutBorshSerialize> { len: vec.len(), prefix, el: Default::default() };
-        let baseline: Vec<_> = baseline.into_iter().map(|x| WithoutBorshSerialize(x)).collect();
+        let baseline: Vec<_> = baseline.into_iter().map(WithoutBorshSerialize).collect();
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
         } else {
