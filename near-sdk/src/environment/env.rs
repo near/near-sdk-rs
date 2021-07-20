@@ -153,7 +153,7 @@ pub fn signer_account_id() -> AccountId {
 
 /// The public key of the account that did the signing.
 pub fn signer_account_pk() -> PublicKey {
-    method_into_register!(signer_account_pk)
+    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| unreachable!())
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
@@ -229,12 +229,12 @@ pub fn attached_deposit() -> Balance {
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    unsafe { sys::prepaid_gas() }
+    Gas::new(unsafe { sys::prepaid_gas() })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
-    unsafe { sys::used_gas() }
+    Gas::new(unsafe { sys::used_gas() })
 }
 
 // ############
@@ -285,7 +285,7 @@ pub fn promise_create(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -310,7 +310,7 @@ pub fn promise_then(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -366,7 +366,7 @@ pub fn promise_batch_action_function_call(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -385,8 +385,8 @@ pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
         sys::promise_batch_action_stake(
             promise_index,
             &amount as *const Balance as _,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
         )
     }
 }
@@ -399,8 +399,8 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
     unsafe {
         sys::promise_batch_action_add_key_with_full_access(
             promise_index,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
             nonce,
         )
     }
@@ -418,8 +418,8 @@ pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
             promise_index,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
             nonce,
             &allowance as *const Balance as _,
             receiver_id.len() as _,
@@ -437,8 +437,8 @@ pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
     unsafe {
         sys::promise_batch_action_delete_key(
             promise_index,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
+            public_key.as_bytes().len() as _,
+            public_key.as_bytes().as_ptr() as _,
         )
     }
 }
@@ -516,10 +516,20 @@ pub fn panic(message: &[u8]) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
     unreachable!()
 }
+/// Logs the string message message. This message is stored on chain.
+pub fn log_str(message: &str) {
+    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
+    eprintln!("{}", message);
+
+    unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
+}
+
 /// Log the UTF-8 encodable message.
+#[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
 pub fn log(message: &[u8]) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", String::from_utf8_lossy(message));
+
     unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
