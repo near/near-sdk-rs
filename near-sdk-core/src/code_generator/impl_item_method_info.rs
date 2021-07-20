@@ -15,9 +15,6 @@ impl ImplItemMethodInfo {
         let panic_hook = quote! {
             near_sdk::env::setup_panic_hook();
         };
-        let env_creation = quote! {
-            near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
-        };
         let arg_struct;
         let arg_parsing;
         if has_input_args {
@@ -156,7 +153,6 @@ impl ImplItemMethodInfo {
             #[no_mangle]
             pub extern "C" fn #ident() {
                 #panic_hook
-                #env_creation
                 #is_private_check
                 #deposit_check
                 #arg_struct
@@ -202,7 +198,7 @@ impl ImplItemMethodInfo {
         let params = quote! {
             &self, #pat_type_list
         };
-        let ident_str = format!("{}", ident.to_string());
+        let ident_str = ident.to_string();
         let is_view = if matches!(method_type, MethodType::View) {
             quote! {true}
         } else {
@@ -221,7 +217,7 @@ impl ImplItemMethodInfo {
             #non_bindgen_attrs
             pub fn #ident#generics(#params) #return_ident {
                 #serialize_args
-                near_sdk::PendingContractTx::new_from_bytes(&self.account_id, #ident_str, args, #is_view)
+                near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), #ident_str, args, #is_view)
             }
         }
     }

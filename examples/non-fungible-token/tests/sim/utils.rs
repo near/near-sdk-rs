@@ -4,6 +4,7 @@ use non_fungible_token::ContractContract as NftContract;
 use token_receiver::TokenReceiverContract;
 
 use near_contract_standards::non_fungible_token::TokenId;
+use near_sdk::AccountId;
 use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
 
 // Load in contract bytes at runtime
@@ -45,7 +46,7 @@ pub fn init() -> (
         signer_account: root,
         // init method
         init_method: new_default_meta(
-            root.valid_account_id()
+            root.account_id()
         )
     );
 
@@ -53,7 +54,7 @@ pub fn init() -> (
         root,
         nft.nft_mint(
             TOKEN_ID.into(),
-            root.valid_account_id(),
+            root.account_id(),
             TokenMetadata {
                 title: Some("Olympus Mons".into()),
                 description: Some("The tallest mountain in the charted solar system".into()),
@@ -72,7 +73,7 @@ pub fn init() -> (
         deposit = 7000000000000000000000
     );
 
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
+    let alice = root.create_user(AccountId::new_unchecked("alice".to_string()), to_yocto("100"));
 
     let token_receiver = deploy!(
         contract: TokenReceiverContract,
@@ -80,7 +81,7 @@ pub fn init() -> (
         bytes: &TOKEN_RECEIVER_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            nft.valid_account_id()
+            nft.account_id()
         )
     );
 
@@ -90,7 +91,7 @@ pub fn init() -> (
         bytes: &APPROVAL_RECEIVER_WASM_BYTES,
         signer_account: root,
         init_method: new(
-            nft.valid_account_id()
+            nft.account_id()
         )
     );
 
@@ -108,7 +109,7 @@ pub fn helper_mint(
         root,
         nft.nft_mint(
             token_id,
-            root.valid_account_id(),
+            root.account_id(),
             TokenMetadata {
                 title: Some(title),
                 description: Some(desc),

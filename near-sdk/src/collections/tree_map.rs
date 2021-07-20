@@ -60,6 +60,10 @@ where
         self.tree.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.tree.is_empty()
+    }
+
     pub fn clear(&mut self) {
         self.root = 0;
         for n in self.tree.iter() {
@@ -421,10 +425,7 @@ where
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
         match self.node(at) {
             Some(mut node) => {
-                if node.key.eq(key) {
-                    self.update_height(&mut node);
-                    self.enforce_balance(&mut node)
-                } else {
+                if !node.key.eq(key) {
                     if node.key.gt(key) {
                         if let Some(l) = node.lft {
                             let id = self.check_balance(l, key);
@@ -434,9 +435,9 @@ where
                         let id = self.check_balance(r, key);
                         node.rgt = Some(id);
                     }
-                    self.update_height(&mut node);
-                    self.enforce_balance(&mut node)
                 }
+                self.update_height(&mut node);
+                self.enforce_balance(&mut node)
             }
             None => at,
         }
@@ -1439,7 +1440,6 @@ mod tests {
     fn test_iter_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
         assert_eq!(map.iter().count(), 0);
     }
 
@@ -1464,7 +1464,6 @@ mod tests {
     fn test_iter_rev_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
         assert_eq!(map.iter_rev().count(), 0);
     }
 
@@ -1511,7 +1510,6 @@ mod tests {
     fn test_iter_from_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
         assert_eq!(map.iter_from(42).count(), 0);
     }
 
@@ -1657,7 +1655,7 @@ mod tests {
     fn test_iter_rev_from_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev_from(42).count(), 0);
     }
 
     #[test]
@@ -1761,7 +1759,7 @@ mod tests {
 
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let map = avl(&insert, &remove);
-            map.len() == 0 || is_balanced(&map, map.root)
+            map.is_empty() || is_balanced(&map, map.root)
         }
 
         QuickCheck::new()

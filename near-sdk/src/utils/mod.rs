@@ -37,11 +37,11 @@ use crate::{env, AccountId, PromiseResult};
 /// [`BlockchainInterface`]: crate::BlockchainInterface
 #[macro_export]
 macro_rules! log {
-    ($arg:tt) => {
-        $crate::env::log($arg.as_bytes())
+    ($arg:expr) => {
+        $crate::env::log_str($arg.as_ref())
     };
     ($($arg:tt)*) => {
-        $crate::env::log(format!($($arg)*).as_bytes())
+        $crate::env::log_str(format!($($arg)*).as_str())
     };
 }
 
@@ -81,7 +81,12 @@ pub struct PendingContractTx {
 }
 
 impl PendingContractTx {
-    pub fn new(receiver_id: &str, method: &str, args: serde_json::Value, is_view: bool) -> Self {
+    pub fn new(
+        receiver_id: AccountId,
+        method: &str,
+        args: serde_json::Value,
+        is_view: bool,
+    ) -> Self {
         PendingContractTx::new_from_bytes(
             receiver_id,
             method,
@@ -90,8 +95,13 @@ impl PendingContractTx {
         )
     }
 
-    pub fn new_from_bytes(receiver_id: &str, method: &str, args: Vec<u8>, is_view: bool) -> Self {
-        Self { receiver_id: receiver_id.to_string(), method: method.to_string(), args, is_view }
+    pub fn new_from_bytes(
+        receiver_id: AccountId,
+        method: &str,
+        args: Vec<u8>,
+        is_view: bool,
+    ) -> Self {
+        Self { receiver_id, method: method.to_string(), args, is_view }
     }
 }
 
@@ -99,13 +109,15 @@ impl PendingContractTx {
 /// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
 ///
 /// [GlobalAllocator]: std::alloc::GlobalAlloc
+#[deprecated(
+    since = "4.0.0",
+    note = "Allocator is already initialized with the default `wee_alloc` feature set. \
+            Please make sure you don't disable default features on the SDK or set the global \
+            allocator manually."
+)]
 #[macro_export]
 macro_rules! setup_alloc {
-    () => {
-        #[cfg(target_arch = "wasm32")]
-        #[global_allocator]
-        static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-    };
+    () => {};
 }
 
 #[cfg(test)]

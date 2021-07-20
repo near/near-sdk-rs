@@ -5,8 +5,6 @@ use defi::*;
 /// Import the generated proxy contract
 use fungible_token::ContractContract as FtContract;
 
-use std::convert::TryInto;
-
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
   TOKEN_WASM_BYTES => "res/fungible_token.wasm",
   DEFI_WASM_BYTES => "res/defi.wasm",
@@ -19,12 +17,7 @@ const DEFI_ID: &str = "defi";
 
 fn init(
     initial_balance: u128,
-) -> (
-    UserAccount,
-    ContractAccount<FtContract>,
-    ContractAccount<DeFiContract>,
-    UserAccount,
-) {
+) -> (UserAccount, ContractAccount<FtContract>, ContractAccount<DeFiContract>, UserAccount) {
     let root = init_simulator(None);
     // uses default values for deposit and gas
     let ft = deploy!(
@@ -37,23 +30,23 @@ fn init(
         // User deploying the contract,
         signer_account: root,
         // init method
-        init_method: 
+        init_method:
           new_default_meta(
-            root.account_id().try_into().unwrap(),
+            root.account_id(),
             initial_balance.into()
         )
     );
-    let alice = root.create_user("alice".to_string(), to_yocto("100"));
+    let alice = root.create_user(AccountId::new_unchecked("alice".to_string()), to_yocto("100"));
     register_user(&ft, &alice);
+
+    let id = AccountId::new_unchecked(FT_ID.to_string());
 
     let defi = deploy!(
         contract: DeFiContract,
         contract_id: DEFI_ID,
         bytes: &DEFI_WASM_BYTES,
         signer_account: root,
-        init_method: new(
-            FT_ID.try_into().unwrap()
-        )
+        init_method: new(id)
     );
 
     (root, ft, defi, alice)
@@ -64,7 +57,7 @@ fn init(
 fn register_user(contract: &ContractAccount<FtContract>, user: &UserAccount) {
     call!(
         user,
-        contract.storage_deposit(Some(user.account_id().try_into().unwrap()), None),
+        contract.storage_deposit(Some(user.account_id()), None),
         deposit = env::storage_byte_cost() * 125
     )
     .assert_success();
@@ -78,47 +71,26 @@ fn transfer(
     amount: u128,
     contract: &ContractAccount<FtContract>,
 ) {
-    call!(
-        from,
-        contract.ft_transfer(to.try_into().unwrap(), amount.into(), None),
-        deposit = TRANSFER_DEPOSIT
-    )
-    .assert_success()
+    call!(from, contract.ft_transfer(to, amount.into(), None), deposit = TRANSFER_DEPOSIT)
+        .assert_success()
 }
 
 fn main() {
     let iterations: u64 = if std::env::args().len() >= 2 {
-        (&std::env::args().collect::<Vec<String>>()[1])
-            .parse()
-            .unwrap()
+        std::env::args().nth(1).unwrap().parse().unwrap()
     } else {
         10
     };
     let transfer_amount = to_yocto("1");
     let initial_balance = to_yocto("10000000000");
     let (master_account, contract, _defi, alice) = init(initial_balance);
-    transfer(
-        &master_account,
-        alice.account_id(),
-        transfer_amount,
-        &contract,
-    );
+    transfer(&master_account, alice.account_id(), transfer_amount, &contract);
     let now = std::time::Instant::now();
     for i in 0..iterations {
         if i % 2 == 0 {
-            transfer(
-                &master_account,
-                alice.account_id(),
-                transfer_amount,
-                &contract,
-            );
+            transfer(&master_account, alice.account_id(), transfer_amount, &contract);
         } else {
-            transfer(
-                &alice,
-                master_account.account_id(),
-                transfer_amount,
-                &contract,
-            );
+            transfer(&alice, master_account.account_id(), transfer_amount, &contract);
         }
     }
     let elapsed = now.elapsed().as_millis();
