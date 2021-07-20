@@ -56,12 +56,12 @@ impl MockedBlockchain {
         let mut ext = Box::new(MockedExternal::new());
         ext.fake_trie = storage;
         ext.validators = validators;
-        let memory = memory_opt.unwrap_or(Box::new(MockedMemory {}));
+        let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
 
-        let mut logic_fixture = LogicFixture { ext, memory, config, fees_config, promise_results };
+        let mut logic_fixture = LogicFixture { ext, memory, promise_results, config, fees_config };
 
         let logic = unsafe {
             VMLogic::new_with_protocol_version(

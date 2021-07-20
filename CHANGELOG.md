@@ -28,6 +28,8 @@
   * If for testing you need this mocked blockchain, `near_sdk::mock::with_mocked_blockchain` can be used
   * `near_sdk::env::take_blockchain_interface` is removed, as this interface is no longer optional
   * removes `BlockchainInterface` trait, as this interface is only used in mocked contexts now
+* Updates `Gas` type to be a newtype, which makes the API harder to misuse.
+  * This also changes the JSON serialization of this type to a string, to avoid precision loss when deserializing in JavaScript
 * `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
 
 ## `3.1.0` [04-06-2021]
