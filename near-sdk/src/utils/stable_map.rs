@@ -38,11 +38,12 @@ where
     pub(crate) fn inner(&mut self) -> &mut BTreeMap<K, Box<V>> {
         self.map.get_mut()
     }
-    pub(crate) fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
+    pub(crate) fn with_value<Q: ?Sized, F, T>(&self, k: &Q, f: F) -> Option<T>
     where
         K: Borrow<Q>,
         Q: Ord,
+        F: FnOnce(&V) -> T,
     {
-        self.map.borrow().contains_key(k)
+        self.map.borrow().get(k).map(|s| f(s))
     }
 }

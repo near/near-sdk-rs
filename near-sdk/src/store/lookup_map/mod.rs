@@ -136,7 +136,11 @@ where
         Q: BorshSerialize + ToOwned<Owned = K> + Ord,
     {
         // Check cache before checking storage
-        if self.cache.contains_key(k) {
+        if self
+            .cache
+            .with_value(&k, |v| v.get().and_then(|s| s.value().as_ref()).is_some())
+            .unwrap_or(false)
+        {
             return true;
         }
         let storage_key = Self::lookup_key(&self.prefix, k);
