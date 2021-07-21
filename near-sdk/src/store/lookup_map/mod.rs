@@ -295,30 +295,30 @@ mod tests {
         }
     }
 
-    // #[test]
-    // pub fn test_extend() {
-    //     let mut map = LookupMap::new(b"m");
-    //     let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
-    //     let mut key_to_value = HashMap::new();
-    //     for _ in 0..100 {
-    //         let key = rng.gen::<u64>();
-    //         let value = rng.gen::<u64>();
-    //         key_to_value.insert(key, value);
-    //         map.insert(&key, &value);
-    //     }
-    //     for _ in 0..10 {
-    //         let mut tmp = vec![];
-    //         for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
-    //             let key = rng.gen::<u64>();
-    //             let value = rng.gen::<u64>();
-    //             tmp.push((key, value));
-    //         }
-    //         key_to_value.extend(tmp.iter().cloned());
-    //         map.extend(tmp.iter().cloned());
-    //     }
+    #[test]
+    pub fn test_extend() {
+        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
+        let mut key_to_value = HashMap::new();
+        for _ in 0..100 {
+            let key = rng.gen::<u64>();
+            let value = rng.gen::<u64>();
+            key_to_value.insert(key, value);
+            map.insert(key, value);
+        }
+        for _ in 0..10 {
+            let mut tmp = vec![];
+            for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
+                let key = rng.gen::<u64>();
+                let value = rng.gen::<u64>();
+                tmp.push((key, value));
+            }
+            key_to_value.extend(tmp.iter().cloned());
+            map.extend(tmp.iter().cloned());
+        }
 
-    //     for (key, value) in key_to_value {
-    //         assert_eq!(map.get(&key).unwrap(), value);
-    //     }
-    // }
+        for (key, value) in key_to_value {
+            assert_eq!(*map.get(&key).unwrap(), value);
+        }
+    }
 }

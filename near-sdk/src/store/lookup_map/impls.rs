@@ -20,12 +20,13 @@ where
     V: BorshSerialize,
     H: CryptoHash<Digest = [u8; 32]>,
 {
-    fn extend<I>(&mut self, _iter: I)
+    fn extend<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = (K, V)>,
     {
-        // TODO
-        todo!()
+        for (key, value) in iter {
+            self.set(key, Some(value))
+        }
     }
 }
 
