@@ -1,4 +1,4 @@
-use crate::environment::mocked_blockchain::MockedBlockchain;
+use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::AccountId;
 use crate::{
@@ -16,6 +16,12 @@ pub fn accounts(id: usize) -> AccountId {
 #[derive(Clone)]
 pub struct VMContextBuilder {
     pub context: VMContext,
+}
+
+impl Default for VMContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[allow(dead_code)]
@@ -54,7 +60,7 @@ impl VMContextBuilder {
     }
 
     pub fn signer_account_pk(&mut self, pk: PublicKey) -> &mut Self {
-        self.context.signer_account_pk = pk;
+        self.context.signer_account_pk = pk.into();
         self
     }
 
@@ -99,7 +105,7 @@ impl VMContextBuilder {
     }
 
     pub fn prepaid_gas(&mut self, gas: Gas) -> &mut Self {
-        self.context.prepaid_gas = gas;
+        self.context.prepaid_gas = gas.0;
         self
     }
 
@@ -119,17 +125,13 @@ impl VMContextBuilder {
 }
 
 // TODO: This probably shouldn't be necessary with the `testing_env` macro.
-/// Initializes the [`BlockchainInterface`] with a single promise result during execution.
-///
-/// [`BlockchainInterface`]: (crate::BlockchainInterface)
+/// Initializes the [`MockedBlockchain`] with a single promise result during execution.
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
-    let storage = crate::env::take_blockchain_interface()
-        .unwrap()
-        .as_mut_mocked_blockchain()
-        .unwrap()
-        .take_storage();
+    let storage = crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow_mut().take_storage());
 
-    crate::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
+    //? This probably shouldn't need to replace the existing mocked blockchain altogether?
+    //? Might be a good time to remove this utility function altogether
+    crate::env::set_blockchain_interface(MockedBlockchain::new(
         context,
         Default::default(),
         Default::default(),
@@ -137,5 +139,5 @@ pub fn testing_env_with_promise_results(context: VMContext, promise_result: Prom
         storage,
         Default::default(),
         None,
-    )));
+    ));
 }

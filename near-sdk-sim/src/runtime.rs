@@ -243,10 +243,7 @@ impl RuntimeStandalone {
     }
 
     pub fn profile_of_outcome(&self, hash: &CryptoHash) -> Option<ProfileData> {
-        match self.profile.get(hash) {
-            Some(p) => Some(p.clone()),
-            _ => None,
-        }
+        self.profile.get(hash).cloned()
     }
 
     /// Processes all transactions and pending receipts until there is no pending_receipts left
@@ -423,8 +420,8 @@ mod tests {
 
     #[test]
     fn single_test() {
-        let foo = Foo {};
-        foo._private();
+        let _foo = Foo {};
+        _foo._private();
     }
 
     #[test]
@@ -528,11 +525,7 @@ mod tests {
         runtime.process_all().unwrap();
 
         assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
-        let res = runtime.view_method_call(
-            &"status",
-            "get_status",
-            "{\"account_id\": \"root\"}".as_bytes(),
-        );
+        let res = runtime.view_method_call(&"status", "get_status", b"{\"account_id\": \"root\"}");
 
         let caller_status = String::from_utf8(res.unwrap()).unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);
