@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable-2020-10-08]
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v2
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -19,12 +19,24 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          components: rustfmt
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Test Format
-        run: cargo fmt -- --check
       - name: Add wasm32 target
         run: rustup target add wasm32-unknown-unknown
       - name: Test
         run: cargo test --all --features unstable
+  lint:
+    name: Clippy and fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with: 
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v1
+      - name: Test Format
+        run: cargo fmt -- --check
+      - run: cargo clippy --tests -- -Dclippy::all

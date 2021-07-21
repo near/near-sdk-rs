@@ -159,9 +159,6 @@ impl AttrSigInfo {
 
     /// Only get args that correspond to `env::input()`.
     pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
-        self.args.iter().filter(|arg| match arg.bindgen_ty {
-            BindgenArgType::Regular => true,
-            _ => false,
-        })
+        self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
     }
 }

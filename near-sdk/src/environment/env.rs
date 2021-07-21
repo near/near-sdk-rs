@@ -11,19 +11,18 @@ use std::mem::size_of;
 use std::panic as std_panic;
 
 use super::sys;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::environment::blockchain_interface::BlockchainInterface;
-
-#[cfg(not(target_arch = "wasm32"))]
 thread_local! {
 /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
 /// for interacting with the real and fake blockchains.
-    pub static BLOCKCHAIN_INTERFACE: RefCell<Option<Box<dyn BlockchainInterface>>>
-         = RefCell::new(Some(Box::new(crate::MockedBlockchain::default())));
+    pub(crate) static BLOCKCHAIN_INTERFACE: RefCell<MockedBlockchain>
+         = RefCell::new(MockedBlockchain::default());
 }
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -76,36 +75,13 @@ macro_rules! method_into_register {
 ///           storage,
 ///           None,
 ///       );
-/// near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
+/// near_sdk::env::set_blockchain_interface(mocked_blockchain);
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
-pub fn set_blockchain_interface(blockchain_interface: Box<dyn BlockchainInterface>) {
+pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
     BLOCKCHAIN_INTERFACE.with(|b| {
-        *b.borrow_mut() = Some(blockchain_interface);
+        *b.borrow_mut() = blockchain_interface;
     })
-}
-
-/// Removes and returns the current low-level blockchain interface accessible through `env::*`.
-/// It is not meant to be used by the contract developers directly. In most cases you want to use
-/// `testing_env!` macro for your use cases.
-///
-/// ```ignore
-/// # let mocked_blockchain = near_sdk::MockedBlockchain::new(
-/// #           Default::default(),
-/// #           Default::default(),
-/// #           Default::default(),
-/// #           vec![],
-/// #           Default::default(),
-/// #           None
-/// #       );
-/// # near_sdk::env::set_blockchain_interface(Box::new(mocked_blockchain));
-/// let blockchain_interface = near_sdk::env::take_blockchain_interface();
-/// // The following will panic, because there is no blockchain interface set:
-/// // env::account_balance();
-/// ```
-#[cfg(not(target_arch = "wasm32"))]
-pub fn take_blockchain_interface() -> Option<Box<dyn BlockchainInterface>> {
-    BLOCKCHAIN_INTERFACE.with(|b| b.replace(None))
 }
 
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
@@ -223,12 +199,12 @@ pub fn attached_deposit() -> Balance {
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    unsafe { sys::prepaid_gas() }
+    Gas::new(unsafe { sys::prepaid_gas() })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
-    unsafe { sys::used_gas() }
+    Gas::new(unsafe { sys::used_gas() })
 }
 
 // ############
@@ -279,7 +255,7 @@ pub fn promise_create(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -304,7 +280,7 @@ pub fn promise_then(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -360,7 +336,7 @@ pub fn promise_batch_action_function_call(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }

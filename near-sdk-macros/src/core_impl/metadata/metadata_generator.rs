@@ -66,10 +66,7 @@ impl ImplItemMethodInfo {
             .attr_signature_info
             .args
             .iter()
-            .filter(|arg| match arg.bindgen_ty {
-                BindgenArgType::CallbackArg => true,
-                _ => false,
-            })
+            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArg))
             .map(|arg| {
                 let ty = &arg.ty;
                 quote! {
@@ -81,10 +78,7 @@ impl ImplItemMethodInfo {
             .attr_signature_info
             .args
             .iter()
-            .filter(|arg| match arg.bindgen_ty {
-                BindgenArgType::CallbackArgVec => true,
-                _ => false,
-            })
+            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
             .last()
         {
             None => {
