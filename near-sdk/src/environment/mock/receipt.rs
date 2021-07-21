@@ -1,5 +1,4 @@
 use crate::{AccountId, Balance, Gas, PublicKey};
-// use near_vm_logic::mocks::mock_external::Action as VmAction;
 
 #[derive(Clone, Debug)]
 pub struct Receipt {
