@@ -199,12 +199,12 @@ pub fn attached_deposit() -> Balance {
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    unsafe { sys::prepaid_gas() }
+    Gas::new(unsafe { sys::prepaid_gas() })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
-    unsafe { sys::used_gas() }
+    Gas::new(unsafe { sys::used_gas() })
 }
 
 // ############
@@ -255,7 +255,7 @@ pub fn promise_create(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -280,7 +280,7 @@ pub fn promise_then(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
@@ -336,7 +336,7 @@ pub fn promise_batch_action_function_call(
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
-            gas,
+            gas.0,
         )
     }
 }
