@@ -11,7 +11,7 @@ use near_sdk::{
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
-const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::new(BASE_GAS + PROMISE_CALL);
+const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(BASE_GAS + PROMISE_CALL);
 
 const NO_DEPOSIT: Balance = 0;
 
