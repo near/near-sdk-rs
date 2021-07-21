@@ -1,6 +1,6 @@
 use super::{Receipt, VmAction};
 use crate::{
-    types::{AccountId, Balance},
+    types::{AccountId, Balance, Gas},
     PublicKey,
 };
 use near_vm_logic::{External, HostError, ValuePtr};
@@ -104,7 +104,7 @@ impl External for SdkExternal {
                 method_name,
                 args: arguments,
                 deposit: attached_deposit,
-                gas: prepaid_gas,
+                gas: Gas(prepaid_gas),
             },
         );
         Ok(())
