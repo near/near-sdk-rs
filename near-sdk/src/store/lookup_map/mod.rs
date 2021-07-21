@@ -150,7 +150,13 @@ where
             return true;
         }
         let storage_key = Self::lookup_key(&self.prefix, k);
-        env::storage_has_key(&storage_key)
+        let contains = env::storage_has_key(&storage_key);
+
+        if !contains {
+            // If value not in cache and not in storage, can set a cached `None`
+            let _ = self.cache.get(k.to_owned()).set(CacheEntry::new_cached(None));
+        }
+        contains
     }
 
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
@@ -200,6 +206,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupMap;
+    use crate::env;
     use crate::hash::Keccak256;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
@@ -354,15 +361,16 @@ mod tests {
         map.set(5u8, Some(8u8));
 
         // Create duplicate which references same data
-        let dup_map = LookupMap::<u8, u8, Keccak256>::new(b"m");
         assert_eq!(map[&5], 8);
 
-        // Assert the value is not in storage for the given key yet
-        assert!(!dup_map.contains_key(&5));
+        let storage_key = LookupMap::<u8, u8, Keccak256>::lookup_key(b"m", &5);
+        assert!(!env::storage_has_key(&storage_key));
 
         drop(map);
-        // Other map can now load the value
-        assert_eq!(*dup_map.get(&5).unwrap(), 8);
+
+        let dup_map = LookupMap::<u8, u8, Keccak256>::new(b"m");
+
+        // New map can now load the value
         assert_eq!(dup_map[&5], 8);
     }
 }
