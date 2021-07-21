@@ -28,7 +28,10 @@ mod types;
 pub use crate::types::*;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use environment::mocked_blockchain::MockedBlockchain;
+pub use environment::mock;
+#[cfg(not(target_arch = "wasm32"))]
+// Re-export to avoid breakages
+pub use environment::mock::MockedBlockchain;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMConfig;
 #[cfg(not(target_arch = "wasm32"))]
@@ -37,9 +40,6 @@ pub use near_vm_logic::VMContext;
 pub mod utils;
 pub use crate::utils::storage_key_impl::*;
 pub use crate::utils::*;
-
-#[cfg(not(target_arch = "wasm32"))]
-pub use environment::blockchain_interface::BlockchainInterface;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod test_utils;
