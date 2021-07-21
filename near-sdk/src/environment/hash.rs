@@ -16,7 +16,7 @@ pub trait CryptoHash {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum Sha256 {}
+pub struct Sha256;
 
 impl CryptoHash for Sha256 {
     type Digest = [u8; 32];
@@ -31,7 +31,7 @@ impl CryptoHash for Sha256 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum Keccak256 {}
+pub struct Keccak256;
 
 impl CryptoHash for Keccak256 {
     type Digest = [u8; 32];

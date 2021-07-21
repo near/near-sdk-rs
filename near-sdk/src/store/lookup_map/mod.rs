@@ -16,6 +16,31 @@ const ERR_NOT_EXIST: &[u8] = b"Key does not exist in map";
 
 type LookupKey = [u8; 32];
 
+/// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
+///
+/// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
+/// using the map's [`CryptoHash`] implementation.
+///
+/// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall to hash the
+/// key. To use a custom function, use [`new_with_hasher`]
+///
+/// # Examples
+/// ```
+/// use near_sdk::store::LookupMap;
+///
+/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Sha256>`
+/// let mut map = LookupMap::new(b"a");
+///
+/// map.set("test".to_string(), Some(7u8));
+/// assert!(map.contains_key("test"));
+/// assert_eq!(map.get("test"), Some(&7u8));
+///
+/// let prev = map.insert("test".to_string(), 5u8);
+/// assert_eq!(prev, Some(7u8));
+/// assert_eq!(map["test"], 5u8);
+/// ```
+///
+/// [`new_with_hasher`]: Self::new_with_hasher
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V, H = Sha256>
 where
@@ -34,13 +59,36 @@ where
     hasher: PhantomData<H>,
 }
 
+impl<K, V> LookupMap<K, V, Sha256>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+{
+    #[inline]
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        Self::new_with_hasher(prefix)
+    }
+}
+
 impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: CryptoHash<Digest = [u8; 32]>,
 {
-    pub fn new<S>(prefix: S) -> Self
+    /// Initialize a [`LookupMap`] with a custom hash function.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::hash::Keccak256;
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let map = LookupMap::<String, String, Keccak256>::new_with_hasher(b"m");
+    /// ```
+    pub fn new_with_hasher<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
@@ -214,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
             let key = rng.gen::<u64>();
@@ -225,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_insert_has_key() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
@@ -247,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_insert_remove() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -267,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_remove_last_reinsert() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let key1 = 1u64;
         let value1 = 2u64;
         map.insert(key1, value1);
@@ -284,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_insert_override_remove() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -311,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_get_non_existent() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
@@ -328,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_extend() {
-        let mut map = LookupMap::<_, _>::new(b"m");
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
@@ -355,7 +403,7 @@ mod tests {
 
     #[test]
     fn flush_on_drop() {
-        let mut map = LookupMap::<_, _, Keccak256>::new(b"m");
+        let mut map = LookupMap::<_, _, Keccak256>::new_with_hasher(b"m");
 
         // Set a value, which does not write to storage yet
         map.set(5u8, Some(8u8));
@@ -368,7 +416,7 @@ mod tests {
 
         drop(map);
 
-        let dup_map = LookupMap::<u8, u8, Keccak256>::new(b"m");
+        let dup_map = LookupMap::<u8, u8, Keccak256>::new_with_hasher(b"m");
 
         // New map can now load the value
         assert_eq!(dup_map[&5], 8);
