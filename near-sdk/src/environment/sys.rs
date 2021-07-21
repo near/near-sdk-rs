@@ -36,8 +36,8 @@ extern "C" {
     // #####################
     pub fn value_return(value_len: u64, value_ptr: u64);
     #[allow(dead_code)]
-    pub fn panic();
-    pub fn panic_utf8(len: u64, ptr: u64);
+    pub fn panic() -> !;
+    pub fn panic_utf8(len: u64, ptr: u64) -> !;
     pub fn log_utf8(len: u64, ptr: u64);
     #[allow(dead_code)]
     pub fn log_utf16(len: u64, ptr: u64);
