@@ -12,12 +12,10 @@ impl<K: Ord, V> Default for StableMap<K, V> {
     }
 }
 
-impl<K, V> StableMap<K, V>
-where
-    K: Ord,
-{
+impl<K, V> StableMap<K, V> {
     pub(crate) fn get(&self, k: K) -> &V
     where
+        K: Ord,
         V: Default,
     {
         let mut map = self.map.borrow_mut();
@@ -31,6 +29,7 @@ where
     }
     pub(crate) fn get_mut(&mut self, k: K) -> &mut V
     where
+        K: Ord,
         V: Default,
     {
         &mut *self.map.get_mut().entry(k).or_default()
@@ -40,7 +39,7 @@ where
     }
     pub(crate) fn with_value<Q: ?Sized, F, T>(&self, k: &Q, f: F) -> Option<T>
     where
-        K: Borrow<Q>,
+        K: Borrow<Q> + Ord,
         Q: Ord,
         F: FnOnce(&V) -> T,
     {
