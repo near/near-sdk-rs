@@ -1,3 +1,5 @@
+mod impls;
+
 use core::borrow::Borrow;
 use std::marker::PhantomData;
 
@@ -10,6 +12,7 @@ use crate::{env, CacheEntry, IntoStorageKey};
 
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
+const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
 
 type LookupKey = [u8; 32];
 
@@ -18,6 +21,7 @@ pub struct LookupMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
+    H: CryptoHash<Digest = [u8; 32]>,
 {
     prefix: Box<[u8]>,
     #[borsh_skip]
@@ -26,6 +30,7 @@ where
     /// invalidated.
     cache: StableMap<K, OnceCell<CacheEntry<V>>>,
 
+    #[borsh_skip]
     hasher: PhantomData<H>,
 }
 
@@ -33,6 +38,7 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
+    H: CryptoHash<Digest = [u8; 32]>,
 {
     pub fn new<S>(prefix: S) -> Self
     where
@@ -153,6 +159,17 @@ where
         Q: BorshSerialize + ToOwned<Owned = K>,
     {
         self.get_mut_inner(k).replace(None)
+    }
+}
+
+impl<K, V, H> LookupMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHash<Digest = [u8; 32]>,
+{
+    pub fn flush(&mut self) {
+        // TODO
     }
 }
 

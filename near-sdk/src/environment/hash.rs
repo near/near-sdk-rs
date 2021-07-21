@@ -27,7 +27,7 @@ impl CryptoHash for Sha256 {
         let mut hash = [0u8; 32];
         read_register_fixed(ATOMIC_OP_REGISTER, &mut hash);
         hash
-    }    
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -42,6 +42,5 @@ impl CryptoHash for Keccak256 {
         let mut hash = [0u8; 32];
         read_register_fixed(ATOMIC_OP_REGISTER, &mut hash);
         hash
-    }    
+    }
 }
-
