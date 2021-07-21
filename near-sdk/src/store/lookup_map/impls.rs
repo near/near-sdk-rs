@@ -1,6 +1,8 @@
+use core::borrow::Borrow;
+
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ERR_INDEX_OUT_OF_BOUNDS};
+use super::{LookupMap, ERR_NOT_EXIST};
 use crate::{env, hash::CryptoHash};
 
 impl<K, V, H> Drop for LookupMap<K, V, H>
@@ -30,26 +32,21 @@ where
     }
 }
 
-impl<K, V, H> core::ops::Index<K> for LookupMap<K, V, H>
+impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for LookupMap<K, V, H>
 where
-    K: BorshSerialize + Ord + Clone,
+    K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: CryptoHash<Digest = [u8; 32]>,
+    Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;
 
-    fn index(&self, index: K) -> &Self::Output {
-        self.get(&index).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS))
-    }
-}
-
-impl<K, V, H> core::ops::IndexMut<K> for LookupMap<K, V, H>
-where
-    K: BorshSerialize + Ord + Clone,
-    V: BorshSerialize + BorshDeserialize,
-    H: CryptoHash<Digest = [u8; 32]>,
-{
-    fn index_mut(&mut self, index: K) -> &mut Self::Output {
-        self.get_mut(&index).unwrap_or_else(|| env::panic(ERR_INDEX_OUT_OF_BOUNDS))
+    /// Returns reference to value corresponding to key.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the key does not exist in the map
+    fn index(&self, index: &Q) -> &Self::Output {
+        self.get(index).unwrap_or_else(|| env::panic(ERR_NOT_EXIST))
     }
 }

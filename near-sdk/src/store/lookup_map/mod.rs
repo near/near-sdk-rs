@@ -7,12 +7,12 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
 use crate::hash::{CryptoHash, Sha256};
-use crate::utils::StableMap;
+use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
-const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
+const ERR_NOT_EXIST: &[u8] = b"Key does not exist in map";
 
 type LookupKey = [u8; 32];
 
@@ -66,17 +66,6 @@ where
             }
         }
     }
-}
-
-impl<K, V, H> LookupMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize + BorshDeserialize,
-    H: CryptoHash<Digest = [u8; 32]>,
-{
-    fn deserialize_element(bytes: &[u8]) -> V {
-        V::try_from_slice(bytes).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
-    }
 
     fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q) -> LookupKey
     where
@@ -88,6 +77,17 @@ where
         key.serialize(&mut buffer).unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION));
 
         H::hash(&buffer)
+    }
+}
+
+impl<K, V, H> LookupMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHash<Digest = [u8; 32]>,
+{
+    fn deserialize_element(bytes: &[u8]) -> V {
+        V::try_from_slice(bytes).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
     }
 
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
@@ -169,7 +169,30 @@ where
     H: CryptoHash<Digest = [u8; 32]>,
 {
     pub fn flush(&mut self) {
-        // TODO
+        let mut buf = Vec::new();
+        for (k, v) in self.cache.inner().iter_mut() {
+            if let Some(v) = v.get_mut() {
+                if v.is_modified() {
+                    let key = Self::lookup_key(&self.prefix, k);
+                    match v.value().as_ref() {
+                        Some(modified) => {
+                            buf.clear();
+                            BorshSerialize::serialize(modified, &mut buf)
+                                .unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION));
+                            env::storage_write(&key, &buf);
+                        }
+                        None => {
+                            // Element was removed, clear the storage for the value
+                            env::storage_remove(&key);
+                        }
+                    }
+
+                    // Update state of flushed state as cached, to avoid duplicate writes/removes
+                    // while also keeping the cached values in memory.
+                    v.replace_state(EntryState::Cached);
+                }
+            }
+        }
     }
 }
 
@@ -177,12 +200,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupMap;
+    use crate::hash::Keccak256;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashMap;
 
     #[test]
-    pub fn test_insert() {
+    fn test_insert() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
@@ -193,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_insert_has_key() {
+    fn test_insert_has_key() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut key_to_value = HashMap::new();
@@ -215,7 +239,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_insert_remove() {
+    fn test_insert_remove() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
@@ -235,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_remove_last_reinsert() {
+    fn test_remove_last_reinsert() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let key1 = 1u64;
         let value1 = 2u64;
@@ -252,7 +276,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_insert_override_remove() {
+    fn test_insert_override_remove() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
@@ -279,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_get_non_existent() {
+    fn test_get_non_existent() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
@@ -296,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_extend() {
+    fn test_extend() {
         let mut map = LookupMap::<_, _>::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
@@ -320,5 +344,25 @@ mod tests {
         for (key, value) in key_to_value {
             assert_eq!(*map.get(&key).unwrap(), value);
         }
+    }
+
+    #[test]
+    fn flush_on_drop() {
+        let mut map = LookupMap::<_, _, Keccak256>::new(b"m");
+
+        // Set a value, which does not write to storage yet
+        map.set(5u8, Some(8u8));
+
+        // Create duplicate which references same data
+        let dup_map = LookupMap::<u8, u8, Keccak256>::new(b"m");
+        assert_eq!(map[&5], 8);
+
+        // Assert the value is not in storage for the given key yet
+        assert!(!dup_map.contains_key(&5));
+
+        drop(map);
+        // Other map can now load the value
+        assert_eq!(*dup_map.get(&5).unwrap(), 8);
+        assert_eq!(dup_map[&5], 8);
     }
 }
