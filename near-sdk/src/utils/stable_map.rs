@@ -1,3 +1,4 @@
+use core::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -11,10 +12,12 @@ impl<K: Ord, V> Default for StableMap<K, V> {
     }
 }
 
-impl<K, V> StableMap<K, V> {
+impl<K, V> StableMap<K, V>
+where
+    K: Ord,
+{
     pub(crate) fn get(&self, k: K) -> &V
     where
-        K: Ord,
         V: Default,
     {
         let mut map = self.map.borrow_mut();
@@ -28,12 +31,18 @@ impl<K, V> StableMap<K, V> {
     }
     pub(crate) fn get_mut(&mut self, k: K) -> &mut V
     where
-        K: Ord,
         V: Default,
     {
         &mut *self.map.get_mut().entry(k).or_default()
     }
     pub(crate) fn inner(&mut self) -> &mut BTreeMap<K, Box<V>> {
         self.map.get_mut()
+    }
+    pub(crate) fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Ord,
+    {
+        self.map.borrow().contains_key(k)
     }
 }
