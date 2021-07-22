@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::hash::{CryptoHash, Sha256};
+use crate::hash::{CryptoHasher, Sha256};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -21,10 +21,11 @@ type LookupKey = [u8; 32];
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`CryptoHash`] implementation.
+/// using the map's [`CryptoHasher`] implementation.
 ///
 /// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall to hash the
-/// key. To use a custom function, use [`new_with_hasher`]
+/// key. To use a custom function, use [`new_with_hasher`]. Alternative builtin hash functions
+/// can be found at [`near_sdk::hash`](crate::hash).
 ///
 /// # Examples
 /// ```
@@ -77,7 +78,7 @@ pub struct LookupMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHash<Digest = [u8; 32]>,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
     prefix: Box<[u8]>,
     #[borsh_skip]
@@ -108,7 +109,7 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHash<Digest = [u8; 32]>,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Initialize a [`LookupMap`] with a custom hash function.
     ///
@@ -163,7 +164,7 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHash<Digest = [u8; 32]>,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
@@ -313,7 +314,7 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHash<Digest = [u8; 32]>,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

@@ -7,7 +7,7 @@ fn read_register_fixed(register_id: u64, buf: &mut [u8]) {
 }
 
 /// Cryptographic hashes that can be used within the SDK as a hashing function.
-pub trait CryptoHash {
+pub trait CryptoHasher {
     /// Output type of the hashing function.
     type Digest;
 
@@ -15,10 +15,12 @@ pub trait CryptoHash {
     fn hash(ingest: &[u8]) -> Self::Digest;
 }
 
+/// Sha256 hash helper which hashes through a syscall. This type satisfies the [`CryptoHasher`]
+/// trait.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Sha256;
+pub enum Sha256 {}
 
-impl CryptoHash for Sha256 {
+impl CryptoHasher for Sha256 {
     type Digest = [u8; 32];
 
     fn hash(ingest: &[u8]) -> Self::Digest {
@@ -30,10 +32,12 @@ impl CryptoHash for Sha256 {
     }
 }
 
+/// Keccak256 hash helper which hashes through a syscall. This type satisfies the [`CryptoHasher`]
+/// trait.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Keccak256;
+pub enum Keccak256 {}
 
-impl CryptoHash for Keccak256 {
+impl CryptoHasher for Keccak256 {
     type Digest = [u8; 32];
 
     fn hash(ingest: &[u8]) -> Self::Digest {
