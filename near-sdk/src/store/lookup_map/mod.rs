@@ -1,6 +1,8 @@
+mod entry;
 mod impls;
 
 use core::borrow::Borrow;
+use std::collections::btree_map::Entry as BTreeMapEntry;
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -9,6 +11,7 @@ use once_cell::unsync::OnceCell;
 use crate::hash::{CryptoHash, Sha256};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
+pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
@@ -138,17 +141,25 @@ where
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
     }
 
+    fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> Option<V>
+    where
+        Q: BorshSerialize,
+        K: Borrow<Q>,
+    {
+        let storage_bytes = env::storage_read(&Self::lookup_key(prefix, key));
+        storage_bytes.as_deref().map(Self::deserialize_element)
+    }
+
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = K>,
     {
         //* ToOwned bound, which forces a clone, is required to be able to keep the key in the cache
-        let entry = self.cache.get(k.to_owned()).get_or_init(|| {
-            let storage_bytes = env::storage_read(&Self::lookup_key(&self.prefix, k));
-            let value = storage_bytes.as_deref().map(Self::deserialize_element);
-            CacheEntry::new_cached(value)
-        });
+        let entry = self
+            .cache
+            .get(k.to_owned())
+            .get_or_init(|| CacheEntry::new_cached(Self::load_element(&self.prefix, k)));
         entry.value().as_ref()
     }
 
@@ -160,12 +171,8 @@ where
         let prefix = &self.prefix;
         //* ToOwned bound, which forces a clone, is required to be able to keep the key in the cache
         let entry = self.cache.get_mut(k.to_owned());
-        entry.get_or_init(|| {
-            let storage_bytes = env::storage_read(&Self::lookup_key(&prefix, k));
-            let value = storage_bytes.as_deref().map(Self::deserialize_element);
-            CacheEntry::new_cached(value)
-        });
-        let entry = entry.get_mut().unwrap();
+        entry.get_or_init(|| CacheEntry::new_cached(Self::load_element(prefix, k)));
+        let entry = entry.get_mut().unwrap_or_else(|| unreachable!());
         entry
     }
 
@@ -213,6 +220,48 @@ where
         Q: BorshSerialize + ToOwned<Owned = K>,
     {
         self.get_mut_inner(k).replace(None)
+    }
+
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut count = LookupMap::new(b"m");
+    ///
+    /// for ch in [7, 2, 4, 7, 4, 1, 7] {
+    ///     let counter = count.entry(ch).or_insert(0);
+    ///     *counter += 1;
+    /// }
+    ///
+    /// assert_eq!(count[&4], 2);
+    /// assert_eq!(count[&7], 3);
+    /// assert_eq!(count[&1], 1);
+    /// assert_eq!(count.get(&8), None);
+    /// ```
+    pub fn entry(&mut self, key: K) -> Entry<K, V>
+    where
+        K: Clone,
+    {
+        // Load cache before getting entry to check if entry is occupied in storage
+        // TODO this extra clone and lookup could probably be removed.
+        self.cache
+            .get(key.clone())
+            .get_or_init(|| CacheEntry::new_cached(Self::load_element(&self.prefix, &key)));
+        match self.cache.inner().entry(key.clone()) {
+            BTreeMapEntry::Occupied(entry) => {
+                if entry.get().get().map(|c| c.value().is_some()).unwrap_or(false) {
+                    // Value exists in cache and is `Some`
+                    Entry::Occupied(OccupiedEntry { key, entry })
+                } else {
+                    // Value exists in cache, but is `None`
+                    Entry::Vacant(VacantEntry { key, entry })
+                }
+            }
+            BTreeMapEntry::Vacant(_) => {
+                // Cache for key is filled above
+                unreachable!()
+            }
+        }
     }
 }
 
