@@ -199,12 +199,12 @@ pub fn attached_deposit() -> Balance {
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    Gas::new(unsafe { sys::prepaid_gas() })
+    Gas(unsafe { sys::prepaid_gas() })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
-    Gas::new(unsafe { sys::used_gas() })
+    Gas(unsafe { sys::used_gas() })
 }
 
 // ############

@@ -17,13 +17,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     Hash,
     BorshSchema,
 )]
+#[repr(transparent)]
 pub struct Gas(pub u64);
-
-impl Gas {
-    pub const fn new(amount: u64) -> Self {
-        Self(amount)
-    }
-}
 
 impl Serialize for Gas {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -35,12 +30,12 @@ impl Serialize for Gas {
             use std::io::Write;
 
             let mut w: &mut [u8] = &mut buf;
-            write!(w, "{}", self.0).ok().unwrap();
+            write!(w, "{}", self.0).unwrap_or_else(|_| unreachable!());
             w.len()
         };
         let len = buf.len() - remainder;
 
-        let s = std::str::from_utf8(&buf[..len]).ok().unwrap();
+        let s = std::str::from_utf8(&buf[..len]).unwrap_or_else(|_| unreachable!());
         serializer.serialize_str(s)
     }
 }
@@ -124,7 +119,7 @@ mod tests {
     use super::*;
 
     fn test_json_ser(val: u64) {
-        let gas = Gas::new(val);
+        let gas = Gas(val);
         let ser = serde_json::to_string(&gas).unwrap();
         assert_eq!(ser, format!("\"{}\"", val));
         let de: Gas = serde_json::from_str(&ser).unwrap();
