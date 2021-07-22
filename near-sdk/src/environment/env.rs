@@ -199,12 +199,12 @@ pub fn attached_deposit() -> Balance {
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    Gas::new(unsafe { sys::prepaid_gas() })
+    Gas(unsafe { sys::prepaid_gas() })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 pub fn used_gas() -> Gas {
-    Gas::new(unsafe { sys::used_gas() })
+    Gas(unsafe { sys::used_gas() })
 }
 
 // ############
@@ -484,7 +484,6 @@ pub fn value_return(value: &[u8]) {
 /// Terminates the execution of the program with the UTF-8 encoded message.
 pub fn panic(message: &[u8]) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
-    unreachable!()
 }
 /// Logs the string message message. This message is stored on chain.
 pub fn log_str(message: &str) {
