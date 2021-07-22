@@ -1,6 +1,4 @@
 use crate::utils::CacheEntry;
-use once_cell::unsync::OnceCell;
-use std::collections::btree_map::OccupiedEntry as BTreeOccupied;
 
 /// A view into a single entry in the map, which can be vacant or occupied.
 pub enum Entry<'a, K: 'a, V: 'a> {
@@ -162,7 +160,7 @@ where
 /// This is part of the [`Entry`] enum.
 pub struct OccupiedEntry<'a, K, V> {
     pub(super) key: K,
-    pub(super) entry: BTreeOccupied<'a, K, Box<OnceCell<CacheEntry<V>>>>,
+    pub(super) entry: &'a mut CacheEntry<V>,
 }
 
 impl<'a, K, V> OccupiedEntry<'a, K, V>
@@ -192,16 +190,9 @@ where
     ///
     /// assert_eq!(map.contains_key("poneyland"), false);
     /// ```
-    pub fn remove_entry(mut self) -> (K, V) {
+    pub fn remove_entry(self) -> (K, V) {
         // OnceCell guaranteed to be filled and value to be `Some` in occupied entry
-        let value = self
-            .entry
-            .get_mut()
-            .get_mut()
-            .unwrap_or_else(|| unreachable!())
-            .value_mut()
-            .take()
-            .unwrap_or_else(|| unreachable!());
+        let value = self.entry.value_mut().take().unwrap_or_else(|| unreachable!());
 
         (self.key, value)
     }
@@ -223,13 +214,7 @@ where
     /// ```
     pub fn get(&self) -> &V {
         // Value guaranteed to be `Some` as it's occupied
-        self.entry
-            .get()
-            .get()
-            .unwrap_or_else(|| unreachable!())
-            .value()
-            .as_ref()
-            .unwrap_or_else(|| unreachable!())
+        self.entry.value().as_ref().unwrap_or_else(|| unreachable!())
     }
 
     /// Gets a mutable reference to the value in the entry.
@@ -261,13 +246,7 @@ where
     /// ```
     pub fn get_mut(&mut self) -> &mut V {
         // Value guaranteed to be `Some` as it's occupied
-        self.entry
-            .get_mut()
-            .get_mut()
-            .unwrap_or_else(|| unreachable!())
-            .value_mut()
-            .as_mut()
-            .unwrap_or_else(|| unreachable!())
+        self.entry.value_mut().as_mut().unwrap_or_else(|| unreachable!())
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry
@@ -295,13 +274,7 @@ where
     /// ```
     pub fn into_mut(self) -> &'a mut V {
         // If entry is occupied, value is guaranteed to be `Some`
-        self.entry
-            .into_mut()
-            .get_mut()
-            .unwrap_or_else(|| unreachable!())
-            .value_mut()
-            .as_mut()
-            .unwrap_or_else(|| unreachable!())
+        self.entry.value_mut().as_mut().unwrap_or_else(|| unreachable!())
     }
 
     /// Sets the value of the entry, and returns the entry's old value.
@@ -322,14 +295,7 @@ where
     /// assert_eq!(map["poneyland"], 15);
     /// ```
     pub fn insert(&mut self, value: V) -> V {
-        let old =
-            self.entry.insert(Box::new(OnceCell::from(CacheEntry::new_modified(Some(value)))));
-
-        // Old value guaranteed to be `Some` because occupied
-        old.into_inner()
-            .unwrap_or_else(|| unreachable!())
-            .into_value()
-            .unwrap_or_else(|| unreachable!())
+        self.entry.replace(Some(value)).unwrap_or_else(|| unreachable!())
     }
 
     /// Takes the value out of the entry, and returns it.
@@ -359,7 +325,7 @@ where
 pub struct VacantEntry<'a, K, V> {
     pub(super) key: K,
     // TODO wrong type
-    pub(super) entry: BTreeOccupied<'a, K, Box<OnceCell<CacheEntry<V>>>>,
+    pub(super) entry: &'a mut CacheEntry<V>,
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V>
@@ -406,15 +372,9 @@ where
     /// }
     /// assert_eq!(map["poneyland"], 37);
     /// ```
-    pub fn insert(mut self, value: V) -> &'a mut V {
-        self.entry.insert(Box::new(OnceCell::from(CacheEntry::new_modified(Some(value)))));
+    pub fn insert(self, value: V) -> &'a mut V {
+        self.entry.replace(Some(value));
         // Insertion done above, cache is filled and the value is Some
-        self.entry
-            .into_mut()
-            .get_mut()
-            .unwrap_or_else(|| unreachable!())
-            .value_mut()
-            .as_mut()
-            .unwrap_or_else(|| unreachable!())
+        self.entry.value_mut().as_mut().unwrap_or_else(|| unreachable!())
     }
 }

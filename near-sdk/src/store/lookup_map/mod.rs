@@ -2,7 +2,6 @@ mod entry;
 mod impls;
 
 use core::borrow::Borrow;
-use std::collections::btree_map::Entry as BTreeMapEntry;
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -242,25 +241,13 @@ where
     where
         K: Clone,
     {
-        // Load cache before getting entry to check if entry is occupied in storage
-        // TODO this extra clone and lookup could probably be removed.
-        self.cache
-            .get(key.clone())
-            .get_or_init(|| CacheEntry::new_cached(Self::load_element(&self.prefix, &key)));
-        match self.cache.inner().entry(key.clone()) {
-            BTreeMapEntry::Occupied(entry) => {
-                if entry.get().get().map(|c| c.value().is_some()).unwrap_or(false) {
-                    // Value exists in cache and is `Some`
-                    Entry::Occupied(OccupiedEntry { key, entry })
-                } else {
-                    // Value exists in cache, but is `None`
-                    Entry::Vacant(VacantEntry { key, entry })
-                }
-            }
-            BTreeMapEntry::Vacant(_) => {
-                // Cache for key is filled above
-                unreachable!()
-            }
+        let entry = self.get_mut_inner(&key);
+        if entry.value().is_some() {
+            // Value exists in cache and is `Some`
+            Entry::Occupied(OccupiedEntry { key, entry })
+        } else {
+            // Value exists in cache, but is `None`
+            Entry::Vacant(VacantEntry { key, entry })
         }
     }
 }
