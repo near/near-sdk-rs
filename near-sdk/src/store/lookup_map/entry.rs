@@ -324,7 +324,6 @@ where
 /// This is part of the [`Entry`] enum.
 pub struct VacantEntry<'a, K, V> {
     pub(super) key: K,
-    // TODO wrong type
     pub(super) entry: &'a mut CacheEntry<V>,
 }
 

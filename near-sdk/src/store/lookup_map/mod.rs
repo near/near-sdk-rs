@@ -42,6 +42,35 @@ type LookupKey = [u8; 32];
 /// assert_eq!(map["test"], 5u8);
 /// ```
 ///
+/// `LookupMap` also implements an [`Entry API`](Self::entry), which allows
+/// for more complex methods of getting, setting, updating and removing keys and
+/// their values:
+///
+/// ```
+/// use near_sdk::store::LookupMap;
+///
+/// // type inference lets us omit an explicit type signature (which
+/// // would be `LookupMap<String, u8>` in this example).
+/// let mut player_stats = LookupMap::new(b"m");
+///
+/// fn random_stat_buff() -> u8 {
+///     // could actually return some random value here - let's just return
+///     // some fixed value for now
+///     42
+/// }
+///
+/// // insert a key only if it doesn't already exist
+/// player_stats.entry("health".to_string()).or_insert(100);
+///
+/// // insert a key using a function that provides a new value only if it
+/// // doesn't already exist
+/// player_stats.entry("defence".to_string()).or_insert_with(random_stat_buff);
+///
+/// // update a key, guarding against the key possibly not being set
+/// let stat = player_stats.entry("attack".to_string()).or_insert(100);
+/// *stat += random_stat_buff();
+/// ```
+///
 /// [`new_with_hasher`]: Self::new_with_hasher
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V, H = Sha256>
@@ -149,6 +178,11 @@ where
         storage_bytes.as_deref().map(Self::deserialize_element)
     }
 
+    /// Returns a reference to the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
+    /// the key type.
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -175,6 +209,11 @@ where
         entry
     }
 
+    /// Returns a mutable reference to the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned)on the borrowed form *must* match those for
+    /// the key type.
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
@@ -183,6 +222,13 @@ where
         self.get_mut_inner(k).value_mut().as_mut()
     }
 
+    /// Inserts a key-value pair into the map.
+    ///
+    /// If the map did not have this key present, [`None`] is returned.
+    ///
+    /// If the map did have this key present, the value is updated, and the old
+    /// value is returned. The key is not updated, though; this matters for
+    /// types that can be `==` without being identical.
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
         K: Clone,
@@ -190,6 +236,11 @@ where
         self.get_mut_inner(&k).replace(Some(v))
     }
 
+    /// Returns `true` if the map contains a value for the specified key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned)on the borrowed form *must* match those for
+    /// the key type.
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -213,6 +264,12 @@ where
         contains
     }
 
+    /// Removes a key from the map, returning the value at the key if the key
+    /// was previously in the map.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned)on the borrowed form *must* match those for
+    /// the key type.
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q>,
@@ -258,6 +315,9 @@ where
     V: BorshSerialize,
     H: CryptoHash<Digest = [u8; 32]>,
 {
+    /// Flushes the intermediate values of the map before this is called when the structure is
+    /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
+    /// in memory.
     pub fn flush(&mut self) {
         let mut buf = Vec::new();
         for (k, v) in self.cache.inner().iter_mut() {
