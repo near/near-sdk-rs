@@ -24,6 +24,7 @@
   * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
 * Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
   * This default only affects outside of `wasm32` environments and is optional/backwards compatible
+* Deprecates `env::block_index` and replaces it with `env::block_height` for more consistent naming
 * Updates internal NFT traits to not move the underlying type for methods
   * This should not be a breaking change if using the `impl` macros, only if implementing manually
 * Makes `BLOCKCHAIN_INTERFACE` a concrete type and no longer exports it.
