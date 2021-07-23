@@ -100,10 +100,10 @@ impl PendingContractTx {
     }
 }
 
-/// Boilerplate for setting up allocator used in Wasm binary.
-/// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
+/// Deprecated helper function which used to generate code to initialize the [`GlobalAllocator`].
+/// This is now initialized by default. Disable `wee_alloc` feature to configure manually.
 ///
-/// [GlobalAllocator]: std::alloc::GlobalAlloc
+/// [`GlobalAllocator`]: std::alloc::GlobalAlloc
 #[deprecated(
     since = "4.0.0",
     note = "Allocator is already initialized with the default `wee_alloc` feature set. \
