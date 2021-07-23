@@ -1496,7 +1496,7 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "near-contract-standards"
-version = "3.3.0"
+version = "4.0.0-pre.1"
 dependencies = [
  "near-sdk",
 ]
@@ -1666,7 +1666,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "3.1.0"
+version = "4.0.0-pre.1"
 dependencies = [
  "base64",
  "borsh",
@@ -1687,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "3.1.0"
+version = "4.0.0-pre.1"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -1697,7 +1697,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-sim"
-version = "3.2.0"
+version = "4.0.0-pre.1"
 dependencies = [
  "fungible-token",
  "funty",
@@ -1894,9 +1894,9 @@ checksum = "a9a7ab5d64814df0fe4a4b5ead45ed6c5f181ee3ff04ba344313a6c80446c5d4"
 
 [[package]]
 name = "once_cell"
-version = "1.7.2"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "opaque-debug"
