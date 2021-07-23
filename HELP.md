@@ -193,7 +193,7 @@ This is equivalent to:
 #[near_bindgen]
 impl Contract {
     pub fn resolve_transfer(&mut self) {
-        if env::current_account_id() != env::predecessor_account_id() {
+        if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
             near_sdk::env::panic(b"Method resolve_transfer is private");
         }
         env::log_str("This is a callback");
