@@ -14,8 +14,8 @@ use near_sdk::{
 };
 use std::collections::HashMap;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::new(5_000_000_000_000);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::new(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
+const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -329,11 +329,12 @@ impl NonFungibleTokenCore for NonFungibleToken {
         .into()
     }
 
-    fn nft_token(self, token_id: TokenId) -> Option<Token> {
+    fn nft_token(&self, token_id: TokenId) -> Option<Token> {
         let owner_id = self.owner_by_id.get(&token_id)?;
-        let metadata = self.token_metadata_by_id.and_then(|by_id| by_id.get(&token_id));
+        let metadata = self.token_metadata_by_id.as_ref().and_then(|by_id| by_id.get(&token_id));
         let approved_account_ids = self
             .approvals_by_id
+            .as_ref()
             .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
     }
