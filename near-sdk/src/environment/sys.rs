@@ -36,8 +36,8 @@ extern "C" {
     // #####################
     pub fn value_return(value_len: u64, value_ptr: u64);
     #[allow(dead_code)]
-    pub fn panic();
-    pub fn panic_utf8(len: u64, ptr: u64);
+    pub fn panic() -> !;
+    pub fn panic_utf8(len: u64, ptr: u64) -> !;
     pub fn log_utf8(len: u64, ptr: u64);
     #[allow(dead_code)]
     pub fn log_utf16(len: u64, ptr: u64);
@@ -140,4 +140,9 @@ extern "C" {
     // ###############
     pub fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64);
     pub fn validator_total_stake(stake_ptr: u64);
+}
+
+#[inline]
+pub unsafe fn block_height() -> u64 {
+    block_index()
 }

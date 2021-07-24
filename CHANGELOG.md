@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+
+## `4.0.0-pre.1` [07-23-2021]
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
 * Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
 * Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
@@ -24,9 +26,18 @@
   * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
 * Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
   * This default only affects outside of `wasm32` environments and is optional/backwards compatible
+* Deprecates `env::block_index` and replaces it with `env::block_height` for more consistent naming
+* Updates internal NFT traits to not move the underlying type for methods
+  * This should not be a breaking change if using the `impl` macros, only if implementing manually
+* Makes `BLOCKCHAIN_INTERFACE` a concrete type and no longer exports it.
+  * If for testing you need this mocked blockchain, `near_sdk::mock::with_mocked_blockchain` can be used
+  * `near_sdk::env::take_blockchain_interface` is removed, as this interface is no longer optional
+  * removes `BlockchainInterface` trait, as this interface is only used in mocked contexts now
 * Updates `Gas` type to be a newtype, which makes the API harder to misuse.
   * This also changes the JSON serialization of this type to a string, to avoid precision loss when deserializing in JavaScript
 * `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
+* Expose `Receipt` and respective `VmAction`s in mocked contexts through replacing with a local interface and types.
+* Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 
 ## `3.1.0` [04-06-2021]
 
