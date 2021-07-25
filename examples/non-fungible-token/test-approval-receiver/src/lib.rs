@@ -5,15 +5,13 @@ use near_contract_standards::non_fungible_token::approval::NonFungibleTokenAppro
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, setup_alloc, AccountId, Balance, Gas, PanicOnDefault,
+    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
-setup_alloc!();
-
-const BASE_GAS: Gas = 5_000_000_000_000;
-const PROMISE_CALL: Gas = 5_000_000_000_000;
-const GAS_FOR_NFT_ON_APPROVE: Gas = BASE_GAS + PROMISE_CALL;
+const BASE_GAS: u64 = 5_000_000_000_000;
+const PROMISE_CALL: u64 = 5_000_000_000_000;
+const GAS_FOR_NFT_ON_APPROVE: Gas = Gas(BASE_GAS + PROMISE_CALL);
 
 const NO_DEPOSIT: Balance = 0;
 

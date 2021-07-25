@@ -42,6 +42,7 @@ where
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<K, V> LegacyTreeMap<K, V>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
@@ -59,6 +60,7 @@ where
         }
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> u64 {
         self.tree.len()
     }
@@ -420,6 +422,7 @@ where
     // Navigate from root to node holding `key` and backtrace back to the root
     // enforcing balance (if necessary) along the way.
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
+        #[allow(clippy::branches_sharing_code)]
         match self.node(at) {
             Some(mut node) => {
                 if node.key.eq(key) {
@@ -1388,7 +1391,7 @@ mod tests {
     fn test_iter_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
@@ -1407,7 +1410,7 @@ mod tests {
     fn test_iter_rev_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
@@ -1447,7 +1450,7 @@ mod tests {
     fn test_iter_from_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
@@ -1586,7 +1589,7 @@ mod tests {
     fn test_iter_rev_from_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev_from(42).count(), 0);
     }
 
     #[test]

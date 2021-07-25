@@ -12,8 +12,6 @@ use near_sdk::{
     PromiseOrValue,
 };
 
-near_sdk::setup_alloc!();
-
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}

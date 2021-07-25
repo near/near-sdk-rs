@@ -51,7 +51,7 @@ impl AccountId {
     /// Constructs new AccountId from `String` without checking validity.
     /// Creating an invalid account id will result in a runtime error when being used.
     ///
-    /// For more information, read: https://docs.near.org/docs/concepts/account#account-id-rules
+    /// For more information, read: <https://docs.near.org/docs/concepts/account#account-id-rules>
     pub fn new_unchecked(id: String) -> Self {
         debug_assert!(is_valid_account_id(id.as_bytes()));
         Self(id)

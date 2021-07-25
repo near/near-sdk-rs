@@ -1,9 +1,11 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
+mod core_impl;
+
 use proc_macro::TokenStream;
 
-use near_sdk_core::*;
+use self::core_impl::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
@@ -140,7 +142,7 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 /// `init(ignore_state)`.
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+    if let Ok(input) = syn::parse::<ItemStruct>(item) {
         let name = &input.ident;
         TokenStream::from(quote! {
             impl Default for #name {
@@ -167,7 +169,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
 pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         input.ident
-    } else if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+    } else if let Ok(input) = syn::parse::<ItemStruct>(item) {
         input.ident
     } else {
         return TokenStream::from(
