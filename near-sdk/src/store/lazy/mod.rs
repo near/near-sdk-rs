@@ -32,7 +32,8 @@ where
     T: BorshDeserialize,
 {
     let bytes = expect_key_exists(env::storage_read(key));
-    let val = T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION));
+    let val =
+        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION));
     CacheEntry::new_cached(Some(val))
 }
 
