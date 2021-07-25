@@ -7,11 +7,11 @@ pub(crate) use cache_entry::{CacheEntry, EntryState};
 
 use crate::{env, AccountId, PromiseResult};
 
-/// Helper macro to log a message through [`env::log`].
+/// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///
 /// This differs from [`std::format`] because instead of generating a string, it will log the utf8
-/// bytes as a log through [`env::log`].
+/// bytes as a log through [`env::log_str`].
 ///
 /// The logged message will get persisted on chain.
 ///
@@ -29,7 +29,7 @@ use crate::{env, AccountId, PromiseResult};
 /// # }
 /// ```
 ///
-/// [`env::log`]: crate::env::log
+/// [`env::log_str`]: crate::env::log_str
 #[macro_export]
 macro_rules! log {
     ($arg:expr) => {
@@ -37,6 +37,96 @@ macro_rules! log {
     };
     ($($arg:tt)*) => {
         $crate::env::log_str(format!($($arg)*).as_str())
+    };
+}
+
+/// Helper macro to create assertions that will panic through the runtime host functions.
+///
+/// This macro can be used similarly to [`assert!`] but will reduce code size by not including
+/// file and rust specific data in the panic message.
+///
+/// # Examples
+///
+/// ```no_run
+/// use near_sdk::require;
+///
+/// # fn main() {
+/// let a = 2;
+/// require!(a > 0);
+/// require!("test" != "other", "Some custom error message if false");
+/// # }
+/// ```
+#[macro_export]
+macro_rules! require {
+    ($cond:expr $(,)?) => {
+        if !$cond {
+            $crate::env::panic_str("require! assertion failed")
+        }
+    };
+    ($cond:expr, $message:tt $(,)?) => {
+        if !$cond {
+            $crate::env::panic_str($message)
+        }
+    };
+}
+
+/// Asserts that two expressions are equal to each other using [`PartialEq`].
+///
+/// Like [`require!`], this will panic through runtime host functions and reduce contract size with
+/// a more concise panic message.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::require_eq;
+///
+/// # fn main() {
+/// let a = 2;
+/// require_eq!(a, 2);
+/// require_eq!("test", "test", "Some custom error message if neq");
+/// # }
+/// ```
+#[macro_export]
+macro_rules! require_eq {
+    ($left:expr, $right:expr $(,)?) => {
+        if $left != $right {
+            $crate::env::panic_str("require_eq! assertion failed")
+        }
+    };
+    ($left:expr, $right:expr, $message:tt $(,)?) => {
+        if $left != $right {
+            $crate::env::panic_str($message)
+        }
+    };
+}
+
+/// Asserts that two expressions are not equal to each other using [`PartialEq`].
+///
+/// Like [`require!`], this will panic through runtime host functions and reduce contract size with
+/// a more concise panic message.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::require_ne;
+///
+/// # fn main() {
+/// let a = 2;
+/// require_ne!(a, 1);
+/// require_ne!("test", "other", "Some custom error message if eq");
+/// # }
+/// ```
+#[macro_export]
+macro_rules! require_ne {
+    ($left:expr, $right:expr $(,)?) => {
+        if $left == $right {
+            $crate::env::panic_str("require_ne! assertion failed")
+        }
+    };
+    ($left:expr, $right:expr, $message:tt $(,)?) => {
+        if $left == $right {
+            $crate::env::panic_str($message)
+        }
     };
 }
 
