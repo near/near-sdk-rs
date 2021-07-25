@@ -32,7 +32,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     ) -> Option<Promise> {
         assert_at_least_one_yocto();
         if self.approvals_by_id.is_none() {
-            env::panic(b"NFT does not support Approval Management");
+            env::panic_str("NFT does not support Approval Management");
         }
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
@@ -78,7 +78,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) {
         assert_one_yocto();
         if self.approvals_by_id.is_none() {
-            env::panic(b"NFT does not support Approval Management");
+            env::panic_str("NFT does not support Approval Management");
         }
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
@@ -110,7 +110,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     fn nft_revoke_all(&mut self, token_id: TokenId) {
         assert_one_yocto();
         if self.approvals_by_id.is_none() {
-            env::panic(b"NFT does not support Approval Management");
+            env::panic_str("NFT does not support Approval Management");
         }
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");

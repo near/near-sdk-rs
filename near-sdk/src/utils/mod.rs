@@ -40,14 +40,6 @@ macro_rules! log {
     };
 }
 
-macro_rules! require {
-    ($cond:expr $(,)?) => {
-        if !expr {
-            $crate::env::abort()
-        }
-    }
-}
-
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
     assert_eq!(env::predecessor_account_id(), env::current_account_id(), "Method is private");

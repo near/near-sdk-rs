@@ -246,7 +246,7 @@ impl NonFungibleToken {
         if sender_id != &owner_id {
             // if approval extension is NOT being used, or if token has no approved accounts
             if approved_account_ids.is_none() {
-                env::panic(b"Unauthorized")
+                env::panic_str("Unauthorized")
             }
 
             // Approval extension is being used; get approval_id for sender.
@@ -254,7 +254,7 @@ impl NonFungibleToken {
 
             // Panic if sender not approved at all
             if actual_approval_id.is_none() {
-                env::panic(b"Sender not approved");
+                env::panic_str("Sender not approved");
             }
 
             // If approval_id included, check that it matches
@@ -348,10 +348,10 @@ impl NonFungibleTokenCore for NonFungibleToken {
         let initial_storage_usage = env::storage_usage();
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            env::panic(b"Must provide metadata");
+            env::panic_str("Must provide metadata");
         }
         if self.owner_by_id.get(&token_id).is_some() {
-            env::panic(b"token_id must be unique");
+            env::panic_str("token_id must be unique");
         }
 
         let owner_id: AccountId = token_owner_id;
