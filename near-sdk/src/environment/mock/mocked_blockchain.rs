@@ -104,13 +104,11 @@ impl MockedBlockchain {
 mod mock_chain {
     use near_vm_logic::{VMLogic, VMLogicError};
 
-    use crate::env::BLOCKCHAIN_INTERFACE;
-
     fn with_mock_interface<F, R>(f: F) -> R
     where
         F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,
     {
-        BLOCKCHAIN_INTERFACE.with(|b| f(&mut b.borrow().logic.borrow_mut()).unwrap())
+        crate::mock::with_mocked_blockchain(|b| f(&mut b.logic.borrow_mut()).unwrap())
     }
 
     #[no_mangle]
