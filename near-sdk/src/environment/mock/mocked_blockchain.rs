@@ -198,12 +198,14 @@ mod mock_chain {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }
     #[no_mangle]
-    extern "C" fn panic() {
-        with_mock_interface(|b| b.panic())
+    extern "C" fn panic() -> ! {
+        with_mock_interface(|b| b.panic());
+        unreachable!()
     }
     #[no_mangle]
-    extern "C" fn panic_utf8(len: u64, ptr: u64) {
-        with_mock_interface(|b| b.panic_utf8(len, ptr))
+    extern "C" fn panic_utf8(len: u64, ptr: u64) -> ! {
+        with_mock_interface(|b| b.panic_utf8(len, ptr));
+        unreachable!()
     }
     #[no_mangle]
     extern "C" fn log_utf8(len: u64, ptr: u64) {
