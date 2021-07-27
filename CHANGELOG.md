@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+* fix: Public keys can no longer be borsh deserialized from invalid bytes
+* Adds `Hash` derive to `PublicKey`
 
 ## `4.0.0-pre.1` [07-23-2021]
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
