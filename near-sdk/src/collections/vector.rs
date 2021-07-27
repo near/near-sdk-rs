@@ -243,11 +243,9 @@ mod tests {
     use rand::{Rng, SeedableRng};
 
     use crate::collections::Vector;
-    use crate::test_utils::test_env;
 
     #[test]
     fn test_push_pop() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -265,7 +263,6 @@ mod tests {
 
     #[test]
     pub fn test_replace() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -290,7 +287,6 @@ mod tests {
 
     #[test]
     pub fn test_swap_remove() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -316,7 +312,6 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut vec = Vector::new(b"v".to_vec());
         for _ in 0..100 {
@@ -332,7 +327,6 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -357,7 +351,6 @@ mod tests {
 
     #[test]
     fn test_debug() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let prefix = b"v".to_vec();
         let mut vec = Vector::new(prefix.clone());
