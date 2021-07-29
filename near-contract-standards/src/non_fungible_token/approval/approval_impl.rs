@@ -8,9 +8,8 @@ use crate::non_fungible_token::utils::{
 };
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
-use std::collections::HashMap;
 
-const GAS_FOR_NFT_APPROVE: Gas = 10_000_000_000_000;
+const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
 
 #[ext_contract(ext_approval_receiver)]
@@ -44,10 +43,9 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let approvals_by_id = self.approvals_by_id.as_mut().unwrap();
 
         // update HashMap of approvals for this token
-        let approved_account_ids =
-            &mut approvals_by_id.get(&token_id).unwrap_or_else(|| HashMap::new());
+        let approved_account_ids = &mut approvals_by_id.get(&token_id).unwrap_or_default();
         let approval_id: u64 =
-            self.next_approval_id_by_id.as_ref().unwrap().get(&token_id).unwrap_or_else(|| 1u64);
+            self.next_approval_id_by_id.as_ref().unwrap().get(&token_id).unwrap_or(1u64);
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
         // save updated approvals HashMap to contract's LookupMap
@@ -64,8 +62,8 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         refund_deposit(storage_used);
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
-        if let Some(msg) = msg {
-            Some(ext_approval_receiver::nft_on_approve(
+        msg.map(|msg| {
+            ext_approval_receiver::nft_on_approve(
                 token_id,
                 owner_id,
                 approval_id,
@@ -73,10 +71,8 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                 &account_id,
                 NO_DEPOSIT,
                 env::prepaid_gas() - GAS_FOR_NFT_APPROVE,
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 
     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) {

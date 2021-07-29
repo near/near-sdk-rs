@@ -1,7 +1,4 @@
-use crate::info_extractor::arg_info::{ArgInfo, BindgenArgType};
-use crate::info_extractor::serializer_attr::SerializerAttr;
-use crate::info_extractor::SerializerType;
-use crate::info_extractor::{InitAttr, MethodType};
+use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
 use quote::ToTokens;
 use syn::export::Span;
 use syn::spanned::Spanned;
@@ -162,9 +159,6 @@ impl AttrSigInfo {
 
     /// Only get args that correspond to `env::input()`.
     pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
-        self.args.iter().filter(|arg| match arg.bindgen_ty {
-            BindgenArgType::Regular => true,
-            _ => false,
-        })
+        self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
     }
 }

@@ -11,7 +11,7 @@ use crate::{env, AccountId, PromiseResult};
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///
 /// This differs from [`std::format`] because instead of generating a string, it will log the utf8
-/// bytes as a log through the [`BlockchainInterface`].
+/// bytes as a log through [`env::log`].
 ///
 /// The logged message will get persisted on chain.
 ///
@@ -30,7 +30,6 @@ use crate::{env, AccountId, PromiseResult};
 /// ```
 ///
 /// [`env::log`]: crate::env::log
-/// [`BlockchainInterface`]: crate::BlockchainInterface
 #[macro_export]
 macro_rules! log {
     ($arg:expr) => {
@@ -101,10 +100,10 @@ impl PendingContractTx {
     }
 }
 
-/// Boilerplate for setting up allocator used in Wasm binary.
-/// Sets up the [GlobalAllocator] with [`WeeAlloc`](crate::wee_alloc::WeeAlloc).
+/// Deprecated helper function which used to generate code to initialize the [`GlobalAllocator`].
+/// This is now initialized by default. Disable `wee_alloc` feature to configure manually.
 ///
-/// [GlobalAllocator]: std::alloc::GlobalAlloc
+/// [`GlobalAllocator`]: std::alloc::GlobalAlloc
 #[deprecated(
     since = "4.0.0",
     note = "Allocator is already initialized with the default `wee_alloc` feature set. \
