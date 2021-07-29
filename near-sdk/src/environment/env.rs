@@ -10,12 +10,12 @@ use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
 
-use near_sys as sys;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use near_sys as sys;
 
 #[cfg(not(target_arch = "wasm32"))]
 thread_local! {
