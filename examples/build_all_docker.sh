@@ -3,7 +3,7 @@ set -ex
 
 CHECK=0
 
-CUR_DIR=$(dirname ${BASH_SOURCE[0]})
+pushd $(dirname ${BASH_SOURCE[0]})
 
 # Loop through arguments and process them
 for arg in "$@"
@@ -16,8 +16,8 @@ do
     esac
 done
 
-for d in "examples/status-message"  $(ls -d examples/*/ | grep -v -e "status-message\/$"); do
-	($CUR_DIR/build_docker.sh ${d%%/})
+for d in "status-message"  $(ls -d */ | grep -v -e "status-message\/$"); do
+	(./build_docker.sh ${d%%/})
 done
 
 if [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ] ; then
