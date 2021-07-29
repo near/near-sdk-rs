@@ -93,7 +93,7 @@ impl FungibleToken {
     }
 
     pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
-        match self.accounts.get(&account_id) {
+        match self.accounts.get(account_id) {
             Some(balance) => balance,
             None => env::panic(format!("The account {} is not registered", &account_id).as_bytes()),
         }
@@ -102,7 +102,7 @@ impl FungibleToken {
     pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_add(amount) {
-            self.accounts.insert(&account_id, &new_balance);
+            self.accounts.insert(account_id, &new_balance);
             self.total_supply =
                 self.total_supply.checked_add(amount).expect("Total supply overflow");
         } else {
@@ -113,7 +113,7 @@ impl FungibleToken {
     pub fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_sub(amount) {
-            self.accounts.insert(&account_id, &new_balance);
+            self.accounts.insert(account_id, &new_balance);
             self.total_supply =
                 self.total_supply.checked_sub(amount).expect("Total supply overflow");
         } else {
@@ -139,7 +139,7 @@ impl FungibleToken {
     }
 
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
-        if self.accounts.insert(&account_id, &0).is_some() {
+        if self.accounts.insert(account_id, &0).is_some() {
             env::panic(b"The account is already registered");
         }
     }
@@ -224,8 +224,8 @@ impl FungibleToken {
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
                 self.accounts.insert(&receiver_id, &(receiver_balance - refund_amount));
 
-                if let Some(sender_balance) = self.accounts.get(&sender_id) {
-                    self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
+                if let Some(sender_balance) = self.accounts.get(sender_id) {
+                    self.accounts.insert(sender_id, &(sender_balance + refund_amount));
                     log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
                     return (amount - refund_amount, 0);
                 } else {

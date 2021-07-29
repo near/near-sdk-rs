@@ -117,7 +117,7 @@ impl<T> Vector<T> {
             env::panic(ERR_INDEX_OUT_OF_BOUNDS)
         } else {
             let lookup_key = self.index_to_lookup_key(index);
-            if env::storage_write(&lookup_key, &raw_element) {
+            if env::storage_write(&lookup_key, raw_element) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
                 env::panic(ERR_INCONSISTENT_STATE);
@@ -179,7 +179,7 @@ where
     T: BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
-        T::try_from_slice(&raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
+        T::try_from_slice(raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
     }
 
     /// Returns the element by index or `None` if it is not present.
