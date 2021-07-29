@@ -18,6 +18,7 @@ docker create \
      --name=build_$NAME \
      -w /host/examples/$NAME \
      -e RUSTFLAGS='-C link-arg=-s' \
+	 -e CARGO_TARGET_DIR='/host/docker-target' \
      -it nearprotocol/contract-builder \
      /bin/bash
 fi

@@ -16,7 +16,7 @@ do
     esac
 done
 
-for d in "status-message"  $(ls -d */ | grep -v -e "status-message\/$"); do
+for d in "status-message/"  $(ls -d */ | grep -v -e "status-message\/$"); do
 	(./build_docker.sh ${d%%/})
 done
 
