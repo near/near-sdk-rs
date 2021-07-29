@@ -172,10 +172,10 @@ impl ImplItemMethodInfo {
         let serialize_args = if has_input_args {
             match &attr_signature_info.input_serializer {
                 SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
-                    &attr_signature_info,
+                    attr_signature_info,
                     &attr_signature_info.input_serializer,
                 ),
-                SerializerType::JSON => json_serialize(&attr_signature_info),
+                SerializerType::JSON => json_serialize(attr_signature_info),
             }
         } else {
             quote! {
