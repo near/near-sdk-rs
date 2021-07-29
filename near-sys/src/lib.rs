@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![no_std]
 
 extern "C" {
     // #############
@@ -163,6 +163,11 @@ extern "C" {
     pub fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64;
 }
 
+/// Alias for [`block_index`] function. Returns the height of the current block.
+///
+/// # Safety
+///
+/// This function relies on the external implementation of [`block_index`].
 #[inline]
 pub unsafe fn block_height() -> u64 {
     block_index()
