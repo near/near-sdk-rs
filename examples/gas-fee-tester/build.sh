@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
-
+TARGET="${CARGO_TARGET_DIR:-target}"
 cd "`dirname $0`"
 source ../flags.sh
 cargo build --target wasm32-unknown-unknown --release
-cp target/wasm32-unknown-unknown/release/gas_fee_tester.wasm ./res/
+cp $TARGET/wasm32-unknown-unknown/release/gas_fee_tester.wasm ./res/
 
