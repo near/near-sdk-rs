@@ -158,7 +158,7 @@ where
     }
 
     fn deserialize_value(raw_value: &[u8]) -> V {
-        match V::try_from_slice(&raw_value) {
+        match V::try_from_slice(raw_value) {
             Ok(x) => x,
             Err(_) => env::panic(ERR_VALUE_DESERIALIZATION),
         }
@@ -188,7 +188,7 @@ where
     /// a value. Note, the keys that have the same hash value are undistinguished by
     /// the implementation.
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
-        self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(&value))
+        self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 

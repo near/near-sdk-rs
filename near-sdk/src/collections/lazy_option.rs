@@ -53,7 +53,7 @@ impl<T> LazyOption<T> {
     }
 
     fn set_raw(&mut self, raw_value: &[u8]) -> bool {
-        env::storage_write(&self.storage_key, &raw_value)
+        env::storage_write(&self.storage_key, raw_value)
     }
 
     fn replace_raw(&mut self, raw_value: &[u8]) -> Option<Vec<u8>> {
@@ -76,7 +76,7 @@ where
     {
         let mut this = Self { storage_key: storage_key.into_storage_key(), el: PhantomData };
         if let Some(value) = value {
-            this.set(&value);
+            this.set(value);
         }
         this
     }
@@ -89,7 +89,7 @@ where
     }
 
     fn deserialize_value(raw_value: &[u8]) -> T {
-        match T::try_from_slice(&raw_value) {
+        match T::try_from_slice(raw_value) {
             Ok(x) => x,
             Err(_) => env::panic(ERR_VALUE_DESERIALIZATION),
         }
