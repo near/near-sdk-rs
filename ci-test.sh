@@ -8,6 +8,8 @@ if [[ "${NEAR_RELEASE}" == "true" ]]; then
 else
     echo "Test with git version of borsh and near-vm-logic"
 
+    cargo generate-lockfile
+
     cp Cargo.toml{,.bak}
     cp Cargo.lock{,.bak}
 
