@@ -7,6 +7,10 @@ NAME="$1"
 IDENT=${NAME#*/}
 echo "$IDENT"
 
+# Switch to current directory (./examples) then out to root for specific examples
+pushd $(dirname ${BASH_SOURCE[0]})
+cd ../
+
 if docker ps -a --format '{{.Names}}' | grep -Eq "^build_${IDENT}\$"; then
     echo "Container exists"
 else
