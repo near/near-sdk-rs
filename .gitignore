@@ -1,6 +1,7 @@
 # Build files
 target
 **/target/
+/docker-target/
 **/pkg/
 /Cargo.lock
 
