@@ -446,7 +446,7 @@ mod tests {
     #[test]
     fn process_all() {
         let (mut runtime, signer, _) = init_runtime(None);
-        assert_eq!(runtime.view_account(&"alice"), None);
+        assert_eq!(runtime.view_account("alice"), None);
         let outcome = runtime.resolve_tx(SignedTransaction::create_account(
             1,
             signer.account_id.clone(),
@@ -461,7 +461,7 @@ mod tests {
             Ok((_, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }))
         ));
         assert_eq!(
-            runtime.view_account(&"alice"),
+            runtime.view_account("alice"),
             Some(Account {
                 amount: 165437999999999999999000,
                 code_hash: CryptoHash::default(),
@@ -525,7 +525,7 @@ mod tests {
         runtime.process_all().unwrap();
 
         assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
-        let res = runtime.view_method_call(&"status", "get_status", b"{\"account_id\": \"root\"}");
+        let res = runtime.view_method_call("status", "get_status", b"{\"account_id\": \"root\"}");
 
         let caller_status = String::from_utf8(res.unwrap()).unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);
@@ -534,10 +534,10 @@ mod tests {
     #[test]
     fn test_force_update_account() {
         let (mut runtime, _, _) = init_runtime(None);
-        let mut bob_account = runtime.view_account(&"root").unwrap();
+        let mut bob_account = runtime.view_account("root").unwrap();
         bob_account.locked = 10000;
         runtime.force_account_update("root".parse().unwrap(), &bob_account);
-        assert_eq!(runtime.view_account(&"root").unwrap().locked, 10000);
+        assert_eq!(runtime.view_account("root").unwrap().locked, 10000);
     }
 
     #[test]

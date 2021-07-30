@@ -56,7 +56,7 @@ impl ExecutionResult {
     pub fn unwrap_json_value(&self) -> Value {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => near_sdk::serde_json::from_slice(&s).unwrap(),
+            SuccessValue(s) => near_sdk::serde_json::from_slice(s).unwrap(),
             err => panic!("Expected Success value but got: {:#?}", err),
         }
     }
@@ -65,7 +65,7 @@ impl ExecutionResult {
     pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => BorshDeserialize::try_from_slice(&s).unwrap(),
+            SuccessValue(s) => BorshDeserialize::try_from_slice(s).unwrap(),
             _ => panic!("Cannot get value of failed transaction"),
         }
     }
@@ -113,7 +113,7 @@ impl ExecutionResult {
     }
 
     fn get_outcomes(&self, ids: &[CryptoHash]) -> Vec<Option<ExecutionResult>> {
-        ids.iter().map(|id| self.get_outcome(&id)).collect()
+        ids.iter().map(|id| self.get_outcome(id)).collect()
     }
 
     /// Return the results of any promises created since the last transaction
@@ -220,13 +220,13 @@ impl ViewResult {
 
     /// Interpret the value as a JSON::Value
     pub fn unwrap_json_value(&self) -> Value {
-        near_sdk::serde_json::from_slice(&self.result.as_ref().expect("ViewResult is an error"))
+        near_sdk::serde_json::from_slice(self.result.as_ref().expect("ViewResult is an error"))
             .unwrap()
     }
 
     /// Deserialize the value with Borsh
     pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
-        BorshDeserialize::try_from_slice(&self.result.as_ref().expect("ViewResult is an error"))
+        BorshDeserialize::try_from_slice(self.result.as_ref().expect("ViewResult is an error"))
             .unwrap()
     }
 

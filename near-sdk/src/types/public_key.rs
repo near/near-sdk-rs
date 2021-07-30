@@ -168,7 +168,7 @@ impl std::str::FromStr for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let (curve, key_data) = PublicKey::split_key_type_data(&value)?;
+        let (curve, key_data) = PublicKey::split_key_type_data(value)?;
         let data = bs58::decode(key_data).into_vec()?;
         Self::from_parts(curve, data)
     }

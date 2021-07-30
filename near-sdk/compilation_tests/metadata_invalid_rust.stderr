@@ -10,7 +10,7 @@ error: Failed to parse code decorated with `metadata!{}` macro. Only valid Rust 
 18 | | }
    | |_^
    |
-   = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `metadata` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 warning: unused import: `near_bindgen`
  --> $DIR/metadata_invalid_rust.rs:1:16
