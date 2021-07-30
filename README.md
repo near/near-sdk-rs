@@ -148,7 +148,7 @@ pub fn my_method(&mut self) {
 /// Which is equivalent to
 
 pub fn my_method(&mut self ) {
-    if env::current_account_id() != env::predecessor_account_id() {
+    if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
         near_sdk::env::panic("Method method is private".as_bytes());
     }
 ...

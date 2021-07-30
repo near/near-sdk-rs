@@ -70,7 +70,7 @@ impl ImplItemMethodInfo {
         let is_private_check = if *is_private {
             let error = format!("Method {} is private", ident.to_string());
             quote! {
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic(#error.as_bytes());
                 }
             }
