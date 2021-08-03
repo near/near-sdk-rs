@@ -458,7 +458,7 @@ mod ext_calculator {
         Promise::new(receiver_id.clone())
             .function_call(
                 b"mult",
-                json!({ "a": a, "b": b }).to_string().as_bytes(),
+                json!({ "a": a, "b": b }).to_string(),
                 deposit,
                 gas,
             )
