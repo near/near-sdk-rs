@@ -5,7 +5,7 @@ use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
+    env, ext_contract, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
@@ -36,7 +36,7 @@ trait ValueReturnTrait {
 impl DeFi {
     #[init]
     pub fn new(fungible_token_account_id: AccountId) -> Self {
-        assert!(!env::state_exists(), "Already initialized");
+        require!(!env::state_exists(), "Already initialized");
         Self { fungible_token_account_id: fungible_token_account_id.into() }
     }
 }
