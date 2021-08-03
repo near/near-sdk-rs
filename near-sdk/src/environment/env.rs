@@ -3,7 +3,6 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use std::borrow::Borrow;
 #[cfg(not(target_arch = "wasm32"))]
 use std::cell::RefCell;
 use std::convert::TryFrom;
@@ -351,12 +350,11 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balanc
     unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
 }
 
-pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
+pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: Balance,
-    public_key: P,
+    public_key: &PublicKey,
 ) {
-    let public_key = public_key.borrow();
     unsafe {
         sys::promise_batch_action_stake(
             promise_index,
@@ -366,12 +364,11 @@ pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
+pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
-    public_key: P,
+    public_key: &PublicKey,
     nonce: u64,
 ) {
-    let public_key = public_key.borrow();
     unsafe {
         sys::promise_batch_action_add_key_with_full_access(
             promise_index,
@@ -381,15 +378,14 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
+pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
-    public_key: P,
+    public_key: &PublicKey,
     nonce: u64,
     allowance: Balance,
     receiver_id: &AccountId,
     method_names: &[u8],
 ) {
-    let public_key = public_key.borrow();
     let receiver_id: &str = receiver_id.as_ref();
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
@@ -405,11 +401,7 @@ pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
-    promise_index: PromiseIndex,
-    public_key: P,
-) {
-    let public_key = public_key.borrow();
+pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
             promise_index,
