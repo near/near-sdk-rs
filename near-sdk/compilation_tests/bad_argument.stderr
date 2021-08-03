@@ -4,4 +4,4 @@ error: Unsupported argument type.
 28 | #[near_bindgen]
    | ^^^^^^^^^^^^^^^
    |
-   = note: this error originates in an attribute macro (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the attribute macro `near_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)

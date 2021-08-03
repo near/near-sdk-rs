@@ -1,5 +1,6 @@
 //! Legacy `TreeMap` implementation that is using `UnorderedMap`.
 //! DEPRECATED. This implementation is deprecated and may be removed in the future.
+#![allow(clippy::all)]
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;

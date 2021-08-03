@@ -70,7 +70,7 @@ impl ImplItemMethodInfo {
         let is_private_check = if *is_private {
             let error = format!("Method {} is private", ident.to_string());
             quote! {
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str(#error);
                 }
             }
@@ -172,10 +172,10 @@ impl ImplItemMethodInfo {
         let serialize_args = if has_input_args {
             match &attr_signature_info.input_serializer {
                 SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
-                    &attr_signature_info,
+                    attr_signature_info,
                     &attr_signature_info.input_serializer,
                 ),
-                SerializerType::JSON => json_serialize(&attr_signature_info),
+                SerializerType::JSON => json_serialize(attr_signature_info),
             }
         } else {
             quote! {

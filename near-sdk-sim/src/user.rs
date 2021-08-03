@@ -306,7 +306,7 @@ impl UserAccount {
 
     /// Create a new user where the signer is this user account
     pub fn create_user(&self, account_id: AccountId, amount: Balance) -> UserAccount {
-        self.create_user_from(&self, account_id, amount)
+        self.create_user_from(self, account_id, amount)
     }
 
     /// Returns a reference to a memory location of the standalone runtime.
@@ -412,7 +412,6 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///   init_method: new_default_meta(master_account_id, initial_balance.into()),
 /// };
 /// ```
-#[doc(inline)]
 #[macro_export]
 macro_rules! deploy {
     ($contract: ident, $account_id:expr, $wasm_bytes: expr, $user:expr $(,)?) => {

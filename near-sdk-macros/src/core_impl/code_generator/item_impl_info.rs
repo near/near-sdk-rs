@@ -289,7 +289,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(near_sdk :: serde :: Deserialize)]
@@ -333,7 +333,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str("Method method is private");
                 }
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
@@ -369,7 +369,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(near_sdk :: serde :: Deserialize)]
@@ -550,7 +550,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(near_sdk :: borsh :: BorshDeserialize)]
@@ -610,7 +610,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn private_method() {
                 near_sdk::env::setup_panic_hook();
-                if env::current_account_id() != env::predecessor_account_id() {
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str("Method private_method is private");
                 }
                 if near_sdk::env::attached_deposit() != 0 {

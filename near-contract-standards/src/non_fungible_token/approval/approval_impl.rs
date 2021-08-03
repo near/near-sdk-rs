@@ -49,7 +49,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
         // save updated approvals HashMap to contract's LookupMap
-        approvals_by_id.insert(&token_id, &approved_account_ids);
+        approvals_by_id.insert(&token_id, approved_account_ids);
 
         // increment next_approval_id for this token
         self.next_approval_id_by_id.as_mut().unwrap().insert(&token_id, &(approval_id + 1));
@@ -101,7 +101,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                     self.approvals_by_id.as_mut().unwrap().remove(&token_id);
                 } else {
                     // otherwise, update approvals_by_id with updated HashMap
-                    self.approvals_by_id.as_mut().unwrap().insert(&token_id, &approved_account_ids);
+                    self.approvals_by_id.as_mut().unwrap().insert(&token_id, approved_account_ids);
                 }
             }
         }
@@ -123,7 +123,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             &mut self.approvals_by_id.as_mut().unwrap().get(&token_id)
         {
             // otherwise, refund owner for storage costs of all approvals...
-            refund_approved_account_ids(predecessor_account_id, &approved_account_ids);
+            refund_approved_account_ids(predecessor_account_id, approved_account_ids);
             // ...and remove whole HashMap of approvals
             self.approvals_by_id.as_mut().unwrap().remove(&token_id);
         }
