@@ -94,7 +94,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 )
                 .into()
             }
-            _ => env::panic(b"unsupported msg"),
+            _ => env::panic_str("unsupported msg"),
         }
     }
 }

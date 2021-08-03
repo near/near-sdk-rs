@@ -194,7 +194,7 @@ This is equivalent to:
 impl Contract {
     pub fn resolve_transfer(&mut self) {
         if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-            near_sdk::env::panic(b"Method resolve_transfer is private");
+            near_sdk::env::panic_str("Method resolve_transfer is private");
         }
         env::log_str("This is a callback");
     }
@@ -368,7 +368,7 @@ impl Contract {
 
     pub fn do_not_take_my_money(&mut self) {
         if near_sdk::env::attached_deposit() != 0 {
-            near_sdk::env::panic(b"Method do_not_take_my_money doesn't accept deposit");
+            near_sdk::env::panic_str("Method do_not_take_my_money doesn't accept deposit");
         }
         env::log_str("Thanks!");
     }

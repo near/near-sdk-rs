@@ -93,7 +93,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
+                    near_sdk::env::panic_str("Method method doesn't accept deposit");
                 }
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
@@ -143,7 +143,7 @@ mod tests {
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
                     if near_sdk::env::attached_deposit() != 0 {
-                        near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
+                        near_sdk::env::panic_str("Method method doesn't accept deposit");
                     }
                     #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
@@ -176,7 +176,7 @@ mod tests {
                 pub extern "C" fn method() {
                     near_sdk::env::setup_panic_hook();
                     if near_sdk::env::attached_deposit() != 0 {
-                        near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
+                        near_sdk::env::panic_str("Method method doesn't accept deposit");
                     }
                     #[derive(near_sdk :: serde :: Deserialize)]
                     #[serde(crate = "near_sdk::serde")]
@@ -290,7 +290,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic("Method method is private".as_bytes());
+                    near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -334,7 +334,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic("Method method is private".as_bytes());
+                    near_sdk::env::panic_str("Method method is private");
                 }
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
@@ -370,7 +370,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic("Method method is private".as_bytes());
+                    near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -412,7 +412,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
+                    near_sdk::env::panic_str("Method method doesn't accept deposit");
                 }
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -424,7 +424,7 @@ mod tests {
                 )
                 .expect("Failed to deserialize input from JSON.");
                 if near_sdk::env::state_exists() {
-                    near_sdk::env::panic(b"The contract has already been initialized");
+                    near_sdk::env::panic_str("The contract has already been initialized");
                 }
                 let contract = Hello::method(&mut k,);
                 near_sdk::env::state_write(&contract);
@@ -448,7 +448,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
+                    near_sdk::env::panic_str("Method method doesn't accept deposit");
                 }
                 #[derive(near_sdk :: serde :: Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
@@ -491,7 +491,7 @@ mod tests {
                 )
                 .expect("Failed to deserialize input from JSON.");
                 if near_sdk::env::state_exists() {
-                    near_sdk::env::panic(b"The contract has already been initialized");
+                    near_sdk::env::panic_str("The contract has already been initialized");
                 }
                 let contract = Hello::method(&mut k,);
                 near_sdk::env::state_write(&contract);
@@ -515,7 +515,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic("Method method doesn't accept deposit".as_bytes());
+                    near_sdk::env::panic_str("Method method doesn't accept deposit");
                 }
                 #[derive(near_sdk :: borsh :: BorshDeserialize)]
                 struct Input {
@@ -551,7 +551,7 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic("Method method is private".as_bytes());
+                    near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(near_sdk :: borsh :: BorshDeserialize)]
                 struct Input {
@@ -611,10 +611,10 @@ mod tests {
             pub extern "C" fn private_method() {
                 near_sdk::env::setup_panic_hook();
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic("Method private_method is private".as_bytes());
+                    near_sdk::env::panic_str("Method private_method is private");
                 }
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic("Method private_method doesn't accept deposit".as_bytes());
+                    near_sdk::env::panic_str("Method private_method doesn't accept deposit");
                 }
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.private_method();
