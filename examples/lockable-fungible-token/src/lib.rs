@@ -80,12 +80,12 @@ impl FunToken {
         let allowance = u128::from_str(&allowance).expect("Failed to parse allowance");
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
-            env::panic(b"Can't set allowance for yourself");
+            env::panic_str("Can't set allowance for yourself");
         }
         let mut account = self.get_account(&owner_id);
         let locked_balance = account.get_locked_balance(&escrow_account_id);
         if locked_balance > allowance {
-            env::panic(b"The new allowance can't be less than the amount of locked tokens");
+            env::panic_str("The new allowance can't be less than the amount of locked tokens");
         }
 
         account.set_allowance(&escrow_account_id, allowance - locked_balance);
@@ -100,14 +100,14 @@ impl FunToken {
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) {
         let lock_amount = u128::from_str(&lock_amount).expect("Failed to parse allow lock_amount");
         if lock_amount == 0 {
-            env::panic(b"Can't lock 0 tokens");
+            env::panic_str("Can't lock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
 
         // Checking and updating unlocked balance
         if account.balance < lock_amount {
-            env::panic(b"Not enough unlocked balance");
+            env::panic_str("Not enough unlocked balance");
         }
         account.balance -= lock_amount;
 
@@ -115,7 +115,7 @@ impl FunToken {
         if escrow_account_id != owner_id {
             let allowance = account.get_allowance(&escrow_account_id);
             if allowance < lock_amount {
-                env::panic(b"Not enough allowance");
+                env::panic_str("Not enough allowance");
             }
             account.set_allowance(&escrow_account_id, allowance - lock_amount);
         }
@@ -136,7 +136,7 @@ impl FunToken {
         let unlock_amount =
             u128::from_str(&unlock_amount).expect("Failed to parse allow unlock_amount");
         if unlock_amount == 0 {
-            env::panic(b"Can't unlock 0 tokens");
+            env::panic_str("Can't unlock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
@@ -144,7 +144,7 @@ impl FunToken {
         // Checking and updating locked balance
         let locked_balance = account.get_locked_balance(&escrow_account_id);
         if locked_balance < unlock_amount {
-            env::panic(b"Not enough locked tokens");
+            env::panic_str("Not enough locked tokens");
         }
         account.set_locked_balance(&escrow_account_id, locked_balance - unlock_amount);
 
@@ -172,7 +172,7 @@ impl FunToken {
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: String) {
         let amount = u128::from_str(&amount).expect("Failed to parse allow amount");
         if amount == 0 {
-            env::panic(b"Can't transfer 0 tokens");
+            env::panic_str("Can't transfer 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
@@ -191,7 +191,7 @@ impl FunToken {
         if remaining_amount > 0 {
             // Checking and updating unlocked balance
             if account.balance < remaining_amount {
-                env::panic(b"Not enough unlocked balance");
+                env::panic_str("Not enough unlocked balance");
             }
             account.balance -= remaining_amount;
 
@@ -200,7 +200,7 @@ impl FunToken {
                 let allowance = account.get_allowance(&escrow_account_id);
                 // Checking and updating unlocked balance
                 if allowance < remaining_amount {
-                    env::panic(b"Not enough allowance");
+                    env::panic_str("Not enough allowance");
                 }
                 account.set_allowance(&escrow_account_id, allowance - remaining_amount);
             }

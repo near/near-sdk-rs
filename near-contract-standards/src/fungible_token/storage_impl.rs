@@ -20,7 +20,9 @@ impl FungibleToken {
                 Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
                 Some((account_id, balance))
             } else {
-                env::panic(b"Can't unregister the account with the positive balance without force")
+                env::panic_str(
+                    "Can't unregister the account with the positive balance without force",
+                )
             }
         } else {
             log!("The account {} is not registered", &account_id);
@@ -55,7 +57,7 @@ impl StorageManagement for FungibleToken {
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
             if amount < min_balance {
-                env::panic(b"The attached deposit is less than the minimum storage balance");
+                env::panic_str("The attached deposit is less than the minimum storage balance");
             }
 
             self.internal_register_account(&account_id);
@@ -79,13 +81,13 @@ impl StorageManagement for FungibleToken {
         if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
             match amount {
                 Some(amount) if amount.0 > 0 => {
-                    env::panic(b"The amount is greater than the available storage balance");
+                    env::panic_str("The amount is greater than the available storage balance");
                 }
                 _ => storage_balance,
             }
         } else {
-            env::panic(
-                format!("The account {} is not registered", &predecessor_account_id).as_bytes(),
+            env::panic_str(
+                format!("The account {} is not registered", &predecessor_account_id).as_str(),
             );
         }
     }
