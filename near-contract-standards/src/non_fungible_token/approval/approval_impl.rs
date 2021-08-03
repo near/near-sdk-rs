@@ -7,7 +7,7 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
+use near_sdk::{assert_one_yocto, env, ext_contract, require_eq, AccountId, Balance, Gas, Promise};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
@@ -37,7 +37,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
 
-        assert_eq!(&env::predecessor_account_id(), &owner_id, "Predecessor must be token owner.");
+        require_eq!(&env::predecessor_account_id(), &owner_id, "Predecessor must be token owner.");
 
         // get contract-level LookupMap of token_id to approvals HashMap
         let approvals_by_id = self.approvals_by_id.as_mut().unwrap();
@@ -84,7 +84,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
         let predecessor_account_id = env::predecessor_account_id();
 
-        assert_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
+        require_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
 
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) =
@@ -116,7 +116,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
         let predecessor_account_id = env::predecessor_account_id();
 
-        assert_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
+        require_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
 
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) =

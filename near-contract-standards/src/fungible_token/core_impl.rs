@@ -4,8 +4,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, require, require_ne, AccountId, Balance, Gas,
+    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
@@ -130,8 +130,8 @@ impl FungibleToken {
         amount: Balance,
         memo: Option<String>,
     ) {
-        assert_ne!(sender_id, receiver_id, "Sender and receiver should be different");
-        assert!(amount > 0, "The amount should be a positive number");
+        require_ne!(sender_id, receiver_id, "Sender and receiver should be different");
+        require!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
         log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
