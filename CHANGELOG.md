@@ -1,6 +1,7 @@
 # Changelog
 
 ## [unreleased]
+* Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`.
 
 ## `4.0.0-pre.1` [07-23-2021]
@@ -38,7 +39,6 @@
   * This also changes the JSON serialization of this type to a string, to avoid precision loss when deserializing in JavaScript
 * `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
 * Expose `Receipt` and respective `VmAction`s in mocked contexts through replacing with a local interface and types.
-* Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 
 ## `3.1.0` [04-06-2021]
 
