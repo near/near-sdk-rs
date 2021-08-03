@@ -63,15 +63,15 @@ impl ImplItemMethodInfo {
             let error = format!("Method {} doesn't accept deposit", ident.to_string());
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(#error.as_bytes());
+                    near_sdk::env::panic_str(#error);
                 }
             }
         };
         let is_private_check = if *is_private {
             let error = format!("Method {} is private", ident.to_string());
             quote! {
-                if env::current_account_id() != env::predecessor_account_id() {
-                    near_sdk::env::panic(#error.as_bytes());
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+                    near_sdk::env::panic_str(#error);
                 }
             }
         } else {
@@ -80,7 +80,7 @@ impl ImplItemMethodInfo {
         let body = if matches!(method_type, &MethodType::Init) {
             quote! {
                 if near_sdk::env::state_exists() {
-                    near_sdk::env::panic(b"The contract has already been initialized");
+                    near_sdk::env::panic_str("The contract has already been initialized");
                 }
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);
@@ -172,10 +172,10 @@ impl ImplItemMethodInfo {
         let serialize_args = if has_input_args {
             match &attr_signature_info.input_serializer {
                 SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
-                    &attr_signature_info,
+                    attr_signature_info,
                     &attr_signature_info.input_serializer,
                 ),
-                SerializerType::JSON => json_serialize(&attr_signature_info),
+                SerializerType::JSON => json_serialize(attr_signature_info),
             }
         } else {
             quote! {
