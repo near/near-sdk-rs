@@ -13,18 +13,18 @@ use crate::env;
 use crate::utils::{CacheEntry, EntryState};
 use crate::IntoStorageKey;
 
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
-const ERR_NOT_FOUND: &[u8] = b"No value found for the given key";
-const ERR_DELETED: &[u8] = b"The Lazy cell's value has been deleted. Verify the key has not been\
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
+const ERR_NOT_FOUND: &str = "No value found for the given key";
+const ERR_DELETED: &str = "The Lazy cell's value has been deleted. Verify the key has not been\
                             deleted manually.";
 
 fn expect_key_exists<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic(ERR_NOT_FOUND))
+    val.unwrap_or_else(|| env::panic_str(ERR_NOT_FOUND))
 }
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic(ERR_DELETED))
+    val.unwrap_or_else(|| env::panic_str(ERR_DELETED))
 }
 
 pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
@@ -32,7 +32,8 @@ where
     T: BorshDeserialize,
 {
     let bytes = expect_key_exists(env::storage_read(key));
-    let val = T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic(ERR_VALUE_DESERIALIZATION));
+    let val =
+        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION));
     CacheEntry::new_cached(Some(val))
 }
 
@@ -40,7 +41,7 @@ pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = value.try_to_vec().unwrap_or_else(|_| env::panic(ERR_VALUE_SERIALIZATION));
+    let serialized = value.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
     env::storage_write(&key, &serialized);
 }
 
@@ -93,7 +94,7 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(Some(value)))
-                .unwrap_or_else(|_| env::panic(b"cache is checked to not be filled above"))
+                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"))
         }
     }
 

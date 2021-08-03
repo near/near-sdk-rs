@@ -10,8 +10,8 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use crate::env;
 use crate::IntoStorageKey;
 
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 
 /// An persistent lazy option, that stores a value in the storage.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -84,14 +84,14 @@ where
     fn serialize_value(value: &T) -> Vec<u8> {
         match value.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_SERIALIZATION),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> T {
         match T::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_DESERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_DESERIALIZATION),
         }
     }
 
