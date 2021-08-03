@@ -63,7 +63,7 @@ impl ImplItemMethodInfo {
             let error = format!("Method {} doesn't accept deposit", ident.to_string());
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(#error.as_bytes());
+                    near_sdk::env::panic_str(#error);
                 }
             }
         };
@@ -71,7 +71,7 @@ impl ImplItemMethodInfo {
             let error = format!("Method {} is private", ident.to_string());
             quote! {
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic(#error.as_bytes());
+                    near_sdk::env::panic_str(#error);
                 }
             }
         } else {
@@ -80,7 +80,7 @@ impl ImplItemMethodInfo {
         let body = if matches!(method_type, &MethodType::Init) {
             quote! {
                 if near_sdk::env::state_exists() {
-                    near_sdk::env::panic(b"The contract has already been initialized");
+                    near_sdk::env::panic_str("The contract has already been initialized");
                 }
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);

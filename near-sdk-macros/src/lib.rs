@@ -147,7 +147,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl Default for #name {
                 fn default() -> Self {
-                    near_sdk::env::panic(b"The contract is not initialized");
+                    near_sdk::env::panic_str("The contract is not initialized");
                 }
             }
         })

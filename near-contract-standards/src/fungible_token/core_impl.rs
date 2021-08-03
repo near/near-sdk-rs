@@ -95,7 +95,9 @@ impl FungibleToken {
     pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
         match self.accounts.get(account_id) {
             Some(balance) => balance,
-            None => env::panic(format!("The account {} is not registered", &account_id).as_bytes()),
+            None => {
+                env::panic_str(format!("The account {} is not registered", &account_id).as_str())
+            }
         }
     }
 
@@ -106,7 +108,7 @@ impl FungibleToken {
             self.total_supply =
                 self.total_supply.checked_add(amount).expect("Total supply overflow");
         } else {
-            env::panic(b"Balance overflow");
+            env::panic_str("Balance overflow");
         }
     }
 
@@ -117,7 +119,7 @@ impl FungibleToken {
             self.total_supply =
                 self.total_supply.checked_sub(amount).expect("Total supply overflow");
         } else {
-            env::panic(b"The account doesn't have enough balance");
+            env::panic_str("The account doesn't have enough balance");
         }
     }
 
@@ -140,7 +142,7 @@ impl FungibleToken {
 
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
         if self.accounts.insert(account_id, &0).is_some() {
-            env::panic(b"The account is already registered");
+            env::panic_str("The account is already registered");
         }
     }
 }
