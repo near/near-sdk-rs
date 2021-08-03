@@ -63,9 +63,9 @@ macro_rules! require {
             $crate::env::panic_str("require! assertion failed")
         }
     };
-    ($cond:expr, $message:tt $(,)?) => {
+    ($cond:expr, $message:expr $(,)?) => {
         if !$cond {
-            $crate::env::panic_str($message)
+            $crate::env::panic_str($message.as_ref())
         }
     };
 }
@@ -93,9 +93,9 @@ macro_rules! require_eq {
             $crate::env::panic_str("require_eq! assertion failed")
         }
     };
-    ($left:expr, $right:expr, $message:tt $(,)?) => {
+    ($left:expr, $right:expr, $message:expr $(,)?) => {
         if $left != $right {
-            $crate::env::panic_str($message)
+            $crate::env::panic_str($message.as_ref())
         }
     };
 }
@@ -123,9 +123,9 @@ macro_rules! require_ne {
             $crate::env::panic_str("require_ne! assertion failed")
         }
     };
-    ($left:expr, $right:expr, $message:tt $(,)?) => {
+    ($left:expr, $right:expr, $message:expr $(,)?) => {
         if $left == $right {
-            $crate::env::panic_str($message)
+            $crate::env::panic_str($message.as_ref())
         }
     };
 }
