@@ -25,6 +25,7 @@ pub use item_impl_info::ItemImplInfo;
 
 /// Type of serialization we use.
 #[derive(PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum SerializerType {
     JSON,
     Borsh,
