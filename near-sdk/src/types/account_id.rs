@@ -163,6 +163,6 @@ mod tests {
         let account_id = AccountId::new_unchecked(id.to_string());
 
         // Test to make sure the account ID is serialized as a string through borsh
-        assert_eq!(str::try_to_vec(&id).unwrap(), account_id.try_to_vec().unwrap());
+        assert_eq!(str::try_to_vec(id).unwrap(), account_id.try_to_vec().unwrap());
     }
 }
