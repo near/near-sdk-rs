@@ -30,11 +30,9 @@ pub fn refund_deposit(storage_used: u64) {
     let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
     let attached_deposit = env::attached_deposit();
 
-    // TODO change syntax to possibly allow
-    assert!(
+    require!(
         required_cost <= attached_deposit,
-        "Must attach {} yoctoNEAR to cover storage",
-        required_cost,
+        format!("Must attach {} yoctoNEAR to cover storage", required_cost)
     );
 
     let refund = attached_deposit - required_cost;
