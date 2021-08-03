@@ -148,7 +148,7 @@ impl NonFungibleToken {
                 account_hash: env::sha256(tmp_owner_id.as_bytes()),
             });
             u.insert(&tmp_token_id);
-            tokens_per_owner.insert(&tmp_owner_id, &u);
+            tokens_per_owner.insert(&tmp_owner_id, u);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
             let mut approvals = HashMap::new();
@@ -207,11 +207,11 @@ impl NonFungibleToken {
             let mut owner_tokens = tokens_per_owner
                 .get(from)
                 .expect("Unable to access tokens per owner in unguarded call.");
-            owner_tokens.remove(&token_id);
+            owner_tokens.remove(token_id);
             if owner_tokens.is_empty() {
                 tokens_per_owner.remove(from);
             } else {
-                tokens_per_owner.insert(&from, &owner_tokens);
+                tokens_per_owner.insert(from, &owner_tokens);
             }
 
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
@@ -219,8 +219,8 @@ impl NonFungibleToken {
                     account_hash: env::sha256(to.as_bytes()),
                 })
             });
-            receiver_tokens.insert(&token_id);
-            tokens_per_owner.insert(&to, &receiver_tokens);
+            receiver_tokens.insert(token_id);
+            tokens_per_owner.insert(to, &receiver_tokens);
         }
     }
 
@@ -240,13 +240,13 @@ impl NonFungibleToken {
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
         let approved_account_ids =
-            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(&token_id));
+            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
 
         // check if authorized
         if sender_id != &owner_id {
             // if approval extension is NOT being used, or if token has no approved accounts
             if approved_account_ids.is_none() {
-                env::panic(b"Unauthorized")
+                env::panic_str("Unauthorized")
             }
 
             // Approval extension is being used; get approval_id for sender.
@@ -254,7 +254,7 @@ impl NonFungibleToken {
 
             // Panic if sender not approved at all
             if actual_approval_id.is_none() {
-                env::panic(b"Sender not approved");
+                env::panic_str("Sender not approved");
             }
 
             // If approval_id included, check that it matches
@@ -270,7 +270,7 @@ impl NonFungibleToken {
 
         assert_ne!(&owner_id, receiver_id, "Current and next owner must differ");
 
-        self.internal_transfer_unguarded(&token_id, &owner_id, &receiver_id);
+        self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
         if let Some(memo) = memo {
@@ -348,10 +348,10 @@ impl NonFungibleTokenCore for NonFungibleToken {
         let initial_storage_usage = env::storage_usage();
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            env::panic(b"Must provide metadata");
+            env::panic_str("Must provide metadata");
         }
         if self.owner_by_id.get(&token_id).is_some() {
-            env::panic(b"token_id must be unique");
+            env::panic_str("token_id must be unique");
         }
 
         let owner_id: AccountId = token_owner_id;
@@ -364,7 +364,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         // provided to call.
         self.token_metadata_by_id
             .as_mut()
-            .and_then(|by_id| by_id.insert(&token_id, &token_metadata.as_ref().unwrap()));
+            .and_then(|by_id| by_id.insert(&token_id, token_metadata.as_ref().unwrap()));
 
         // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {

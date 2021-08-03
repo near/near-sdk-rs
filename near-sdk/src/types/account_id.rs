@@ -48,8 +48,7 @@ impl AccountId {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
-    /// Constructs new AccountId from `String` without checking validity.
-    /// Creating an invalid account id will result in a runtime error when being used.
+    /// Caller must ensure that the account id is valid.
     ///
     /// For more information, read: <https://docs.near.org/docs/concepts/account#account-id-rules>
     pub fn new_unchecked(id: String) -> Self {
@@ -163,6 +162,6 @@ mod tests {
         let account_id = AccountId::new_unchecked(id.to_string());
 
         // Test to make sure the account ID is serialized as a string through borsh
-        assert_eq!(str::try_to_vec(&id).unwrap(), account_id.try_to_vec().unwrap());
+        assert_eq!(str::try_to_vec(id).unwrap(), account_id.try_to_vec().unwrap());
     }
 }
