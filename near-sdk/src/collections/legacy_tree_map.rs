@@ -1,11 +1,13 @@
 //! Legacy `TreeMap` implementation that is using `UnorderedMap`.
 //! DEPRECATED. This implementation is deprecated and may be removed in the future.
+#![allow(clippy::all)]
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;
 
 use crate::collections::UnorderedMap;
 use crate::collections::{append, Vector};
+use crate::IntoStorageKey;
 
 /// TreeMap based on AVL-tree
 ///
@@ -41,21 +43,27 @@ where
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<K, V> LegacyTreeMap<K, V>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
-    pub fn new(id: Vec<u8>) -> Self {
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        let prefix = prefix.into_storage_key();
         Self {
             root: 0,
-            val: UnorderedMap::new(append(&id, b'v')),
-            tree: Vector::new(append(&id, b'n')),
+            val: UnorderedMap::new(append(&prefix, b'v')),
+            tree: Vector::new(append(&prefix, b'n')),
         }
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> u64 {
-        self.tree.len() as u64
+        self.tree.len()
     }
 
     pub fn clear(&mut self) {
@@ -140,23 +148,23 @@ where
     }
 
     /// Iterate all entries in ascending order: min to max, both inclusive
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::asc(&self).into_iter()
+    pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::asc(&self)
     }
 
     /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
-    pub fn iter_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::asc_from(&self, key).into_iter()
+    pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::asc_from(&self, key)
     }
 
     /// Iterate all entries in descending order: max to min, both inclusive
-    pub fn iter_rev<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::desc(&self).into_iter()
+    pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::desc(&self)
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
-    pub fn iter_rev_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::desc_from(&self, key).into_iter()
+    pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::desc_from(&self, key)
     }
 
     /// Iterate entries in ascending order according to specified bounds.
@@ -165,18 +173,20 @@ where
     ///
     /// Panics if range start > end.
     /// Panics if range start == end and both bounds are Excluded.
-    pub fn range<'a>(&'a self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + 'a {
+    pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Excluded(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Included(a), Bound::Excluded(b)) if a > b => panic!("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a == b => panic!("Invalid range."),
+            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => panic!("Invalid range."),
             (lo, hi) => (lo, hi),
         };
 
-        Cursor::range(&self, lo, hi).into_iter()
+        Cursor::range(&self, lo, hi)
     }
 
+    /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`LegacyTreeMap`].
+    /// This function collects elements from [`LegacyTreeMap::iter`].
     pub fn to_vec(&self) -> Vec<(K, V)> {
         self.iter().collect()
     }
@@ -192,7 +202,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.lft) {
+            match node.as_ref().and_then(|n| n.lft) {
                 Some(lft) => {
                     at = lft;
                     parent = node;
@@ -211,7 +221,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.rgt) {
+            match node.as_ref().and_then(|n| n.rgt) {
                 Some(rgt) => {
                     parent = node;
                     at = rgt;
@@ -227,7 +237,7 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.le(key) {
                         match node.and_then(|n| n.rgt) {
@@ -235,7 +245,7 @@ where
                             None => break,
                         }
                     } else {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break,
@@ -252,10 +262,10 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.lt(key) {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break,
@@ -386,30 +396,25 @@ where
     // For root node, same node is returned for node and parent node.
     fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
         let mut p: Node<K> = self.node(at).unwrap();
-        loop {
-            match self.node(at) {
-                Some(node) => {
-                    if node.key.eq(key) {
-                        return Some((node, p));
-                    } else if node.key.lt(key) {
-                        match node.rgt {
-                            Some(rgt) => {
-                                p = node;
-                                at = rgt;
-                            }
-                            None => break,
-                        }
-                    } else {
-                        match node.lft {
-                            Some(lft) => {
-                                p = node;
-                                at = lft;
-                            }
-                            None => break,
-                        }
+        while let Some(node) = self.node(at) {
+            if node.key.eq(key) {
+                return Some((node, p));
+            } else if node.key.lt(key) {
+                match node.rgt {
+                    Some(rgt) => {
+                        p = node;
+                        at = rgt;
                     }
+                    None => break,
                 }
-                None => break,
+            } else {
+                match node.lft {
+                    Some(lft) => {
+                        p = node;
+                        at = lft;
+                    }
+                    None => break,
+                }
             }
         }
         None
@@ -418,6 +423,7 @@ where
     // Navigate from root to node holding `key` and backtrace back to the root
     // enforcing balance (if necessary) along the way.
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
+        #[allow(clippy::branches_sharing_code)]
         match self.node(at) {
             Some(mut node) => {
                 if node.key.eq(key) {
@@ -425,21 +431,13 @@ where
                     self.enforce_balance(&mut node)
                 } else {
                     if node.key.gt(key) {
-                        match node.lft {
-                            Some(l) => {
-                                let id = self.check_balance(l, key);
-                                node.lft = Some(id);
-                            }
-                            None => (),
+                        if let Some(l) = node.lft {
+                            let id = self.check_balance(l, key);
+                            node.lft = Some(id);
                         }
-                    } else {
-                        match node.rgt {
-                            Some(r) => {
-                                let id = self.check_balance(r, key);
-                                node.rgt = Some(id);
-                            }
-                            None => (),
-                        }
+                    } else if let Some(r) = node.rgt {
+                        let id = self.check_balance(r, key);
+                        node.rgt = Some(id);
                     }
                     self.update_height(&mut node);
                     self.enforce_balance(&mut node)
@@ -494,7 +492,7 @@ where
                 let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
                 let k = n.key.clone();
 
-                if p.rgt.clone().map(|id| id == n.id).unwrap_or_default() {
+                if p.rgt.as_ref().map(|&id| id == n.id).unwrap_or_default() {
                     // n is on right link of p
                     p.rgt = n.lft;
                 } else {
@@ -759,7 +757,7 @@ mod tests {
     fn test_empty() {
         test_env::setup();
 
-        let map: LegacyTreeMap<u8, u8> = LegacyTreeMap::new(vec![b't']);
+        let map: LegacyTreeMap<u8, u8> = LegacyTreeMap::new(b't');
         assert_eq!(map.len(), 0);
         assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
@@ -909,7 +907,7 @@ mod tests {
         let n: u64 = 30;
         let vec = random(n);
 
-        let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(vec![b't']);
+        let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(b't');
         for x in vec.iter().rev() {
             map.insert(x, &1);
         }
@@ -925,7 +923,7 @@ mod tests {
         let n: u64 = 30;
         let vec = random(n);
 
-        let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(vec![b't']);
+        let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(b't');
         for x in vec.iter().rev() {
             map.insert(x, &1);
         }
@@ -1394,7 +1392,7 @@ mod tests {
     fn test_iter_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
@@ -1413,7 +1411,7 @@ mod tests {
     fn test_iter_rev_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
@@ -1453,7 +1451,7 @@ mod tests {
     fn test_iter_from_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
@@ -1574,6 +1572,14 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_excl_excl() {
+        test_env::setup();
+        let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
+        let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_incl_incl() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
@@ -1584,7 +1590,7 @@ mod tests {
     fn test_iter_rev_from_empty() {
         test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev_from(42).count(), 0);
     }
 
     #[test]

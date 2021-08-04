@@ -1,4 +1,4 @@
-name: Test
+name: Test Core
 on:
   push:
     branches:
@@ -11,18 +11,32 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        ENV: [true, false]
-        toolchan: [stable, nightly]
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v2
-      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
+      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          components: rustfmt, clippy
           target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v1
+      - name: Add wasm32 target
+        run: rustup target add wasm32-unknown-unknown
       - name: Test
-        env:
-          NEAR_RELEASE: ${{ matrix.ENV }}
-        run: ./ci-test.sh
+        run: cargo test --all --features unstable
+  lint:
+    name: Clippy and fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with: 
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v1
+      - name: Test Format
+        run: cargo fmt -- --check
+      - run: cargo clippy --tests -- -Dclippy::all

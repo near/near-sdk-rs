@@ -7,15 +7,10 @@ use near_sdk::{
     //    callback_vec,
     log,
     near_bindgen,
+    AccountId,
     Promise,
     PromiseOrValue,
 };
-
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-
-// Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: u64 = 200_000_000_000_000;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -41,12 +36,12 @@ pub trait ExtCrossContract {
 #[ext_contract]
 pub trait ExtStatusMessage {
     fn set_status(&mut self, message: String);
-    fn get_status(&self, account_id: String) -> Option<String>;
+    fn get_status(&self, account_id: AccountId) -> Option<String>;
 }
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
+    pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         Promise::new(account_id)
             .create_account()
             .transfer(amount.0)
@@ -123,25 +118,27 @@ impl CrossContract {
     //        self.internal_merge(arrs.pop().unwrap(), arrs.pop().unwrap())
     //    }
 
-    pub fn simple_call(&mut self, account_id: String, message: String) {
-        ext_status_message::set_status(message, &account_id, 0, SINGLE_CALL_GAS);
+    pub fn simple_call(&mut self, account_id: AccountId, message: String) {
+        ext_status_message::set_status(message, &account_id, 0, env::prepaid_gas() / 2);
     }
-    pub fn complex_call(&mut self, account_id: String, message: String) -> Promise {
+    pub fn complex_call(&mut self, account_id: AccountId, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        ext_status_message::set_status(message, &account_id, 0, SINGLE_CALL_GAS).then(
+        let prepaid_gas = env::prepaid_gas();
+        log!("complex_call");
+        ext_status_message::set_status(message, &account_id, 0, prepaid_gas / 3).then(
             ext_status_message::get_status(
                 env::signer_account_id(),
                 &account_id,
                 0,
-                SINGLE_CALL_GAS,
+                prepaid_gas / 3,
             ),
         )
     }
 
-    pub fn transfer_money(&mut self, account_id: String, amount: u64) {
+    pub fn transfer_money(&mut self, account_id: AccountId, amount: u64) {
         Promise::new(account_id).transfer(amount as u128);
     }
 }

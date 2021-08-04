@@ -1,0 +1,33 @@
+name: Test Examples
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  test:
+    runs-on: ${{ matrix.platform }}
+    name: "${{ matrix.example }} - ${{ matrix.platform }}"
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+        toolchain: [stable]
+        example: [cross-contract-high-level, cross-contract-low-level, fungible-token]
+          
+    steps:
+      - uses: actions/checkout@v2
+      - name: "${{ matrix.toolchain }} with and wasm32"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: ./examples/${{ matrix.example }}
+      - name: Build
+        env: 
+          RUSTFLAGS: '-C link-arg=-s'
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
+      - name: Test
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --all

@@ -1,12 +1,12 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::{append, append_slice, Vector};
-use crate::env;
+use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// An iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -27,9 +27,13 @@ impl<T> UnorderedSet<T> {
     }
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
-    pub fn new(id: Vec<u8>) -> Self {
-        let element_index_prefix = append(&id, b'i');
-        let elements_prefix = append(&id, b'e');
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        let prefix = prefix.into_storage_key();
+        let element_index_prefix = append(&prefix, b'i');
+        let elements_prefix = append(&prefix, b'e');
 
         Self { element_index_prefix, elements: Vector::new(elements_prefix) }
     }
@@ -77,6 +81,7 @@ impl<T> UnorderedSet<T> {
         let index_lookup = self.raw_element_to_index_lookup(element_raw);
         match env::storage_read(&index_lookup) {
             Some(index_raw) => {
+                #[allow(clippy::branches_sharing_code)]
                 if self.len() == 1 {
                     // If there is only one element then swap remove simply removes it without
                     // swapping with the last element.
@@ -86,7 +91,7 @@ impl<T> UnorderedSet<T> {
                     // element.
                     let last_element_raw = match self.elements.get_raw(self.len() - 1) {
                         Some(x) => x,
-                        None => env::panic(ERR_INCONSISTENT_STATE),
+                        None => env::panic_str(ERR_INCONSISTENT_STATE),
                     };
                     env::storage_remove(&index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
@@ -113,7 +118,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match element.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
     }
 
@@ -149,7 +154,7 @@ where
     }
 
     /// Iterate over deserialized elements.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = T> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = T> + '_ {
         self.elements.iter()
     }
 
@@ -179,7 +184,7 @@ mod tests {
     #[test]
     pub fn test_insert() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
             let key = rng.gen::<u64>();
@@ -190,7 +195,7 @@ mod tests {
     #[test]
     pub fn test_insert_remove() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         for _ in 0..100 {
@@ -207,7 +212,7 @@ mod tests {
     #[test]
     pub fn test_remove_last_reinsert() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let key1 = 1u64;
         set.insert(&key1);
         let key2 = 2u64;
@@ -223,7 +228,7 @@ mod tests {
     #[test]
     pub fn test_insert_override_remove() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         for _ in 0..100 {
@@ -244,7 +249,7 @@ mod tests {
     #[test]
     pub fn test_contains_non_existent() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set_tmp = HashSet::new();
         for _ in 0..500 {
@@ -261,7 +266,7 @@ mod tests {
     #[test]
     pub fn test_to_vec() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..500 {
@@ -276,7 +281,7 @@ mod tests {
     #[test]
     pub fn test_clear() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
             for _ in 0..=(rng.gen::<u64>() % 20 + 1) {
@@ -292,7 +297,7 @@ mod tests {
     #[test]
     pub fn test_iter() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..500 {
@@ -300,14 +305,14 @@ mod tests {
             keys.insert(key);
             set.insert(&key);
         }
-        let actual: HashSet<u64> = HashSet::from_iter(set.iter());
+        let actual: HashSet<u64> = set.iter().collect();
         assert_eq!(actual, keys);
     }
 
     #[test]
     pub fn test_extend() {
         test_env::setup();
-        let mut set = UnorderedSet::new(b"s".to_vec());
+        let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
         for _ in 0..100 {
@@ -325,7 +330,7 @@ mod tests {
             set.extend(tmp.iter().cloned());
         }
 
-        let actual: HashSet<u64> = HashSet::from_iter(set.iter());
+        let actual: HashSet<u64> = set.iter().collect();
         assert_eq!(actual, keys);
     }
 }

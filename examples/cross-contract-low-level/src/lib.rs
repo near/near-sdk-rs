@@ -1,13 +1,10 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
-use near_sdk::{env, near_bindgen, PromiseResult};
-
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+use near_sdk::{env, Gas, near_bindgen, AccountId, PromiseResult};
 
 // Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: u64 = 200000000000000;
+const SINGLE_CALL_GAS: Gas = Gas(200000000000000);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -23,7 +20,7 @@ impl Default for CrossContract {
 
 #[near_bindgen]
 impl CrossContract {
-    pub fn deploy_status_message(&self, account_id: String, amount: U128) {
+    pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
         env::promise_batch_action_transfer(promise_idx, amount.0);
@@ -104,16 +101,16 @@ impl CrossContract {
         result
     }
 
-    pub fn simple_call(&mut self, account_id: String, message: String) {
+    pub fn simple_call(&mut self, account_id: AccountId, message: String) {
         env::promise_create(
-            account_id.clone(),
+            account_id,
             b"set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
         );
     }
-    pub fn complex_call(&mut self, account_id: String, message: String) {
+    pub fn complex_call(&mut self, account_id: AccountId, message: String) {
         // 1) call status_message to record a message from the signer.
         // 2) check that the promise succeed
         // 3) call status_message to retrieve the message of the signer.
@@ -148,14 +145,14 @@ impl CrossContract {
     pub fn check_promise(&mut self) {
         match env::promise_result(0) {
             PromiseResult::Successful(_) => {
-                env::log(b"Check_promise successful");
+                env::log_str("Check_promise successful");
                 self.checked_promise = true;
             }
             _ => panic!("Promise with index 0 failed"),
         };
     }
 
-    pub fn transfer_money(&mut self, account_id: String, amount: u64) {
+    pub fn transfer_money(&mut self, account_id: AccountId, amount: u64) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_transfer(promise_idx, amount as u128);
     }
