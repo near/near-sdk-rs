@@ -22,8 +22,12 @@ fn simulate_simple_transfer() {
 
     // Transfer from root to alice.
     // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
-    call!(root, ft.ft_transfer(alice.account_id(), transfer_amount.into(), None), deposit = 1)
-        .assert_success();
+    call!(
+        root,
+        ft.ft_transfer(alice.account_id(), transfer_amount.into(), None),
+        deposit = 1
+    )
+    .assert_success();
 
     let root_balance: U128 = view!(ft.ft_balance_of(root.account_id())).unwrap_json();
     let alice_balance: U128 = view!(ft.ft_balance_of(alice.account_id())).unwrap_json();
@@ -96,7 +100,8 @@ fn simulate_transfer_call_with_burned_amount() {
                 "amount": transfer_amount.to_string(),
                 "msg": "10",
             })
-            .to_string(),
+            .to_string()
+            .into_bytes(),
             DEFAULT_GAS / 2,
             1,
         )
@@ -105,7 +110,8 @@ fn simulate_transfer_call_with_burned_amount() {
             json!({
                 "force": true
             })
-            .to_string(),
+            .to_string()
+            .into_bytes(),
             DEFAULT_GAS / 2,
             1,
         )
@@ -122,7 +128,10 @@ fn simulate_transfer_call_with_burned_amount() {
     let callback_outcome = outcome.get_receipt_results().remove(1).unwrap();
 
     assert_eq!(callback_outcome.logs()[0], "The account of the sender was deleted");
-    assert_eq!(callback_outcome.logs()[1], format!("Account @{} burned {}", root.account_id(), 10));
+    assert_eq!(
+        callback_outcome.logs()[1],
+        format!("Account @{} burned {}", root.account_id(), 10)
+    );
 
     let used_amount: U128 = callback_outcome.unwrap_json();
     // Sender deleted the account. Even though the returned amount was 10, it was not refunded back
