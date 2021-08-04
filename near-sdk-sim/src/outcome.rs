@@ -2,6 +2,7 @@ use crate::hash::CryptoHash;
 use crate::runtime::{init_runtime, RuntimeStandalone};
 use crate::transaction::{ExecutionOutcome, ExecutionStatus};
 use core::fmt;
+use near_primitives::profile::ProfileData;
 use near_primitives::transaction::ExecutionStatus::{SuccessReceiptId, SuccessValue};
 use near_primitives::types::AccountId;
 use near_sdk::borsh::BorshDeserialize;
@@ -9,7 +10,6 @@ use near_sdk::serde::de::DeserializeOwned;
 use near_sdk::serde::export::Formatter;
 use near_sdk::serde_json::Value;
 use near_sdk::Gas;
-use near_vm_logic::types::ProfileData;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -56,7 +56,7 @@ impl ExecutionResult {
     pub fn unwrap_json_value(&self) -> Value {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => near_sdk::serde_json::from_slice(&s).unwrap(),
+            SuccessValue(s) => near_sdk::serde_json::from_slice(s).unwrap(),
             err => panic!("Expected Success value but got: {:#?}", err),
         }
     }
@@ -65,7 +65,7 @@ impl ExecutionResult {
     pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
         use crate::transaction::ExecutionStatus::*;
         match &(self.outcome).status {
-            SuccessValue(s) => BorshDeserialize::try_from_slice(&s).unwrap(),
+            SuccessValue(s) => BorshDeserialize::try_from_slice(s).unwrap(),
             _ => panic!("Cannot get value of failed transaction"),
         }
     }
@@ -77,11 +77,7 @@ impl ExecutionResult {
 
     /// Check if transaction was successful
     pub fn is_ok(&self) -> bool {
-        match &(self.outcome).status {
-            SuccessValue(_) => true,
-            SuccessReceiptId(_) => true,
-            _ => false,
-        }
+        matches!(&(self.outcome).status, SuccessValue(_) | SuccessReceiptId(_))
     }
 
     /// Test whether there is a SuccessValue
@@ -100,10 +96,10 @@ impl ExecutionResult {
     }
 
     fn get_outcome(&self, hash: &CryptoHash) -> Option<ExecutionResult> {
-        match (*self.runtime).borrow().outcome(hash) {
-            Some(out) => Some(ExecutionResult::new(out, &self.runtime, hash.clone())),
-            None => None,
-        }
+        (*self.runtime)
+            .borrow()
+            .outcome(hash)
+            .map(|out| ExecutionResult::new(out, &self.runtime, *hash))
     }
 
     /// Reference to internal ExecutionOutcome
@@ -117,7 +113,7 @@ impl ExecutionResult {
     }
 
     fn get_outcomes(&self, ids: &[CryptoHash]) -> Vec<Option<ExecutionResult>> {
-        ids.iter().map(|id| self.get_outcome(&id)).collect()
+        ids.iter().map(|id| self.get_outcome(id)).collect()
     }
 
     /// Return the results of any promises created since the last transaction
@@ -143,7 +139,7 @@ impl ExecutionResult {
 
     /// The amount of the gas burnt by the given transaction or receipt.
     pub fn gas_burnt(&self) -> Gas {
-        self.outcome.gas_burnt
+        Gas(self.outcome.gas_burnt)
     }
 
     /// The amount of tokens burnt corresponding to the burnt gas amount.
@@ -188,7 +184,7 @@ pub fn outcome_into_result(
 }
 
 /// The result of a view call.  Contains the logs made during the view method call and Result value,
-/// which can be unwrapped and deserialized.  
+/// which can be unwrapped and deserialized.
 #[derive(Debug)]
 pub struct ViewResult {
     result: Result<Vec<u8>, Box<dyn std::error::Error>>,
@@ -224,13 +220,13 @@ impl ViewResult {
 
     /// Interpret the value as a JSON::Value
     pub fn unwrap_json_value(&self) -> Value {
-        near_sdk::serde_json::from_slice(&self.result.as_ref().expect("ViewResult is an error"))
+        near_sdk::serde_json::from_slice(self.result.as_ref().expect("ViewResult is an error"))
             .unwrap()
     }
 
     /// Deserialize the value with Borsh
     pub fn unwrap_borsh<T: BorshDeserialize>(&self) -> T {
-        BorshDeserialize::try_from_slice(&self.result.as_ref().expect("ViewResult is an error"))
+        BorshDeserialize::try_from_slice(self.result.as_ref().expect("ViewResult is an error"))
             .unwrap()
     }
 
@@ -252,9 +248,8 @@ mod tests {
         let value = json!({
           "id": "hello"
         });
-        let status = SuccessValue(value.clone().to_string().as_bytes().to_vec());
-        let mut outcome = ExecutionOutcome::default();
-        outcome.status = status;
+        let status = SuccessValue(value.to_string().as_bytes().to_vec());
+        let outcome = ExecutionOutcome { status, ..Default::default() };
         let result = outcome_into_result(
             (CryptoHash::default(), outcome),
             &Rc::new(RefCell::new(init_runtime(None).0)),

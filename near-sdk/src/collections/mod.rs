@@ -18,7 +18,7 @@
 //! }
 //! ```
 //!
-//! The following is an efficient alternative. It will each element individually only when it is
+//! The following is an efficient alternative. It will load each element individually only when it is
 //! read and will save it only when it is written/removed.
 //! ```
 //! # use borsh::{BorshSerialize, BorshDeserialize};
@@ -53,12 +53,15 @@ pub use unordered_map::UnorderedMap;
 mod unordered_set;
 pub use unordered_set::UnorderedSet;
 
+mod lazy_option;
+pub use lazy_option::LazyOption;
+
 mod tree_map;
 pub use tree_map::TreeMap;
 
-pub const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-pub const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh.";
-pub const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element with Borsh.";
+pub const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+pub const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh.";
+pub const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element with Borsh.";
 
 pub(crate) fn append(id: &[u8], chr: u8) -> Vec<u8> {
     append_slice(id, &[chr])

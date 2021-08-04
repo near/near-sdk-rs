@@ -8,10 +8,12 @@ if [[ "${NEAR_RELEASE}" == "true" ]]; then
 else
     echo "Test with git version of borsh and near-vm-logic"
 
+    cargo generate-lockfile
+
     cp Cargo.toml{,.bak}
     cp Cargo.lock{,.bak}
 
-    sed -i "s|###||g" Cargo.toml
+    sed -i "" "s|###||g" Cargo.toml
     
     set +e
     cargo test --all
@@ -27,10 +29,11 @@ else
     # Only testing it for one configuration to avoid running the same tests twice
     echo "Build wasm32 for all examples"
 
-    ./examples/build_all.sh
+    ./examples/build_all_docker.sh --check
     echo "Testing all examples"
     ./examples/test_all.sh
-    echo "Checking size of all example contracts"
-    ./examples/size_all.sh
+    # TODO re-enable when parsing unknown sections is fixed in twiggy 
+    #      https://github.com/rustwasm/twiggy/pull/576
+    # echo "Checking size of all example contracts"
+    # ./examples/size_all.sh
 fi
-

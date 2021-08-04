@@ -1,25 +1,23 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
+mod core_impl;
+
 use proc_macro::TokenStream;
 
-use near_sdk_core::*;
+use self::core_impl::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
-use syn::{File, ItemImpl, ItemStruct, ItemTrait};
+use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let sys_file = rust_file(include_bytes!("../res/sys.rs"));
-        let near_environment = rust_file(include_bytes!("../res/near_blockchain.rs"));
         let struct_proxy = generate_proxy_struct(&input);
         TokenStream::from(quote! {
             #input
             #struct_proxy
-            #sys_file
-            #near_environment
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -45,11 +43,6 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
-}
-
-fn rust_file(data: &[u8]) -> File {
-    let data = std::str::from_utf8(data).unwrap();
-    syn::parse_file(data).unwrap()
 }
 
 #[proc_macro_attribute]
@@ -117,8 +110,8 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
-/// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
-/// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
+// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
+// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
 #[proc_macro]
 pub fn metadata(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<File>(item) {
@@ -146,15 +139,15 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
 /// message `The contract is not initialized` when `default()` is called.
 /// This is a helpful macro in case the contract is required to be initialized with either `init` or
-/// `init_once`.
+/// `init(ignore_state)`.
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+    if let Ok(input) = syn::parse::<ItemStruct>(item) {
         let name = &input.ident;
         TokenStream::from(quote! {
             impl Default for #name {
                 fn default() -> Self {
-                    near_sdk::env::panic(b"The contract is not initialized");
+                    near_sdk::env::panic_str("The contract is not initialized");
                 }
             }
         })
@@ -167,4 +160,27 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
+}
+
+/// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
+/// It allows the type to be passed as a unique prefix for persistent collections.
+/// The type should also implement or derive `BorshSerialize` trait.
+#[proc_macro_derive(BorshStorageKey)]
+pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
+    let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        input.ident
+    } else if let Ok(input) = syn::parse::<ItemStruct>(item) {
+        input.ident
+    } else {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "BorshStorageKey can only be used as a derive on enums or structs.",
+            )
+            .to_compile_error(),
+        );
+    };
+    TokenStream::from(quote! {
+        impl near_sdk::BorshIntoStorageKey for #name {}
+    })
 }

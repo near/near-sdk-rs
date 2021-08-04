@@ -3,6 +3,7 @@ use std::ops::Bound;
 
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};
+use crate::IntoStorageKey;
 
 /// TreeMap based on AVL-tree
 ///
@@ -43,16 +44,24 @@ where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
-    pub fn new(id: Vec<u8>) -> Self {
+    pub fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        let prefix = prefix.into_storage_key();
         Self {
             root: 0,
-            val: LookupMap::new(append(&id, b'v')),
-            tree: Vector::new(append(&id, b'n')),
+            val: LookupMap::new(append(&prefix, b'v')),
+            tree: Vector::new(append(&prefix, b'n')),
         }
     }
 
     pub fn len(&self) -> u64 {
-        self.tree.len() as u64
+        self.tree.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.tree.is_empty()
     }
 
     pub fn clear(&mut self) {
@@ -84,16 +93,16 @@ where
     }
 
     pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
-        if !self.contains_key(&key) {
-            self.root = self.insert_at(self.root, self.len(), &key);
+        if !self.contains_key(key) {
+            self.root = self.insert_at(self.root, self.len(), key);
         }
-        self.val.insert(&key, &val)
+        self.val.insert(key, val)
     }
 
     pub fn remove(&mut self, key: &K) -> Option<V> {
-        if self.contains_key(&key) {
-            self.root = self.do_remove(&key);
-            self.val.remove(&key)
+        if self.contains_key(key) {
+            self.root = self.do_remove(key);
+            self.val.remove(key)
         } else {
             // no such key, nothing to do
             None
@@ -139,23 +148,23 @@ where
     }
 
     /// Iterate all entries in ascending order: min to max, both inclusive
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::asc(&self).into_iter()
+    pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::asc(self)
     }
 
     /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
-    pub fn iter_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::asc_from(&self, key).into_iter()
+    pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::asc_from(self, key)
     }
 
     /// Iterate all entries in descending order: max to min, both inclusive
-    pub fn iter_rev<'a>(&'a self) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::desc(&self).into_iter()
+    pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::desc(self)
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
-    pub fn iter_rev_from<'a>(&'a self, key: K) -> impl Iterator<Item = (K, V)> + 'a {
-        Cursor::desc_from(&self, key).into_iter()
+    pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+        Cursor::desc_from(self, key)
     }
 
     /// Iterate entries in ascending order according to specified bounds.
@@ -164,18 +173,20 @@ where
     ///
     /// Panics if range start > end.
     /// Panics if range start == end and both bounds are Excluded.
-    pub fn range<'a>(&'a self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + 'a {
+    pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Excluded(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
             (Bound::Included(a), Bound::Excluded(b)) if a > b => panic!("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a == b => panic!("Invalid range."),
+            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => panic!("Invalid range."),
             (lo, hi) => (lo, hi),
         };
 
-        Cursor::range(&self, lo, hi).into_iter()
+        Cursor::range(self, lo, hi)
     }
 
+    /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`TreeMap`].
+    /// This function collects elements from [`TreeMap::iter`].
     pub fn to_vec(&self) -> Vec<(K, V)> {
         self.iter().collect()
     }
@@ -191,7 +202,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.lft) {
+            match node.as_ref().and_then(|n| n.lft) {
                 Some(lft) => {
                     at = lft;
                     parent = node;
@@ -210,7 +221,7 @@ where
         let mut parent: Option<Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
-            match node.clone().and_then(|n| n.rgt) {
+            match node.as_ref().and_then(|n| n.rgt) {
                 Some(rgt) => {
                     parent = node;
                     at = rgt;
@@ -226,7 +237,7 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.le(key) {
                         match node.and_then(|n| n.rgt) {
@@ -234,7 +245,7 @@ where
                             None => break,
                         }
                     } else {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break,
@@ -251,10 +262,10 @@ where
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
-            match node.clone().map(|n| n.key) {
+            match node.as_ref().map(|n| &n.key) {
                 Some(k) => {
                     if k.lt(key) {
-                        seen = Some(k);
+                        seen = Some(k.clone());
                         match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break,
@@ -310,7 +321,7 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
-        self.save(&node);
+        self.save(node);
     }
 
     // Balance = difference in heights between left and right subtrees at given node.
@@ -361,7 +372,7 @@ where
 
     // Check balance at a given node and enforce it if necessary with respective rotations.
     fn enforce_balance(&mut self, node: &mut Node<K>) -> u64 {
-        let balance = self.get_balance(&node);
+        let balance = self.get_balance(node);
         if balance > 1 {
             let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
             if self.get_balance(&lft) < 0 {
@@ -385,30 +396,25 @@ where
     // For root node, same node is returned for node and parent node.
     fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
         let mut p: Node<K> = self.node(at).unwrap();
-        loop {
-            match self.node(at) {
-                Some(node) => {
-                    if node.key.eq(key) {
-                        return Some((node, p));
-                    } else if node.key.lt(key) {
-                        match node.rgt {
-                            Some(rgt) => {
-                                p = node;
-                                at = rgt;
-                            }
-                            None => break,
-                        }
-                    } else {
-                        match node.lft {
-                            Some(lft) => {
-                                p = node;
-                                at = lft;
-                            }
-                            None => break,
-                        }
+        while let Some(node) = self.node(at) {
+            if node.key.eq(key) {
+                return Some((node, p));
+            } else if node.key.lt(key) {
+                match node.rgt {
+                    Some(rgt) => {
+                        p = node;
+                        at = rgt;
                     }
+                    None => break,
                 }
-                None => break,
+            } else {
+                match node.lft {
+                    Some(lft) => {
+                        p = node;
+                        at = lft;
+                    }
+                    None => break,
+                }
             }
         }
         None
@@ -419,30 +425,19 @@ where
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
         match self.node(at) {
             Some(mut node) => {
-                if node.key.eq(key) {
-                    self.update_height(&mut node);
-                    self.enforce_balance(&mut node)
-                } else {
+                if !node.key.eq(key) {
                     if node.key.gt(key) {
-                        match node.lft {
-                            Some(l) => {
-                                let id = self.check_balance(l, key);
-                                node.lft = Some(id);
-                            }
-                            None => (),
+                        if let Some(l) = node.lft {
+                            let id = self.check_balance(l, key);
+                            node.lft = Some(id);
                         }
-                    } else {
-                        match node.rgt {
-                            Some(r) => {
-                                let id = self.check_balance(r, key);
-                                node.rgt = Some(id);
-                            }
-                            None => (),
-                        }
+                    } else if let Some(r) = node.rgt {
+                        let id = self.check_balance(r, key);
+                        node.rgt = Some(id);
                     }
-                    self.update_height(&mut node);
-                    self.enforce_balance(&mut node)
                 }
+                self.update_height(&mut node);
+                self.enforce_balance(&mut node)
             }
             None => at,
         }
@@ -493,7 +488,7 @@ where
                 let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
                 let k = n.key.clone();
 
-                if p.rgt.clone().map(|id| id == n.id).unwrap_or_default() {
+                if p.rgt.as_ref().map(|&id| id == n.id).unwrap_or_default() {
                     // n is on right link of p
                     p.rgt = n.lft;
                 } else {
@@ -606,17 +601,58 @@ where
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let this_key = self.key.clone();
-
-        let next_key = self
-            .key
-            .take()
-            .and_then(|k| if self.asc { self.map.higher(&k) } else { self.map.lower(&k) })
-            .filter(|k| fits(k, &self.lo, &self.hi));
-        self.key = next_key;
-
-        this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        <Self as Iterator>::nth(self, 0)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // Constrains max count. Not worth it to cause storage reads to make this more accurate.
+        (0, Some(self.map.len() as usize))
+    }
+
+    fn count(mut self) -> usize {
+        // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
+        // how many elements are left to iterate without loading keys in order. This could be
+        // optimized in the case of a standard iterator by having a separate type, but this would
+        // be a breaking change, so there will be slightly more reads than necessary in this case.
+        let mut count = 0;
+        while self.key.is_some() {
+            count += 1;
+            self.progress_key();
+        }
+        count
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        for _ in 0..n {
+            // Skip over elements not iterated over to get to `nth`. This avoids loading values
+            // from storage.
+            self.progress_key();
+        }
+
+        let key = self.progress_key()?;
+        let value = self.map.get(&key)?;
+
+        Some((key, value))
+    }
+
+    fn last(mut self) -> Option<Self::Item> {
+        if self.asc && matches!(self.hi, Bound::Unbounded) {
+            self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
+            self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else {
+            // Cannot guarantee what the last is within the range, must load keys until last.
+            let key = core::iter::from_fn(|| self.progress_key()).last();
+            key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        }
+    }
+}
+
+impl<K, V> std::iter::FusedIterator for Cursor<'_, K, V>
+where
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: BorshSerialize + BorshDeserialize,
+{
 }
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
@@ -673,6 +709,16 @@ where
         let key = key.filter(|k| fits(k, &lo, &hi));
 
         Self { asc: true, key, lo, hi, map }
+    }
+
+    /// Progresses the key one index, will return the previous key
+    fn progress_key(&mut self) -> Option<K> {
+        let new_key = self
+            .key
+            .as_ref()
+            .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
+            .filter(|k| fits(k, &self.lo, &self.hi));
+        core::mem::replace(&mut self.key, new_key)
     }
 }
 
@@ -757,7 +803,7 @@ mod tests {
     fn test_empty() {
         test_env::setup();
 
-        let map: TreeMap<u8, u8> = TreeMap::new(vec![b't']);
+        let map: TreeMap<u8, u8> = TreeMap::new(b't');
         assert_eq!(map.len(), 0);
         assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
@@ -907,7 +953,7 @@ mod tests {
         let n: u64 = 30;
         let vec = random(n);
 
-        let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
+        let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
         for x in vec.iter().rev() {
             map.insert(x, &1);
         }
@@ -923,7 +969,7 @@ mod tests {
         let n: u64 = 30;
         let vec = random(n);
 
-        let mut map: TreeMap<u32, u32> = TreeMap::new(vec![b't']);
+        let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
         for x in vec.iter().rev() {
             map.insert(x, &1);
         }
@@ -1382,6 +1428,11 @@ mod tests {
         map.insert(&3, &43);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter().nth(1), Some((2, 42)));
+        assert_eq!(map.iter().count(), 3);
+        assert_eq!(map.iter().last(), Some((3, 43)));
         map.clear();
     }
 
@@ -1389,7 +1440,7 @@ mod tests {
     fn test_iter_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
@@ -1401,6 +1452,11 @@ mod tests {
         map.insert(&3, &43);
 
         assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev().nth(1), Some((2, 42)));
+        assert_eq!(map.iter_rev().count(), 3);
+        assert_eq!(map.iter_rev().last(), Some((1, 41)));
         map.clear();
     }
 
@@ -1408,7 +1464,7 @@ mod tests {
     fn test_iter_rev_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
@@ -1441,6 +1497,12 @@ mod tests {
             map.iter_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(35, 42), (40, 42), (45, 42), (50, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
+        assert_eq!(map.iter_from(31).count(), 4);
+        assert_eq!(map.iter_from(31).last(), Some((50, 42)));
+
         map.clear();
     }
 
@@ -1448,7 +1510,7 @@ mod tests {
     fn test_iter_from_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
@@ -1481,6 +1543,12 @@ mod tests {
             map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
+        assert_eq!(map.iter_rev_from(31).count(), 6);
+        assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
+
         map.clear();
     }
 
@@ -1521,11 +1589,6 @@ mod tests {
         );
 
         assert_eq!(
-            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (30, 42), (35, 42), (40, 42)]
-        );
-
-        assert_eq!(
             map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
             vec![]
         );
@@ -1539,6 +1602,11 @@ mod tests {
             map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
             vec![]
         ); // the range makes no sense, but `BTreeMap` does not panic in this case
+
+        // Test custom iterator impls
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
 
         map.clear();
     }
@@ -1576,10 +1644,18 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Invalid range.")]
+    fn test_range_panics_non_overlap_excl_excl() {
+        test_env::setup();
+        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+        let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
+    }
+
+    #[test]
     fn test_iter_rev_from_empty() {
         test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev_from(42).count(), 0);
     }
 
     #[test]
@@ -1683,7 +1759,7 @@ mod tests {
 
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let map = avl(&insert, &remove);
-            map.len() == 0 || is_balanced(&map, map.root)
+            map.is_empty() || is_balanced(&map, map.root)
         }
 
         QuickCheck::new()

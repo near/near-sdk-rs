@@ -1,23 +1,25 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, LookupSet};
-use near_sdk::json_types::ValidAccountId;
-use near_sdk::{env, near_bindgen};
+use near_sdk::{env, near_bindgen, BorshStorageKey, AccountId};
 
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
+#[derive(BorshSerialize, BorshStorageKey)]
+enum StorageKey {
+    Records,
+    UniqueValues,
+}
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    pub records: LookupMap<String, String>,
+    pub records: LookupMap<AccountId, String>,
     pub unique_values: LookupSet<String>,
 }
 
 impl Default for StatusMessage {
     fn default() -> Self {
         Self {
-            records: LookupMap::new(b"r".to_vec()),
-            unique_values: LookupSet::new(b"s".to_vec()),
+            records: LookupMap::new(StorageKey::Records),
+            unique_values: LookupSet::new(StorageKey::UniqueValues),
         }
     }
 }
@@ -31,8 +33,8 @@ impl StatusMessage {
         self.unique_values.insert(&message)
     }
 
-    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
-        self.records.get(account_id.as_ref())
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
+        self.records.get(&account_id)
     }
 }
 
@@ -46,7 +48,10 @@ mod tests {
     use std::convert::TryInto;
 
     fn get_context(is_view: bool) -> VMContext {
-        VMContextBuilder::new().signer_account_id("bob_near".to_string()).is_view(is_view).build()
+        VMContextBuilder::new()
+            .signer_account_id("bob_near".parse().unwrap())
+            .is_view(is_view)
+            .build()
     }
 
     #[test]
@@ -57,7 +62,7 @@ mod tests {
         contract.set_status("hello".to_string());
         assert_eq!(
             "hello".to_string(),
-            contract.get_status("bob_near".try_into().unwrap()).unwrap()
+            contract.get_status("bob_near".parse().unwrap()).unwrap()
         );
     }
 
@@ -83,6 +88,6 @@ mod tests {
         let context = get_context(true);
         testing_env!(context);
         let contract = StatusMessage::default();
-        assert_eq!(None, contract.get_status("francis.near".try_into().unwrap()));
+        assert_eq!(None, contract.get_status("francis.near".parse().unwrap()));
     }
 }

@@ -4,9 +4,6 @@ use near_sdk::{env, near_bindgen, AccountId, Balance};
 use std::collections::HashMap;
 use std::str::FromStr;
 
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Account {
     /// Current unlocked balance.
@@ -68,7 +65,7 @@ impl FunToken {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: String) -> Self {
         let total_supply = u128::from_str(&total_supply).expect("Failed to parse total supply");
-        let mut ft = Self { accounts: UnorderedMap::new(b"a".to_vec()), total_supply };
+        let mut ft = Self { accounts: UnorderedMap::new(b"a"), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
         ft.accounts.insert(&owner_id, &account);
@@ -83,12 +80,12 @@ impl FunToken {
         let allowance = u128::from_str(&allowance).expect("Failed to parse allowance");
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
-            env::panic(b"Can't set allowance for yourself");
+            env::panic_str("Can't set allowance for yourself");
         }
         let mut account = self.get_account(&owner_id);
         let locked_balance = account.get_locked_balance(&escrow_account_id);
         if locked_balance > allowance {
-            env::panic(b"The new allowance can't be less than the amount of locked tokens");
+            env::panic_str("The new allowance can't be less than the amount of locked tokens");
         }
 
         account.set_allowance(&escrow_account_id, allowance - locked_balance);
@@ -103,14 +100,14 @@ impl FunToken {
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) {
         let lock_amount = u128::from_str(&lock_amount).expect("Failed to parse allow lock_amount");
         if lock_amount == 0 {
-            env::panic(b"Can't lock 0 tokens");
+            env::panic_str("Can't lock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
 
         // Checking and updating unlocked balance
         if account.balance < lock_amount {
-            env::panic(b"Not enough unlocked balance");
+            env::panic_str("Not enough unlocked balance");
         }
         account.balance -= lock_amount;
 
@@ -118,7 +115,7 @@ impl FunToken {
         if escrow_account_id != owner_id {
             let allowance = account.get_allowance(&escrow_account_id);
             if allowance < lock_amount {
-                env::panic(b"Not enough allowance");
+                env::panic_str("Not enough allowance");
             }
             account.set_allowance(&escrow_account_id, allowance - lock_amount);
         }
@@ -139,7 +136,7 @@ impl FunToken {
         let unlock_amount =
             u128::from_str(&unlock_amount).expect("Failed to parse allow unlock_amount");
         if unlock_amount == 0 {
-            env::panic(b"Can't unlock 0 tokens");
+            env::panic_str("Can't unlock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
@@ -147,7 +144,7 @@ impl FunToken {
         // Checking and updating locked balance
         let locked_balance = account.get_locked_balance(&escrow_account_id);
         if locked_balance < unlock_amount {
-            env::panic(b"Not enough locked tokens");
+            env::panic_str("Not enough locked tokens");
         }
         account.set_locked_balance(&escrow_account_id, locked_balance - unlock_amount);
 
@@ -175,7 +172,7 @@ impl FunToken {
     pub fn transfer_from(&mut self, owner_id: AccountId, new_owner_id: AccountId, amount: String) {
         let amount = u128::from_str(&amount).expect("Failed to parse allow amount");
         if amount == 0 {
-            env::panic(b"Can't transfer 0 tokens");
+            env::panic_str("Can't transfer 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
@@ -194,7 +191,7 @@ impl FunToken {
         if remaining_amount > 0 {
             // Checking and updating unlocked balance
             if account.balance < remaining_amount {
-                env::panic(b"Not enough unlocked balance");
+                env::panic_str("Not enough unlocked balance");
             }
             account.balance -= remaining_amount;
 
@@ -203,7 +200,7 @@ impl FunToken {
                 let allowance = account.get_allowance(&escrow_account_id);
                 // Checking and updating unlocked balance
                 if allowance < remaining_amount {
-                    env::panic(b"Not enough allowance");
+                    env::panic_str("Not enough allowance");
                 }
                 account.set_allowance(&escrow_account_id, allowance - remaining_amount);
             }
@@ -258,27 +255,18 @@ impl FunToken {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use near_sdk::test_utils::test_env::{alice, bob, carol};
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
 
     use super::*;
 
-    fn alice() -> AccountId {
-        "alice.near".to_string()
-    }
-    fn bob() -> AccountId {
-        "bob.near".to_string()
-    }
-    fn carol() -> AccountId {
-        "carol.near".to_string()
-    }
-
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
         VMContext {
-            current_account_id: alice(),
-            signer_account_id: bob(),
+            current_account_id: alice().into(),
+            signer_account_id: bob().into(),
             signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id,
+            predecessor_account_id: predecessor_account_id.into(),
             input: vec![],
             block_index: 0,
             block_timestamp: 0,

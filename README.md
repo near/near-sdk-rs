@@ -31,6 +31,10 @@
     </h3>
 </div>
 
+## Release notes
+
+**Release notes and unreleased changes can be found in the [CHANGELOG](CHANGELOG.md)**
+
 ## Example
 
 Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
@@ -40,7 +44,7 @@ use near_sdk::{near_bindgen, env};
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    records: HashMap<AccountId, String>,
 }
 
 #[near_bindgen]
@@ -50,7 +54,7 @@ impl StatusMessage {
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: String) -> Option<String> {
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
         self.records.get(&account_id).cloned()
     }
 }
@@ -87,8 +91,7 @@ impl StatusMessage {
     Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-high-level)
     to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
-* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the
-contract.
+* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
 
     ```rust
     #[near_bindgen]
@@ -145,8 +148,8 @@ pub fn my_method(&mut self) {
 /// Which is equivalent to
 
 pub fn my_method(&mut self ) {
-    if env::current_account_id() != env::predecessor_account_id() {
-        near_sdk::env::panic("Method method is private".as_bytes());
+    if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+        near_sdk::env::panic_str("Method method is private");
     }
 ...
 }
@@ -217,8 +220,4 @@ Since WebAssembly compiler includes a bunch of debug information into the binary
 different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
 that allows to compile the binary.
 
-**Use [contract-builder](contract-builder/)**
-
-## License
-This repository is distributed under the terms of both the MIT license and the Apache License (Version 2.0).
-See [LICENSE](LICENSE) and [LICENSE-APACHE](LICENSE-APACHE) for details.
+**Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contact-builder)**

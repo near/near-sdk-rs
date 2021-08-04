@@ -6,11 +6,11 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
-use crate::env;
+use crate::{env, IntoStorageKey};
 
-const ERR_KEY_SERIALIZATION: &[u8] = b"Cannot serialize key with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
+const ERR_KEY_SERIALIZATION: &str = "Cannot serialize key with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -22,8 +22,11 @@ pub struct LookupMap<K, V> {
 
 impl<K, V> LookupMap<K, V> {
     /// Create a new map. Use `key_prefix` as a unique prefix for keys.
-    pub fn new(key_prefix: Vec<u8>) -> Self {
-        Self { key_prefix, el: PhantomData }
+    pub fn new<S>(key_prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        Self { key_prefix: key_prefix.into_storage_key(), el: PhantomData }
     }
 
     fn raw_key_to_storage_key(&self, raw_key: &[u8]) -> Vec<u8> {
@@ -75,21 +78,21 @@ where
     fn serialize_key(key: &K) -> Vec<u8> {
         match key.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_KEY_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_KEY_SERIALIZATION),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> V {
-        match V::try_from_slice(&raw_value) {
+        match V::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_DESERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_DESERIALIZATION),
         }
     }
 
     fn serialize_value(value: &V) -> Vec<u8> {
         match value.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_SERIALIZATION),
         }
     }
 
@@ -115,7 +118,7 @@ where
     /// a value. Note, the keys that have the same hash value are undistinguished by
     /// the implementation.
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
-        self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(&value))
+        self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
@@ -138,7 +141,7 @@ mod tests {
     #[test]
     pub fn test_insert() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
             let key = rng.gen::<u64>();
@@ -150,7 +153,7 @@ mod tests {
     #[test]
     pub fn test_insert_has_key() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
@@ -166,14 +169,14 @@ mod tests {
         }
         // Existing
         for (key, _) in key_to_value.iter() {
-            assert!(map.contains_key(&key));
+            assert!(map.contains_key(key));
         }
     }
 
     #[test]
     pub fn test_insert_remove() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -194,7 +197,7 @@ mod tests {
     #[test]
     pub fn test_remove_last_reinsert() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let key1 = 1u64;
         let value1 = 2u64;
         map.insert(&key1, &value1);
@@ -212,7 +215,7 @@ mod tests {
     #[test]
     pub fn test_insert_override_remove() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
         let mut key_to_value = HashMap::new();
@@ -240,7 +243,7 @@ mod tests {
     #[test]
     pub fn test_get_non_existent() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
         for _ in 0..500 {
@@ -258,7 +261,7 @@ mod tests {
     #[test]
     pub fn test_extend() {
         test_env::setup();
-        let mut map = LookupMap::new(b"m".to_vec());
+        let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
         for _ in 0..100 {
