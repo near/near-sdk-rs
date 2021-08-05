@@ -15,7 +15,7 @@ pub enum PromiseAction {
         method_name: String,
         arguments: Vec<u8>,
         amount: Balance,
-        gas: Gas,
+        gas: Option<Gas>,
     },
     Transfer {
         amount: Balance,
@@ -43,6 +43,15 @@ pub enum PromiseAction {
     },
 }
 
+#[derive(Clone)]
+pub(crate) struct QueuedFunctionCall {
+    pub promise_index: PromiseIndex,
+    pub method_name: String,
+    pub arguments: Vec<u8>,
+    pub amount: Balance,
+    pub gas: Option<Gas>,
+}
+
 impl PromiseAction {
     pub fn add(&self, promise_index: PromiseIndex) {
         use PromiseAction::*;
@@ -52,13 +61,13 @@ impl PromiseAction {
                 crate::env::promise_batch_action_deploy_contract(promise_index, code)
             }
             FunctionCall { method_name, arguments, amount, gas } => {
-                crate::env::promise_batch_action_function_call(
+                crate::env::queue_function_call(QueuedFunctionCall {
                     promise_index,
-                    method_name,
-                    arguments,
-                    *amount,
-                    *gas,
-                )
+                    method_name: method_name.clone(),
+                    arguments: arguments.clone(),
+                    amount: *amount,
+                    gas: *gas,
+                })
             }
             Transfer { amount } => {
                 crate::env::promise_batch_action_transfer(promise_index, *amount)
@@ -246,6 +255,22 @@ impl Promise {
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
+    ) -> Self {
+        self.add_action(PromiseAction::FunctionCall {
+            method_name,
+            arguments,
+            amount,
+            gas: Some(gas),
+        })
+    }
+
+    /// Queue a function call which will be scheduled with the promise
+    pub fn queued_function_call(
+        self,
+        method_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Option<Gas>,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCall { method_name, arguments, amount, gas })
     }
