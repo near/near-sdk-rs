@@ -51,17 +51,19 @@ macro_rules! method_into_register {
 /// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
-/// ```ignore
-/// # let context = Default::default();
+/// ```no_run
+/// # let context = near_sdk::test_utils::VMContextBuilder::new().build();
 /// # let vm_config = Default::default();
 /// # let fees_config = Default::default();
 /// # let storage = Default::default();
+/// # let validators = Default::default();
 /// let mocked_blockchain = near_sdk::MockedBlockchain::new(
 ///           context,
 ///           vm_config,
 ///           fees_config,
 ///           vec![],
 ///           storage,
+///           validators,
 ///           None,
 ///       );
 /// near_sdk::env::set_blockchain_interface(mocked_blockchain);

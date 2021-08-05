@@ -318,11 +318,10 @@ impl Promise {
     /// Note, once the promises are merged it is not possible to add actions to them, e.g. the
     /// following code will panic during the execution of the smart contract:
     ///
-    /// ```ignore
-    /// # use near_sdk::{Promise, VMContext, testing_env};
-    /// # testing_env!(VMContext{ signer_account_id: "alice_near".to_string(), prepaid_gas: 1_000_000, ..Default::default()});
-    /// let p1 = Promise::new("bob_near".to_string()).create_account();
-    /// let p2 = Promise::new("carol_near".to_string()).create_account();
+    /// ```no_run
+    /// # use near_sdk::{Promise, testing_env};
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
@@ -342,13 +341,12 @@ impl Promise {
     /// In the following code `bob_near` and `dave_near` will be created concurrently. `carol_near`
     /// creation will wait for `bob_near` to be created, and `eva_near` will wait for both `carol_near`
     /// and `dave_near` to be created first.
-    /// ```ignore
+    /// ```no_run
     /// # use near_sdk::{Promise, VMContext, testing_env};
-    /// # testing_env!(VMContext{ signer_account_id: "alice_near".to_string(), prepaid_gas: 1_000_000, ..Default::default()});
-    /// let p1 = Promise::new("bob_near".to_string()).create_account();
-    /// let p2 = Promise::new("carol_near".to_string()).create_account();
-    /// let p3 = Promise::new("dave_near".to_string()).create_account();
-    /// let p4 = Promise::new("eva_near".to_string()).create_account();
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
     pub fn then(self, mut other: Promise) -> Promise {
