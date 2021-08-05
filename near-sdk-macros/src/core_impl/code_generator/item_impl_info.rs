@@ -58,6 +58,7 @@ mod tests {
                 near_sdk::env::setup_panic_hook();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -76,6 +77,7 @@ mod tests {
                 near_sdk::env::setup_panic_hook();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -98,6 +100,7 @@ mod tests {
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -125,6 +128,7 @@ mod tests {
                 .expect("Failed to deserialize input from JSON.");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(k, );
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -158,6 +162,7 @@ mod tests {
                     let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                     contract.method(k, m, );
                     near_sdk::env::state_write(&contract);
+                    near_sdk::env::schedule_queued_function_calls();
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -194,6 +199,7 @@ mod tests {
                         near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                     near_sdk::env::value_return(&result);
                     near_sdk::env::state_write(&contract);
+                    near_sdk::env::schedule_queued_function_calls();
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -216,6 +222,7 @@ mod tests {
                 let result =
                     near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                 near_sdk::env::value_return(&result);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -243,6 +250,7 @@ mod tests {
                     .expect("Failed to deserialize input from JSON.");
                     let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                     contract.method(&k, );
+                    near_sdk::env::schedule_queued_function_calls();
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -271,6 +279,7 @@ mod tests {
                 .expect("Failed to deserialize input from JSON.");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut k, );
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -315,6 +324,7 @@ mod tests {
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, z, );
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -350,6 +360,7 @@ mod tests {
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, );
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
 
@@ -392,6 +403,7 @@ mod tests {
                     .collect();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(x, y, );
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -428,6 +440,7 @@ mod tests {
                 }
                 let contract = Hello::method(&mut k,);
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -461,6 +474,7 @@ mod tests {
                 .expect("Failed to deserialize input from JSON.");
                 let contract = Hello::method(&mut k,);
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -495,6 +509,7 @@ mod tests {
                 }
                 let contract = Hello::method(&mut k,);
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -532,6 +547,7 @@ mod tests {
                     .expect("Failed to serialize the return value using Borsh.");
                 near_sdk::env::value_return(&result);
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -575,6 +591,7 @@ mod tests {
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, z, );
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -594,6 +611,7 @@ mod tests {
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method();
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -619,6 +637,7 @@ mod tests {
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.private_method();
                 near_sdk::env::state_write(&contract);
+                near_sdk::env::schedule_queued_function_calls();
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());

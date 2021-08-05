@@ -147,6 +147,10 @@ impl ImplItemMethodInfo {
                 #value
             }
         });
+
+        let schedule_function_calls = quote! {
+            near_sdk::env::schedule_queued_function_calls();
+        };
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
@@ -160,6 +164,7 @@ impl ImplItemMethodInfo {
                 #callback_deser
                 #callback_vec_deser
                 #body
+                #schedule_function_calls
             }
         }
     }
