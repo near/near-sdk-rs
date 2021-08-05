@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
 
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// An non-iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -60,7 +60,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match element.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
     }
 

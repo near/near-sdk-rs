@@ -93,16 +93,16 @@ where
     }
 
     pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
-        if !self.contains_key(&key) {
-            self.root = self.insert_at(self.root, self.len(), &key);
+        if !self.contains_key(key) {
+            self.root = self.insert_at(self.root, self.len(), key);
         }
-        self.val.insert(&key, &val)
+        self.val.insert(key, val)
     }
 
     pub fn remove(&mut self, key: &K) -> Option<V> {
-        if self.contains_key(&key) {
-            self.root = self.do_remove(&key);
-            self.val.remove(&key)
+        if self.contains_key(key) {
+            self.root = self.do_remove(key);
+            self.val.remove(key)
         } else {
             // no such key, nothing to do
             None
@@ -149,22 +149,22 @@ where
 
     /// Iterate all entries in ascending order: min to max, both inclusive
     pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::asc(&self)
+        Cursor::asc(self)
     }
 
     /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
     pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::asc_from(&self, key)
+        Cursor::asc_from(self, key)
     }
 
     /// Iterate all entries in descending order: max to min, both inclusive
     pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::desc(&self)
+        Cursor::desc(self)
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
     pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::desc_from(&self, key)
+        Cursor::desc_from(self, key)
     }
 
     /// Iterate entries in ascending order according to specified bounds.
@@ -182,7 +182,7 @@ where
             (lo, hi) => (lo, hi),
         };
 
-        Cursor::range(&self, lo, hi)
+        Cursor::range(self, lo, hi)
     }
 
     /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`TreeMap`].
@@ -321,7 +321,7 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
-        self.save(&node);
+        self.save(node);
     }
 
     // Balance = difference in heights between left and right subtrees at given node.
@@ -372,7 +372,7 @@ where
 
     // Check balance at a given node and enforce it if necessary with respective rotations.
     fn enforce_balance(&mut self, node: &mut Node<K>) -> u64 {
-        let balance = self.get_balance(&node);
+        let balance = self.get_balance(node);
         if balance > 1 {
             let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
             if self.get_balance(&lft) < 0 {

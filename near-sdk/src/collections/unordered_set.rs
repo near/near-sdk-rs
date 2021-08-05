@@ -5,8 +5,8 @@ use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// An iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -91,7 +91,7 @@ impl<T> UnorderedSet<T> {
                     // element.
                     let last_element_raw = match self.elements.get_raw(self.len() - 1) {
                         Some(x) => x,
-                        None => env::panic(ERR_INCONSISTENT_STATE),
+                        None => env::panic_str(ERR_INCONSISTENT_STATE),
                     };
                     env::storage_remove(&index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
@@ -118,7 +118,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match element.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
     }
 

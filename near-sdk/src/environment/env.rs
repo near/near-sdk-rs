@@ -3,9 +3,6 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use std::borrow::Borrow;
-#[cfg(not(target_arch = "wasm32"))]
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
@@ -16,14 +13,6 @@ use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-thread_local! {
-/// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
-/// for interacting with the real and fake blockchains.
-    pub(crate) static BLOCKCHAIN_INTERFACE: RefCell<MockedBlockchain>
-         = RefCell::new(MockedBlockchain::default());
-}
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -79,15 +68,15 @@ macro_rules! method_into_register {
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        *b.borrow_mut() = blockchain_interface;
+    crate::mock::with_mocked_blockchain(|b| {
+        *b = blockchain_interface;
     })
 }
 
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
 /// blockchain interface.
 fn panic_hook_impl(info: &std_panic::PanicInfo) {
-    panic(info.to_string().as_bytes());
+    panic_str(info.to_string().as_str());
 }
 
 /// Setups panic hook to expose error info to the blockchain.
@@ -351,12 +340,11 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balanc
     unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
 }
 
-pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
+pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: Balance,
-    public_key: P,
+    public_key: &PublicKey,
 ) {
-    let public_key = public_key.borrow();
     unsafe {
         sys::promise_batch_action_stake(
             promise_index,
@@ -366,12 +354,11 @@ pub fn promise_batch_action_stake<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
+pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
-    public_key: P,
+    public_key: &PublicKey,
     nonce: u64,
 ) {
-    let public_key = public_key.borrow();
     unsafe {
         sys::promise_batch_action_add_key_with_full_access(
             promise_index,
@@ -381,15 +368,14 @@ pub fn promise_batch_action_add_key_with_full_access<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
+pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
-    public_key: P,
+    public_key: &PublicKey,
     nonce: u64,
     allowance: Balance,
     receiver_id: &AccountId,
     method_names: &[u8],
 ) {
-    let public_key = public_key.borrow();
     let receiver_id: &str = receiver_id.as_ref();
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
@@ -405,11 +391,7 @@ pub fn promise_batch_action_add_key_with_function_call<P: Borrow<PublicKey>>(
         )
     }
 }
-pub fn promise_batch_action_delete_key<P: Borrow<PublicKey>>(
-    promise_index: PromiseIndex,
-    public_key: P,
-) {
-    let public_key = public_key.borrow();
+pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
             promise_index,
@@ -488,9 +470,23 @@ pub fn value_return(value: &[u8]) {
     unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
+/// [`panic_str`] should be used as the bytes are required to be UTF-8
+#[deprecated(since = "4.0.0", note = "Use env::panic_str to panic with a message.")]
 pub fn panic(message: &[u8]) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
+
+/// Terminates the execution of the program with the UTF-8 encoded message.
+pub fn panic_str(message: &str) -> ! {
+    unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
+}
+
+/// Aborts the current contract execution without a custom message.
+/// To include a message, use [`panic_str`].
+pub fn abort() -> ! {
+    unsafe { sys::panic() }
+}
+
 /// Logs the string message message. This message is stored on chain.
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
