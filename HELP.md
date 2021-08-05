@@ -457,8 +457,8 @@ mod ext_calculator {
     pub fn mult(a: U64, b: U64, receiver_id: &AccountId, deposit: Balance, gas: Gas) -> Promise {
         Promise::new(receiver_id.clone())
             .function_call(
-                b"mult",
-                json!({ "a": a, "b": b }).to_string().as_bytes(),
+                "mult".to_string(),
+                json!({ "a": a, "b": b }).to_string().into_bytes(),
                 deposit,
                 gas,
             )
