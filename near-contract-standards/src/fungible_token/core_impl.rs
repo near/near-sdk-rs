@@ -171,7 +171,7 @@ impl FungibleTokenCore for FungibleToken {
             sender_id.clone(),
             amount.into(),
             msg,
-            &receiver_id,
+            receiver_id.clone(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
@@ -179,7 +179,7 @@ impl FungibleTokenCore for FungibleToken {
             sender_id,
             receiver_id,
             amount.into(),
-            &env::current_account_id(),
+            env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
         ))
