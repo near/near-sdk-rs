@@ -1,10 +1,10 @@
 # Changelog
 
 ## [unreleased]
+* Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
+- Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`. [PR 495](https://github.com/near/near-sdk-rs/pull/495)
 - fix: Public keys can no longer be borsh deserialized from invalid bytes. [PR 502](https://github.com/near/near-sdk-rs/pull/502)
   - Adds `Hash` derive to `PublicKey`
-- Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
-- Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`.
 - Changes method name parameters from bytes (`Vec<u8>` and `&[u8]`) to string equivalents for batch function call promises [PR 515](https://github.com/near/near-sdk-rs/pull/515)
   - `promise_batch_action_function_call`, `Promise::function_call`, `promise_batch_action_add_key_with_function_call`, `Promise::add_access_key`, and `Promise::add_access_key_with_nonce` are afffected.
   - Instead of `b"method_name"` just use `"method_name"`, the bytes are enforced to be utf8 in the runtime.
@@ -28,22 +28,22 @@
   * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.
   * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overriden to a custom one or set manually if intended.
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
-* Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`
-  * Removes `ValidAccountId` to avoid having multiple types for account IDs
+* Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`. [PR 448](https://github.com/near/near-sdk-rs/pull/448)
+  * Removes `ValidAccountId` to avoid having multiple types for account IDs.
   * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
-* Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration
+* Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration. [PR 450](https://github.com/near/near-sdk-rs/pull/450)
   * This default only affects outside of `wasm32` environments and is optional/backwards compatible
-* Deprecates `env::block_index` and replaces it with `env::block_height` for more consistent naming
-* Updates internal NFT traits to not move the underlying type for methods
+* Deprecates `env::block_index` and replaces it with `env::block_height` for more consistent naming. [PR 474](https://github.com/near/near-sdk-rs/pull/474)
+* Updates internal NFT traits to not move the underlying type for methods. [PR 475](https://github.com/near/near-sdk-rs/pull/475)
   * This should not be a breaking change if using the `impl` macros, only if implementing manually
-* Makes `BLOCKCHAIN_INTERFACE` a concrete type and no longer exports it.
+* Makes `BLOCKCHAIN_INTERFACE` a concrete type and no longer exports it. [PR 451](https://github.com/near/near-sdk-rs/pull/451)
   * If for testing you need this mocked blockchain, `near_sdk::mock::with_mocked_blockchain` can be used
   * `near_sdk::env::take_blockchain_interface` is removed, as this interface is no longer optional
   * removes `BlockchainInterface` trait, as this interface is only used in mocked contexts now
-* Updates `Gas` type to be a newtype, which makes the API harder to misuse.
+* Updates `Gas` type to be a newtype, which makes the API harder to misuse. [PR 471](https://github.com/near/near-sdk-rs/pull/471)
   * This also changes the JSON serialization of this type to a string, to avoid precision loss when deserializing in JavaScript
 * `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
-* Expose `Receipt` and respective `VmAction`s in mocked contexts through replacing with a local interface and types.
+* Expose `Receipt` and respective `VmAction`s in mocked contexts through replacing with a local interface and types. [PR 479](https://github.com/near/near-sdk-rs/pull/479)
 
 ## `3.1.0` [04-06-2021]
 
