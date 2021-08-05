@@ -3,8 +3,6 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
@@ -15,14 +13,6 @@ use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-thread_local! {
-/// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
-/// for interacting with the real and fake blockchains.
-    pub(crate) static BLOCKCHAIN_INTERFACE: RefCell<MockedBlockchain>
-         = RefCell::new(MockedBlockchain::default());
-}
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -78,8 +68,8 @@ macro_rules! method_into_register {
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        *b.borrow_mut() = blockchain_interface;
+    crate::mock::with_mocked_blockchain(|b| {
+        *b = blockchain_interface;
     })
 }
 
