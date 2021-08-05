@@ -3,7 +3,7 @@
 ## [unreleased]
 - Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`.
-- Changes method name parameters from bytes (`Vec<u8>` and `&[u8]`) to string equivalents for batch function call promises
+- Changes method name parameters from bytes (`Vec<u8>` and `&[u8]`) to string equivalents for batch function call promises [PR 515](https://github.com/near/near-sdk-rs/pull/515)
   - `promise_batch_action_function_call`, `Promise::function_call`, `promise_batch_action_add_key_with_function_call`, `Promise::add_access_key`, and `Promise::add_access_key_with_nonce` are afffected.
   - Instead of `b"method_name"` just use `"method_name"`, the bytes are enforced to be utf8 in the runtime.
 
