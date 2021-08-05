@@ -151,8 +151,8 @@ impl PromiseJoint {
 ///   In the following code if someone calls method `ContractA::a` they will internally cause an
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
-/// ```ignore
-/// # use near_sdk::{ext_contract, near_bindgen, Promise};
+/// ```no_run
+/// # use near_sdk::{ext_contract, near_bindgen, Promise, Gas};
 /// # use borsh::{BorshDeserialize, BorshSerialize};
 /// #[ext_contract]
 /// pub trait ContractB {
@@ -166,7 +166,7 @@ impl PromiseJoint {
 /// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
-///         contract_b::b(&"bob_near".to_string(), 0, 1_000)
+///         contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
 ///     }
 /// }
 /// ```
@@ -174,10 +174,11 @@ impl PromiseJoint {
 /// * When they need to create a transaction with one or many actions, e.g. the following code
 ///   schedules a transaction that creates an account, transfers tokens, and assigns a public key:
 ///
-/// ```ignore
-/// # use near_sdk::{Promise, env, VMContext, testing_env};
-/// # testing_env!(VMContext{ signer_account_id: "bob_near".to_string(), account_balance: 1000, prepaid_gas: 1_000_000, ..Default::default()});
-/// Promise::new("bob_near".to_string())
+/// ```no_run
+/// # use near_sdk::{Promise, env, test_utils::VMContextBuilder, testing_env};
+/// # testing_env!(VMContextBuilder::new().signer_account_id("bob_near".parse().unwrap())
+/// #               .account_balance(1000).prepaid_gas(1_000_000.into()).build());
+/// Promise::new("bob_near".parse().unwrap())
 ///   .create_account()
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
@@ -377,11 +378,11 @@ impl Promise {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::b(&"bob_near".to_string(), 0, Gas(1_000)).as_return();
+    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000)).as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::b(&"bob_near".to_string(), 0, Gas(1_000))
+    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
     ///     }
     /// }
     /// ```
