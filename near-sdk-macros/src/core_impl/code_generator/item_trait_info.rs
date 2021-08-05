@@ -14,7 +14,6 @@ impl ItemTraitInfo {
            pub mod #mod_name {
                 use super::*;
                 use near_sdk::{Gas, Balance, AccountId, Promise};
-                use std::string::ToString;
                 #result
             }
         }
@@ -54,7 +53,6 @@ mod tests {
             pub mod external_cross_contract {
                 use super::*;
                 use near_sdk::{Gas, Balance, AccountId, Promise};
-                use std::string::ToString;
                 pub fn merge_sort(
                     arr: Vec<u8>,
                     __account_id: AccountId,
@@ -107,7 +105,6 @@ mod tests {
           pub mod test_ext {
             use super::*;
             use near_sdk::{Gas, Balance, AccountId, Promise};
-            use std::string::ToString;
             pub fn test(
                 v: Vec<String>,
                 __account_id: AccountId,
