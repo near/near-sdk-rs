@@ -3,7 +3,6 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-#[cfg(not(target_arch = "wasm32"))]
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::mem::size_of;
