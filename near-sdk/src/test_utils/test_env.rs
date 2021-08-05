@@ -17,7 +17,7 @@ pub fn carol() -> AccountId {
 // TODO(austinabell): This seems like a footgun, not clear it's replacing the context with default
 pub fn setup_with_config(vm_config: VMConfig) {
     let context = VMContextBuilder::new().build();
-    let storage = crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow_mut().take_storage());
+    let storage = crate::mock::with_mocked_blockchain(|b| b.take_storage());
     env::set_blockchain_interface(MockedBlockchain::new(
         context,
         vm_config,
