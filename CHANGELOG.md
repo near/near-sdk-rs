@@ -3,6 +3,7 @@
 ## [unreleased]
 * Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`.
+- Fixes `#[ext_contract]` codegen function signatures to take an `AccountId` instead of a generic `ToString` and converting unchecked to `AccountId`. [PR 518](https://github.com/near/near-sdk-rs/pull/518)
 
 ## `4.0.0-pre.1` [07-23-2021]
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
