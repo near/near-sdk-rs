@@ -133,14 +133,12 @@ where
 #[cfg(test)]
 mod tests {
     use crate::collections::LookupMap;
-    use crate::test_utils::test_env;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashMap;
 
     #[test]
     pub fn test_insert() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
@@ -152,7 +150,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_has_key() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut key_to_value = HashMap::new();
@@ -175,7 +172,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
@@ -196,7 +192,6 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let key1 = 1u64;
         let value1 = 2u64;
@@ -214,7 +209,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
@@ -242,7 +236,6 @@ mod tests {
 
     #[test]
     pub fn test_get_non_existent() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
@@ -260,7 +253,6 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();

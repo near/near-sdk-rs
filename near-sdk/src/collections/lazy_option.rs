@@ -128,11 +128,8 @@ where
 mod tests {
     use super::*;
 
-    use crate::test_utils::test_env;
-
     #[test]
     pub fn test_all() {
-        test_env::setup();
         let mut a = LazyOption::new(b"a", None);
         assert!(a.is_none());
         a.set(&42u32);
@@ -155,7 +152,6 @@ mod tests {
 
     #[test]
     pub fn test_multi() {
-        test_env::setup();
         let mut a = LazyOption::new(b"a", None);
         let mut b = LazyOption::new(b"b", None);
         assert!(a.is_none());
@@ -173,7 +169,6 @@ mod tests {
 
     #[test]
     pub fn test_init_value() {
-        test_env::setup();
         let a = LazyOption::new(b"a", Some(&42u32));
         assert!(a.is_some());
         assert_eq!(a.get(), Some(42));
