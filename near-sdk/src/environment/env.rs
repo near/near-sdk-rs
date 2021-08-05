@@ -18,14 +18,6 @@ use crate::{
     },
 };
 
-#[cfg(not(target_arch = "wasm32"))]
-thread_local! {
-/// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
-/// for interacting with the real and fake blockchains.
-    pub(crate) static BLOCKCHAIN_INTERFACE: RefCell<MockedBlockchain>
-         = RefCell::new(MockedBlockchain::default());
-}
-
 thread_local! {
     static QUEUED_FUNCTION_CALL: RefCell<Vec<QueuedFunctionCall>> = RefCell::new(Vec::new());
 }
@@ -67,25 +59,27 @@ macro_rules! method_into_register {
 /// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
-/// ```ignore
-/// # let context = Default::default();
+/// ```no_run
+/// # let context = near_sdk::test_utils::VMContextBuilder::new().build();
 /// # let vm_config = Default::default();
 /// # let fees_config = Default::default();
 /// # let storage = Default::default();
+/// # let validators = Default::default();
 /// let mocked_blockchain = near_sdk::MockedBlockchain::new(
 ///           context,
 ///           vm_config,
 ///           fees_config,
 ///           vec![],
 ///           storage,
+///           validators,
 ///           None,
 ///       );
 /// near_sdk::env::set_blockchain_interface(mocked_blockchain);
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        *b.borrow_mut() = blockchain_interface;
+    crate::mock::with_mocked_blockchain(|b| {
+        *b = blockchain_interface;
     })
 }
 
