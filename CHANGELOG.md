@@ -3,6 +3,7 @@
 ## [unreleased]
 * Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`.
+- Moves runtime syscalls to `near-sys` crate and includes new functions available [PR 507](https://github.com/near/near-sdk-rs/pull/507)
 
 ## `4.0.0-pre.1` [07-23-2021]
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
