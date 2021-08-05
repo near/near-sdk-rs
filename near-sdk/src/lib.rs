@@ -44,6 +44,11 @@ pub use crate::utils::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod test_utils;
 
+// Not public API.
+#[doc(hidden)]
+#[path = "private.rs"]
+pub mod __private;
+
 // Set up global allocator by default if custom-allocator feature is not set in wasm32 architecture.
 #[cfg(all(feature = "wee_alloc", target_arch = "wasm32"))]
 #[global_allocator]
