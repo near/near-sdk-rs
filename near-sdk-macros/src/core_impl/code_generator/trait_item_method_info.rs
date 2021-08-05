@@ -20,7 +20,7 @@ impl TraitItemMethodInfo {
                 #serialize
                 near_sdk::Promise::new(AccountId::new_unchecked(__account_id.to_string()))
                 .function_call(
-                    #ident_byte_str.to_vec(),
+                    #ident_byte_str.to_string(),
                     args,
                     __balance,
                     __gas,

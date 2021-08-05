@@ -12,7 +12,7 @@ pub enum PromiseAction {
         code: Vec<u8>,
     },
     FunctionCall {
-        method_name: Vec<u8>,
+        method_name: String,
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
@@ -32,7 +32,7 @@ pub enum PromiseAction {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: Vec<u8>,
+        method_names: String,
         nonce: u64,
     },
     DeleteKey {
@@ -242,7 +242,7 @@ impl Promise {
     /// A low-level interface for making a function call to the account that this promise acts on.
     pub fn function_call(
         self,
-        method_name: Vec<u8>,
+        method_name: String,
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
@@ -272,13 +272,13 @@ impl Promise {
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `method_names` is a comma separated list of methods,
-    /// e.g. `b"method_a,method_b"`.
+    /// e.g. `"method_a,method_b".to_string()`.
     pub fn add_access_key(
         self,
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: Vec<u8>,
+        method_names: String,
     ) -> Self {
         self.add_access_key_with_nonce(public_key, allowance, receiver_id, method_names, 0)
     }
@@ -289,7 +289,7 @@ impl Promise {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: Vec<u8>,
+        method_names: String,
         nonce: u64,
     ) -> Self {
         self.add_action(PromiseAction::AddAccessKey {

@@ -318,7 +318,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
 
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
-    method_name: &[u8],
+    method_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -374,7 +374,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     nonce: u64,
     allowance: Balance,
     receiver_id: &AccountId,
-    method_names: &[u8],
+    method_names: &str,
 ) {
     let receiver_id: &str = receiver_id.as_ref();
     unsafe {
