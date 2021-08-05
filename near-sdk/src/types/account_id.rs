@@ -1,8 +1,7 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use borsh::{maybestd::io, BorshDeserialize, BorshSchema, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
-use std::io::{self, ErrorKind};
 
 use crate::env::is_valid_account_id;
 
@@ -87,8 +86,9 @@ impl<'de> Deserialize<'de> for AccountId {
 
 impl BorshDeserialize for AccountId {
     fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        <String as BorshDeserialize>::deserialize(buf)
-            .and_then(|s| Self::try_from(s).map_err(|e| io::Error::new(ErrorKind::InvalidData, e)))
+        <String as BorshDeserialize>::deserialize(buf).and_then(|s| {
+            Self::try_from(s).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        })
     }
 }
 

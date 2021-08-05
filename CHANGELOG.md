@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+- fix: Public keys can no longer be borsh deserialized from invalid bytes. [PR 502](https://github.com/near/near-sdk-rs/pull/502)
+  - Adds `Hash` derive to `PublicKey`
 * Update `panic` and `panic_utf8` syscall signatures to indicate they do not return.
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`.
 
