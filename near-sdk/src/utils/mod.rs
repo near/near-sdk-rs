@@ -117,11 +117,10 @@ macro_rules! setup_alloc {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{get_logs, test_env};
+    use crate::test_utils::get_logs;
 
     #[test]
     fn test_log_simple() {
-        test_env::setup();
         log!("hello");
 
         assert_eq!(get_logs(), vec!["hello".to_string()]);
@@ -129,7 +128,6 @@ mod tests {
 
     #[test]
     fn test_log_format() {
-        test_env::setup();
         log!("hello {} ({})", "user_name", 25);
 
         assert_eq!(get_logs(), vec!["hello user_name (25)".to_string()]);
