@@ -5,15 +5,12 @@ use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
-    PromiseOrValue,
+    env, ext_contract, log, near_bindgen, AccountId, Gas, PanicOnDefault, PromiseOrValue,
 };
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(BASE_GAS + PROMISE_CALL);
-
-const NO_DEPOSIT: Balance = 0;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -74,25 +71,17 @@ impl NonFungibleTokenReceiver for TokenReceiver {
             "return-it-later" => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::ok_go(
-                    true,
-                    account_id,
-                    NO_DEPOSIT,
-                    prepaid_gas - GAS_FOR_NFT_ON_TRANSFER,
-                )
-                .into()
+                ext_self::ok_go(true, account_id)
+                    .with_gas(prepaid_gas - GAS_FOR_NFT_ON_TRANSFER)
+                    .into()
             }
             "keep-it-now" => PromiseOrValue::Value(false),
             "keep-it-later" => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::ok_go(
-                    false,
-                    account_id,
-                    NO_DEPOSIT,
-                    prepaid_gas - GAS_FOR_NFT_ON_TRANSFER,
-                )
-                .into()
+                ext_self::ok_go(false, account_id)
+                    .with_gas(prepaid_gas - GAS_FOR_NFT_ON_TRANSFER)
+                    .into()
             }
             _ => env::panic_str("unsupported msg"),
         }

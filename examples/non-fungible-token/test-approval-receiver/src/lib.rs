@@ -5,15 +5,12 @@ use near_contract_standards::non_fungible_token::approval::NonFungibleTokenAppro
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
-    PromiseOrValue,
+    env, ext_contract, log, near_bindgen, AccountId, Gas, PanicOnDefault, PromiseOrValue,
 };
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
 const GAS_FOR_NFT_ON_APPROVE: Gas = Gas(BASE_GAS + PROMISE_CALL);
-
-const NO_DEPOSIT: Balance = 0;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -73,7 +70,8 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::ok_go(msg, account_id, NO_DEPOSIT, prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
+                ext_self::ok_go(msg, account_id)
+                    .with_gas(prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
                     .into()
             }
         }

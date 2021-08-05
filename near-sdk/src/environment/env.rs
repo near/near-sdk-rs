@@ -306,6 +306,8 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 }
 
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
+    // Queued promises must be scheduled before a `then` to ensure previous calls are scheduled
+    schedule_queued_function_calls();
     let account_id: &str = account_id.as_ref();
     unsafe {
         sys::promise_batch_then(promise_index, account_id.len() as _, account_id.as_ptr() as _)
@@ -340,6 +342,9 @@ pub fn schedule_queued_function_calls() {
         for QueuedFunctionCall { promise_index, method_name, arguments, amount, gas } in
             q.borrow_mut().drain(..)
         {
+            if gas.is_none() {
+                panic!("FIRING: {}", method_name);
+            }
             promise_batch_action_function_call(
                 promise_index,
                 &method_name,

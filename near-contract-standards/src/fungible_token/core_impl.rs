@@ -11,8 +11,6 @@ use near_sdk::{
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
-const NO_DEPOSIT: Balance = 0;
-
 #[ext_contract(ext_self)]
 trait FungibleTokenResolver {
     fn ft_resolve_transfer(
@@ -172,17 +170,19 @@ impl FungibleTokenCore for FungibleToken {
             amount.into(),
             msg,
             receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
-        .then(ext_self::ft_resolve_transfer(
-            sender_id,
-            receiver_id,
-            amount.into(),
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
+        .with_gas(env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL)
+        .into_promise()
+        .then(
+            ext_self::ft_resolve_transfer(
+                sender_id,
+                receiver_id,
+                amount.into(),
+                env::current_account_id(),
+            )
+            .with_gas(GAS_FOR_RESOLVE_TRANSFER)
+            .into_promise(),
+        )
         .into()
     }
 

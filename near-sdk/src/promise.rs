@@ -116,6 +116,7 @@ impl PromiseSingle {
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
+        // TODO this probably needs to be refactored to not directly tie to promise indices
         let promise_index = if let Some(after) = self.after.borrow().as_ref() {
             crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
         } else {

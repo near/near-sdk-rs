@@ -59,12 +59,12 @@ impl CrossContract {
         let pivot = arr.len() / 2;
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
-        let prepaid_gas = env::prepaid_gas();
         let account_id = env::current_account_id();
 
-        ext::merge_sort(arr0, account_id.clone(), 0, prepaid_gas / 4)
-            .and(ext::merge_sort(arr1, account_id.clone(), 0, prepaid_gas / 4))
-            .then(ext::merge(account_id, 0, prepaid_gas / 4))
+        ext::merge_sort(arr0, account_id.clone())
+            .into_promise()
+            .and(ext::merge_sort(arr1, account_id.clone()).into())
+            .then(ext::merge(account_id).into())
             .into()
     }
 
@@ -119,23 +119,17 @@ impl CrossContract {
     //    }
 
     pub fn simple_call(&mut self, account_id: AccountId, message: String) {
-        ext_status_message::set_status(message, account_id, 0, env::prepaid_gas() / 2);
+        ext_status_message::set_status(message, account_id);
     }
     pub fn complex_call(&mut self, account_id: AccountId, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        let prepaid_gas = env::prepaid_gas();
         log!("complex_call");
-        ext_status_message::set_status(message, account_id.clone(), 0, prepaid_gas / 3).then(
-            ext_status_message::get_status(
-                env::signer_account_id(),
-                account_id,
-                0,
-                prepaid_gas / 3,
-            ),
-        )
+        ext_status_message::set_status(message, account_id.clone())
+            .into_promise()
+            .then(ext_status_message::get_status(env::signer_account_id(), account_id).into())
     }
 
     pub fn transfer_money(&mut self, account_id: AccountId, amount: u64) {

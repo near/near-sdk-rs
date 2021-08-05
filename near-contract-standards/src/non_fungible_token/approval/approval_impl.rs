@@ -7,10 +7,9 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Balance, Gas, Promise};
+use near_sdk::{assert_one_yocto, env, ext_contract, AccountId, Gas, Promise};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
-const NO_DEPOSIT: Balance = 0;
 
 #[ext_contract(ext_approval_receiver)]
 pub trait NonFungibleTokenReceiver {
@@ -63,15 +62,9 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.map(|msg| {
-            ext_approval_receiver::nft_on_approve(
-                token_id,
-                owner_id,
-                approval_id,
-                msg,
-                account_id,
-                NO_DEPOSIT,
-                env::prepaid_gas() - GAS_FOR_NFT_APPROVE,
-            )
+            ext_approval_receiver::nft_on_approve(token_id, owner_id, approval_id, msg, account_id)
+                .with_gas(env::prepaid_gas() - GAS_FOR_NFT_APPROVE)
+                .into()
         })
     }
 

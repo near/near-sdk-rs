@@ -16,14 +16,12 @@ impl TraitItemMethodInfo {
             &self.attr_sig_info.result_serializer,
         );
         quote! {
-            pub fn #ident(#pat_type_list __account_id: AccountId, __balance: near_sdk::Balance, __gas: near_sdk::Gas) -> near_sdk::Promise {
+            pub fn #ident(#pat_type_list __account_id: AccountId) -> near_sdk::__private::FunctionCallBuilder {
                 #serialize
-                near_sdk::Promise::new(__account_id)
-                .function_call(
+                near_sdk::__private::FunctionCallBuilder::new(
+                    near_sdk::Promise::new(__account_id),
                     #ident_byte_str.to_string(),
-                    args,
-                    __balance,
-                    __gas,
+                    args
                 )
             }
         }
