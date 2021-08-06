@@ -1,8 +1,7 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+use borsh::{maybestd::io, BorshDeserialize, BorshSchema, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
-use std::io::{self, ErrorKind};
 
 use crate::env::is_valid_account_id;
 
@@ -48,8 +47,7 @@ impl AccountId {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
-    /// Constructs new AccountId from `String` without checking validity.
-    /// Creating an invalid account id will result in a runtime error when being used.
+    /// Caller must ensure that the account id is valid.
     ///
     /// For more information, read: <https://docs.near.org/docs/concepts/account#account-id-rules>
     pub fn new_unchecked(id: String) -> Self {
@@ -88,8 +86,9 @@ impl<'de> Deserialize<'de> for AccountId {
 
 impl BorshDeserialize for AccountId {
     fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        <String as BorshDeserialize>::deserialize(buf)
-            .and_then(|s| Self::try_from(s).map_err(|e| io::Error::new(ErrorKind::InvalidData, e)))
+        <String as BorshDeserialize>::deserialize(buf).and_then(|s| {
+            Self::try_from(s).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        })
     }
 }
 
