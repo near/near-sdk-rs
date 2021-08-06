@@ -19,7 +19,6 @@ use crate::IntoStorageKey;
 /// ```
 /// use near_sdk::store::LazyOption;
 ///
-///# near_sdk::test_utils::test_env::setup();
 /// let mut a = LazyOption::new(b"a", None);
 /// assert!(a.is_none());
 ///
@@ -125,11 +124,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::test_env;
 
     #[test]
     pub fn test_lazy_option() {
-        test_env::setup();
         let mut a = LazyOption::new(b"a", None);
         assert!(a.is_none());
         assert!(!env::storage_has_key(b"a"));

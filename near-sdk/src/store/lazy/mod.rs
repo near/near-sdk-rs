@@ -54,7 +54,6 @@ where
 /// ```
 /// use near_sdk::store::Lazy;
 ///
-///# near_sdk::test_utils::test_env::setup();
 /// let mut a = Lazy::new(b"a", "test string".to_string());
 /// assert_eq!(*a, "test string");
 ///
@@ -149,11 +148,8 @@ where
 mod tests {
     use super::*;
 
-    use crate::test_utils::test_env;
-
     #[test]
     pub fn test_lazy() {
-        test_env::setup();
         let mut a = Lazy::new(b"a", 8u32);
         assert_eq!(a.get(), &8);
 

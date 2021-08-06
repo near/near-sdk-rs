@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::require_eq;
+use near_sdk::require;
 use near_sdk::serde::{Deserialize, Serialize};
 
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
@@ -23,10 +23,10 @@ pub trait FungibleTokenMetadataProvider {
 
 impl FungibleTokenMetadata {
     pub fn assert_valid(&self) {
-        require_eq!(&self.spec, FT_METADATA_SPEC);
-        require_eq!(self.reference.is_some(), self.reference_hash.is_some());
+        require!(&self.spec == FT_METADATA_SPEC);
+        require!(self.reference.is_some() == self.reference_hash.is_some());
         if let Some(reference_hash) = &self.reference_hash {
-            require_eq!(reference_hash.0.len(), 32, "Hash has to be 32 bytes");
+            require!(reference_hash.0.len() == 32, "Hash has to be 32 bytes");
         }
     }
 }

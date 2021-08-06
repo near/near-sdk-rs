@@ -86,13 +86,13 @@ macro_rules! testing_env {
 #[allow(dead_code)]
 /// Returns a copy of logs from VMLogic. Only available in unit tests.
 pub fn get_logs() -> Vec<String> {
-    crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow().logs())
+    crate::mock::with_mocked_blockchain(|b| b.logs())
 }
 
 /// Accessing receipts created by the contract. Only available in unit tests.
 #[allow(dead_code)]
 pub fn get_created_receipts() -> Vec<Receipt> {
-    crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow().created_receipts().clone())
+    crate::mock::with_mocked_blockchain(|b| b.created_receipts().clone())
 }
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided

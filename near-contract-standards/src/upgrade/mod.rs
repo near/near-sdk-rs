@@ -1,12 +1,12 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
-use near_sdk::{env, require, require_eq, AccountId, Duration, Promise, Timestamp};
+use near_sdk::{env, require, AccountId, Duration, Promise, Timestamp};
 
 type WrappedDuration = U64;
 
 pub trait Ownable {
     fn assert_owner(&self) {
-        require_eq!(env::predecessor_account_id(), self.get_owner(), "Owner must be predecessor");
+        require!(env::predecessor_account_id() == self.get_owner(), "Owner must be predecessor");
     }
     fn get_owner(&self) -> AccountId;
     fn set_owner(&mut self, owner: AccountId);

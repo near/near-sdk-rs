@@ -2,7 +2,7 @@ use super::NonFungibleTokenEnumeration;
 use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::U128;
-use near_sdk::{require, require_ne, AccountId};
+use near_sdk::{require, AccountId};
 
 type TokenId = String;
 
@@ -34,7 +34,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             "Out of bounds, please use a smaller from_index."
         );
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
-        require_ne!(limit, 0, "Cannot provide limit of 0.");
+        require!(limit != 0, "Cannot provide limit of 0.");
         self.owner_by_id
             .iter()
             .skip(start_index as usize)
@@ -68,7 +68,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             return vec![];
         };
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
-        require_ne!(limit, 0, "Cannot provide limit of 0.");
+        require!(limit != 0, "Cannot provide limit of 0.");
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
         require!(
             token_set.len() as u128 > start_index,

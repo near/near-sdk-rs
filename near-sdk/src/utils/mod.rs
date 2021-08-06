@@ -65,79 +65,19 @@ macro_rules! require {
     };
     ($cond:expr, $message:expr $(,)?) => {
         if !$cond {
-            $crate::env::panic_str($message.as_ref())
-        }
-    };
-}
-
-/// Asserts that two expressions are equal to each other using [`PartialEq`].
-///
-/// Like [`require!`], this will panic through runtime host functions and reduce contract size with
-/// a more concise panic message.
-///
-/// # Examples
-///
-/// ```
-/// use near_sdk::require_eq;
-///
-/// # fn main() {
-/// let a = 2;
-/// require_eq!(a, 2);
-/// require_eq!("test", "test", "Some custom error message if neq");
-/// # }
-/// ```
-#[macro_export]
-macro_rules! require_eq {
-    ($left:expr, $right:expr $(,)?) => {
-        if $left != $right {
-            $crate::env::panic_str("require_eq! assertion failed")
-        }
-    };
-    ($left:expr, $right:expr, $message:expr $(,)?) => {
-        if $left != $right {
-            $crate::env::panic_str($message.as_ref())
-        }
-    };
-}
-
-/// Asserts that two expressions are not equal to each other using [`PartialEq`].
-///
-/// Like [`require!`], this will panic through runtime host functions and reduce contract size with
-/// a more concise panic message.
-///
-/// # Examples
-///
-/// ```
-/// use near_sdk::require_ne;
-///
-/// # fn main() {
-/// let a = 2;
-/// require_ne!(a, 1);
-/// require_ne!("test", "other", "Some custom error message if eq");
-/// # }
-/// ```
-#[macro_export]
-macro_rules! require_ne {
-    ($left:expr, $right:expr $(,)?) => {
-        if $left == $right {
-            $crate::env::panic_str("require_ne! assertion failed")
-        }
-    };
-    ($left:expr, $right:expr, $message:expr $(,)?) => {
-        if $left == $right {
-            $crate::env::panic_str($message.as_ref())
+            $crate::env::panic_str(&$message)
         }
     };
 }
 
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
-    require_eq!(env::predecessor_account_id(), env::current_account_id(), "Method is private");
+    require!(env::predecessor_account_id() == env::current_account_id(), "Method is private");
 }
 
 /// Assert that 1 yoctoNEAR was attached.
 pub fn assert_one_yocto() {
-    require_eq!(env::attached_deposit(), 1, "Requires attached deposit of exactly 1 yoctoNEAR")
+    require!(env::attached_deposit() == 1, "Requires attached deposit of exactly 1 yoctoNEAR")
 }
 
 /// Returns true if promise was successful.
@@ -149,7 +89,7 @@ pub fn is_promise_success() -> bool {
 /// Returns the result of the promise if successful. Otherwise returns None.
 /// Fails if called outside a callback that received 1 promise result.
 pub fn promise_result_as_success() -> Option<Vec<u8>> {
-    require_eq!(env::promise_results_count(), 1, "Contract expected a result on the callback");
+    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,
@@ -207,11 +147,10 @@ macro_rules! setup_alloc {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{get_logs, test_env};
+    use crate::test_utils::get_logs;
 
     #[test]
     fn test_log_simple() {
-        test_env::setup();
         log!("hello");
 
         assert_eq!(get_logs(), vec!["hello".to_string()]);
@@ -219,7 +158,6 @@ mod tests {
 
     #[test]
     fn test_log_format() {
-        test_env::setup();
         log!("hello {} ({})", "user_name", 25);
 
         assert_eq!(get_logs(), vec!["hello user_name (25)".to_string()]);
