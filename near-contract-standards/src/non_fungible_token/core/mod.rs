@@ -10,7 +10,7 @@ pub use self::resolver::*;
 
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
-use near_sdk::json_types::ValidAccountId;
+use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::PromiseOrValue;
 
 /// Used for all non-fungible tokens. The specification for the
@@ -51,6 +51,14 @@ pub trait NonFungibleTokenCore {
         memo: Option<String>,
     );
 
+    fn nft_transfer_payout(
+        &mut self,
+        receiver_id: ValidAccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+        balance: Option<U128>,
+    ) -> Option<Payout>;
     /// Transfer token and call a method on a receiver contract. A successful
     /// workflow will end in a success execution outcome to the callback on the NFT
     /// contract at the method `nft_resolve_transfer`.
