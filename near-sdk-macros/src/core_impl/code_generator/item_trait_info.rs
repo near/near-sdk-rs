@@ -77,7 +77,7 @@ mod tests {
                 pub fn merge(__account_id: AccountId, __balance: near_sdk::Balance, __gas: near_sdk::Gas) -> near_sdk::Promise {
                     let args = vec![];
                     near_sdk::Promise::new(__account_id).function_call(
-                        b"merge".to_vec(),
+                        "merge".to_string(),
                         args,
                         __balance,
                         __gas,
