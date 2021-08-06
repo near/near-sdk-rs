@@ -1,8 +1,14 @@
 use near_sdk::{env, AccountId, Balance, CryptoHash, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
+use near_sdk::json_types::U128;
 
 // TODO: need a way for end users to determine how much an approval will cost.
+
+pub fn royalty_to_payout(a: u32, b: Balance) -> U128 {
+    U128(a as u128 * b / 10_000u128)
+}
+
 pub fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
     // The extra 4 bytes are coming from Borsh serialization to store the length of the string.
     account_id.len() as u64 + 4 + size_of::<u64>() as u64

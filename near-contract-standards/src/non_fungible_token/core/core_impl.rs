@@ -13,12 +13,17 @@ use near_sdk::{
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
+use crate::non_fungible_token::royalty_to_payout;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = 20_000_000_000_000;
 const GAS_FOR_FT_TRANSFER_CALL: Gas = 35_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
 
 const NO_DEPOSIT: Balance = 0;
 
+pub const CONTRACT_ROYALTY_CAP: u32 = 1000;
+pub const MINTER_ROYALTY_CAP: u32 = 2000;
+
+pub type Payout = HashMap<AccountId, U128>;
 #[ext_contract(ext_self)]
 trait NFTResolver {
     fn nft_resolve_transfer(
@@ -295,8 +300,6 @@ impl NonFungibleTokenCore for NonFungibleToken {
         self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
     }
 
-
-    #[payable]
     fn nft_transfer_payout(
         &mut self,
         receiver_id: ValidAccountId,
@@ -315,13 +318,13 @@ impl NonFungibleTokenCore for NonFungibleToken {
             memo,
         );
         refund_approved_account_ids(
-            previous_token.owner_id.clone(),
-            &previous_token.approved_account_ids,
+            previous_token.0,
+            &previous_token.1.unwrap(),
         );
 
         // compute payouts based on balance option
         // adds in contract_royalty and computes previous owner royalty from remainder
-        let owner_id = previous_token.owner_id;
+        let owner_id = &previous_token.0;
         let mut total_perpetual = 0;
         let payout = if let Some(balance) = balance {
             let balance_u128 = u128::from(balance);
