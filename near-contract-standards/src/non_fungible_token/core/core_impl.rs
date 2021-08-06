@@ -9,8 +9,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance,
-    BorshStorageKey, CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, BorshStorageKey,
+    CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 
