@@ -8,6 +8,7 @@
 - Changes method name parameters from bytes (`Vec<u8>` and `&[u8]`) to string equivalents for batch function call promises [PR 515](https://github.com/near/near-sdk-rs/pull/515)
   - `promise_batch_action_function_call`, `Promise::function_call`, `promise_batch_action_add_key_with_function_call`, `Promise::add_access_key`, and `Promise::add_access_key_with_nonce` are afffected.
   - Instead of `b"method_name"` just use `"method_name"`, the bytes are enforced to be utf8 in the runtime.
+- Fixes `#[ext_contract]` codegen function signatures to take an `AccountId` instead of a generic `ToString` and converting unchecked to `AccountId`. [PR 518](https://github.com/near/near-sdk-rs/pull/518)
 
 ## `4.0.0-pre.1` [07-23-2021]
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
