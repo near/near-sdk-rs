@@ -68,7 +68,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                 owner_id,
                 approval_id,
                 msg,
-                &account_id,
+                account_id,
                 NO_DEPOSIT,
                 env::prepaid_gas() - GAS_FOR_NFT_APPROVE,
             )
