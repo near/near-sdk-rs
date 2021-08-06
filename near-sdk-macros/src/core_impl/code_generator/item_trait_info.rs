@@ -68,7 +68,7 @@ mod tests {
                     let args = near_sdk::serde_json::to_vec(&args)
                         .expect("Failed to serialize the cross contract args using JSON.");
                     near_sdk::Promise::new(__account_id).function_call(
-                        b"merge_sort".to_vec(),
+                        "merge_sort".to_string(),
                         args,
                         __balance,
                         __gas,
@@ -119,7 +119,7 @@ mod tests {
                 let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
                     .expect("Failed to serialize the cross contract args using Borsh.");
                 near_sdk::Promise::new(__account_id).function_call(
-                    b"test".to_vec(),
+                    "test".to_string(),
                     args,
                     __balance,
                     __gas,

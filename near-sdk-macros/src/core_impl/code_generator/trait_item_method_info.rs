@@ -20,7 +20,7 @@ impl TraitItemMethodInfo {
                 #serialize
                 near_sdk::Promise::new(__account_id)
                 .function_call(
-                    #ident_byte_str.to_vec(),
+                    #ident_byte_str.to_string(),
                     args,
                     __balance,
                     __gas,
