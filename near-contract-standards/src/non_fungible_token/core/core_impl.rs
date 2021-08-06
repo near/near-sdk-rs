@@ -7,7 +7,7 @@ use crate::non_fungible_token::utils::{
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::json_types::{Base64VecU8, ValidAccountId};
+use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
@@ -293,6 +293,64 @@ impl NonFungibleTokenCore for NonFungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
+    }
+
+
+    #[payable]
+    fn nft_transfer_payout(
+        &mut self,
+        receiver_id: ValidAccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+        balance: Option<U128>,
+    ) -> Option<Payout> {
+        assert_one_yocto();
+        let sender_id = env::predecessor_account_id();
+        let previous_token = self.internal_transfer(
+            &sender_id,
+            receiver_id.as_ref(),
+            &token_id,
+            approval_id,
+            memo,
+        );
+        refund_approved_account_ids(
+            previous_token.owner_id.clone(),
+            &previous_token.approved_account_ids,
+        );
+
+        // compute payouts based on balance option
+        // adds in contract_royalty and computes previous owner royalty from remainder
+        let owner_id = previous_token.owner_id;
+        let mut total_perpetual = 0;
+        let payout = if let Some(balance) = balance {
+            let balance_u128 = u128::from(balance);
+            let mut payout: Payout = HashMap::new();
+            let royalty = self.tokens_by_id.get(&token_id).expect("No token").royalty;
+
+            for (k, v) in royalty.iter() {
+                let key = k.clone();
+                if key != owner_id {
+                    payout.insert(key, royalty_to_payout(*v, balance_u128));
+                    total_perpetual += *v;
+                }
+            }
+
+            // payout to contract owner - may be previous token owner, they get remainder of balance
+            if self.contract_royalty > 0 && self.owner_id != owner_id {
+                payout.insert(self.owner_id.clone(), royalty_to_payout(self.contract_royalty, balance_u128));
+                total_perpetual += self.contract_royalty;
+            }
+            assert!(total_perpetual <= MINTER_ROYALTY_CAP + CONTRACT_ROYALTY_CAP, "Royalties should not be more than caps");
+            // payout to previous owner
+            payout.insert(owner_id, royalty_to_payout(10000 - total_perpetual, balance_u128));
+
+            Some(payout)
+        } else {
+            None
+        };
+
+        payout
     }
 
     fn nft_transfer_call(
