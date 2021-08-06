@@ -21,6 +21,18 @@ macro_rules! impl_non_fungible_token_core {
             }
 
             #[payable]
+            fn nft_transfer_payout(
+                &mut self,
+                receiver_id: ValidAccountId,
+                token_id: TokenId,
+                approval_id: Option<u64>,
+                memo: Option<String>,
+                balance: Option<U128>,
+            ){
+                self.$token.nft_transfer_payout(receiver_id, token_id, approval_id, memo,balance)
+            }
+
+            #[payable]
             fn nft_transfer_call(
                 &mut self,
                 receiver_id: ValidAccountId,

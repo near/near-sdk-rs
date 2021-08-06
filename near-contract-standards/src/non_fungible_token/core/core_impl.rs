@@ -296,7 +296,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
     }
 
 
-    #[payable]
+
     fn nft_transfer_payout(
         &mut self,
         receiver_id: ValidAccountId,
