@@ -57,7 +57,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
     ) -> PromiseOrValue<String> {
         // Verifying that we were called by non-fungible token contract that we expect.
         require!(
-            &env::predecessor_account_id() == &self.non_fungible_token_account_id,
+            env::predecessor_account_id() == self.non_fungible_token_account_id,
             "Only supports the one non-fungible token contract"
         );
         log!(

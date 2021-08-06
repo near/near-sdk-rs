@@ -100,8 +100,8 @@ impl Contract {
         // Verify that the migration can only be done by the owner.
         // This is not necessary, if the upgrade is done internally.
         assert_eq!(
-            &env::predecessor_account_id(),
-            &old_contract.owner_id,
+            env::predecessor_account_id(),
+            old_contract.owner_id,
             "Can only be called by the owner"
         );
 

@@ -37,7 +37,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
 
-        require!(&env::predecessor_account_id() == &owner_id, "Predecessor must be token owner.");
+        require!(env::predecessor_account_id() == owner_id, "Predecessor must be token owner.");
 
         // get contract-level LookupMap of token_id to approvals HashMap
         let approvals_by_id = self.approvals_by_id.as_mut().unwrap();
@@ -84,7 +84,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
         let predecessor_account_id = env::predecessor_account_id();
 
-        require!(&predecessor_account_id == &owner_id, "Predecessor must be token owner.");
+        require!(predecessor_account_id == owner_id, "Predecessor must be token owner.");
 
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) =
@@ -116,7 +116,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
         let predecessor_account_id = env::predecessor_account_id();
 
-        require!(&predecessor_account_id == &owner_id, "Predecessor must be token owner.");
+        require!(predecessor_account_id == owner_id, "Predecessor must be token owner.");
 
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) =

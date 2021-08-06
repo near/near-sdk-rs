@@ -54,7 +54,7 @@ impl FungibleTokenReceiver for DeFi {
     ) -> PromiseOrValue<U128> {
         // Verifying that we were called by fungible token contract that we expect.
         require!(
-            &env::predecessor_account_id() == &self.fungible_token_account_id,
+            env::predecessor_account_id() == self.fungible_token_account_id,
             "Only supports the one fungible token contract"
         );
         log!("in {} tokens from @{} ft_on_transfer, msg = {}", amount.0, sender_id.as_ref(), msg);

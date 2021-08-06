@@ -44,7 +44,7 @@ pub trait NonFungibleTokenMetadataProvider {
 
 impl NFTContractMetadata {
     pub fn assert_valid(&self) {
-        require!(&self.spec == NFT_METADATA_SPEC, "Spec is not NFT metadata");
+        require!(self.spec == NFT_METADATA_SPEC, "Spec is not NFT metadata");
         require!(
             self.reference.is_some() == self.reference_hash.is_some(),
             "Reference and reference hash must be present"
