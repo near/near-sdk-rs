@@ -295,8 +295,6 @@ impl NonFungibleTokenCore for NonFungibleToken {
         self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
     }
 
-
-
     fn nft_transfer_payout(
         &mut self,
         receiver_id: ValidAccountId,
