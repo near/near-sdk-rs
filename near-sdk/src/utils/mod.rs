@@ -65,67 +65,7 @@ macro_rules! require {
     };
     ($cond:expr, $message:expr $(,)?) => {
         if !$cond {
-            $crate::env::panic_str($message.as_ref())
-        }
-    };
-}
-
-/// Asserts that two expressions are equal to each other using [`PartialEq`].
-///
-/// Like [`require!`], this will panic through runtime host functions and reduce contract size with
-/// a more concise panic message.
-///
-/// # Examples
-///
-/// ```
-/// use near_sdk::require_eq;
-///
-/// # fn main() {
-/// let a = 2;
-/// require_eq!(a, 2);
-/// require_eq!("test", "test", "Some custom error message if neq");
-/// # }
-/// ```
-#[macro_export]
-macro_rules! require_eq {
-    ($left:expr, $right:expr $(,)?) => {
-        if $left != $right {
-            $crate::env::panic_str("require_eq! assertion failed")
-        }
-    };
-    ($left:expr, $right:expr, $message:expr $(,)?) => {
-        if $left != $right {
-            $crate::env::panic_str($message.as_ref())
-        }
-    };
-}
-
-/// Asserts that two expressions are not equal to each other using [`PartialEq`].
-///
-/// Like [`require!`], this will panic through runtime host functions and reduce contract size with
-/// a more concise panic message.
-///
-/// # Examples
-///
-/// ```
-/// use near_sdk::require_ne;
-///
-/// # fn main() {
-/// let a = 2;
-/// require_ne!(a, 1);
-/// require_ne!("test", "other", "Some custom error message if eq");
-/// # }
-/// ```
-#[macro_export]
-macro_rules! require_ne {
-    ($left:expr, $right:expr $(,)?) => {
-        if $left == $right {
-            $crate::env::panic_str("require_ne! assertion failed")
-        }
-    };
-    ($left:expr, $right:expr, $message:expr $(,)?) => {
-        if $left == $right {
-            $crate::env::panic_str($message.as_ref())
+            $crate::env::panic_str(&$message)
         }
     };
 }
