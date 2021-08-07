@@ -15,7 +15,7 @@ pub enum VmAction {
         code: Vec<u8>,
     },
     FunctionCall {
-        method_name: Vec<u8>,
+        method_name: String,
         /// Most function calls still take JSON as input, so we'll keep it there as a string.
         /// Once we switch to borsh, we'll have to switch to base64 encoding.
         /// Right now, it is only used with standalone runtime when passing in Receipts or expecting
