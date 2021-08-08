@@ -66,7 +66,7 @@ impl FungibleTokenReceiver for DeFi {
                 let account_id = env::current_account_id();
                 ext_self::value_please(
                     msg,
-                    &account_id,
+                    account_id,
                     NO_DEPOSIT,
                     prepaid_gas - GAS_FOR_FT_ON_TRANSFER,
                 )
