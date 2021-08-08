@@ -149,7 +149,7 @@ impl ImplItemMethodInfo {
         });
 
         let schedule_function_calls = quote! {
-            near_sdk::env::schedule_queued_function_calls();
+            near_sdk::schedule_queued_promises();
         };
         quote! {
             #non_bindgen_attrs

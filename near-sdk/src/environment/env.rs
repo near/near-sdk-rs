@@ -3,7 +3,6 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
@@ -11,16 +10,9 @@ use std::panic as std_panic;
 use super::sys;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::mock::MockedBlockchain;
-use crate::{
-    promise::QueuedFunctionCall,
-    types::{
-        AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
-    },
+use crate::types::{
+    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-
-thread_local! {
-    static QUEUED_FUNCTION_CALL: RefCell<Vec<QueuedFunctionCall>> = RefCell::new(Vec::new());
-}
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -306,8 +298,6 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 }
 
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
-    // Queued promises must be scheduled before a `then` to ensure previous calls are scheduled
-    schedule_queued_function_calls();
     let account_id: &str = account_id.as_ref();
     unsafe {
         sys::promise_batch_then(promise_index, account_id.len() as _, account_id.as_ptr() as _)
@@ -326,35 +316,6 @@ pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
             code.as_ptr() as _,
         )
     }
-}
-
-/// Queues a function call promise to be executed
-// TODO possibly this should be exposed?
-pub(crate) fn queue_function_call(params: QueuedFunctionCall) {
-    QUEUED_FUNCTION_CALL.with(|q| q.borrow_mut().push(params))
-}
-
-/// Schedules queued function calls, which will split remaining gas
-pub fn schedule_queued_function_calls() {
-    QUEUED_FUNCTION_CALL.with(|q| {
-        // TODO get how much gas is remaining
-        // TODO iterate over to determine static gas defined and number of unspecified
-        for QueuedFunctionCall { promise_index, method_name, arguments, amount, gas } in
-            q.borrow_mut().drain(..)
-        {
-            if gas.is_none() {
-                panic!("FIRING: {}", method_name);
-            }
-            promise_batch_action_function_call(
-                promise_index,
-                &method_name,
-                &arguments,
-                amount,
-                // TODO switch this from unwrap, this value should be calculated based on above
-                gas.unwrap(),
-            )
-        }
-    });
 }
 
 pub fn promise_batch_action_function_call(

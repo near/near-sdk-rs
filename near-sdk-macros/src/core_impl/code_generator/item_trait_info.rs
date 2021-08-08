@@ -108,9 +108,7 @@ mod tests {
             pub fn test(
                 v: Vec<String>,
                 __account_id: AccountId,
-                __balance: near_sdk::Balance,
-                __gas: near_sdk::Gas
-            ) -> near_sdk::Promise {
+            ) -> near_sdk::__private::FunctionCallBuilder {
                 #[derive(near_sdk :: borsh :: BorshSerialize)]
                 struct Input {
                     v: Vec<String>,
@@ -118,6 +116,7 @@ mod tests {
                 let args = Input { v, };
                 let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
                     .expect("Failed to serialize the cross contract args using Borsh.");
+                    // TODO finish this test when I'm less impatient
                 near_sdk::Promise::new(__account_id).function_call(
                     "test".to_string(),
                     args,

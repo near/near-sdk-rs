@@ -17,7 +17,7 @@ pub use environment::env;
 pub use environment::sys;
 
 mod promise;
-pub use promise::{Promise, PromiseOrValue};
+pub use promise::{schedule_queued_promises, Promise, PromiseOrValue};
 
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};

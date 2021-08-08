@@ -1,11 +1,18 @@
+mod queue;
+
 use borsh::BorshSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::rc::Rc;
 
-use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
+use self::queue::{queue_promise_event, PromiseQueueEvent};
+pub use self::queue::{schedule_queued_promises, QueueIndex};
+use crate::{AccountId, Balance, Gas, PublicKey};
 
+// TODO try to remove clone bound, may not be possible with drop (may be able to remove drop by
+//      replacing promises with the index)
+#[derive(Clone)]
 pub enum PromiseAction {
     CreateAccount,
     DeployContract {
@@ -43,62 +50,55 @@ pub enum PromiseAction {
     },
 }
 
-#[derive(Clone)]
-pub(crate) struct QueuedFunctionCall {
-    pub promise_index: PromiseIndex,
-    pub method_name: String,
-    pub arguments: Vec<u8>,
-    pub amount: Balance,
-    pub gas: Option<Gas>,
-}
-
 impl PromiseAction {
-    pub fn add(&self, promise_index: PromiseIndex) {
-        use PromiseAction::*;
-        match self {
-            CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
-            DeployContract { code } => {
-                crate::env::promise_batch_action_deploy_contract(promise_index, code)
-            }
-            FunctionCall { method_name, arguments, amount, gas } => {
-                crate::env::queue_function_call(QueuedFunctionCall {
-                    promise_index,
-                    method_name: method_name.clone(),
-                    arguments: arguments.clone(),
-                    amount: *amount,
-                    gas: *gas,
-                })
-            }
-            Transfer { amount } => {
-                crate::env::promise_batch_action_transfer(promise_index, *amount)
-            }
-            Stake { amount, public_key } => {
-                crate::env::promise_batch_action_stake(promise_index, *amount, public_key)
-            }
-            AddFullAccessKey { public_key, nonce } => {
-                crate::env::promise_batch_action_add_key_with_full_access(
-                    promise_index,
-                    public_key,
-                    *nonce,
-                )
-            }
-            AddAccessKey { public_key, allowance, receiver_id, method_names, nonce } => {
-                crate::env::promise_batch_action_add_key_with_function_call(
-                    promise_index,
-                    public_key,
-                    *nonce,
-                    *allowance,
-                    receiver_id,
-                    method_names,
-                )
-            }
-            DeleteKey { public_key } => {
-                crate::env::promise_batch_action_delete_key(promise_index, public_key)
-            }
-            DeleteAccount { beneficiary_id } => {
-                crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
-            }
-        }
+    pub fn add(&self, index: QueueIndex) {
+        queue_promise_event(PromiseQueueEvent::Action { index, action: self.clone() });
+        // use PromiseAction::*;
+        // match self {
+        //     CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
+        //     DeployContract { code } => {
+        //         crate::env::promise_batch_action_deploy_contract(promise_index, code)
+        //     }
+        //     FunctionCall { method_name, arguments, amount, gas } => {
+        //         crate::env::promise_batch_action_function_call(
+        //             promise_index,
+        //             &method_name,
+        //             &arguments,
+        //             *amount,
+        //             // TODO wrong
+        //             gas.unwrap(),
+        //         )
+        //     }
+        //     Transfer { amount } => {
+        //         crate::env::promise_batch_action_transfer(promise_index, *amount)
+        //     }
+        //     Stake { amount, public_key } => {
+        //         crate::env::promise_batch_action_stake(promise_index, *amount, public_key)
+        //     }
+        //     AddFullAccessKey { public_key, nonce } => {
+        //         crate::env::promise_batch_action_add_key_with_full_access(
+        //             promise_index,
+        //             public_key,
+        //             *nonce,
+        //         )
+        //     }
+        //     AddAccessKey { public_key, allowance, receiver_id, method_names, nonce } => {
+        //         crate::env::promise_batch_action_add_key_with_function_call(
+        //             promise_index,
+        //             public_key,
+        //             *nonce,
+        //             *allowance,
+        //             receiver_id,
+        //             method_names,
+        //         )
+        //     }
+        //     DeleteKey { public_key } => {
+        //         crate::env::promise_batch_action_delete_key(promise_index, public_key)
+        //     }
+        //     DeleteAccount { beneficiary_id } => {
+        //         crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
+        //     }
+        // }
     }
 }
 
@@ -107,20 +107,26 @@ pub struct PromiseSingle {
     pub actions: RefCell<Vec<PromiseAction>>,
     pub after: RefCell<Option<Promise>>,
     /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<PromiseIndex>>,
+    pub promise_index: RefCell<Option<QueueIndex>>,
 }
 
 impl PromiseSingle {
-    pub fn construct_recursively(&self) -> PromiseIndex {
+    pub fn construct_recursively(&self) -> QueueIndex {
         let mut promise_lock = self.promise_index.borrow_mut();
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
-        // TODO this probably needs to be refactored to not directly tie to promise indices
         let promise_index = if let Some(after) = self.after.borrow().as_ref() {
-            crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
+            queue_promise_event(PromiseQueueEvent::BatchThen {
+                account_id: self.account_id.clone(),
+                following_index: after.construct_recursively(),
+            })
+            // crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
         } else {
-            crate::env::promise_batch_create(&self.account_id)
+            queue_promise_event(PromiseQueueEvent::CreateBatch {
+                account_id: self.account_id.clone(),
+            })
+            // crate::env::promise_batch_create(&self.account_id)
         };
         let actions_lock = self.actions.borrow();
         for action in actions_lock.iter() {
@@ -135,19 +141,23 @@ pub struct PromiseJoint {
     pub promise_a: Promise,
     pub promise_b: Promise,
     /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<PromiseIndex>>,
+    pub promise_index: RefCell<Option<QueueIndex>>,
 }
 
 impl PromiseJoint {
-    pub fn construct_recursively(&self) -> PromiseIndex {
+    pub fn construct_recursively(&self) -> QueueIndex {
         let mut promise_lock = self.promise_index.borrow_mut();
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
-        let res = crate::env::promise_and(&[
-            self.promise_a.construct_recursively(),
-            self.promise_b.construct_recursively(),
-        ]);
+        let res = queue_promise_event(PromiseQueueEvent::BatchAnd {
+            promise_a: self.promise_a.construct_recursively(),
+            promise_b: self.promise_b.construct_recursively(),
+        });
+        // let res = crate::env::promise_and(&[
+        //     self.promise_a.construct_recursively(),
+        //     self.promise_b.construct_recursively(),
+        // ]);
         *promise_lock = Some(res);
         res
     }
@@ -416,13 +426,14 @@ impl Promise {
         self
     }
 
-    fn construct_recursively(&self) -> PromiseIndex {
+    fn construct_recursively(&self) -> QueueIndex {
         let res = match &self.subtype {
             PromiseSubtype::Single(x) => x.construct_recursively(),
             PromiseSubtype::Joint(x) => x.construct_recursively(),
         };
         if *self.should_return.borrow() {
-            crate::env::promise_return(res);
+            queue_promise_event(PromiseQueueEvent::Return { index: res });
+            // crate::env::promise_return(res);
         }
         res
     }
