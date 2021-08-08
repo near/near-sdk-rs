@@ -67,12 +67,12 @@ impl Upgradable for Upgrade {
 
     fn deploy_code(&mut self) -> Promise {
         if self.staging_timestamp < env::block_timestamp() {
-            env::panic(
-                &format!(
+            env::panic_str(
+                format!(
                     "Deploy code too early: staging ends on {}",
                     self.staging_timestamp + self.staging_duration
                 )
-                .into_bytes(),
+                .as_str(),
             );
         }
         let code = env::storage_read(b"upgrade").expect("No upgrade code available");

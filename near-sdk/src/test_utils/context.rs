@@ -127,7 +127,7 @@ impl VMContextBuilder {
 // TODO: This probably shouldn't be necessary with the `testing_env` macro.
 /// Initializes the [`MockedBlockchain`] with a single promise result during execution.
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
-    let storage = crate::env::BLOCKCHAIN_INTERFACE.with(|b| b.borrow_mut().take_storage());
+    let storage = crate::mock::with_mocked_blockchain(|b| b.take_storage());
 
     //? This probably shouldn't need to replace the existing mocked blockchain altogether?
     //? Might be a good time to remove this utility function altogether

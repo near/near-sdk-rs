@@ -104,13 +104,11 @@ impl MockedBlockchain {
 mod mock_chain {
     use near_vm_logic::{VMLogic, VMLogicError};
 
-    use crate::env::BLOCKCHAIN_INTERFACE;
-
     fn with_mock_interface<F, R>(f: F) -> R
     where
         F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,
     {
-        BLOCKCHAIN_INTERFACE.with(|b| f(&mut b.borrow().logic.borrow_mut()).unwrap())
+        crate::mock::with_mocked_blockchain(|b| f(&mut b.logic.borrow_mut()).unwrap())
     }
 
     #[no_mangle]
@@ -198,12 +196,14 @@ mod mock_chain {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }
     #[no_mangle]
-    extern "C" fn panic() {
-        with_mock_interface(|b| b.panic())
+    extern "C" fn panic() -> ! {
+        with_mock_interface(|b| b.panic());
+        unreachable!()
     }
     #[no_mangle]
-    extern "C" fn panic_utf8(len: u64, ptr: u64) {
-        with_mock_interface(|b| b.panic_utf8(len, ptr))
+    extern "C" fn panic_utf8(len: u64, ptr: u64) -> ! {
+        with_mock_interface(|b| b.panic_utf8(len, ptr));
+        unreachable!()
     }
     #[no_mangle]
     extern "C" fn log_utf8(len: u64, ptr: u64) {

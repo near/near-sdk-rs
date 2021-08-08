@@ -5,8 +5,8 @@ use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// An iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -91,7 +91,7 @@ impl<T> UnorderedSet<T> {
                     // element.
                     let last_element_raw = match self.elements.get_raw(self.len() - 1) {
                         Some(x) => x,
-                        None => env::panic(ERR_INCONSISTENT_STATE),
+                        None => env::panic_str(ERR_INCONSISTENT_STATE),
                     };
                     env::storage_remove(&index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
@@ -118,7 +118,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match element.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
     }
 
@@ -175,7 +175,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::collections::UnorderedSet;
-    use crate::test_utils::test_env;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashSet;
@@ -183,7 +182,6 @@ mod tests {
 
     #[test]
     pub fn test_insert() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
@@ -194,7 +192,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
@@ -211,7 +208,6 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let key1 = 1u64;
         set.insert(&key1);
@@ -227,7 +223,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
@@ -248,7 +243,6 @@ mod tests {
 
     #[test]
     pub fn test_contains_non_existent() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set_tmp = HashSet::new();
@@ -265,7 +259,6 @@ mod tests {
 
     #[test]
     pub fn test_to_vec() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
@@ -280,7 +273,6 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
@@ -296,7 +288,6 @@ mod tests {
 
     #[test]
     pub fn test_iter() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
@@ -311,7 +302,6 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();

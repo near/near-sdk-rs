@@ -19,7 +19,6 @@ use crate::IntoStorageKey;
 /// ```
 /// use near_sdk::store::LazyOption;
 ///
-///# near_sdk::test_utils::test_env::setup();
 /// let mut a = LazyOption::new(b"a", None);
 /// assert!(a.is_none());
 ///
@@ -72,7 +71,7 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(value))
-                .unwrap_or_else(|_| env::panic(b"cache is checked to not be filled above"));
+                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"));
         }
     }
 
@@ -125,11 +124,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::test_env;
 
     #[test]
     pub fn test_lazy_option() {
-        test_env::setup();
         let mut a = LazyOption::new(b"a", None);
         assert!(a.is_none());
         assert!(!env::storage_has_key(b"a"));

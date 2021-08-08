@@ -193,8 +193,8 @@ This is equivalent to:
 #[near_bindgen]
 impl Contract {
     pub fn resolve_transfer(&mut self) {
-        if env::current_account_id() != env::predecessor_account_id() {
-            near_sdk::env::panic(b"Method resolve_transfer is private");
+        if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+            near_sdk::env::panic_str("Method resolve_transfer is private");
         }
         env::log_str("This is a callback");
     }
@@ -368,7 +368,7 @@ impl Contract {
 
     pub fn do_not_take_my_money(&mut self) {
         if near_sdk::env::attached_deposit() != 0 {
-            near_sdk::env::panic(b"Method do_not_take_my_money doesn't accept deposit");
+            near_sdk::env::panic_str("Method do_not_take_my_money doesn't accept deposit");
         }
         env::log_str("Thanks!");
     }
@@ -457,8 +457,8 @@ mod ext_calculator {
     pub fn mult(a: U64, b: U64, receiver_id: &AccountId, deposit: Balance, gas: Gas) -> Promise {
         Promise::new(receiver_id.clone())
             .function_call(
-                b"mult",
-                json!({ "a": a, "b": b }).to_string().as_bytes(),
+                "mult".to_string(),
+                json!({ "a": a, "b": b }).to_string().into_bytes(),
                 deposit,
                 gas,
             )

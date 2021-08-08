@@ -1,4 +1,4 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{maybestd::io, BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
 use std::convert::TryFrom;
 
@@ -60,7 +60,7 @@ impl std::str::FromStr for CurveType {
 ///             .parse()
 ///             .unwrap();
 /// ```
-#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Hash)]
 pub struct PublicKey {
     data: Vec<u8>,
 }
@@ -141,6 +141,14 @@ impl serde::Serialize for PublicKey {
     }
 }
 
+impl BorshDeserialize for PublicKey {
+    fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
+        <Vec<u8> as BorshDeserialize>::deserialize(buf).and_then(|s| {
+            Self::try_from(s).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        })
+    }
+}
+
 impl<'de> serde::Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -168,7 +176,7 @@ impl std::str::FromStr for PublicKey {
     type Err = ParsePublicKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let (curve, key_data) = PublicKey::split_key_type_data(&value)?;
+        let (curve, key_data) = PublicKey::split_key_type_data(value)?;
         let data = bs58::decode(key_data).into_vec()?;
         Self::from_parts(curve, data)
     }
@@ -265,5 +273,14 @@ mod tests {
         let new_key: PublicKey = data.try_into().unwrap();
         let new_encoded_key = new_key.try_to_vec().unwrap();
         assert_eq!(old_encoded_key, new_encoded_key);
+        assert_eq!(
+            &new_encoded_key,
+            &bs58::decode("279Zpep9MBBg4nKsVmTQE7NbXZkWdxti6HS1yzhp8qnc1ExS7gU")
+                .into_vec()
+                .unwrap()
+        );
+
+        let decoded_key = PublicKey::try_from_slice(&new_encoded_key).unwrap();
+        assert_eq!(decoded_key, new_key);
     }
 }

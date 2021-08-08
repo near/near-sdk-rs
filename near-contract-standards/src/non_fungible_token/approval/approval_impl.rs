@@ -32,7 +32,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     ) -> Option<Promise> {
         assert_at_least_one_yocto();
         if self.approvals_by_id.is_none() {
-            env::panic(b"NFT does not support Approval Management");
+            env::panic_str("NFT does not support Approval Management");
         }
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
@@ -49,7 +49,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
         // save updated approvals HashMap to contract's LookupMap
-        approvals_by_id.insert(&token_id, &approved_account_ids);
+        approvals_by_id.insert(&token_id, approved_account_ids);
 
         // increment next_approval_id for this token
         self.next_approval_id_by_id.as_mut().unwrap().insert(&token_id, &(approval_id + 1));
@@ -68,7 +68,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                 owner_id,
                 approval_id,
                 msg,
-                &account_id,
+                account_id,
                 NO_DEPOSIT,
                 env::prepaid_gas() - GAS_FOR_NFT_APPROVE,
             )
@@ -78,7 +78,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) {
         assert_one_yocto();
         if self.approvals_by_id.is_none() {
-            env::panic(b"NFT does not support Approval Management");
+            env::panic_str("NFT does not support Approval Management");
         }
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
@@ -101,7 +101,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                     self.approvals_by_id.as_mut().unwrap().remove(&token_id);
                 } else {
                     // otherwise, update approvals_by_id with updated HashMap
-                    self.approvals_by_id.as_mut().unwrap().insert(&token_id, &approved_account_ids);
+                    self.approvals_by_id.as_mut().unwrap().insert(&token_id, approved_account_ids);
                 }
             }
         }
@@ -110,7 +110,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     fn nft_revoke_all(&mut self, token_id: TokenId) {
         assert_one_yocto();
         if self.approvals_by_id.is_none() {
-            env::panic(b"NFT does not support Approval Management");
+            env::panic_str("NFT does not support Approval Management");
         }
 
         let owner_id = self.owner_by_id.get(&token_id).expect("Token not found");
@@ -123,7 +123,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             &mut self.approvals_by_id.as_mut().unwrap().get(&token_id)
         {
             // otherwise, refund owner for storage costs of all approvals...
-            refund_approved_account_ids(predecessor_account_id, &approved_account_ids);
+            refund_approved_account_ids(predecessor_account_id, approved_account_ids);
             // ...and remove whole HashMap of approvals
             self.approvals_by_id.as_mut().unwrap().remove(&token_id);
         }
