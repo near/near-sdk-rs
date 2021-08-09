@@ -194,10 +194,12 @@ mod tests {
                     )
                     .expect("Failed to deserialize input from JSON.");
                     let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
-                    let result = contract.method(k, m, );
-                    let result =
-                        near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-                    near_sdk::env::value_return(&result);
+                    {
+                        let result = contract.method(k, m, );
+                        let result =
+                            near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                        near_sdk::env::value_return(&result);
+                    }
                     near_sdk::env::state_write(&contract);
                     near_sdk::schedule_queued_promises();
                 }
@@ -218,10 +220,12 @@ mod tests {
             pub extern "C" fn method() {
                 near_sdk::env::setup_panic_hook();
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
-                let result = contract.method();
-                let result =
-                    near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-                near_sdk::env::value_return(&result);
+                {
+                    let result = contract.method();
+                    let result =
+                        near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                    near_sdk::env::value_return(&result);
+                }
                 near_sdk::schedule_queued_promises();
             }
         );
@@ -542,10 +546,12 @@ mod tests {
                 )
                 .expect("Failed to deserialize input from Borsh.");
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
-                let result = contract.method(k, m, );
-                let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result)
-                    .expect("Failed to serialize the return value using Borsh.");
-                near_sdk::env::value_return(&result);
+                {
+                    let result = contract.method(k, m, );
+                    let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result)
+                        .expect("Failed to serialize the return value using Borsh.");
+                    near_sdk::env::value_return(&result);
+                }  
                 near_sdk::env::state_write(&contract);
                 near_sdk::schedule_queued_promises();
             }

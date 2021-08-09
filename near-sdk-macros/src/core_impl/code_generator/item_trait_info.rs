@@ -55,10 +55,8 @@ mod tests {
                 use near_sdk::{Gas, Balance, AccountId, Promise};
                 pub fn merge_sort(
                     arr: Vec<u8>,
-                    __account_id: AccountId,
-                    __balance: near_sdk::Balance,
-                    __gas: near_sdk::Gas
-                ) -> near_sdk::Promise {
+                    __account_id: AccountId
+                ) -> near_sdk::__private::FunctionCallBuilder {
                     #[derive(near_sdk :: serde :: Serialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input {
@@ -67,20 +65,18 @@ mod tests {
                     let args = Input { arr, };
                     let args = near_sdk::serde_json::to_vec(&args)
                         .expect("Failed to serialize the cross contract args using JSON.");
-                    near_sdk::Promise::new(__account_id).function_call(
+                    near_sdk::__private::FunctionCallBuilder::new(
+                        near_sdk::Promise::new(__account_id),
                         "merge_sort".to_string(),
-                        args,
-                        __balance,
-                        __gas,
+                        args
                     )
                 }
-                pub fn merge(__account_id: AccountId, __balance: near_sdk::Balance, __gas: near_sdk::Gas) -> near_sdk::Promise {
+                pub fn merge(__account_id: AccountId) -> near_sdk::__private::FunctionCallBuilder {
                     let args = vec![];
-                    near_sdk::Promise::new(__account_id).function_call(
+                    near_sdk::__private::FunctionCallBuilder::new(
+                        near_sdk::Promise::new(__account_id),
                         "merge".to_string(),
-                        args,
-                        __balance,
-                        __gas,
+                        args
                     )
                 }
             }
@@ -107,7 +103,7 @@ mod tests {
             use near_sdk::{Gas, Balance, AccountId, Promise};
             pub fn test(
                 v: Vec<String>,
-                __account_id: AccountId,
+                __account_id: AccountId
             ) -> near_sdk::__private::FunctionCallBuilder {
                 #[derive(near_sdk :: borsh :: BorshSerialize)]
                 struct Input {
@@ -116,12 +112,10 @@ mod tests {
                 let args = Input { v, };
                 let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
                     .expect("Failed to serialize the cross contract args using Borsh.");
-                    // TODO finish this test when I'm less impatient
-                near_sdk::Promise::new(__account_id).function_call(
+                near_sdk::__private::FunctionCallBuilder::new(
+                    near_sdk::Promise::new(__account_id),
                     "test".to_string(),
-                    args,
-                    __balance,
-                    __gas,
+                    args
                 )
             }
         }
