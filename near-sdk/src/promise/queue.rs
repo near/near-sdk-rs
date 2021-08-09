@@ -7,7 +7,7 @@ thread_local! {
     static QUEUED_PROMISES: RefCell<Vec<PromiseQueueEvent>> = RefCell::new(Vec::new());
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QueueIndex(usize);
 
 #[non_exhaustive]
@@ -39,8 +39,8 @@ pub(super) fn upgrade_to_then(previous_index: QueueIndex, next: QueueIndex) {
         let account_id = if let PromiseQueueEvent::CreateBatch { account_id } = event {
             account_id
         } else {
-			// This is unreachable because `then` can only be called on a promise once
-			// and it is always in `CreateBatch` state until then.
+            // This is unreachable because `then` can only be called on a promise once
+            // and it is always in `CreateBatch` state until then.
             unreachable!()
         };
 
@@ -176,6 +176,7 @@ pub fn schedule_queued_promises() {
             }
         }
 
+        // TODO should this actually be cleared? Is there any benefit
         queue.clear();
     });
 }

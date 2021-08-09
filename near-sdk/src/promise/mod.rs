@@ -8,9 +8,6 @@ use self::queue::{queue_promise_event, PromiseQueueEvent};
 pub use self::queue::{schedule_queued_promises, QueueIndex};
 use crate::{AccountId, Balance, Gas, PublicKey};
 
-// TODO try to remove clone bound, may not be possible with drop (may be able to remove drop by
-//      replacing promises with the index)
-#[derive(Clone, Debug)]
 pub enum PromiseAction {
     CreateAccount,
     DeployContract {
@@ -88,7 +85,6 @@ pub enum PromiseAction {
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
-#[derive(Clone)]
 pub struct Promise {
     subtype: PromiseSubtype,
 }
@@ -106,7 +102,6 @@ impl BorshSchema for Promise {
     }
 }
 
-#[derive(Clone)]
 pub enum PromiseSubtype {
     Single(QueueIndex),
     Joint(QueueIndex),
