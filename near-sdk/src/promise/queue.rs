@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::BTreeMap};
+use std::cell::RefCell;
 
 use super::PromiseAction;
-use crate::{env, AccountId, Gas, PromiseIndex};
+use crate::{AccountId, Gas, PromiseIndex, env};
 
 thread_local! {
     static QUEUED_PROMISES: RefCell<Vec<PromiseQueueEvent>> = RefCell::new(Vec::new());
@@ -87,7 +87,7 @@ pub fn schedule_queued_promises() {
         // Would be ideal if this is calculated only if an unspecified gas found
         let function_call_gas = calc_gas_per_unspecified(&queue);
 
-        let mut lookup = BTreeMap::<usize, PromiseIndex>::new();
+        let mut lookup = vec![PromiseIndex::MAX; queue.len()];
 
         for (i, event) in queue.iter().enumerate() {
             match event {
@@ -98,18 +98,18 @@ pub fn schedule_queued_promises() {
                 PromiseQueueEvent::BatchAnd { promise_a, promise_b } => {
                     //* indices guaranteed to be in lookup as the queue index would be used
                     // 	to create the `and` promise.
-                    let a = lookup[&promise_a.0];
-                    let b = lookup[&promise_b.0];
+                    let a = lookup[promise_a.0];
+                    let b = lookup[promise_b.0];
                     let promise_idx = crate::env::promise_and(&[a, b]);
-                    lookup.insert(i, promise_idx);
+                    lookup[i] = promise_idx;
                 }
                 PromiseQueueEvent::BatchThen { previous_index, account_id } => {
-                    let index = lookup[&previous_index.0];
+                    let index = lookup[previous_index.0];
                     let promise_idx = crate::env::promise_batch_then(index, account_id);
-                    lookup.insert(i, promise_idx);
+                    lookup[i] = promise_idx;
                 }
                 PromiseQueueEvent::Action { index, action } => {
-                    let promise_index = lookup[&index.0];
+                    let promise_index = lookup[index.0];
                     use PromiseAction::*;
                     match action {
                         CreateAccount => {
@@ -168,7 +168,7 @@ pub fn schedule_queued_promises() {
                     }
                 }
                 PromiseQueueEvent::Return { index } => {
-                    let promise_index = lookup[&index.0];
+                    let promise_index = lookup[index.0];
                     crate::env::promise_return(promise_index);
                 }
             }
