@@ -133,9 +133,11 @@ impl ImplItemMethodInfo {
                     };
                     quote! {
                     #contract_deser
-                    let result = #method_invocation;
-                    #value_ser
-                    near_sdk::env::value_return(&result);
+                    {
+                        let result = #method_invocation;
+                        #value_ser
+                        near_sdk::env::value_return(&result);
+                    }
                     #contract_ser
                     }
                 }

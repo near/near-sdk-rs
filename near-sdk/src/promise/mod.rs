@@ -12,7 +12,7 @@ use crate::{AccountId, Balance, Gas, PublicKey};
 
 // TODO try to remove clone bound, may not be possible with drop (may be able to remove drop by
 //      replacing promises with the index)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PromiseAction {
     CreateAccount,
     DeployContract {
@@ -53,52 +53,6 @@ pub enum PromiseAction {
 impl PromiseAction {
     pub fn add(&self, index: QueueIndex) {
         queue_promise_event(PromiseQueueEvent::Action { index, action: self.clone() });
-        // use PromiseAction::*;
-        // match self {
-        //     CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
-        //     DeployContract { code } => {
-        //         crate::env::promise_batch_action_deploy_contract(promise_index, code)
-        //     }
-        //     FunctionCall { method_name, arguments, amount, gas } => {
-        //         crate::env::promise_batch_action_function_call(
-        //             promise_index,
-        //             &method_name,
-        //             &arguments,
-        //             *amount,
-        //             // TODO wrong
-        //             gas.unwrap(),
-        //         )
-        //     }
-        //     Transfer { amount } => {
-        //         crate::env::promise_batch_action_transfer(promise_index, *amount)
-        //     }
-        //     Stake { amount, public_key } => {
-        //         crate::env::promise_batch_action_stake(promise_index, *amount, public_key)
-        //     }
-        //     AddFullAccessKey { public_key, nonce } => {
-        //         crate::env::promise_batch_action_add_key_with_full_access(
-        //             promise_index,
-        //             public_key,
-        //             *nonce,
-        //         )
-        //     }
-        //     AddAccessKey { public_key, allowance, receiver_id, method_names, nonce } => {
-        //         crate::env::promise_batch_action_add_key_with_function_call(
-        //             promise_index,
-        //             public_key,
-        //             *nonce,
-        //             *allowance,
-        //             receiver_id,
-        //             method_names,
-        //         )
-        //     }
-        //     DeleteKey { public_key } => {
-        //         crate::env::promise_batch_action_delete_key(promise_index, public_key)
-        //     }
-        //     DeleteAccount { beneficiary_id } => {
-        //         crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
-        //     }
-        // }
     }
 }
 
@@ -121,12 +75,10 @@ impl PromiseSingle {
                 account_id: self.account_id.clone(),
                 following_index: after.construct_recursively(),
             })
-            // crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
         } else {
             queue_promise_event(PromiseQueueEvent::CreateBatch {
                 account_id: self.account_id.clone(),
             })
-            // crate::env::promise_batch_create(&self.account_id)
         };
         let actions_lock = self.actions.borrow();
         for action in actions_lock.iter() {
@@ -154,10 +106,6 @@ impl PromiseJoint {
             promise_a: self.promise_a.construct_recursively(),
             promise_b: self.promise_b.construct_recursively(),
         });
-        // let res = crate::env::promise_and(&[
-        //     self.promise_a.construct_recursively(),
-        //     self.promise_b.construct_recursively(),
-        // ]);
         *promise_lock = Some(res);
         res
     }
@@ -433,7 +381,6 @@ impl Promise {
         };
         if *self.should_return.borrow() {
             queue_promise_event(PromiseQueueEvent::Return { index: res });
-            // crate::env::promise_return(res);
         }
         res
     }

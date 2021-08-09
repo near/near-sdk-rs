@@ -1,7 +1,7 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::BTreeMap};
 
 use super::PromiseAction;
-use crate::AccountId;
+use crate::{AccountId, Gas, PromiseIndex};
 
 thread_local! {
     static QUEUED_PROMISES: RefCell<Vec<PromiseQueueEvent>> = RefCell::new(Vec::new());
@@ -11,6 +11,7 @@ thread_local! {
 pub struct QueueIndex(usize);
 
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum PromiseQueueEvent {
     CreateBatch { account_id: AccountId },
     BatchAnd { promise_a: QueueIndex, promise_b: QueueIndex },
@@ -27,27 +28,108 @@ pub(super) fn queue_promise_event(event: PromiseQueueEvent) -> QueueIndex {
     })
 }
 
+fn calc_gas_per_unspecified(_events: &[PromiseQueueEvent]) -> Gas {
+    // TODO get prepaid gas
+    // TODO subtract any defined amounts and count
+    // TODO divide remaining gas by amount
+    crate::env::prepaid_gas() / 4
+}
+
 /// Schedules queued function calls, which will split remaining gas
 pub fn schedule_queued_promises() {
     QUEUED_PROMISES.with(|q| {
         let mut queue = q.borrow_mut();
-        // TODO get how much gas is remaining
-        // TODO iterate over to determine static gas defined and number of unspecified
-        // for QueuedFunctionCall { promise_index, method_name, arguments, amount, gas } in
-        //     queue.iter()
-        // {
-        //     if gas.is_none() {
-        //         panic!("FIRING: {}", method_name);
-        //     }
-        //     promise_batch_action_function_call(
-        //         promise_index,
-        //         &method_name,
-        //         &arguments,
-        //         amount,
-        //         // TODO switch this from unwrap, this value should be calculated based on above
-        //         gas.unwrap(),
-        //     )
-        // }
+
+        // Would be ideal if this is calculated only if an unspecified gas found
+        let function_call_gas = calc_gas_per_unspecified(&queue);
+
+        let mut lookup = BTreeMap::<usize, PromiseIndex>::new();
+
+        for (i, event) in queue.iter().enumerate() {
+            match event {
+                PromiseQueueEvent::CreateBatch { account_id } => {
+                    let promise_idx = crate::env::promise_batch_create(account_id);
+                    lookup.insert(i, promise_idx);
+                }
+                PromiseQueueEvent::BatchAnd { promise_a, promise_b } => {
+                    //* indices guaranteed to be in lookup as the queue index would be used
+                    // 	to create the `and` promise.
+                    let a = lookup[&promise_a.0];
+                    let b = lookup[&promise_b.0];
+                    let promise_idx = crate::env::promise_and(&[a, b]);
+                    lookup.insert(i, promise_idx);
+                }
+                PromiseQueueEvent::BatchThen { account_id, following_index } => {
+                    let following = lookup[&following_index.0];
+                    let promise_idx = crate::env::promise_batch_then(following, account_id);
+                    lookup.insert(i, promise_idx);
+                }
+                PromiseQueueEvent::Action { index, action } => {
+                    let promise_index = lookup[&index.0];
+                    use PromiseAction::*;
+                    match action {
+                        CreateAccount => {
+                            crate::env::promise_batch_action_create_account(promise_index)
+                        }
+                        DeployContract { code } => {
+                            crate::env::promise_batch_action_deploy_contract(promise_index, code)
+                        }
+                        FunctionCall { method_name, arguments, amount, gas } => {
+                            crate::env::promise_batch_action_function_call(
+                                promise_index,
+                                &method_name,
+                                &arguments,
+                                *amount,
+                                gas.unwrap_or(function_call_gas),
+                            )
+                        }
+                        Transfer { amount } => {
+                            crate::env::promise_batch_action_transfer(promise_index, *amount)
+                        }
+                        Stake { amount, public_key } => crate::env::promise_batch_action_stake(
+                            promise_index,
+                            *amount,
+                            public_key,
+                        ),
+                        AddFullAccessKey { public_key, nonce } => {
+                            crate::env::promise_batch_action_add_key_with_full_access(
+                                promise_index,
+                                public_key,
+                                *nonce,
+                            )
+                        }
+                        AddAccessKey {
+                            public_key,
+                            allowance,
+                            receiver_id,
+                            method_names,
+                            nonce,
+                        } => crate::env::promise_batch_action_add_key_with_function_call(
+                            promise_index,
+                            public_key,
+                            *nonce,
+                            *allowance,
+                            receiver_id,
+                            method_names,
+                        ),
+                        DeleteKey { public_key } => {
+                            crate::env::promise_batch_action_delete_key(promise_index, public_key)
+                        }
+                        DeleteAccount { beneficiary_id } => {
+                            crate::env::promise_batch_action_delete_account(
+                                promise_index,
+                                beneficiary_id,
+                            )
+                        }
+                    }
+                }
+                PromiseQueueEvent::Return { index } => {
+                    let promise_index = lookup[&index.0];
+                    crate::env::promise_return(promise_index);
+                }
+            }
+        }
+
         queue.clear();
     });
 }

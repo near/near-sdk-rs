@@ -31,7 +31,6 @@ fn test_sim_transfer() {
 
     let status_id: near_sdk::AccountId = "status".parse().unwrap();
     let status_amt = to_yocto("35");
-    println!("1");
     call!(
         master_account,
         contract.deploy_status_message(status_id.clone(), status_amt.into()),
@@ -39,20 +38,16 @@ fn test_sim_transfer() {
     )
     .assert_success();
 
-    println!("2");
     let message = "hello world";
     let res = call!(master_account, contract.complex_call(status_id, message.to_string()));
     assert!(res.is_ok(), "complex_call has promise_errors: {:#?}", res.promise_results());
 
-    println!("3");
     let value = res.unwrap_json_value();
-    println!("3b");
     assert_eq!(message, value.to_string().trim_matches(|c| c == '"'));
     let v1: Vec<u8> = vec![42];
     let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11];
     call!(master_account, contract.merge_sort(v1)).assert_success();
 
-    println!("4");
     let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
     res.assert_success();
     let arr = res.unwrap_borsh::<Vec<u8>>();
