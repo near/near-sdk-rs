@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::BTreeMap};
 
 use super::PromiseAction;
-use crate::{AccountId, Gas, PromiseIndex};
+use crate::{env, AccountId, Gas, PromiseIndex};
 
 thread_local! {
     static QUEUED_PROMISES: RefCell<Vec<PromiseQueueEvent>> = RefCell::new(Vec::new());
@@ -28,11 +28,37 @@ pub(super) fn queue_promise_event(event: PromiseQueueEvent) -> QueueIndex {
     })
 }
 
-fn calc_gas_per_unspecified(_events: &[PromiseQueueEvent]) -> Gas {
-    // TODO get prepaid gas
-    // TODO subtract any defined amounts and count
-    // TODO divide remaining gas by amount
-    crate::env::prepaid_gas() / 4
+fn calc_gas_per_unspecified(events: &[PromiseQueueEvent]) -> Gas {
+    // let mut remaining_gas = env::prepaid_gas() - env::used_gas();
+
+    // // Only take a factor of the gas remaining because of constant fees
+    // // TODO remove this in the future, this is a horrible pattern
+    // remaining_gas = (remaining_gas / 10) * 6;
+
+    // subtract any defined amounts and count number of unspecified
+    let mut count_remaining = 0;
+    for event in events.iter() {
+        match event {
+            PromiseQueueEvent::Action { action: PromiseAction::FunctionCall { .. }, .. } => {
+                count_remaining += 1;
+                // if let Some(specified) = gas {
+                //     // Gas was specified, remove this from pool of funds
+                //     remaining_gas -= *specified;
+                // } else {
+                //     count_remaining += 1;
+                // }
+            }
+            _ => (),
+        }
+    }
+
+    if count_remaining == 0 {
+        Gas(0)
+    } else {
+        env::prepaid_gas() / (count_remaining + 1)
+        // 	// Split remaining gas among the count of unspecified gas
+        //     remaining_gas / count_remaining
+    }
 }
 
 /// Schedules queued function calls, which will split remaining gas

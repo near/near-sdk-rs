@@ -479,7 +479,7 @@ const CALCULATOR_ACCOUNT_ID: &str = "calc.near";
 impl Contract {
     pub fn sum_a_b(&mut self, a: U128, b: U128) -> Promise {
         let calculator_account_id: AccountId = CALCULATOR_ACCOUNT_ID.to_string();
-        ext_calculator::sum(a, b, &calculator_account_id)
+        ext_calculator::sum(a, b, calculator_account_id)
     }
 }
 ```
