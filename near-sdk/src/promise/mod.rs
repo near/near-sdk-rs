@@ -1,10 +1,8 @@
 mod queue;
 
 use borsh::BorshSchema;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
-use std::rc::Rc;
 
 use self::queue::{queue_promise_event, PromiseQueueEvent};
 pub use self::queue::{schedule_queued_promises, QueueIndex};
@@ -50,67 +48,6 @@ pub enum PromiseAction {
     },
 }
 
-impl PromiseAction {
-    pub fn add(&self, index: QueueIndex) {
-        queue_promise_event(PromiseQueueEvent::Action { index, action: self.clone() });
-    }
-}
-
-pub struct PromiseSingle {
-    pub account_id: AccountId,
-    pub actions: RefCell<Vec<PromiseAction>>,
-    pub after: RefCell<Option<Promise>>,
-    /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<QueueIndex>>,
-}
-
-impl PromiseSingle {
-    pub fn construct_recursively(&self) -> QueueIndex {
-        let mut promise_lock = self.promise_index.borrow_mut();
-        if let Some(res) = promise_lock.as_ref() {
-            return *res;
-        }
-        let promise_index = if let Some(after) = self.after.borrow().as_ref() {
-            queue_promise_event(PromiseQueueEvent::BatchThen {
-                account_id: self.account_id.clone(),
-                following_index: after.construct_recursively(),
-            })
-        } else {
-            queue_promise_event(PromiseQueueEvent::CreateBatch {
-                account_id: self.account_id.clone(),
-            })
-        };
-        let actions_lock = self.actions.borrow();
-        for action in actions_lock.iter() {
-            action.add(promise_index);
-        }
-        *promise_lock = Some(promise_index);
-        promise_index
-    }
-}
-
-pub struct PromiseJoint {
-    pub promise_a: Promise,
-    pub promise_b: Promise,
-    /// Promise index that is computed only once.
-    pub promise_index: RefCell<Option<QueueIndex>>,
-}
-
-impl PromiseJoint {
-    pub fn construct_recursively(&self) -> QueueIndex {
-        let mut promise_lock = self.promise_index.borrow_mut();
-        if let Some(res) = promise_lock.as_ref() {
-            return *res;
-        }
-        let res = queue_promise_event(PromiseQueueEvent::BatchAnd {
-            promise_a: self.promise_a.construct_recursively(),
-            promise_b: self.promise_b.construct_recursively(),
-        });
-        *promise_lock = Some(res);
-        res
-    }
-}
-
 /// A structure representing a result of the scheduled execution on another contract.
 ///
 /// Smart contract developers will explicitly use `Promise` in two situations:
@@ -154,7 +91,6 @@ impl PromiseJoint {
 #[derive(Clone)]
 pub struct Promise {
     subtype: PromiseSubtype,
-    should_return: RefCell<bool>,
 }
 
 /// Until we implement strongly typed promises we serialize them as unit struct.
@@ -172,28 +108,34 @@ impl BorshSchema for Promise {
 
 #[derive(Clone)]
 pub enum PromiseSubtype {
-    Single(Rc<PromiseSingle>),
-    Joint(Rc<PromiseJoint>),
+    Single(QueueIndex),
+    Joint(QueueIndex),
+}
+
+impl PromiseSubtype {
+    fn index(&self) -> QueueIndex {
+        match self {
+            Self::Single(x) => *x,
+            Self::Joint(x) => *x,
+        }
+    }
 }
 
 impl Promise {
     /// Create a promise that acts on the given account.
     pub fn new(account_id: AccountId) -> Self {
-        Self {
-            subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
-                account_id,
-                actions: RefCell::new(vec![]),
-                after: RefCell::new(None),
-                promise_index: RefCell::new(None),
-            })),
-            should_return: RefCell::new(false),
-        }
+        let index = queue_promise_event(PromiseQueueEvent::CreateBatch { account_id });
+        Self { subtype: PromiseSubtype::Single(index) }
     }
 
     fn add_action(self, action: PromiseAction) -> Self {
         match &self.subtype {
-            PromiseSubtype::Single(x) => x.actions.borrow_mut().push(action),
-            PromiseSubtype::Joint(_) => panic!("Cannot add action to a joint promise."),
+            PromiseSubtype::Single(x) => {
+                queue_promise_event(PromiseQueueEvent::Action { index: *x, action });
+            }
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_str("Cannot add action to a joint promise.")
+            }
         }
         self
     }
@@ -310,14 +252,11 @@ impl Promise {
     /// // p3.create_account();
     /// ```
     pub fn and(self, other: Promise) -> Promise {
-        Promise {
-            subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
-                promise_a: self,
-                promise_b: other,
-                promise_index: RefCell::new(None),
-            })),
-            should_return: RefCell::new(false),
-        }
+        let idx = queue_promise_event(PromiseQueueEvent::BatchAnd {
+            promise_a: self.subtype.index(),
+            promise_b: other.subtype.index(),
+        });
+        Promise { subtype: PromiseSubtype::Joint(idx) }
     }
 
     /// Schedules execution of another promise right after the current promise finish executing.
@@ -333,11 +272,14 @@ impl Promise {
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
-    pub fn then(self, mut other: Promise) -> Promise {
-        match &mut other.subtype {
-            PromiseSubtype::Single(x) => *x.after.borrow_mut() = Some(self),
-            PromiseSubtype::Joint(_) => panic!("Cannot callback joint promise."),
+    pub fn then(self, other: Promise) -> Promise {
+        match &other.subtype {
+            PromiseSubtype::Single(x) => {
+                queue::upgrade_to_then(self.subtype.index(), *x);
+            }
+            PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
+
         other
     }
 
@@ -370,25 +312,10 @@ impl Promise {
     /// ```
     #[allow(clippy::wrong_self_convention)]
     pub fn as_return(self) -> Self {
-        *self.should_return.borrow_mut() = true;
+        // TODO handle duplicate should return, before would just be queued once
+        queue_promise_event(PromiseQueueEvent::Return { index: self.subtype.index() });
+        // *self.should_return.borrow_mut() = true;
         self
-    }
-
-    fn construct_recursively(&self) -> QueueIndex {
-        let res = match &self.subtype {
-            PromiseSubtype::Single(x) => x.construct_recursively(),
-            PromiseSubtype::Joint(x) => x.construct_recursively(),
-        };
-        if *self.should_return.borrow() {
-            queue_promise_event(PromiseQueueEvent::Return { index: res });
-        }
-        res
-    }
-}
-
-impl Drop for Promise {
-    fn drop(&mut self) {
-        self.construct_recursively();
     }
 }
 
@@ -397,14 +324,14 @@ impl serde::Serialize for Promise {
     where
         S: serde::Serializer,
     {
-        *self.should_return.borrow_mut() = true;
+        queue_promise_event(PromiseQueueEvent::Return { index: self.subtype.index() });
         serializer.serialize_unit()
     }
 }
 
 impl borsh::BorshSerialize for Promise {
     fn serialize<W: Write>(&self, _writer: &mut W) -> Result<(), Error> {
-        *self.should_return.borrow_mut() = true;
+        queue_promise_event(PromiseQueueEvent::Return { index: self.subtype.index() });
 
         // Intentionally no bytes written for the promise, the return value from the promise
         // will be considered as the return value from the contract call.

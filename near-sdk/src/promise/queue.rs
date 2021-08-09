@@ -7,15 +7,14 @@ thread_local! {
     static QUEUED_PROMISES: RefCell<Vec<PromiseQueueEvent>> = RefCell::new(Vec::new());
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct QueueIndex(usize);
 
 #[non_exhaustive]
-#[derive(Debug)]
 pub enum PromiseQueueEvent {
     CreateBatch { account_id: AccountId },
     BatchAnd { promise_a: QueueIndex, promise_b: QueueIndex },
-    BatchThen { account_id: AccountId, following_index: QueueIndex },
+    BatchThen { previous_index: QueueIndex, account_id: AccountId },
     Action { index: QueueIndex, action: PromiseAction },
     Return { index: QueueIndex },
 }
@@ -25,6 +24,27 @@ pub(super) fn queue_promise_event(event: PromiseQueueEvent) -> QueueIndex {
         let mut q = q.borrow_mut();
         q.push(event);
         QueueIndex(q.len() - 1)
+    })
+}
+
+pub(super) fn upgrade_to_then(previous_index: QueueIndex, next: QueueIndex) {
+    QUEUED_PROMISES.with(|q| {
+        let mut queue = q.borrow_mut();
+        let event_mut = queue.get_mut(next.0).unwrap_or_else(|| unreachable!());
+
+        // Replace current event with low cost variant. It gets replaced at the end of the function
+        // so this doesn't matter. This is to avoid a clone of the account_id.
+        let event =
+            core::mem::replace(event_mut, PromiseQueueEvent::Return { index: QueueIndex(0) });
+        let account_id = if let PromiseQueueEvent::CreateBatch { account_id } = event {
+            account_id
+        } else {
+			// This is unreachable because `then` can only be called on a promise once
+			// and it is always in `CreateBatch` state until then.
+            unreachable!()
+        };
+
+        *event_mut = PromiseQueueEvent::BatchThen { previous_index, account_id };
     })
 }
 
@@ -85,9 +105,9 @@ pub fn schedule_queued_promises() {
                     let promise_idx = crate::env::promise_and(&[a, b]);
                     lookup.insert(i, promise_idx);
                 }
-                PromiseQueueEvent::BatchThen { account_id, following_index } => {
-                    let following = lookup[&following_index.0];
-                    let promise_idx = crate::env::promise_batch_then(following, account_id);
+                PromiseQueueEvent::BatchThen { previous_index, account_id } => {
+                    let index = lookup[&previous_index.0];
+                    let promise_idx = crate::env::promise_batch_then(index, account_id);
                     lookup.insert(i, promise_idx);
                 }
                 PromiseQueueEvent::Action { index, action } => {

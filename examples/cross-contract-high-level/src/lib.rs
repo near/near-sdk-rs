@@ -53,6 +53,7 @@ impl CrossContract {
 
     #[result_serializer(borsh)]
     pub fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
+        env::log_str("merge_sort");
         if arr.len() <= 1 {
             return PromiseOrValue::Value(arr);
         }
