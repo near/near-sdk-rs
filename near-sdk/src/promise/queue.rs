@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use super::PromiseAction;
-use crate::{AccountId, Gas, PromiseIndex, env};
+use crate::{env, AccountId, Gas, PromiseIndex};
 
 thread_local! {
     static QUEUED_PROMISES: RefCell<Vec<PromiseQueueEvent>> = RefCell::new(Vec::new());
