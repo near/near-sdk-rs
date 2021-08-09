@@ -68,7 +68,7 @@ pub enum PromiseAction {
 /// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
-///         contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
+///         contract_b::b("bob_near".parse().unwrap())
 ///     }
 /// }
 /// ```
@@ -297,11 +297,11 @@ impl Promise {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000)).as_return();
+    ///        contract_b::b("bob_near".parse().unwrap()).as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
+    ///        contract_b::b("bob_near".parse().unwrap())
     ///     }
     /// }
     /// ```

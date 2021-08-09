@@ -58,17 +58,15 @@ fn calc_gas_per_unspecified(events: &[PromiseQueueEvent]) -> Gas {
     // subtract any defined amounts and count number of unspecified
     let mut count_remaining = 0;
     for event in events.iter() {
-        match event {
-            PromiseQueueEvent::Action { action: PromiseAction::FunctionCall { .. }, .. } => {
-                count_remaining += 1;
-                // if let Some(specified) = gas {
-                //     // Gas was specified, remove this from pool of funds
-                //     remaining_gas -= *specified;
-                // } else {
-                //     count_remaining += 1;
-                // }
-            }
-            _ => (),
+        if let PromiseQueueEvent::Action { action: PromiseAction::FunctionCall { .. }, .. } = event
+        {
+            count_remaining += 1;
+            // if let Some(specified) = gas {
+            //     // Gas was specified, remove this from pool of funds
+            //     remaining_gas -= *specified;
+            // } else {
+            //     count_remaining += 1;
+            // }
         }
     }
 
@@ -123,8 +121,8 @@ pub fn schedule_queued_promises() {
                         FunctionCall { method_name, arguments, amount, gas } => {
                             crate::env::promise_batch_action_function_call(
                                 promise_index,
-                                &method_name,
-                                &arguments,
+                                method_name,
+                                arguments,
                                 *amount,
                                 gas.unwrap_or(function_call_gas),
                             )
