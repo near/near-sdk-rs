@@ -35,9 +35,21 @@ macro_rules! impl_non_fungible_token_core {
             fn nft_token(&self, token_id: TokenId) -> Option<Token> {
                 self.$token.nft_token(token_id)
             }
+        }
 
-            #[payable]
-            fn mint(
+        impl $contract {
+            /// Mint a new token. Not part of official standard, but needed in most situations.
+            /// Consuming contract expected to wrap this with an `nft_mint` function.
+            ///
+            /// Requirements:
+            /// * Caller must be the `owner_id` set during contract initialization.
+            /// * Caller of the method must attach a deposit of 1 yoctoⓃ for security purposes.
+            /// * If contract is using Metadata extension (by having provided `metadata_prefix` during
+            ///   contract initialization), `token_metadata` must be given.
+            /// * token_id must be unique
+            ///
+            /// Returns the newly minted token
+            pub fn mint(
                 &mut self,
                 token_id: TokenId,
                 token_owner_id: AccountId,
