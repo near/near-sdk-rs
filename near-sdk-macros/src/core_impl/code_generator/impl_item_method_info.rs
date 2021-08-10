@@ -23,16 +23,12 @@ impl ImplItemMethodInfo {
             let serializer_invocation = match attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
                     near_sdk::serde_json::from_slice(
-                        &near_sdk::env::input()
-                            .unwrap_or_else(||
-                                near_sdk::env::panic_str("Expected input since method has arguments."))
+                        &near_sdk::env::input().expect("Expected input since method has arguments.")
                     ).expect("Failed to deserialize input from JSON.")
                 },
                 SerializerType::Borsh => quote! {
                     near_sdk::borsh::BorshDeserialize::try_from_slice(
-                        &near_sdk::env::input()
-                            .unwrap_or_else(||
-                                near_sdk::env::panic_str("Expected input since method has arguments."))
+                        &near_sdk::env::input().expect("Expected input since method has arguments.")
                     ).expect("Failed to deserialize input from Borsh.")
                 },
             };
