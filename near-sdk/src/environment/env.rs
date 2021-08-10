@@ -32,6 +32,10 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 /// The maximum length of a valid account ID.
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
+fn expect_register<T>(option: Option<T>) -> T {
+    option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
+}
+
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
     ( $method:ident ) => {{
@@ -43,7 +47,7 @@ macro_rules! try_method_into_register {
 /// Same as `try_method_into_register` but expects the data.
 macro_rules! method_into_register {
     ( $method:ident ) => {{
-        try_method_into_register!($method).expect(REGISTER_EXPECTED_ERR)
+        expect_register(try_method_into_register!($method))
     }};
 }
 
@@ -215,19 +219,19 @@ pub fn random_seed() -> Vec<u8> {
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     unsafe { sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
     unsafe { sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
     unsafe { sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 // ################
@@ -429,8 +433,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
     match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
         0 => PromiseResult::NotReady,
         1 => {
-            let data = read_register(ATOMIC_OP_REGISTER)
-                .expect("Promise result should've returned into register.");
+            let data = expect_register(read_register(ATOMIC_OP_REGISTER));
             PromiseResult::Successful(data)
         }
         2 => PromiseResult::Failed,
@@ -530,7 +533,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
-        1 => Some(read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)),
+        1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
         _ => unreachable!(),
     }
 }

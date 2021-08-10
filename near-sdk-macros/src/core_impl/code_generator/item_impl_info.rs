@@ -120,7 +120,9 @@ mod tests {
                     k: u64,
                 }
                 let Input { k, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -152,7 +154,9 @@ mod tests {
                         m: Bar,
                     }
                     let Input { k, m, }: Input = near_sdk::serde_json::from_slice(
-                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                        &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                     )
                     .expect("Failed to deserialize input from JSON.");
                     let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -185,7 +189,9 @@ mod tests {
                         m: Bar,
                     }
                     let Input { k, m, }: Input = near_sdk::serde_json::from_slice(
-                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                        &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                     )
                     .expect("Failed to deserialize input from JSON.");
                     let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -238,7 +244,9 @@ mod tests {
                         k: u64,
                     }
                     let Input { k, }: Input = near_sdk::serde_json::from_slice(
-                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                        &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                     )
                     .expect("Failed to deserialize input from JSON.");
                     let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -266,7 +274,9 @@ mod tests {
                     k: u64,
                 }
                 let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -298,7 +308,9 @@ mod tests {
                     y: String,
                 }
                 let Input { y, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
@@ -378,7 +390,9 @@ mod tests {
                     y: String,
                 }
                 let Input { y, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 let x: Vec<String> = (0..near_sdk::env::promise_results_count())
@@ -420,7 +434,9 @@ mod tests {
                     k: u64,
                 }
                 let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 if near_sdk::env::state_exists() {
@@ -456,7 +472,9 @@ mod tests {
                     k: u64,
                 }
                 let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 let contract = Hello::method(&mut k,);
@@ -487,7 +505,9 @@ mod tests {
                     k: u64,
                 }
                 let Input { mut k, }: Input = near_sdk::serde_json::from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from JSON.");
                 if near_sdk::env::state_exists() {
@@ -523,7 +543,9 @@ mod tests {
                     m: Bar,
                 }
                 let Input { k, m, }: Input = near_sdk::borsh::BorshDeserialize::try_from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from Borsh.");
                 let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
@@ -558,7 +580,9 @@ mod tests {
                     y: String,
                 }
                 let Input { y, }: Input = near_sdk::borsh::BorshDeserialize::try_from_slice(
-                    &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    &near_sdk::env::input()
+                            .unwrap_or_else(|| 
+                                near_sdk::env::panic_str("Expected input since method has arguments."))
                 )
                 .expect("Failed to deserialize input from Borsh.");
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
