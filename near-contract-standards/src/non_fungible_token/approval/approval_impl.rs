@@ -117,8 +117,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             env::panic_str("NFT does not support Approval Management");
         });
 
-        let owner_id =
-            self.owner_by_id.get(&token_id).unwrap_or_else(|| env::panic_str("Token not found"));
+        let owner_id = expect_token_found(self.owner_by_id.get(&token_id));
         let predecessor_account_id = env::predecessor_account_id();
 
         assert_eq!(&predecessor_account_id, &owner_id, "Predecessor must be token owner.");
