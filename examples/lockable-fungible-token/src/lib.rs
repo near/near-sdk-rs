@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, near_bindgen, AccountId, Balance};
+use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -45,19 +45,13 @@ impl Account {
 }
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,
 
     /// Total supply of the all token.
     pub total_supply: Balance,
-}
-
-impl Default for FunToken {
-    fn default() -> Self {
-        panic!("Fun token should be initialized before usage")
-    }
 }
 
 #[near_bindgen]
