@@ -36,6 +36,7 @@ macro_rules! impl_non_fungible_token_core {
                 self.$token.nft_token(token_id)
             }
 
+            #[payable]
             fn mint(
                 &mut self,
                 token_id: TokenId,
