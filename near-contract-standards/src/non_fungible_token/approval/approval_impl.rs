@@ -133,7 +133,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
     }
 
     fn nft_is_approved(
-        self,
+        &self,
         token_id: TokenId,
         approved_account_id: AccountId,
         approval_id: Option<u64>,

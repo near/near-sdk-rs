@@ -86,7 +86,7 @@ pub trait NonFungibleTokenApproval {
     /// if `approval_id` given, `true` if `approved_account_id` is approved with given `approval_id`
     /// otherwise, `true` if `approved_account_id` is in list of approved accounts
     fn nft_is_approved(
-        self,
+        &self,
         token_id: TokenId,
         approved_account_id: AccountId,
         approval_id: Option<u64>,
