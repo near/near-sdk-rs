@@ -11,7 +11,7 @@ pub fn royalty_to_payout(a: u32, b: Balance) -> U128 {
 
 pub fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
     // The extra 4 bytes are coming from Borsh serialization to store the length of the string.
-    account_id.len() as u64 + 4 + size_of::<u64>() as u64
+    account_id.as_str().len() as u64 + 4 + size_of::<u64>() as u64
 }
 
 pub fn refund_approved_account_ids_iter<'a, I>(

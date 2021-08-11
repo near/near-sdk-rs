@@ -1,4 +1,4 @@
-use crate::info_extractor::{
+use crate::core_impl::info_extractor::{
     AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
 };
 use quote::quote;
@@ -14,9 +14,6 @@ impl ImplItemMethodInfo {
 
         let panic_hook = quote! {
             near_sdk::env::setup_panic_hook();
-        };
-        let env_creation = quote! {
-            near_sdk::env::set_blockchain_interface(Box::new(near_blockchain::NearBlockchain {}));
         };
         let arg_struct;
         let arg_parsing;
@@ -66,15 +63,15 @@ impl ImplItemMethodInfo {
             let error = format!("Method {} doesn't accept deposit", ident.to_string());
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic(#error.as_bytes());
+                    near_sdk::env::panic_str(#error);
                 }
             }
         };
         let is_private_check = if *is_private {
             let error = format!("Method {} is private", ident.to_string());
             quote! {
-                if env::current_account_id() != env::predecessor_account_id() {
-                    near_sdk::env::panic(#error.as_bytes());
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+                    near_sdk::env::panic_str(#error);
                 }
             }
         } else {
@@ -83,7 +80,7 @@ impl ImplItemMethodInfo {
         let body = if matches!(method_type, &MethodType::Init) {
             quote! {
                 if near_sdk::env::state_exists() {
-                    near_sdk::env::panic(b"The contract has already been initialized");
+                    near_sdk::env::panic_str("The contract has already been initialized");
                 }
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);
@@ -156,7 +153,6 @@ impl ImplItemMethodInfo {
             #[no_mangle]
             pub extern "C" fn #ident() {
                 #panic_hook
-                #env_creation
                 #is_private_check
                 #deposit_check
                 #arg_struct
@@ -176,10 +172,10 @@ impl ImplItemMethodInfo {
         let serialize_args = if has_input_args {
             match &attr_signature_info.input_serializer {
                 SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
-                    &attr_signature_info,
+                    attr_signature_info,
                     &attr_signature_info.input_serializer,
                 ),
-                SerializerType::JSON => json_serialize(&attr_signature_info),
+                SerializerType::JSON => json_serialize(attr_signature_info),
             }
         } else {
             quote! {
@@ -202,7 +198,7 @@ impl ImplItemMethodInfo {
         let params = quote! {
             &self, #pat_type_list
         };
-        let ident_str = format!("{}", ident.to_string());
+        let ident_str = ident.to_string();
         let is_view = if matches!(method_type, MethodType::View) {
             quote! {true}
         } else {
@@ -221,7 +217,7 @@ impl ImplItemMethodInfo {
             #non_bindgen_attrs
             pub fn #ident#generics(#params) #return_ident {
                 #serialize_args
-                near_sdk::PendingContractTx::new_from_bytes(&self.account_id, #ident_str, args, #is_view)
+                near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), #ident_str, args, #is_view)
             }
         }
     }

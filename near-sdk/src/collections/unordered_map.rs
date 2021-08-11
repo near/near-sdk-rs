@@ -5,10 +5,10 @@ use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_KEY_SERIALIZATION: &[u8] = b"Cannot serialize key with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_KEY_SERIALIZATION: &str = "Cannot serialize key with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An iterable implementation of a map that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -24,7 +24,7 @@ impl<K, V> UnorderedMap<K, V> {
         let keys_len = self.keys.len();
         let values_len = self.values.len();
         if keys_len != values_len {
-            env::panic(ERR_INCONSISTENT_STATE)
+            env::panic_str(ERR_INCONSISTENT_STATE)
         } else {
             keys_len
         }
@@ -35,7 +35,7 @@ impl<K, V> UnorderedMap<K, V> {
         let keys_is_empty = self.keys.is_empty();
         let values_is_empty = self.values.is_empty();
         if keys_is_empty != values_is_empty {
-            env::panic(ERR_INCONSISTENT_STATE)
+            env::panic_str(ERR_INCONSISTENT_STATE)
         } else {
             keys_is_empty
         }
@@ -82,7 +82,7 @@ impl<K, V> UnorderedMap<K, V> {
     fn get_raw(&self, key_raw: &[u8]) -> Option<Vec<u8>> {
         self.get_index_raw(key_raw).map(|index| match self.values.get_raw(index) {
             Some(x) => x,
-            None => env::panic(ERR_INCONSISTENT_STATE),
+            None => env::panic_str(ERR_INCONSISTENT_STATE),
         })
     }
 
@@ -116,6 +116,7 @@ impl<K, V> UnorderedMap<K, V> {
         let index_lookup = self.raw_key_to_index_lookup(key_raw);
         match env::storage_read(&index_lookup) {
             Some(index_raw) => {
+                #[allow(clippy::branches_sharing_code)]
                 if self.len() == 1 {
                     // If there is only one element then swap remove simply removes it without
                     // swapping with the last element.
@@ -125,7 +126,7 @@ impl<K, V> UnorderedMap<K, V> {
                     // element.
                     let last_key_raw = match self.keys.get_raw(self.len() - 1) {
                         Some(x) => x,
-                        None => env::panic(ERR_INCONSISTENT_STATE),
+                        None => env::panic_str(ERR_INCONSISTENT_STATE),
                     };
                     env::storage_remove(&index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
@@ -152,21 +153,21 @@ where
     fn serialize_key(key: &K) -> Vec<u8> {
         match key.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_KEY_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_KEY_SERIALIZATION),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> V {
-        match V::try_from_slice(&raw_value) {
+        match V::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_DESERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_DESERIALIZATION),
         }
     }
 
     fn serialize_value(value: &V) -> Vec<u8> {
         match value.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_SERIALIZATION),
         }
     }
 
@@ -187,7 +188,7 @@ where
     /// a value. Note, the keys that have the same hash value are undistinguished by
     /// the implementation.
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
-        self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(&value))
+        self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
@@ -244,7 +245,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::collections::UnorderedMap;
-    use crate::test_utils::test_env;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::{HashMap, HashSet};
@@ -252,7 +252,6 @@ mod tests {
 
     #[test]
     pub fn test_insert() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
@@ -264,7 +263,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
@@ -285,7 +283,6 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let key1 = 1u64;
         let value1 = 2u64;
@@ -303,7 +300,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
@@ -331,7 +327,6 @@ mod tests {
 
     #[test]
     pub fn test_get_non_existent() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut key_to_value = HashMap::new();
@@ -349,7 +344,6 @@ mod tests {
 
     #[test]
     pub fn test_to_vec() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
@@ -365,7 +359,6 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(5);
         for _ in 0..10 {
@@ -382,7 +375,6 @@ mod tests {
 
     #[test]
     pub fn test_keys_values() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
@@ -405,7 +397,6 @@ mod tests {
 
     #[test]
     pub fn test_iter() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
@@ -415,13 +406,12 @@ mod tests {
             key_to_value.insert(key, value);
             map.insert(&key, &value);
         }
-        let actual: HashMap<u64, u64> = HashMap::from_iter(map.iter());
+        let actual: HashMap<u64, u64> = map.iter().collect();
         assert_eq!(actual, key_to_value);
     }
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut map = UnorderedMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut key_to_value = HashMap::new();
@@ -442,7 +432,7 @@ mod tests {
             map.extend(tmp.iter().cloned());
         }
 
-        let actual: HashMap<u64, u64> = HashMap::from_iter(map.iter());
+        let actual: HashMap<u64, u64> = map.iter().collect();
         assert_eq!(actual, key_to_value);
     }
 }

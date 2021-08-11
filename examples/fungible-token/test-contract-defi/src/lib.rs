@@ -3,17 +3,15 @@ Some hypothetical DeFi contract that will do smart things with the transferred t
 */
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, setup_alloc, AccountId, Balance, Gas, PanicOnDefault,
+    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
-setup_alloc!();
-
-const BASE_GAS: Gas = 5_000_000_000_000;
-const PROMISE_CALL: Gas = 5_000_000_000_000;
-const GAS_FOR_FT_ON_TRANSFER: Gas = BASE_GAS + PROMISE_CALL;
+const BASE_GAS: u64 = 5_000_000_000_000;
+const PROMISE_CALL: u64 = 5_000_000_000_000;
+const GAS_FOR_FT_ON_TRANSFER: Gas = Gas(BASE_GAS + PROMISE_CALL);
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -37,7 +35,7 @@ trait ValueReturnTrait {
 #[near_bindgen]
 impl DeFi {
     #[init]
-    pub fn new(fungible_token_account_id: ValidAccountId) -> Self {
+    pub fn new(fungible_token_account_id: AccountId) -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self { fungible_token_account_id: fungible_token_account_id.into() }
     }
@@ -50,7 +48,7 @@ impl FungibleTokenReceiver for DeFi {
     /// value_please will attempt to parse `msg` as an integer and return a U128 version of it
     fn ft_on_transfer(
         &mut self,
-        sender_id: ValidAccountId,
+        sender_id: AccountId,
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
@@ -68,7 +66,7 @@ impl FungibleTokenReceiver for DeFi {
                 let account_id = env::current_account_id();
                 ext_self::value_please(
                     msg,
-                    &account_id,
+                    account_id,
                     NO_DEPOSIT,
                     prepaid_gas - GAS_FOR_FT_ON_TRANSFER,
                 )

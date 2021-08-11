@@ -4,17 +4,14 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::ValidAccountId;
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, setup_alloc, AccountId, Balance, Gas, PanicOnDefault,
+    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
-setup_alloc!();
-
-const BASE_GAS: Gas = 5_000_000_000_000;
-const PROMISE_CALL: Gas = 5_000_000_000_000;
-const GAS_FOR_NFT_ON_TRANSFER: Gas = BASE_GAS + PROMISE_CALL;
+const BASE_GAS: u64 = 5_000_000_000_000;
+const PROMISE_CALL: u64 = 5_000_000_000_000;
+const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(BASE_GAS + PROMISE_CALL);
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -38,8 +35,8 @@ trait ValueReturnTrait {
 #[near_bindgen]
 impl TokenReceiver {
     #[init]
-    pub fn new(non_fungible_token_account_id: ValidAccountId) -> Self {
-        Self { non_fungible_token_account_id: non_fungible_token_account_id.into() }
+    pub fn new(non_fungible_token_account_id: AccountId) -> Self {
+        Self { non_fungible_token_account_id }
     }
 }
 
@@ -79,7 +76,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 let account_id = env::current_account_id();
                 ext_self::ok_go(
                     true,
-                    &account_id,
+                    account_id,
                     NO_DEPOSIT,
                     prepaid_gas - GAS_FOR_NFT_ON_TRANSFER,
                 )
@@ -91,13 +88,13 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 let account_id = env::current_account_id();
                 ext_self::ok_go(
                     false,
-                    &account_id,
+                    account_id,
                     NO_DEPOSIT,
                     prepaid_gas - GAS_FOR_NFT_ON_TRANSFER,
                 )
                 .into()
             }
-            _ => env::panic(b"unsupported msg"),
+            _ => env::panic_str("unsupported msg"),
         }
     }
 }

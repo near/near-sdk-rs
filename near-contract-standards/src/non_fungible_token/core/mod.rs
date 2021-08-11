@@ -10,7 +10,7 @@ pub use self::resolver::*;
 
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
 
 /// Used for all non-fungible tokens. The specification for the
@@ -45,20 +45,12 @@ pub trait NonFungibleTokenCore {
     ///    providing information for a transfer
     fn nft_transfer(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
     );
 
-    fn nft_transfer_payout(
-        &mut self,
-        receiver_id: ValidAccountId,
-        token_id: TokenId,
-        approval_id: Option<u64>,
-        memo: Option<String>,
-        balance: Option<U128>,
-    ) -> Option<Payout>;
     /// Transfer token and call a method on a receiver contract. A successful
     /// workflow will end in a success execution outcome to the callback on the NFT
     /// contract at the method `nft_resolve_transfer`.
@@ -94,7 +86,7 @@ pub trait NonFungibleTokenCore {
     ///    call and the parameters to pass to that function.
     fn nft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
@@ -102,7 +94,7 @@ pub trait NonFungibleTokenCore {
     ) -> PromiseOrValue<bool>;
 
     /// Returns the token with the given `token_id` or `null` if no such token.
-    fn nft_token(self, token_id: TokenId) -> Option<Token>;
+    fn nft_token(&self, token_id: TokenId) -> Option<Token>;
 
     /// Mint a new token. Not part of official standard, but needed in most situations.
     /// Consuming contract expected to wrap this with an `nft_mint` function.
@@ -118,7 +110,7 @@ pub trait NonFungibleTokenCore {
     fn mint(
         &mut self,
         token_id: TokenId,
-        token_owner_id: ValidAccountId,
+        token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token;
 }

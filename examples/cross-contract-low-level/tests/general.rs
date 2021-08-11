@@ -1,3 +1,4 @@
+use near_sdk::AccountId;
 use near_sdk_sim::{
     call, deploy, init_simulator, to_yocto, view, ContractAccount, UserAccount, DEFAULT_GAS,
     STORAGE_AMOUNT,
@@ -25,7 +26,8 @@ fn init(
         bytes: &TOKEN_WASM_BYTES,
         signer_account: master_account
     };
-    let alice = master_account.create_user("alice".to_string(), initial_balance);
+    let alice =
+        master_account.create_user(AccountId::new_unchecked("alice".to_string()), initial_balance);
     (master_account, contract_account, alice)
 }
 
@@ -39,7 +41,7 @@ fn check_promise() {
     let (master_account, contract, _alice) = init(to_yocto("10000"));
     let res = view!(contract.promise_checked());
     assert_eq!(res.unwrap_json::<bool>(), false);
-    let status_id = "status".to_string();
+    let status_id: near_sdk::AccountId = "status".parse().unwrap();
     let status_amt = to_yocto("35");
     let res = call!(
         master_account,
@@ -64,7 +66,7 @@ fn test_sim_transfer() {
     // let transfer_amount = to_yocto("100");
     let initial_balance = to_yocto("100000");
     let (master_account, contract, _alice) = init(initial_balance);
-    let status_id = "status".to_string();
+    let status_id: near_sdk::AccountId = "status".parse().unwrap();
     let status_amt = to_yocto("35");
     let res = call!(
         master_account,

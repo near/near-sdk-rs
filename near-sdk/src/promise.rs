@@ -12,7 +12,7 @@ pub enum PromiseAction {
         code: Vec<u8>,
     },
     FunctionCall {
-        method_name: Vec<u8>,
+        method_name: String,
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
@@ -32,7 +32,7 @@ pub enum PromiseAction {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: Vec<u8>,
+        method_names: String,
         nonce: u64,
     },
     DeleteKey {
@@ -49,13 +49,13 @@ impl PromiseAction {
         match self {
             CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
             DeployContract { code } => {
-                crate::env::promise_batch_action_deploy_contract(promise_index, &code)
+                crate::env::promise_batch_action_deploy_contract(promise_index, code)
             }
             FunctionCall { method_name, arguments, amount, gas } => {
                 crate::env::promise_batch_action_function_call(
                     promise_index,
-                    &method_name,
-                    &arguments,
+                    method_name,
+                    arguments,
                     *amount,
                     *gas,
                 )
@@ -80,7 +80,7 @@ impl PromiseAction {
                     *nonce,
                     *allowance,
                     receiver_id,
-                    &method_names,
+                    method_names,
                 )
             }
             DeleteKey { public_key } => {
@@ -151,8 +151,8 @@ impl PromiseJoint {
 ///   In the following code if someone calls method `ContractA::a` they will internally cause an
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
-/// ```ignore
-/// # use near_sdk::{ext_contract, near_bindgen, Promise};
+/// ```no_run
+/// # use near_sdk::{ext_contract, near_bindgen, Promise, Gas};
 /// # use borsh::{BorshDeserialize, BorshSerialize};
 /// #[ext_contract]
 /// pub trait ContractB {
@@ -166,7 +166,7 @@ impl PromiseJoint {
 /// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
-///         contract_b::b(&"bob_near".to_string(), 0, 1_000)
+///         contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
 ///     }
 /// }
 /// ```
@@ -174,10 +174,11 @@ impl PromiseJoint {
 /// * When they need to create a transaction with one or many actions, e.g. the following code
 ///   schedules a transaction that creates an account, transfers tokens, and assigns a public key:
 ///
-/// ```ignore
-/// # use near_sdk::{Promise, env, VMContext, testing_env};
-/// # testing_env!(VMContext{ signer_account_id: "bob_near".to_string(), account_balance: 1000, prepaid_gas: 1_000_000, ..Default::default()});
-/// Promise::new("bob_near".to_string())
+/// ```no_run
+/// # use near_sdk::{Promise, env, test_utils::VMContextBuilder, testing_env};
+/// # testing_env!(VMContextBuilder::new().signer_account_id("bob_near".parse().unwrap())
+/// #               .account_balance(1000).prepaid_gas(1_000_000.into()).build());
+/// Promise::new("bob_near".parse().unwrap())
 ///   .create_account()
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
@@ -242,7 +243,7 @@ impl Promise {
     /// A low-level interface for making a function call to the account that this promise acts on.
     pub fn function_call(
         self,
-        method_name: Vec<u8>,
+        method_name: String,
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
@@ -272,13 +273,13 @@ impl Promise {
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `method_names` is a comma separated list of methods,
-    /// e.g. `b"method_a,method_b"`.
+    /// e.g. `"method_a,method_b".to_string()`.
     pub fn add_access_key(
         self,
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: Vec<u8>,
+        method_names: String,
     ) -> Self {
         self.add_access_key_with_nonce(public_key, allowance, receiver_id, method_names, 0)
     }
@@ -289,7 +290,7 @@ impl Promise {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: Vec<u8>,
+        method_names: String,
         nonce: u64,
     ) -> Self {
         self.add_action(PromiseAction::AddAccessKey {
@@ -317,11 +318,10 @@ impl Promise {
     /// Note, once the promises are merged it is not possible to add actions to them, e.g. the
     /// following code will panic during the execution of the smart contract:
     ///
-    /// ```ignore
-    /// # use near_sdk::{Promise, VMContext, testing_env};
-    /// # testing_env!(VMContext{ signer_account_id: "alice_near".to_string(), prepaid_gas: 1_000_000, ..Default::default()});
-    /// let p1 = Promise::new("bob_near".to_string()).create_account();
-    /// let p2 = Promise::new("carol_near".to_string()).create_account();
+    /// ```no_run
+    /// # use near_sdk::{Promise, testing_env};
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
@@ -341,13 +341,12 @@ impl Promise {
     /// In the following code `bob_near` and `dave_near` will be created concurrently. `carol_near`
     /// creation will wait for `bob_near` to be created, and `eva_near` will wait for both `carol_near`
     /// and `dave_near` to be created first.
-    /// ```ignore
+    /// ```no_run
     /// # use near_sdk::{Promise, VMContext, testing_env};
-    /// # testing_env!(VMContext{ signer_account_id: "alice_near".to_string(), prepaid_gas: 1_000_000, ..Default::default()});
-    /// let p1 = Promise::new("bob_near".to_string()).create_account();
-    /// let p2 = Promise::new("carol_near".to_string()).create_account();
-    /// let p3 = Promise::new("dave_near".to_string()).create_account();
-    /// let p4 = Promise::new("eva_near".to_string()).create_account();
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
     pub fn then(self, mut other: Promise) -> Promise {
@@ -363,7 +362,7 @@ impl Promise {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, near_bindgen, Promise};
+    /// # use near_sdk::{ext_contract, Gas, near_bindgen, Promise};
     /// # use borsh::{BorshDeserialize, BorshSerialize};
     /// #[ext_contract]
     /// pub trait ContractB {
@@ -377,14 +376,15 @@ impl Promise {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::b(&"bob_near".to_string(), 0, 1_000).as_return();
+    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000)).as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::b(&"bob_near".to_string(), 0, 1_000)
+    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
     ///     }
     /// }
     /// ```
+    #[allow(clippy::wrong_self_convention)]
     pub fn as_return(self) -> Self {
         *self.should_return.borrow_mut() = true;
         self

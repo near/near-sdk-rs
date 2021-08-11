@@ -1,6 +1,6 @@
 use crate::fungible_token::FungibleToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
 
 impl FungibleToken {
@@ -20,7 +20,9 @@ impl FungibleToken {
                 Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
                 Some((account_id, balance))
             } else {
-                env::panic(b"Can't unregister the account with the positive balance without force")
+                env::panic_str(
+                    "Can't unregister the account with the positive balance without force",
+                )
             }
         } else {
             log!("The account {} is not registered", &account_id);
@@ -42,12 +44,11 @@ impl StorageManagement for FungibleToken {
     #[allow(unused_variables)]
     fn storage_deposit(
         &mut self,
-        account_id: Option<ValidAccountId>,
+        account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
         let amount: Balance = env::attached_deposit();
-        let account_id =
-            account_id.map(|a| a.into()).unwrap_or_else(|| env::predecessor_account_id());
+        let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {
@@ -56,7 +57,7 @@ impl StorageManagement for FungibleToken {
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
             if amount < min_balance {
-                env::panic(b"The attached deposit is less than the minimum storage balance");
+                env::panic_str("The attached deposit is less than the minimum storage balance");
             }
 
             self.internal_register_account(&account_id);
@@ -80,13 +81,13 @@ impl StorageManagement for FungibleToken {
         if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
             match amount {
                 Some(amount) if amount.0 > 0 => {
-                    env::panic(b"The amount is greater than the available storage balance");
+                    env::panic_str("The amount is greater than the available storage balance");
                 }
                 _ => storage_balance,
             }
         } else {
-            env::panic(
-                format!("The account {} is not registered", &predecessor_account_id).as_bytes(),
+            env::panic_str(
+                format!("The account {} is not registered", &predecessor_account_id).as_str(),
             );
         }
     }
@@ -104,7 +105,7 @@ impl StorageManagement for FungibleToken {
         }
     }
 
-    fn storage_balance_of(&self, account_id: ValidAccountId) -> Option<StorageBalance> {
-        self.internal_storage_balance_of(account_id.as_ref())
+    fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
+        self.internal_storage_balance_of(&account_id)
     }
 }

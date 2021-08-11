@@ -44,7 +44,7 @@ use near_sdk::{near_bindgen, env};
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    records: HashMap<AccountId, String>,
 }
 
 #[near_bindgen]
@@ -54,7 +54,7 @@ impl StatusMessage {
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: String) -> Option<String> {
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
         self.records.get(&account_id).cloned()
     }
 }
@@ -148,8 +148,8 @@ pub fn my_method(&mut self) {
 /// Which is equivalent to
 
 pub fn my_method(&mut self ) {
-    if env::current_account_id() != env::predecessor_account_id() {
-        near_sdk::env::panic("Method method is private".as_bytes());
+    if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+        near_sdk::env::panic_str("Method method is private");
     }
 ...
 }

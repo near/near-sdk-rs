@@ -23,8 +23,8 @@ Change methods ([see below](#view-vs-change-method)) serialize the main contract
 NEAR SDK provides the following collections:
 
 - `Vector` - An iterable implementation of vector.
-- `LookupMap` - An non-iterable implementation of a map.
-- `LookupSet` - An non-iterable implementation of a set.
+- `LookupMap` - A non-iterable implementation of a map.
+- `LookupSet` - A non-iterable implementation of a set.
 - `UnorderedMap` - An iterable implementation of a map.
 - `UnorderedSet` - An iterable implementation of a set.
 - `TreeMap` - An iterable sorted map based on AVL-tree
@@ -182,7 +182,7 @@ There is an macro decorator `#[private]` that checks that the current account ID
 impl Contract {
     #[private]
     pub fn resolve_transfer(&mut self) {
-        env::log(b"This is a callback");
+        env::log_str("This is a callback");
     }
 }
 ```
@@ -193,10 +193,10 @@ This is equivalent to:
 #[near_bindgen]
 impl Contract {
     pub fn resolve_transfer(&mut self) {
-        if env::current_account_id() != env::predecessor_account_id() {
-            near_sdk::env::panic(b"Method resolve_transfer is private");
+        if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+            near_sdk::env::panic_str("Method resolve_transfer is private");
         }
-        env::log(b"This is a callback");
+        env::log_str("This is a callback");
     }
 }
 ```
@@ -320,16 +320,16 @@ impl Contract {
     }
 
     /// Change method. Changes the state, and then saves the new state internally.
-    pub fn set_owner_id(&mut self, new_owner_id: ValidAccountId) {
-        self.owner_id = new_owner_id.into();
+    pub fn set_owner_id(&mut self, new_owner_id: AccountId) {
+        self.owner_id = new_owner_id;
     }
 
     /// View method that "modifies" state, for code structure or computational
     /// efficiency reasons. Changes state in-memory, but does NOT save the new
     /// state. If called internally by a change method, WILL result in updated
     /// contract state.
-    pub fn update_stats(&self, account_id: ValidAccountId, score: U64) -> Account {
-        let account = self.accounts.get(account_id).expect("account not found");
+    pub fn update_stats(&self, account_id: AccountId, score: U64) -> Account {
+        let account = self.accounts.get(&account_id).expect("account not found");
         account.total += score;
         account
     }
@@ -348,11 +348,11 @@ to receive attached deposits. Otherwise, if a deposit is attached to a non-payab
 impl Contract {
     #[payable]
     pub fn take_my_money(&mut self) {
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 
     pub fn do_not_take_my_money(&mut self) {
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 }
 ```
@@ -363,14 +363,14 @@ This is equivalent to:
 #[near_bindgen]
 impl Contract {
     pub fn take_my_money(&mut self) {
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 
     pub fn do_not_take_my_money(&mut self) {
         if near_sdk::env::attached_deposit() != 0 {
-            near_sdk::env::panic(b"Method do_not_take_my_money doesn't accept deposit");
+            near_sdk::env::panic_str("Method do_not_take_my_money doesn't accept deposit");
         }
-        env::log(b"Thanks!");
+        env::log_str("Thanks!");
     }
 }
 ```
@@ -412,7 +412,7 @@ log!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id);
 It's equivalent to the following message:
 
 ```rust
-env::log(format!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id).as_bytes());
+env::log_str(format!("Transferred {} tokens from {} to {}", amount, sender_id, receiver_id).as_ref());
 ```
 
 ## Return `Promise`
@@ -427,8 +427,8 @@ E.g.
 ```rust
 #[near_bindgen]
 impl Contract {
-    pub fn withdraw_100(&mut self, receiver_id: ValidAccountId) -> Promise {
-        Promise::new(receiver_id.into()).transfer(100)
+    pub fn withdraw_100(&mut self, receiver_id: AccountId) -> Promise {
+        Promise::new(receiver_id).transfer(100)
     }
 }
 ```
@@ -457,8 +457,8 @@ mod ext_calculator {
     pub fn mult(a: U64, b: U64, receiver_id: &AccountId, deposit: Balance, gas: Gas) -> Promise {
         Promise::new(receiver_id.clone())
             .function_call(
-                b"mult",
-                json!({ "a": a, "b": b }).to_string().as_bytes(),
+                "mult".to_string(),
+                json!({ "a": a, "b": b }).to_string().into_bytes(),
                 deposit,
                 gas,
             )
@@ -495,7 +495,6 @@ impl Contract {
 - `bs58`
 - `serde`
 - `serde_json`
-- `wee_alloc` (Though you will likely use the `setup_alloc` macro instead of importing it directly)
 
 Most common crates include `borsh` which is needed for internal STATE serialization and
 `serde` for external JSON serialization.
@@ -539,24 +538,6 @@ impl Contract {
     }
 }
 ```
-
-## Use `setup_alloc!`
-
-The SDK provides a helper macro to set up a global allocator from `wee_alloc` crate:
-
-```rust
-near_sdk::setup_alloc!();
-```
-
-It's equivalent to the following:
-
-```rust
-#[cfg(target_arch = "wasm32")]
-#[global_allocator]
-static ALLOC: near_sdk::wee_alloc::WeeAlloc<'_> = near_sdk::wee_alloc::WeeAlloc::INIT;
-```
-
-Read more about Rust [global allocators here](https://doc.rust-lang.org/edition-guide/rust-2018/platform-and-target-support/global-allocators.html).
 
 ## `std::panic!` vs `env::panic`
 
@@ -641,8 +622,8 @@ impl Contract {
         self.status_updates.remove(&env::predecessor_account_id());
     }
 
-    pub fn get_status(&self, account_id: ValidAccountId) -> Option<String> {
-        self.status_updates.get(account_id.as_ref())
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
+        self.status_updates.get(&account_id)
     }
 }
 ```

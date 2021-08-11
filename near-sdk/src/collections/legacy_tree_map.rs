@@ -1,5 +1,6 @@
 //! Legacy `TreeMap` implementation that is using `UnorderedMap`.
 //! DEPRECATED. This implementation is deprecated and may be removed in the future.
+#![allow(clippy::all)]
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;
@@ -42,6 +43,7 @@ where
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<K, V> LegacyTreeMap<K, V>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
@@ -59,6 +61,7 @@ where
         }
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> u64 {
         self.tree.len()
     }
@@ -420,6 +423,7 @@ where
     // Navigate from root to node holding `key` and backtrace back to the root
     // enforcing balance (if necessary) along the way.
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
+        #[allow(clippy::branches_sharing_code)]
         match self.node(at) {
             Some(mut node) => {
                 if node.key.eq(key) {
@@ -751,8 +755,6 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        test_env::setup();
-
         let map: LegacyTreeMap<u8, u8> = LegacyTreeMap::new(b't');
         assert_eq!(map.len(), 0);
         assert_eq!(height(&map), 0);
@@ -766,8 +768,6 @@ mod tests {
 
     #[test]
     fn test_insert_3_rotate_l_l() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<i32, i32> = LegacyTreeMap::new(next_trie_id());
         assert_eq!(height(&map), 0);
 
@@ -789,8 +789,6 @@ mod tests {
 
     #[test]
     fn test_insert_3_rotate_r_r() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<i32, i32> = LegacyTreeMap::new(next_trie_id());
         assert_eq!(height(&map), 0);
 
@@ -812,8 +810,6 @@ mod tests {
 
     #[test]
     fn test_insert_lookup_n_asc() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<i32, i32> = LegacyTreeMap::new(next_trie_id());
 
         let n: u64 = 30;
@@ -843,8 +839,6 @@ mod tests {
 
     #[test]
     fn test_insert_lookup_n_desc() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<i32, i32> = LegacyTreeMap::new(next_trie_id());
 
         let n: u64 = 30;
@@ -898,8 +892,6 @@ mod tests {
 
     #[test]
     fn test_min() {
-        test_env::setup();
-
         let n: u64 = 30;
         let vec = random(n);
 
@@ -914,8 +906,6 @@ mod tests {
 
     #[test]
     fn test_max() {
-        test_env::setup();
-
         let n: u64 = 30;
         let vec = random(n);
 
@@ -930,8 +920,6 @@ mod tests {
 
     #[test]
     fn test_lower() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -952,8 +940,6 @@ mod tests {
 
     #[test]
     fn test_higher() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -974,8 +960,6 @@ mod tests {
 
     #[test]
     fn test_floor_key() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -996,8 +980,6 @@ mod tests {
 
     #[test]
     fn test_ceil_key() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -1018,8 +1000,6 @@ mod tests {
 
     #[test]
     fn test_remove_1() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         map.insert(&1, &1);
         assert_eq!(map.get(&1), Some(1));
@@ -1031,8 +1011,6 @@ mod tests {
 
     #[test]
     fn test_remove_3() {
-        test_env::setup();
-
         let map: LegacyTreeMap<u32, u32> = avl(&[(0, 0)], &[0, 0, 1]);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![]);
@@ -1040,8 +1018,6 @@ mod tests {
 
     #[test]
     fn test_remove_3_desc() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![3, 2, 1];
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
@@ -1061,8 +1037,6 @@ mod tests {
 
     #[test]
     fn test_remove_3_asc() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![1, 2, 3];
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
@@ -1082,8 +1056,6 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_1() {
-        test_env::setup();
-
         let vec: Vec<u32> =
             vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
@@ -1104,8 +1076,6 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_2() {
-        test_env::setup();
-
         let vec: Vec<u32> =
             vec![700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
@@ -1126,8 +1096,6 @@ mod tests {
 
     #[test]
     fn test_remove_9_regression() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![
             1186903464, 506371929, 1738679820, 1883936615, 1815331350, 1512669683, 3581743264,
             1396738166, 1902061760,
@@ -1150,8 +1118,6 @@ mod tests {
 
     #[test]
     fn test_remove_20_regression_1() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![
             552517392, 3638992158, 1015727752, 2500937532, 638716734, 586360620, 2476692174,
             1425948996, 3608478547, 757735878, 2709959928, 2092169539, 3620770200, 783020918,
@@ -1175,8 +1141,6 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![280, 606, 163, 857, 436, 508, 44, 801];
 
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
@@ -1204,7 +1168,6 @@ mod tests {
         let insert = vec![882, 398, 161, 76];
         let remove = vec![242, 687, 860, 811];
 
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
         for (i, (k1, k2)) in insert.iter().zip(remove.iter()).enumerate() {
@@ -1226,8 +1189,6 @@ mod tests {
 
     #[test]
     fn test_remove_n() {
-        test_env::setup();
-
         let n: u64 = 20;
         let vec = random(n);
 
@@ -1254,8 +1215,6 @@ mod tests {
 
     #[test]
     fn test_remove_root_3() {
-        test_env::setup();
-
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         map.insert(&2, &1);
         map.insert(&3, &1);
@@ -1273,8 +1232,6 @@ mod tests {
 
     #[test]
     fn test_insert_2_remove_2_regression() {
-        test_env::setup();
-
         let ins: Vec<u32> = vec![11760225, 611327897];
         let rem: Vec<u32> = vec![2982517385, 1833990072];
 
@@ -1293,7 +1250,6 @@ mod tests {
 
     #[test]
     fn test_insert_n_duplicates() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
         for x in 0..30 {
@@ -1311,8 +1267,6 @@ mod tests {
 
     #[test]
     fn test_insert_2n_remove_n_random() {
-        test_env::setup();
-
         for k in 1..4 {
             let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
             let mut set: HashSet<u32> = HashSet::new();
@@ -1348,14 +1302,12 @@ mod tests {
 
     #[test]
     fn test_remove_empty() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         assert_eq!(map.remove(&1), None);
     }
 
     #[test]
     fn test_to_vec() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         map.insert(&1, &41);
         map.insert(&2, &42);
@@ -1367,14 +1319,12 @@ mod tests {
 
     #[test]
     fn test_to_vec_empty() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         assert!(map.to_vec().is_empty());
     }
 
     #[test]
     fn test_iter() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         map.insert(&1, &41);
         map.insert(&2, &42);
@@ -1386,14 +1336,12 @@ mod tests {
 
     #[test]
     fn test_iter_empty() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
     fn test_iter_rev() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         map.insert(&1, &41);
         map.insert(&2, &42);
@@ -1405,14 +1353,12 @@ mod tests {
 
     #[test]
     fn test_iter_rev_empty() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
     fn test_iter_from() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
         let one: Vec<u32> = vec![10, 20, 30, 40, 50];
@@ -1445,14 +1391,12 @@ mod tests {
 
     #[test]
     fn test_iter_from_empty() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
     fn test_iter_rev_from() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
         let one: Vec<u32> = vec![10, 20, 30, 40, 50];
@@ -1485,7 +1429,6 @@ mod tests {
 
     #[test]
     fn test_range() {
-        test_env::setup();
         let mut map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
 
         let one: Vec<u32> = vec![10, 20, 30, 40, 50];
@@ -1545,7 +1488,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_same_excluded() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
     }
@@ -1553,7 +1495,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_incl_exlc() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
     }
@@ -1561,7 +1502,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_excl_incl() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
     }
@@ -1569,7 +1509,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_excl_excl() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
     }
@@ -1577,16 +1516,14 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_incl_incl() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Included(1)));
     }
 
     #[test]
     fn test_iter_rev_from_empty() {
-        test_env::setup();
         let map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
-        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev_from(42).count(), 0);
     }
 
     #[test]

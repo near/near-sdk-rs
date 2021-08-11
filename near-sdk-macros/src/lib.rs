@@ -1,9 +1,11 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
+mod core_impl;
+
 use proc_macro::TokenStream;
 
-use near_sdk_core::*;
+use self::core_impl::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
@@ -12,14 +14,10 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let sys_file = rust_file(include_str!("../res/sys.rs"));
-        let near_environment = rust_file(include_str!("../res/near_blockchain.rs"));
         let struct_proxy = generate_proxy_struct(&input);
         TokenStream::from(quote! {
             #input
             #struct_proxy
-            #sys_file
-            #near_environment
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -45,10 +43,6 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
-}
-
-fn rust_file(text: &str) -> File {
-    syn::parse_file(text).unwrap()
 }
 
 #[proc_macro_attribute]
@@ -148,12 +142,12 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 /// `init(ignore_state)`.
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+    if let Ok(input) = syn::parse::<ItemStruct>(item) {
         let name = &input.ident;
         TokenStream::from(quote! {
             impl Default for #name {
                 fn default() -> Self {
-                    near_sdk::env::panic(b"The contract is not initialized");
+                    near_sdk::env::panic_str("The contract is not initialized");
                 }
             }
         })
@@ -175,7 +169,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
 pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         input.ident
-    } else if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+    } else if let Ok(input) = syn::parse::<ItemStruct>(item) {
         input.ident
     } else {
         return TokenStream::from(

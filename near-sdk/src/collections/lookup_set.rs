@@ -8,7 +8,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
 
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element with Borsh";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// An non-iterable implementation of a set that stores its content directly on the trie.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -60,7 +60,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match element.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_ELEMENT_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
     }
 
@@ -92,14 +92,12 @@ where
 #[cfg(test)]
 mod tests {
     use crate::collections::LookupSet;
-    use crate::test_utils::test_env;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashSet;
 
     #[test]
     pub fn test_insert() {
-        test_env::setup();
         let mut set = LookupSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         for _ in 0..500 {
@@ -110,7 +108,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_remove() {
-        test_env::setup();
         let mut set = LookupSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut keys = vec![];
@@ -127,7 +124,6 @@ mod tests {
 
     #[test]
     pub fn test_remove_last_reinsert() {
-        test_env::setup();
         let mut set = LookupSet::new(b"s");
         let key1 = 1u64;
         set.insert(&key1);
@@ -143,7 +139,6 @@ mod tests {
 
     #[test]
     pub fn test_insert_override_remove() {
-        test_env::setup();
         let mut set = LookupSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut keys = vec![];
@@ -164,7 +159,6 @@ mod tests {
 
     #[test]
     pub fn test_contains_non_existent() {
-        test_env::setup();
         let mut set = LookupSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut set_tmp = HashSet::new();
@@ -181,7 +175,6 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut set = LookupSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let mut keys = HashSet::new();
