@@ -489,7 +489,15 @@ pub fn panic_str(message: &str) -> ! {
 /// Aborts the current contract execution without a custom message.
 /// To include a message, use [`panic_str`].
 pub fn abort() -> ! {
-    unsafe { sys::panic() }
+    // Use wasm32 unreachable call to avoid including the `panic` external function in Wasm.
+    #[cfg(target_arch = "wasm32")]
+    unsafe {
+        core::arch::wasm32::unreachable()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe {
+        sys::panic()
+    }
 }
 
 /// Logs the string message message. This message is stored on chain.
