@@ -300,6 +300,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
     }
 
+    ///nft market places accept offer callback
     fn nft_transfer_payout(
         &mut self,
         receiver_id: ValidAccountId,
@@ -310,6 +311,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> Option<Payout> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
+        //[get previous info] return previous owner & approvals
         let previous_token = self.internal_transfer(
             &sender_id,
             receiver_id.as_ref(),
@@ -327,10 +329,12 @@ impl NonFungibleTokenCore for NonFungibleToken {
         let owner_id = &previous_token.0;
         let mut total_perpetual = 0;
         let payout = if let Some(balance) = balance {
+            //get input balance
             let balance_u128 = u128::from(balance);
             let mut payout: Payout = HashMap::new();
-            let royalty = self.tokens_by_id.get(&token_id).expect("No token").royalty;
-
+            // get Token from TokenId
+            let royalty = self.nft_token(token_id).unwrap();
+            //
             for (k, v) in royalty.iter() {
                 let key = k.clone();
                 if key != owner_id {
