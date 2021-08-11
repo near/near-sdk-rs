@@ -7,23 +7,18 @@ use crate::non_fungible_token::utils::{
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
-use crate::non_fungible_token::royalty_to_payout;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = 20_000_000_000_000;
-const GAS_FOR_FT_TRANSFER_CALL: Gas = 35_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(20_000_000_000_000);
+const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(35_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 
-pub const CONTRACT_ROYALTY_CAP: u32 = 1000;
-pub const MINTER_ROYALTY_CAP: u32 = 2000;
-
-pub type Payout = HashMap<AccountId, U128>;
 #[ext_contract(ext_self)]
 trait NFTResolver {
     fn nft_resolve_transfer(
@@ -87,16 +82,16 @@ pub enum StorageKey {
 impl NonFungibleToken {
     pub fn new<Q, R, S, T>(
         owner_by_id_prefix: Q,
-        owner_id: ValidAccountId,
+        owner_id: AccountId,
         token_metadata_prefix: Option<R>,
         enumeration_prefix: Option<S>,
         approval_prefix: Option<T>,
     ) -> Self
-    where
-        Q: IntoStorageKey,
-        R: IntoStorageKey,
-        S: IntoStorageKey,
-        T: IntoStorageKey,
+        where
+            Q: IntoStorageKey,
+            R: IntoStorageKey,
+            S: IntoStorageKey,
+            T: IntoStorageKey,
     {
         let (approvals_by_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix {
             let prefix: Vec<u8> = prefix.into_storage_key();
@@ -109,7 +104,7 @@ impl NonFungibleToken {
         };
 
         let mut this = Self {
-            owner_id: owner_id.into(),
+            owner_id,
             extra_storage_in_bytes_per_token: 0,
             owner_by_id: TreeMap::new(owner_by_id_prefix),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
@@ -125,7 +120,7 @@ impl NonFungibleToken {
     fn measure_min_token_storage_cost(&mut self) {
         let initial_storage_usage = env::storage_usage();
         let tmp_token_id = "a".repeat(64); // TODO: what's a reasonable max TokenId length?
-        let tmp_owner_id = "a".repeat(64);
+        let tmp_owner_id = AccountId::new_unchecked("a".repeat(64));
 
         // 1. set some dummy data
         self.owner_by_id.insert(&tmp_token_id, &tmp_owner_id);
@@ -153,7 +148,7 @@ impl NonFungibleToken {
                 account_hash: env::sha256(tmp_owner_id.as_bytes()),
             });
             u.insert(&tmp_token_id);
-            tokens_per_owner.insert(&tmp_owner_id, &u);
+            tokens_per_owner.insert(&tmp_owner_id, u);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
             let mut approvals = HashMap::new();
@@ -199,7 +194,7 @@ impl NonFungibleToken {
     /// Do not perform any safety checks or do any logging
     pub fn internal_transfer_unguarded(
         &mut self,
-        token_id: &TokenId,
+        #[allow(clippy::ptr_arg)] token_id: &TokenId,
         from: &AccountId,
         to: &AccountId,
     ) {
@@ -212,11 +207,11 @@ impl NonFungibleToken {
             let mut owner_tokens = tokens_per_owner
                 .get(from)
                 .expect("Unable to access tokens per owner in unguarded call.");
-            owner_tokens.remove(&token_id);
+            owner_tokens.remove(token_id);
             if owner_tokens.is_empty() {
                 tokens_per_owner.remove(from);
             } else {
-                tokens_per_owner.insert(&from, &owner_tokens);
+                tokens_per_owner.insert(from, &owner_tokens);
             }
 
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
@@ -224,8 +219,8 @@ impl NonFungibleToken {
                     account_hash: env::sha256(to.as_bytes()),
                 })
             });
-            receiver_tokens.insert(&token_id);
-            tokens_per_owner.insert(&to, &receiver_tokens);
+            receiver_tokens.insert(token_id);
+            tokens_per_owner.insert(to, &receiver_tokens);
         }
     }
 
@@ -236,7 +231,7 @@ impl NonFungibleToken {
         &mut self,
         sender_id: &AccountId,
         receiver_id: &AccountId,
-        token_id: &TokenId,
+        #[allow(clippy::ptr_arg)] token_id: &TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
@@ -245,13 +240,13 @@ impl NonFungibleToken {
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
         let approved_account_ids =
-            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(&token_id));
+            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
 
         // check if authorized
         if sender_id != &owner_id {
             // if approval extension is NOT being used, or if token has no approved accounts
             if approved_account_ids.is_none() {
-                env::panic(b"Unauthorized")
+                env::panic_str("Unauthorized")
             }
 
             // Approval extension is being used; get approval_id for sender.
@@ -259,7 +254,7 @@ impl NonFungibleToken {
 
             // Panic if sender not approved at all
             if actual_approval_id.is_none() {
-                env::panic(b"Sender not approved");
+                env::panic_str("Sender not approved");
             }
 
             // If approval_id included, check that it matches
@@ -275,7 +270,7 @@ impl NonFungibleToken {
 
         assert_ne!(&owner_id, receiver_id, "Current and next owner must differ");
 
-        self.internal_transfer_unguarded(&token_id, &owner_id, &receiver_id);
+        self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
         if let Some(memo) = memo {
@@ -290,79 +285,19 @@ impl NonFungibleToken {
 impl NonFungibleTokenCore for NonFungibleToken {
     fn nft_transfer(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
-    }
-
-    ///nft market places accept offer callback
-    fn nft_transfer_payout(
-        &mut self,
-        receiver_id: ValidAccountId,
-        token_id: TokenId,
-        approval_id: Option<u64>,
-        memo: Option<String>,
-        balance: Option<U128>,
-    ) -> Option<Payout> {
-        assert_one_yocto();
-        let sender_id = env::predecessor_account_id();
-        //[get previous info] return previous owner & approvals
-        let previous_token = self.internal_transfer(
-            &sender_id,
-            receiver_id.as_ref(),
-            &token_id,
-            approval_id,
-            memo,
-        );
-        refund_approved_account_ids(
-            previous_token.0,
-            &previous_token.1.unwrap(),
-        );
-
-        // compute payouts based on balance option
-        // adds in contract_royalty and computes previous owner royalty from remainder
-        let owner_id = &previous_token.0;
-        let mut total_perpetual = 0;
-        let payout = if let Some(balance) = balance {
-            //get input balance
-            let balance_u128 = u128::from(balance);
-            let mut payout: Payout = HashMap::new();
-            // get Token from TokenId
-            let royalty = self.nft_token(token_id).unwrap();
-            //
-            for (k, v) in royalty.iter() {
-                let key = k.clone();
-                if key != owner_id {
-                    payout.insert(key, royalty_to_payout(*v, balance_u128));
-                    total_perpetual += *v;
-                }
-            }
-
-            // payout to contract owner - may be previous token owner, they get remainder of balance
-            if self.contract_royalty > 0 && self.owner_id != owner_id {
-                payout.insert(self.owner_id.clone(), royalty_to_payout(self.contract_royalty, balance_u128));
-                total_perpetual += self.contract_royalty;
-            }
-            assert!(total_perpetual <= MINTER_ROYALTY_CAP + CONTRACT_ROYALTY_CAP, "Royalties should not be more than caps");
-            // payout to previous owner
-            payout.insert(owner_id, royalty_to_payout(10000 - total_perpetual, balance_u128));
-
-            Some(payout)
-        } else {
-            None
-        };
-
-        payout
+        self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
     }
 
     fn nft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
@@ -371,34 +306,35 @@ impl NonFungibleTokenCore for NonFungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
-            self.internal_transfer(&sender_id, receiver_id.as_ref(), &token_id, approval_id, memo);
+            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_receiver::nft_on_transfer(
-            sender_id.clone(),
+            sender_id,
             old_owner.clone(),
             token_id.clone(),
             msg,
-            receiver_id.as_ref(),
+            receiver_id.clone(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
-        .then(ext_self::nft_resolve_transfer(
-            old_owner,
-            receiver_id.into(),
-            token_id,
-            old_approvals,
-            &env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+            .then(ext_self::nft_resolve_transfer(
+                old_owner,
+                receiver_id,
+                token_id,
+                old_approvals,
+                env::current_account_id(),
+                NO_DEPOSIT,
+                GAS_FOR_RESOLVE_TRANSFER,
+            ))
+            .into()
     }
 
-    fn nft_token(self, token_id: TokenId) -> Option<Token> {
+    fn nft_token(&self, token_id: TokenId) -> Option<Token> {
         let owner_id = self.owner_by_id.get(&token_id)?;
-        let metadata = self.token_metadata_by_id.and_then(|by_id| by_id.get(&token_id));
+        let metadata = self.token_metadata_by_id.as_ref().and_then(|by_id| by_id.get(&token_id));
         let approved_account_ids = self
             .approvals_by_id
+            .as_ref()
             .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
     }
@@ -406,19 +342,19 @@ impl NonFungibleTokenCore for NonFungibleToken {
     fn mint(
         &mut self,
         token_id: TokenId,
-        token_owner_id: ValidAccountId,
+        token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
         let initial_storage_usage = env::storage_usage();
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            env::panic(b"Must provide metadata");
+            env::panic_str("Must provide metadata");
         }
         if self.owner_by_id.get(&token_id).is_some() {
-            env::panic(b"token_id must be unique");
+            env::panic_str("token_id must be unique");
         }
 
-        let owner_id: AccountId = token_owner_id.into();
+        let owner_id: AccountId = token_owner_id;
 
         // Core behavior: every token must have an owner
         self.owner_by_id.insert(&token_id, &owner_id);
@@ -428,7 +364,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         // provided to call.
         self.token_metadata_by_id
             .as_mut()
-            .and_then(|by_id| by_id.insert(&token_id, &token_metadata.as_ref().unwrap()));
+            .and_then(|by_id| by_id.insert(&token_id, token_metadata.as_ref().unwrap()));
 
         // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
@@ -483,7 +419,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
 
         // Check that receiver didn't already transfer it away or burn it.
         if let Some(current_owner) = self.owner_by_id.get(&token_id) {
-            if &current_owner != &receiver_id {
+            if current_owner != receiver_id {
                 // The token is not owned by the receiver anymore. Can't return it.
                 return true;
             }
