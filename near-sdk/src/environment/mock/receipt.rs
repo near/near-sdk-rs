@@ -15,7 +15,7 @@ pub enum VmAction {
         code: Vec<u8>,
     },
     FunctionCall {
-        method_name: Vec<u8>,
+        method_name: String,
         args: Vec<u8>,
         gas: Gas,
         deposit: Balance,
