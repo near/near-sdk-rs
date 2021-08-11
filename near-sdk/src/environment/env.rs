@@ -241,7 +241,7 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 /// the given amount and gas.
 pub fn promise_create(
     account_id: AccountId,
-    method_name: &[u8],
+    method_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -265,7 +265,7 @@ pub fn promise_create(
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
-    method_name: &[u8],
+    method_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,

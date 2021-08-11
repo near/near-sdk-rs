@@ -45,21 +45,21 @@ impl CrossContract {
         let prepaid_gas = env::prepaid_gas();
         let promise0 = env::promise_create(
             account_id.clone(),
-            b"merge_sort",
+            "merge_sort",
             json!({ "arr": arr0 }).to_string().as_bytes(),
             0,
             prepaid_gas / 4,
         );
         let promise1 = env::promise_create(
             account_id.clone(),
-            b"merge_sort",
+            "merge_sort",
             json!({ "arr": arr1 }).to_string().as_bytes(),
             0,
             prepaid_gas / 4,
         );
         let promise2 = env::promise_and(&[promise0, promise1]);
         let promise3 =
-            env::promise_then(promise2, account_id.clone(), b"merge", &[], 0, prepaid_gas / 4);
+            env::promise_then(promise2, account_id.clone(), "merge", &[], 0, prepaid_gas / 4);
         env::promise_return(promise3);
     }
 
@@ -104,7 +104,7 @@ impl CrossContract {
     pub fn simple_call(&mut self, account_id: AccountId, message: String) {
         env::promise_create(
             account_id,
-            b"set_status",
+            "set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
@@ -118,7 +118,7 @@ impl CrossContract {
         // Note, for a contract to simply call another contract (1) is sufficient.
         let promise0 = env::promise_create(
             account_id.clone(),
-            b"set_status",
+            "set_status",
             json!({ "message": message }).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
@@ -126,7 +126,7 @@ impl CrossContract {
         let promise1 = env::promise_then(
             promise0,
             env::current_account_id(),
-            b"check_promise",
+            "check_promise",
             json!({}).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
@@ -134,7 +134,7 @@ impl CrossContract {
         let promise2 = env::promise_then(
             promise1,
             account_id,
-            b"get_status",
+            "get_status",
             json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
             0,
             SINGLE_CALL_GAS,
