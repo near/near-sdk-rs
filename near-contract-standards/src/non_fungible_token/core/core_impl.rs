@@ -362,7 +362,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         // provided to call.
         self.token_metadata_by_id.as_mut().and_then(|by_id| {
             // Token metadata must be some if metadata_by_id is some as asserted above
-            by_id.insert(&token_id, token_metadata.as_ref().unwrap_or_else(|| unreachable!()))
+            by_id.insert(&token_id, token_metadata.as_ref().unwrap_or_else(|| env::abort()))
         });
 
         // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
@@ -398,7 +398,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
                     yes_or_no

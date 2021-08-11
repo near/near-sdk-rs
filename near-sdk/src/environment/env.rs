@@ -124,7 +124,7 @@ pub fn signer_account_id() -> AccountId {
 
 /// The public key of the account that did the signing.
 pub fn signer_account_pk() -> PublicKey {
-    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| unreachable!())
+    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
@@ -138,7 +138,7 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
     String::from_utf8(bytes)
         .ok()
         .and_then(|s| AccountId::try_from(s).ok())
-        .unwrap_or_else(|| unreachable!())
+        .unwrap_or_else(|| abort())
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
@@ -437,7 +437,7 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
             PromiseResult::Successful(data)
         }
         2 => PromiseResult::Failed,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Consider the execution result of promise under `promise_idx` as execution result of this
@@ -526,7 +526,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Reads the value stored under the given key.
@@ -534,7 +534,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
         1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Removes the value stored under the given key.
@@ -543,7 +543,7 @@ pub fn storage_remove(key: &[u8]) -> bool {
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
         1 => true,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
@@ -555,7 +555,7 @@ pub fn storage_has_key(key: &[u8]) -> bool {
     match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
         1 => true,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 
