@@ -73,7 +73,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::ok_go(msg, &account_id, NO_DEPOSIT, prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
+                ext_self::ok_go(msg, account_id, NO_DEPOSIT, prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
                     .into()
             }
         }

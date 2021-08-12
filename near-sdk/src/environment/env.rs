@@ -3,8 +3,6 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
@@ -15,14 +13,6 @@ use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 use near_sys as sys;
-
-#[cfg(not(target_arch = "wasm32"))]
-thread_local! {
-/// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
-/// for interacting with the real and fake blockchains.
-    pub(crate) static BLOCKCHAIN_INTERFACE: RefCell<MockedBlockchain>
-         = RefCell::new(MockedBlockchain::default());
-}
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -42,6 +32,10 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 /// The maximum length of a valid account ID.
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
+fn expect_register<T>(option: Option<T>) -> T {
+    option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
+}
+
 /// A simple macro helper to read blob value coming from host's method.
 macro_rules! try_method_into_register {
     ( $method:ident ) => {{
@@ -53,7 +47,7 @@ macro_rules! try_method_into_register {
 /// Same as `try_method_into_register` but expects the data.
 macro_rules! method_into_register {
     ( $method:ident ) => {{
-        try_method_into_register!($method).expect(REGISTER_EXPECTED_ERR)
+        expect_register(try_method_into_register!($method))
     }};
 }
 
@@ -61,25 +55,27 @@ macro_rules! method_into_register {
 /// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
-/// ```ignore
-/// # let context = Default::default();
+/// ```no_run
+/// # let context = near_sdk::test_utils::VMContextBuilder::new().build();
 /// # let vm_config = Default::default();
 /// # let fees_config = Default::default();
 /// # let storage = Default::default();
+/// # let validators = Default::default();
 /// let mocked_blockchain = near_sdk::MockedBlockchain::new(
 ///           context,
 ///           vm_config,
 ///           fees_config,
 ///           vec![],
 ///           storage,
+///           validators,
 ///           None,
 ///       );
 /// near_sdk::env::set_blockchain_interface(mocked_blockchain);
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
-    BLOCKCHAIN_INTERFACE.with(|b| {
-        *b.borrow_mut() = blockchain_interface;
+    crate::mock::with_mocked_blockchain(|b| {
+        *b = blockchain_interface;
     })
 }
 
@@ -128,7 +124,7 @@ pub fn signer_account_id() -> AccountId {
 
 /// The public key of the account that did the signing.
 pub fn signer_account_pk() -> PublicKey {
-    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| unreachable!())
+    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
@@ -142,7 +138,7 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
     String::from_utf8(bytes)
         .ok()
         .and_then(|s| AccountId::try_from(s).ok())
-        .unwrap_or_else(|| unreachable!())
+        .unwrap_or_else(|| abort())
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
@@ -223,19 +219,19 @@ pub fn random_seed() -> Vec<u8> {
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     unsafe { sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
     unsafe { sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
     unsafe { sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 // ################
@@ -245,7 +241,7 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 /// the given amount and gas.
 pub fn promise_create(
     account_id: AccountId,
-    method_name: &[u8],
+    method_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -269,7 +265,7 @@ pub fn promise_create(
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
-    method_name: &[u8],
+    method_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -328,7 +324,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
 
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
-    method_name: &[u8],
+    method_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -384,7 +380,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     nonce: u64,
     allowance: Balance,
     receiver_id: &AccountId,
-    method_names: &[u8],
+    method_names: &str,
 ) {
     let receiver_id: &str = receiver_id.as_ref();
     unsafe {
@@ -437,12 +433,11 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
     match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
         0 => PromiseResult::NotReady,
         1 => {
-            let data = read_register(ATOMIC_OP_REGISTER)
-                .expect("Promise result should've returned into register.");
+            let data = expect_register(read_register(ATOMIC_OP_REGISTER));
             PromiseResult::Successful(data)
         }
         2 => PromiseResult::Failed,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Consider the execution result of promise under `promise_idx` as execution result of this
@@ -494,7 +489,15 @@ pub fn panic_str(message: &str) -> ! {
 /// Aborts the current contract execution without a custom message.
 /// To include a message, use [`panic_str`].
 pub fn abort() -> ! {
-    unsafe { sys::panic() }
+    // Use wasm32 unreachable call to avoid including the `panic` external function in Wasm.
+    #[cfg(target_arch = "wasm32")]
+    unsafe {
+        core::arch::wasm32::unreachable()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    unsafe {
+        sys::panic()
+    }
 }
 
 /// Logs the string message message. This message is stored on chain.
@@ -531,15 +534,15 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     } {
         0 => false,
         1 => true,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Reads the value stored under the given key.
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
-        1 => Some(read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)),
-        _ => unreachable!(),
+        1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
+        _ => abort(),
     }
 }
 /// Removes the value stored under the given key.
@@ -548,7 +551,7 @@ pub fn storage_remove(key: &[u8]) -> bool {
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
         1 => true,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
@@ -560,7 +563,7 @@ pub fn storage_has_key(key: &[u8]) -> bool {
     match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
         1 => true,
-        _ => unreachable!(),
+        _ => abort(),
     }
 }
 

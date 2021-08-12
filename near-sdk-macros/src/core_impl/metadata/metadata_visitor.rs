@@ -116,6 +116,7 @@ mod tests {
                         is_init: false,
                         args: {
                             #[derive(borsh::BorshSchema)]
+                            #[allow(dead_code)]
                             #[derive(near_sdk :: serde :: Deserialize)]
                             #[serde(crate = "near_sdk::serde")]
                             struct Input {
@@ -134,6 +135,7 @@ mod tests {
                         is_init: false,
                         args: {
                             #[derive(borsh::BorshSchema)]
+                            #[allow(dead_code)]
                             #[derive(near_sdk :: serde :: Deserialize)]
                             #[serde(crate = "near_sdk::serde")]
                             struct Input {

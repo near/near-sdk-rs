@@ -23,8 +23,8 @@ Change methods ([see below](#view-vs-change-method)) serialize the main contract
 NEAR SDK provides the following collections:
 
 - `Vector` - An iterable implementation of vector.
-- `LookupMap` - An non-iterable implementation of a map.
-- `LookupSet` - An non-iterable implementation of a set.
+- `LookupMap` - A non-iterable implementation of a map.
+- `LookupSet` - A non-iterable implementation of a set.
 - `UnorderedMap` - An iterable implementation of a map.
 - `UnorderedSet` - An iterable implementation of a set.
 - `TreeMap` - An iterable sorted map based on AVL-tree
@@ -457,8 +457,8 @@ mod ext_calculator {
     pub fn mult(a: U64, b: U64, receiver_id: &AccountId, deposit: Balance, gas: Gas) -> Promise {
         Promise::new(receiver_id.clone())
             .function_call(
-                b"mult",
-                json!({ "a": a, "b": b }).to_string().as_bytes(),
+                "mult".to_string(),
+                json!({ "a": a, "b": b }).to_string().into_bytes(),
                 deposit,
                 gas,
             )

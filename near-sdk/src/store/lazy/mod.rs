@@ -54,7 +54,6 @@ where
 /// ```
 /// use near_sdk::store::Lazy;
 ///
-///# near_sdk::test_utils::test_env::setup();
 /// let mut a = Lazy::new(b"a", "test string".to_string());
 /// assert_eq!(*a, "test string");
 ///
@@ -138,7 +137,7 @@ where
     /// This function will panic if the cache is not loaded and the value at the key does not exist.
     pub fn get_mut(&mut self) -> &mut T {
         self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
-        let entry = self.cache.get_mut().expect("cell should be filled above");
+        let entry = self.cache.get_mut().unwrap_or_else(|| env::abort());
 
         expect_consistent_state(entry.value_mut().as_mut())
     }
@@ -149,11 +148,8 @@ where
 mod tests {
     use super::*;
 
-    use crate::test_utils::test_env;
-
     #[test]
     pub fn test_lazy() {
-        test_env::setup();
         let mut a = Lazy::new(b"a", 8u32);
         assert_eq!(a.get(), &8);
 

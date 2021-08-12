@@ -170,10 +170,11 @@ impl AttrSigInfo {
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
                 let ArgInfo { mutability, ident, ty, .. } = arg;
+                let error_msg = format!("Callback computation {} was not successful", idx);
                 let read_data = quote! {
                 let data: Vec<u8> = match near_sdk::env::promise_result(#idx) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", #idx)
+                    _ => near_sdk::env::panic_str(#error_msg)
                 };
             };
                 let invocation = match arg.serializer_ty {
@@ -214,7 +215,7 @@ impl AttrSigInfo {
                 .map(|i| {
                     let data: Vec<u8> = match near_sdk::env::promise_result(i) {
                         near_sdk::PromiseResult::Successful(x) => x,
-                        _ => panic!("Callback computation {} was not successful", i)
+                        _ => near_sdk::env::panic_str(&format!("Callback computation {} was not successful", i)),
                     };
                     #invocation
                 }).collect();
