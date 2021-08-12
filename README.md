@@ -109,7 +109,7 @@ want to disable default initialization then you can prohibit it like this:
 ```rust
 impl Default for StatusMessage {
     fn default() -> Self {
-        panic!("Contract should be initialized before the usage.")
+        near_sdk::env::panic_str("Contract should be initialized before the usage.")
     }
 }
 ```

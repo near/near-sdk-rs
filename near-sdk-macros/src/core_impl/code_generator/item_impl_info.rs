@@ -316,13 +316,13 @@ mod tests {
                 .expect("Failed to deserialize input from JSON.");
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 0u64)
+                    _ => near_sdk::env::panic_str("Callback computation 0 was not successful")
                 };
                 let mut x: u64 =
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let data: Vec<u8> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 1u64)
+                    _ => near_sdk::env::panic_str("Callback computation 1 was not successful")
                 };
                 let z: Vec<u8> =
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
@@ -352,13 +352,13 @@ mod tests {
                 }
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 0u64)
+                    _ => near_sdk::env::panic_str("Callback computation 0 was not successful")
                 };
                 let mut x: u64 =
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
                 let data: Vec<u8> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 1u64)
+                    _ => near_sdk::env::panic_str("Callback computation 1 was not successful")
                 };
                 let y: String =
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
@@ -400,7 +400,7 @@ mod tests {
                     .map(|i| {
                         let data: Vec<u8> = match near_sdk::env::promise_result(i) {
                             near_sdk::PromiseResult::Successful(x) => x,
-                            _ => panic!("Callback computation {} was not successful", i)
+                            _ => near_sdk::env::panic_str(&format!("Callback computation {} was not successful", i)),
                         };
                         near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
                     })
@@ -585,13 +585,13 @@ mod tests {
                 .expect("Failed to deserialize input from Borsh.");
                 let data: Vec<u8> = match near_sdk::env::promise_result(0u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 0u64)
+                    _ => near_sdk::env::panic_str("Callback computation 0 was not successful")
                 };
                 let mut x: u64 = near_sdk::borsh::BorshDeserialize::try_from_slice(&data)
                     .expect("Failed to deserialize callback using Borsh");
                 let data: Vec<u8> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(x) => x,
-                    _ => panic!("Callback computation {} was not successful", 1u64)
+                    _ => near_sdk::env::panic_str("Callback computation 1 was not successful")
                 };
                 let z: Vec<u8> =
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");

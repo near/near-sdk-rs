@@ -53,6 +53,7 @@ impl ImplItemMethodInfo {
             quote! {
                 {
                     #additional_schema
+                    #[allow(dead_code)]
                     #input_struct
                     Some(Input::schema_container())
                 }
