@@ -3,7 +3,7 @@ use crate::{AccountId, Balance, Gas, PublicKey};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Receipt {
     pub receipt_indices: Vec<u64>,
-    pub receiver_id: String,
+    pub receiver_id: AccountId,
     pub actions: Vec<VmAction>,
 }
 
@@ -16,10 +16,6 @@ pub enum VmAction {
     },
     FunctionCall {
         method_name: String,
-        /// Most function calls still take JSON as input, so we'll keep it there as a string.
-        /// Once we switch to borsh, we'll have to switch to base64 encoding.
-        /// Right now, it is only used with standalone runtime when passing in Receipts or expecting
-        /// receipts. The workaround for input is to use a VMContext input.
         args: Vec<u8>,
         gas: Gas,
         deposit: Balance,

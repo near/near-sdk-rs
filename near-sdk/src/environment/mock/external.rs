@@ -69,7 +69,11 @@ impl External for SdkExternal {
             return Err(HostError::InvalidReceiptIndex { receipt_index: *index }.into());
         }
         let res = self.receipts.len() as u64;
-        self.receipts.push(Receipt { receipt_indices, receiver_id, actions: vec![] });
+        self.receipts.push(Receipt {
+            receipt_indices,
+            receiver_id: AccountId::new_unchecked(receiver_id),
+            actions: vec![],
+        });
         Ok(res)
     }
 
