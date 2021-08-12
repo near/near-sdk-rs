@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
-use near_sdk::{env, Gas, near_bindgen, AccountId, PromiseResult};
+use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas(200000000000000);
@@ -70,12 +70,12 @@ impl CrossContract {
         assert_eq!(env::promise_results_count(), 2);
         let data0: Vec<u8> = match env::promise_result(0) {
             PromiseResult::Successful(x) => x,
-            _ => panic!("Promise with index 0 failed"),
+            _ => env::panic_str("Promise with index 0 failed"),
         };
         let data0: Vec<u8> = serde_json::from_slice(&data0).unwrap();
         let data1: Vec<u8> = match env::promise_result(1) {
             PromiseResult::Successful(x) => x,
-            _ => panic!("Promise with index 1 failed"),
+            _ => env::panic_str("Promise with index 1 failed"),
         };
         let data1: Vec<u8> = serde_json::from_slice(&data1).unwrap();
         let mut i = 0usize;
@@ -148,7 +148,7 @@ impl CrossContract {
                 env::log_str("Check_promise successful");
                 self.checked_promise = true;
             }
-            _ => panic!("Promise with index 0 failed"),
+            _ => env::panic_str("Promise with index 0 failed"),
         };
     }
 

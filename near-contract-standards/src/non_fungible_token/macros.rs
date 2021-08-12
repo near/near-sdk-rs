@@ -97,7 +97,7 @@ macro_rules! impl_non_fungible_token_approval {
             }
 
             fn nft_is_approved(
-                self,
+                &self,
                 token_id: TokenId,
                 approved_account_id: AccountId,
                 approval_id: Option<u64>,
