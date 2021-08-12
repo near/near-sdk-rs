@@ -1,3 +1,5 @@
+use std::str::FromStr;
+use std::num::{ParseIntError, IntErrorKind};
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use core::ops;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -19,6 +21,14 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 )]
 #[repr(transparent)]
 pub struct Gas(pub u64);
+
+pub const ONE_TGAS: Gas = Gas(u64::pow(10, 12));
+
+impl Gas {
+  pub fn from_tgas(tgas: u64) -> Gas {
+    ONE_TGAS * tgas.into()
+  }
+}
 
 impl Serialize for Gas {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -54,6 +64,24 @@ impl From<u64> for Gas {
     fn from(amount: u64) -> Self {
         Self(amount)
     }
+}
+
+fn isNum(c: char) -> bool {
+  match c {
+    '0'..='9' => true,
+    _ => false
+  }
+}
+
+impl FromStr for Gas {
+  type Err = ParseIntError;
+  fn from_str(value: &str) -> Result<Self, Self::Err> {
+    if !value.starts_with(isNum) {
+      return Err(ParseIntError{ kind: IntErrorKind::InvalidDigit })
+    }
+    let int = str::replace(value, "_", "to");
+    Ok(u64::from_str_radix(&int, 10)?.into())
+  }
 }
 
 impl From<Gas> for u64 {
@@ -131,5 +159,17 @@ mod tests {
         test_json_ser(u64::MAX);
         test_json_ser(8);
         test_json_ser(0);
+    }
+
+    #[test]
+    fn test_tgas() {
+      assert_eq!(Gas::from_tgas(1), Gas(1_000_000_000_000));
+      assert_eq!(Gas::from_tgas(300), Gas(300_000_000_000_000))
+    }
+
+    #[test]
+    fn test_gas_from_str() {
+      assert_eq!(Gas::from_str("1_000_000_000_000").unwrap(), Gas(1_000_000_000_000));
+      assert!(matches!(Gas::from_str("A"), Err(_)));
     }
 }
