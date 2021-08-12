@@ -7,12 +7,12 @@ use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
 
-use super::sys;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
