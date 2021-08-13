@@ -20,18 +20,16 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[repr(transparent)]
 pub struct Gas(pub u64);
 
-
 impl Gas {
-  pub fn from_tgas(tgas: u64) -> Gas {
-    Gas::ONE_TGAS * tgas.into()
-  }
+    pub fn from_tgas(tgas: u64) -> Gas {
+        Gas::ONE_TGAS * tgas.into()
+    }
 
-  pub const ONE_TGAS: Gas = Gas(u64::pow(10, 12));
+    pub const ONE_TGAS: Gas = Gas(u64::pow(10, 12));
 
-  pub fn from_tgas_float(tgas: f64) -> Gas {
-    Gas((Gas::ONE_TGAS.0 as f64 * tgas) as u64)
-  }
-
+    pub fn from_tgas_float(tgas: f64) -> Gas {
+        Gas((Gas::ONE_TGAS.0 as f64 * tgas) as u64)
+    }
 }
 
 impl Serialize for Gas {
@@ -149,9 +147,9 @@ mod tests {
 
     #[test]
     fn test_tgas() {
-      assert_eq!(Gas::from_tgas(1), Gas(1_000_000_000_000));
-      assert_eq!(Gas::from_tgas(300), Gas(300_000_000_000_000));
-      assert_eq!(Gas::from_tgas_float(0.5), Gas::ONE_TGAS/2);
-      assert_eq!(Gas::from_tgas_float(22.5), Gas((22.5 * Gas::ONE_TGAS.0 as f64) as u64))
+        assert_eq!(Gas::from_tgas(1), Gas(1_000_000_000_000));
+        assert_eq!(Gas::from_tgas(300), Gas(300_000_000_000_000));
+        assert_eq!(Gas::from_tgas_float(0.5), Gas::ONE_TGAS / 2);
+        assert_eq!(Gas::from_tgas_float(22.5), Gas((22.5 * Gas::ONE_TGAS.0 as f64) as u64))
     }
 }
