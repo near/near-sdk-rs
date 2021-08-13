@@ -22,7 +22,7 @@ pub struct Gas(pub u64);
 
 impl Gas {
     pub fn from_tgas(tgas: u64) -> Gas {
-        Gas::ONE_TGAS * tgas.into()
+        Gas::ONE_TGAS * tgas
     }
 
     pub const ONE_TGAS: Gas = Gas(u64::pow(10, 12));
