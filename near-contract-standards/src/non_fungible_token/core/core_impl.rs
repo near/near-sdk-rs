@@ -204,9 +204,9 @@ impl NonFungibleToken {
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             // owner_tokens should always exist, so call `unwrap` without guard
-            let mut owner_tokens = tokens_per_owner
-                .get(from)
-                .expect("Unable to access tokens per owner in unguarded call.");
+            let mut owner_tokens = tokens_per_owner.get(from).unwrap_or_else(|| {
+                env::panic_str("Unable to access tokens per owner in unguarded call.")
+            });
             owner_tokens.remove(token_id);
             if owner_tokens.is_empty() {
                 tokens_per_owner.remove(from);
@@ -235,7 +235,8 @@ impl NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
-        let owner_id = self.owner_by_id.get(token_id).expect("Token not found");
+        let owner_id =
+            self.owner_by_id.get(token_id).unwrap_or_else(|| env::panic_str("Token not found"));
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
@@ -245,12 +246,11 @@ impl NonFungibleToken {
         // check if authorized
         if sender_id != &owner_id {
             // if approval extension is NOT being used, or if token has no approved accounts
-            if approved_account_ids.is_none() {
-                env::panic_str("Unauthorized")
-            }
+            let app_acc_ids =
+                approved_account_ids.as_ref().unwrap_or_else(|| env::panic_str("Unauthorized"));
 
             // Approval extension is being used; get approval_id for sender.
-            let actual_approval_id = approved_account_ids.as_ref().unwrap().get(sender_id);
+            let actual_approval_id = app_acc_ids.get(sender_id);
 
             // Panic if sender not approved at all
             if actual_approval_id.is_none() {
@@ -258,13 +258,11 @@ impl NonFungibleToken {
             }
 
             // If approval_id included, check that it matches
-            if let Some(enforced_approval_id) = approval_id {
-                let actual_approval_id = actual_approval_id.unwrap();
-                assert_eq!(
-                    actual_approval_id, &enforced_approval_id,
-                    "The actual approval_id {} is different from the given approval_id {}",
-                    actual_approval_id, enforced_approval_id,
-                );
+            if approval_id.is_some() && actual_approval_id != approval_id.as_ref() {
+                env::panic_str(&format!(
+                    "The actual approval_id {:?} is different from the given approval_id {:?}",
+                    actual_approval_id, approval_id,
+                ));
             }
         }
 
@@ -362,9 +360,10 @@ impl NonFungibleTokenCore for NonFungibleToken {
         // Metadata extension: Save metadata, keep variable around to return later.
         // Note that check above already panicked if metadata extension in use but no metadata
         // provided to call.
-        self.token_metadata_by_id
-            .as_mut()
-            .and_then(|by_id| by_id.insert(&token_id, token_metadata.as_ref().unwrap()));
+        self.token_metadata_by_id.as_mut().and_then(|by_id| {
+            // Token metadata must be some if metadata_by_id is some as asserted above
+            by_id.insert(&token_id, token_metadata.as_ref().unwrap_or_else(|| env::abort()))
+        });
 
         // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
@@ -399,7 +398,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
                     yes_or_no

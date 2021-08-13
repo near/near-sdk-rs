@@ -115,7 +115,7 @@ where
     /// be reloaded.
     pub fn get_mut(&mut self) -> &mut Option<T> {
         self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
-        let entry = self.cache.get_mut().expect("cell should be filled above");
+        let entry = self.cache.get_mut().unwrap_or_else(|| env::abort());
         entry.value_mut()
     }
 }

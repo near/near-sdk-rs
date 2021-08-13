@@ -328,6 +328,7 @@ dependencies = [
  "bs58",
  "near-primitives-core",
  "near-sdk-macros",
+ "near-sys",
  "near-vm-logic",
  "serde",
  "serde_json",
@@ -343,6 +344,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "near-sys"
+version = "0.1.0"
 
 [[package]]
 name = "near-vm-errors"

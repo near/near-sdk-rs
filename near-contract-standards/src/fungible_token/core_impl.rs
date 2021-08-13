@@ -105,8 +105,10 @@ impl FungibleToken {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_add(amount).expect("Total supply overflow");
+            self.total_supply = self
+                .total_supply
+                .checked_add(amount)
+                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
             env::panic_str("Balance overflow");
         }
@@ -116,8 +118,10 @@ impl FungibleToken {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_sub(amount).expect("Total supply overflow");
+            self.total_supply = self
+                .total_supply
+                .checked_sub(amount)
+                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
             env::panic_str("The account doesn't have enough balance");
         }
@@ -209,7 +213,7 @@ impl FungibleToken {
 
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
                     std::cmp::min(amount, unused_amount.0)
