@@ -1,5 +1,3 @@
-use std::str::FromStr;
-use std::num::{ParseIntError, IntErrorKind};
 use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use core::ops;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -22,12 +20,18 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[repr(transparent)]
 pub struct Gas(pub u64);
 
-pub const ONE_TGAS: Gas = Gas(u64::pow(10, 12));
 
 impl Gas {
   pub fn from_tgas(tgas: u64) -> Gas {
-    ONE_TGAS * tgas.into()
+    Gas::ONE_TGAS * tgas.into()
   }
+
+  pub const ONE_TGAS: Gas = Gas(u64::pow(10, 12));
+
+  pub fn from_tgas_float(tgas: f64) -> Gas {
+    Gas((Gas::ONE_TGAS.0 as f64 * tgas) as u64)
+  }
+
 }
 
 impl Serialize for Gas {
@@ -64,24 +68,6 @@ impl From<u64> for Gas {
     fn from(amount: u64) -> Self {
         Self(amount)
     }
-}
-
-fn isNum(c: char) -> bool {
-  match c {
-    '0'..='9' => true,
-    _ => false
-  }
-}
-
-impl FromStr for Gas {
-  type Err = ParseIntError;
-  fn from_str(value: &str) -> Result<Self, Self::Err> {
-    if !value.starts_with(isNum) {
-      return Err(ParseIntError{ kind: IntErrorKind::InvalidDigit })
-    }
-    let int = str::replace(value, "_", "to");
-    Ok(u64::from_str_radix(&int, 10)?.into())
-  }
 }
 
 impl From<Gas> for u64 {
@@ -164,12 +150,8 @@ mod tests {
     #[test]
     fn test_tgas() {
       assert_eq!(Gas::from_tgas(1), Gas(1_000_000_000_000));
-      assert_eq!(Gas::from_tgas(300), Gas(300_000_000_000_000))
-    }
-
-    #[test]
-    fn test_gas_from_str() {
-      assert_eq!(Gas::from_str("1_000_000_000_000").unwrap(), Gas(1_000_000_000_000));
-      assert!(matches!(Gas::from_str("A"), Err(_)));
+      assert_eq!(Gas::from_tgas(300), Gas(300_000_000_000_000));
+      assert_eq!(Gas::from_tgas_float(0.5), Gas::ONE_TGAS/2);
+      assert_eq!(Gas::from_tgas_float(22.5), Gas((22.5 * Gas::ONE_TGAS.0 as f64) as u64))
     }
 }
