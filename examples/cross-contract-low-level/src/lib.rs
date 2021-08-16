@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
-use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
+use near_sdk::{env, near_bindgen, require, AccountId, Gas, PromiseResult};
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas(200000000000000);
@@ -66,8 +66,8 @@ impl CrossContract {
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
     /// the contract itself.
     pub fn merge(&self) -> Vec<u8> {
-        assert_eq!(env::current_account_id(), env::predecessor_account_id());
-        assert_eq!(env::promise_results_count(), 2);
+        require!(env::current_account_id() == env::predecessor_account_id());
+        require!(env::promise_results_count() == 2);
         let data0: Vec<u8> = match env::promise_result(0) {
             PromiseResult::Successful(x) => x,
             _ => env::panic_str("Promise with index 0 failed"),

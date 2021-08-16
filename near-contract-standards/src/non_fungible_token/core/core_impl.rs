@@ -9,8 +9,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
-    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, BorshStorageKey,
+    CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 
@@ -258,15 +258,16 @@ impl NonFungibleToken {
             }
 
             // If approval_id included, check that it matches
-            if approval_id.is_some() && actual_approval_id != approval_id.as_ref() {
-                env::panic_str(&format!(
+            require!(
+                approval_id.is_none() || actual_approval_id == approval_id.as_ref(),
+                format!(
                     "The actual approval_id {:?} is different from the given approval_id {:?}",
-                    actual_approval_id, approval_id,
-                ));
-            }
+                    actual_approval_id, approval_id
+                )
+            );
         }
 
-        assert_ne!(&owner_id, receiver_id, "Current and next owner must differ");
+        require!(&owner_id != receiver_id, "Current and next owner must differ");
 
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
@@ -344,7 +345,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
         let initial_storage_usage = env::storage_usage();
-        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+        require!(env::predecessor_account_id() == self.owner_id, "Unauthorized");
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic_str("Must provide metadata");
         }

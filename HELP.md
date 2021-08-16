@@ -99,9 +99,8 @@ impl Contract {
         let old_contract: OldContract = env::state_read().expect("Old state doesn't exist");
         // Verify that the migration can only be done by the owner.
         // This is not necessary, if the upgrade is done internally.
-        assert_eq!(
-            &env::predecessor_account_id(),
-            &old_contract.owner_id,
+        require!(
+            env::predecessor_account_id() == old_contract.owner_id,
             "Can only be called by the owner"
         );
 
@@ -384,7 +383,9 @@ It's usually helpful to panic on integer overflow. To enable it, add the followi
 overflow-checks = true
 ```
 
-## Use `assert!` early
+## Use `require!` early
+
+> `near_sdk::require` is a more lightweight version of the rust `assert!` macro
 
 Try to validate the input, context, state and access first before taking any actions. The earlier you panic, the more [gas](https://docs.near.org/docs/concepts/gas) you will save for the caller.
 
@@ -392,7 +393,7 @@ Try to validate the input, context, state and access first before taking any act
 #[near_bindgen]
 impl Contract {
     pub fn set_fee(&mut self, new_fee: Fee) {
-        assert_eq!(env::predecessor_account_id(), self.owner_id, "Owner's method");
+        require!(env::predecessor_account_id() == self.owner_id, "Owner's method");
         new_fee.assert_valid();
         self.internal_set_fee(new_fee);
     }
