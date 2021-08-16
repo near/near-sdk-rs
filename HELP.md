@@ -23,8 +23,8 @@ Change methods ([see below](#view-vs-change-method)) serialize the main contract
 NEAR SDK provides the following collections:
 
 - `Vector` - An iterable implementation of vector.
-- `LookupMap` - An non-iterable implementation of a map.
-- `LookupSet` - An non-iterable implementation of a set.
+- `LookupMap` - A non-iterable implementation of a map.
+- `LookupSet` - A non-iterable implementation of a set.
 - `UnorderedMap` - An iterable implementation of a map.
 - `UnorderedSet` - An iterable implementation of a set.
 - `TreeMap` - An iterable sorted map based on AVL-tree

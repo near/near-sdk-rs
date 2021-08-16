@@ -30,12 +30,12 @@ impl Serialize for Gas {
             use std::io::Write;
 
             let mut w: &mut [u8] = &mut buf;
-            write!(w, "{}", self.0).unwrap_or_else(|_| unreachable!());
+            write!(w, "{}", self.0).unwrap_or_else(|_| crate::env::abort());
             w.len()
         };
         let len = buf.len() - remainder;
 
-        let s = std::str::from_utf8(&buf[..len]).unwrap_or_else(|_| unreachable!());
+        let s = std::str::from_utf8(&buf[..len]).unwrap_or_else(|_| crate::env::abort());
         serializer.serialize_str(s)
     }
 }

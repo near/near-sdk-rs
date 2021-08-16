@@ -102,7 +102,7 @@ impl PublicKey {
 
     /// Get info about the CurveType for this public key
     pub fn curve_type(&self) -> CurveType {
-        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| unreachable!())
+        CurveType::from_u8(self.data[0]).unwrap_or_else(|_| crate::env::abort())
     }
 }
 
