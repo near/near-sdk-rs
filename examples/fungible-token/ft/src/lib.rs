@@ -23,7 +23,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
+    env, log, near_bindgen, require, AccountId, Balance, BorshStorageKey, PanicOnDefault,
+    PromiseOrValue,
 };
 
 #[near_bindgen]
@@ -66,7 +67,7 @@ impl Contract {
     /// the given fungible token metadata.
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128, metadata: FungibleTokenMetadata) -> Self {
-        assert!(!env::state_exists(), "Already initialized");
+        require!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
         let mut this = Self {
             token: FungibleToken::new(StorageKey::FungibleToken),
