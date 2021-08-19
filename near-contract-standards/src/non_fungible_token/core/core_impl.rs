@@ -279,6 +279,65 @@ impl NonFungibleToken {
         // return previous owner & approvals
         (owner_id, approved_account_ids)
     }
+
+    /// Mint a new token. Not part of official standard, but needed in most situations.
+    /// Consuming contract expected to wrap this with an `nft_mint` function.
+    ///
+    /// Requirements:
+    /// * Caller must be the `owner_id` set during contract initialization.
+    /// * Caller of the method must attach a deposit of 1 yoctoⓃ for security purposes.
+    /// * If contract is using Metadata extension (by having provided `metadata_prefix` during
+    ///   contract initialization), `token_metadata` must be given.
+    /// * token_id must be unique
+    ///
+    /// Returns the newly minted token
+    pub fn mint(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: AccountId,
+        token_metadata: Option<TokenMetadata>,
+    ) -> Token {
+        let initial_storage_usage = env::storage_usage();
+        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
+            env::panic_str("Must provide metadata");
+        }
+        if self.owner_by_id.get(&token_id).is_some() {
+            env::panic_str("token_id must be unique");
+        }
+
+        let owner_id: AccountId = token_owner_id;
+
+        // Core behavior: every token must have an owner
+        self.owner_by_id.insert(&token_id, &owner_id);
+
+        // Metadata extension: Save metadata, keep variable around to return later.
+        // Note that check above already panicked if metadata extension in use but no metadata
+        // provided to call.
+        self.token_metadata_by_id
+            .as_mut()
+            .and_then(|by_id| by_id.insert(&token_id, token_metadata.as_ref().unwrap()));
+
+        // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
+                UnorderedSet::new(StorageKey::TokensPerOwner {
+                    account_hash: env::sha256(owner_id.as_bytes()),
+                })
+            });
+            token_ids.insert(&token_id);
+            tokens_per_owner.insert(&owner_id, &token_ids);
+        }
+
+        // Approval Management extension: return empty HashMap as part of Token
+        let approved_account_ids =
+            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
+
+        // Return any extra attached deposit not used for storage
+        refund_deposit(env::storage_usage() - initial_storage_usage);
+
+        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
+    }
 }
 
 impl NonFungibleTokenCore for NonFungibleToken {
@@ -336,55 +395,6 @@ impl NonFungibleTokenCore for NonFungibleToken {
             .as_ref()
             .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
-    }
-
-    fn mint(
-        &mut self,
-        token_id: TokenId,
-        token_owner_id: AccountId,
-        token_metadata: Option<TokenMetadata>,
-    ) -> Token {
-        let initial_storage_usage = env::storage_usage();
-        require!(env::predecessor_account_id() == self.owner_id, "Unauthorized");
-        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            env::panic_str("Must provide metadata");
-        }
-        if self.owner_by_id.get(&token_id).is_some() {
-            env::panic_str("token_id must be unique");
-        }
-
-        let owner_id: AccountId = token_owner_id;
-
-        // Core behavior: every token must have an owner
-        self.owner_by_id.insert(&token_id, &owner_id);
-
-        // Metadata extension: Save metadata, keep variable around to return later.
-        // Note that check above already panicked if metadata extension in use but no metadata
-        // provided to call.
-        self.token_metadata_by_id.as_mut().and_then(|by_id| {
-            // Token metadata must be some if metadata_by_id is some as asserted above
-            by_id.insert(&token_id, token_metadata.as_ref().unwrap_or_else(|| env::abort()))
-        });
-
-        // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
-                UnorderedSet::new(StorageKey::TokensPerOwner {
-                    account_hash: env::sha256(owner_id.as_bytes()),
-                })
-            });
-            token_ids.insert(&token_id);
-            tokens_per_owner.insert(&owner_id, &token_ids);
-        }
-
-        // Approval Management extension: return empty HashMap as part of Token
-        let approved_account_ids =
-            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
-
-        // Return any extra attached deposit not used for storage
-        refund_deposit(env::storage_usage() - initial_storage_usage);
-
-        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }
 }
 
