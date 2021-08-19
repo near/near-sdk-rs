@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+
+## `4.0.0-pre.2` [08-19-2021]
 * Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`. [PR 495](https://github.com/near/near-sdk-rs/pull/495)
 - fix: Public keys can no longer be borsh deserialized from invalid bytes. [PR 502](https://github.com/near/near-sdk-rs/pull/502)
