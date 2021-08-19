@@ -1,7 +1,12 @@
 # Changelog
 
 ## [unreleased]
-* Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
+
+## `4.0.0-pre.2` [08-19-2021]
+- Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
+- Deprecate `env::panic` in favor of `env::panic_str`. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
+  - This method now takes a `&str` as the bytes are enforced to be utf8 in the runtime.
+  - Change is symmetric to `env::log_str` change in `4.0.0-pre.1`
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`. [PR 495](https://github.com/near/near-sdk-rs/pull/495)
 - fix: Public keys can no longer be borsh deserialized from invalid bytes. [PR 502](https://github.com/near/near-sdk-rs/pull/502)
   - Adds `Hash` derive to `PublicKey`
