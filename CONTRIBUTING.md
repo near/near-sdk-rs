@@ -1,6 +1,6 @@
 # Contributing to near-sdk-rs
 
-Thank you for your interest in contributing to NEAR's Rust SDK! We appreciate any types of contributions.
+Thank you for your interest in contributing to NEAR's Rust SDK! We appreciate any type of contribution.
 
 If you have any questions about contributing, or about the project in general, please ask in our [rust-sdk Discord channel](https://discord.gg/cKRZCqD2b2).
 
@@ -18,7 +18,7 @@ Please use descriptive PR titles. We loosely follow the [conventional commits](h
 
 Ensure the following are satisfied before opening a PR:
 - Code is formatted with `rustfmt` by running `cargo fmt`
-- Run clippy
+- Run `clippy`
   - The exact command run by the CI is `cargo clippy --tests -- -Dclippy::all`
 - Run tests with `cargo test`
 - Rebuild examples with docker if any breaking changes with `./examples/build_all_docker.sh`
