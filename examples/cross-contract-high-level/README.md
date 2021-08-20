@@ -50,9 +50,12 @@ near deploy --accountId=cross_contract --wasmFile=../examples/cross-contract-hig
 
 ### Deploying another contract
 Let's deploy another contract using `cross-contract`, factory-style.
+
 ```bash
-near call cross_contract deploy_status_message "{\"account_id\": \"status_message\", \"amount\":1000000000000000}" --accountId=test_near 
+near call cross_contract deploy_status_message "{\"account_id\": \"status_message\", \"amount\":"10000000000000000000000000"}" --accountId=cross_contract
 ```
+
+This creates a child account, `status_message.cross_contract`, and transfers 10 $NEAR to it (that very long number above is a 10 followed by 24 zeroes, which is the number of yoctoNEAR to transfer; it's a number so big it goes beyond the JSON number serialization limit of 2^53 and must use strings).
 
 ### Trying money transfer
 
