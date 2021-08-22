@@ -28,6 +28,8 @@
       <a href="https://github.com/near/near-sdk-rs#building-rust-contract">Building Rust Contract</a>
       <span> | </span>
       <a href="https://docs.rs/near-sdk">Reference Documentation</a>
+      <span> | </span>
+      <a href="https://github.com/near/near-sdk-rs#contributing">Contributing</a>
     </h3>
 </div>
 
@@ -221,3 +223,7 @@ different on different machines. To be able to compile the binary in a reproduci
 that allows to compile the binary.
 
 **Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contact-builder)**
+
+## Contributing
+
+If you are interested in contributing, please look at the [contributing guidelines](CONTRIBUTING.md).
