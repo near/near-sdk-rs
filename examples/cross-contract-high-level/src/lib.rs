@@ -43,7 +43,7 @@ pub trait ExtStatusMessage {
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) -> Promise {
         let new_account_id = format!("{}.{}", account_id, env::current_account_id());
-        Promise::new(new_account_id)
+        Promise::new(AccountId::new_unchecked(new_account_id))
             .create_account()
             .transfer(amount.0)
             .add_full_access_key(env::signer_account_pk())
