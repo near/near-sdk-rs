@@ -22,10 +22,10 @@ pub trait ExtCrossContract {
     fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
     fn merge(
         &self,
-        #[callback]
+        #[callback_unwrap]
         #[serializer(borsh)]
         data0: Vec<u8>,
-        #[callback]
+        #[callback_unwrap]
         #[serializer(borsh)]
         data1: Vec<u8>,
     ) -> Vec<u8>;
@@ -98,10 +98,10 @@ impl CrossContract {
     #[private]
     pub fn merge(
         &self,
-        #[callback]
+        #[callback_unwrap]
         #[serializer(borsh)]
         data0: Vec<u8>,
-        #[callback]
+        #[callback_unwrap]
         #[serializer(borsh)]
         data1: Vec<u8>,
     ) -> Vec<u8> {

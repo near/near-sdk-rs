@@ -9,6 +9,8 @@ pub enum BindgenArgType {
     Regular,
     /// An argument that we read from a single `env::promise_result()`.
     CallbackArg,
+    /// An argument that we read from a single `env::promise_result()` which handles the error.
+    CallbackResultArg,
     /// An argument that we read from all `env::promise_result()`.
     CallbackArgVec,
 }
@@ -71,8 +73,11 @@ impl ArgInfo {
         for attr in &mut original.attrs {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
-                "callback" => {
+                "callback" | "callback_unwrap" => {
                     bindgen_ty = BindgenArgType::CallbackArg;
+                }
+                "callback_result" => {
+                    bindgen_ty = BindgenArgType::CallbackResultArg;
                 }
                 "callback_vec" => {
                     bindgen_ty = BindgenArgType::CallbackArgVec;
