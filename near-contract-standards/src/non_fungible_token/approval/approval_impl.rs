@@ -8,6 +8,7 @@ use crate::non_fungible_token::utils::{
 };
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::{assert_one_yocto, env, ext_contract, require, AccountId, Balance, Gas, Promise};
+use near_sdk::json_types::{U64};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
