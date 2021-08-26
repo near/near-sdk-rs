@@ -20,7 +20,7 @@ pub trait NonFungibleTokenApprovalReceiver {
         &mut self,
         token_id: TokenId,
         owner_id: AccountId,
-        approval_id: u64,
+        approval_id: U64,
         msg: String,
     ) -> near_sdk::PromiseOrValue<String>; // TODO: how to make "any"?
 }
