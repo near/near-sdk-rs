@@ -1,5 +1,6 @@
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::AccountId;
+use near_sdk::json_types::{U64};
 
 /// Approval receiver is the trait for the method called (or attempted to be called) when an NFT contract adds an approval for an account.
 pub trait NonFungibleTokenApprovalReceiver {
