@@ -26,7 +26,7 @@ pub trait NonFungibleTokenReceiver {
         &mut self,
         token_id: TokenId,
         owner_id: AccountId,
-        approval_id: u64,
+        approval_id: U64,
         msg: String,
     );
 }
@@ -51,7 +51,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let next_approval_id_by_id = expect_approval(self.next_approval_id_by_id.as_mut());
         // update HashMap of approvals for this token
         let approved_account_ids = &mut approvals_by_id.get(&token_id).unwrap_or_default();
-        let approval_id: u64 = next_approval_id_by_id.get(&token_id).unwrap_or(1u64);
+        let approval_id: U64 = next_approval_id_by_id.get(&token_id).unwrap_or(1u64).into();
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
         // save updated approvals HashMap to contract's LookupMap
