@@ -73,7 +73,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             ext_approval_receiver::nft_on_approve(
                 token_id,
                 owner_id,
-                approval_id: approval_id.into(),
+                approval_id.into(),
                 msg,
                 account_id,
                 NO_DEPOSIT,
