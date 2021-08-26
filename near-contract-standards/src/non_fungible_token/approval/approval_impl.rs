@@ -52,7 +52,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let next_approval_id_by_id = expect_approval(self.next_approval_id_by_id.as_mut());
         // update HashMap of approvals for this token
         let approved_account_ids = &mut approvals_by_id.get(&token_id).unwrap_or_default();
-        let approval_id: U64 = next_approval_id_by_id.get(&token_id).unwrap_or(1u64).into();
+        let approval_id: u64 = next_approval_id_by_id.get(&token_id).unwrap_or(1u64);
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
         // save updated approvals HashMap to contract's LookupMap
@@ -73,7 +73,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             ext_approval_receiver::nft_on_approve(
                 token_id,
                 owner_id,
-                approval_id,
+                approval_id: approval_id.into(),
                 msg,
                 account_id,
                 NO_DEPOSIT,
