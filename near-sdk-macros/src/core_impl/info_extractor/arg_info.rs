@@ -94,7 +94,11 @@ impl ArgInfo {
 
         original.attrs.retain(|attr| {
             let attr_str = attr.path.to_token_stream().to_string();
-            attr_str != "callback" && attr_str != "callback_vec" && attr_str != "serializer"
+            attr_str != "callback"
+                && attr_str != "callback_vec"
+                && attr_str != "serializer"
+                && attr_str != "callback_result"
+                && attr_str != "callback_unwrap"
         });
 
         Ok(Self {
