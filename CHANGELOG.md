@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+- Introduce `#[callback_result]` annotation, which acts like `#[callback]` except that it returns `Result<T, PromiseError>` to allow error handling. [PR 554](https://github.com/near/near-sdk-rs/pull/554)
+  - Adds `#[callback_unwrap]` to replace `callback`
 
 ## `4.0.0-pre.2` [08-19-2021]
 - Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
