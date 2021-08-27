@@ -1,13 +1,10 @@
-use near_sdk_sim::{
-    call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount, DEFAULT_GAS,
-    STORAGE_AMOUNT,
-};
+use near_sdk_sim::{call, deploy, init_simulator, ContractAccount, UserAccount};
 extern crate callback_results;
 // Note: the struct xxxxxxContract is created by #[near_bindgen] from near-sdk
 use callback_results::CallbackContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
-    TOKEN_WASM_BYTES => "res/callback_contract.wasm",
+    CONTRACT_BYTES => "res/callback_results.wasm",
 }
 
 fn init() -> (UserAccount, ContractAccount<CallbackContract>) {
@@ -18,38 +15,36 @@ fn init() -> (UserAccount, ContractAccount<CallbackContract>) {
     let contract_account = deploy! {
         contract: CallbackContract,
         contract_id: "contract",
-        bytes: &TOKEN_WASM_BYTES,
+        bytes: &CONTRACT_BYTES,
         signer_account: master_account
     };
     (master_account, contract_account)
 }
 
 #[test]
-fn test_sim_transfer() {
-    // let (master_account, contract) = init();
+fn callback_sim() {
+    let (master_account, contract) = init();
 
-    // let status_id: near_sdk::AccountId = "status".parse().unwrap();
-    // let status_amt = to_yocto("35");
-    // call!(
-    //     master_account,
-    //     contract.deploy_status_message(status_id.clone(), status_amt.into()),
-    //     deposit = STORAGE_AMOUNT
-    // )
-    // .assert_success();
+    // Call function a only to ensure it has correct behaviour
+    let res = call!(master_account, contract.a());
+    assert_eq!(res.unwrap_json::<u8>(), 8);
 
-    // let message = "hello world";
-    // let res = call!(master_account, contract.complex_call(status_id, message.to_string()));
-    // assert!(res.is_ok(), "complex_call has promise_errors: {:#?}", res.promise_results());
+    // Following tests the function call where the `call_all` function always succeeds and handles
+    // the result of the async calls made from within the function with callbacks.
 
-    // let value = res.unwrap_json_value();
-    // assert_eq!(message, value.to_string().trim_matches(|c| c == '"'));
-    // let v1: Vec<u8> = vec![42];
-    // let _v: Vec<u8> = vec![7, 1, 6, 5, 9, 255, 100, 11];
-    // call!(master_account, contract.merge_sort(v1)).assert_success();
+    // No failures
+    let res = call!(master_account, contract.call_all(false, 1));
+    assert_eq!(res.unwrap_json::<(bool, bool)>(), (false, false));
 
-    // let res = call!(master_account, contract.merge_sort(_v.clone()), gas = DEFAULT_GAS * 500);
-    // res.assert_success();
-    // let arr = res.unwrap_borsh::<Vec<u8>>();
-    // let (_last, b) = arr.iter().fold((0u8, true), |(prev, b), curr| (*curr, prev <= *curr && b));
-    // assert!(b, "array is not sorted.");
+    // Fail b
+    let res = call!(master_account, contract.call_all(true, 1));
+    assert_eq!(res.unwrap_json::<(bool, bool)>(), (true, false));
+
+    // Fail c
+    let res = call!(master_account, contract.call_all(false, 0));
+    assert_eq!(res.unwrap_json::<(bool, bool)>(), (false, true));
+
+    // Fail both b and c
+    let res = call!(master_account, contract.call_all(true, 0));
+    assert_eq!(res.unwrap_json::<(bool, bool)>(), (true, true));
 }

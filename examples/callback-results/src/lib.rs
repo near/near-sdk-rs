@@ -21,7 +21,8 @@ pub trait ExtCrossContract {
 
 #[near_bindgen]
 impl Callback {
-    pub fn complex_call(fail_b: bool, c_value: u8) -> Promise {
+    /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
+    pub fn call_all(fail_b: bool, c_value: u8) -> Promise {
         let gas_per_promise = env::prepaid_gas() / 5;
         ext::a(env::current_account_id(), 0, gas_per_promise)
             .and(ext::b(fail_b, env::current_account_id(), 0, gas_per_promise))
@@ -30,11 +31,11 @@ impl Callback {
     }
 
     /// Calls function c with a value that will always succeed
-    #[private]
     pub fn a() -> Promise {
         ext::c(A_VALUE, env::current_account_id(), 0, env::prepaid_gas() / 2)
     }
 
+    /// Returns a static string if fail is false, return 
     #[private]
     pub fn b(fail: bool) -> &'static str {
         if fail {
@@ -43,6 +44,7 @@ impl Callback {
         "Some string"
     }
 
+    /// Panics if value is 0, returns the value passed in otherwise.
     #[private]
     pub fn c(value: u8) -> u8 {
         require!(value > 0, "Value must be positive");
@@ -57,6 +59,9 @@ impl Callback {
         #[callback_result] c: Result<u8, PromiseError>,
     ) -> (bool, bool) {
         require!(a == A_VALUE, "Promise returned incorrect value");
+        if let Ok(s) = b.as_ref() {
+            require!(s == "Some string");
+        }
         (b.is_err(), c.is_err())
     }
 }
