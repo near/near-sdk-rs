@@ -3,8 +3,6 @@ use near_sdk::{
     env,
     ext_contract,
     json_types::U128,
-    //    callback,
-    //    callback_vec,
     log,
     near_bindgen,
     AccountId,
