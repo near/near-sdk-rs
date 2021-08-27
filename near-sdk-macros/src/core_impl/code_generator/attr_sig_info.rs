@@ -183,7 +183,7 @@ impl AttrSigInfo {
                                 _ => near_sdk::env::panic_str(#error_msg)
                             };
                         };
-                        let invocation = deserialize_data(&serializer_ty);
+                        let invocation = deserialize_data(serializer_ty);
                         quote! {
                             #acc
                             #read_data
