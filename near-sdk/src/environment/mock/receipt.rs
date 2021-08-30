@@ -36,7 +36,7 @@ pub enum VmAction {
         nonce: u64,
         allowance: Option<Balance>,
         receiver_id: AccountId,
-        method_names: Vec<Vec<u8>>,
+        method_names: Vec<String>,
     },
     DeleteKey {
         public_key: PublicKey,

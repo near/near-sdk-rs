@@ -165,6 +165,8 @@ impl External for SdkExternal {
         method_names: Vec<Vec<u8>>,
     ) -> Result<()> {
         let public_key = PublicKey::try_from(public_key).unwrap();
+        let method_names =
+            method_names.into_iter().map(|s| String::from_utf8(s).unwrap()).collect();
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
             VmAction::AddKeyWithFunctionCall {
                 public_key,
