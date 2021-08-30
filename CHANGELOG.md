@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+- mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)
+  - Method names were changed to be strings in `4.0.0-pre.2` but this one was missed
 
 ## `4.0.0-pre.2` [08-19-2021]
 - Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
