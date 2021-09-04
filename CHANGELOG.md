@@ -1,6 +1,8 @@
 # Changelog
 
 ## [unreleased]
+- Introduce `#[callback_result]` annotation, which acts like `#[callback]` except that it returns `Result<T, PromiseError>` to allow error handling. [PR 554](https://github.com/near/near-sdk-rs/pull/554)
+  - Adds `#[callback_unwrap]` to replace `callback`
 - mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)
   - Method names were changed to be strings in `4.0.0-pre.2` but this one was missed
 - env: Update the register used for temporary `env` methods to `u64::MAX - 2` from `0`. [PR 557](https://github.com/near/near-sdk-rs/pull/489).

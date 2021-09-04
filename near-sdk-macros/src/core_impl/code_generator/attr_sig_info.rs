@@ -11,7 +11,7 @@ impl AttrSigInfo {
     ///     (e.g. for a promise input) or deserialization (e.g. for a method input).
     /// Each argument is getting converted to a field in a struct. Specifically argument:
     /// `ATTRIBUTES ref mut binding @ SUBPATTERN : TYPE` is getting converted to:
-    /// `binding: SUBTYPE,` where `TYPE` is one of the following: `& SUBTYPE`, `&mut SUBTYPE`, `SUBTYPE`,
+    /// `binding: SUBTYPE,` where `TYPE` is one of the following: `& SUBTYPE`, `&mut SUBTYPE`,
     /// and `SUBTYPE` is one of the following: `[T; n]`, path like
     /// `std::collections::HashMap<SUBTYPE, SUBTYPE>`, or tuple `(SUBTYPE0, SUBTYPE1, ...)`.
     /// # Example
@@ -160,36 +160,52 @@ impl AttrSigInfo {
         result
     }
 
-    /// Create code that deserializes arguments that were decorated with `#[callback]`
+    /// Create code that deserializes arguments that were decorated with `#[callback*]`
     pub fn callback_deserialization(&self) -> TokenStream2 {
-        self
-            .args
+        self.args
             .iter()
-            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArg))
+            .filter(|arg| {
+                matches!(
+                    arg.bindgen_ty,
+                    BindgenArgType::CallbackArg | BindgenArgType::CallbackResultArg
+                )
+            })
             .enumerate()
             .fold(TokenStream2::new(), |acc, (idx, arg)| {
                 let idx = idx as u64;
-                let ArgInfo { mutability, ident, ty, .. } = arg;
-                let error_msg = format!("Callback computation {} was not successful", idx);
-                let read_data = quote! {
-                let data: Vec<u8> = match near_sdk::env::promise_result(#idx) {
-                    near_sdk::PromiseResult::Successful(x) => x,
-                    _ => near_sdk::env::panic_str(#error_msg)
-                };
-            };
-                let invocation = match arg.serializer_ty {
-                    SerializerType::JSON => quote! {
-                        near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
-                    },
-                    SerializerType::Borsh => quote! {
-                        near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
-                    },
-                };
-                quote! {
-                #acc
-                #read_data
-                let #mutability #ident: #ty = #invocation;
-            }
+                let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
+                match &bindgen_ty {
+                    BindgenArgType::CallbackArg => {
+                        let error_msg = format!("Callback computation {} was not successful", idx);
+                        let read_data = quote! {
+                            let data: Vec<u8> = match near_sdk::env::promise_result(#idx) {
+                                near_sdk::PromiseResult::Successful(x) => x,
+                                _ => near_sdk::env::panic_str(#error_msg)
+                            };
+                        };
+                        let invocation = deserialize_data(serializer_ty);
+                        quote! {
+                            #acc
+                            #read_data
+                            let #mutability #ident: #ty = #invocation;
+                        }
+                    }
+                    BindgenArgType::CallbackResultArg => {
+                        let deserialize = deserialize_data(serializer_ty);
+                        let result = quote! {
+                            match near_sdk::env::promise_result(#idx) {
+                                near_sdk::PromiseResult::Successful(data) => Ok(#deserialize),
+                                near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
+                                near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
+                            }
+                        };
+                        quote! {
+                            #acc
+                            let #mutability #ident: #ty = #result;
+                        }
+                    }
+                    _ => unreachable!()
+                }
             })
     }
 
@@ -201,14 +217,7 @@ impl AttrSigInfo {
             .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
             .fold(TokenStream2::new(), |acc, arg| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
-                let invocation = match arg.serializer_ty {
-                    SerializerType::JSON => quote! {
-                        near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
-                    },
-                    SerializerType::Borsh => quote! {
-                        near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
-                    },
-                };
+                let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
                 #acc
                 let #mutability #ident: #ty = (0..near_sdk::env::promise_results_count())
@@ -221,5 +230,16 @@ impl AttrSigInfo {
                 }).collect();
             }
             })
+    }
+}
+
+pub fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
+    match ty {
+        SerializerType::JSON => quote! {
+            near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+        },
+        SerializerType::Borsh => quote! {
+            near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
+        },
     }
 }
