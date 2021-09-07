@@ -18,12 +18,12 @@ NOTES:
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
-use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_contract_standards::non_fungible_token::NonFungibleToken;
+use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+    env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };
 
 #[near_bindgen]
@@ -66,7 +66,7 @@ impl Contract {
 
     #[init]
     pub fn new(owner_id: AccountId, metadata: NFTContractMetadata) -> Self {
-        assert!(!env::state_exists(), "Already initialized");
+        require!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
         Self {
             tokens: NonFungibleToken::new(

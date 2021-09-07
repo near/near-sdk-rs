@@ -137,7 +137,7 @@ where
     /// This function will panic if the cache is not loaded and the value at the key does not exist.
     pub fn get_mut(&mut self) -> &mut T {
         self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
-        let entry = self.cache.get_mut().expect("cell should be filled above");
+        let entry = self.cache.get_mut().unwrap_or_else(|| env::abort());
 
         expect_consistent_state(entry.value_mut().as_mut())
     }

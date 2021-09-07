@@ -1,4 +1,4 @@
-use near_sdk::{env, AccountId, Balance, CryptoHash, Promise};
+use near_sdk::{env, require, AccountId, Balance, CryptoHash, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -30,10 +30,9 @@ pub fn refund_deposit(storage_used: u64) {
     let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
     let attached_deposit = env::attached_deposit();
 
-    assert!(
+    require!(
         required_cost <= attached_deposit,
-        "Must attach {} yoctoNEAR to cover storage",
-        required_cost,
+        format!("Must attach {} yoctoNEAR to cover storage", required_cost)
     );
 
     let refund = attached_deposit - required_cost;
@@ -50,5 +49,5 @@ pub fn hash_account_id(account_id: &AccountId) -> CryptoHash {
 
 /// Assert that at least 1 yoctoNEAR was attached.
 pub(crate) fn assert_at_least_one_yocto() {
-    assert!(env::attached_deposit() >= 1, "Requires attached deposit of at least 1 yoctoNEAR")
+    require!(env::attached_deposit() >= 1, "Requires attached deposit of at least 1 yoctoNEAR")
 }

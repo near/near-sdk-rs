@@ -14,7 +14,7 @@ mod environment;
 pub use environment::env;
 
 #[cfg(feature = "unstable")]
-pub use environment::sys;
+pub use near_sys as sys;
 
 mod promise;
 pub use promise::{Promise, PromiseOrValue};

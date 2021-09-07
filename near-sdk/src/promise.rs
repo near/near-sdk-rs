@@ -225,7 +225,9 @@ impl Promise {
     fn add_action(self, action: PromiseAction) -> Self {
         match &self.subtype {
             PromiseSubtype::Single(x) => x.actions.borrow_mut().push(action),
-            PromiseSubtype::Joint(_) => panic!("Cannot add action to a joint promise."),
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_str("Cannot add action to a joint promise.")
+            }
         }
         self
     }
@@ -352,7 +354,7 @@ impl Promise {
     pub fn then(self, mut other: Promise) -> Promise {
         match &mut other.subtype {
             PromiseSubtype::Single(x) => *x.after.borrow_mut() = Some(self),
-            PromiseSubtype::Joint(_) => panic!("Cannot callback joint promise."),
+            PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
         other
     }

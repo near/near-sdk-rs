@@ -25,7 +25,7 @@ pub type BlockHeight = u64;
 pub type EpochHeight = u64;
 /// Shard index, from 0 to NUM_SHARDS - 1.
 pub type ShardId = u64;
-/// Balance is type for storing amounts of tokens.
+/// Balance is a type for storing amounts of tokens, specified in yoctoNEAR.
 pub type Balance = u128;
 
 /// Number of blocks in current group.

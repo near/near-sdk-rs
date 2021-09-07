@@ -5,7 +5,7 @@ use near_contract_standards::non_fungible_token::approval::NonFungibleTokenAppro
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
+    env, ext_contract, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
@@ -56,9 +56,8 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
         msg: String,
     ) -> PromiseOrValue<String> {
         // Verifying that we were called by non-fungible token contract that we expect.
-        assert_eq!(
-            &env::predecessor_account_id(),
-            &self.non_fungible_token_account_id,
+        require!(
+            env::predecessor_account_id() == self.non_fungible_token_account_id,
             "Only supports the one non-fungible token contract"
         );
         log!(

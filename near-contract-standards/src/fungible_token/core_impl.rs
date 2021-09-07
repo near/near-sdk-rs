@@ -4,7 +4,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, IntoStorageKey,
+    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, Gas, IntoStorageKey,
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 
@@ -105,8 +105,10 @@ impl FungibleToken {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_add(amount).expect("Total supply overflow");
+            self.total_supply = self
+                .total_supply
+                .checked_add(amount)
+                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
             env::panic_str("Balance overflow");
         }
@@ -116,8 +118,10 @@ impl FungibleToken {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_sub(amount).expect("Total supply overflow");
+            self.total_supply = self
+                .total_supply
+                .checked_sub(amount)
+                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
             env::panic_str("The account doesn't have enough balance");
         }
@@ -130,8 +134,8 @@ impl FungibleToken {
         amount: Balance,
         memo: Option<String>,
     ) {
-        assert_ne!(sender_id, receiver_id, "Sender and receiver should be different");
-        assert!(amount > 0, "The amount should be a positive number");
+        require!(sender_id != receiver_id, "Sender and receiver should be different");
+        require!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
         log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
@@ -209,7 +213,7 @@ impl FungibleToken {
 
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
                     std::cmp::min(amount, unused_amount.0)

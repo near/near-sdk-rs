@@ -11,11 +11,11 @@ pub(crate) use cache_entry::{CacheEntry, EntryState};
 
 use crate::{env, AccountId, PromiseResult};
 
-/// Helper macro to log a message through [`env::log`].
+/// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///
 /// This differs from [`std::format`] because instead of generating a string, it will log the utf8
-/// bytes as a log through [`env::log`].
+/// bytes as a log through [`env::log_str`].
 ///
 /// The logged message will get persisted on chain.
 ///
@@ -33,7 +33,7 @@ use crate::{env, AccountId, PromiseResult};
 /// # }
 /// ```
 ///
-/// [`env::log`]: crate::env::log
+/// [`env::log_str`]: crate::env::log_str
 #[macro_export]
 macro_rules! log {
     ($arg:expr) => {
@@ -44,14 +44,44 @@ macro_rules! log {
     };
 }
 
+/// Helper macro to create assertions that will panic through the runtime host functions.
+///
+/// This macro can be used similarly to [`assert!`] but will reduce code size by not including
+/// file and rust specific data in the panic message.
+///
+/// # Examples
+///
+/// ```no_run
+/// use near_sdk::require;
+///
+/// # fn main() {
+/// let a = 2;
+/// require!(a > 0);
+/// require!("test" != "other", "Some custom error message if false");
+/// # }
+/// ```
+#[macro_export]
+macro_rules! require {
+    ($cond:expr $(,)?) => {
+        if !$cond {
+            $crate::env::panic_str("require! assertion failed")
+        }
+    };
+    ($cond:expr, $message:expr $(,)?) => {
+        if !$cond {
+            $crate::env::panic_str(&$message)
+        }
+    };
+}
+
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
-    assert_eq!(env::predecessor_account_id(), env::current_account_id(), "Method is private");
+    require!(env::predecessor_account_id() == env::current_account_id(), "Method is private");
 }
 
 /// Assert that 1 yoctoNEAR was attached.
 pub fn assert_one_yocto() {
-    assert_eq!(env::attached_deposit(), 1, "Requires attached deposit of exactly 1 yoctoNEAR")
+    require!(env::attached_deposit() == 1, "Requires attached deposit of exactly 1 yoctoNEAR")
 }
 
 /// Returns true if promise was successful.
@@ -63,7 +93,7 @@ pub fn is_promise_success() -> bool {
 /// Returns the result of the promise if successful. Otherwise returns None.
 /// Fails if called outside a callback that received 1 promise result.
 pub fn promise_result_as_success() -> Option<Vec<u8>> {
-    assert_eq!(env::promise_results_count(), 1, "Contract expected a result on the callback");
+    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,

@@ -1,14 +1,31 @@
 # Changelog
 
 ## [unreleased]
-* Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
+- Introduce `#[callback_result]` annotation, which acts like `#[callback]` except that it returns `Result<T, PromiseError>` to allow error handling. [PR 554](https://github.com/near/near-sdk-rs/pull/554)
+  - Adds `#[callback_unwrap]` to replace `callback`
+- mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)
+  - Method names were changed to be strings in `4.0.0-pre.2` but this one was missed
+- env: Update the register used for temporary `env` methods to `u64::MAX - 2` from `0`. [PR 557](https://github.com/near/near-sdk-rs/pull/489).
+  - When mixing using `sys` and `env`, reduces chance of collision for using `0`
+
+## `4.0.0-pre.2` [08-19-2021]
+- Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
+- Deprecate `env::panic` in favor of `env::panic_str`. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
+  - This method now takes a `&str` as the bytes are enforced to be utf8 in the runtime.
+  - Change is symmetric to `env::log_str` change in `4.0.0-pre.1`
 - Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`. [PR 495](https://github.com/near/near-sdk-rs/pull/495)
 - fix: Public keys can no longer be borsh deserialized from invalid bytes. [PR 502](https://github.com/near/near-sdk-rs/pull/502)
   - Adds `Hash` derive to `PublicKey`
 - Changes method name parameters from bytes (`Vec<u8>` and `&[u8]`) to string equivalents for batch function call promises [PR 515](https://github.com/near/near-sdk-rs/pull/515)
   - `promise_batch_action_function_call`, `Promise::function_call`, `promise_batch_action_add_key_with_function_call`, `Promise::add_access_key`, and `Promise::add_access_key_with_nonce` are afffected.
+  - Updates `promise_then`, `promise_create`, and `Receipt::FunctionCall`'s method name to string equivalents from bytes [PR 521](https://github.com/near/near-sdk-rs/pull/521/files).
   - Instead of `b"method_name"` just use `"method_name"`, the bytes are enforced to be utf8 in the runtime.
 - Fixes `#[ext_contract]` codegen function signatures to take an `AccountId` instead of a generic `ToString` and converting unchecked to `AccountId`. [PR 518](https://github.com/near/near-sdk-rs/pull/518)
+- Fixes NFT contract standard `mint` function to not be in the `NonFungibleTokenCore` trait. [PR 525](https://github.com/near/near-sdk-rs/pull/525)
+  - If using the `mint` function from the code generated function on the contract, switch to call it on the `NonFungibleToken` field of the contract (`self.mint(..)` => `self.token.mint(..)`)
+- Fixes `nft_is_approved` method on contract standard to take `&self` instead of moving `self`.
+- Fixes `receiver_id` in `mock::Receipt` to `AccountId` from string. This is a change to the type added in `4.0.0-pre.1`. [PR 529](https://github.com/near/near-sdk-rs/pull/529)
+- Moves runtime syscalls to `near-sys` crate and includes new functions available [PR 507](https://github.com/near/near-sdk-rs/pull/507)
 
 ## `4.0.0-pre.1` [07-23-2021]
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).

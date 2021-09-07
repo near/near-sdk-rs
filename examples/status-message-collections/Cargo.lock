@@ -321,13 +321,14 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "4.0.0-pre.1"
+version = "4.0.0-pre.2"
 dependencies = [
  "base64",
  "borsh",
  "bs58",
  "near-primitives-core",
  "near-sdk-macros",
+ "near-sys",
  "near-vm-logic",
  "serde",
  "serde_json",
@@ -336,13 +337,17 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "4.0.0-pre.1"
+version = "4.0.0-pre.2"
 dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "near-sys"
+version = "0.1.0"
 
 [[package]]
 name = "near-vm-errors"
