@@ -12,6 +12,8 @@ impl<K: Ord, V> Default for StableMap<K, V> {
 }
 
 impl<K, V> StableMap<K, V> {
+    /// Gets reference to value if it exists in the map. If it does not exist, the default value
+    /// will be used to initialize before returning a reference to it.
     pub(crate) fn get(&self, k: K) -> &V
     where
         K: Ord,
@@ -26,6 +28,8 @@ impl<K, V> StableMap<K, V> {
         // of addresses.
         unsafe { &*(v as *const V) }
     }
+    /// Gets mutable reference to value if it exists in the map. If it does not exist, the default
+    /// value will be used to initialize before returning a reference to it.
     pub(crate) fn get_mut(&mut self, k: K) -> &mut V
     where
         K: Ord,
