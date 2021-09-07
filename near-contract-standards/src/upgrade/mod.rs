@@ -1,12 +1,12 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
-use near_sdk::{env, AccountId, Duration, Promise, Timestamp};
+use near_sdk::{env, require, AccountId, Duration, Promise, Timestamp};
 
 type WrappedDuration = U64;
 
 pub trait Ownable {
     fn assert_owner(&self) {
-        assert_eq!(env::predecessor_account_id(), self.get_owner());
+        require!(env::predecessor_account_id() == self.get_owner(), "Owner must be predecessor");
     }
     fn get_owner(&self) -> AccountId;
     fn set_owner(&mut self, owner: AccountId);
@@ -56,7 +56,7 @@ impl Upgradable for Upgrade {
 
     fn stage_code(&mut self, code: Vec<u8>, timestamp: Timestamp) {
         self.assert_owner();
-        assert!(
+        require!(
             env::block_timestamp() + self.staging_duration < timestamp,
             "Timestamp must be later than staging duration"
         );
@@ -67,15 +67,16 @@ impl Upgradable for Upgrade {
 
     fn deploy_code(&mut self) -> Promise {
         if self.staging_timestamp < env::block_timestamp() {
-            env::panic(
-                &format!(
+            env::panic_str(
+                format!(
                     "Deploy code too early: staging ends on {}",
                     self.staging_timestamp + self.staging_duration
                 )
-                .into_bytes(),
+                .as_str(),
             );
         }
-        let code = env::storage_read(b"upgrade").expect("No upgrade code available");
+        let code = env::storage_read(b"upgrade")
+            .unwrap_or_else(|| env::panic_str("No upgrade code available"));
         env::storage_remove(b"upgrade");
         Promise::new(env::current_account_id()).deploy_contract(code)
     }

@@ -26,3 +26,12 @@ impl From<PromiseResult> for VmPromiseResult {
         }
     }
 }
+
+/// All error variants which can occur with promise results.
+#[non_exhaustive]
+pub enum PromiseError {
+    /// Promise result failed.
+    Failed,
+    /// Current version of the protocol never returns this variant.
+    NotReady,
+}

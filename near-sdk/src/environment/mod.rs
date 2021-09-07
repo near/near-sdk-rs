@@ -1,5 +1,4 @@
 pub mod env;
-pub mod sys;
 
 #[cfg(feature = "unstable")]
 pub mod hash;

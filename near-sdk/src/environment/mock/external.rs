@@ -69,7 +69,11 @@ impl External for SdkExternal {
             return Err(HostError::InvalidReceiptIndex { receipt_index: *index }.into());
         }
         let res = self.receipts.len() as u64;
-        self.receipts.push(Receipt { receipt_indices, receiver_id, actions: vec![] });
+        self.receipts.push(Receipt {
+            receipt_indices,
+            receiver_id: AccountId::new_unchecked(receiver_id),
+            actions: vec![],
+        });
         Ok(res)
     }
 
@@ -101,7 +105,9 @@ impl External for SdkExternal {
     ) -> Result<()> {
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
             VmAction::FunctionCall {
-                method_name,
+                method_name: String::from_utf8(method_name)
+                    // * Unwrap here is fine because this is only used in mocks
+                    .expect("method name must be utf8 bytes"),
                 args: arguments,
                 deposit: attached_deposit,
                 gas: Gas(prepaid_gas),
@@ -159,6 +165,8 @@ impl External for SdkExternal {
         method_names: Vec<Vec<u8>>,
     ) -> Result<()> {
         let public_key = PublicKey::try_from(public_key).unwrap();
+        let method_names =
+            method_names.into_iter().map(|s| String::from_utf8(s).unwrap()).collect();
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
             VmAction::AddKeyWithFunctionCall {
                 public_key,

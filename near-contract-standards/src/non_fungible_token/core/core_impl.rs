@@ -9,8 +9,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
-    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, BorshStorageKey,
+    CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 
@@ -148,7 +148,7 @@ impl NonFungibleToken {
                 account_hash: env::sha256(tmp_owner_id.as_bytes()),
             });
             u.insert(&tmp_token_id);
-            tokens_per_owner.insert(&tmp_owner_id, &u);
+            tokens_per_owner.insert(&tmp_owner_id, u);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
             let mut approvals = HashMap::new();
@@ -204,14 +204,14 @@ impl NonFungibleToken {
         // if using Enumeration standard, update old & new owner's token lists
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             // owner_tokens should always exist, so call `unwrap` without guard
-            let mut owner_tokens = tokens_per_owner
-                .get(from)
-                .expect("Unable to access tokens per owner in unguarded call.");
-            owner_tokens.remove(&token_id);
+            let mut owner_tokens = tokens_per_owner.get(from).unwrap_or_else(|| {
+                env::panic_str("Unable to access tokens per owner in unguarded call.")
+            });
+            owner_tokens.remove(token_id);
             if owner_tokens.is_empty() {
                 tokens_per_owner.remove(from);
             } else {
-                tokens_per_owner.insert(&from, &owner_tokens);
+                tokens_per_owner.insert(from, &owner_tokens);
             }
 
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
@@ -219,8 +219,8 @@ impl NonFungibleToken {
                     account_hash: env::sha256(to.as_bytes()),
                 })
             });
-            receiver_tokens.insert(&token_id);
-            tokens_per_owner.insert(&to, &receiver_tokens);
+            receiver_tokens.insert(token_id);
+            tokens_per_owner.insert(to, &receiver_tokens);
         }
     }
 
@@ -235,42 +235,41 @@ impl NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
-        let owner_id = self.owner_by_id.get(token_id).expect("Token not found");
+        let owner_id =
+            self.owner_by_id.get(token_id).unwrap_or_else(|| env::panic_str("Token not found"));
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
         let approved_account_ids =
-            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(&token_id));
+            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
 
         // check if authorized
         if sender_id != &owner_id {
             // if approval extension is NOT being used, or if token has no approved accounts
-            if approved_account_ids.is_none() {
-                env::panic(b"Unauthorized")
-            }
+            let app_acc_ids =
+                approved_account_ids.as_ref().unwrap_or_else(|| env::panic_str("Unauthorized"));
 
             // Approval extension is being used; get approval_id for sender.
-            let actual_approval_id = approved_account_ids.as_ref().unwrap().get(sender_id);
+            let actual_approval_id = app_acc_ids.get(sender_id);
 
             // Panic if sender not approved at all
             if actual_approval_id.is_none() {
-                env::panic(b"Sender not approved");
+                env::panic_str("Sender not approved");
             }
 
             // If approval_id included, check that it matches
-            if let Some(enforced_approval_id) = approval_id {
-                let actual_approval_id = actual_approval_id.unwrap();
-                assert_eq!(
-                    actual_approval_id, &enforced_approval_id,
-                    "The actual approval_id {} is different from the given approval_id {}",
-                    actual_approval_id, enforced_approval_id,
-                );
-            }
+            require!(
+                approval_id.is_none() || actual_approval_id == approval_id.as_ref(),
+                format!(
+                    "The actual approval_id {:?} is different from the given approval_id {:?}",
+                    actual_approval_id, approval_id
+                )
+            );
         }
 
-        assert_ne!(&owner_id, receiver_id, "Current and next owner must differ");
+        require!(&owner_id != receiver_id, "Current and next owner must differ");
 
-        self.internal_transfer_unguarded(&token_id, &owner_id, &receiver_id);
+        self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
         if let Some(memo) = memo {
@@ -279,6 +278,65 @@ impl NonFungibleToken {
 
         // return previous owner & approvals
         (owner_id, approved_account_ids)
+    }
+
+    /// Mint a new token. Not part of official standard, but needed in most situations.
+    /// Consuming contract expected to wrap this with an `nft_mint` function.
+    ///
+    /// Requirements:
+    /// * Caller must be the `owner_id` set during contract initialization.
+    /// * Caller of the method must attach a deposit of 1 yoctoⓃ for security purposes.
+    /// * If contract is using Metadata extension (by having provided `metadata_prefix` during
+    ///   contract initialization), `token_metadata` must be given.
+    /// * token_id must be unique
+    ///
+    /// Returns the newly minted token
+    pub fn mint(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: AccountId,
+        token_metadata: Option<TokenMetadata>,
+    ) -> Token {
+        let initial_storage_usage = env::storage_usage();
+        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
+            env::panic_str("Must provide metadata");
+        }
+        if self.owner_by_id.get(&token_id).is_some() {
+            env::panic_str("token_id must be unique");
+        }
+
+        let owner_id: AccountId = token_owner_id;
+
+        // Core behavior: every token must have an owner
+        self.owner_by_id.insert(&token_id, &owner_id);
+
+        // Metadata extension: Save metadata, keep variable around to return later.
+        // Note that check above already panicked if metadata extension in use but no metadata
+        // provided to call.
+        self.token_metadata_by_id
+            .as_mut()
+            .and_then(|by_id| by_id.insert(&token_id, token_metadata.as_ref().unwrap()));
+
+        // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
+        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
+            let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
+                UnorderedSet::new(StorageKey::TokensPerOwner {
+                    account_hash: env::sha256(owner_id.as_bytes()),
+                })
+            });
+            token_ids.insert(&token_id);
+            tokens_per_owner.insert(&owner_id, &token_ids);
+        }
+
+        // Approval Management extension: return empty HashMap as part of Token
+        let approved_account_ids =
+            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
+
+        // Return any extra attached deposit not used for storage
+        refund_deposit(env::storage_usage() - initial_storage_usage);
+
+        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }
 }
 
@@ -313,7 +371,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             old_owner.clone(),
             token_id.clone(),
             msg,
-            &receiver_id,
+            receiver_id.clone(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
@@ -322,7 +380,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             receiver_id,
             token_id,
             old_approvals,
-            &env::current_account_id(),
+            env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
         ))
@@ -338,54 +396,6 @@ impl NonFungibleTokenCore for NonFungibleToken {
             .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
     }
-
-    fn mint(
-        &mut self,
-        token_id: TokenId,
-        token_owner_id: AccountId,
-        token_metadata: Option<TokenMetadata>,
-    ) -> Token {
-        let initial_storage_usage = env::storage_usage();
-        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
-        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            env::panic(b"Must provide metadata");
-        }
-        if self.owner_by_id.get(&token_id).is_some() {
-            env::panic(b"token_id must be unique");
-        }
-
-        let owner_id: AccountId = token_owner_id;
-
-        // Core behavior: every token must have an owner
-        self.owner_by_id.insert(&token_id, &owner_id);
-
-        // Metadata extension: Save metadata, keep variable around to return later.
-        // Note that check above already panicked if metadata extension in use but no metadata
-        // provided to call.
-        self.token_metadata_by_id
-            .as_mut()
-            .and_then(|by_id| by_id.insert(&token_id, &token_metadata.as_ref().unwrap()));
-
-        // Enumeration extension: Record tokens_per_owner for use with enumeration view methods.
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
-                UnorderedSet::new(StorageKey::TokensPerOwner {
-                    account_hash: env::sha256(owner_id.as_bytes()),
-                })
-            });
-            token_ids.insert(&token_id);
-            tokens_per_owner.insert(&owner_id, &token_ids);
-        }
-
-        // Approval Management extension: return empty HashMap as part of Token
-        let approved_account_ids =
-            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
-
-        // Return any extra attached deposit not used for storage
-        refund_deposit(env::storage_usage() - initial_storage_usage);
-
-        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
-    }
 }
 
 impl NonFungibleTokenResolver for NonFungibleToken {
@@ -399,7 +409,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
                     yes_or_no

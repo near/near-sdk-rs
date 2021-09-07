@@ -5,7 +5,7 @@ use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault,
+    env, ext_contract, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
@@ -57,9 +57,8 @@ impl NonFungibleTokenReceiver for TokenReceiver {
         msg: String,
     ) -> PromiseOrValue<bool> {
         // Verifying that we were called by non-fungible token contract that we expect.
-        assert_eq!(
-            &env::predecessor_account_id(),
-            &self.non_fungible_token_account_id,
+        require!(
+            env::predecessor_account_id() == self.non_fungible_token_account_id,
             "Only supports the one non-fungible token contract"
         );
         log!(
@@ -76,7 +75,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 let account_id = env::current_account_id();
                 ext_self::ok_go(
                     true,
-                    &account_id,
+                    account_id,
                     NO_DEPOSIT,
                     prepaid_gas - GAS_FOR_NFT_ON_TRANSFER,
                 )
@@ -88,13 +87,13 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 let account_id = env::current_account_id();
                 ext_self::ok_go(
                     false,
-                    &account_id,
+                    account_id,
                     NO_DEPOSIT,
                     prepaid_gas - GAS_FOR_NFT_ON_TRANSFER,
                 )
                 .into()
             }
-            _ => env::panic(b"unsupported msg"),
+            _ => env::panic_str("unsupported msg"),
         }
     }
 }

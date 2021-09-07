@@ -4,10 +4,9 @@ members = [
     "near-sdk-macros",
     "near-sdk-sim",
     "near-contract-standards",
+    "sys",
 ]
-exclude = [
-    "examples/",
-]
+exclude = ["examples/"]
 
 # Special triple # comment for ci.
 [patch.crates-io]

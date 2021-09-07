@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 pushd ../examples
-KEEP_NAMES=1 ./build_all.sh
+RUSTFLAGS="" ./build_all.sh
 popd
 mkdir -p ./out/base/
 for d in ../examples/*/ ; do
