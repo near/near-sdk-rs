@@ -12,9 +12,9 @@ use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
-const ERR_NOT_EXIST: &[u8] = b"Key does not exist in map";
+const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
 type LookupKey = [u8; 32];
 
@@ -154,7 +154,7 @@ where
     {
         // Concat the prefix with serialized key and hash the bytes for the lookup key.
         let mut buffer = prefix.to_vec();
-        key.serialize(&mut buffer).unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION));
+        key.serialize(&mut buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
 
         H::hash(&buffer)
     }
@@ -167,7 +167,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
-        V::try_from_slice(bytes).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
+        V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
     }
 
     fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> Option<V>
@@ -329,7 +329,7 @@ where
                         Some(modified) => {
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf)
-                                .unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION));
+                                .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
                             env::storage_write(&key, &buf);
                         }
                         None => {
