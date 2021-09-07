@@ -1,6 +1,6 @@
 use crate::sys;
 
-const ATOMIC_OP_REGISTER: u64 = 0;
+const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 
 fn read_register_fixed(register_id: u64, buf: &mut [u8]) {
     unsafe { sys::read_register(register_id, buf.as_ptr() as _) }
