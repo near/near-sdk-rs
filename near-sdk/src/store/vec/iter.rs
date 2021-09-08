@@ -4,7 +4,7 @@ use core::{iter::FusedIterator, ops::Range};
 use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
 use crate::env;
 
-/// An interator over references to each element in the stored vector.
+/// An iterator over references to each element in the stored vector.
 #[derive(Debug)]
 pub struct Iter<'a, T>
 where
