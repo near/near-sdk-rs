@@ -2,6 +2,7 @@ mod entry;
 mod impls;
 
 use core::borrow::Borrow;
+use std::fmt;
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -89,6 +90,17 @@ where
 
     #[borsh_skip]
     hasher: PhantomData<H>,
+}
+
+impl<K, V, H> fmt::Debug for LookupMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LookupMap").field("prefix", &self.prefix).finish()
+    }
 }
 
 impl<K, V> LookupMap<K, V, Sha256>
