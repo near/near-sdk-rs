@@ -97,6 +97,13 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
+    pub fn test_insert_one() {
+        let mut map = LookupSet::new(b"m");
+        assert!(map.insert(&1));
+        assert!(!map.insert(&1));
+    }
+
+    #[test]
     pub fn test_insert() {
         let mut set = LookupSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);

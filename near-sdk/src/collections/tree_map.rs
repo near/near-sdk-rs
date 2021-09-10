@@ -884,6 +884,13 @@ mod tests {
     }
 
     #[test]
+    pub fn test_insert_one() {
+        let mut map = TreeMap::new(b"m");
+        assert_eq!(None, map.insert(&1, &2));
+        assert_eq!(2, map.insert(&1, &3).unwrap());
+    }
+
+    #[test]
     fn test_insert_lookup_n_desc() {
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
 
