@@ -11,6 +11,37 @@ pub(crate) use cache_entry::{CacheEntry, EntryState};
 
 use crate::{env, AccountId, PromiseResult};
 
+/// Helper macro to prepare arguments [`env::arguments`].
+///
+/// # Example use
+///
+/// ```no_run
+/// use near_sdk::Gas;
+/// use near_sdk::env;
+/// use near_sdk::arguments;
+/// use near_sdk::AccountId;
+///
+/// # fn main() {
+/// env::promise_create(
+///    AccountId::new_unchecked("ft.near".to_string()),
+///    "storage_deposit",
+///    arguments!({
+///        "account_id": AccountId::new_unchecked("alice.near".to_string()),
+///    }),
+///    1_250_000_000_000_000_000_000,
+///    Gas(5_000_000_000_000),
+/// );
+/// # }
+/// ```
+///
+/// [`env::arguments`]: crate::env::arguments
+#[macro_export]
+macro_rules! arguments {
+    ($($json:tt)+) => {
+        $crate::serde_json::json!($($json)+).to_string().as_bytes()
+    };
+}
+
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///
@@ -151,7 +182,13 @@ macro_rules! setup_alloc {
 
 #[cfg(test)]
 mod tests {
+    use crate::arguments;
     use crate::test_utils::get_logs;
+
+    #[test]
+    fn test_arguments() {
+        assert_eq!(13, arguments!({"foo": "bar"}).len());
+    }
 
     #[test]
     fn test_log_simple() {
