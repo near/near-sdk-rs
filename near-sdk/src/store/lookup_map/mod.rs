@@ -25,7 +25,7 @@ type LookupKey = [u8; 32];
 /// using the map's [`CryptoHasher`] implementation.
 ///
 /// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall to hash the
-/// key. To use a custom function, use [`new_with_hasher`]. Alternative builtin hash functions
+/// key. To use a custom function, use [`with_hasher`]. Alternative builtin hash functions
 /// can be found at [`near_sdk::hash`](crate::hash).
 ///
 /// # Examples
@@ -73,7 +73,7 @@ type LookupKey = [u8; 32];
 /// *stat += random_stat_buff();
 /// ```
 ///
-/// [`new_with_hasher`]: Self::new_with_hasher
+/// [`with_hasher`]: Self::with_hasher
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V, H = Sha256>
 where
@@ -113,7 +113,7 @@ where
     where
         S: IntoStorageKey,
     {
-        Self::new_with_hasher(prefix)
+        Self::with_hasher(prefix)
     }
 }
 
@@ -130,9 +130,9 @@ where
     /// use near_sdk::hash::Keccak256;
     /// use near_sdk::store::LookupMap;
     ///
-    /// let map = LookupMap::<String, String, Keccak256>::new_with_hasher(b"m");
+    /// let map = LookupMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
-    pub fn new_with_hasher<S>(prefix: S) -> Self
+    pub fn with_hasher<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
@@ -225,7 +225,7 @@ where
     /// Returns a mutable reference to the value corresponding to the key.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned)on the borrowed form *must* match those for
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
@@ -252,7 +252,7 @@ where
     /// Returns `true` if the map contains a value for the specified key.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned)on the borrowed form *must* match those for
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
@@ -281,7 +281,7 @@ where
     /// was previously in the map.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned)on the borrowed form *must* match those for
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     fn flush_on_drop() {
-        let mut map = LookupMap::<_, _, Keccak256>::new_with_hasher(b"m");
+        let mut map = LookupMap::<_, _, Keccak256>::with_hasher(b"m");
 
         // Set a value, which does not write to storage yet
         map.set(5u8, Some(8u8));
@@ -525,7 +525,7 @@ mod tests {
 
         drop(map);
 
-        let dup_map = LookupMap::<u8, u8, Keccak256>::new_with_hasher(b"m");
+        let dup_map = LookupMap::<u8, u8, Keccak256>::with_hasher(b"m");
 
         // New map can now load the value
         assert_eq!(dup_map[&5], 8);
