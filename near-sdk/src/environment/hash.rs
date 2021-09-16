@@ -1,8 +1,10 @@
+use std::mem::MaybeUninit;
+
 use crate::sys;
 
 const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 
-fn read_register_fixed(register_id: u64, buf: &mut [u8]) {
+fn read_register_fixed(register_id: u64, buf: &mut [MaybeUninit<u8>]) {
     unsafe { sys::read_register(register_id, buf.as_ptr() as _) }
 }
 
@@ -26,9 +28,9 @@ impl CryptoHasher for Sha256 {
     fn hash(ingest: &[u8]) -> Self::Digest {
         unsafe { sys::sha256(ingest.len() as _, ingest.as_ptr() as _, ATOMIC_OP_REGISTER) };
 
-        let mut hash = [0u8; 32];
+        let mut hash = [MaybeUninit::uninit(); 32];
         read_register_fixed(ATOMIC_OP_REGISTER, &mut hash);
-        hash
+        unsafe { std::mem::transmute(hash) }
     }
 }
 
@@ -43,8 +45,8 @@ impl CryptoHasher for Keccak256 {
     fn hash(ingest: &[u8]) -> Self::Digest {
         unsafe { sys::keccak256(ingest.len() as _, ingest.as_ptr() as _, ATOMIC_OP_REGISTER) };
 
-        let mut hash = [0u8; 32];
+        let mut hash = [MaybeUninit::uninit(); 32];
         read_register_fixed(ATOMIC_OP_REGISTER, &mut hash);
-        hash
+        unsafe { std::mem::transmute(hash) }
     }
 }
