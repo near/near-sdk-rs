@@ -23,6 +23,6 @@ const runner = Runner.create(async ({ root }) => {
 });
 
 runner.test('simple transfer', async ({ ft }) => {
-  const totalSupply: string = await ft.view('ft_total_supply');
+  const totalSupply = await ft.view('ft_total_supply');
   expect(totalSupply).toBe(TOTAL_SUPPLY);
 });

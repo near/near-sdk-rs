@@ -4,6 +4,6 @@
     "test": "near-runner-jest"
   },
   "dependencies": {
-    "near-runner-jest": "^0.1.6"
+    "near-runner-jest": "^0.1.8"
   }
 }
