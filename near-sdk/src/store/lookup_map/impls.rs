@@ -1,20 +1,9 @@
-use core::borrow::Borrow;
+use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{LookupMap, ERR_NOT_EXIST};
-use crate::{env, hash::CryptoHasher};
-
-impl<K, V, H> Drop for LookupMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-    fn drop(&mut self) {
-        self.flush()
-    }
-}
+use crate::{crypto_hash::CryptoHasher, env};
 
 impl<K, V, H> Extend<(K, V)> for LookupMap<K, V, H>
 where

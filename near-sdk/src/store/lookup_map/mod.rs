@@ -1,16 +1,17 @@
 mod entry;
 mod impls;
 
-use core::borrow::Borrow;
+use std::borrow::Borrow;
 use std::fmt;
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::hash::{CryptoHasher, Sha256};
+use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
+
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
@@ -24,15 +25,17 @@ type LookupKey = [u8; 32];
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
 /// using the map's [`CryptoHasher`] implementation.
 ///
-/// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall to hash the
-/// key. To use a custom function, use [`with_hasher`]. Alternative builtin hash functions
-/// can be found at [`near_sdk::hash`](crate::hash).
+/// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall
+/// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
+/// use [`with_hasher`]. Alternative builtin hash functions can be found at
+/// [`near_sdk::hash`](crate::hash).
 ///
 /// # Examples
 /// ```
 /// use near_sdk::store::LookupMap;
 ///
 /// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Sha256>`
+/// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
 /// let mut map = LookupMap::new(b"a");
 ///
 /// map.set("test".to_string(), Some(7u8));
@@ -82,14 +85,25 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     prefix: Box<[u8]>,
-    #[borsh_skip]
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
+    #[borsh_skip]
     cache: StableMap<K, OnceCell<CacheEntry<V>>>,
 
     #[borsh_skip]
     hasher: PhantomData<H>,
+}
+
+impl<K, V, H> Drop for LookupMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn drop(&mut self) {
+        self.flush()
+    }
 }
 
 impl<K, V, H> fmt::Debug for LookupMap<K, V, H>
@@ -364,7 +378,7 @@ where
 mod tests {
     use super::LookupMap;
     use crate::env;
-    use crate::hash::Keccak256;
+    use crate::crypto_hash::Keccak256;
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::HashMap;
