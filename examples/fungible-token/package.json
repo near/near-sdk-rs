@@ -1,11 +1,4 @@
 {
-  "name": "ft-tests",
-  "version": "1.0.0",
-  "description": "FT tests",
-  "main": "index.js",
-  "repository": "https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token",
-  "author": "NEAR <team@near.org>",
-  "license": "MIT",
   "private": true,
   "scripts": {
     "test": "near-runner-jest"
