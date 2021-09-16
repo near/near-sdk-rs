@@ -1,0 +1,8 @@
+{
+  "extends": "near-runner-jest/tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": [
+      "node_modules/@types"
+    ]
+  }
+}
