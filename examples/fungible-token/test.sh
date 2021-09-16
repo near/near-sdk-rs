@@ -1,1 +1,1 @@
-cd __tests__ && yarn test
+cd near-runner && yarn install && yarn test

@@ -7,15 +7,13 @@ const runner = Runner.create(async ({ root }) => {
   const alice = await root.createAccount('alice');
   const ft = await root.createAndDeploy(
     'ft',
-    path.join(__dirname, '..', 'res', 'fungible_token.wasm'),
-  );
-
-  await root.call(
-    ft,
-    'new_default_meta',
+    path.join(__dirname, '..', '..', 'res', 'fungible_token.wasm'),
     {
-      owner_id: root,
-      total_supply: TOTAL_SUPPLY,
+      method: 'new_default_meta',
+      args: {
+        owner_id: root,
+        total_supply: TOTAL_SUPPLY,
+      }
     }
   );
 
@@ -23,6 +21,6 @@ const runner = Runner.create(async ({ root }) => {
 });
 
 runner.test('simple transfer', async ({ ft }) => {
-  const totalSupply = await ft.view('ft_total_supply');
+  const totalSupply: string = await ft.view('ft_total_supply');
   expect(totalSupply).toBe(TOTAL_SUPPLY);
 });
