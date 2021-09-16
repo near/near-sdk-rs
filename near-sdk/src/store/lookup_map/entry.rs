@@ -44,10 +44,7 @@ where
     /// assert_eq!(map["poneyland"], 6);
     /// ```
     pub fn or_insert(self, default: V) -> &'a mut V {
-        match self {
-            Self::Occupied(entry) => entry.into_mut(),
-            Self::Vacant(entry) => entry.insert(default),
-        }
+        self.or_insert_with(|| default)
     }
 
     /// Ensures a value is in the entry by inserting the result of the default function if empty,
@@ -66,10 +63,7 @@ where
     /// assert_eq!(map["poneyland"], "hoho".to_string());
     /// ```
     pub fn or_insert_with<F: FnOnce() -> V>(self, default: F) -> &'a mut V {
-        match self {
-            Self::Occupied(entry) => entry.into_mut(),
-            Self::Vacant(entry) => entry.insert(default()),
-        }
+        self.or_insert_with_key(|_| default())
     }
 
     /// Ensures a value is in the entry by inserting, if empty, the result of the default function.
