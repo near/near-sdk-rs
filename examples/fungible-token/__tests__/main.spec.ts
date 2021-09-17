@@ -7,7 +7,7 @@ const runner = Runner.create(async ({ root }) => {
   const alice = await root.createAccount('alice');
   const ft = await root.createAndDeploy(
     'ft',
-    path.join(__dirname, '..', '..', 'res', 'fungible_token.wasm'),
+    path.join(__dirname, '..', 'res', 'fungible_token.wasm'),
     {
       method: 'new_default_meta',
       args: {
