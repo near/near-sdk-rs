@@ -28,7 +28,7 @@ type LookupKey = [u8; 32];
 /// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::hash`](crate::hash).
+/// [`near_sdk::crypto_hash`](crate::crypto_hash).
 ///
 /// # Examples
 /// ```
@@ -141,7 +141,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::hash::Keccak256;
+    /// use near_sdk::crypto_hash::Keccak256;
     /// use near_sdk::store::LookupMap;
     ///
     /// let map = LookupMap::<String, String, Keccak256>::with_hasher(b"m");
