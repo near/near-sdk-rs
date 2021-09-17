@@ -377,9 +377,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupMap;
-    use crate::env;
     use crate::crypto_hash::Keccak256;
+    use crate::env;
+    use crate::test_utils::test_env::setup_free;
+    use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;
+    use rand::RngCore;
     use rand::{Rng, SeedableRng};
     use std::collections::HashMap;
 
@@ -543,5 +546,59 @@ mod tests {
 
         // New map can now load the value
         assert_eq!(dup_map[&5], 8);
+    }
+
+    #[derive(Arbitrary, Debug)]
+    enum Op {
+        Insert(u8, u8),
+        Remove(u8),
+        Flush,
+        Restore,
+        Get(u8),
+    }
+
+    #[test]
+    fn arbitrary() {
+        setup_free();
+
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut buf = vec![0; 4096];
+        for _ in 0..512 {
+            // Clear storage in-between runs
+            crate::mock::with_mocked_blockchain(|b| b.take_storage());
+            rng.fill_bytes(&mut buf);
+
+            let mut lm = LookupMap::new(b"l");
+            let mut hm = HashMap::new();
+            let u = Unstructured::new(&buf);
+            if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
+                for op in ops {
+                    match op {
+                        Op::Insert(k, v) => {
+                            let r1 = lm.insert(k, v);
+                            let r2 = hm.insert(k, v);
+                            // println!("{:?}", r1);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Remove(k) => {
+                            let r1 = lm.remove(&k);
+                            let r2 = hm.remove(&k);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Flush => {
+                            lm.flush();
+                        }
+                        Op::Restore => {
+                            lm = LookupMap::new(b"l");
+                        }
+                        Op::Get(k) => {
+                            let r1 = lm.get(&k);
+                            let r2 = hm.get(&k);
+                            assert_eq!(r1, r2)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
