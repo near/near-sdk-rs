@@ -390,10 +390,11 @@ mod tests {
     fn test_insert() {
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
-        for _ in 0..500 {
+        for _ in 0..100 {
             let key = rng.gen::<u64>();
             let value = rng.gen::<u64>();
             map.insert(key, value);
+            assert_eq!(*map.get(&key).unwrap(), value);
         }
     }
 
