@@ -292,16 +292,33 @@ impl NonFungibleToken {
     ///
     /// Returns the newly minted token
     pub fn mint(
+      &mut self,
+      token_id: TokenId,
+      token_owner_id: AccountId,
+      token_metadata: Option<TokenMetadata>,
+    ) -> Token {
+        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
+            env::panic_str("Must provide metadata");
+        }
+
+        self.internal_mint_unguarded(
+          token_id,
+          token_owner_id,
+          token_metadata,
+        )
+    }
+
+    /// Mint a new token without checking:
+    /// * Whether the caller id equals the `owner_id`
+    /// * `token_metadata` is not required even if Metadata extension is used
+    pub fn internal_mint_unguarded(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
         let initial_storage_usage = env::storage_usage();
-        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
-        if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            env::panic_str("Must provide metadata");
-        }
         if self.owner_by_id.get(&token_id).is_some() {
             env::panic_str("token_id must be unique");
         }
