@@ -15,7 +15,7 @@ use near_sdk::{
 use std::collections::HashMap;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(20_000_000_000_000);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(30_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(35_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 
