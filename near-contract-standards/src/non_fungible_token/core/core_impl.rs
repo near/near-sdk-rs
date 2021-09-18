@@ -310,8 +310,8 @@ impl NonFungibleToken {
     }
 
     /// Mint a new token without checking:
-    /// * Whether the caller id equals the `owner_id`
-    /// * `token_metadata` is not required even if Metadata extension is used
+    /// * Whether the caller id is equal to the `owner_id`
+    /// * Whether `token_metadata` presents even if Metadata extension is used
     pub fn internal_mint_unguarded(
         &mut self,
         token_id: TokenId,
