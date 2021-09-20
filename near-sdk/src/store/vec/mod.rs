@@ -145,6 +145,10 @@ where
 
     /// Sets a value at a given index to the value provided. This does not shift values after the
     /// index to the right.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
     pub fn set(&mut self, index: u32, value: T) {
         if index >= self.len() {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
@@ -253,6 +257,7 @@ where
     /// # Panics
     ///
     /// If `index` is out of bounds.
+    // TODO determine if this should be stabilized, included for backwards compat with old version
     pub fn replace(&mut self, index: u32, element: T) -> T {
         self.get_mut_inner(index)
             .unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
@@ -289,10 +294,11 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use rand::{Rng, SeedableRng};
+    use arbitrary::{Arbitrary, Unstructured};
+    use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
-    use crate::test_utils::test_env;
+    use crate::test_utils::test_env::{self, setup_free};
 
     #[test]
     fn test_push_pop() {
@@ -480,5 +486,90 @@ mod tests {
         // Count check
 
         assert_eq!(vec.iter().count(), baseline.len());
+    }
+
+    #[derive(Arbitrary, Debug)]
+    enum Op {
+        Push(u8),
+        Pop,
+        Set(u32, u8),
+        Remove(u32),
+        Flush,
+        Get(u32),
+        Swap(u32, u32),
+    }
+
+    #[test]
+    fn arbitrary() {
+        setup_free();
+
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut buf = vec![0; 4096];
+        for _ in 0..1024 {
+            // Clear storage in-between runs
+            crate::mock::with_mocked_blockchain(|b| b.take_storage());
+            rng.fill_bytes(&mut buf);
+
+            let mut sv = Vector::new(b"v");
+            let mut mv = Vec::new();
+            let u = Unstructured::new(&buf);
+            if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
+                for op in ops {
+                    match op {
+                        Op::Push(v) => {
+                            sv.push(v);
+                            mv.push(v);
+                            assert_eq!(sv.len() as usize, mv.len());
+                        }
+                        Op::Pop => {
+                            assert_eq!(sv.pop(), mv.pop());
+                            assert_eq!(sv.len() as usize, mv.len());
+                        }
+                        Op::Set(k, v) => {
+                            if sv.is_empty() {
+                                continue;
+                            }
+                            let k = k % sv.len();
+
+                            sv.set(k, v);
+                            mv[k as usize] = v;
+
+                            // Extra get just to make sure set happened correctly
+                            assert_eq!(sv[k], mv[k as usize]);
+                        }
+                        Op::Remove(i) => {
+                            if sv.is_empty() {
+                                continue;
+                            }
+                            let i = i % sv.len();
+                            let r1 = sv.swap_remove(i);
+                            let r2 = mv.swap_remove(i as usize);
+                            assert_eq!(r1, r2);
+                            assert_eq!(sv.len() as usize, mv.len());
+                        }
+                        Op::Flush => {
+                            sv.flush();
+                        }
+                        Op::Get(k) => {
+                            let r1 = sv.get(k);
+                            let r2 = mv.get(k as usize);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Swap(i1, i2) => {
+                            if sv.is_empty() {
+                                continue;
+                            }
+                            let i1 = i1 % sv.len();
+                            let i2 = i2 % sv.len();
+                            sv.swap(i1, i2);
+                            mv.swap(i1 as usize, i2 as usize)
+                        }
+                    }
+                }
+            }
+
+            // After all operations, compare both vectors
+            assert!(Iterator::eq(sv.iter(), mv.iter()));
+        }
     }
 }
