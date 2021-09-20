@@ -173,7 +173,7 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
-        T::try_from_slice(&raw_element)
+        T::try_from_slice(raw_element)
             .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
     }
 

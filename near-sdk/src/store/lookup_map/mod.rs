@@ -294,7 +294,7 @@ where
     {
         // Check cache before checking storage
         let contains =
-            self.cache.with_value(&k, |v| v.value.get().and_then(|s| s.value().as_ref()).is_some());
+            self.cache.with_value(k, |v| v.value.get().and_then(|s| s.value().as_ref()).is_some());
         if let Some(is_some) = contains {
             return is_some;
         }
@@ -372,7 +372,7 @@ where
             if let Some(val) = v.value.get_mut() {
                 if val.is_modified() {
                     let prefix = &self.prefix;
-                    let key = v.hash.get_or_init(|| Self::lookup_key(&prefix, k));
+                    let key = v.hash.get_or_init(|| Self::lookup_key(prefix, k));
                     match val.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
