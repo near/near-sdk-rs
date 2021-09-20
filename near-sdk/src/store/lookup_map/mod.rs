@@ -89,10 +89,22 @@ where
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
     #[borsh_skip]
-    cache: StableMap<K, OnceCell<CacheEntry<V>>>,
+    cache: StableMap<K, EntryAndHash<V>>,
 
     #[borsh_skip]
     hasher: PhantomData<H>,
+}
+
+// #[derive(Default)]
+struct EntryAndHash<V> {
+    value: OnceCell<CacheEntry<V>>,
+    hash: OnceCell<[u8; 32]>,
+}
+
+impl<V> Default for EntryAndHash<V> {
+    fn default() -> Self {
+        Self { value: Default::default(), hash: Default::default() }
+    }
 }
 
 impl<K, V, H> Drop for LookupMap<K, V, H>
@@ -165,10 +177,10 @@ where
     /// Calling `set` with a `None` value will delete the entry from storage.
     pub fn set(&mut self, key: K, value: Option<V>) {
         let entry = self.cache.get_mut(key);
-        match entry.get_mut() {
+        match entry.value.get_mut() {
             Some(entry) => *entry.value_mut() = value,
             None => {
-                let _ = entry.set(CacheEntry::new_modified(value));
+                let _ = entry.value.set(CacheEntry::new_modified(value));
             }
         }
     }
@@ -196,13 +208,14 @@ where
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
     }
 
-    fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> Option<V>
+    fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> (LookupKey, Option<V>)
     where
         Q: BorshSerialize,
         K: Borrow<Q>,
     {
-        let storage_bytes = env::storage_read(&Self::lookup_key(prefix, key));
-        storage_bytes.as_deref().map(Self::deserialize_element)
+        let key = Self::lookup_key(prefix, key);
+        let storage_bytes = env::storage_read(&key);
+        (key, storage_bytes.as_deref().map(Self::deserialize_element))
     }
 
     /// Returns a reference to the value corresponding to the key.
@@ -216,10 +229,12 @@ where
         Q: BorshSerialize + ToOwned<Owned = K>,
     {
         //* ToOwned bound, which forces a clone, is required to be able to keep the key in the cache
-        let entry = self
-            .cache
-            .get(k.to_owned())
-            .get_or_init(|| CacheEntry::new_cached(Self::load_element(&self.prefix, k)));
+        let cached = self.cache.get(k.to_owned());
+        let entry = cached.value.get_or_init(|| {
+            let (key, element) = Self::load_element(&self.prefix, k);
+            let _ = cached.hash.set(key);
+            CacheEntry::new_cached(element)
+        });
         entry.value().as_ref()
     }
 
@@ -231,8 +246,12 @@ where
         let prefix = &self.prefix;
         //* ToOwned bound, which forces a clone, is required to be able to keep the key in the cache
         let entry = self.cache.get_mut(k.to_owned());
-        entry.get_or_init(|| CacheEntry::new_cached(Self::load_element(prefix, k)));
-        let entry = entry.get_mut().unwrap_or_else(|| unreachable!());
+        entry.value.get_or_init(|| {
+            let (key, value) = Self::load_element(prefix, k);
+            let _ = entry.hash.set(key);
+            CacheEntry::new_cached(value)
+        });
+        let entry = entry.value.get_mut().unwrap_or_else(|| unreachable!());
         entry
     }
 
@@ -274,19 +293,21 @@ where
         Q: BorshSerialize + ToOwned<Owned = K> + Ord,
     {
         // Check cache before checking storage
-        if self
-            .cache
-            .with_value(&k, |v| v.get().and_then(|s| s.value().as_ref()).is_some())
-            .unwrap_or(false)
-        {
-            return true;
+        let contains =
+            self.cache.with_value(&k, |v| v.value.get().and_then(|s| s.value().as_ref()).is_some());
+        if let Some(is_some) = contains {
+            return is_some;
         }
+
+        // Value is not in cache, check if storage has value for given key.
         let storage_key = Self::lookup_key(&self.prefix, k);
         let contains = env::storage_has_key(&storage_key);
 
         if !contains {
             // If value not in cache and not in storage, can set a cached `None`
-            let _ = self.cache.get(k.to_owned()).set(CacheEntry::new_cached(None));
+            let cache = self.cache.get(k.to_owned());
+            let _ = cache.value.set(CacheEntry::new_cached(None));
+            let _ = cache.hash.set(storage_key);
         }
         contains
     }
@@ -348,25 +369,26 @@ where
     pub fn flush(&mut self) {
         let mut buf = Vec::new();
         for (k, v) in self.cache.inner().iter_mut() {
-            if let Some(v) = v.get_mut() {
-                if v.is_modified() {
-                    let key = Self::lookup_key(&self.prefix, k);
-                    match v.value().as_ref() {
+            if let Some(val) = v.value.get_mut() {
+                if val.is_modified() {
+                    let prefix = &self.prefix;
+                    let key = v.hash.get_or_init(|| Self::lookup_key(&prefix, k));
+                    match val.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf)
                                 .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-                            env::storage_write(&key, &buf);
+                            env::storage_write(key, &buf);
                         }
                         None => {
                             // Element was removed, clear the storage for the value
-                            env::storage_remove(&key);
+                            env::storage_remove(key);
                         }
                     }
 
                     // Update state of flushed state as cached, to avoid duplicate writes/removes
                     // while also keeping the cached values in memory.
-                    v.replace_state(EntryState::Cached);
+                    val.replace_state(EntryState::Cached);
                 }
             }
         }
