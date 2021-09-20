@@ -293,8 +293,9 @@ where
         Q: BorshSerialize + ToOwned<Owned = K> + Ord,
     {
         // Check cache before checking storage
-        let contains =
-            self.cache.with_value(k, |v| v.value.get().and_then(|s| s.value().as_ref()).is_some());
+        let contains = self
+            .cache
+            .map_value_ref(k, |v| v.value.get().and_then(|s| s.value().as_ref()).is_some());
         if let Some(is_some) = contains {
             return is_some;
         }
