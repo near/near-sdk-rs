@@ -478,7 +478,7 @@ mod tests {
         assert!(bl_iter.next().is_none());
 
         // Count check
-        
+
         assert_eq!(vec.iter().count(), baseline.len());
     }
 }
