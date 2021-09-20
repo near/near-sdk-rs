@@ -438,7 +438,7 @@ mod tests {
         }
         // Existing
         for (key, _) in key_to_value.iter() {
-            assert!(map.contains_key(&key));
+            assert!(map.contains_key(key));
         }
     }
 

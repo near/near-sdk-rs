@@ -442,7 +442,7 @@ mod tests {
             prefix: prefix.into_boxed_slice(),
             cache: Default::default(),
         };
-        let baseline: Vec<_> = baseline.into_iter().map(|x| TestType(x)).collect();
+        let baseline: Vec<_> = baseline.into_iter().map(TestType).collect();
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
         } else {
@@ -478,6 +478,7 @@ mod tests {
         assert!(bl_iter.next().is_none());
 
         // Count check
-        assert_eq!(vec.iter().count(), baseline.iter().count());
+        
+        assert_eq!(vec.iter().count(), baseline.len());
     }
 }
