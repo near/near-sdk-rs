@@ -577,6 +577,7 @@ mod tests {
     #[derive(Arbitrary, Debug)]
     enum Op {
         Insert(u8, u8),
+        Set(u8, Option<u8>),
         Remove(u8),
         Flush,
         Restore,
@@ -603,8 +604,19 @@ mod tests {
                         Op::Insert(k, v) => {
                             let r1 = lm.insert(k, v);
                             let r2 = hm.insert(k, v);
-                            // println!("{:?}", r1);
                             assert_eq!(r1, r2)
+                        }
+                        Op::Set(k, v) => {
+                            lm.set(k, v);
+
+                            if let Some(val) = v {
+                                hm.insert(k, val);
+                            } else {
+                                hm.remove(&k);
+                            }
+
+                            // Extra get just to make sure set happened correctly
+                            assert_eq!(lm.get(&k), hm.get(&k));
                         }
                         Op::Remove(k) => {
                             let r1 = lm.remove(&k);
