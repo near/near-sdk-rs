@@ -1,5 +1,5 @@
 import path from 'path';
-import { Runner, NearAccount, ReturnedAccounts } from 'near-runner-jest';
+import { Runner, ReturnedAccounts } from 'near-runner-jest';
 import { Gas } from 'near-units';
 
 const TOKEN_ID = '0';
