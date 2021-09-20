@@ -185,16 +185,16 @@ where
         }
     }
 
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q) -> LookupKey
+    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> LookupKey
     where
         Q: BorshSerialize,
         K: Borrow<Q>,
     {
         // Concat the prefix with serialized key and hash the bytes for the lookup key.
-        let mut buffer = prefix.to_vec();
-        key.serialize(&mut buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
+        buffer.extend(prefix);
+        key.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
 
-        H::hash(&buffer)
+        H::hash(buffer)
     }
 }
 
@@ -213,7 +213,7 @@ where
         Q: BorshSerialize,
         K: Borrow<Q>,
     {
-        let key = Self::lookup_key(prefix, key);
+        let key = Self::lookup_key(prefix, key, &mut Vec::new());
         let storage_bytes = env::storage_read(&key);
         (key, storage_bytes.as_deref().map(Self::deserialize_element))
     }
@@ -300,7 +300,7 @@ where
         }
 
         // Value is not in cache, check if storage has value for given key.
-        let storage_key = Self::lookup_key(&self.prefix, k);
+        let storage_key = Self::lookup_key(&self.prefix, k, &mut Vec::new());
         let contains = env::storage_has_key(&storage_key);
 
         if !contains {
@@ -372,7 +372,10 @@ where
             if let Some(val) = v.value.get_mut() {
                 if val.is_modified() {
                     let prefix = &self.prefix;
-                    let key = v.hash.get_or_init(|| Self::lookup_key(prefix, k));
+                    let key = v.hash.get_or_init(|| {
+                        buf.clear();
+                        Self::lookup_key(prefix, k, &mut buf)
+                    });
                     match val.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
@@ -560,7 +563,7 @@ mod tests {
         // Create duplicate which references same data
         assert_eq!(map[&5], 8);
 
-        let storage_key = LookupMap::<u8, u8, Keccak256>::lookup_key(b"m", &5);
+        let storage_key = LookupMap::<u8, u8, Keccak256>::lookup_key(b"m", &5, &mut Vec::new());
         assert!(!env::storage_has_key(&storage_key));
 
         drop(map);
