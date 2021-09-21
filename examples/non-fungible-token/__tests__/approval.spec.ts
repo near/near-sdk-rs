@@ -28,7 +28,7 @@ describe('nft_approve', () => {
       token_id: TOKEN_ID,
       account_id: alice,
     }, {
-      attachedDeposit: NEAR.parse('270 microNEAR')
+      attachedDeposit: NEAR.parse('270μN')
     });
 
     // check nft_is_approved, don't provide approval_id
@@ -80,7 +80,7 @@ describe('nft_approve', () => {
     }, {
       // note that tokenReceiver's account name is longer, and so it takes
       // more bytes to store and therefore requires a larger deposit!
-      attachedDeposit: NEAR.parse('360 microNEAR')
+      attachedDeposit: NEAR.parse('360μN')
     });
 
     let tokenReceiverApprovalIs3 = await nft.view('nft_is_approved', {
@@ -97,7 +97,7 @@ describe('nft_approve', () => {
       account_id: approvalReceiver,
       msg: 'return-now',
     }, {
-      attachedDeposit: NEAR.parse('390 microNEAR')
+      attachedDeposit: NEAR.parse('390μN')
     });
 
     // Make sure all cross-contract calls worked as expected!
@@ -129,7 +129,7 @@ describe('nft_approve', () => {
       token_id: TOKEN_ID,
       account_id: alice,
     }, {
-      attachedDeposit: NEAR.parse('270 microNEAR')
+      attachedDeposit: NEAR.parse('270μN')
     });
 
     // alice sends to self
@@ -154,7 +154,7 @@ runner.test('nft_revoke', async ({ root, nft, alice, tokenReceiver }) => {
     token_id: TOKEN_ID,
     account_id: alice,
   }, {
-    attachedDeposit: NEAR.parse('270 microNEAR')
+    attachedDeposit: NEAR.parse('270μN')
   });
 
   // root approves tokenReceiver
@@ -162,7 +162,7 @@ runner.test('nft_revoke', async ({ root, nft, alice, tokenReceiver }) => {
     token_id: TOKEN_ID,
     account_id: tokenReceiver,
   }, {
-    attachedDeposit: NEAR.parse('390 microNEAR')
+    attachedDeposit: NEAR.parse('390μN')
   });
 
   // root revokes alice
@@ -216,7 +216,7 @@ runner.test('nft_revoke_all', async ({ root, nft, alice, tokenReceiver }) => {
     token_id: TOKEN_ID,
     account_id: alice,
   }, {
-    attachedDeposit: NEAR.parse('270 microNEAR')
+    attachedDeposit: NEAR.parse('270μN')
   });
 
   // root approves tokenReceiver
@@ -224,7 +224,7 @@ runner.test('nft_revoke_all', async ({ root, nft, alice, tokenReceiver }) => {
     token_id: TOKEN_ID,
     account_id: tokenReceiver,
   }, {
-    attachedDeposit: NEAR.parse('390 microNEAR')
+    attachedDeposit: NEAR.parse('390μN')
   });
 
   // root revokes all

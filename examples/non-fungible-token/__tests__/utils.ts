@@ -25,7 +25,7 @@ export interface TokenMetadata {
 
 export const TOKEN_ID = '0';
 
-export function createRunner(more: ((ReturnedAccounts) => Promise<ReturnedAccounts>) = async () => ({})) {
+export function createRunner(more: ((ReturnedAccounts) => Promise<ReturnedAccounts | void>) = async () => ({})) {
   return Runner.create(async ({ root }) => {
     const alice = await root.createAccount('alice');
     const nft = await root.createAndDeploy(
@@ -54,8 +54,10 @@ export function createRunner(more: ((ReturnedAccounts) => Promise<ReturnedAccoun
       }
     );
 
+    const additionalAccounts = await more({ alice, root, nft });
+
     return {
-      ...await more({ alice, root, nft }),
+      ...(additionalAccounts || {}),
       alice,
       nft
     };
