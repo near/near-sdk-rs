@@ -1,4 +1,4 @@
-name: near-runner tests
+name: near-runner
 on: push
 jobs:
   sandbox:
