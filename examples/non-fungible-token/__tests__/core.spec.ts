@@ -1,67 +1,7 @@
 import path from 'path';
-import { Runner, ReturnedAccounts } from 'near-runner-jest';
 import { Gas } from 'near-units';
-
-const TOKEN_ID = '0';
-
-interface Token {
-  token_id: string;
-  owner_id: string;
-  metadata?: TokenMetadata,
-  approved_account_ids?: Record<string, number>;
-}
-
-interface TokenMetadata {
-  title?: string;
-  description?: string;
-  media?: string;
-  media_hash?: string;
-  copies?: number;
-  issued_at?: string;
-  expires_at?: string;
-  starts_at?: string;
-  updated_at?: string;
-  extra?: string;
-  reference?: string;
-  reference_hash?: string;
-}
-
-function createRunner(andThen: ((ReturnedAccounts) => Promise<ReturnedAccounts>) = async () => ({})) {
-  return Runner.create(async ({ root }) => {
-    const alice = await root.createAccount('alice');
-    const nft = await root.createAndDeploy(
-      'nft',
-      path.join(__dirname, '..', 'res', 'non_fungible_token.wasm'),
-      {
-        method: 'new_default_meta',
-        args: { owner_id: root }
-      }
-    );
-
-    await root.call(
-      nft,
-      'nft_mint',
-      {
-        token_id: TOKEN_ID,
-        token_owner_id: root,
-        token_metadata: {
-          title: 'Olympus Mons',
-          description: 'The tallest mountain in the charted solar system',
-          copies: 1,
-        }
-      },
-      {
-        attachedDeposit: '7000000000000000000000'
-      }
-    );
-
-    return {
-      ...await andThen({ alice, root, nft }),
-      alice,
-      nft
-    }
-  });
-}
+import type { Token } from './utils';
+import { createRunner, TOKEN_ID } from './utils';
 
 describe('nft_transfer', () => {
   const runner = createRunner();

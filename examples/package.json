@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "near-runner-jest"
+    "test": "near-runner-jest --config ./jest.config.js"
   },
   "dependencies": {
     "near-runner-jest": "^0.1.8"
