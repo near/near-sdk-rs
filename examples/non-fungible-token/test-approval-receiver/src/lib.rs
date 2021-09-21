@@ -61,7 +61,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             "Only supports the one non-fungible token contract"
         );
         log!(
-            "in nft_on_approve; sender_id={}, previous_owner_id={}, token_id={}, msg={}",
+            "in nft_on_approve; token_id={}, previous_owner_id={}, approval_id={}, msg={}",
             &token_id,
             &owner_id,
             &approval_id,
