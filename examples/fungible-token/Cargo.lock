@@ -165,11 +165,6 @@ dependencies = [
 [[package]]
 name = "fungible-token-wrapper"
 version = "0.0.2"
-dependencies = [
- "defi",
- "fungible-token",
- "near-sdk",
-]
 
 [[package]]
 name = "generic-array"
