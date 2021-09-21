@@ -7,18 +7,13 @@ describe('nft_transfer', () => {
   const runner = createRunner();
 
   runner.test('success', async ({ alice, nft, root }) => {
-    await root.call(
-      nft,
-      'nft_transfer',
-      {
-        receiver_id: alice,
-        token_id: TOKEN_ID,
-        memo: 'simple transfer',
-      },
-      {
-        attachedDeposit: '1'
-      }
-    );
+    await root.call(nft, 'nft_transfer', {
+      receiver_id: alice,
+      token_id: TOKEN_ID,
+      memo: 'simple transfer',
+    }, {
+      attachedDeposit: '1'
+    });
 
     const { owner_id } =
       await nft.view('nft_token', { token_id: TOKEN_ID }) as Token;
@@ -27,18 +22,14 @@ describe('nft_transfer', () => {
 
   runner.test("failure; cannot send some else's token", async ({ alice, nft, root }) => {
     await expect(
-      alice.call_raw( // alice tries to send it to herself
-        nft,
-        'nft_transfer',
-        {
-          receiver_id: alice,
-          token_id: TOKEN_ID,
-          memo: 'simple transfer',
-        },
-        {
-          attachedDeposit: '1'
-        }
-      )
+      // alice tries to send it to herself
+      alice.call_raw(nft, 'nft_transfer', {
+        receiver_id: alice,
+        token_id: TOKEN_ID,
+        memo: 'simple transfer',
+      }, {
+        attachedDeposit: '1'
+      })
     ).rejects.toThrow('Unauthorized');
 
     const { owner_id } =
@@ -60,20 +51,15 @@ describe('nft_transfer_call', () => {
   }));
 
   runner.test('refund (no cross-contract call from receiver)', async ({ root, nft, tokenReceiver }) => {
-    const tx = await root.call_raw(
-      nft,
-      'nft_transfer_call',
-      {
-        receiver_id: tokenReceiver,
-        token_id: TOKEN_ID,
-        memo: 'transfer and call',
-        msg: 'return-it-now',
-      },
-      {
-        attachedDeposit: '1',
-        gas: Gas.parse('31 Tgas'),
-      }
-    );
+    const tx = await root.call_raw(nft, 'nft_transfer_call', {
+      receiver_id: tokenReceiver,
+      token_id: TOKEN_ID,
+      memo: 'transfer and call',
+      msg: 'return-it-now',
+    }, {
+      attachedDeposit: '1',
+      gas: Gas.parse('31 Tgas'),
+    });
 
     // Make sure all cross-contract calls worked as expected!
     // This is needed because transfer_call gracefully ignores cross-contract call failures,
@@ -86,20 +72,15 @@ describe('nft_transfer_call', () => {
   });
 
   runner.test('refund after receiver makes cross-contract call', async ({ root, nft, tokenReceiver }) => {
-    const tx = await root.call_raw(
-      nft,
-      'nft_transfer_call',
-      {
-        receiver_id: tokenReceiver,
-        token_id: TOKEN_ID,
-        memo: 'transfer and call',
-        msg: 'return-it-later',
-      },
-      {
-        attachedDeposit: '1',
-        gas: Gas.parse('41 Tgas'),
-      }
-    );
+    const tx = await root.call_raw(nft, 'nft_transfer_call', {
+      receiver_id: tokenReceiver,
+      token_id: TOKEN_ID,
+      memo: 'transfer and call',
+      msg: 'return-it-later',
+    }, {
+      attachedDeposit: '1',
+      gas: Gas.parse('41 Tgas'),
+    });
 
     // Make sure all cross-contract calls worked as expected!
     // This is needed because transfer_call gracefully ignores cross-contract call failures,
@@ -112,20 +93,15 @@ describe('nft_transfer_call', () => {
   });
 
   runner.test('success (no cross-contract call from receiver)', async ({ root, nft, tokenReceiver }) => {
-    const tx = await root.call_raw(
-      nft,
-      'nft_transfer_call',
-      {
-        receiver_id: tokenReceiver,
-        token_id: TOKEN_ID,
-        memo: 'transfer and call',
-        msg: 'keep-it-now',
-      },
-      {
-        attachedDeposit: '1',
-        gas: Gas.parse('31 Tgas'),
-      }
-    );
+    const tx = await root.call_raw(nft, 'nft_transfer_call', {
+      receiver_id: tokenReceiver,
+      token_id: TOKEN_ID,
+      memo: 'transfer and call',
+      msg: 'keep-it-now',
+    }, {
+      attachedDeposit: '1',
+      gas: Gas.parse('31 Tgas'),
+    });
 
     // Make sure all cross-contract calls worked as expected!
     // This is needed because transfer_call gracefully ignores cross-contract call failures,
@@ -138,20 +114,15 @@ describe('nft_transfer_call', () => {
   });
 
   runner.test('success after receiver makes cross-contract call', async ({ root, nft, tokenReceiver }) => {
-    const tx = await root.call_raw(
-      nft,
-      'nft_transfer_call',
-      {
-        receiver_id: tokenReceiver,
-        token_id: TOKEN_ID,
-        memo: 'transfer and call',
-        msg: 'keep-it-later',
-      },
-      {
-        attachedDeposit: '1',
-        gas: Gas.parse('41 Tgas'),
-      }
-    );
+    const tx = await root.call_raw(nft, 'nft_transfer_call', {
+      receiver_id: tokenReceiver,
+      token_id: TOKEN_ID,
+      memo: 'transfer and call',
+      msg: 'keep-it-later',
+    }, {
+      attachedDeposit: '1',
+      gas: Gas.parse('41 Tgas'),
+    });
 
     // Make sure all cross-contract calls worked as expected!
     // This is needed because transfer_call gracefully ignores cross-contract call failures,
@@ -164,20 +135,15 @@ describe('nft_transfer_call', () => {
   });
 
   runner.test('refund if receiver panics', async ({ root, nft, tokenReceiver }) => {
-    const tx = await root.call_raw(
-      nft,
-      'nft_transfer_call',
-      {
-        receiver_id: tokenReceiver,
-        token_id: TOKEN_ID,
-        memo: 'transfer and call',
-        msg: 'keep-it-later',
-      },
-      {
-        attachedDeposit: '1',
-        gas: Gas.parse('40 Tgas'), // not enough gas!
-      }
-    );
+    const tx = await root.call_raw(nft, 'nft_transfer_call', {
+      receiver_id: tokenReceiver,
+      token_id: TOKEN_ID,
+      memo: 'transfer and call',
+      msg: 'keep-it-later',
+    }, {
+      attachedDeposit: '1',
+      gas: Gas.parse('40 Tgas'), // not enough gas!
+    });
 
     expect(tx.promiseErrors.length).toBe(1);
     expect(tx.promiseErrorMessages[0]).toMatch('FunctionCallZeroAttachedGas');
