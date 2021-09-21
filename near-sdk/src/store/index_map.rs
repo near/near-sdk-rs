@@ -147,10 +147,3 @@ where
         f.debug_struct("IndexMap").field("prefix", &self.prefix).finish()
     }
 }
-
-#[cfg(not(target_arch = "wasm32"))]
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn set_get() {}
-}
