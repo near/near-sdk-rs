@@ -67,7 +67,7 @@ impl Contract {
             metadata: LazyOption::new(StorageKeys::Metadata),
         }
     }
-    
+
     fn get_tokens(&self, account_id: &AccountId) -> UnorderedSet<String> {
         let tokens = self.accounts.get(account_id).unwrap_or_else(|| {
             UnorderedSet::new(
@@ -275,7 +275,7 @@ This is inefficient in both compute and space.
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
-    // Notice, internally we store `Vec<u8>` 
+    // Notice, internally we store `Vec<u8>`
     pub data: Vec<u8>,
 }
 
@@ -504,9 +504,9 @@ When marking structs with `serde::Serialize` you need to use `#[serde(crate = "n
 to point serde to the correct base crate.
 
 ```rust
-/// Import `borsh` from `near_sdk` crate 
+/// Import `borsh` from `near_sdk` crate
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-/// Import `serde` from `near_sdk` crate 
+/// Import `serde` from `near_sdk` crate
 use near_sdk::serde::{Serialize, Deserialize};
 
 /// Main contract structure serialized with Borsh
@@ -726,7 +726,7 @@ impl Contract {
     }
 
     pub fn get_metadata(&self) -> Metadata {
-        // `.get()` reads and deserializes the value from the storage. 
+        // `.get()` reads and deserializes the value from the storage.
         self.metadata.get().unwrap()
     }
 }
@@ -754,10 +754,11 @@ overflow-checks = true
 
 You may want to experiment with using `opt-level = "z"` instead of `opt-level = "s"` to see if generates a smaller binary.
 
-## Use simulation testing
+## Cross-contract testing
 
-Simulation testing allows you to run tests for multiple contracts and cross-contract calls in a simulated runtime environment.
-Read more, [near-sdk-sim](https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim)
+[near-runner] allows you to run tests for multiple contracts and cross-contract calls in a local [Sandbox](http://github.com/near/sandbox) node or on testnet. [Read more][near-runner].
+
+  [near-runner]: https://github.com/near/runner
 
 ## Appendix
 

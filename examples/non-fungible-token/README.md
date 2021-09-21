@@ -1,11 +1,11 @@
 Non-fungible Token (NFT)
 ===================
 
-Example implementation of a [non-fungible token] contract which uses [near-contract-standards] and [simulation] tests.
+Example implementation of a [non-fungible token] contract which uses [near-contract-standards] and [near-runner] tests.
 
   [non-fungible token]: https://nomicon.io/Standards/NonFungibleToken/README.html
   [near-contract-standards]: https://github.com/near/near-sdk-rs/tree/master/near-contract-standards
-  [simulation]: https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim
+  [near-runner]: https://github.com/near/runner-jest
 
 NOTES:
  - The maximum balance value is limited by U128 (2**128 - 1).
