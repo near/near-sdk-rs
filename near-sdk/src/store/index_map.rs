@@ -3,7 +3,6 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::collections::append_slice;
 use crate::utils::StableMap;
 use crate::{env, CacheEntry, EntryState, IntoStorageKey};
 
@@ -35,8 +34,9 @@ where
         Self { prefix: prefix.into_storage_key().into_boxed_slice(), cache: Default::default() }
     }
 
-    fn index_to_lookup_key(&self, index: u32) -> Vec<u8> {
-        append_slice(&self.prefix, &index.to_le_bytes()[..])
+    fn index_to_lookup_key(prefix: &[u8], index: u32, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(prefix);
+        buf.extend_from_slice(&index.to_le_bytes());
     }
 
     /// Flushes the cache and writes all modified values to storage.
@@ -48,8 +48,7 @@ where
             if let Some(v) = v.get_mut() {
                 if v.is_modified() {
                     key_buf.clear();
-                    key_buf.extend_from_slice(&self.prefix);
-                    key_buf.extend_from_slice(&k.to_le_bytes());
+                    Self::index_to_lookup_key(&self.prefix, *k, &mut key_buf);
                     match v.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
@@ -96,7 +95,9 @@ where
     /// Returns the element by index or `None` if it is not present.
     pub fn get(&self, index: u32) -> Option<&T> {
         let entry = self.cache.get(index).get_or_init(|| {
-            let storage_bytes = env::storage_read(&self.index_to_lookup_key(index));
+            let mut buf = Vec::with_capacity(self.prefix.len() + 4);
+            Self::index_to_lookup_key(&self.prefix, index, &mut buf);
+            let storage_bytes = env::storage_read(&buf);
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
             CacheEntry::new_cached(value)
         });
@@ -105,10 +106,12 @@ where
 
     /// Returns a mutable reference to the element at the `index` provided.
     pub(crate) fn get_mut_inner(&mut self, index: u32) -> &mut CacheEntry<T> {
-        let index_to_lookup_key = self.index_to_lookup_key(index);
+        let prefix = &self.prefix;
         let entry = self.cache.get_mut(index);
         entry.get_or_init(|| {
-            let storage_bytes = env::storage_read(&index_to_lookup_key);
+            let mut key = Vec::with_capacity(prefix.len() + 4);
+            Self::index_to_lookup_key(prefix, index, &mut key);
+            let storage_bytes = env::storage_read(&key);
             let value = storage_bytes.as_deref().map(Self::deserialize_element);
             CacheEntry::new_cached(value)
         });
