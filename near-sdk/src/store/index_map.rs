@@ -27,7 +27,7 @@ impl<T> IndexMap<T>
 where
     T: BorshSerialize,
 {
-    /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
+    /// Create new index map. Prefixes storage accesss with the prefix provided.
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,

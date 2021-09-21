@@ -107,7 +107,7 @@ where
         self.len == 0
     }
 
-    /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
+    /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
