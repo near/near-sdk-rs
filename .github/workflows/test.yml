@@ -39,4 +39,4 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Test Format
         run: cargo fmt -- --check
-      - run: cargo clippy --tests -- -Dclippy::all
+      - run: cargo clippy --features unstable --tests -- -Dclippy::all
