@@ -394,7 +394,7 @@ mod tests {
 
         let deserialize_only_vec =
             Vector::<TestType> { len: vec.len(), values: IndexMap::new(prefix) };
-        let baseline: Vec<_> = baseline.into_iter().map(|x| TestType(x)).collect();
+        let baseline: Vec<_> = baseline.into_iter().map(TestType).collect();
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
         } else {
@@ -429,7 +429,7 @@ mod tests {
         assert!(bl_iter.next().is_none());
 
         // Count check
-        assert_eq!(vec.iter().count(), baseline.iter().count());
+        assert_eq!(vec.iter().count(), baseline.len());
     }
 
     #[derive(Arbitrary, Debug)]
@@ -519,8 +519,8 @@ mod tests {
 
     #[test]
     fn serialized_bytes() {
-        use borsh::{BorshSerialize, BorshDeserialize};
-        
+        use borsh::{BorshDeserialize, BorshSerialize};
+
         let mut vec = Vector::new(b"v".to_vec());
         vec.push("Some data");
         let serialized = vec.try_to_vec().unwrap();
