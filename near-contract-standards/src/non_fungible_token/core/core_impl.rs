@@ -299,7 +299,7 @@ impl NonFungibleToken {
     ) -> Token {
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
 
-        self.internal_mint_unguarded(
+        self.internal_mint(
           token_id,
           token_owner_id,
           token_metadata,
