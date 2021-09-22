@@ -1,9 +1,12 @@
+mod iter;
+pub use self::iter::{Iter, IterMut};
+
 use super::{Vector, ERR_INCONSISTENT_STATE};
 use crate::{env, IntoStorageKey};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use core::mem;
+use std::{fmt, mem};
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub struct Index(u32);
@@ -34,7 +37,18 @@ impl<T> Container<T> {
     }
 }
 
-// TODO debug impl (must be manual)
+impl<T> fmt::Debug for Bucket<T>
+where
+    T: BorshSerialize + BorshDeserialize + fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Bucket")
+            .field("next_vacant", &self.next_vacant)
+            .field("occupied_count", &self.occupied_count)
+            .field("elements", &self.elements)
+            .finish()
+    }
+}
 
 impl<T> Bucket<T>
 where
@@ -106,5 +120,18 @@ where
         let prev = mem::replace(entry, Container::Empty { next_index });
 
         prev.into_value()
+    }
+
+    /// Flushes cached values to storage.
+    pub fn flush(&mut self) {
+        self.elements.flush()
+    }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter::new(self)
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut::new(self)
     }
 }
