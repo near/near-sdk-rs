@@ -254,6 +254,7 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
+    use borsh::{BorshDeserialize, BorshSerialize};
     use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
@@ -443,6 +444,7 @@ mod tests {
         Set(u32, u8),
         Remove(u32),
         Flush,
+        Reset,
         Get(u32),
         Swap(u32, u32),
     }
@@ -497,6 +499,10 @@ mod tests {
                         }
                         Op::Flush => {
                             sv.flush();
+                        }
+                        Op::Reset => {
+                            let serialized = sv.try_to_vec().unwrap();
+                            sv = Vector::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {
                             let r1 = sv.get(k);
