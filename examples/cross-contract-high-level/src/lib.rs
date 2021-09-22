@@ -1,14 +1,9 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env,
-    ext_contract,
-    json_types::U128,
-    log,
-    near_bindgen,
-    AccountId,
-    Promise,
-    PromiseOrValue,
+    env, ext_contract, json_types::U128, log, near_bindgen, AccountId, Gas, Promise, PromiseOrValue,
 };
+
+const TGAS: u64 = 1_000_000_000_000;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -40,7 +35,10 @@ pub trait ExtStatusMessage {
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
-        Promise::new(account_id)
+        let status_id: AccountId =
+            format!("{}.{}", account_id, env::current_account_id()).parse().unwrap();
+
+        Promise::new(status_id)
             .create_account()
             .transfer(amount.0)
             .add_full_access_key(env::signer_account_pk())
@@ -49,7 +47,6 @@ impl CrossContract {
             );
     }
 
-    #[result_serializer(borsh)]
     pub fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
         if arr.len() <= 1 {
             return PromiseOrValue::Value(arr);
@@ -57,12 +54,23 @@ impl CrossContract {
         let pivot = arr.len() / 2;
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
-        let prepaid_gas = env::prepaid_gas();
         let account_id = env::current_account_id();
+        let gas_to_pass = Gas(match pivot {
+            1 => 1 * TGAS,
+            2 => 40 * TGAS,
+            // TODO: make work with input arrays of length 5, maybe 6
+            _ => env::panic_str("Cannot sort arrays larger than length=4 due to gas limits"),
+        });
+        log!(
+            "MERGE_SORT arr={:?}, gas={:?}Tgas, gas_to_pass={:?}Tgas",
+            arr,
+            env::prepaid_gas().0 / 1_000_000_000_000,
+            gas_to_pass.0 / 1_000_000_000_000
+        );
 
-        ext::merge_sort(arr0, account_id.clone(), 0, prepaid_gas / 4)
-            .and(ext::merge_sort(arr1, account_id.clone(), 0, prepaid_gas / 4))
-            .then(ext::merge(account_id, 0, prepaid_gas / 4))
+        ext::merge_sort(arr0, account_id.clone(), 0, gas_to_pass)
+            .and(ext::merge_sort(arr1, account_id.clone(), 0, gas_to_pass))
+            .then(ext::merge(account_id, 0, Gas(TGAS)))
             .into()
     }
 
@@ -92,20 +100,19 @@ impl CrossContract {
 
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
     /// the contract itself.
-    #[result_serializer(borsh)]
     #[private]
     pub fn merge(
         &self,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data0: Vec<u8>,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data1: Vec<u8>,
+        #[callback_unwrap] data0: Vec<u8>,
+        #[callback_unwrap] data1: Vec<u8>,
     ) -> Vec<u8> {
-        log!("Received {:?} and {:?}", data0, data1);
+        log!(
+            "MERGE data0={:?}, data1={:?}, gas={:?}Ggas",
+            data0,
+            data1,
+            env::prepaid_gas().0 / 1_000_000_000
+        );
         let result = self.internal_merge(data0, data1);
-        log!("Merged {:?}", result.clone());
         result
     }
 
