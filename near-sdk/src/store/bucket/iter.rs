@@ -47,6 +47,12 @@ where
     pub(super) fn new(bucket: &'a Bucket<T>) -> Self {
         Self { values: bucket.elements.iter(), elements_left: bucket.occupied_count }
     }
+    fn decrement_elements(&mut self) {
+        self.elements_left = self
+            .elements_left
+            .checked_sub(1)
+            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+    }
 }
 
 impl<'a, T> Iterator for Iter<'a, T>
@@ -63,9 +69,7 @@ where
             match self.values.next() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.elements_left
-                        .checked_sub(1)
-                        .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                    self.decrement_elements();
                     return Some(value);
                 }
                 None => {
@@ -102,9 +106,7 @@ where
             match self.values.next_back() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.elements_left
-                        .checked_sub(1)
-                        .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                    self.decrement_elements();
                     return Some(value);
                 }
                 None => {
@@ -135,6 +137,12 @@ where
     pub(super) fn new(bucket: &'a mut Bucket<T>) -> Self {
         Self { values: bucket.elements.iter_mut(), elements_left: bucket.occupied_count }
     }
+    fn decrement_elements(&mut self) {
+        self.elements_left = self
+            .elements_left
+            .checked_sub(1)
+            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+    }
 }
 
 impl<'a, T> Iterator for IterMut<'a, T>
@@ -151,9 +159,7 @@ where
             match self.values.next() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.elements_left
-                        .checked_sub(1)
-                        .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                    self.decrement_elements();
                     return Some(value);
                 }
                 None => {
@@ -190,9 +196,7 @@ where
             match self.values.next_back() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.elements_left
-                        .checked_sub(1)
-                        .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                    self.decrement_elements();
                     return Some(value);
                 }
                 None => {

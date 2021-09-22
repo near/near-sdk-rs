@@ -144,6 +144,10 @@ where
     }
 
     /// Appends an element to the back of the collection.
+    ///
+    /// # Panics
+    ///
+    /// Panics if new length exceeds `u32::MAX`
     pub fn push(&mut self, element: T) {
         let last_idx = self.len();
         self.len =
