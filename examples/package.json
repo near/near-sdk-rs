@@ -3,10 +3,8 @@
   "scripts": {
     "test": "near-runner-jest --config ./jest.config.js"
   },
-  "dependencies": {
-    "near-runner-jest": "^0.1.8"
-  },
   "devDependencies": {
+    "near-runner-jest": "^0.1.12",
     "near-units": "^0.1.9"
   }
 }
