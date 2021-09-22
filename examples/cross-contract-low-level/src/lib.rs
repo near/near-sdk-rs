@@ -1,10 +1,11 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, json};
-use near_sdk::{env, near_bindgen, require, AccountId, Gas, PromiseResult};
+use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PromiseResult};
 
 // Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: Gas = Gas(200000000000000);
+const SINGLE_CALL_GAS: Gas = Gas(10_000_000_000_000);
+const TGAS: u64 = 1_000_000_000_000;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -21,7 +22,10 @@ impl Default for CrossContract {
 #[near_bindgen]
 impl CrossContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
-        let promise_idx = env::promise_batch_create(&account_id);
+        let status_id: AccountId =
+            format!("{}.{}", account_id, env::current_account_id()).parse().unwrap();
+
+        let promise_idx = env::promise_batch_create(&status_id);
         env::promise_batch_action_create_account(promise_idx);
         env::promise_batch_action_transfer(promise_idx, amount.0);
         env::promise_batch_action_add_key_with_full_access(
@@ -42,24 +46,34 @@ impl CrossContract {
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
         let account_id = env::current_account_id();
-        let prepaid_gas = env::prepaid_gas();
+        let gas_to_pass = Gas(match pivot {
+            1 => 1 * TGAS,
+            2 => 40 * TGAS,
+            // TODO: make work with input arrays of length 5, maybe 6
+            _ => env::panic_str("Cannot sort arrays larger than length=4 due to gas limits"),
+        });
+        log!(
+            "MERGE_SORT arr={:?}, gas={:?}Tgas, gas_to_pass={:?}Tgas",
+            arr,
+            env::prepaid_gas().0 / 1_000_000_000_000,
+            gas_to_pass.0 / 1_000_000_000_000
+        );
         let promise0 = env::promise_create(
             account_id.clone(),
             "merge_sort",
             json!({ "arr": arr0 }).to_string().as_bytes(),
             0,
-            prepaid_gas / 4,
+            gas_to_pass,
         );
         let promise1 = env::promise_create(
             account_id.clone(),
             "merge_sort",
             json!({ "arr": arr1 }).to_string().as_bytes(),
             0,
-            prepaid_gas / 4,
+            gas_to_pass,
         );
         let promise2 = env::promise_and(&[promise0, promise1]);
-        let promise3 =
-            env::promise_then(promise2, account_id.clone(), "merge", &[], 0, prepaid_gas / 4);
+        let promise3 = env::promise_then(promise2, account_id.clone(), "merge", &[], 0, Gas(TGAS));
         env::promise_return(promise3);
     }
 
@@ -78,6 +92,12 @@ impl CrossContract {
             _ => env::panic_str("Promise with index 1 failed"),
         };
         let data1: Vec<u8> = serde_json::from_slice(&data1).unwrap();
+        log!(
+            "MERGE data0={:?}, data1={:?}, gas={:?}Ggas",
+            data0,
+            data1,
+            env::prepaid_gas().0 / 1_000_000_000
+        );
         let mut i = 0usize;
         let mut j = 0usize;
         let mut result = vec![];
