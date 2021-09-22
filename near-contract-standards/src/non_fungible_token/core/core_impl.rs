@@ -308,7 +308,7 @@ impl NonFungibleToken {
 
     /// Mint a new token without checking:
     /// * Whether the caller id is equal to the `owner_id`
-    pub fn internal_mint_unguarded(
+    pub fn internal_mint(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
