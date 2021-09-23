@@ -111,6 +111,7 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
     }
+
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
         let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
@@ -172,6 +173,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         <Self as Iterator>::nth(self, 0)
     }
+
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
         Some(self.get_entry_mut(key))
@@ -210,6 +212,7 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
     }
+
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
         Some(self.get_entry_mut(key))
@@ -249,9 +252,11 @@ where
     fn next(&mut self) -> Option<&'a K> {
         self.inner.next()
     }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
+
     fn count(self) -> usize {
         self.inner.count()
     }
@@ -341,6 +346,7 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
     }
+
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         self.inner.nth_back(n).map(|(_, v)| v)
     }
@@ -418,6 +424,7 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
     }
+
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         self.inner.nth_back(n).map(|(_, v)| v)
     }
