@@ -4,7 +4,7 @@
     "test": "near-runner-jest"
   },
   "devDependencies": {
-    "near-runner-jest": "0.2.0",
+    "near-runner-jest": "0.2.2",
     "near-units": "^0.1.9"
   }
 }
