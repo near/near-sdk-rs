@@ -29,7 +29,7 @@ where
 
 impl<'a, K, V> Entry<'a, K, V>
 where
-    K: Ord + BorshSerialize,
+    K: BorshSerialize,
 {
     /// Returns a reference to this entry's key.
     ///
@@ -51,7 +51,7 @@ where
 
 impl<'a, K, V> Entry<'a, K, V>
 where
-    K: Ord + BorshSerialize + BorshDeserialize + Clone,
+    K: BorshSerialize + BorshDeserialize + Clone,
 {
     /// Ensures a value is in the entry by inserting the default if empty, and returns
     /// a mutable reference to the value in the entry.
@@ -360,7 +360,7 @@ where
 
 impl<'a, K, V> VacantEntry<'a, K, V>
 where
-    K: Ord + BorshSerialize,
+    K: BorshSerialize,
 {
     /// Gets a reference to the key that would be used when inserting a value
     /// through the `VacantEntry`.

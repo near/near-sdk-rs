@@ -7,10 +7,7 @@ pub enum Entry<'a, K: 'a, V: 'a> {
     Vacant(VacantEntry<'a, K, V>),
 }
 
-impl<'a, K, V> Entry<'a, K, V>
-where
-    K: Ord,
-{
+impl<'a, K, V> Entry<'a, K, V> {
     /// Returns a reference to this entry's key.
     ///
     /// # Examples
@@ -154,7 +151,7 @@ where
 /// View into an occupied entry in a [`LookupMap`](super::LookupMap).
 /// This is part of the [`Entry`] enum.
 pub struct OccupiedEntry<'a, K, V> {
-    pub(crate) key: K,
+    pub(super) key: K,
     pub(super) entry: &'a mut CacheEntry<V>,
 }
 
@@ -315,14 +312,11 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
 /// View into a vacant entry in a [`LookupMap`](super::LookupMap).
 /// This is part of the [`Entry`] enum.
 pub struct VacantEntry<'a, K, V> {
-    pub(crate) key: K,
+    pub(super) key: K,
     pub(super) entry: &'a mut CacheEntry<V>,
 }
 
-impl<'a, K, V> VacantEntry<'a, K, V>
-where
-    K: Ord,
-{
+impl<'a, K, V> VacantEntry<'a, K, V> {
     /// Gets a reference to the key that would be used when inserting a value
     /// through the `VacantEntry`.
     pub fn key(&self) -> &K {
