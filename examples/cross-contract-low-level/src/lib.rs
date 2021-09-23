@@ -5,7 +5,7 @@ use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PromiseResult};
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas(10_000_000_000_000);
-const TGAS: u64 = 1_000_000_000_000;
+const TGAS: Gas = Gas(1_000_000_000_000);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -46,12 +46,12 @@ impl CrossContract {
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
         let account_id = env::current_account_id();
-        let gas_to_pass = Gas(match pivot {
-            1 => 1 * TGAS,
-            2 => 40 * TGAS,
+        let gas_to_pass = match pivot {
+            1 => TGAS * 1,
+            2 => TGAS * 40,
             // TODO: make work with input arrays of length 5, maybe 6
             _ => env::panic_str("Cannot sort arrays larger than length=4 due to gas limits"),
-        });
+        };
         log!(
             "MERGE_SORT arr={:?}, gas={:?}Tgas, gas_to_pass={:?}Tgas",
             arr,
@@ -73,7 +73,7 @@ impl CrossContract {
             gas_to_pass,
         );
         let promise2 = env::promise_and(&[promise0, promise1]);
-        let promise3 = env::promise_then(promise2, account_id.clone(), "merge", &[], 0, Gas(TGAS));
+        let promise3 = env::promise_then(promise2, account_id.clone(), "merge", &[], 0, TGAS);
         env::promise_return(promise3);
     }
 

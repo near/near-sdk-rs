@@ -3,7 +3,7 @@ use near_sdk::{
     env, ext_contract, json_types::U128, log, near_bindgen, AccountId, Gas, Promise, PromiseOrValue,
 };
 
-const TGAS: u64 = 1_000_000_000_000;
+const TGAS: Gas = Gas(1_000_000_000_000);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -57,7 +57,7 @@ impl CrossContract {
     pub fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
         match self.internal_merge_sort(arr) {
             PromiseOrValue::Promise(p) => {
-                p.then(ext::finalize_merge_sort(env::current_account_id(), 0, Gas(2 * TGAS))).into()
+                p.then(ext::finalize_merge_sort(env::current_account_id(), 0, TGAS * 2)).into()
             }
             x => x,
         }
@@ -83,12 +83,12 @@ impl CrossContract {
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
         let account_id = env::current_account_id();
-        let gas_to_pass = Gas(match pivot {
-            1 => 1 * TGAS,
-            2 => 40 * TGAS,
+        let gas_to_pass = match pivot {
+            1 => TGAS * 1,
+            2 => TGAS * 40,
             // TODO: make work with input arrays of length 5, maybe 6
             _ => env::panic_str("Cannot sort arrays larger than length=4 due to gas limits"),
-        });
+        };
         log!(
             "MERGE_SORT arr={:?}, gas={:?}Tgas, gas_to_pass={:?}Tgas",
             arr,
@@ -98,7 +98,7 @@ impl CrossContract {
 
         ext::internal_merge_sort(arr0, account_id.clone(), 0, gas_to_pass)
             .and(ext::internal_merge_sort(arr1, account_id.clone(), 0, gas_to_pass))
-            .then(ext::merge(account_id, 0, Gas(TGAS)))
+            .then(ext::merge(account_id, 0, TGAS))
             .into()
     }
 
