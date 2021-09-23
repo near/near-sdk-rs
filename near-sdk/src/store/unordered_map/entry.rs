@@ -195,7 +195,7 @@ where
 {
     /// Gets a reference to the key in the entry.
     pub fn key(&self) -> &K {
-        &self.value_entry.key()
+        self.value_entry.key()
     }
 
     /// Take the ownership of the key and value from the map.

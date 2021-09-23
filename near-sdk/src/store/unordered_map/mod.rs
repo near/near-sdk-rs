@@ -12,7 +12,7 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-pub use self::iter::Iter;
+pub use self::iter::{Iter, IterMut};
 use super::bucket::BucketIndex;
 use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
 
@@ -320,10 +320,14 @@ where
         Iter::new(self)
     }
 
-    // /// Generates iterator for exclusive references to each value in the bucket.
-    // pub fn iter_mut(&mut self) -> IterMut<T> {
-    //     IterMut::new(self)
-    // }
+    /// Generates iterator for exclusive references to each value in the bucket.
+    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        IterMut::new(self)
+    }
+    // TODO keys, values iterators
 }
 
 impl<K, V, H> UnorderedMap<K, V, H>
@@ -392,18 +396,20 @@ mod tests {
         map.insert(2, 2);
         map.insert(3, 3);
         map.remove(&1);
-        // let iter = map.iter();
-        // assert_eq!(iter.len(), 3);
-        // assert_eq!(iter.collect::<Vec<_>>(), [&0, &2, &3]);
+        let iter = map.iter();
+        assert_eq!(iter.len(), 3);
+        assert_eq!(iter.collect::<Vec<_>>(), [(&0, &0), (&2, &2), (&3, &3)]);
 
-        // let iter = map.iter_mut().rev();
-        // assert_eq!(iter.collect::<Vec<_>>(), [&mut 3, &mut 2, &mut 0]);
+        let iter = map.iter_mut().rev();
+        assert_eq!(iter.collect::<Vec<_>>(), [(&3, &mut 3), (&3, &mut 2), (&0, &mut 0)]);
 
-        // let mut iter = map.iter();
-        // assert_eq!(iter.nth(2), Some(&3));
-        // // Check fused iterator assumption that each following one will be None
-        // assert_eq!(iter.next(), None);
+        let mut iter = map.iter();
+        assert_eq!(iter.nth(2), Some((&3, &3)));
+        // Check fused iterator assumption that each following one will be None
+        assert_eq!(iter.next(), None);
     }
+
+    // TODO keys, values iter tests
 
     #[derive(Arbitrary, Debug)]
     enum Op {

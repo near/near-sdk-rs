@@ -19,19 +19,19 @@ where
     }
 }
 
-// impl<'a, K, V, H> IntoIterator for &'a mut UnorderedMap<K, V, H>
-// where
-//     K: BorshSerialize + Ord + BorshDeserialize,
-//     V: BorshSerialize,
-//     H: CryptoHasher<Digest = [u8; 32]>,
-// {
-//     type Item = (&'a mut K, &'a mut V);
-//     type IntoIter = IterMut<'a, K, V, H>;
+impl<'a, K, V, H> IntoIterator for &'a mut UnorderedMap<K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = IterMut<'a, K, V, H>;
 
-//     fn into_iter(self) -> Self::IntoIter {
-//         self.iter_mut()
-//     }
-// }
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
 
 /// An iterator over elements in the storage bucket. This only yields the occupied entries.
 pub struct Iter<'a, K, V, H>
@@ -109,98 +109,91 @@ where
         Some((key, &entry.value))
     }
 }
+/// An iterator over elements in the storage bucket. This only yields the occupied entries.
+pub struct IterMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    /// Values iterator which contains empty and filled cells.
+    keys: bucket::IterMut<'a, K>,
+    /// Amount of valid elements left to iterate.
+    values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
+}
 
-// /// An iterator over elements in the storage bucket. This only yields the occupied entries.
-// pub struct IterMut<'a, K, V, H>
-// where
-//     K: BorshSerialize + Ord + BorshDeserialize,
-//     V: BorshSerialize,
-//     H: CryptoHasher<Digest = [u8; 32]>,
-// {
-//     /// Values iterator which contains empty and filled cells.
-//     values: bucket::IterMut<'a, Container<K, V, H>>,
-//     /// Amount of valid elements left to iterate.
-//     elements_left: u32,
-// }
+impl<'a, K, V, H> IterMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
+        Self { keys: map.keys.iter_mut(), values: &mut map.values }
+    }
+    fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
+    where
+        K: Clone,
+        V: BorshDeserialize,
+    {
+        let entry =
+            self.values.get_mut(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
+        //*         will only give out one mutable reference for every individual key in the bucket
+        //*         during the iteration, and there is no overlap. This operates under the
+        //*         assumption that all elements in the bucket are unique and no hash collisions.
+        //*         Because we use 32 byte hashes and all keys are verified unique based on the
+        //*         `UnorderedMap` API, this is safe.
+        let value = unsafe { &mut *(&mut entry.value as *mut V) };
+        (key, value)
+    }
+}
 
-// impl<'a, K, V, H> IterMut<'a, K, V, H>
-// where
-//     T: BorshDeserialize + BorshSerialize,
-// {
-//     pub(super) fn new(bucket: &'a mut UnorderedMap<K, V, H>) -> Self {
-//         Self { values: bucket.elements.iter_mut(), elements_left: bucket.occupied_count }
-//     }
-//     fn decrement_elements(&mut self) {
-//         self.elements_left = self
-//             .elements_left
-//             .checked_sub(1)
-//             .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-//     }
-// }
+impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    type Item = (&'a K, &'a mut V);
 
-// impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H>
-// where
-//     T: BorshDeserialize + BorshSerialize,
-// {
-//     type Item = &'a mut T;
+    fn next(&mut self) -> Option<Self::Item> {
+        let key = self.keys.next()?;
+        Some(self.get_entry_mut(key))
+    }
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.elements_left == 0 {
-//             return None;
-//         }
-//         loop {
-//             match self.values.next() {
-//                 Some(Container::Empty { .. }) => continue,
-//                 Some(Container::Occupied(value)) => {
-//                     self.decrement_elements();
-//                     return Some(value);
-//                 }
-//                 None => {
-//                     // This should never be hit, because if 0 occupied elements, should have
-//                     // returned before the loop
-//                     env::panic_str(ERR_INCONSISTENT_STATE)
-//                 }
-//             }
-//         }
-//     }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.keys.size_hint()
+    }
 
-//     fn size_hint(&self) -> (usize, Option<usize>) {
-//         let elements_left = self.elements_left as usize;
-//         (elements_left, Some(elements_left))
-//     }
+    fn count(self) -> usize {
+        self.keys.count()
+    }
+}
 
-//     fn count(self) -> usize {
-//         self.elements_left as usize
-//     }
-// }
+impl<'a, K, V, H> ExactSizeIterator for IterMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+}
+impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+}
 
-// impl<'a, K, V, H> ExactSizeIterator for IterMut<'a, K, V, H> where
-//     T: BorshSerialize + BorshDeserialize
-// {
-// }
-// impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H> where T: BorshSerialize + BorshDeserialize {}
-
-// impl<'a, K, V, H> DoubleEndedIterator for IterMut<'a, K, V, H>
-// where
-//     T: BorshSerialize + BorshDeserialize,
-// {
-//     fn next_back(&mut self) -> Option<Self::Item> {
-//         if self.elements_left == 0 {
-//             return None;
-//         }
-//         loop {
-//             match self.values.next_back() {
-//                 Some(Container::Empty { .. }) => continue,
-//                 Some(Container::Occupied(value)) => {
-//                     self.decrement_elements();
-//                     return Some(value);
-//                 }
-//                 None => {
-//                     // This should never be hit, because if 0 occupied elements, should have
-//                     // returned before the loop
-//                     env::panic_str(ERR_INCONSISTENT_STATE)
-//                 }
-//             }
-//         }
-//     }
-// }
+impl<'a, K, V, H> DoubleEndedIterator for IterMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        let key = self.keys.next_back()?;
+        Some(self.get_entry_mut(key))
+    }
+}
