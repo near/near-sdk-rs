@@ -101,6 +101,11 @@ where
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Flushes cached changes to storage. This retains any cached values in memory.
+    pub fn flush(&mut self) {
+        self.elements.flush()
+    }
 }
 
 impl<T> Bucket<T>
@@ -169,11 +174,6 @@ where
         self.occupied_count -= 1;
 
         prev.into_value()
-    }
-
-    /// Flushes cached changes to storage. This retains any cached values in memory.
-    pub fn flush(&mut self) {
-        self.elements.flush()
     }
 
     /// Generates iterator for shared references to each value in the bucket.

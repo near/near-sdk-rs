@@ -2,13 +2,13 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ERR_NOT_EXIST};
+use super::{UnorderedMap, ERR_NOT_EXIST};
 use crate::{crypto_hash::CryptoHasher, env};
 
-impl<K, V, H> Extend<(K, V)> for LookupMap<K, V, H>
+impl<K, V, H> Extend<(K, V)> for UnorderedMap<K, V, H>
 where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn extend<I>(&mut self, iter: I)
@@ -16,12 +16,12 @@ where
         I: IntoIterator<Item = (K, V)>,
     {
         for (key, value) in iter {
-            self.set(key, Some(value))
+            self.insert(key, value);
         }
     }
 }
 
-impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for LookupMap<K, V, H>
+impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
@@ -40,14 +40,14 @@ where
     }
 }
 
-impl<K, V, H, Q: ?Sized> core::ops::IndexMut<&Q> for LookupMap<K, V, H>
+impl<K, V, H, Q: ?Sized> core::ops::IndexMut<&Q> for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
-    /// Returns reference to value corresponding to key.
+    /// Returns exclusive reference to value corresponding to key.
     ///
     /// # Panics
     ///

@@ -10,6 +10,9 @@ pub use vec::Vector;
 pub mod lookup_map;
 pub use self::lookup_map::LookupMap;
 
+pub mod unordered_map;
+pub use self::unordered_map::UnorderedMap;
+
 mod index_map;
 pub(crate) use self::index_map::IndexMap;
 
