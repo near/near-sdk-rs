@@ -106,6 +106,13 @@ where
     pub fn flush(&mut self) {
         self.elements.flush()
     }
+
+    /// Clears the bucket, removing all values (including removed entries).
+    pub fn clear(&mut self) {
+        self.elements.clear();
+        self.next_vacant = None;
+        self.occupied_count = 0;
+    }
 }
 
 impl<T> Bucket<T>
@@ -173,6 +180,9 @@ where
         let prev = mem::replace(entry, Container::Empty { next_index });
         self.occupied_count -= 1;
 
+        // Point next insert to this deleted index
+        self.next_vacant = Some(index);
+
         prev.into_value()
     }
 
@@ -236,6 +246,47 @@ mod tests {
         assert_eq!(iter.next(), None);
     }
 
+    #[test]
+    fn delete_internals() {
+        let mut bucket = Bucket::new(b"b");
+        let i0 = bucket.insert(0u8);
+        let i1 = bucket.insert(1u8);
+        let i2 = bucket.insert(2u8);
+        let i3 = bucket.insert(3u8);
+
+        // Remove 1 first
+        bucket.remove(i1);
+        assert_eq!(bucket.next_vacant, Some(i1));
+        assert_eq!(bucket.occupied_count, 3);
+
+        // Remove 0 next
+        bucket.remove(i0);
+        assert_eq!(bucket.next_vacant, Some(i0));
+        assert_eq!(bucket.occupied_count, 2);
+
+        // This should insert at index 0 (last deleted)
+        let r5 = bucket.insert(5);
+        assert_eq!(r5, i0);
+        assert_eq!(bucket.next_vacant, Some(i1));
+        assert_eq!(bucket.occupied_count, 3);
+
+        bucket.remove(i3);
+        bucket.remove(i2);
+        assert_eq!(bucket.next_vacant, Some(i2));
+
+        let r6 = bucket.insert(6);
+        assert_eq!(r6, i2);
+
+        let r7 = bucket.insert(7);
+        assert_eq!(r7, i3);
+
+        // Last spot to fill is index 1
+        let r8 = bucket.insert(8);
+        assert_eq!(r8, i1);
+        assert!(bucket.next_vacant.is_none());
+        assert_eq!(bucket.insert(9), BucketIndex(4));
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Insert(u8),
@@ -243,6 +294,7 @@ mod tests {
         Flush,
         Reset,
         Get(u32),
+        Clear,
     }
 
     #[test]
@@ -286,6 +338,10 @@ mod tests {
                             let r1 = sv.get(BucketIndex(k));
                             let r2 = hm.get(&k);
                             assert_eq!(r1, r2)
+                        }
+                        Op::Clear => {
+                            sv.clear();
+                            hm.clear();
                         }
                     }
                 }

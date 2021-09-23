@@ -197,6 +197,22 @@ where
         self.keys.is_empty()
     }
 
+    /// Clears the map, removing all key-value pairs. Keeps the allocated memory
+    /// for reuse.
+    pub fn clear(&mut self)
+    where
+        K: BorshDeserialize + Clone,
+        V: BorshDeserialize,
+    {
+        // TODO optimize this, can be done with a drain iterator rather than cloning references
+        for k in self.keys.iter() {
+            // Set instead of remove to avoid loading the value from storage.
+            // This enforces a clone, but this is better th
+            self.values.set(k.to_owned(), None);
+        }
+        self.keys.clear();
+    }
+
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
     pub fn iter(&self) -> Iter<K, V, H>
