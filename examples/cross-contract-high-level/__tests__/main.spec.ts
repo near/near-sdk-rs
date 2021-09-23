@@ -49,7 +49,7 @@ describe('merge_sort', () => {
       await contract.call(contract, 'merge_sort', {
         arr: [100, 11]
       }, {
-        gas: Gas.parse('60Tgas')
+        gas: Gas.parse('50Tgas')
       })
     ).toEqual([11, 100]);
   });

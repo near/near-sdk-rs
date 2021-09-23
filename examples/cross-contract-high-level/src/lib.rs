@@ -12,21 +12,11 @@ pub struct CrossContract {}
 // One can provide a name, e.g. `ext` to use for generated methods.
 #[ext_contract(ext)]
 pub trait ExtCrossContract {
-    fn internal_merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
-    fn finalize_merge_sort(
-        &self,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        res: Vec<u8>,
-    ) -> Vec<u8>;
+    fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
     fn merge(
         &self,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data0: Vec<u8>,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data1: Vec<u8>,
+        #[callback_unwrap] data0: Vec<u8>,
+        #[callback_unwrap] data1: Vec<u8>,
     ) -> Vec<u8>;
 }
 
@@ -53,29 +43,7 @@ impl CrossContract {
             );
     }
 
-    // external interface, uses JSON serialization
     pub fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
-        match self.internal_merge_sort(arr) {
-            PromiseOrValue::Promise(p) => {
-                p.then(ext::finalize_merge_sort(env::current_account_id(), 0, TGAS * 2)).into()
-            }
-            x => x,
-        }
-    }
-
-    #[private]
-    pub fn finalize_merge_sort(
-        &self,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        res: Vec<u8>,
-    ) -> Vec<u8> {
-        res
-    }
-
-    #[result_serializer(borsh)]
-    #[private]
-    pub fn internal_merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>> {
         if arr.len() <= 1 {
             return PromiseOrValue::Value(arr);
         }
@@ -96,8 +64,8 @@ impl CrossContract {
             gas_to_pass.0 / 1_000_000_000_000
         );
 
-        ext::internal_merge_sort(arr0, account_id.clone(), 0, gas_to_pass)
-            .and(ext::internal_merge_sort(arr1, account_id.clone(), 0, gas_to_pass))
+        ext::merge_sort(arr0, account_id.clone(), 0, gas_to_pass)
+            .and(ext::merge_sort(arr1, account_id.clone(), 0, gas_to_pass))
             .then(ext::merge(account_id, 0, TGAS))
             .into()
     }
@@ -128,16 +96,11 @@ impl CrossContract {
 
     /// Used for callbacks only. Merges two sorted arrays into one. Panics if it is not called by
     /// the contract itself.
-    #[result_serializer(borsh)]
     #[private]
     pub fn merge(
         &self,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data0: Vec<u8>,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data1: Vec<u8>,
+        #[callback_unwrap] data0: Vec<u8>,
+        #[callback_unwrap] data1: Vec<u8>,
     ) -> Vec<u8> {
         log!(
             "MERGE data0={:?}, data1={:?}, gas={:?}Ggas",
