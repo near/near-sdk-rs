@@ -12,7 +12,7 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-pub use self::iter::{Iter, IterMut, Keys, Values};
+pub use self::iter::{Iter, IterMut, Keys, Values, ValuesMut};
 use super::bucket::BucketIndex;
 use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
 
@@ -231,7 +231,14 @@ where
     {
         Values::new(self)
     }
-    // TODO keys, values iterators
+    /// An iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a V`.
+    pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        ValuesMut::new(self)
+    }
 }
 
 impl<K, V, H> UnorderedMap<K, V, H>

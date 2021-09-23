@@ -345,3 +345,80 @@ where
         self.inner.nth_back(n).map(|(_, v)| v)
     }
 }
+
+/// A mutable iterator over values of a [`UnorderedMap`].
+///
+/// This `struct` is created by the `values_mut` method on [`UnorderedMap`].
+pub struct ValuesMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    inner: IterMut<'a, K, V, H>,
+}
+
+impl<'a, K, V, H> ValuesMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
+        Self { inner: map.iter_mut() }
+    }
+}
+
+impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    type Item = &'a mut V;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        <Self as Iterator>::nth(self, 0)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.inner.nth(n).map(|(_, v)| v)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.inner.count()
+    }
+}
+
+impl<'a, K, V, H> ExactSizeIterator for ValuesMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+}
+impl<'a, K, V, H> FusedIterator for ValuesMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+}
+
+impl<'a, K, V, H> DoubleEndedIterator for ValuesMut<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        <Self as DoubleEndedIterator>::nth_back(self, 0)
+    }
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.inner.nth_back(n).map(|(_, v)| v)
+    }
+}
