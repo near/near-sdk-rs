@@ -12,7 +12,7 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-pub use self::iter::{Iter, IterMut};
+pub use self::iter::{Iter, IterMut, Keys};
 use super::bucket::BucketIndex;
 use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
 
@@ -355,6 +355,14 @@ where
         K: BorshDeserialize,
     {
         IterMut::new(self)
+    }
+    /// An iterator visiting all keys in arbitrary order.
+    /// The iterator element type is `&'a K`.
+    pub fn keys(&self) -> Keys<K>
+    where
+        K: BorshDeserialize,
+    {
+        Keys::new(self)
     }
     // TODO keys, values iterators
 }

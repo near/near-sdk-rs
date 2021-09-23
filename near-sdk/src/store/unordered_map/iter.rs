@@ -33,7 +33,10 @@ where
     }
 }
 
-/// An iterator over elements in the storage bucket. This only yields the occupied entries.
+/// An iterator over elements of a [`UnorderedMap`].
+///
+/// This `struct` is created by the `iter` method on [`UnorderedMap`]. See its
+/// documentation for more.
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -116,7 +119,11 @@ where
         Some((key, &entry.value))
     }
 }
-/// An iterator over elements in the storage bucket. This only yields the occupied entries.
+
+/// A mutable iterator over elements of a [`UnorderedMap`].
+///
+/// This `struct` is created by the `iter_mut` method on [`UnorderedMap`]. See its
+/// documentation for more.
 pub struct IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -208,5 +215,59 @@ where
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
         Some(self.get_entry_mut(key))
+    }
+}
+
+/// An iterator over the keys of a [`UnorderedMap`].
+///
+/// This `struct` is created by the `keys` method on [`UnorderedMap`]. See its
+/// documentation for more.
+pub struct Keys<'a, K: 'a>
+where
+    K: BorshSerialize + BorshDeserialize,
+{
+    inner: bucket::Iter<'a, K>,
+}
+
+impl<'a, K> Keys<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize,
+{
+    pub(super) fn new<V, H>(map: &'a UnorderedMap<K, V, H>) -> Self
+    where
+        K: Ord,
+        V: BorshSerialize,
+        H: CryptoHasher<Digest = [u8; 32]>,
+    {
+        Self { inner: map.keys.iter() }
+    }
+}
+
+impl<'a, K> Iterator for Keys<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize,
+{
+    type Item = &'a K;
+
+    fn next(&mut self) -> Option<&'a K> {
+        self.inner.next()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+    fn count(self) -> usize {
+        self.inner.count()
+    }
+}
+
+impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
+impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
+
+impl<'a, K> DoubleEndedIterator for Keys<'a, K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    fn next_back(&mut self) -> Option<&'a K> {
+        self.inner.next_back()
     }
 }
