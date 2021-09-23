@@ -453,15 +453,22 @@ mod tests {
         assert_eq!(iter.collect::<Vec<_>>(), [(&0, &0), (&2, &2), (&3, &3)]);
 
         let iter = map.iter_mut().rev();
-        assert_eq!(iter.collect::<Vec<_>>(), [(&3, &mut 3), (&3, &mut 2), (&0, &mut 0)]);
+        assert_eq!(iter.collect::<Vec<_>>(), [(&3, &mut 3), (&2, &mut 2), (&0, &mut 0)]);
 
         let mut iter = map.iter();
         assert_eq!(iter.nth(2), Some((&3, &3)));
         // Check fused iterator assumption that each following one will be None
         assert_eq!(iter.next(), None);
-    }
 
-    // TODO keys, values iter tests
+        // Double all values
+        map.values_mut().for_each(|v| {
+            *v *= 2;
+        });
+        assert_eq!(map.values().collect::<Vec<_>>(), [&0, &4, &6]);
+
+        // Collect all keys
+        assert_eq!(map.keys().collect::<Vec<_>>(), [&0, &2, &3]);
+    }
 
     #[derive(Arbitrary, Debug)]
     enum Op {
