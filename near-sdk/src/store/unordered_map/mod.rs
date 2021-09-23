@@ -207,8 +207,8 @@ where
     /// Returns a reference to the value corresponding to the key.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
-    /// the key type.
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -220,8 +220,8 @@ where
     /// Returns a mutable reference to the value corresponding to the key.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
-    /// the key type.
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
@@ -256,8 +256,8 @@ where
     /// Returns `true` if the map contains a value for the specified key.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
-    /// the key type.
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -270,9 +270,34 @@ where
     /// was previously in the map.
     ///
     /// The key may be any borrowed form of the map's key type, but
-    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
-    /// the key type.
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
+    where
+        K: Borrow<Q> + BorshDeserialize,
+        Q: BorshSerialize + ToOwned<Owned = K>,
+    {
+        self.remove_entry(k).map(|(_, v)| v)
+    }
+
+    /// Removes a key from the map, returning the stored key and value if the
+    /// key was previously in the map.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.remove(&1), Some("a".to_string()));
+    /// assert_eq!(map.remove(&1), None);
+    /// ```
+    pub fn remove_entry<Q: ?Sized>(&mut self, k: &Q) -> Option<(K, V)>
     where
         K: Borrow<Q> + BorshDeserialize,
         Q: BorshSerialize + ToOwned<Owned = K>,
@@ -281,12 +306,13 @@ where
         let old_value = self.values.remove(k)?;
 
         // Remove key with index if value exists
-        self.keys
+        let key = self
+            .keys
             .remove(old_value.key_index)
             .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
 
         // Return removed value
-        Some(old_value.value)
+        Some((key, old_value.value))
     }
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
@@ -312,7 +338,8 @@ where
         Entry::new(self.values.entry(key), &mut self.keys)
     }
 
-    /// Generates iterator for shared references to each value in the bucket.
+    /// An iterator visiting all key-value pairs in arbitrary order.
+    /// The iterator element type is `(&'a K, &'a V)`.
     pub fn iter(&self) -> Iter<K, V, H>
     where
         K: BorshDeserialize,
@@ -320,7 +347,9 @@ where
         Iter::new(self)
     }
 
-    /// Generates iterator for exclusive references to each value in the bucket.
+    /// An iterator visiting all key-value pairs in arbitrary order,
+    /// with exclusive references to the values.
+    /// The iterator element type is `(&'a K, &'a mut V)`.
     pub fn iter_mut(&mut self) -> IterMut<K, V, H>
     where
         K: BorshDeserialize,
