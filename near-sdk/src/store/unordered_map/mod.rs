@@ -234,8 +234,8 @@ where
         Values::new(self)
     }
 
-    /// An iterator visiting all values in arbitrary order.
-    /// The iterator element type is `&'a V`.
+    /// A mutable iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a mut V`.
     pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
     where
         K: BorshDeserialize,
