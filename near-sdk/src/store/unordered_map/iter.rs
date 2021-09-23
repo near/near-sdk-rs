@@ -35,8 +35,7 @@ where
 
 /// An iterator over elements of a [`UnorderedMap`].
 ///
-/// This `struct` is created by the `iter` method on [`UnorderedMap`]. See its
-/// documentation for more.
+/// This `struct` is created by the `iter` method on [`UnorderedMap`].
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -122,8 +121,7 @@ where
 
 /// A mutable iterator over elements of a [`UnorderedMap`].
 ///
-/// This `struct` is created by the `iter_mut` method on [`UnorderedMap`]. See its
-/// documentation for more.
+/// This `struct` is created by the `iter_mut` method on [`UnorderedMap`].
 pub struct IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -220,8 +218,7 @@ where
 
 /// An iterator over the keys of a [`UnorderedMap`].
 ///
-/// This `struct` is created by the `keys` method on [`UnorderedMap`]. See its
-/// documentation for more.
+/// This `struct` is created by the `keys` method on [`UnorderedMap`].
 pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize,
@@ -269,5 +266,82 @@ where
 {
     fn next_back(&mut self) -> Option<&'a K> {
         self.inner.next_back()
+    }
+}
+
+/// An iterator over the values of a [`UnorderedMap`].
+///
+/// This `struct` is created by the `values` method on [`UnorderedMap`].
+pub struct Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    inner: Iter<'a, K, V, H>,
+}
+
+impl<'a, K, V, H> Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
+        Self { inner: map.iter() }
+    }
+}
+
+impl<'a, K, V, H> Iterator for Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    type Item = &'a V;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        <Self as Iterator>::nth(self, 0)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.inner.nth(n).map(|(_, v)| v)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+
+    fn count(self) -> usize {
+        self.inner.count()
+    }
+}
+
+impl<'a, K, V, H> ExactSizeIterator for Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+}
+impl<'a, K, V, H> FusedIterator for Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+}
+
+impl<'a, K, V, H> DoubleEndedIterator for Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        <Self as DoubleEndedIterator>::nth_back(self, 0)
+    }
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.inner.nth_back(n).map(|(_, v)| v)
     }
 }

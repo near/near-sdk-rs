@@ -12,7 +12,7 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-pub use self::iter::{Iter, IterMut, Keys};
+pub use self::iter::{Iter, IterMut, Keys, Values};
 use super::bucket::BucketIndex;
 use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
 
@@ -196,6 +196,42 @@ where
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }
+
+    /// An iterator visiting all key-value pairs in arbitrary order.
+    /// The iterator element type is `(&'a K, &'a V)`.
+    pub fn iter(&self) -> Iter<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Iter::new(self)
+    }
+
+    /// An iterator visiting all key-value pairs in arbitrary order,
+    /// with exclusive references to the values.
+    /// The iterator element type is `(&'a K, &'a mut V)`.
+    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        IterMut::new(self)
+    }
+    /// An iterator visiting all keys in arbitrary order.
+    /// The iterator element type is `&'a K`.
+    pub fn keys(&self) -> Keys<K>
+    where
+        K: BorshDeserialize,
+    {
+        Keys::new(self)
+    }
+    /// An iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a V`.
+    pub fn values(&self) -> Values<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Values::new(self)
+    }
+    // TODO keys, values iterators
 }
 
 impl<K, V, H> UnorderedMap<K, V, H>
@@ -337,34 +373,6 @@ where
     {
         Entry::new(self.values.entry(key), &mut self.keys)
     }
-
-    /// An iterator visiting all key-value pairs in arbitrary order.
-    /// The iterator element type is `(&'a K, &'a V)`.
-    pub fn iter(&self) -> Iter<K, V, H>
-    where
-        K: BorshDeserialize,
-    {
-        Iter::new(self)
-    }
-
-    /// An iterator visiting all key-value pairs in arbitrary order,
-    /// with exclusive references to the values.
-    /// The iterator element type is `(&'a K, &'a mut V)`.
-    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
-    where
-        K: BorshDeserialize,
-    {
-        IterMut::new(self)
-    }
-    /// An iterator visiting all keys in arbitrary order.
-    /// The iterator element type is `&'a K`.
-    pub fn keys(&self) -> Keys<K>
-    where
-        K: BorshDeserialize,
-    {
-        Keys::new(self)
-    }
-    // TODO keys, values iterators
 }
 
 impl<K, V, H> UnorderedMap<K, V, H>
