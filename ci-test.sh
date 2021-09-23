@@ -2,7 +2,7 @@
 
 if [[ "${NEAR_RELEASE}" == "true" ]]; then
     echo "Test with release version of borsh and near-vm-logic"
-    sed -n '/^borsh/p' near-sdk/Cargo.toml
+    sed -n '/^borsh/p' near-sdk/Cargo.toml 
     sed -n '/^near-vm-logic/p' near-sdk/Cargo.toml
     cargo test --all
 else
@@ -14,7 +14,7 @@ else
     cp Cargo.lock{,.bak}
 
     sed -i "" "s|###||g" Cargo.toml
-
+    
     set +e
     cargo test --all
     status=$?
@@ -31,8 +31,8 @@ else
 
     ./examples/build_all_docker.sh --check
     echo "Testing all examples"
-    ./examples/test_all.sh --no-js
-    # TODO re-enable when parsing unknown sections is fixed in twiggy
+    ./examples/test_all.sh
+    # TODO re-enable when parsing unknown sections is fixed in twiggy 
     #      https://github.com/rustwasm/twiggy/pull/576
     # echo "Checking size of all example contracts"
     # ./examples/size_all.sh
