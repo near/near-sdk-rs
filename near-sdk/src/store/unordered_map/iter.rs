@@ -66,7 +66,11 @@ where
     type Item = (&'a K, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let key = self.keys.next()?;
+        <Self as Iterator>::nth(self, 0)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let key = self.keys.nth(n)?;
         let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
 
         Some((key, &entry.value))
@@ -103,7 +107,10 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let key = self.keys.next_back()?;
+        <Self as DoubleEndedIterator>::nth_back(self, 0)
+    }
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        let key = self.keys.nth_back(n)?;
         let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
 
         Some((key, &entry.value))
@@ -158,7 +165,10 @@ where
     type Item = (&'a K, &'a mut V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let key = self.keys.next()?;
+        <Self as Iterator>::nth(self, 0)
+    }
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let key = self.keys.nth(n)?;
         Some(self.get_entry_mut(key))
     }
 
@@ -193,7 +203,10 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let key = self.keys.next_back()?;
+        <Self as DoubleEndedIterator>::nth_back(self, 0)
+    }
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        let key = self.keys.nth_back(n)?;
         Some(self.get_entry_mut(key))
     }
 }
