@@ -309,7 +309,7 @@ impl RuntimeStandalone {
     /// Produce num_of_blocks blocks.
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// use near_sdk_sim::runtime::init_runtime;
     /// let (mut runtime, _, _) = init_runtime(None);
     /// runtime.produce_blocks(5);
@@ -376,7 +376,7 @@ impl RuntimeStandalone {
     /// Returns a reference to the current block.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// use near_sdk_sim::runtime::init_runtime;
     /// let (mut runtime, _, _) = init_runtime(None);
     /// runtime.produce_block().unwrap();

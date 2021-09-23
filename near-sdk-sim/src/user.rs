@@ -29,7 +29,7 @@ type Runtime = Rc<RefCell<RuntimeStandalone>>;
 ///
 /// # Example:
 ///
-/// ```
+/// ```no_run
 /// use near_sdk_sim::{to_yocto, account::AccessKey};
 /// use near_crypto::{InMemorySigner, KeyType, Signer};
 /// let master_account = near_sdk_sim::init_simulator(None);
@@ -312,7 +312,7 @@ impl UserAccount {
     /// Returns a reference to a memory location of the standalone runtime.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// let master_account = near_sdk_sim::init_simulator(None);
     /// let runtime = master_account.borrow_runtime();
     ///
@@ -326,7 +326,7 @@ impl UserAccount {
     /// Returns a mutable memory location to the standalone runtime.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// let master_account = near_sdk_sim::init_simulator(None);
     /// let mut runtime = master_account.borrow_runtime_mut();
     ///
@@ -371,7 +371,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///
 ///  This example deploys and initializes the contract.
 ///
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
@@ -392,7 +392,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// ```
 /// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
 /// So it is the same as:
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
@@ -457,7 +457,7 @@ macro_rules! deploy {
 ///
 /// # Examples:
 ///
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
@@ -524,7 +524,7 @@ macro_rules! call {
 /// Calls a view method on the contract account.
 ///
 /// Example:
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
