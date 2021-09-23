@@ -12,9 +12,9 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
+pub use self::iter::Iter;
 use super::bucket::BucketIndex;
 use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
-// pub use self::iter::{Iter, IterMut};
 
 const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
@@ -196,18 +196,6 @@ where
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }
-
-    // fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> LookupKey
-    // where
-    //     Q: BorshSerialize,
-    //     K: Borrow<Q>,
-    // {
-    //     // Concat the prefix with serialized key and hash the bytes for the lookup key.
-    //     buffer.extend(prefix);
-    //     key.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-
-    //     H::hash(buffer)
-    // }
 }
 
 impl<K, V, H> UnorderedMap<K, V, H>
@@ -323,6 +311,19 @@ where
     {
         Entry::new(self.values.entry(key), &mut self.keys)
     }
+
+    /// Generates iterator for shared references to each value in the bucket.
+    pub fn iter(&self) -> Iter<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Iter::new(self)
+    }
+
+    // /// Generates iterator for exclusive references to each value in the bucket.
+    // pub fn iter_mut(&mut self) -> IterMut<T> {
+    //     IterMut::new(self)
+    // }
 }
 
 impl<K, V, H> UnorderedMap<K, V, H>
@@ -348,7 +349,7 @@ mod tests {
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{BorshDeserialize, BorshSerialize};
     use rand::RngCore;
-    use rand::{Rng, SeedableRng};
+    use rand::SeedableRng;
     use std::collections::HashMap;
 
     #[test]
