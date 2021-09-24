@@ -237,8 +237,8 @@ where
         (remaining, Some(remaining))
     }
 
-    fn count(self) -> usize {https://github.com/near/near-sdk-rs/pull/584#issuecomment-926146144
-        self.next()
+    fn count(self) -> usize {
+        self.remaining()
     }
 }
 
