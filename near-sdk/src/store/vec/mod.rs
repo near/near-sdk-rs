@@ -214,7 +214,7 @@ where
         if index >= self.len {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
         }
-        self.values.replace(index, element).unwrap()
+        self.values.insert(index, element).unwrap()
     }
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
