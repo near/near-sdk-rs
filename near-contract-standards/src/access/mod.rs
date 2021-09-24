@@ -1,4 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::LookupMap;
 use near_sdk::{env, require, AccountId};
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -30,4 +31,15 @@ impl Ownable {
         require!(new_owner != self.null_owner, "Ownable: new owner is undefined");
         self.owner = new_owner;
     }
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct RoleData {
+    pub members: LookupMap<AccountId, bool>,
+    pub admin_role: [u8; 32],
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct AccessControl {
+    pub roles: LookupMap<[u8; 32], RoleData>,
 }
