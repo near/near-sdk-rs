@@ -43,3 +43,16 @@ pub struct RoleData {
 pub struct AccessControl {
     pub roles: LookupMap<[u8; 32], RoleData>,
 }
+
+impl AccessControl {
+    pub fn new() -> Self {
+        Self { roles: LookupMap::new(b"a".to_vec()) }
+    }
+
+    pub fn has_role(&self, role: [u8; 32], account: AccountId) -> bool {
+        if !self.roles.contains_key(&role) {
+            return false;
+        }
+        self.roles.get(&role).unwrap().members.get(&account).unwrap_or(false)
+    }
+}
