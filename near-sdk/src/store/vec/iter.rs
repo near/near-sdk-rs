@@ -157,7 +157,7 @@ where
     }
 }
 
-/// An iterator over exclusive references to each element of a stored vector.
+/// A draining iterator for [`Vector<T>`].
 #[derive(Debug)]
 pub struct Drain<'a, T>
 where
@@ -237,17 +237,7 @@ where
         (remaining, Some(remaining))
     }
 
-    fn count(self) -> usize {
-        self.remaining()
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        // Only delete and don't load any values before n
-        for _ in 0..n {
-            let next = self.range.next()?;
-            // Delete all values in advance, values will be shifted over on drop
-            self.vec.values.set(next, None);
-        }
+    fn count(self) -> usize {https://github.com/near/near-sdk-rs/pull/584#issuecomment-926146144
         self.next()
     }
 }
