@@ -125,7 +125,7 @@ macro_rules! impl_pausable_fungible_token_core {
                 amount: U128,
                 memo: Option<String>,
                 ) {
-                assert!(!self.paused, "Contract Is Paused");
+                require!(!self.paused, "Contract Is Paused");
                 self.$token.ft_transfer(receiver_id, amount, memo)
             }
 
@@ -137,7 +137,7 @@ macro_rules! impl_pausable_fungible_token_core {
                 memo: Option<String>,
                 msg: String,
                 ) -> PromiseOrValue<U128> {
-                assert!(!self.paused, "Contract Is Paused");
+                require!(!self.paused, "Contract Is Paused");
                 self.$token.ft_transfer_call(receiver_id, amount, memo, msg)
             }
 
