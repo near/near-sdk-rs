@@ -291,23 +291,16 @@ impl NonFungibleToken {
     /// * token_id must be unique
     ///
     /// Returns the newly minted token
-    #[deprecated(
-      since = "4.0.0",
-      note = "mint is deprecated, please use internal_mint instead."
-    )]
+    #[deprecated(since = "4.0.0", note = "mint is deprecated, please use internal_mint instead.")]
     pub fn mint(
-      &mut self,
-      token_id: TokenId,
-      token_owner_id: AccountId,
-      token_metadata: Option<TokenMetadata>,
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: AccountId,
+        token_metadata: Option<TokenMetadata>,
     ) -> Token {
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
 
-        self.internal_mint(
-          token_id,
-          token_owner_id,
-          token_metadata,
-        )
+        self.internal_mint(token_id, token_owner_id, token_metadata)
     }
 
     /// Mint a new token without checking:
