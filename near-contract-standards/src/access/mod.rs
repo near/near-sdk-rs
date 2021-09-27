@@ -49,10 +49,20 @@ impl AccessControl {
         Self { roles: LookupMap::new(b"a".to_vec()) }
     }
 
-    pub fn has_role(&self, role: [u8; 32], account: AccountId) -> bool {
-        if !self.roles.contains_key(&role) {
+    pub fn has_role(&self, role: &[u8; 32], account: &AccountId) -> bool {
+        if !self.roles.contains_key(role) {
             return false;
         }
-        self.roles.get(&role).unwrap().members.get(&account).unwrap_or(false)
+        self.roles.get(role).unwrap().members.get(account).unwrap_or(false)
+    }
+
+    pub fn check_role(&self, role: &[u8; 32], account: &AccountId) {
+        if !self.has_role(role, account) {
+            env::panic_str(format!("AccessControl: account {} is missing role {:?}", account, role).as_str())
+        }
+    }
+
+    pub fn only_role(&self, role: &[u8; 32]) {
+        self.check_role(role, &env::predecessor_account_id());
     }
 }
