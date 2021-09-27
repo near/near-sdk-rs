@@ -85,4 +85,16 @@ impl AccessControl {
             self.roles.get_mut(&role).unwrap().members.insert(account, false);
         }
     }
+
+    pub fn renounce_role(&mut self, role: [u8; 32], account: AccountId) {
+        require!(
+            account == env::predecessor_account_id(),
+            "AccessControl: can only renounce roles for self"
+        );
+        self.revoke_role(role, account);
+    }
+
+    pub fn set_role_admin(&mut self, role: [u8; 32], admin_role: [u8; 32]) {
+        self.roles.get_mut(&role).unwrap().admin_role = admin_role;
+    }
 }
