@@ -42,11 +42,12 @@ pub struct RoleData {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct AccessControl {
     pub roles: HashMap<[u8; 32], RoleData>,
+    pub null_role: [u8; 32]
 }
 
 impl AccessControl {
     pub fn new() -> Self {
-        Self { roles: HashMap::new() }
+        Self { roles: HashMap::new(), null_role: [0; 32] }
     }
 
     pub fn has_role(&self, role: &[u8; 32], account: &AccountId) -> bool {
@@ -59,7 +60,7 @@ impl AccessControl {
     pub fn check_role(&self, role: &[u8; 32], account: &AccountId) {
         if !self.has_role(role, account) {
             env::panic_str(
-                format!("AccessControl: account {} is missing role {:?}", account, role).as_str(),
+                format!("AccessControl: account {} is missing role {:?}", *account, *role).as_str(),
             )
         }
     }
@@ -69,7 +70,10 @@ impl AccessControl {
     }
 
     pub fn get_role_admin(&self, role: &[u8; 32]) -> [u8; 32] {
-        self.roles.get(role).unwrap().admin_role
+        if !self.roles.contains_key(role) {
+            return self.null_role.clone()
+        }
+        self.roles.get(role).unwrap().admin_role.clone()
     }
 
     pub fn grant_role(&mut self, role: [u8; 32], account: AccountId) {
