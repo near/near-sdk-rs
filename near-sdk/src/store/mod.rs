@@ -17,7 +17,6 @@ mod index_map;
 pub(crate) use self::index_map::IndexMap;
 
 pub(crate) mod bucket;
-#[allow(unused_imports)]
 pub(crate) use self::bucket::Bucket;
 
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart \
