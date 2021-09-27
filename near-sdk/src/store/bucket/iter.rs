@@ -29,6 +29,10 @@ where
     }
 }
 
+fn decrement_count(count: &mut u32) {
+    *count = count.checked_sub(1).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+}
+
 /// An iterator over elements in the storage bucket. This only yields the occupied entries.
 pub struct Iter<'a, T>
 where
@@ -47,12 +51,6 @@ where
     pub(super) fn new(bucket: &'a Bucket<T>) -> Self {
         Self { values: bucket.elements.iter(), elements_left: bucket.occupied_count }
     }
-    fn decrement_elements(&mut self) {
-        self.elements_left = self
-            .elements_left
-            .checked_sub(1)
-            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-    }
 }
 
 impl<'a, T> Iterator for Iter<'a, T>
@@ -69,7 +67,7 @@ where
             match self.values.next() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.decrement_elements();
+                    decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
                 None => {
@@ -106,7 +104,7 @@ where
             match self.values.next_back() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.decrement_elements();
+                    decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
                 None => {
@@ -137,12 +135,6 @@ where
     pub(super) fn new(bucket: &'a mut Bucket<T>) -> Self {
         Self { values: bucket.elements.iter_mut(), elements_left: bucket.occupied_count }
     }
-    fn decrement_elements(&mut self) {
-        self.elements_left = self
-            .elements_left
-            .checked_sub(1)
-            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-    }
 }
 
 impl<'a, T> Iterator for IterMut<'a, T>
@@ -159,7 +151,7 @@ where
             match self.values.next() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.decrement_elements();
+                    decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
                 None => {
@@ -196,7 +188,7 @@ where
             match self.values.next_back() {
                 Some(Container::Empty { .. }) => continue,
                 Some(Container::Occupied(value)) => {
-                    self.decrement_elements();
+                    decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
                 None => {
