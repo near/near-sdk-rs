@@ -86,6 +86,20 @@ where
     }
 }
 
+impl<T> Extend<T> for Bucket<T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        for item in iter {
+            self.insert(item);
+        }
+    }
+}
+
 impl<T> Bucket<T>
 where
     T: BorshSerialize,
