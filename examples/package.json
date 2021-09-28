@@ -1,10 +1,10 @@
 {
   "private": true,
   "scripts": {
-    "test": "near-runner-jest"
+    "test": "ava"
   },
   "devDependencies": {
-    "near-runner-jest": "0.2.2",
+    "near-runner-ava": "0.0.1-pre.0",
     "near-units": "^0.1.9"
   }
 }

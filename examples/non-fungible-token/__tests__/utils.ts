@@ -1,5 +1,5 @@
 import path from 'path';
-import { Runner, ReturnedAccounts } from 'near-runner-jest';
+import { Runner, ReturnedAccounts } from 'near-runner-ava';
 
 export interface Token {
   token_id: string;
@@ -25,7 +25,7 @@ export interface TokenMetadata {
 
 export const TOKEN_ID = '0';
 
-export function createRunner(more: ((ReturnedAccounts) => Promise<ReturnedAccounts | void>) = async () => ({})) {
+export function createRunner(more: ((accounts: ReturnedAccounts) => Promise<ReturnedAccounts | void>) = async () => ({})) {
   return Runner.create(async ({ root }) => {
     const alice = await root.createAccount('alice');
     const nft = await root.createAndDeploy(

@@ -1,3 +1,3 @@
 {
-  "extends": "near-runner-jest/tsconfig.jest.json"
+  "extends": "near-runner-ava/tsconfig.ava.json"
 }
