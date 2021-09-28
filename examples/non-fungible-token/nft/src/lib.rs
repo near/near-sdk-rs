@@ -114,6 +114,7 @@ impl NonFungibleTokenMetadataProvider for Contract {
 mod tests {
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
+    use std::collections::HashMap;
 
     use super::*;
 
