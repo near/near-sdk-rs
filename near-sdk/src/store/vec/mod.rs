@@ -6,11 +6,11 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 pub use self::iter::{Iter, IterMut};
+use super::ERR_INCONSISTENT_STATE;
 use crate::{env, IntoStorageKey};
 
 use super::IndexMap;
 
-const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
@@ -144,6 +144,10 @@ where
     }
 
     /// Appends an element to the back of the collection.
+    ///
+    /// # Panics
+    ///
+    /// Panics if new length exceeds `u32::MAX`
     pub fn push(&mut self, element: T) {
         let last_idx = self.len();
         self.len =
