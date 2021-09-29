@@ -252,4 +252,28 @@ mod tests {
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
     }
+
+    #[test]
+    #[should_panic(expected = "AccessControl: can only renounce roles for self")]
+    fn test_renounce_role_fail() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut ac = AccessControl::new();
+        ac.renounce_role([1; 32], accounts(2));
+    }
+
+    #[test]
+    fn test_renounce_role_success() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut ac = AccessControl::new();
+        let role = [1; 32];
+        let role_admin = [2; 32];
+        ac.set_role_admin(role, role_admin);
+        ac.setup_role(role_admin, accounts(1));
+        ac.grant_role(role, accounts(1));
+        assert_eq!(true, ac.has_role(&role, &accounts(1)));
+        ac.renounce_role(role, accounts(1));
+        assert_eq!(false, ac.has_role(&role, &accounts(1)));
+    }
 }
