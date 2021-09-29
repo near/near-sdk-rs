@@ -20,7 +20,7 @@ const REGISTER_EXPECTED_ERR: &str =
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
 /// guest code is not parallel.
-const ATOMIC_OP_REGISTER: u64 = 0;
+const ATOMIC_OP_REGISTER: u64 = std::u64::MAX - 2;
 /// Register used to record evicted values from the storage.
 const EVICTED_REGISTER: u64 = std::u64::MAX - 1;
 

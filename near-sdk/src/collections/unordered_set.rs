@@ -181,6 +181,13 @@ mod tests {
     use std::iter::FromIterator;
 
     #[test]
+    pub fn test_insert_one() {
+        let mut map = UnorderedSet::new(b"m");
+        assert!(map.insert(&1));
+        assert!(!map.insert(&1));
+    }
+
+    #[test]
     pub fn test_insert() {
         let mut set = UnorderedSet::new(b"s");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);

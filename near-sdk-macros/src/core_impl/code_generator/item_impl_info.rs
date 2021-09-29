@@ -280,7 +280,7 @@ mod tests {
     fn callback_args() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[private] pub fn method(&self, #[callback] x: &mut u64, y: String, #[callback] z: Vec<u8>) { }
+            #[private] pub fn method(&self, #[callback_unwrap] x: &mut u64, y: String, #[callback_unwrap] z: Vec<u8>) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
@@ -324,7 +324,7 @@ mod tests {
     fn callback_args_only() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[private] pub fn method(&self, #[callback] x: &mut u64, #[callback] y: String) { }
+            #[private] pub fn method(&self, #[callback_unwrap] x: &mut u64, #[callback_unwrap] y: String) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
@@ -348,6 +348,40 @@ mod tests {
                 };
                 let y: String =
                     near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON");
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                contract.method(&mut x, y, );
+            }
+        );
+
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn callback_args_results() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[private] pub fn method(&self, #[callback_result] x: &mut Result<u64, PromiseError>, #[callback_result] y: Result<String, PromiseError>) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+                    near_sdk::env::panic_str("Method method is private");
+                }
+                let mut x: Result<u64, PromiseError> = match near_sdk::env::promise_result(0u64) {
+                    near_sdk::PromiseResult::Successful(data) => Ok(near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")),
+                    near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
+                    near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
+                };
+                let y: Result<String, PromiseError> = match near_sdk::env::promise_result(1u64) {
+                    near_sdk::PromiseResult::Successful(data) => Ok(near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")),
+                    near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
+                    near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
+                };
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
                 contract.method(&mut x, y, );
             }
@@ -541,7 +575,7 @@ mod tests {
     fn callback_args_mixed_serialization() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[private] pub fn method(&self, #[callback] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback] #[serializer(json)] z: Vec<u8>) { }
+            #[private] pub fn method(&self, #[callback_unwrap] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback_unwrap] #[serializer(json)] z: Vec<u8>) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();
