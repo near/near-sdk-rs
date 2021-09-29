@@ -42,7 +42,7 @@ pub struct RoleData {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct AccessControl {
     pub roles: HashMap<[u8; 32], RoleData>,
-    pub null_role: [u8; 32]
+    pub null_role: [u8; 32],
 }
 
 impl AccessControl {
@@ -71,13 +71,19 @@ impl AccessControl {
 
     pub fn get_role_admin(&self, role: &[u8; 32]) -> [u8; 32] {
         if !self.roles.contains_key(role) {
-            return self.null_role.clone()
+            return self.null_role.clone();
         }
         self.roles.get(role).unwrap().admin_role.clone()
     }
 
     pub fn grant_role(&mut self, role: [u8; 32], account: AccountId) {
         self.only_role(&self.get_role_admin(&role));
+        if !self.roles.contains_key(&role) {
+            self.roles.insert(
+                role,
+                RoleData { members: HashMap::new(), admin_role: self.null_role.clone() },
+            );
+        }
         if !self.has_role(&role, &account) {
             self.roles.get_mut(&role).unwrap().members.insert(account, true);
         }
@@ -99,6 +105,12 @@ impl AccessControl {
     }
 
     pub fn set_role_admin(&mut self, role: [u8; 32], admin_role: [u8; 32]) {
+        if !self.roles.contains_key(&role) {
+            self.roles.insert(
+                role,
+                RoleData { members: HashMap::new(), admin_role: self.null_role.clone() },
+            );
+        }
         self.roles.get_mut(&role).unwrap().admin_role = admin_role;
     }
 }
