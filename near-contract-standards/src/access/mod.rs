@@ -180,4 +180,41 @@ mod tests {
         ownable.transfer_ownership(accounts(2));
         assert_eq!(ownable.owner(), accounts(2));
     }
+
+    #[test]
+    fn test_ac_new() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        AccessControl::new();
+    }
+
+    #[test]
+    fn test_ac_has_role() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let ac = AccessControl::new();
+        assert_eq!(false, ac.has_role(&[1; 32], &accounts(2)));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "AccessControl: account charlie is missing role [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"
+    )]
+    fn test_ac_check_role() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let ac = AccessControl::new();
+        ac.check_role(&[1; 32], &accounts(2));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "AccessControl: account bob is missing role [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"
+    )]
+    fn test_ac_only_role() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let ac = AccessControl::new();
+        ac.only_role(&[1; 32]);
+    }
 }
