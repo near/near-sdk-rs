@@ -79,8 +79,7 @@ impl AccessControl {
         self.roles.get(role).unwrap().admin_role.clone()
     }
 
-    pub fn grant_role(&mut self, role: [u8; 32], account: AccountId) {
-        self.only_role(&self.get_role_admin(&role));
+    fn grant_role_internal(&mut self, role: [u8; 32], account: AccountId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
@@ -90,6 +89,15 @@ impl AccessControl {
         if !self.has_role(&role, &account) {
             self.roles.get_mut(&role).unwrap().members.insert(account, true);
         }
+    }
+
+    pub fn grant_role(&mut self, role: [u8; 32], account: AccountId) {
+        self.only_role(&self.get_role_admin(&role));
+        self.grant_role_internal(role, account);
+    }
+
+    pub fn setup_role(&mut self, role: [u8; 32], account: AccountId) {
+        self.grant_role_internal(role, account);
     }
 
     pub fn revoke_role(&mut self, role: [u8; 32], account: AccountId) {
@@ -216,5 +224,32 @@ mod tests {
         testing_env!(context.build());
         let ac = AccessControl::new();
         ac.only_role(&[1; 32]);
+    }
+
+    #[test]
+    fn test_ac_set_and_get_role_admin() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut ac = AccessControl::new();
+        let null_role = [0; 32];
+        let role = [1; 32];
+        let admin_role = [2; 32];
+        ac.set_role_admin(role, admin_role);
+        assert_eq!(admin_role, ac.get_role_admin(&role));
+        assert_eq!(null_role, ac.get_role_admin(&admin_role));
+    }
+
+    #[test]
+    fn test_grant_role() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut ac = AccessControl::new();
+        let role = [1; 32];
+        let role_admin = [2; 32];
+        ac.set_role_admin(role, role_admin);
+        ac.setup_role(role_admin, accounts(1));
+        ac.grant_role(role, accounts(1));
+        assert_eq!(true, ac.has_role(&role, &accounts(1)));
+        assert_eq!(true, ac.has_role(&role, &accounts(1)));
     }
 }
