@@ -160,4 +160,24 @@ mod tests {
         testing_env!(context.build());
         ownable.only_owner();
     }
+
+    #[test]
+    fn test_renounce_ownership() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut ownable = Ownable::new();
+        assert_eq!(ownable.owner(), accounts(1));
+        ownable.renounce_ownership();
+        assert_eq!(ownable.owner(), "0000000000".parse::<AccountId>().unwrap());
+    }
+
+    #[test]
+    fn test_transfer_ownership() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut ownable = Ownable::new();
+        assert_eq!(ownable.owner(), accounts(1));
+        ownable.transfer_ownership(accounts(2));
+        assert_eq!(ownable.owner(), accounts(2));
+    }
 }
