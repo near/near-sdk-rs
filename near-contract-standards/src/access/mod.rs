@@ -141,4 +141,23 @@ mod tests {
         let ownable = Ownable::new();
         assert_eq!(ownable.owner(), accounts(1));
     }
+
+    #[test]
+    fn test_only_owner_success() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let ownable = Ownable::new();
+        ownable.only_owner();
+    }
+
+    #[test]
+    #[should_panic(expected = "Ownable: caller is not the owner")]
+    fn test_only_owner_fail() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let ownable = Ownable::new();
+        let context = get_context(accounts(2));
+        testing_env!(context.build());
+        ownable.only_owner();
+    }
 }
