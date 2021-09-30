@@ -10,23 +10,23 @@ use std::{fmt, mem};
 
 /// Index for value within a bucket.
 #[derive(BorshSerialize, BorshDeserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct BucketIndex(u32);
+pub struct FreeListIndex(u32);
 
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
-pub struct Bucket<T>
+pub struct FreeList<T>
 where
     T: BorshSerialize,
 {
-    last_free: Option<BucketIndex>,
+    last_free: Option<FreeListIndex>,
     occupied_count: u32,
     elements: Vector<Slot<T>>,
 }
 
 //? Manual implementations needed only because borsh derive is leaking field types
 // https://github.com/near/borsh-rs/issues/41
-impl<T> BorshSerialize for Bucket<T>
+impl<T> BorshSerialize for FreeList<T>
 where
     T: BorshSerialize,
 {
@@ -41,7 +41,7 @@ where
     }
 }
 
-impl<T> BorshDeserialize for Bucket<T>
+impl<T> BorshDeserialize for FreeList<T>
 where
     T: BorshSerialize,
 {
@@ -60,7 +60,7 @@ enum Slot<T> {
     Occupied(T),
     /// Representing that the cell has been removed, points to next empty cell, if one previously
     /// existed.
-    Empty { next_free: Option<BucketIndex> },
+    Empty { next_free: Option<FreeListIndex> },
 }
 
 impl<T> Slot<T> {
@@ -73,7 +73,7 @@ impl<T> Slot<T> {
     }
 }
 
-impl<T> fmt::Debug for Bucket<T>
+impl<T> fmt::Debug for FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize + fmt::Debug,
 {
@@ -86,7 +86,7 @@ where
     }
 }
 
-impl<T> Extend<T> for Bucket<T>
+impl<T> Extend<T> for FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -100,7 +100,7 @@ where
     }
 }
 
-impl<T> Bucket<T>
+impl<T> FreeList<T>
 where
     T: BorshSerialize,
 {
@@ -129,13 +129,13 @@ where
     }
 }
 
-impl<T> Bucket<T>
+impl<T> FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
     /// Returns a reference to filled cell, if the value at the given index is valid. If the index
     /// is out of range or has been removed, returns `None`.
-    pub fn get(&self, index: BucketIndex) -> Option<&T> {
+    pub fn get(&self, index: FreeListIndex) -> Option<&T> {
         if let Slot::Occupied(value) = self.elements.get(index.0)? {
             Some(value)
         } else {
@@ -144,7 +144,7 @@ where
     }
     /// Returns a mutable reference to filled cell, if the value at the given index is valid. If
     /// the index is out of range or has been removed, returns `None`.
-    pub fn get_mut(&mut self, index: BucketIndex) -> Option<&mut T> {
+    pub fn get_mut(&mut self, index: FreeListIndex) -> Option<&mut T> {
         if let Slot::Occupied(value) = self.elements.get_mut(index.0)? {
             Some(value)
         } else {
@@ -156,10 +156,10 @@ where
     /// # Panics
     ///
     /// Panics if new length exceeds `u32::MAX`
-    pub fn insert(&mut self, value: T) -> BucketIndex {
+    pub fn insert(&mut self, value: T) -> FreeListIndex {
         let new_value = Slot::Occupied(value);
         let inserted_index;
-        if let Some(BucketIndex(vacant)) = self.last_free {
+        if let Some(FreeListIndex(vacant)) = self.last_free {
             // There is a vacant cell, put new value in that position
             let prev = self.elements.replace(vacant, new_value);
             inserted_index = vacant;
@@ -177,11 +177,11 @@ where
         }
 
         self.occupied_count += 1;
-        BucketIndex(inserted_index)
+        FreeListIndex(inserted_index)
     }
 
     /// Removes value at index in the bucket and returns the existing value, if any.
-    pub fn remove(&mut self, index: BucketIndex) -> Option<T> {
+    pub fn remove(&mut self, index: FreeListIndex) -> Option<T> {
         let entry = self.elements.get_mut(index.0)?;
 
         if matches!(entry, Slot::Empty { .. }) {
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let mut bucket = Bucket::new(b"b");
+        let mut bucket = FreeList::new(b"b");
         assert!(bucket.is_empty());
         let i5 = bucket.insert(5u8);
         let i3 = bucket.insert(3u8);
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn bucket_iterator() {
-        let mut bucket = Bucket::new(b"b");
+        let mut bucket = FreeList::new(b"b");
 
         bucket.insert(0u8);
         let rm = bucket.insert(1u8);
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn delete_internals() {
-        let mut bucket = Bucket::new(b"b");
+        let mut bucket = FreeList::new(b"b");
         let i0 = bucket.insert(0u8);
         let i1 = bucket.insert(1u8);
         let i2 = bucket.insert(2u8);
@@ -298,7 +298,7 @@ mod tests {
         let r8 = bucket.insert(8);
         assert_eq!(r8, i1);
         assert!(bucket.last_free.is_none());
-        assert_eq!(bucket.insert(9), BucketIndex(4));
+        assert_eq!(bucket.insert(9), FreeListIndex(4));
     }
 
     #[derive(Arbitrary, Debug)]
@@ -322,7 +322,7 @@ mod tests {
             crate::mock::with_mocked_blockchain(|b| b.take_storage());
             rng.fill_bytes(&mut buf);
 
-            let mut sv = Bucket::new(b"v");
+            let mut sv = FreeList::new(b"v");
             let mut hm = HashMap::new();
             let u = Unstructured::new(&buf);
             if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
@@ -335,7 +335,7 @@ mod tests {
                         }
                         Op::Remove(i) => {
                             let i = i % (sv.len() + 1);
-                            let r1 = sv.remove(BucketIndex(i));
+                            let r1 = sv.remove(FreeListIndex(i));
                             let r2 = hm.remove(&i);
                             assert_eq!(r1, r2);
                             assert_eq!(sv.len() as usize, hm.len());
@@ -345,11 +345,11 @@ mod tests {
                         }
                         Op::Reset => {
                             let serialized = sv.try_to_vec().unwrap();
-                            sv = Bucket::deserialize(&mut serialized.as_slice()).unwrap();
+                            sv = FreeList::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {
                             let k = k % (sv.len() + 1);
-                            let r1 = sv.get(BucketIndex(k));
+                            let r1 = sv.get(FreeListIndex(k));
                             let r2 = hm.get(&k);
                             assert_eq!(r1, r2)
                         }

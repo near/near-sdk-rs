@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::ValueAndIndex;
-use crate::store::{lookup_map as lm, Bucket};
+use crate::store::{lookup_map as lm, FreeList};
 
 /// A view into a single entry in the map, which can be vacant or occupied.
 pub enum Entry<'a, K: 'a, V: 'a>
@@ -18,7 +18,7 @@ where
 {
     pub(super) fn new(
         lm_entry: lm::Entry<'a, K, ValueAndIndex<V>>,
-        keys: &'a mut Bucket<K>,
+        keys: &'a mut FreeList<K>,
     ) -> Self {
         match lm_entry {
             lm::Entry::Occupied(value_entry) => Self::Occupied(OccupiedEntry { value_entry, keys }),
@@ -186,7 +186,7 @@ where
     K: BorshSerialize,
 {
     value_entry: lm::OccupiedEntry<'a, K, ValueAndIndex<V>>,
-    keys: &'a mut Bucket<K>,
+    keys: &'a mut FreeList<K>,
 }
 
 impl<'a, K, V> OccupiedEntry<'a, K, V>
@@ -355,7 +355,7 @@ where
     K: BorshSerialize,
 {
     value_entry: lm::VacantEntry<'a, K, ValueAndIndex<V>>,
-    keys: &'a mut Bucket<K>,
+    keys: &'a mut FreeList<K>,
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V>

@@ -16,8 +16,8 @@ pub use self::unordered_map::UnorderedMap;
 mod index_map;
 pub(crate) use self::index_map::IndexMap;
 
-pub(crate) mod bucket;
-pub(crate) use self::bucket::Bucket;
+pub(crate) mod free_list;
+pub(crate) use self::free_list::FreeList;
 
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart \
 										contract execution terminate unexpectedly?";

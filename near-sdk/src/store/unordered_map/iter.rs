@@ -3,7 +3,7 @@ use std::iter::FusedIterator;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{CryptoHasher, LookupMap, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
-use crate::{env, store::bucket};
+use crate::{env, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
 where
@@ -43,7 +43,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Values iterator which contains empty and filled cells.
-    keys: bucket::Iter<'a, K>,
+    keys: free_list::Iter<'a, K>,
     /// Reference to underlying map to lookup values with `keys`.
     values: &'a LookupMap<K, ValueAndIndex<V>, H>,
 }
@@ -130,7 +130,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Values iterator which contains empty and filled cells.
-    keys: bucket::IterMut<'a, K>,
+    keys: free_list::IterMut<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
 }
@@ -226,7 +226,7 @@ pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize,
 {
-    inner: bucket::Iter<'a, K>,
+    inner: free_list::Iter<'a, K>,
 }
 
 impl<'a, K> Keys<'a, K>

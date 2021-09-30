@@ -2,10 +2,10 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{Bucket, Slot, ERR_INCONSISTENT_STATE};
+use super::{FreeList, Slot, ERR_INCONSISTENT_STATE};
 use crate::{env, store::vec};
 
-impl<'a, T> IntoIterator for &'a Bucket<T>
+impl<'a, T> IntoIterator for &'a FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -17,7 +17,7 @@ where
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut Bucket<T>
+impl<'a, T> IntoIterator for &'a mut FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -48,7 +48,7 @@ impl<'a, T> Iter<'a, T>
 where
     T: BorshDeserialize + BorshSerialize,
 {
-    pub(super) fn new(bucket: &'a Bucket<T>) -> Self {
+    pub(super) fn new(bucket: &'a FreeList<T>) -> Self {
         Self { values: bucket.elements.iter(), elements_left: bucket.occupied_count }
     }
 }
@@ -132,7 +132,7 @@ impl<'a, T> IterMut<'a, T>
 where
     T: BorshDeserialize + BorshSerialize,
 {
-    pub(super) fn new(bucket: &'a mut Bucket<T>) -> Self {
+    pub(super) fn new(bucket: &'a mut FreeList<T>) -> Self {
         Self { values: bucket.elements.iter_mut(), elements_left: bucket.occupied_count }
     }
 }

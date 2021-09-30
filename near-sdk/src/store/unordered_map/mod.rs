@@ -13,8 +13,8 @@ use crate::{env, IntoStorageKey};
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 pub use self::iter::{Iter, IterMut, Keys, Values, ValuesMut};
-use super::bucket::BucketIndex;
-use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
+use super::free_list::FreeListIndex;
+use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
 
 const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
@@ -83,14 +83,14 @@ where
     V: BorshSerialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    keys: Bucket<K>,
+    keys: FreeList<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 struct ValueAndIndex<V> {
     value: V,
-    key_index: BucketIndex,
+    key_index: FreeListIndex,
 }
 
 //? Manual implementations needed only because borsh derive is leaking field types
@@ -186,7 +186,7 @@ where
         let mut vec_key = prefix.into_storage_key();
         let map_key = [vec_key.as_slice(), b"m"].concat();
         vec_key.push(b'v');
-        Self { keys: Bucket::new(vec_key), values: LookupMap::with_hasher(map_key) }
+        Self { keys: FreeList::new(vec_key), values: LookupMap::with_hasher(map_key) }
     }
 
     /// Return the amount of elements inside of the map.
