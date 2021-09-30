@@ -4,16 +4,13 @@ mod iter;
 use std::fmt;
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use once_cell::unsync::OnceCell;
 
 pub use self::iter::{Iter, IterMut};
-use crate::collections::append_slice;
-use crate::utils::StableMap;
-use crate::{env, CacheEntry, EntryState, IntoStorageKey};
+use super::ERR_INCONSISTENT_STATE;
+use crate::{env, IntoStorageKey};
 
-const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+use super::IndexMap;
+
 const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
@@ -58,18 +55,40 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 /// vec.extend([1, 2, 3].iter().copied());
 /// assert!(Iterator::eq(vec.into_iter(), [7, 1, 2, 3].iter()));
 /// ```
-#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Vector<T>
 where
     T: BorshSerialize,
 {
     len: u32,
-    prefix: Box<[u8]>,
-    #[borsh_skip]
-    /// Cache for loads and intermediate changes to the underlying vector.
-    /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
-    /// invalidated.
-    cache: StableMap<u32, OnceCell<CacheEntry<T>>>,
+    values: IndexMap<T>,
+}
+
+//? Manual implementations needed only because borsh derive is leaking field types
+// https://github.com/near/borsh-rs/issues/41
+impl<T> BorshSerialize for Vector<T>
+where
+    T: BorshSerialize,
+{
+    fn serialize<W: borsh::maybestd::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), borsh::maybestd::io::Error> {
+        BorshSerialize::serialize(&self.len, writer)?;
+        BorshSerialize::serialize(&self.values, writer)?;
+        Ok(())
+    }
+}
+
+impl<T> BorshDeserialize for Vector<T>
+where
+    T: BorshSerialize,
+{
+    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+        Ok(Self {
+            len: BorshDeserialize::deserialize(buf)?,
+            values: BorshDeserialize::deserialize(buf)?,
+        })
+    }
 }
 
 impl<T> Vector<T>
@@ -88,78 +107,47 @@ where
         self.len == 0
     }
 
-    /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
+    /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
-        Self {
-            len: 0,
-            prefix: prefix.into_storage_key().into_boxed_slice(),
-            cache: Default::default(),
-        }
-    }
-
-    fn index_to_lookup_key(&self, index: u32) -> Vec<u8> {
-        append_slice(&self.prefix, &index.to_le_bytes()[..])
+        Self { len: 0, values: IndexMap::new(prefix) }
     }
 
     /// Removes all elements from the collection. This will remove all storage values for the
     /// length of the [`Vector`].
     pub fn clear(&mut self) {
         for i in 0..self.len {
-            let lookup_key = self.index_to_lookup_key(i);
-            env::storage_remove(&lookup_key);
+            self.values.set(i, None);
         }
         self.len = 0;
-        self.cache.inner().clear();
     }
 
     /// Flushes the cache and writes all modified values to storage.
     pub fn flush(&mut self) {
-        let mut buf = Vec::new();
-        for (k, v) in self.cache.inner().iter_mut() {
-            if let Some(v) = v.get_mut() {
-                if v.is_modified() {
-                    let key = append_slice(&self.prefix, &k.to_le_bytes()[..]);
-                    match v.value().as_ref() {
-                        Some(modified) => {
-                            buf.clear();
-                            BorshSerialize::serialize(modified, &mut buf)
-                                .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-                            env::storage_write(&key, &buf);
-                        }
-                        None => {
-                            // Element was removed, clear the storage for the value
-                            env::storage_remove(&key);
-                        }
-                    }
-
-                    // Update state of flushed state as cached, to avoid duplicate writes/removes
-                    // while also keeping the cached values in memory.
-                    v.replace_state(EntryState::Cached);
-                }
-            }
-        }
+        self.values.flush();
     }
 
     /// Sets a value at a given index to the value provided. This does not shift values after the
     /// index to the right.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
     pub fn set(&mut self, index: u32, value: T) {
         if index >= self.len() {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
         }
 
-        let entry = self.cache.get_mut(index);
-        match entry.get_mut() {
-            Some(entry) => *entry.value_mut() = Some(value),
-            None => {
-                let _ = entry.set(CacheEntry::new_modified(Some(value)));
-            }
-        }
+        self.values.set(index, Some(value));
     }
 
     /// Appends an element to the back of the collection.
+    ///
+    /// # Panics
+    ///
+    /// Panics if new length exceeds `u32::MAX`
     pub fn push(&mut self, element: T) {
         let last_idx = self.len();
         self.len =
@@ -172,41 +160,20 @@ impl<T> Vector<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
-    fn deserialize_element(raw_element: &[u8]) -> T {
-        T::try_from_slice(raw_element)
-            .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
-    }
-
     /// Returns the element by index or `None` if it is not present.
     pub fn get(&self, index: u32) -> Option<&T> {
-        let entry = self.cache.get(index).get_or_init(|| {
-            let storage_bytes = env::storage_read(&self.index_to_lookup_key(index));
-            let value = storage_bytes.as_deref().map(Self::deserialize_element);
-            CacheEntry::new_cached(value)
-        });
-        entry.value().as_ref()
-    }
-
-    /// Returns a mutable reference to the element at the `index` provided.
-    fn get_mut_inner(&mut self, index: u32) -> Option<&mut CacheEntry<T>> {
-        if index >= self.len {
+        if index >= self.len() {
             return None;
         }
-        let index_to_lookup_key = self.index_to_lookup_key(index);
-        let entry = self.cache.get_mut(index);
-        entry.get_or_init(|| {
-            let storage_bytes = env::storage_read(&index_to_lookup_key);
-            let value = storage_bytes.as_deref().map(Self::deserialize_element);
-            CacheEntry::new_cached(value)
-        });
-        let entry = entry.get_mut().unwrap();
-        Some(entry)
+        self.values.get(index)
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
-        let entry = self.get_mut_inner(index)?;
-        entry.value_mut().as_mut()
+        if index >= self.len {
+            return None;
+        }
+        self.values.get_mut(index)
     }
 
     fn swap(&mut self, a: u32, b: u32) {
@@ -214,14 +181,7 @@ where
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
         }
 
-        if a == b {
-            // Short circuit if indices are the same, also guarantees uniqueness below
-            return;
-        }
-
-        let val_a = self.get_mut_inner(a).unwrap().replace(None);
-        let val_b = self.get_mut_inner(b).unwrap().replace(val_a);
-        self.get_mut_inner(a).unwrap().replace(val_b);
+        self.values.swap(a, b);
     }
 
     /// Removes an element from the vector and returns it.
@@ -243,7 +203,7 @@ where
     /// Removes the last element from a vector and returns it, or `None` if it is empty.
     pub fn pop(&mut self) -> Option<T> {
         let new_idx = self.len.checked_sub(1)?;
-        let prev = self.get_mut_inner(new_idx)?.replace(None);
+        let prev = self.values.get_mut_inner(new_idx).replace(None);
         self.len = new_idx;
         prev
     }
@@ -253,11 +213,12 @@ where
     /// # Panics
     ///
     /// If `index` is out of bounds.
+    // TODO determine if this should be stabilized, included for backwards compat with old version
     pub fn replace(&mut self, index: u32, element: T) -> T {
-        self.get_mut_inner(index)
-            .unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
-            .replace(Some(element))
-            .unwrap()
+        if index >= self.len {
+            env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
+        }
+        self.values.insert(index, element).unwrap()
     }
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
@@ -281,7 +242,10 @@ where
         if cfg!(feature = "expensive-debug") {
             fmt::Debug::fmt(&self.iter().collect::<Vec<_>>(), f)
         } else {
-            f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
+            f.debug_struct("Vector")
+                .field("len", &self.len)
+                .field("prefix", &self.values.prefix)
+                .finish()
         }
     }
 }
@@ -289,14 +253,15 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use rand::{Rng, SeedableRng};
+    use arbitrary::{Arbitrary, Unstructured};
+    use borsh::{BorshDeserialize, BorshSerialize};
+    use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
-    use crate::test_utils::test_env;
+    use crate::{store::IndexMap, test_utils::test_env::setup_free};
 
     #[test]
     fn test_push_pop() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -314,7 +279,6 @@ mod tests {
 
     #[test]
     pub fn test_replace() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -339,7 +303,6 @@ mod tests {
 
     #[test]
     pub fn test_swap_remove() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -365,7 +328,6 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut vec = Vector::new(b"v".to_vec());
         for _ in 0..100 {
@@ -381,7 +343,6 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -406,7 +367,6 @@ mod tests {
 
     #[test]
     fn test_debug() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let prefix = b"v".to_vec();
         let mut vec = Vector::new(prefix.clone());
@@ -426,7 +386,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", vec),
-                format!("Vector {{ len: 5, prefix: {:?} }}", vec.prefix)
+                format!("Vector {{ len: 5, prefix: {:?} }}", vec.values.prefix)
             );
         }
 
@@ -437,25 +397,21 @@ mod tests {
         #[derive(Debug, BorshSerialize, BorshDeserialize)]
         struct TestType(u64);
 
-        let deserialize_only_vec = Vector::<TestType> {
-            len: vec.len(),
-            prefix: prefix.into_boxed_slice(),
-            cache: Default::default(),
-        };
+        let deserialize_only_vec =
+            Vector::<TestType> { len: vec.len(), values: IndexMap::new(prefix) };
         let baseline: Vec<_> = baseline.into_iter().map(TestType).collect();
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
         } else {
             assert_eq!(
                 format!("{:?}", deserialize_only_vec),
-                format!("Vector {{ len: 5, prefix: {:?} }}", deserialize_only_vec.prefix)
+                format!("Vector {{ len: 5, prefix: {:?} }}", deserialize_only_vec.values.prefix)
             );
         }
     }
 
     #[test]
     pub fn iterator_checks() {
-        test_env::setup();
         let mut vec = Vector::new(b"v");
         let mut baseline = vec![];
         for i in 0..10 {
@@ -478,7 +434,115 @@ mod tests {
         assert!(bl_iter.next().is_none());
 
         // Count check
-
         assert_eq!(vec.iter().count(), baseline.len());
+    }
+
+    #[derive(Arbitrary, Debug)]
+    enum Op {
+        Push(u8),
+        Pop,
+        Set(u32, u8),
+        Remove(u32),
+        Flush,
+        Reset,
+        Get(u32),
+        Swap(u32, u32),
+    }
+
+    #[test]
+    fn arbitrary() {
+        setup_free();
+
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut buf = vec![0; 4096];
+        for _ in 0..1024 {
+            // Clear storage in-between runs
+            crate::mock::with_mocked_blockchain(|b| b.take_storage());
+            rng.fill_bytes(&mut buf);
+
+            let mut sv = Vector::new(b"v");
+            let mut mv = Vec::new();
+            let u = Unstructured::new(&buf);
+            if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
+                for op in ops {
+                    match op {
+                        Op::Push(v) => {
+                            sv.push(v);
+                            mv.push(v);
+                            assert_eq!(sv.len() as usize, mv.len());
+                        }
+                        Op::Pop => {
+                            assert_eq!(sv.pop(), mv.pop());
+                            assert_eq!(sv.len() as usize, mv.len());
+                        }
+                        Op::Set(k, v) => {
+                            if sv.is_empty() {
+                                continue;
+                            }
+                            let k = k % sv.len();
+
+                            sv.set(k, v);
+                            mv[k as usize] = v;
+
+                            // Extra get just to make sure set happened correctly
+                            assert_eq!(sv[k], mv[k as usize]);
+                        }
+                        Op::Remove(i) => {
+                            if sv.is_empty() {
+                                continue;
+                            }
+                            let i = i % sv.len();
+                            let r1 = sv.swap_remove(i);
+                            let r2 = mv.swap_remove(i as usize);
+                            assert_eq!(r1, r2);
+                            assert_eq!(sv.len() as usize, mv.len());
+                        }
+                        Op::Flush => {
+                            sv.flush();
+                        }
+                        Op::Reset => {
+                            let serialized = sv.try_to_vec().unwrap();
+                            sv = Vector::deserialize(&mut serialized.as_slice()).unwrap();
+                        }
+                        Op::Get(k) => {
+                            let r1 = sv.get(k);
+                            let r2 = mv.get(k as usize);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Swap(i1, i2) => {
+                            if sv.is_empty() {
+                                continue;
+                            }
+                            let i1 = i1 % sv.len();
+                            let i2 = i2 % sv.len();
+                            sv.swap(i1, i2);
+                            mv.swap(i1 as usize, i2 as usize)
+                        }
+                    }
+                }
+            }
+
+            // After all operations, compare both vectors
+            assert!(Iterator::eq(sv.iter(), mv.iter()));
+        }
+    }
+
+    #[test]
+    fn serialized_bytes() {
+        use borsh::{BorshDeserialize, BorshSerialize};
+
+        let mut vec = Vector::new(b"v".to_vec());
+        vec.push("Some data");
+        let serialized = vec.try_to_vec().unwrap();
+
+        // Expected to serialize len then prefix
+        let mut expected_buf = Vec::new();
+        1u32.serialize(&mut expected_buf).unwrap();
+        (b"v".to_vec()).serialize(&mut expected_buf).unwrap();
+
+        assert_eq!(serialized, expected_buf);
+        drop(vec);
+        let vec = Vector::<String>::deserialize(&mut serialized.as_slice()).unwrap();
+        assert_eq!(vec[0], "Some data");
     }
 }
