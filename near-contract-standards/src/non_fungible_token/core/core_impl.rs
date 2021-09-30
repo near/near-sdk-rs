@@ -53,7 +53,7 @@ pub trait NonFungibleTokenReceiver {
 /// For example usage, see examples/non-fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct NonFungibleToken {
-    // owner of contract; this is the only account allowed to call `mint`
+    // owner of contract
     pub owner_id: AccountId,
 
     // The storage size in bytes for each new token
