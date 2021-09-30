@@ -19,9 +19,9 @@ pub struct Bucket<T>
 where
     T: BorshSerialize,
 {
-    next_vacant: Option<BucketIndex>,
+    last_free: Option<BucketIndex>,
     occupied_count: u32,
-    elements: Vector<Container<T>>,
+    elements: Vector<Slot<T>>,
 }
 
 //? Manual implementations needed only because borsh derive is leaking field types
@@ -34,7 +34,7 @@ where
         &self,
         writer: &mut W,
     ) -> Result<(), borsh::maybestd::io::Error> {
-        BorshSerialize::serialize(&self.next_vacant, writer)?;
+        BorshSerialize::serialize(&self.last_free, writer)?;
         BorshSerialize::serialize(&self.occupied_count, writer)?;
         BorshSerialize::serialize(&self.elements, writer)?;
         Ok(())
@@ -47,7 +47,7 @@ where
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
-            next_vacant: BorshDeserialize::deserialize(buf)?,
+            last_free: BorshDeserialize::deserialize(buf)?,
             occupied_count: BorshDeserialize::deserialize(buf)?,
             elements: BorshDeserialize::deserialize(buf)?,
         })
@@ -55,17 +55,17 @@ where
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
-enum Container<T> {
+enum Slot<T> {
     /// Represents a filled cell of a value in the collection.
     Occupied(T),
     /// Representing that the cell has been removed, points to next empty cell, if one previously
     /// existed.
-    Empty { next_index: Option<BucketIndex> },
+    Empty { next_free: Option<BucketIndex> },
 }
 
-impl<T> Container<T> {
+impl<T> Slot<T> {
     fn into_value(self) -> Option<T> {
-        if let Container::Occupied(value) = self {
+        if let Slot::Occupied(value) = self {
             Some(value)
         } else {
             None
@@ -79,7 +79,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Bucket")
-            .field("next_vacant", &self.next_vacant)
+            .field("next_vacant", &self.last_free)
             .field("occupied_count", &self.occupied_count)
             .field("elements", &self.elements)
             .finish()
@@ -105,7 +105,7 @@ where
     T: BorshSerialize,
 {
     pub fn new<S: IntoStorageKey>(prefix: S) -> Self {
-        Self { next_vacant: None, occupied_count: 0, elements: Vector::new(prefix) }
+        Self { last_free: None, occupied_count: 0, elements: Vector::new(prefix) }
     }
     /// Returns length of values within the bucket.
     pub fn len(&self) -> u32 {
@@ -124,7 +124,7 @@ where
     /// Clears the bucket, removing all values (including removed entries).
     pub fn clear(&mut self) {
         self.elements.clear();
-        self.next_vacant = None;
+        self.last_free = None;
         self.occupied_count = 0;
     }
 }
@@ -136,7 +136,7 @@ where
     /// Returns a reference to filled cell, if the value at the given index is valid. If the index
     /// is out of range or has been removed, returns `None`.
     pub fn get(&self, index: BucketIndex) -> Option<&T> {
-        if let Container::Occupied(value) = self.elements.get(index.0)? {
+        if let Slot::Occupied(value) = self.elements.get(index.0)? {
             Some(value)
         } else {
             None
@@ -145,7 +145,7 @@ where
     /// Returns a mutable reference to filled cell, if the value at the given index is valid. If
     /// the index is out of range or has been removed, returns `None`.
     pub fn get_mut(&mut self, index: BucketIndex) -> Option<&mut T> {
-        if let Container::Occupied(value) = self.elements.get_mut(index.0)? {
+        if let Slot::Occupied(value) = self.elements.get_mut(index.0)? {
             Some(value)
         } else {
             None
@@ -157,16 +157,16 @@ where
     ///
     /// Panics if new length exceeds `u32::MAX`
     pub fn insert(&mut self, value: T) -> BucketIndex {
-        let new_value = Container::Occupied(value);
+        let new_value = Slot::Occupied(value);
         let inserted_index;
-        if let Some(BucketIndex(vacant)) = self.next_vacant {
+        if let Some(BucketIndex(vacant)) = self.last_free {
             // There is a vacant cell, put new value in that position
             let prev = self.elements.replace(vacant, new_value);
             inserted_index = vacant;
 
-            if let Container::Empty { next_index } = prev {
+            if let Slot::Empty { next_free: next_index } = prev {
                 // Update pointer on bucket to this next index
-                self.next_vacant = next_index;
+                self.last_free = next_index;
             } else {
                 env::panic_str(ERR_INCONSISTENT_STATE)
             }
@@ -184,18 +184,18 @@ where
     pub fn remove(&mut self, index: BucketIndex) -> Option<T> {
         let entry = self.elements.get_mut(index.0)?;
 
-        if matches!(entry, Container::Empty { .. }) {
+        if matches!(entry, Slot::Empty { .. }) {
             // Entry has already been cleared, return None
             return None;
         }
 
         // Take next pointer from bucket to attach to empty cell put in store
-        let next_index = mem::take(&mut self.next_vacant);
-        let prev = mem::replace(entry, Container::Empty { next_index });
+        let next_index = mem::take(&mut self.last_free);
+        let prev = mem::replace(entry, Slot::Empty { next_free: next_index });
         self.occupied_count -= 1;
 
         // Point next insert to this deleted index
-        self.next_vacant = Some(index);
+        self.last_free = Some(index);
 
         prev.into_value()
     }
@@ -270,23 +270,23 @@ mod tests {
 
         // Remove 1 first
         bucket.remove(i1);
-        assert_eq!(bucket.next_vacant, Some(i1));
+        assert_eq!(bucket.last_free, Some(i1));
         assert_eq!(bucket.occupied_count, 3);
 
         // Remove 0 next
         bucket.remove(i0);
-        assert_eq!(bucket.next_vacant, Some(i0));
+        assert_eq!(bucket.last_free, Some(i0));
         assert_eq!(bucket.occupied_count, 2);
 
         // This should insert at index 0 (last deleted)
         let r5 = bucket.insert(5);
         assert_eq!(r5, i0);
-        assert_eq!(bucket.next_vacant, Some(i1));
+        assert_eq!(bucket.last_free, Some(i1));
         assert_eq!(bucket.occupied_count, 3);
 
         bucket.remove(i3);
         bucket.remove(i2);
-        assert_eq!(bucket.next_vacant, Some(i2));
+        assert_eq!(bucket.last_free, Some(i2));
 
         let r6 = bucket.insert(6);
         assert_eq!(r6, i2);
@@ -297,7 +297,7 @@ mod tests {
         // Last spot to fill is index 1
         let r8 = bucket.insert(8);
         assert_eq!(r8, i1);
-        assert!(bucket.next_vacant.is_none());
+        assert!(bucket.last_free.is_none());
         assert_eq!(bucket.insert(9), BucketIndex(4));
     }
 

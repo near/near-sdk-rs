@@ -18,7 +18,9 @@ use super::{Bucket, LookupMap, ERR_INCONSISTENT_STATE};
 
 const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
-/// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
+/// A lazily loaded storage map that stores its content directly on the storage trie.
+/// This structure is similar to [`near_sdk::store::LookupMap`](crate::store::LookupMap), except
+/// that it stores the keys so that [`UnorderedMap`] can be iterable.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
 /// using the map's [`CryptoHasher`] implementation.
@@ -45,7 +47,7 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// assert_eq!(map["test"], 5u8);
 /// ```
 ///
-/// `UnorderedMap` also implements an [`Entry API`](Self::entry), which allows
+/// [`UnorderedMap`] also implements an [`Entry API`](Self::entry), which allows
 /// for more complex methods of getting, setting, updating and removing keys and
 /// their values:
 ///

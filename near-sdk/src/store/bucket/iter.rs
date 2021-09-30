@@ -2,7 +2,7 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{Bucket, Container, ERR_INCONSISTENT_STATE};
+use super::{Bucket, Slot, ERR_INCONSISTENT_STATE};
 use crate::{env, store::vec};
 
 impl<'a, T> IntoIterator for &'a Bucket<T>
@@ -39,7 +39,7 @@ where
     T: BorshDeserialize + BorshSerialize,
 {
     /// Values iterator which contains empty and filled cells.
-    values: vec::Iter<'a, Container<T>>,
+    values: vec::Iter<'a, Slot<T>>,
     /// Amount of valid elements left to iterate.
     elements_left: u32,
 }
@@ -65,8 +65,8 @@ where
         }
         loop {
             match self.values.next() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
@@ -102,8 +102,8 @@ where
         }
         loop {
             match self.values.next_back() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
@@ -123,7 +123,7 @@ where
     T: BorshDeserialize + BorshSerialize,
 {
     /// Values iterator which contains empty and filled cells.
-    values: vec::IterMut<'a, Container<T>>,
+    values: vec::IterMut<'a, Slot<T>>,
     /// Amount of valid elements left to iterate.
     elements_left: u32,
 }
@@ -149,8 +149,8 @@ where
         }
         loop {
             match self.values.next() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
@@ -186,8 +186,8 @@ where
         }
         loop {
             match self.values.next_back() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }

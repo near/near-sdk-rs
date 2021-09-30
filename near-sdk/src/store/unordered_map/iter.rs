@@ -44,7 +44,7 @@ where
 {
     /// Values iterator which contains empty and filled cells.
     keys: bucket::Iter<'a, K>,
-    /// Amount of valid elements left to iterate.
+    /// Reference to underlying map to lookup values with `keys`.
     values: &'a LookupMap<K, ValueAndIndex<V>, H>,
 }
 
@@ -131,7 +131,7 @@ where
 {
     /// Values iterator which contains empty and filled cells.
     keys: bucket::IterMut<'a, K>,
-    /// Amount of valid elements left to iterate.
+    /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
 }
 
