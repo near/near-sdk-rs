@@ -18,6 +18,9 @@ where
     /// Cache for loads and intermediate changes to the underlying index map.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
+    ///
+    /// Note: u32 indices are used over usize to have consistent functionality across architectures.
+    /// Some functionality would be different from tests to Wasm if exceeding 32-bit length.
     #[borsh_skip]
     pub(crate) cache: StableMap<u32, OnceCell<CacheEntry<T>>>,
 }
@@ -137,8 +140,14 @@ where
     }
 
     /// Inserts a element at `index`, returns the evicted element.
-    pub fn replace(&mut self, index: u32, element: T) -> Option<T> {
+    pub fn insert(&mut self, index: u32, element: T) -> Option<T> {
         self.get_mut_inner(index).replace(Some(element))
+    }
+
+    /// Removes value at index and returns existing value.
+    #[allow(dead_code)]
+    pub fn remove(&mut self, index: u32) -> Option<T> {
+        self.get_mut_inner(index).replace(None)
     }
 }
 
@@ -148,5 +157,31 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("IndexMap").field("prefix", &self.prefix).finish()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod tests {
+    use super::IndexMap;
+
+    #[test]
+    fn basic_usage() {
+        let mut map = IndexMap::new(b"v".to_vec());
+
+        map.insert(3, 3u8);
+        map.insert(43, 43);
+        map.swap(3, 43);
+        assert_eq!(map.get(3), Some(&43));
+        assert_eq!(map.remove(43), Some(3));
+
+        map.swap(1, 3);
+        *map.get_mut(1).unwrap() += 2;
+        assert_eq!(map.get(1), Some(&45));
+
+        map.set(0, Some(1));
+
+        map.flush();
+        assert_eq!(map.get(0), Some(&1));
     }
 }
