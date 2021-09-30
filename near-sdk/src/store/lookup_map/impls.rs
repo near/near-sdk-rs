@@ -39,20 +39,3 @@ where
         self.get(index).unwrap_or_else(|| env::panic_str(ERR_NOT_EXIST))
     }
 }
-
-impl<K, V, H, Q: ?Sized> core::ops::IndexMut<&Q> for LookupMap<K, V, H>
-where
-    K: BorshSerialize + Ord + Clone + Borrow<Q>,
-    V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-    Q: BorshSerialize + ToOwned<Owned = K>,
-{
-    /// Returns reference to value corresponding to key.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the key does not exist in the map
-    fn index_mut(&mut self, index: &Q) -> &mut Self::Output {
-        self.get_mut(index).unwrap_or_else(|| env::panic_str(ERR_NOT_EXIST))
-    }
-}
