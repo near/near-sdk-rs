@@ -3,12 +3,10 @@ mod impls;
 
 use std::borrow::Borrow;
 use std::fmt;
-use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 
@@ -22,13 +20,8 @@ type LookupKey = Vec<u8>;
 
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
-/// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`CryptoHasher`] implementation.
-///
-/// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall
-/// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
-/// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// This map stores the values under a concatenation of the [`LookupMap`]'s prefix and the
+/// borsh serialized bytes of the key.
 ///
 /// # Examples
 /// ```
@@ -47,7 +40,7 @@ type LookupKey = Vec<u8>;
 /// assert_eq!(map["test"], 5u8);
 /// ```
 ///
-/// `LookupMap` also implements an [`Entry API`](Self::entry), which allows
+/// [`LookupMap`] also implements an [`Entry API`](Self::entry), which allows
 /// for more complex methods of getting, setting, updating and removing keys and
 /// their values:
 ///
@@ -75,14 +68,11 @@ type LookupKey = Vec<u8>;
 /// let stat = player_stats.entry("attack".to_string()).or_insert(100);
 /// *stat += random_stat_buff();
 /// ```
-///
-/// [`with_hasher`]: Self::with_hasher
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct LookupMap<K, V, H = Sha256>
+pub struct LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     prefix: Box<[u8]>,
     /// Cache for loads and intermediate changes to the underlying vector.
@@ -90,9 +80,6 @@ where
     /// invalidated.
     #[borsh_skip]
     cache: StableMap<K, EntryAndHash<V>>,
-
-    #[borsh_skip]
-    hasher: PhantomData<H>,
 }
 
 // #[derive(Default)]
@@ -107,29 +94,27 @@ impl<V> Default for EntryAndHash<V> {
     }
 }
 
-impl<K, V, H> Drop for LookupMap<K, V, H>
+impl<K, V> Drop for LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn drop(&mut self) {
         self.flush()
     }
 }
 
-impl<K, V, H> fmt::Debug for LookupMap<K, V, H>
+impl<K, V> fmt::Debug for LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupMap").field("prefix", &self.prefix).finish()
     }
 }
 
-impl<K, V> LookupMap<K, V, Sha256>
+impl<K, V> LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -139,36 +124,15 @@ where
     where
         S: IntoStorageKey,
     {
-        Self::with_hasher(prefix)
+        Self { prefix: prefix.into_storage_key().into_boxed_slice(), cache: Default::default() }
     }
 }
 
-impl<K, V, H> LookupMap<K, V, H>
+impl<K, V> LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    /// Initialize a [`LookupMap`] with a custom hash function.
-    ///
-    /// # Example
-    /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::LookupMap;
-    ///
-    /// let map = LookupMap::<String, String, Keccak256>::with_hasher(b"m");
-    /// ```
-    pub fn with_hasher<S>(prefix: S) -> Self
-    where
-        S: IntoStorageKey,
-    {
-        Self {
-            prefix: prefix.into_storage_key().into_boxed_slice(),
-            cache: Default::default(),
-            hasher: Default::default(),
-        }
-    }
-
     /// Overwrites the current value for the given key.
     ///
     /// This function will not load the existing value from storage and return the value in storage.
@@ -192,21 +156,19 @@ where
     {
         // Hash the serialized key
         key.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-        let hash = H::hash(buffer);
 
         // Prefix the hash for lookup
-        let mut key = Vec::with_capacity(hash.len() + prefix.len());
+        let mut key = Vec::with_capacity(buffer.len() + prefix.len());
         key.extend(prefix);
-        key.extend(hash);
+        key.extend_from_slice(buffer);
         key
     }
 }
 
-impl<K, V, H> LookupMap<K, V, H>
+impl<K, V> LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
@@ -362,11 +324,10 @@ where
     }
 }
 
-impl<K, V, H> LookupMap<K, V, H>
+impl<K, V> LookupMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -407,7 +368,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupMap;
-    use crate::crypto_hash::Keccak256;
     use crate::env;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
@@ -560,7 +520,7 @@ mod tests {
 
     #[test]
     fn flush_on_drop() {
-        let mut map = LookupMap::<_, _, Keccak256>::with_hasher(b"m");
+        let mut map = LookupMap::new(b"m");
 
         // Set a value, which does not write to storage yet
         map.set(5u8, Some(8u8));
@@ -568,12 +528,12 @@ mod tests {
         // Create duplicate which references same data
         assert_eq!(map[&5], 8);
 
-        let storage_key = LookupMap::<u8, u8, Keccak256>::lookup_key(b"m", &5, &mut Vec::new());
+        let storage_key = LookupMap::<u8, u8>::lookup_key(b"m", &5, &mut Vec::new());
         assert!(!env::storage_has_key(&storage_key));
 
         drop(map);
 
-        let dup_map = LookupMap::<u8, u8, Keccak256>::with_hasher(b"m");
+        let dup_map = LookupMap::<u8, u8>::new(b"m");
 
         // New map can now load the value
         assert_eq!(dup_map[&5], 8);
