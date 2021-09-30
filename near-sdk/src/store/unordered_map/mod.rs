@@ -42,7 +42,7 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// assert!(map.contains_key("test"));
 /// assert_eq!(map.get("test"), Some(&7u8));
 ///
-/// let prev = std::mem::replace(&mut map["test"], 5u8);
+/// let prev = std::mem::replace(map.get_mut("test").unwrap(), 5u8);
 /// assert_eq!(prev, 7u8);
 /// assert_eq!(map["test"], 5u8);
 /// ```
@@ -437,7 +437,7 @@ mod tests {
         assert_eq!(map.get("test"), Some(&5));
         assert_eq!(map.len(), 1);
 
-        map["test"] = 6;
+        *map.get_mut("test").unwrap() = 6;
         assert_eq!(map["test"], 6);
 
         assert_eq!(map.remove("test"), Some(6));
