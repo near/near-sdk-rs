@@ -18,7 +18,7 @@ const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
-type LookupKey = [u8; 32];
+type LookupKey = Vec<u8>;
 
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
@@ -98,12 +98,12 @@ where
 // #[derive(Default)]
 struct EntryAndHash<V> {
     value: OnceCell<CacheEntry<V>>,
-    hash: OnceCell<[u8; 32]>,
+    lookup_key: OnceCell<LookupKey>,
 }
 
 impl<V> Default for EntryAndHash<V> {
     fn default() -> Self {
-        Self { value: Default::default(), hash: Default::default() }
+        Self { value: Default::default(), lookup_key: Default::default() }
     }
 }
 
@@ -190,11 +190,15 @@ where
         Q: BorshSerialize,
         K: Borrow<Q>,
     {
-        // Concat the prefix with serialized key and hash the bytes for the lookup key.
-        buffer.extend(prefix);
+        // Hash the serialized key
         key.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
+        let hash = H::hash(buffer);
 
-        H::hash(buffer)
+        // Prefix the hash for lookup
+        let mut key = Vec::with_capacity(hash.len() + prefix.len());
+        key.extend(prefix);
+        key.extend(hash);
+        key
     }
 }
 
@@ -232,7 +236,7 @@ where
         let cached = self.cache.get(k.to_owned());
         let entry = cached.value.get_or_init(|| {
             let (key, element) = Self::load_element(&self.prefix, k);
-            let _ = cached.hash.set(key);
+            let _ = cached.lookup_key.set(key);
             CacheEntry::new_cached(element)
         });
         entry.value().as_ref()
@@ -248,7 +252,7 @@ where
         let entry = self.cache.get_mut(k.to_owned());
         entry.value.get_or_init(|| {
             let (key, value) = Self::load_element(prefix, k);
-            let _ = entry.hash.set(key);
+            let _ = entry.lookup_key.set(key);
             CacheEntry::new_cached(value)
         });
         let entry = entry.value.get_mut().unwrap_or_else(|| unreachable!());
@@ -308,7 +312,7 @@ where
             // If value not in cache and not in storage, can set a cached `None`
             let cache = self.cache.get(k.to_owned());
             let _ = cache.value.set(CacheEntry::new_cached(None));
-            let _ = cache.hash.set(storage_key);
+            let _ = cache.lookup_key.set(storage_key);
         }
         contains
     }
@@ -373,7 +377,7 @@ where
             if let Some(val) = v.value.get_mut() {
                 if val.is_modified() {
                     let prefix = &self.prefix;
-                    let key = v.hash.get_or_init(|| {
+                    let key = v.lookup_key.get_or_init(|| {
                         buf.clear();
                         Self::lookup_key(prefix, k, &mut buf)
                     });
