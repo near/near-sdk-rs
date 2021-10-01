@@ -1,6 +1,9 @@
 mod serializer_attr;
 pub use serializer_attr::SerializerAttr;
 
+mod modifier_attr;
+pub(crate) use modifier_attr::ModifierAttr;
+
 mod arg_info;
 pub use arg_info::{ArgInfo, BindgenArgType};
 

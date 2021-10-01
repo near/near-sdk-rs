@@ -53,6 +53,7 @@ impl ImplItemMethodInfo {
             method_type,
             is_payable,
             is_private,
+            modifier,
             ..
         } = attr_signature_info;
         let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
@@ -147,6 +148,15 @@ impl ImplItemMethodInfo {
                 #value
             }
         });
+
+        let modified_body = if let Some(macro_name) = modifier {
+            quote! {
+                #macro_name ! { #body }
+            }
+        } else {
+            body
+        };
+        
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
@@ -159,7 +169,7 @@ impl ImplItemMethodInfo {
                 #arg_parsing
                 #callback_deser
                 #callback_vec_deser
-                #body
+                #modified_body
             }
         }
     }

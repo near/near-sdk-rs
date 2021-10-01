@@ -1,3 +1,5 @@
+use crate::core_impl::ModifierAttr;
+
 use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
 use quote::ToTokens;
 use syn::export::Span;
@@ -28,6 +30,9 @@ pub struct AttrSigInfo {
     pub returns: ReturnType,
     /// The original method signature.
     pub original_sig: Signature,
+    // TODO This should be a Vec to handle multiple modifiers.
+    /// Modifier to apply to the method.
+    pub modifier: Option<Ident>,
 }
 
 impl AttrSigInfo {
@@ -63,6 +68,7 @@ impl AttrSigInfo {
         let mut is_private = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
+        let mut modifier = None;
 
         let mut payable_attr = None;
         for attr in original_attrs.iter() {
@@ -86,6 +92,10 @@ impl AttrSigInfo {
                 "result_serializer" => {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
                     result_serializer = serializer.serializer_type;
+                }
+                "modifier" => {
+                    let modifier_name: ModifierAttr = syn::parse2(attr.tokens.clone())?;
+                    modifier = Some(modifier_name.modifier);
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
@@ -140,6 +150,7 @@ impl AttrSigInfo {
             receiver,
             returns,
             original_sig: original_sig.clone(),
+            modifier,
         };
 
         let input_serializer =

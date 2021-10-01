@@ -659,6 +659,30 @@ mod tests {
     }
 
     #[test]
+    fn modifier_on_method() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("#[modifier(test_macro)] pub fn my_method(&mut self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn my_method() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic_str("Method my_method doesn't accept deposit");
+                }
+                test_macro! {
+                    let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                    contract.my_method();
+                    near_sdk::env::state_write(&contract);
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
     fn marshall_one_arg() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: String) { }").unwrap();
