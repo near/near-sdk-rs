@@ -149,12 +149,22 @@ impl ImplItemMethodInfo {
             }
         });
 
+        let method_logic = quote! {
+                #is_private_check
+                #deposit_check
+                #arg_struct
+                #arg_parsing
+                #callback_deser
+                #callback_vec_deser
+                #body
+        };
+
         let modified_body = if let Some(macro_name) = modifier {
             quote! {
-                #macro_name ! { #body }
+                #macro_name ! { #method_logic }
             }
         } else {
-            body
+            method_logic
         };
 
         quote! {
@@ -163,12 +173,6 @@ impl ImplItemMethodInfo {
             #[no_mangle]
             pub extern "C" fn #ident() {
                 #panic_hook
-                #is_private_check
-                #deposit_check
-                #arg_struct
-                #arg_parsing
-                #callback_deser
-                #callback_vec_deser
                 #modified_body
             }
         }
