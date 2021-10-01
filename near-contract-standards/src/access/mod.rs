@@ -5,14 +5,14 @@ use std::collections::HashMap;
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Ownable {
     pub owner: AccountId,
-    pub null_owner: AccountId,
+    pub default_owner: AccountId,
 }
 
 impl Ownable {
     pub fn new() -> Self {
         Self {
             owner: env::predecessor_account_id(),
-            null_owner: "0000000000".parse::<AccountId>().unwrap(),
+            default_owner: "0000000000".parse::<AccountId>().unwrap(),
         }
     }
 
@@ -26,12 +26,12 @@ impl Ownable {
 
     pub fn renounce_ownership(&mut self) {
         self.only_owner();
-        self.owner = self.null_owner.clone();
+        self.owner = self.default_owner.clone();
     }
 
     pub fn transfer_ownership(&mut self, new_owner: AccountId) {
         self.only_owner();
-        require!(new_owner != self.null_owner, "Ownable: new owner is undefined");
+        require!(new_owner != self.default_owner, "Ownable: new owner is undefined");
         self.owner = new_owner;
     }
 }
@@ -45,12 +45,12 @@ pub struct RoleData {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct AccessControl {
     pub roles: HashMap<[u8; 32], RoleData>,
-    pub null_role: [u8; 32],
+    pub default_admin_role: [u8; 32],
 }
 
 impl AccessControl {
     pub fn new() -> Self {
-        Self { roles: HashMap::new(), null_role: [0; 32] }
+        Self { roles: HashMap::new(), default_admin_role: [0; 32] }
     }
 
     pub fn has_role(&self, role: &[u8; 32], account: &AccountId) -> bool {
@@ -74,7 +74,7 @@ impl AccessControl {
 
     pub fn get_role_admin(&self, role: &[u8; 32]) -> [u8; 32] {
         if !self.roles.contains_key(role) {
-            return self.null_role.clone();
+            return self.default_admin_role.clone();
         }
         self.roles.get(role).unwrap().admin_role.clone()
     }
@@ -83,7 +83,7 @@ impl AccessControl {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
-                RoleData { members: HashMap::new(), admin_role: self.null_role.clone() },
+                RoleData { members: HashMap::new(), admin_role: self.default_admin_role.clone() },
             );
         }
         if !self.has_role(&role, &account) {
@@ -119,7 +119,7 @@ impl AccessControl {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
-                RoleData { members: HashMap::new(), admin_role: self.null_role.clone() },
+                RoleData { members: HashMap::new(), admin_role: self.default_admin_role.clone() },
             );
         }
         self.roles.get_mut(&role).unwrap().admin_role = admin_role;
@@ -231,12 +231,12 @@ mod tests {
         let context = get_context(accounts(1));
         testing_env!(context.build());
         let mut ac = AccessControl::new();
-        let null_role = [0; 32];
+        let default_admin_role = [0; 32];
         let role = [1; 32];
         let admin_role = [2; 32];
         ac.set_role_admin(role, admin_role);
         assert_eq!(admin_role, ac.get_role_admin(&role));
-        assert_eq!(null_role, ac.get_role_admin(&admin_role));
+        assert_eq!(default_admin_role, ac.get_role_admin(&admin_role));
     }
 
     #[test]
