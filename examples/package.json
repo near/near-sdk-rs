@@ -4,7 +4,7 @@
     "test": "ava"
   },
   "devDependencies": {
-    "near-runner-ava": "0.0.1-pre.0",
+    "near-runner-ava": "0.1.1",
     "near-units": "^0.1.9"
   }
 }

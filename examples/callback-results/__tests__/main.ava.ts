@@ -1,11 +1,10 @@
-import path from 'path';
 import { Gas } from 'near-units';
 import { Runner } from 'near-runner-ava';
 
 const runner = Runner.create(async ({ root }) => ({
   contract: await root.createAndDeploy(
     'contract',
-    path.join(__dirname, '..', 'res', 'callback_results.wasm'),
+    'callback-results/res/callback_results.wasm',
   ),
 }));
 

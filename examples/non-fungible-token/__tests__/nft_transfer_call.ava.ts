@@ -1,4 +1,3 @@
-import path from 'path';
 import { Gas } from 'near-units';
 import type { Token } from './utils';
 import { createRunner, TOKEN_ID } from './utils';
@@ -6,7 +5,7 @@ import { createRunner, TOKEN_ID } from './utils';
 const runner = createRunner(async ({ root, nft }) => ({
   tokenReceiver: await root.createAndDeploy(
     'token-receiver',
-    path.join(__dirname, '..', 'res', 'token_receiver.wasm'),
+    'non-fungible-token/res/token_receiver.wasm',
     {
       method: 'new',
       args: { non_fungible_token_account_id: nft }

@@ -1,4 +1,3 @@
-import path from 'path';
 import { Runner, ReturnedAccounts } from 'near-runner-ava';
 
 export interface Token {
@@ -30,7 +29,7 @@ export function createRunner(more: ((accounts: ReturnedAccounts) => Promise<Retu
     const alice = await root.createAccount('alice');
     const nft = await root.createAndDeploy(
       'nft',
-      path.join(__dirname, '..', 'res', 'non_fungible_token.wasm'),
+      'non-fungible-token/res/non_fungible_token.wasm',
       {
         method: 'new_default_meta',
         args: { owner_id: root }

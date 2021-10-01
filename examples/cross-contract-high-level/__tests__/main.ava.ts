@@ -1,11 +1,10 @@
-import path from 'path';
 import { Gas, NEAR } from 'near-units';
 import { Runner, Account } from 'near-runner-ava';
 
 const runner = Runner.create(async ({ root }) => ({
   contract: await root.createAndDeploy(
     'contract',
-    path.join(__dirname, '..', 'res', 'cross_contract_high_level.wasm'),
+    'cross-contract-high-level/res/cross_contract_high_level.wasm',
   ),
 }));
 
