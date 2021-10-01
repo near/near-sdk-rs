@@ -156,7 +156,7 @@ impl ImplItemMethodInfo {
         } else {
             body
         };
-        
+
         quote! {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
