@@ -1,5 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, require, AccountId};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -36,13 +37,13 @@ impl Ownable {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct RoleData {
     pub members: HashMap<AccountId, bool>,
     pub admin_role: [u8; 32],
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct AccessControl {
     pub roles: HashMap<[u8; 32], RoleData>,
     pub default_admin_role: [u8; 32],
