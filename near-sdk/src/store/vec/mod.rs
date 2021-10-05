@@ -1,11 +1,14 @@
 mod impls;
 mod iter;
 
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Bound, Range, RangeBounds},
+};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-pub use self::iter::{Iter, IterMut};
+pub use self::iter::{Drain, Iter, IterMut};
 use super::ERR_INCONSISTENT_STATE;
 use crate::{env, IntoStorageKey};
 
@@ -223,14 +226,48 @@ where
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
     /// over from storage.
-    pub fn iter(&self) -> Iter<'_, T> {
+    pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
     }
 
     /// Returns an iterator over the [`Vector`] that allows modifying each value. This iterator
     /// will lazily load any values iterated over from storage.
-    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
+    pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut::new(self)
+    }
+
+    /// Creates a draining iterator that removes the specified range in the vector
+    /// and yields the removed items.
+    ///
+    /// When the iterator **is** dropped, all elements in the range are removed
+    /// from the vector, even if the iterator was not fully consumed. If the
+    /// iterator **is not** dropped (with [`mem::forget`] for example), the collection will be left
+    /// in an inconsistent state.
+    ///
+    /// This will not panic on invalid ranges (`end > length` or `end < start`) and instead the
+    /// iterator will just be empty.
+    pub fn drain<R>(&mut self, range: R) -> Drain<T>
+    where
+        R: RangeBounds<u32>,
+    {
+        let start = match range.start_bound() {
+            Bound::Excluded(i) => {
+                i.checked_add(1).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
+            }
+            Bound::Included(i) => *i,
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Excluded(i) => *i,
+            Bound::Included(i) => {
+                i.checked_add(1).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
+            }
+            Bound::Unbounded => self.len(),
+        };
+
+        // Note: don't need to do bounds check if end < start, will just return None when iterating
+        // This will also cap the max length at the length of the vector.
+        Drain::new(self, Range { start, end: core::cmp::min(end, self.len()) })
     }
 }
 
@@ -435,6 +472,53 @@ mod tests {
 
         // Count check
         assert_eq!(vec.iter().count(), baseline.len());
+    }
+
+    #[test]
+    fn drain_iterator() {
+        let mut vec = Vector::new(b"v");
+        let mut baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        vec.extend(baseline.clone());
+
+        assert!(Iterator::eq(vec.drain(1..=3), baseline.drain(1..=3)));
+        assert_eq!(vec.iter().copied().collect::<Vec<_>>(), vec![0, 4, 5, 6, 7, 8, 9]);
+
+        // Test incomplete drain
+        {
+            let mut drain = vec.drain(0..3);
+            let mut b_drain = baseline.drain(0..3);
+            assert_eq!(drain.next(), b_drain.next());
+            assert_eq!(drain.next(), b_drain.next());
+        }
+
+        // 7 elements, drained 3
+        assert_eq!(vec.len(), 4);
+
+        // Test incomplete drain over limit
+        {
+            let mut drain = vec.drain(2..);
+            let mut b_drain = baseline.drain(2..);
+            assert_eq!(drain.next(), b_drain.next());
+        }
+
+        // Drain rest
+        assert!(Iterator::eq(vec.drain(..), baseline.drain(..)));
+
+        // Test double ended iterator functions
+        let mut vec = Vector::new(b"v");
+        let mut baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        vec.extend(baseline.clone());
+
+        {
+            let mut drain = vec.drain(1..8);
+            let mut b_drain = baseline.drain(1..8);
+            assert_eq!(drain.nth(1), b_drain.nth(1));
+            assert_eq!(drain.nth_back(2), b_drain.nth_back(2));
+            assert_eq!(drain.len(), b_drain.len());
+        }
+
+        assert_eq!(vec.len() as usize, baseline.len());
+        assert!(Iterator::eq(vec.iter(), baseline.iter()));
     }
 
     #[derive(Arbitrary, Debug)]

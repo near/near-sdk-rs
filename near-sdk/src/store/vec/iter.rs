@@ -156,3 +156,113 @@ where
         Some(self.get_mut(idx).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)))
     }
 }
+
+/// A draining iterator for [`Vector<T>`].
+#[derive(Debug)]
+pub struct Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Mutable reference to vector used to iterate through.
+    vec: &'a mut Vector<T>,
+    /// Range of indices to iterate.
+    range: Range<u32>,
+    /// Range of elements to delete.
+    delete_range: Range<u32>,
+}
+
+impl<'a, T> Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Creates a new iterator for the given storage vector.
+    pub(crate) fn new(vec: &'a mut Vector<T>, range: Range<u32>) -> Self {
+        Self { vec, delete_range: range.clone(), range }
+    }
+
+    /// Returns the amount of remaining elements to yield by the iterator.
+    fn remaining(&self) -> usize {
+        self.range.len()
+    }
+    fn remove(&mut self, index: u32) -> T {
+        self.vec
+            .values
+            .get_mut_inner(index)
+            .replace(None)
+            // Element must exist within bounds of vector
+            .unwrap_or_else(|| env::abort())
+    }
+}
+
+impl<'a, T> Drop for Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    fn drop(&mut self) {
+        let delete_indices = (self.delete_range.start..self.range.start)
+            .chain(self.range.end..self.delete_range.end);
+
+        // Delete any non-deleted elements from iterator (not loading from storage)
+        for i in delete_indices {
+            self.vec.values.set(i, None);
+        }
+
+        // Shift values after delete into slots deleted.
+        let shift_len = self.delete_range.len() as u32;
+        for i in self.delete_range.end..self.vec.len() {
+            self.vec.swap(i, i - shift_len);
+        }
+
+        // Adjust length of vector.
+        self.vec.len -= self.delete_range.len() as u32;
+    }
+}
+
+impl<'a, T> Iterator for Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Load and replace value at next index
+        let delete_idx = self.range.next()?;
+        let prev = self.remove(delete_idx);
+
+        Some(prev)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.remaining();
+        (remaining, Some(remaining))
+    }
+
+    fn count(self) -> usize {
+        self.remaining()
+    }
+}
+
+impl<'a, T> ExactSizeIterator for Drain<'a, T> where T: BorshSerialize + BorshDeserialize {}
+impl<'a, T> FusedIterator for Drain<'a, T> where T: BorshSerialize + BorshDeserialize {}
+
+impl<'a, T> DoubleEndedIterator for Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        let delete_idx = self.range.next_back()?;
+        let prev = self.remove(delete_idx);
+
+        Some(prev)
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        // Only delete and don't load any values before n
+        for _ in 0..n {
+            let next = self.range.next_back()?;
+            // Delete all values in advance, values will be shifted over on drop
+            self.vec.values.set(next, None);
+        }
+        self.next_back()
+    }
+}
