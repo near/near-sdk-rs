@@ -19,7 +19,7 @@ pub struct FreeList<T>
 where
     T: BorshSerialize,
 {
-    last_free: Option<FreeListIndex>,
+    first_free: Option<FreeListIndex>,
     occupied_count: u32,
     elements: Vector<Slot<T>>,
 }
@@ -34,7 +34,7 @@ where
         &self,
         writer: &mut W,
     ) -> Result<(), borsh::maybestd::io::Error> {
-        BorshSerialize::serialize(&self.last_free, writer)?;
+        BorshSerialize::serialize(&self.first_free, writer)?;
         BorshSerialize::serialize(&self.occupied_count, writer)?;
         BorshSerialize::serialize(&self.elements, writer)?;
         Ok(())
@@ -47,7 +47,7 @@ where
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
-            last_free: BorshDeserialize::deserialize(buf)?,
+            first_free: BorshDeserialize::deserialize(buf)?,
             occupied_count: BorshDeserialize::deserialize(buf)?,
             elements: BorshDeserialize::deserialize(buf)?,
         })
@@ -79,7 +79,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Bucket")
-            .field("next_vacant", &self.last_free)
+            .field("next_vacant", &self.first_free)
             .field("occupied_count", &self.occupied_count)
             .field("elements", &self.elements)
             .finish()
@@ -105,7 +105,7 @@ where
     T: BorshSerialize,
 {
     pub fn new<S: IntoStorageKey>(prefix: S) -> Self {
-        Self { last_free: None, occupied_count: 0, elements: Vector::new(prefix) }
+        Self { first_free: None, occupied_count: 0, elements: Vector::new(prefix) }
     }
     /// Returns length of values within the bucket.
     pub fn len(&self) -> u32 {
@@ -124,7 +124,7 @@ where
     /// Clears the bucket, removing all values (including removed entries).
     pub fn clear(&mut self) {
         self.elements.clear();
-        self.last_free = None;
+        self.first_free = None;
         self.occupied_count = 0;
     }
 }
@@ -159,14 +159,14 @@ where
     pub fn insert(&mut self, value: T) -> FreeListIndex {
         let new_value = Slot::Occupied(value);
         let inserted_index;
-        if let Some(FreeListIndex(vacant)) = self.last_free {
+        if let Some(FreeListIndex(vacant)) = self.first_free {
             // There is a vacant cell, put new value in that position
             let prev = self.elements.replace(vacant, new_value);
             inserted_index = vacant;
 
             if let Slot::Empty { next_free: next_index } = prev {
                 // Update pointer on bucket to this next index
-                self.last_free = next_index;
+                self.first_free = next_index;
             } else {
                 env::panic_str(ERR_INCONSISTENT_STATE)
             }
@@ -190,12 +190,12 @@ where
         }
 
         // Take next pointer from bucket to attach to empty cell put in store
-        let next_index = mem::take(&mut self.last_free);
+        let next_index = mem::take(&mut self.first_free);
         let prev = mem::replace(entry, Slot::Empty { next_free: next_index });
         self.occupied_count -= 1;
 
         // Point next insert to this deleted index
-        self.last_free = Some(index);
+        self.first_free = Some(index);
 
         prev.into_value()
     }
@@ -270,23 +270,23 @@ mod tests {
 
         // Remove 1 first
         bucket.remove(i1);
-        assert_eq!(bucket.last_free, Some(i1));
+        assert_eq!(bucket.first_free, Some(i1));
         assert_eq!(bucket.occupied_count, 3);
 
         // Remove 0 next
         bucket.remove(i0);
-        assert_eq!(bucket.last_free, Some(i0));
+        assert_eq!(bucket.first_free, Some(i0));
         assert_eq!(bucket.occupied_count, 2);
 
         // This should insert at index 0 (last deleted)
         let r5 = bucket.insert(5);
         assert_eq!(r5, i0);
-        assert_eq!(bucket.last_free, Some(i1));
+        assert_eq!(bucket.first_free, Some(i1));
         assert_eq!(bucket.occupied_count, 3);
 
         bucket.remove(i3);
         bucket.remove(i2);
-        assert_eq!(bucket.last_free, Some(i2));
+        assert_eq!(bucket.first_free, Some(i2));
 
         let r6 = bucket.insert(6);
         assert_eq!(r6, i2);
@@ -297,7 +297,7 @@ mod tests {
         // Last spot to fill is index 1
         let r8 = bucket.insert(8);
         assert_eq!(r8, i1);
-        assert!(bucket.last_free.is_none());
+        assert!(bucket.first_free.is_none());
         assert_eq!(bucket.insert(9), FreeListIndex(4));
     }
 
