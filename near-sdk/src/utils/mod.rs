@@ -71,7 +71,9 @@ macro_rules! require {
     };
     ($cond:expr, $message:expr $(,)?) => {
         if cfg!(debug_assertions) {
-            assert!($cond, "{}", $message)
+            // Error message must be &str to match panic_str signature
+            let msg: &str = &$message;
+            assert!($cond, "{}", msg)
         } else if !$cond {
             $crate::env::panic_str(&$message)
         }
