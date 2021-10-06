@@ -3,7 +3,7 @@ use near_sdk::{env, require, AccountId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct Ownable {
     pub owner: AccountId,
     pub default_owner: AccountId,
