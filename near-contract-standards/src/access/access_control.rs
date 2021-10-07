@@ -1,14 +1,14 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, require, AccountId};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub type RoleId = [u8; 32];
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct RoleData {
-    pub members: HashMap<AccountId, bool>,
+    pub members: HashSet<AccountId>,
     pub admin_role: RoleId,
 }
 
@@ -28,7 +28,7 @@ impl AccessControl {
         if !self.roles.contains_key(role) {
             return false;
         }
-        *self.roles.get(role).unwrap().members.get(account).unwrap_or(&false)
+        self.roles.get(role).unwrap().members.contains(account)
     }
 
     pub fn check_role(&self, role: &RoleId, account: &AccountId) {
@@ -54,11 +54,11 @@ impl AccessControl {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
-                RoleData { members: HashMap::new(), admin_role: self.default_admin_role.clone() },
+                RoleData { members: HashSet::new(), admin_role: self.default_admin_role.clone() },
             );
         }
         if !self.has_role(&role, &account) {
-            self.roles.get_mut(&role).unwrap().members.insert(account, true);
+            self.roles.get_mut(&role).unwrap().members.insert(account);
         }
     }
 
@@ -74,7 +74,7 @@ impl AccessControl {
     pub fn revoke_role(&mut self, role: RoleId, account: AccountId) {
         self.only_role(&self.get_role_admin(&role));
         if self.has_role(&role, &account) {
-            self.roles.get_mut(&role).unwrap().members.insert(account, false);
+            self.roles.get_mut(&role).unwrap().members.remove(&account);
         }
     }
 
@@ -90,7 +90,7 @@ impl AccessControl {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
-                RoleData { members: HashMap::new(), admin_role: self.default_admin_role.clone() },
+                RoleData { members: HashSet::new(), admin_role: self.default_admin_role.clone() },
             );
         }
         self.roles.get_mut(&role).unwrap().admin_role = admin_role;
