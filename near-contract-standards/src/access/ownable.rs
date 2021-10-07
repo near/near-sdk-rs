@@ -20,14 +20,18 @@ pub struct Ownable {
 }
 
 impl Ownable {
+    /// Initializes the current struct by setting the caller as the initial owner.
     pub fn new() -> Self {
         Self { owner: Some(env::predecessor_account_id()) }
     }
 
+    /// Returns the address of the current owner.  
     pub fn owner(&self) -> Option<AccountId> {
         self.owner.clone()
     }
 
+    /// Has no effect if called by the owner.
+    /// Panics otherwise.
     pub fn only_owner(&self) {
         require!(
             Some(env::predecessor_account_id()) == self.owner(),
@@ -35,11 +39,19 @@ impl Ownable {
         );
     }
 
+    /// Permanently leaves the contract without an owner.  
+    /// Can only be called by the current owner.
+    ///
+    /// Renouncing ownership will leave the contract without an owner,
+    /// thereby removing any functionality that is only available to the owner.  
+    /// ie. future calls into 'only_owner' will always panic.    
     pub fn permanently_renounce_ownership(&mut self) {
         self.only_owner();
         self.owner = None;
     }
 
+    /// Tranfers ownership of the contract to a new account 'new_owner'.  
+    /// Can only be called by the current owner.
     pub fn transfer_ownership(&mut self, new_owner: AccountId) {
         self.only_owner();
         self.owner = Some(new_owner);
