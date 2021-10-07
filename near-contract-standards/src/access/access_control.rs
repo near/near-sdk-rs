@@ -79,7 +79,7 @@ impl AccessControl {
     /// Otherwise, panics with a standard message.
     ///
     /// Uses 'has_role' internally.
-    fn internal_check_role(&self, role: &RoleId, account: &AccountId) {
+    pub fn internal_check_role(&self, role: &RoleId, account: &AccountId) {
         if !self.has_role(role, account) {
             env::panic_str(
                 format!("AccessControl: account {} is missing role {:?}", *account, *role).as_str(),
@@ -117,7 +117,7 @@ impl AccessControl {
     /// system imposed by this module.
     ///
     /// Uses 'has_role' internally.
-    fn internal_setup_role(&mut self, role: RoleId, account: AccountId) {
+    pub fn internal_setup_role(&mut self, role: RoleId, account: AccountId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
