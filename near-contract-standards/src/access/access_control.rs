@@ -26,6 +26,8 @@ impl AccessControl {
         Self { roles: HashMap::new(), default_admin_role: RoleId::default() }
     }
 
+    /// Returns true if 'account' has been granted the specific 'role'.  
+    /// Returns false otherwise.
     pub fn has_role(&self, role: &RoleId, account: &AccountId) -> bool {
         if !self.roles.contains_key(role) {
             return false;
@@ -33,6 +35,10 @@ impl AccessControl {
         self.roles.get(role).unwrap().members.contains(account)
     }
 
+    /// Has no effect if 'account' has been granted the specific 'role'.  
+    /// Otherwise, panics with a standard message.
+    /// 
+    /// Uses 'has_role' internally.
     fn internal_check_role(&self, role: &RoleId, account: &AccountId) {
         if !self.has_role(role, account) {
             env::panic_str(
@@ -41,10 +47,18 @@ impl AccessControl {
         }
     }
 
+    /// Has no effect if the caller has been granted the specific 'role'.  
+    /// Otherwise, panics with a standard message.
+    ///
+    /// Uses 'internal_check_role' internally.
     pub fn only_role(&self, role: &RoleId) {
         self.internal_check_role(role, &env::predecessor_account_id());
     }
 
+    /// Returns the admin for a specific 'role'.  
+    /// If 'role' does not exist, returns the default admin.
+    ///
+    /// See 'internal_set_role_admin' to change a role's admin.
     pub fn get_role_admin(&self, role: &RoleId) -> RoleId {
         if !self.roles.contains_key(role) {
             return self.default_admin_role.clone();
@@ -52,6 +66,15 @@ impl AccessControl {
         self.roles.get(role).unwrap().admin_role.clone()
     }
 
+    /// Grants a specific 'role' to a specific 'account'.
+    /// If the 'role' does not exist in the current system,
+    /// it also creates the 'role'.
+    ///
+    /// This method should only be called when setting
+    /// up the initial roles for the system.
+    ///
+    /// Using this function in any other way is effectively circumventing the admin
+    /// system imposed by this module.
     fn internal_setup_role(&mut self, role: RoleId, account: AccountId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
