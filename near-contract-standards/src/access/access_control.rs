@@ -2,9 +2,18 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, require, AccountId};
+
+use sha3::{Digest, Keccak256};
 use std::collections::{HashMap, HashSet};
 
 pub type RoleId = [u8; 32];
+
+pub fn keccak256(text: String) -> RoleId {
+    let mut hasher = Keccak256::new();
+    hasher.update(text.as_bytes());
+    let result = hasher.finalize();
+    result.into()
+}
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -18,15 +27,8 @@ pub struct RoleData {
 ///
 /// Roles are referred to by their 'RoleId' identifier ([u8; 32]). They
 /// should be exposed in the contract and be unique. The best way to
-/// achieve this is by using 'sha3::Keccak256':
-/* 
-    fn keccak256(role: String) -> [u8; 32] {
-      let mut hasher = Keccak256::new();
-      hasher.update(role.as_bytes());
-      let result = hasher.finalize();
-      result.into()
-    }
-
+/// achieve this is by using 'keccak256' function:
+/*
     let MY_ROLE: [u8; 32] = keccak256(String::from("MY_ROLE"));
 */
 ///
