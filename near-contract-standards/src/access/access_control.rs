@@ -50,7 +50,7 @@ impl AccessControl {
         self.roles.get(role).unwrap().admin_role.clone()
     }
 
-    fn grant_role_internal(&mut self, role: RoleId, account: AccountId) {
+    fn internal_grant_role(&mut self, role: RoleId, account: AccountId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
@@ -64,11 +64,11 @@ impl AccessControl {
 
     pub fn grant_role(&mut self, role: RoleId, account: AccountId) {
         self.only_role(&self.get_role_admin(&role));
-        self.grant_role_internal(role, account);
+        self.internal_grant_role(role, account);
     }
 
     pub fn setup_role(&mut self, role: RoleId, account: AccountId) {
-        self.grant_role_internal(role, account);
+        self.internal_grant_role(role, account);
     }
 
     pub fn revoke_role(&mut self, role: RoleId, account: AccountId) {
