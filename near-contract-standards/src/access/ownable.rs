@@ -24,7 +24,7 @@ impl Ownable {
         );
     }
 
-    pub fn renounce_ownership(&mut self) {
+    pub fn permanently_renounce_ownership(&mut self) {
         self.only_owner();
         self.owner = None;
     }
@@ -84,7 +84,7 @@ mod tests {
         testing_env!(context.build());
         let mut ownable = Ownable::new();
         assert_eq!(ownable.owner(), Some(accounts(1)));
-        ownable.renounce_ownership();
+        ownable.permanently_renounce_ownership();
         assert_eq!(ownable.owner(), None);
     }
 
