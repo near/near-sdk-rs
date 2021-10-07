@@ -31,7 +31,7 @@ impl AccessControl {
         self.roles.get(role).unwrap().members.contains(account)
     }
 
-    pub fn check_role(&self, role: &RoleId, account: &AccountId) {
+    fn internal_check_role(&self, role: &RoleId, account: &AccountId) {
         if !self.has_role(role, account) {
             env::panic_str(
                 format!("AccessControl: account {} is missing role {:?}", *account, *role).as_str(),
@@ -40,7 +40,7 @@ impl AccessControl {
     }
 
     pub fn only_role(&self, role: &RoleId) {
-        self.check_role(role, &env::predecessor_account_id());
+        self.internal_check_role(role, &env::predecessor_account_id());
     }
 
     pub fn get_role_admin(&self, role: &RoleId) -> RoleId {
@@ -128,11 +128,11 @@ mod tests {
     #[should_panic(
         expected = "AccessControl: account charlie is missing role [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"
     )]
-    fn test_check_role() {
+    fn test_internal_check_role() {
         let context = get_context(accounts(1));
         testing_env!(context.build());
         let ac = AccessControl::new();
-        ac.check_role(&[1; 32], &accounts(2));
+        ac.internal_check_role(&[1; 32], &accounts(2));
     }
 
     #[test]
