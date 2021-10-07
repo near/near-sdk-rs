@@ -1,7 +1,18 @@
+/// Based on openzeppelin/access. See https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/access.
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, require, AccountId};
 
+/// Contract module which provides a basic access control mechanism, where
+/// there is an account (owner) that can be granted exclusive access to
+/// specific functions.
+///
+/// By default, the owner account will be the one that deploys the contract.
+/// This can later be changed by using 'transfer_ownership'.
+///
+/// This module makes available the function 'only_owner', which can be applied
+/// to your functions to restrict their use to the owner.
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Ownable {
