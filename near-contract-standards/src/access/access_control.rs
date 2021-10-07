@@ -82,7 +82,7 @@ impl AccessControl {
         self.revoke_role(role, account);
     }
 
-    pub fn set_role_admin(&mut self, role: RoleId, admin_role: RoleId) {
+    pub fn internal_set_role_admin(&mut self, role: RoleId, admin_role: RoleId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
@@ -154,7 +154,7 @@ mod tests {
         let default_admin_role = [0; 32];
         let role = [1; 32];
         let admin_role = [2; 32];
-        ac.set_role_admin(role, admin_role);
+        ac.internal_set_role_admin(role, admin_role);
         assert_eq!(admin_role, ac.get_role_admin(&role));
         assert_eq!(default_admin_role, ac.get_role_admin(&admin_role));
     }
@@ -166,7 +166,7 @@ mod tests {
         let mut ac = AccessControl::new();
         let role = [1; 32];
         let role_admin = [2; 32];
-        ac.set_role_admin(role, role_admin);
+        ac.internal_set_role_admin(role, role_admin);
         ac.internal_setup_role(role_admin, accounts(1));
         ac.grant_role(role, accounts(1));
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
@@ -189,7 +189,7 @@ mod tests {
         let mut ac = AccessControl::new();
         let role = [1; 32];
         let role_admin = [2; 32];
-        ac.set_role_admin(role, role_admin);
+        ac.internal_set_role_admin(role, role_admin);
         ac.internal_setup_role(role_admin, accounts(1));
         ac.grant_role(role, accounts(1));
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
