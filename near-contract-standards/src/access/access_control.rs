@@ -13,6 +13,46 @@ pub struct RoleData {
     pub admin_role: RoleId,
 }
 
+/// Contract module that allows accounts to implement role-based access
+/// control mechanisms.
+///
+/// Roles are referred to by their 'RoleId' identifier ([u8; 32]). They
+/// should be exposed in the contract and be unique. The best way to
+/// achieve this is by using 'sha3::Keccak256':
+///
+/// ```
+/// fn keccak256(role: String) -> [u8; 32] {
+///     let mut hasher = Keccak256::new();
+///     hasher.update(role.as_bytes());
+///     let result = hasher.finalize();
+///     result.into()
+/// }
+///
+/// let MY_ROLE: [u8; 32] = keccak256(String::from("MY_ROLE"));
+/// ```
+///
+/// Roles can be used to represent a set of permissions. To restrict access to a
+/// function call, use 'has_role':
+///
+/// ```
+/// pub fn foo() {
+///     require!(has_role(&MY_ROLE, &env::predecessor_account_id()));
+///     ...
+/// }
+/// ```
+///
+/// Roles can be granted and revoked dynamically via the 'grant_role' and
+/// 'revoke_role' functions. Each role has an associated admin role, and only
+/// accounts that have a role's admin role can call 'grant_role' and 'revoke_role'.
+///
+/// By default, the admin role for all roles is `default_admin_role`, which means
+/// that only accounts with this role will be able to grant or revoke other
+/// roles. More complex role relationships can be created by using
+/// 'internal_set_role_admin'.
+///
+/// WARNING: The `default_admin_role` is also its own admin: it has permission to
+/// grant and revoke this role. Extra precautions should be taken to secure
+/// accounts that have been granted it.
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccessControl {

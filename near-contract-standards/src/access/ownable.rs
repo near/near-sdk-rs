@@ -19,7 +19,7 @@ pub struct Ownable {
 }
 
 impl Ownable {
-    /// Initializes the current struct by setting the caller as the initial owner.
+    /// Initializes the current contract by setting the caller as the initial owner.
     pub fn new() -> Self {
         Self { owner: Some(env::predecessor_account_id()) }
     }
