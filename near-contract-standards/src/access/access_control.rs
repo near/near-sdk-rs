@@ -19,27 +19,26 @@ pub struct RoleData {
 /// Roles are referred to by their 'RoleId' identifier ([u8; 32]). They
 /// should be exposed in the contract and be unique. The best way to
 /// achieve this is by using 'sha3::Keccak256':
+/* 
+    fn keccak256(role: String) -> [u8; 32] {
+      let mut hasher = Keccak256::new();
+      hasher.update(role.as_bytes());
+      let result = hasher.finalize();
+      result.into()
+    }
+
+    let MY_ROLE: [u8; 32] = keccak256(String::from("MY_ROLE"));
+*/
 ///
-/// ```
-/// fn keccak256(role: String) -> [u8; 32] {
-///     let mut hasher = Keccak256::new();
-///     hasher.update(role.as_bytes());
-///     let result = hasher.finalize();
-///     result.into()
-/// }
-///
-/// let MY_ROLE: [u8; 32] = keccak256(String::from("MY_ROLE"));
-/// ```
 ///
 /// Roles can be used to represent a set of permissions. To restrict access to a
 /// function call, use 'has_role':
-///
-/// ```
-/// pub fn foo() {
-///     require!(has_role(&MY_ROLE, &env::predecessor_account_id()));
-///     ...
-/// }
-/// ```
+/*
+    pub fn foo() {
+      require!(has_role(&MY_ROLE, &env::predecessor_account_id()));
+      ...
+    }
+*/
 ///
 /// Roles can be granted and revoked dynamically via the 'grant_role' and
 /// 'revoke_role' functions. Each role has an associated admin role, and only
