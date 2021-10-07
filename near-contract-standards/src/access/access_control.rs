@@ -92,6 +92,15 @@ impl AccessControl {
         self.internal_setup_role(role, account);
     }
 
+    /// Revokes a specific 'role' from a specific 'account'.
+    ///
+    /// Requirements:
+    /// - The role must exist.
+    /// - The caller must have the role's admin.
+    ///
+    /// Uses 'only_role' and 'has_role' internally.  
+    ///
+    /// See also 'grant_role' for the opposite effect.
     pub fn revoke_role(&mut self, role: RoleId, account: AccountId) {
         self.only_role(&self.get_role_admin(&role));
         if self.has_role(&role, &account) {
@@ -99,6 +108,15 @@ impl AccessControl {
         }
     }
 
+    /// Takes away a specific 'role' from a specific 'account'.  
+    /// It has no effect if the 'role' does not exist, or if the specified 'account'
+    /// is not enabled for that specific 'role'.
+    /// 
+    /// Panics if the specified 'account' is not the account of the caller.
+    ///
+    /// This method's purpose is to provide a mechanism for accounts to purposefuly
+    /// lose their own privileges, such as when they are compromised
+    /// (eg. when a trusted device is misplaced).
     pub fn renounce_role(&mut self, role: RoleId, account: AccountId) {
         require!(
             account == env::predecessor_account_id(),
@@ -107,6 +125,9 @@ impl AccessControl {
         self.revoke_role(role, account);
     }
 
+    /// Sets 'admin_role' as 'role's admin, creating the 'role' if necessary.  
+    ///
+    /// There are no further verifications about the caller.
     pub fn internal_set_role_admin(&mut self, role: RoleId, admin_role: RoleId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
