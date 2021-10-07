@@ -45,12 +45,12 @@ pub struct RoleData {
 /// 'revoke_role' functions. Each role has an associated admin role, and only
 /// accounts that have a role's admin role can call 'grant_role' and 'revoke_role'.
 ///
-/// By default, the admin role for all roles is `default_admin_role`, which means
+/// By default, the admin role for all roles is 'default_admin_role', which means
 /// that only accounts with this role will be able to grant or revoke other
 /// roles. More complex role relationships can be created by using
 /// 'internal_set_role_admin'.
 ///
-/// WARNING: The `default_admin_role` is also its own admin: it has permission to
+/// WARNING: The 'default_admin_role' is also its own admin: it has permission to
 /// grant and revoke this role. Extra precautions should be taken to secure
 /// accounts that have been granted it.
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
@@ -114,6 +114,8 @@ impl AccessControl {
     ///
     /// Using this function in any other way is effectively circumventing the admin
     /// system imposed by this module.
+    ///
+    /// Uses 'has_role' internally.
     fn internal_setup_role(&mut self, role: RoleId, account: AccountId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
@@ -126,6 +128,16 @@ impl AccessControl {
         }
     }
 
+    /// Grants a specific 'role' to a specific 'account'.
+    ///
+    /// Requirements:
+    ///
+    /// - The role must exist.
+    /// - The caller must have the role's admin.
+    ///
+    /// Uses 'only_role' and then 'internal_setup_role' internally.  
+    ///
+    /// See also 'revoke_role' for the opposite effect.
     pub fn grant_role(&mut self, role: RoleId, account: AccountId) {
         self.only_role(&self.get_role_admin(&role));
         self.internal_setup_role(role, account);

@@ -24,7 +24,7 @@ impl Ownable {
         Self { owner: Some(env::predecessor_account_id()) }
     }
 
-    /// Returns the address of the current owner.  
+    /// Returns the account of the current owner.  
     pub fn owner(&self) -> Option<AccountId> {
         self.owner.clone()
     }
