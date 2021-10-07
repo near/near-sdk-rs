@@ -1,5 +1,4 @@
 /// Based on openzeppelin/access. See https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/access.
-
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, require, AccountId};
@@ -37,7 +36,7 @@ impl AccessControl {
 
     /// Has no effect if 'account' has been granted the specific 'role'.  
     /// Otherwise, panics with a standard message.
-    /// 
+    ///
     /// Uses 'has_role' internally.
     fn internal_check_role(&self, role: &RoleId, account: &AccountId) {
         if !self.has_role(role, account) {
@@ -111,7 +110,7 @@ impl AccessControl {
     /// Takes away a specific 'role' from a specific 'account'.  
     /// It has no effect if the 'role' does not exist, or if the specified 'account'
     /// is not enabled for that specific 'role'.
-    /// 
+    ///
     /// Panics if the specified 'account' is not the account of the caller.
     ///
     /// This method's purpose is to provide a mechanism for accounts to purposefuly
