@@ -21,7 +21,7 @@ pub struct AccessControl {
 
 impl AccessControl {
     pub fn new() -> Self {
-        Self { roles: HashMap::new(), default_admin_role: [0; 32] }
+        Self { roles: HashMap::new(), default_admin_role: RoleId::default() }
     }
 
     pub fn has_role(&self, role: &RoleId, account: &AccountId) -> bool {
