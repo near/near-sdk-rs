@@ -50,7 +50,7 @@ impl AccessControl {
         self.roles.get(role).unwrap().admin_role.clone()
     }
 
-    fn internal_grant_role(&mut self, role: RoleId, account: AccountId) {
+    fn internal_setup_role(&mut self, role: RoleId, account: AccountId) {
         if !self.roles.contains_key(&role) {
             self.roles.insert(
                 role,
@@ -64,11 +64,7 @@ impl AccessControl {
 
     pub fn grant_role(&mut self, role: RoleId, account: AccountId) {
         self.only_role(&self.get_role_admin(&role));
-        self.internal_grant_role(role, account);
-    }
-
-    pub fn setup_role(&mut self, role: RoleId, account: AccountId) {
-        self.internal_grant_role(role, account);
+        self.internal_setup_role(role, account);
     }
 
     pub fn revoke_role(&mut self, role: RoleId, account: AccountId) {
@@ -171,7 +167,7 @@ mod tests {
         let role = [1; 32];
         let role_admin = [2; 32];
         ac.set_role_admin(role, role_admin);
-        ac.setup_role(role_admin, accounts(1));
+        ac.internal_setup_role(role_admin, accounts(1));
         ac.grant_role(role, accounts(1));
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
@@ -194,7 +190,7 @@ mod tests {
         let role = [1; 32];
         let role_admin = [2; 32];
         ac.set_role_admin(role, role_admin);
-        ac.setup_role(role_admin, accounts(1));
+        ac.internal_setup_role(role_admin, accounts(1));
         ac.grant_role(role, accounts(1));
         assert_eq!(true, ac.has_role(&role, &accounts(1)));
         ac.renounce_role(role, accounts(1));
