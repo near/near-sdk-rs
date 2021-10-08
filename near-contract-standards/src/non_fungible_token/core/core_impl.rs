@@ -53,7 +53,7 @@ pub trait NonFungibleTokenReceiver {
 /// For example usage, see examples/non-fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct NonFungibleToken {
-    // owner of contract; this is the only account allowed to call `mint`
+    // owner of contract
     pub owner_id: AccountId,
 
     // The storage size in bytes for each new token
@@ -291,14 +291,27 @@ impl NonFungibleToken {
     /// * token_id must be unique
     ///
     /// Returns the newly minted token
+    #[deprecated(since = "4.0.0", note = "mint is deprecated, please use internal_mint instead.")]
     pub fn mint(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
-        let initial_storage_usage = env::storage_usage();
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+
+        self.internal_mint(token_id, token_owner_id, token_metadata)
+    }
+
+    /// Mint a new token without checking:
+    /// * Whether the caller id is equal to the `owner_id`
+    pub fn internal_mint(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: AccountId,
+        token_metadata: Option<TokenMetadata>,
+    ) -> Token {
+        let initial_storage_usage = env::storage_usage();
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic_str("Must provide metadata");
         }
