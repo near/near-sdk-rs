@@ -5,8 +5,13 @@
   - Adds `#[callback_unwrap]` to replace `callback`
 - mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)
   - Method names were changed to be strings in `4.0.0-pre.2` but this one was missed
-- env: Update the register used for temporary `env` methods to `u64::MAX - 2` from `0`. [PR 557](https://github.com/near/near-sdk-rs/pull/489).
+- env: Update the register used for temporary `env` methods to `u64::MAX - 2` from `0`. [PR 557](https://github.com/near/near-sdk-rs/pull/557).
   - When mixing using `sys` and `env`, reduces chance of collision for using `0`
+- store: Implement caching `LookupMap` type. This is the new iteration of the previous version of `near_sdk::collections::LookupMap` that has an updated API, and is located at `near_sdk::store::LookupMap`. [PR 487](https://github.com/near/near-sdk-rs/pull/487).
+  - The internal storage format has changed from `collections::LookupMap` so the type cannot be swapped out without some migration.
+- store: Implement caching `UnorderedMap` type. [PR 584](https://github.com/near/near-sdk-rs/pull/584).
+  - Similar change to `LookupMap` update, and is an iterable version of that data structure.
+  - Data structure has also changed internal storage format and cannot be swapped with `collections::UnorderedMap` without manual migration.
 
 ## `4.0.0-pre.2` [08-19-2021]
 - Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
