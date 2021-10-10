@@ -4,10 +4,10 @@
 //! For this we implement the visitor.
 use crate::ItemImplInfo;
 
-use quote::quote;
-use syn::export::{ToTokens, TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{Error, ItemImpl};
+use syn::{Error, ItemImpl, Path};
 
 /// Information relevant to metadata extracted from the `impl` section decorated with `#[near_bindgen]`.
 #[derive(Default)]

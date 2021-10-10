@@ -1,7 +1,7 @@
 use crate::{BindgenArgType, ImplItemMethodInfo, InputStructType, MethodType, SerializerType};
 
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::export::TokenStream2;
 use syn::ReturnType;
 
 impl ImplItemMethodInfo {
