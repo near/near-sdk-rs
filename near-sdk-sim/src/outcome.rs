@@ -7,12 +7,12 @@ use near_primitives::transaction::ExecutionStatus::{SuccessReceiptId, SuccessVal
 use near_primitives::types::AccountId;
 use near_sdk::borsh::BorshDeserialize;
 use near_sdk::serde::de::DeserializeOwned;
-use near_sdk::serde::export::Formatter;
 use near_sdk::serde_json::Value;
 use near_sdk::Gas;
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::rc::Rc;
 
 pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
