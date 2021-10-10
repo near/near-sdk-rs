@@ -7,7 +7,7 @@ use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{Error, ItemImpl, Path};
+use syn::{Error, ItemImpl};
 
 /// Information relevant to metadata extracted from the `impl` section decorated with `#[near_bindgen]`.
 #[derive(Default)]
