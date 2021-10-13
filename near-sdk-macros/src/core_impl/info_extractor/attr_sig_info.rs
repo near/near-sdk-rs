@@ -1,6 +1,6 @@
 use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
+use proc_macro2::Span;
 use quote::ToTokens;
-use syn::export::Span;
 use syn::spanned::Spanned;
 use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
 

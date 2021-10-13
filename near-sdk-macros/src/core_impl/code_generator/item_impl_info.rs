@@ -1,5 +1,5 @@
 use crate::ItemImplInfo;
-use syn::export::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::Ident;
 
 impl ItemImplInfo {

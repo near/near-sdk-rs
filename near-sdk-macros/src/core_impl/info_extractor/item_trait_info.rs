@@ -1,6 +1,6 @@
 use super::TraitItemMethodInfo;
 use inflector::Inflector;
-use syn::export::Span;
+use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, ItemTrait, TraitItem};
 

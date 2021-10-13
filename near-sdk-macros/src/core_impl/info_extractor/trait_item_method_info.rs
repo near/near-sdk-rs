@@ -1,5 +1,5 @@
 use super::AttrSigInfo;
-use syn::export::Span;
+use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::{Error, LitStr, TraitItemMethod};
 

@@ -731,9 +731,9 @@ mod tests {
     extern crate rand;
     use self::rand::RngCore;
     use quickcheck::QuickCheck;
-    use serde::export::Formatter;
     use std::collections::BTreeMap;
     use std::collections::HashSet;
+    use std::fmt::Formatter;
     use std::fmt::{Debug, Result};
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
