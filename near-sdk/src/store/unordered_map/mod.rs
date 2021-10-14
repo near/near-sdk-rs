@@ -7,7 +7,6 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -77,14 +76,13 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
-pub struct UnorderedMap<K, V, H = Sha256>
+pub struct UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     keys: FreeList<K>,
-    values: LookupMap<K, ValueAndIndex<V>, H>,
+    values: LookupMap<K, ValueAndIndex<V>>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -95,11 +93,10 @@ struct ValueAndIndex<V> {
 
 //? Manual implementations needed only because borsh derive is leaking field types
 // https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
+impl<K, V> BorshSerialize for UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -111,11 +108,10 @@ where
     }
 }
 
-impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
+impl<K, V> BorshDeserialize for UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -125,22 +121,20 @@ where
     }
 }
 
-impl<K, V, H> Drop for UnorderedMap<K, V, H>
+impl<K, V> Drop for UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn drop(&mut self) {
         self.flush()
     }
 }
 
-impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
+impl<K, V> fmt::Debug for UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedMap")
@@ -150,7 +144,7 @@ where
     }
 }
 
-impl<K, V> UnorderedMap<K, V, Sha256>
+impl<K, V> UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -160,35 +154,18 @@ where
     where
         S: IntoStorageKey,
     {
-        Self::with_hasher(prefix)
-    }
-}
-
-impl<K, V, H> UnorderedMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-    /// Initialize a [`UnorderedMap`] with a custom hash function.
-    ///
-    /// # Example
-    /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::UnorderedMap;
-    ///
-    /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
-    /// ```
-    pub fn with_hasher<S>(prefix: S) -> Self
-    where
-        S: IntoStorageKey,
-    {
         let mut vec_key = prefix.into_storage_key();
         let map_key = [vec_key.as_slice(), b"m"].concat();
         vec_key.push(b'v');
-        Self { keys: FreeList::new(vec_key), values: LookupMap::with_hasher(map_key) }
+        Self { keys: FreeList::new(vec_key), values: LookupMap::new(map_key) }
     }
+}
 
+impl<K, V> UnorderedMap<K, V>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+{
     /// Return the amount of elements inside of the map.
     pub fn len(&self) -> u32 {
         self.keys.len()
@@ -217,7 +194,7 @@ where
 
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
-    pub fn iter(&self) -> Iter<K, V, H>
+    pub fn iter(&self) -> Iter<K, V>
     where
         K: BorshDeserialize,
     {
@@ -227,7 +204,7 @@ where
     /// An iterator visiting all key-value pairs in arbitrary order,
     /// with exclusive references to the values.
     /// The iterator element type is `(&'a K, &'a mut V)`.
-    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    pub fn iter_mut(&mut self) -> IterMut<K, V>
     where
         K: BorshDeserialize,
     {
@@ -245,7 +222,7 @@ where
 
     /// An iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a V`.
-    pub fn values(&self) -> Values<K, V, H>
+    pub fn values(&self) -> Values<K, V>
     where
         K: BorshDeserialize,
     {
@@ -254,7 +231,7 @@ where
 
     /// A mutable iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a mut V`.
-    pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
+    pub fn values_mut(&mut self) -> ValuesMut<K, V>
     where
         K: BorshDeserialize,
     {
@@ -262,11 +239,10 @@ where
     }
 }
 
-impl<K, V, H> UnorderedMap<K, V, H>
+impl<K, V> UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Returns a reference to the value corresponding to the key.
     ///
@@ -403,11 +379,10 @@ where
     }
 }
 
-impl<K, V, H> UnorderedMap<K, V, H>
+impl<K, V> UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

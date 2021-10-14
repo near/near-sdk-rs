@@ -3,13 +3,12 @@ use std::borrow::Borrow;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{UnorderedMap, ERR_NOT_EXIST};
-use crate::{crypto_hash::CryptoHasher, env};
+use crate::env;
 
-impl<K, V, H> Extend<(K, V)> for UnorderedMap<K, V, H>
+impl<K, V> Extend<(K, V)> for UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn extend<I>(&mut self, iter: I)
     where
@@ -21,11 +20,10 @@ where
     }
 }
 
-impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for UnorderedMap<K, V, H>
+impl<K, V, Q: ?Sized> core::ops::Index<&Q> for UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;

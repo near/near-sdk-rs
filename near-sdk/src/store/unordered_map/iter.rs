@@ -2,31 +2,29 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{CryptoHasher, LookupMap, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
+use super::{LookupMap, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
 use crate::{env, store::free_list};
 
-impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
+impl<'a, K, V> IntoIterator for &'a UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = (&'a K, &'a V);
-    type IntoIter = Iter<'a, K, V, H>;
+    type IntoIter = Iter<'a, K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-impl<'a, K, V, H> IntoIterator for &'a mut UnorderedMap<K, V, H>
+impl<'a, K, V> IntoIterator for &'a mut UnorderedMap<K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = (&'a K, &'a mut V);
-    type IntoIter = IterMut<'a, K, V, H>;
+    type IntoIter = IterMut<'a, K, V>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
@@ -36,34 +34,31 @@ where
 /// An iterator over elements of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `iter` method on [`UnorderedMap`].
-pub struct Iter<'a, K, V, H>
+pub struct Iter<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Values iterator which contains empty and filled cells.
     keys: free_list::Iter<'a, K>,
     /// Reference to underlying map to lookup values with `keys`.
-    values: &'a LookupMap<K, ValueAndIndex<V>, H>,
+    values: &'a LookupMap<K, ValueAndIndex<V>>,
 }
 
-impl<'a, K, V, H> Iter<'a, K, V, H>
+impl<'a, K, V> Iter<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a UnorderedMap<K, V>) -> Self {
         Self { keys: map.keys.iter(), values: &map.values }
     }
 }
 
-impl<'a, K, V, H> Iterator for Iter<'a, K, V, H>
+impl<'a, K, V> Iterator for Iter<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = (&'a K, &'a V);
 
@@ -87,26 +82,23 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for Iter<'a, K, V, H>
+impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
-impl<'a, K, V, H> FusedIterator for Iter<'a, K, V, H>
+impl<'a, K, V> FusedIterator for Iter<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for Iter<'a, K, V, H>
+impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -123,25 +115,23 @@ where
 /// A mutable iterator over elements of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `iter_mut` method on [`UnorderedMap`].
-pub struct IterMut<'a, K, V, H>
+pub struct IterMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Values iterator which contains empty and filled cells.
     keys: free_list::IterMut<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
-    values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
+    values: &'a mut LookupMap<K, ValueAndIndex<V>>,
 }
 
-impl<'a, K, V, H> IterMut<'a, K, V, H>
+impl<'a, K, V> IterMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a mut UnorderedMap<K, V>) -> Self {
         Self { keys: map.keys.iter_mut(), values: &mut map.values }
     }
     fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
@@ -162,11 +152,10 @@ where
     }
 }
 
-impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H>
+impl<'a, K, V> Iterator for IterMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = (&'a K, &'a mut V);
 
@@ -188,26 +177,23 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for IterMut<'a, K, V, H>
+impl<'a, K, V> ExactSizeIterator for IterMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
-impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H>
+impl<'a, K, V> FusedIterator for IterMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for IterMut<'a, K, V, H>
+impl<'a, K, V> DoubleEndedIterator for IterMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -233,11 +219,10 @@ impl<'a, K> Keys<'a, K>
 where
     K: BorshSerialize + BorshDeserialize,
 {
-    pub(super) fn new<V, H>(map: &'a UnorderedMap<K, V, H>) -> Self
+    pub(super) fn new<V>(map: &'a UnorderedMap<K, V>) -> Self
     where
         K: Ord,
         V: BorshSerialize,
-        H: CryptoHasher<Digest = [u8; 32]>,
     {
         Self { inner: map.keys.iter() }
     }
@@ -277,31 +262,28 @@ where
 /// An iterator over the values of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `values` method on [`UnorderedMap`].
-pub struct Values<'a, K, V, H>
+pub struct Values<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    inner: Iter<'a, K, V, H>,
+    inner: Iter<'a, K, V>,
 }
 
-impl<'a, K, V, H> Values<'a, K, V, H>
+impl<'a, K, V> Values<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a UnorderedMap<K, V>) -> Self {
         Self { inner: map.iter() }
     }
 }
 
-impl<'a, K, V, H> Iterator for Values<'a, K, V, H>
+impl<'a, K, V> Iterator for Values<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = &'a V;
 
@@ -322,26 +304,23 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for Values<'a, K, V, H>
+impl<'a, K, V> ExactSizeIterator for Values<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
-impl<'a, K, V, H> FusedIterator for Values<'a, K, V, H>
+impl<'a, K, V> FusedIterator for Values<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for Values<'a, K, V, H>
+impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -355,31 +334,28 @@ where
 /// A mutable iterator over values of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `values_mut` method on [`UnorderedMap`].
-pub struct ValuesMut<'a, K, V, H>
+pub struct ValuesMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    inner: IterMut<'a, K, V, H>,
+    inner: IterMut<'a, K, V>,
 }
 
-impl<'a, K, V, H> ValuesMut<'a, K, V, H>
+impl<'a, K, V> ValuesMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a mut UnorderedMap<K, V>) -> Self {
         Self { inner: map.iter_mut() }
     }
 }
 
-impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H>
+impl<'a, K, V> Iterator for ValuesMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = &'a mut V;
 
@@ -400,26 +376,23 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for ValuesMut<'a, K, V, H>
+impl<'a, K, V> ExactSizeIterator for ValuesMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
-impl<'a, K, V, H> FusedIterator for ValuesMut<'a, K, V, H>
+impl<'a, K, V> FusedIterator for ValuesMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for ValuesMut<'a, K, V, H>
+impl<'a, K, V> DoubleEndedIterator for ValuesMut<'a, K, V>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
