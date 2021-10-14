@@ -1,21 +1,44 @@
-use crate::env::abort;
-use crate::utils::CacheEntry;
+use borsh::{BorshDeserialize, BorshSerialize};
+
+use super::ValueAndIndex;
+use crate::store::{lookup_map as lm, FreeList};
 
 /// A view into a single entry in the map, which can be vacant or occupied.
-pub enum Entry<'a, K: 'a, V: 'a> {
+pub enum Entry<'a, K: 'a, V: 'a>
+where
+    K: BorshSerialize,
+{
     Occupied(OccupiedEntry<'a, K, V>),
     Vacant(VacantEntry<'a, K, V>),
 }
 
-impl<'a, K, V> Entry<'a, K, V> {
+impl<'a, K, V> Entry<'a, K, V>
+where
+    K: BorshSerialize,
+{
+    pub(super) fn new(
+        lm_entry: lm::Entry<'a, K, ValueAndIndex<V>>,
+        keys: &'a mut FreeList<K>,
+    ) -> Self {
+        match lm_entry {
+            lm::Entry::Occupied(value_entry) => Self::Occupied(OccupiedEntry { value_entry, keys }),
+            lm::Entry::Vacant(value_entry) => Self::Vacant(VacantEntry { value_entry, keys }),
+        }
+    }
+}
+
+impl<'a, K, V> Entry<'a, K, V>
+where
+    K: BorshSerialize,
+{
     /// Returns a reference to this entry's key.
     ///
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// assert_eq!(map.entry("poneyland".to_string()).key(), &"poneyland");
     /// ```
     pub fn key(&self) -> &K {
@@ -24,16 +47,21 @@ impl<'a, K, V> Entry<'a, K, V> {
             Entry::Vacant(entry) => entry.key(),
         }
     }
+}
 
+impl<'a, K, V> Entry<'a, K, V>
+where
+    K: BorshSerialize + BorshDeserialize + Clone,
+{
     /// Ensures a value is in the entry by inserting the default if empty, and returns
     /// a mutable reference to the value in the entry.
     ///
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     ///
     /// map.entry("poneyland".to_string()).or_insert(3);
     /// assert_eq!(map["poneyland"], 3);
@@ -51,9 +79,9 @@ impl<'a, K, V> Entry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, String> = UnorderedMap::new(b"m");
     /// let s = "hoho".to_string();
     ///
     /// map.entry("poneyland".to_string()).or_insert_with(|| s);
@@ -74,15 +102,18 @@ impl<'a, K, V> Entry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     ///
     /// map.entry("poneyland".to_string()).or_insert_with_key(|key| key.chars().count() as u32);
     ///
     /// assert_eq!(map["poneyland"], 9);
     /// ```
-    pub fn or_insert_with_key<F: FnOnce(&K) -> V>(self, default: F) -> &'a mut V {
+    pub fn or_insert_with_key<F: FnOnce(&K) -> V>(self, default: F) -> &'a mut V
+    where
+        K: BorshDeserialize,
+    {
         match self {
             Self::Occupied(entry) => entry.into_mut(),
             Self::Vacant(entry) => {
@@ -99,9 +130,9 @@ impl<'a, K, V> Entry<'a, K, V> {
     ///
     /// ```
     /// # fn main() {
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: LookupMap<String, Option<u32>> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, Option<u32>> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_default();
     ///
     /// assert_eq!(map["poneyland"], None);
@@ -123,9 +154,9 @@ impl<'a, K, V> Entry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     ///
     /// map.entry("poneyland".to_string())
     ///    .and_modify(|e| { *e += 1 })
@@ -148,17 +179,23 @@ impl<'a, K, V> Entry<'a, K, V> {
     }
 }
 
-/// View into an occupied entry in a [`LookupMap`](super::LookupMap).
+/// View into an occupied entry in a [`UnorderedMap`](super::UnorderedMap).
 /// This is part of the [`Entry`] enum.
-pub struct OccupiedEntry<'a, K, V> {
-    pub(super) key: K,
-    pub(super) entry: &'a mut CacheEntry<V>,
+pub struct OccupiedEntry<'a, K, V>
+where
+    K: BorshSerialize,
+{
+    value_entry: lm::OccupiedEntry<'a, K, ValueAndIndex<V>>,
+    keys: &'a mut FreeList<K>,
 }
 
-impl<'a, K, V> OccupiedEntry<'a, K, V> {
+impl<'a, K, V> OccupiedEntry<'a, K, V>
+where
+    K: BorshSerialize,
+{
     /// Gets a reference to the key in the entry.
     pub fn key(&self) -> &K {
-        &self.key
+        self.value_entry.key()
     }
 
     /// Take the ownership of the key and value from the map.
@@ -166,10 +203,10 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(o) = map.entry("poneyland".to_string()) {
@@ -179,11 +216,13 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     ///
     /// assert_eq!(map.contains_key("poneyland"), false);
     /// ```
-    pub fn remove_entry(self) -> (K, V) {
-        // OnceCell guaranteed to be filled and value to be `Some` in occupied entry
-        let value = self.entry.value_mut().take().unwrap_or_else(|| abort());
-
-        (self.key, value)
+    pub fn remove_entry(self) -> (K, V)
+    where
+        K: BorshDeserialize,
+    {
+        let (key, value) = self.value_entry.remove_entry();
+        self.keys.remove(value.key_index);
+        (key, value.value)
     }
 
     /// Gets a reference to the value in the entry.
@@ -191,10 +230,10 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(o) = map.entry("poneyland".to_string()) {
@@ -202,8 +241,7 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// }
     /// ```
     pub fn get(&self) -> &V {
-        // Value guaranteed to be `Some` as it's occupied
-        self.entry.value().as_ref().unwrap_or_else(|| abort())
+        &self.value_entry.get().value
     }
 
     /// Gets a mutable reference to the value in the entry.
@@ -216,10 +254,10 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// assert_eq!(map["poneyland"], 12);
@@ -234,8 +272,7 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// assert_eq!(map["poneyland"], 24);
     /// ```
     pub fn get_mut(&mut self) -> &mut V {
-        // Value guaranteed to be `Some` as it's occupied
-        self.entry.value_mut().as_mut().unwrap_or_else(|| abort())
+        &mut self.value_entry.get_mut().value
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry
@@ -248,10 +285,10 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// assert_eq!(map["poneyland"], 12);
@@ -262,8 +299,7 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// assert_eq!(map["poneyland"], 22);
     /// ```
     pub fn into_mut(self) -> &'a mut V {
-        // If entry is occupied, value is guaranteed to be `Some`
-        self.entry.value_mut().as_mut().unwrap_or_else(|| abort())
+        &mut self.value_entry.into_mut().value
     }
 
     /// Sets the value of the entry, and returns the entry's old value.
@@ -271,10 +307,10 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(mut o) = map.entry("poneyland".to_string()) {
@@ -284,7 +320,7 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// assert_eq!(map["poneyland"], 15);
     /// ```
     pub fn insert(&mut self, value: V) -> V {
-        self.entry.replace(Some(value)).unwrap_or_else(|| abort())
+        core::mem::replace(&mut self.value_entry.get_mut().value, value)
     }
 
     /// Takes the value out of the entry, and returns it.
@@ -292,10 +328,10 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(o) = map.entry("poneyland".to_string()) {
@@ -304,23 +340,32 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     ///
     /// assert_eq!(map.contains_key("poneyland"), false);
     /// ```
-    pub fn remove(self) -> V {
+    pub fn remove(self) -> V
+    where
+        K: BorshDeserialize,
+    {
         self.remove_entry().1
     }
 }
 
-/// View into a vacant entry in a [`LookupMap`](super::LookupMap).
+/// View into a vacant entry in a [`UnorderedMap`](super::UnorderedMap).
 /// This is part of the [`Entry`] enum.
-pub struct VacantEntry<'a, K, V> {
-    pub(super) key: K,
-    pub(super) entry: &'a mut CacheEntry<V>,
+pub struct VacantEntry<'a, K, V>
+where
+    K: BorshSerialize,
+{
+    value_entry: lm::VacantEntry<'a, K, ValueAndIndex<V>>,
+    keys: &'a mut FreeList<K>,
 }
 
-impl<'a, K, V> VacantEntry<'a, K, V> {
+impl<'a, K, V> VacantEntry<'a, K, V>
+where
+    K: BorshSerialize,
+{
     /// Gets a reference to the key that would be used when inserting a value
     /// through the `VacantEntry`.
     pub fn key(&self) -> &K {
-        &self.key
+        self.value_entry.key()
     }
 
     /// Take ownership of the key.
@@ -328,17 +373,17 @@ impl<'a, K, V> VacantEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     ///
     /// if let Entry::Vacant(v) = map.entry("poneyland".to_string()) {
     ///     v.into_key();
     /// }
     /// ```
     pub fn into_key(self) -> K {
-        self.key
+        self.value_entry.into_key()
     }
 
     /// Sets the value of the entry with the `VacantEntry`'s key,
@@ -347,19 +392,22 @@ impl<'a, K, V> VacantEntry<'a, K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::LookupMap;
-    /// use near_sdk::store::lookup_map::Entry;
+    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::unordered_map::Entry;
     ///
-    /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
+    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
     ///
     /// if let Entry::Vacant(o) = map.entry("poneyland".to_string()) {
     ///     o.insert(37);
     /// }
     /// assert_eq!(map["poneyland"], 37);
     /// ```
-    pub fn insert(self, value: V) -> &'a mut V {
-        self.entry.replace(Some(value));
-        // Insertion done above, cache is filled and the value is Some
-        self.entry.value_mut().as_mut().unwrap_or_else(|| abort())
+    pub fn insert(self, value: V) -> &'a mut V
+    where
+        K: BorshDeserialize + Clone,
+    {
+        // Vacant entry so we know key doesn't exist
+        let key_index = self.keys.insert(self.key().to_owned());
+        &mut self.value_entry.insert(ValueAndIndex { value, key_index }).value
     }
 }
