@@ -4,6 +4,6 @@
     "test": "near-workspaces-ava"
   },
   "devDependencies": {
-    "near-workspaces-ava": "1.0.0-alpha.1"
+    "near-workspaces-ava": "1.0.0"
   }
 }

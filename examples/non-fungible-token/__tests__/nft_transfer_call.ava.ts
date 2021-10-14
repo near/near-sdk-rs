@@ -1,4 +1,4 @@
-import { Gas } from 'near-units';
+import { Gas } from 'near-workspaces-ava';
 import type { Token } from './utils';
 import { createWorkspace, TOKEN_ID } from './utils';
 

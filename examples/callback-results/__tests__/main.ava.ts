@@ -1,5 +1,4 @@
-import { Gas } from 'near-units';
-import { Workspace } from 'near-workspaces-ava';
+import { Gas, Workspace } from 'near-workspaces-ava';
 
 const workspace = Workspace.init(async ({ root }) => ({
   contract: await root.createAndDeploy(

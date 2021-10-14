@@ -1,4 +1,4 @@
-import { NEAR } from 'near-units';
+import { NEAR } from 'near-workspaces-ava';
 import type { Token } from './utils';
 import { createWorkspace, TOKEN_ID } from './utils';
 
