@@ -1,8 +1,8 @@
 import { NEAR } from 'near-units';
 import type { Token } from './utils';
-import { createRunner, TOKEN_ID } from './utils';
+import { createWorkspace, TOKEN_ID } from './utils';
 
-const runner = createRunner(async ({ root, nft }) => ({
+const workspace = createWorkspace(async ({ root, nft }) => ({
   tokenReceiver: await root.createAndDeploy(
     'token-receiver',
     'non-fungible-token/res/token_receiver.wasm',
@@ -21,7 +21,7 @@ const runner = createRunner(async ({ root, nft }) => ({
   ),
 }));
 
-runner.test('nft_approve has expected approval_id logic', async (t, { root, alice, nft, tokenReceiver }) => {
+workspace.test('nft_approve has expected approval_id logic', async (t, { root, alice, nft, tokenReceiver }) => {
   await root.call(nft, 'nft_approve', {
     token_id: TOKEN_ID,
     account_id: alice,
@@ -89,7 +89,7 @@ runner.test('nft_approve has expected approval_id logic', async (t, { root, alic
   t.is(tokenReceiverApprovalIs3, true);
 });
 
-runner.test('nft_approve creates cross-contract call if given `msg`', async (t, { root, nft, approvalReceiver }) => {
+workspace.test('nft_approve creates cross-contract call if given `msg`', async (t, { root, nft, approvalReceiver }) => {
   let tx = await root.call_raw(nft, 'nft_approve', {
     token_id: TOKEN_ID,
     account_id: approvalReceiver,
@@ -121,7 +121,7 @@ runner.test('nft_approve creates cross-contract call if given `msg`', async (t, 
   t.is(tx.parseResult(), msg);
 });
 
-runner.test('nft_approve allows approved account to transfer token', async (t, { root, nft, alice }) => {
+workspace.test('nft_approve allows approved account to transfer token', async (t, { root, nft, alice }) => {
   // root approves alice
   await root.call(nft, 'nft_approve', {
     token_id: TOKEN_ID,
@@ -145,7 +145,7 @@ runner.test('nft_approve allows approved account to transfer token', async (t, {
   t.is(owner_id, alice.accountId);
 })
 
-runner.test('nft_revoke', async (t, { root, nft, alice, tokenReceiver }) => {
+workspace.test('nft_revoke', async (t, { root, nft, alice, tokenReceiver }) => {
   // root approves alice
   await root.call(nft, 'nft_approve', {
     token_id: TOKEN_ID,
@@ -207,7 +207,7 @@ runner.test('nft_revoke', async (t, { root, nft, alice, tokenReceiver }) => {
   t.is(tokenReceiverApproved, false);
 });
 
-runner.test('nft_revoke_all', async (t, { root, nft, alice, tokenReceiver }) => {
+workspace.test('nft_revoke_all', async (t, { root, nft, alice, tokenReceiver }) => {
   // root approves alice
   await root.call(nft, 'nft_approve', {
     token_id: TOKEN_ID,

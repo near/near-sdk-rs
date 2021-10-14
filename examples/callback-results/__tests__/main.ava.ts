@@ -1,14 +1,14 @@
 import { Gas } from 'near-units';
-import { Runner } from 'near-runner-ava';
+import { Workspace } from 'near-workspaces-ava';
 
-const runner = Runner.create(async ({ root }) => ({
+const workspace = Workspace.init(async ({ root }) => ({
   contract: await root.createAndDeploy(
     'contract',
     'callback-results/res/callback_results.wasm',
   ),
 }));
 
-runner.test('method `a` always returns `8`', async (t, { root, contract }) => {
+workspace.test('method `a` always returns `8`', async (t, { root, contract }) => {
   t.is(
     await root.call(contract, 'a', {}),
     8
@@ -23,7 +23,7 @@ runner.test('method `a` always returns `8`', async (t, { root, contract }) => {
 ].forEach(([fail_b, c_value, expected]) => {
   const args = JSON.stringify({ fail_b, c_value });
   const out = JSON.stringify(expected);
-  runner.test(`call_all(${args}) == ${out}`, async (t, { root, contract }) => {
+  workspace.test(`call_all(${args}) == ${out}`, async (t, { root, contract }) => {
     t.deepEqual(
       await root.call(contract, 'call_all', { fail_b, c_value }, {
         gas: Gas.parse('240Tgas')
@@ -31,4 +31,4 @@ runner.test('method `a` always returns `8`', async (t, { root, contract }) => {
       expected
     );
   });
-})
+});

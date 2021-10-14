@@ -1,9 +1,9 @@
 import type { Token } from './utils';
-import { createRunner, TOKEN_ID } from './utils';
+import { createWorkspace, TOKEN_ID } from './utils';
 
-const runner = createRunner();
+const workspace = createWorkspace();
 
-runner.test('succeeds', async (t, { alice, nft, root }) => {
+workspace.test('succeeds', async (t, { alice, nft, root }) => {
   await root.call(nft, 'nft_transfer', {
     receiver_id: alice,
     token_id: TOKEN_ID,
@@ -17,7 +17,7 @@ runner.test('succeeds', async (t, { alice, nft, root }) => {
   t.is(owner_id, alice.accountId);
 });
 
-runner.test("fails when trying to send some else's token", async (t, { alice, nft, root }) => {
+workspace.test("fails when trying to send some else's token", async (t, { alice, nft, root }) => {
   const error = await t.throwsAsync(
     // alice tries to send it to herself
     alice.call_raw(nft, 'nft_transfer', {

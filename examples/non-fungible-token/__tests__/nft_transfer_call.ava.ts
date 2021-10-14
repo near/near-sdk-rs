@@ -1,8 +1,8 @@
 import { Gas } from 'near-units';
 import type { Token } from './utils';
-import { createRunner, TOKEN_ID } from './utils';
+import { createWorkspace, TOKEN_ID } from './utils';
 
-const runner = createRunner(async ({ root, nft }) => ({
+const workspace = createWorkspace(async ({ root, nft }) => ({
   tokenReceiver: await root.createAndDeploy(
     'token-receiver',
     'non-fungible-token/res/token_receiver.wasm',
@@ -13,7 +13,7 @@ const runner = createRunner(async ({ root, nft }) => ({
   )
 }));
 
-runner.test('refund (no cross-contract call from receiver)', async (t, { root, nft, tokenReceiver }) => {
+workspace.test('refund (no cross-contract call from receiver)', async (t, { root, nft, tokenReceiver }) => {
   const tx = await root.call_raw(nft, 'nft_transfer_call', {
     receiver_id: tokenReceiver,
     token_id: TOKEN_ID,
@@ -34,7 +34,7 @@ runner.test('refund (no cross-contract call from receiver)', async (t, { root, n
   t.is(owner_id, root.accountId);
 });
 
-runner.test('refund after receiver makes cross-contract call', async (t, { root, nft, tokenReceiver }) => {
+workspace.test('refund after receiver makes cross-contract call', async (t, { root, nft, tokenReceiver }) => {
   const tx = await root.call_raw(nft, 'nft_transfer_call', {
     receiver_id: tokenReceiver,
     token_id: TOKEN_ID,
@@ -55,7 +55,7 @@ runner.test('refund after receiver makes cross-contract call', async (t, { root,
   t.is(owner_id, root.accountId);
 });
 
-runner.test('success (no cross-contract call from receiver)', async (t, { root, nft, tokenReceiver }) => {
+workspace.test('success (no cross-contract call from receiver)', async (t, { root, nft, tokenReceiver }) => {
   const tx = await root.call_raw(nft, 'nft_transfer_call', {
     receiver_id: tokenReceiver,
     token_id: TOKEN_ID,
@@ -76,7 +76,7 @@ runner.test('success (no cross-contract call from receiver)', async (t, { root, 
   t.is(owner_id, tokenReceiver.accountId);
 });
 
-runner.test('success after receiver makes cross-contract call', async (t, { root, nft, tokenReceiver }) => {
+workspace.test('success after receiver makes cross-contract call', async (t, { root, nft, tokenReceiver }) => {
   const tx = await root.call_raw(nft, 'nft_transfer_call', {
     receiver_id: tokenReceiver,
     token_id: TOKEN_ID,
@@ -97,7 +97,7 @@ runner.test('success after receiver makes cross-contract call', async (t, { root
   t.is(owner_id, tokenReceiver.accountId);
 });
 
-runner.test('refund if receiver panics', async (t, { root, nft, tokenReceiver }) => {
+workspace.test('refund if receiver panics', async (t, { root, nft, tokenReceiver }) => {
   const tx = await root.call_raw(nft, 'nft_transfer_call', {
     receiver_id: tokenReceiver,
     token_id: TOKEN_ID,

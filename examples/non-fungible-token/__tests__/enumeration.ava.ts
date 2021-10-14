@@ -1,8 +1,8 @@
 import { NEAR } from 'near-units';
 import type { Token } from './utils';
-import { createRunner, TOKEN_ID } from './utils';
+import { createWorkspace, TOKEN_ID } from './utils';
 
-const runner = createRunner(async ({ root, nft }) => {
+const workspace = createWorkspace(async ({ root, nft }) => {
   await root.call(nft, 'nft_mint', {
     token_id: '1',
     token_owner_id: root,
@@ -38,7 +38,7 @@ const runner = createRunner(async ({ root, nft }) => {
   });
 });
 
-runner.test('nft_supply_for_owner', async (t, { root, alice, nft }) => {
+workspace.test('nft_supply_for_owner', async (t, { root, alice, nft }) => {
   t.is(
     await nft.view('nft_supply_for_owner', { account_id: alice }),
     '0'
@@ -65,12 +65,12 @@ runner.test('nft_supply_for_owner', async (t, { root, alice, nft }) => {
   );
 });
 
-runner.test('nft_total_supply', async (t, { nft }) => {
+workspace.test('nft_total_supply', async (t, { nft }) => {
   const totalSupply = await nft.view('nft_total_supply') as string;
   t.is(totalSupply, '4');
 });
 
-runner.test('nft_tokens', async (t, { nft }) => {
+workspace.test('nft_tokens', async (t, { nft }) => {
   // No optional args should return all
   let tokens = await nft.view('nft_tokens') as Token[];
   t.is(tokens.length, 4);
@@ -94,7 +94,7 @@ runner.test('nft_tokens', async (t, { nft }) => {
   t.is(tokens[1].token_id, '1');
 });
 
-runner.test('nft_tokens_for_owner', async (t, { nft, alice, root }) => {
+workspace.test('nft_tokens_for_owner', async (t, { nft, alice, root }) => {
   // Requires `account_id`
   const error = await t.throwsAsync(
     nft.view('nft_tokens_for_owner')

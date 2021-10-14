@@ -1,14 +1,14 @@
 import { Gas, NEAR } from 'near-units';
-import { Runner, Account } from 'near-runner-ava';
+import { Workspace, Account } from 'near-workspaces-ava';
 
-const runner = Runner.create(async ({ root }) => ({
+const workspace = Workspace.init(async ({ root }) => ({
   contract: await root.createAndDeploy(
     'contract',
     'cross-contract-high-level/res/cross_contract_high_level.wasm',
   ),
 }));
 
-runner.test('factory pattern: creating sub-accounts, deploying contracts', async (t, { root, contract }) => {
+workspace.test('factory pattern: creating sub-accounts, deploying contracts', async (t, { root, contract }) => {
   const subAccountPrefix = 'status';
   let tx = await root.call_raw(contract, 'deploy_status_message', {
     account_id: subAccountPrefix,
@@ -38,13 +38,13 @@ runner.test('factory pattern: creating sub-accounts, deploying contracts', async
 });
 
 // On-chain merge sort with parallel recursive contract calls
-runner.test('merge_sort simple - no cross-contract calls', async (t, { contract }) => {
+workspace.test('merge_sort simple - no cross-contract calls', async (t, { contract }) => {
   t.deepEqual(
     await contract.view('merge_sort', { arr: [42] }),
     [42]
   );
 });
-runner.test('merge_sort with length-2 array (3 cross-contract calls)', async (t, { contract }) => {
+workspace.test('merge_sort with length-2 array (3 cross-contract calls)', async (t, { contract }) => {
   t.deepEqual(
     await contract.call(contract, 'merge_sort', {
       arr: [100, 11]
@@ -54,7 +54,7 @@ runner.test('merge_sort with length-2 array (3 cross-contract calls)', async (t,
     [11, 100]
   );
 });
-runner.test('merge_sort with length-4 array (9 cross-contract calls)', async (t, { contract }) => {
+workspace.test('merge_sort with length-4 array (9 cross-contract calls)', async (t, { contract }) => {
   t.deepEqual(
     await contract.call(contract, 'merge_sort', {
       arr: [255, 9, 100, 11]
@@ -64,7 +64,7 @@ runner.test('merge_sort with length-4 array (9 cross-contract calls)', async (t,
     [9, 11, 100, 255]
   );
 });
-runner.test('merge_sort with longer arrays fails', async (t, { contract }) => {
+workspace.test('merge_sort with longer arrays fails', async (t, { contract }) => {
   const error = await t.throwsAsync(
     contract.call(contract, 'merge_sort', {
       arr: [7, 1, 6, 5, 255, 9, 100, 11]

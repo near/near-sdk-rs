@@ -1,10 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "test": "ava"
+    "test": "near-workspaces-ava"
   },
   "devDependencies": {
-    "near-runner-ava": "0.1.1",
-    "near-units": "^0.1.9"
+    "near-workspaces-ava": "1.0.0-alpha.1"
   }
 }
