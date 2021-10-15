@@ -7,7 +7,7 @@ license = "GPL-3.0"
 readme = "README.md"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://github.com/near/near-sdk-rs"
+homepage = "https://near-sdk.io"
 description = """
 Rust library for writing NEAR smart contracts.
 """
