@@ -6,7 +6,7 @@ edition = "2018"
 license = "GPL-3.0"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://github.com/near/near-sdk-rs"
+homepage = "https://near-sdk.io"
 description = """
 NEAR Simulator & cross-contract testing library
 """
