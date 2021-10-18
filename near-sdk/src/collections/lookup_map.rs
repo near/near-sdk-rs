@@ -146,17 +146,16 @@ where
     /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     /// use near_sdk::BorshStorageKey;
-    /// use std::collections::HashMap;
     /// 
     /// #[derive(BorshSerialize, BorshStorageKey)]
     /// enum StorageKey {Records}
     /// let mut extendee: LookupMap<String, String> = LookupMap::new(StorageKey::Records);
     /// let mut source = vec![];
     /// 
-    /// source.push((String::from("Toyota"), String::from("Camry")));
-    /// source.push((String::from("Nissan"), String::from("Almera")));
-    /// source.push((String::from("Ford"), String::from("Mustang")));
-    /// source.push((String::from("Chevrolet"), String::from("Camaro")));
+    /// source.push(("Toyota".into(), "Camry".into()));
+    /// source.push(("Nissan".into(), "Almera".into()));
+    /// source.push(("Ford".into(), "Mustang".into()));
+    /// source.push(("Chevrolet".into(), "Camaro".into()));
     /// extendee.extend(source.iter().cloned());
     /// ```
     pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) {
