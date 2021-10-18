@@ -22,6 +22,21 @@ pub struct LookupMap<K, V> {
 
 impl<K, V> LookupMap<K, V> {
     /// Create a new map. Use `key_prefix` as a unique prefix for keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupMap;
+    /// use near_sdk::BorshStorageKey;
+
+    /// #[derive(BorshSerialize, BorshStorageKey)]
+    /// enum StorageKey {
+    ///     Records,
+    ///     UniqueValues,
+    /// }
+    /// let mut map: LookupMap<String, String> = LookupMap::new(StorageKey::Records);
+    /// ```
     pub fn new<S>(key_prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -122,6 +137,28 @@ where
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
+    /// Inserts all new key-values from the iterator and replaces values with existing keys 
+    /// with new values returned from the iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupMap;
+    /// use near_sdk::BorshStorageKey;
+    /// use std::collections::HashMap;
+    /// 
+    /// #[derive(BorshSerialize, BorshStorageKey)]
+    /// enum StorageKey {Records}
+    /// let mut extendee: LookupMap<String, String> = LookupMap::new(StorageKey::Records);
+    /// let mut source = vec![];
+    /// 
+    /// source.push((String::from("Toyota"), String::from("Camry")));
+    /// source.push((String::from("Nissan"), String::from("Almera")));
+    /// source.push((String::from("Ford"), String::from("Mustang")));
+    /// source.push((String::from("Chevrolet"), String::from("Camaro")));
+    /// extendee.extend(source.iter().cloned());
+    /// ```
     pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) {
         for (el_key, el_value) in iter {
             self.insert(&el_key, &el_value);
