@@ -20,6 +20,14 @@ pub struct LookupSet<T> {
 
 impl<T> LookupSet<T> {
     /// Create a new map. Use `element_prefix` as a unique prefix for trie keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///use near_sdk::collections::LookupSet;
+    ///use near_sdk::test_utils::test_env;
+    ///let mut set: LookupSet<u32> = LookupSet::new(b"m".to_vec());
+    /// ```
     pub fn new<S>(element_prefix: S) -> Self
     where
         S: IntoStorageKey,
