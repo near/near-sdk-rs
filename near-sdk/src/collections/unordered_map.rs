@@ -42,6 +42,13 @@ impl<K, V> UnorderedMap<K, V> {
     }
 
     /// Create new map with zero elements. Use `prefix` as a unique identifier.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///use near_sdk::collections::LookupSet;
+    ///let mut set: LookupSet<u32> = LookupSet::new(b"m".to_vec());
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,

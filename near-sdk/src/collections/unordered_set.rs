@@ -27,6 +27,13 @@ impl<T> UnorderedSet<T> {
     }
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///use near_sdk::collections::UnorderedSet;
+    ///let mut set: UnorderedSet<u32> = UnorderedSet::new(b"m".to_vec());
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
