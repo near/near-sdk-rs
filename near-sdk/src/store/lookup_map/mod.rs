@@ -238,7 +238,7 @@ where
         entry.value().as_ref()
     }
 
-    fn get_mut_inner<Q: ?Sized>(&mut self, k: &Q) -> &mut CacheEntry<V>
+    pub(crate) fn get_mut_inner<Q: ?Sized>(&mut self, k: &Q) -> &mut CacheEntry<V>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = K>,

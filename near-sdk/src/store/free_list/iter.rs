@@ -2,10 +2,10 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{Bucket, Container, ERR_INCONSISTENT_STATE};
+use super::{FreeList, Slot, ERR_INCONSISTENT_STATE};
 use crate::{env, store::vec};
 
-impl<'a, T> IntoIterator for &'a Bucket<T>
+impl<'a, T> IntoIterator for &'a FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -17,7 +17,7 @@ where
     }
 }
 
-impl<'a, T> IntoIterator for &'a mut Bucket<T>
+impl<'a, T> IntoIterator for &'a mut FreeList<T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -39,7 +39,7 @@ where
     T: BorshDeserialize + BorshSerialize,
 {
     /// Values iterator which contains empty and filled cells.
-    values: vec::Iter<'a, Container<T>>,
+    values: vec::Iter<'a, Slot<T>>,
     /// Amount of valid elements left to iterate.
     elements_left: u32,
 }
@@ -48,7 +48,7 @@ impl<'a, T> Iter<'a, T>
 where
     T: BorshDeserialize + BorshSerialize,
 {
-    pub(super) fn new(bucket: &'a Bucket<T>) -> Self {
+    pub(super) fn new(bucket: &'a FreeList<T>) -> Self {
         Self { values: bucket.elements.iter(), elements_left: bucket.occupied_count }
     }
 }
@@ -65,8 +65,8 @@ where
         }
         loop {
             match self.values.next() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
@@ -102,8 +102,8 @@ where
         }
         loop {
             match self.values.next_back() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
@@ -123,7 +123,7 @@ where
     T: BorshDeserialize + BorshSerialize,
 {
     /// Values iterator which contains empty and filled cells.
-    values: vec::IterMut<'a, Container<T>>,
+    values: vec::IterMut<'a, Slot<T>>,
     /// Amount of valid elements left to iterate.
     elements_left: u32,
 }
@@ -132,7 +132,7 @@ impl<'a, T> IterMut<'a, T>
 where
     T: BorshDeserialize + BorshSerialize,
 {
-    pub(super) fn new(bucket: &'a mut Bucket<T>) -> Self {
+    pub(super) fn new(bucket: &'a mut FreeList<T>) -> Self {
         Self { values: bucket.elements.iter_mut(), elements_left: bucket.occupied_count }
     }
 }
@@ -149,8 +149,8 @@ where
         }
         loop {
             match self.values.next() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
@@ -186,8 +186,8 @@ where
         }
         loop {
             match self.values.next_back() {
-                Some(Container::Empty { .. }) => continue,
-                Some(Container::Occupied(value)) => {
+                Some(Slot::Empty { .. }) => continue,
+                Some(Slot::Occupied(value)) => {
                     decrement_count(&mut self.elements_left);
                     return Some(value);
                 }
