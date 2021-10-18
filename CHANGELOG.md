@@ -1,6 +1,11 @@
 # Changelog
 
 ## [unreleased]
+
+## `4.0.0-pre.4` [10-15-2021]
+- Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)
+
+## `4.0.0-pre.3` [10-12-2021]
 - Introduce `#[callback_result]` annotation, which acts like `#[callback]` except that it returns `Result<T, PromiseError>` to allow error handling. [PR 554](https://github.com/near/near-sdk-rs/pull/554)
   - Adds `#[callback_unwrap]` to replace `callback`
 - mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)

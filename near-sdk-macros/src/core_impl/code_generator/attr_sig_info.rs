@@ -1,4 +1,4 @@
-use syn::export::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 
 use crate::core_impl::info_extractor::{
     ArgInfo, AttrSigInfo, BindgenArgType, InputStructType, SerializerType,
