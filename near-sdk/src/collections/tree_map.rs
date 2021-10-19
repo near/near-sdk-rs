@@ -143,6 +143,29 @@ where
     }
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    ///use near_sdk::collections::TreeMap;
+    // use near_sdk::test_utils::test_env;
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m".to_vec());
+    /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+    /// 
+    /// for x in vec.iter() {
+    ///     map.insert(x, &1);
+    /// }
+    /// 
+    /// assert_eq!(map.ceil_key(&5), Some(10));
+    /// assert_eq!(map.ceil_key(&10), Some(10));
+    /// assert_eq!(map.ceil_key(&11), Some(20));
+    /// assert_eq!(map.ceil_key(&20), Some(20));
+    /// assert_eq!(map.ceil_key(&49), Some(50));
+    /// assert_eq!(map.ceil_key(&50), Some(50));
+    /// assert_eq!(map.ceil_key(&51), None);
+    /// 
+    /// map.clear();
+    /// ```
     pub fn ceil_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
             Some(key.clone())
