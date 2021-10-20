@@ -12,7 +12,7 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-pub use self::iter::{Iter, IterMut, Keys, Values, ValuesMut};
+pub use self::iter::{Drain, Iter, IterMut, Keys, Values, ValuesMut};
 use super::free_list::FreeListIndex;
 use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
 
@@ -258,6 +258,13 @@ where
         K: BorshDeserialize,
     {
         ValuesMut::new(self)
+    }
+
+    pub fn drain(&mut self) -> Drain<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Drain::new(self)
     }
 }
 
