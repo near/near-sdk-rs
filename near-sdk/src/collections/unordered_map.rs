@@ -46,8 +46,8 @@ impl<K, V> UnorderedMap<K, V> {
     /// # Examples
     ///
     /// ```
-    ///use near_sdk::collections::LookupSet;
-    ///let mut set: LookupSet<u32> = LookupSet::new(b"m".to_vec());
+    /// use near_sdk::collections::LookupSet;
+    /// let mut set: LookupSet<u32> = LookupSet::new(b"m");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
