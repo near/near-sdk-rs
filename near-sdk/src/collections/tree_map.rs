@@ -240,7 +240,6 @@ where
     ///     map.iter_rev_from(45).collect::<Vec<(u32, u32)>>(),
     ///     vec![(40, 42), (35, 42), (30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
     /// );
-    /// map.clear();
     /// ```
     pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
         Cursor::desc_from(self, key)
