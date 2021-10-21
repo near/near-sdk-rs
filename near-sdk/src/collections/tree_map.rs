@@ -251,7 +251,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m".to_vec());
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
     /// let one: Vec<u32> = vec![10, 20, 30, 40, 50];
     /// let two: Vec<u32> = vec![45, 35, 25, 15, 
     /// for x in &one {
