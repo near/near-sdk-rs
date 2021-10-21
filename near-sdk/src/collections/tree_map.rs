@@ -259,7 +259,7 @@ where
     /// }
     /// for x in &two {
     ///     map.insert(x, &0);
-    /// 
+    /// }
     /// assert_eq!(
     ///     map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
     ///     vec![(20, 0), (25, 0)]
