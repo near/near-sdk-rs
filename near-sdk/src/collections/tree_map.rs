@@ -270,7 +270,6 @@ where
     ///     map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
     ///     vec![(20, 0), (25, 0)]
     /// );
-    /// map.clear();
     /// ```
     pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
