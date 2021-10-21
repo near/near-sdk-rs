@@ -157,8 +157,6 @@ where
     /// assert_eq!(map.ceil_key(&49), Some(50));
     /// assert_eq!(map.ceil_key(&50), Some(50));
     /// assert_eq!(map.ceil_key(&51), None);
-    /// 
-    /// map.clear();
     /// ```
     pub fn ceil_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
