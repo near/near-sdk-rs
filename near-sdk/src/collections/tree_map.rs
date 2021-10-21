@@ -50,12 +50,7 @@ where
     /// ```
     /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
-    /// use near_sdk::BorshStorageKey;
-    ///
-    /// #[derive(BorshSerialize, BorshStorageKey)]
-    /// enum StorageKey {TreeItems}
-    ///
-    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(StorageKey::TreeItems);
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
