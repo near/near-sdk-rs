@@ -31,8 +31,8 @@ impl<T> UnorderedSet<T> {
     /// # Examples
     ///
     /// ```
-    ///use near_sdk::collections::UnorderedSet;
-    ///let mut set: UnorderedSet<u32> = UnorderedSet::new(b"m".to_vec());
+    /// use near_sdk::collections::UnorderedSet;
+    /// let mut set: UnorderedSet<u32> = UnorderedSet::new(b"m");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
