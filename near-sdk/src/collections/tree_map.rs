@@ -143,7 +143,6 @@ where
     ///
     /// ```
     ///use near_sdk::collections::TreeMap;
-    // use near_sdk::test_utils::test_env;
     /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m".to_vec());
     /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
     /// 
