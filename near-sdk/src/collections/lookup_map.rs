@@ -145,11 +145,7 @@ where
     /// ```
     /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
-    /// use near_sdk::BorshStorageKey;
-    /// 
-    /// #[derive(BorshSerialize, BorshStorageKey)]
-    /// enum StorageKey {Records}
-    /// let mut extendee: LookupMap<String, String> = LookupMap::new(StorageKey::Records);
+    /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"e");
     /// let mut source = vec![];
     /// 
     /// source.push(("Toyota".into(), "Camry".into()));
