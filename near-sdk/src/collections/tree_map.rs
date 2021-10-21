@@ -212,7 +212,6 @@ where
     ///     map.iter_from(29).collect::<Vec<(u32, u32)>>(),
     ///     vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]
     /// )
-    /// map.clear();
     /// ```
     pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
         Cursor::asc_from(self, key)
