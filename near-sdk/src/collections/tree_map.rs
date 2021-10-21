@@ -171,7 +171,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m".to_vec());
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
     /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
     /// for x in vec.iter() {
     ///     map.insert(x, &1);
