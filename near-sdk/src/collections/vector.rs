@@ -43,8 +43,8 @@ impl<T> Vector<T> {
     /// # Examples
     ///
     /// ```
-    ///use near_sdk::collections::Vector;
-    ///let mut set: Vector<u32> = Vector::new(b"m".to_vec());
+    /// use near_sdk::collections::Vector;
+    /// let mut set: Vector<u32> = Vector::new(b"m");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
