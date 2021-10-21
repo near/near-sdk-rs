@@ -223,7 +223,7 @@ where
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
-    /// ///
+    ///
     /// # Examples
     ///
     /// ```
