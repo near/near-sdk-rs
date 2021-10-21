@@ -184,7 +184,6 @@ where
     /// assert_eq!(map.floor_key(&49), Some(40));
     /// assert_eq!(map.floor_key(&50), Some(50));
     /// assert_eq!(map.floor_key(&51), Some(50));
-    /// map.clear();
     /// ```
     pub fn floor_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
