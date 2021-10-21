@@ -152,7 +152,7 @@ where
     /// source.push(("Nissan".into(), "Almera".into()));
     /// source.push(("Ford".into(), "Mustang".into()));
     /// source.push(("Chevrolet".into(), "Camaro".into()));
-    /// extendee.extend(source.iter().cloned());
+    /// extendee.extend(source.into_iter());
     /// ```
     pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) {
         for (el_key, el_value) in iter {
