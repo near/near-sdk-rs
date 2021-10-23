@@ -206,11 +206,10 @@ where
         K: BorshDeserialize + Clone,
         V: BorshDeserialize,
     {
-        // TODO optimize this, can be done with a drain iterator rather than cloning references
-        for k in self.keys.iter() {
+        for k in self.keys.drain() {
             // Set instead of remove to avoid loading the value from storage.
             // This enforces a clone, but this is better th
-            self.values.set(k.to_owned(), None);
+            self.values.set(k, None);
         }
         self.keys.clear();
     }

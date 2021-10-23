@@ -519,6 +519,9 @@ mod tests {
 
         assert_eq!(vec.len() as usize, baseline.len());
         assert!(Iterator::eq(vec.iter(), baseline.iter()));
+
+        assert!(Iterator::eq(vec.drain(..), baseline.drain(..)));
+        crate::mock::with_mocked_blockchain(|m| assert!(m.take_storage().is_empty()));
     }
 
     #[derive(Arbitrary, Debug)]
