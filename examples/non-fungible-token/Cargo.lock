@@ -1496,7 +1496,7 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "near-contract-standards"
-version = "4.0.0-pre.3"
+version = "4.0.0-pre.4"
 dependencies = [
  "near-sdk",
 ]
@@ -1666,7 +1666,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "4.0.0-pre.3"
+version = "4.0.0-pre.4"
 dependencies = [
  "base64",
  "borsh",
@@ -1682,7 +1682,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "4.0.0-pre.3"
+version = "4.0.0-pre.4"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -1692,7 +1692,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-sim"
-version = "4.0.0-pre.3"
+version = "4.0.0-pre.4"
 dependencies = [
  "funty",
  "lazy-static-include",
