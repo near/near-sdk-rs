@@ -300,18 +300,23 @@ impl NonFungibleToken {
     ) -> Token {
         assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
 
-        self.internal_mint(token_id, token_owner_id, token_metadata)
+        self.internal_mint(token_id, token_owner_id, token_metadata, Some(self.owner_id.clone()))
     }
 
     /// Mint a new token without checking:
     /// * Whether the caller id is equal to the `owner_id`
+    /// * `refund_id` will transfer the left over balance after storage costs are calculated to the provided account.
+    ///   Typically the account will be the owner. If `None`, will not refund. This is useful for delaying refunding
+    ///   until multiple tokens have been minted.
+    ///
     pub fn internal_mint(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
+        refund_id: Option<AccountId>,
     ) -> Token {
-        let initial_storage_usage = env::storage_usage();
+        let initial_storage_usage = if refund_id.is_some() { env::storage_usage() } else { 0 };
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic_str("Must provide metadata");
         }
@@ -346,8 +351,10 @@ impl NonFungibleToken {
         let approved_account_ids =
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
+        if let Some(id) = refund_id {
+            refund_deposit(env::storage_usage() - initial_storage_usage, id)
+        }
         // Return any extra attached deposit not used for storage
-        refund_deposit(env::storage_usage() - initial_storage_usage);
 
         Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }

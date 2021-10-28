@@ -65,7 +65,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         // excess.
         let storage_used =
             if old_approval_id.is_none() { bytes_for_approved_account_id(&account_id) } else { 0 };
-        refund_deposit(storage_used);
+        refund_deposit(storage_used, env::predecessor_account_id());
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.map(|msg| {
