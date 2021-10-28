@@ -79,8 +79,11 @@ impl ImplItemMethodInfo {
         };
         let body = if matches!(method_type, &MethodType::Init) {
             if matches!(returns, ReturnType::Default) {
-                return syn::Error::new(ident.span(), "Init methods must return the contract state")
-                    .to_compile_error();
+                return syn::Error::new(
+                    ident.span(),
+                    "Init methods must return the contract state",
+                )
+                .to_compile_error();
             }
             quote! {
                 if near_sdk::env::state_exists() {
@@ -91,8 +94,11 @@ impl ImplItemMethodInfo {
             }
         } else if matches!(method_type, &MethodType::InitIgnoreState) {
             if matches!(returns, ReturnType::Default) {
-                return syn::Error::new(ident.span(), "Init methods must return the contract state")
-                    .to_compile_error();
+                return syn::Error::new(
+                    ident.span(),
+                    "Init methods must return the contract state",
+                )
+                .to_compile_error();
             }
             quote! {
                 let contract = #struct_type::#ident(#arg_list);
