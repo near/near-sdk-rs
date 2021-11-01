@@ -200,3 +200,88 @@ where
         }
     }
 }
+
+/// A draining iterator for [`FreeList<T>`].
+#[derive(Debug)]
+pub struct Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Inner vector drain iterator
+    inner: vec::Drain<'a, Slot<T>>,
+    /// Number of elements left to remove.
+    remaining_count: usize,
+}
+
+impl<'a, T> Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    pub(crate) fn new(list: &'a mut FreeList<T>) -> Self {
+        // All elements will be dropped on drain iterator being dropped, fine to pre-emptively
+        // reset these fields since a mutable reference is kept to the FreeList.
+        list.first_free = None;
+        let remaining_count = core::mem::take(&mut list.occupied_count) as usize;
+        Self { inner: list.elements.drain(..), remaining_count }
+    }
+
+    fn remaining(&self) -> usize {
+        self.remaining_count
+    }
+}
+
+impl<'a, T> Iterator for Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.remaining() == 0 {
+                return None;
+            }
+
+            match self.inner.next()? {
+                Slot::Occupied(v) => {
+                    self.remaining_count -= 1;
+                    return Some(v);
+                }
+                Slot::Empty { .. } => continue,
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.remaining();
+        (remaining, Some(remaining))
+    }
+
+    fn count(self) -> usize {
+        self.remaining()
+    }
+}
+
+impl<'a, T> ExactSizeIterator for Drain<'a, T> where T: BorshSerialize + BorshDeserialize {}
+impl<'a, T> FusedIterator for Drain<'a, T> where T: BorshSerialize + BorshDeserialize {}
+
+impl<'a, T> DoubleEndedIterator for Drain<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.remaining() == 0 {
+                return None;
+            }
+
+            match self.inner.next_back()? {
+                Slot::Occupied(v) => {
+                    self.remaining_count -= 1;
+                    return Some(v);
+                }
+                Slot::Empty { .. } => continue,
+            }
+        }
+    }
+}
