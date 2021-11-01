@@ -1,5 +1,5 @@
 mod iter;
-pub use self::iter::{Iter, IterMut};
+pub use self::iter::{Drain, Iter, IterMut};
 
 use super::{Vector, ERR_INCONSISTENT_STATE};
 use crate::{env, IntoStorageKey};
@@ -209,6 +209,17 @@ where
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut::new(self)
     }
+
+    /// Creates a draining iterator that removes all elements from the FreeList and yields
+    /// the removed items.
+    ///
+    /// When the iterator **is** dropped, all elements in the range are removed
+    /// from the list, even if the iterator was not fully consumed. If the
+    /// iterator **is not** dropped (with [`mem::forget`] for example), the collection will be left
+    /// in an inconsistent state.
+    pub fn drain(&mut self) -> Drain<T> {
+        Drain::new(self)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -299,6 +310,39 @@ mod tests {
         assert_eq!(r8, i1);
         assert!(bucket.first_free.is_none());
         assert_eq!(bucket.insert(9), FreeListIndex(4));
+    }
+
+    #[test]
+    fn drain() {
+        let mut bucket = FreeList::new(b"b");
+        let mut baseline = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        bucket.extend(baseline.iter().copied());
+
+        assert!(Iterator::eq(bucket.drain(), baseline.drain(..)));
+        assert!(bucket.is_empty());
+
+        // Test with gaps and using nth
+        let baseline = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        bucket.extend(baseline.iter().copied());
+
+        let mut baseline: Vec<_> = baseline.into_iter().filter(|v| v % 2 != 0).collect();
+        for i in 0..9 {
+            if i % 2 == 0 {
+                bucket.remove(FreeListIndex(i));
+            }
+        }
+
+        {
+            let mut bl_d = baseline.drain(..);
+            let mut bu_d = bucket.drain();
+            assert_eq!(bl_d.len(), bu_d.len());
+            assert_eq!(bl_d.nth(2), bu_d.nth(2));
+            assert_eq!(bl_d.nth_back(2), bu_d.nth_back(2));
+            assert_eq!(bl_d.len(), bu_d.len());
+            assert!(Iterator::eq(bl_d, bu_d));
+        }
+        assert!(bucket.is_empty());
+        crate::mock::with_mocked_blockchain(|m| assert!(m.take_storage().is_empty()));
     }
 
     #[derive(Arbitrary, Debug)]

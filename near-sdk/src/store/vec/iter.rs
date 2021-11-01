@@ -232,6 +232,16 @@ where
         Some(prev)
     }
 
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        for _ in 0..n {
+            let next = self.range.next()?;
+            // Delete all values in advance, values will be shifted over on drop.
+            // This avoids having to load and deserialize any elements skipped over.
+            self.vec.values.set(next, None);
+        }
+        self.next()
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) {
         let remaining = self.remaining();
         (remaining, Some(remaining))
@@ -260,7 +270,8 @@ where
         // Only delete and don't load any values before n
         for _ in 0..n {
             let next = self.range.next_back()?;
-            // Delete all values in advance, values will be shifted over on drop
+            // Delete all values in advance, values will be shifted over on drop.
+            // This avoids having to load and deserialize any elements skipped over.
             self.vec.values.set(next, None);
         }
         self.next_back()
