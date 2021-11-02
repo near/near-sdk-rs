@@ -77,8 +77,9 @@ macro_rules! impl_fungible_token_storage {
                 &mut self,
                 account_id: Option<AccountId>,
                 registration_only: Option<bool>,
+                refund_account_id: Option<AccountId>,
             ) -> StorageBalance {
-                self.$token.storage_deposit(account_id, registration_only)
+                self.$token.storage_deposit(account_id, registration_only, refund_account_id)
             }
 
             #[payable]

@@ -46,13 +46,16 @@ impl StorageManagement for FungibleToken {
         &mut self,
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
+        refund_account_id: Option<AccountId>,
     ) -> StorageBalance {
         let amount: Balance = env::attached_deposit();
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
+        let refund_account_id = refund_account_id.unwrap_or_else(env::predecessor_account_id);
+
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(amount);
+                Promise::new(refund_account_id).transfer(amount);
             }
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
@@ -63,7 +66,7 @@ impl StorageManagement for FungibleToken {
             self.internal_register_account(&account_id);
             let refund = amount - min_balance;
             if refund > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(refund);
+                Promise::new(refund_account_id).transfer(refund);
             }
         }
         self.internal_storage_balance_of(&account_id).unwrap()

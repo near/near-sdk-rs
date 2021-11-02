@@ -23,6 +23,7 @@ pub trait StorageManagement {
         &mut self,
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
+        refund_account_id: Option<AccountId>,
     ) -> StorageBalance;
 
     /// Withdraw specified amount of available Ⓝ for predecessor account.
