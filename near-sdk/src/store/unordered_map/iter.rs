@@ -501,6 +501,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
+
 impl<'a, K, V, H> FusedIterator for Drain<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
