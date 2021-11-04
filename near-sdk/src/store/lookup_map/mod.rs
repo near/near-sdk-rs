@@ -302,8 +302,9 @@ where
     /// let mut map = LookupMap::new(b"m");
     /// map.insert(1, "a");
     /// if let Some(x) = map.get_mut(&1) {
-    /// *x = "b";
-    /// assert_eq!(map[&1], "b");
+    ///     *x = "b";
+    ///     assert_eq!(map[&1], "b");
+    /// }
     /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
