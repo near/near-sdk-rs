@@ -28,14 +28,7 @@ impl<K, V> LookupMap<K, V> {
     /// ```
     /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
-    /// use near_sdk::BorshStorageKey;
-
-    /// #[derive(BorshSerialize, BorshStorageKey)]
-    /// enum StorageKey {
-    ///     Records,
-    ///     UniqueValues,
-    /// }
-    /// let mut map: LookupMap<String, String> = LookupMap::new(StorageKey::Records);
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// ```
     pub fn new<S>(key_prefix: S) -> Self
     where

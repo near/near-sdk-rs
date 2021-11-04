@@ -155,6 +155,15 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
+    /// Create a new map. Use `key_prefix` as a unique prefix for keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"a");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where
@@ -190,17 +199,51 @@ where
     }
 
     /// Return the amount of elements inside of the map.
+    /// 
+    /// # Example
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    /// 
+    /// let mut map = UnorderedMap::new(b"b");
+    /// assert_eq!(map.len(), 0);
+    /// map.insert(1, 1);
+    /// map.insert(2, 2);
+    /// assert_eq!(map.len(), 2);
+    /// ```
     pub fn len(&self) -> u32 {
         self.keys.len()
     }
 
     /// Returns true if there are no elements inside of the map.
+    /// 
+    /// # Example
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    /// 
+    /// let mut map = UnorderedMap::new(b"b");
+    /// assert_eq!(map.is_empty());
+    /// map.insert(1, 1);
+    /// assert_eq!(!map.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }
 
     /// Clears the map, removing all key-value pairs. Keeps the allocated memory
     /// for reuse.
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b");
+    /// map.insert(1, 1);
+    /// 
+    /// map.clear();
+    ///
+    /// assert!(map.is_empty());
+    /// ```
     pub fn clear(&mut self)
     where
         K: BorshDeserialize + Clone,
@@ -216,6 +259,22 @@ where
 
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert(1, 1);
+    /// map.insert(2, 2);
+    /// map.insert(3, 3);
+    /// 
+    /// let iter = map.iter();
+    /// 
+    /// assert_eq!(iter.len(), 3);
+    /// assert_eq!(iter.collect::<Vec<_>>(), [(&1, &1), (&2, &2), (&3, &3)]);
+    /// ```
     pub fn iter(&self) -> Iter<K, V, H>
     where
         K: BorshDeserialize,
@@ -226,6 +285,22 @@ where
     /// An iterator visiting all key-value pairs in arbitrary order,
     /// with exclusive references to the values.
     /// The iterator element type is `(&'a K, &'a mut V)`.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert(1, 1);
+    /// map.insert(2, 2);
+    /// map.insert(3, 3);
+    /// 
+    /// let iter = map.iter_mut();
+    /// 
+    /// assert_eq!(iter.len(), 3);
+    /// assert_eq!(iter.collect::<Vec<_>>(), [(&1, &mut 1), (&2, &mut 2), (&3, &mut 3)]);
+    /// ```
     pub fn iter_mut(&mut self) -> IterMut<K, V, H>
     where
         K: BorshDeserialize,
@@ -235,6 +310,20 @@ where
 
     /// An iterator visiting all keys in arbitrary order.
     /// The iterator element type is `&'a K`.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert(1, 1);
+    /// map.insert(2, 2);
+    /// map.insert(3, 3);
+    /// 
+    /// // Collect all keys
+    /// assert_eq!(map.keys().collect::<Vec<_>>(), [&1, &2, &3]);
+    /// ```
     pub fn keys(&self) -> Keys<K>
     where
         K: BorshDeserialize,
@@ -244,6 +333,19 @@ where
 
     /// An iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a V`.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert(1, 1);
+    /// map.insert(2, 2);
+    /// map.insert(3, 3);
+    /// 
+    /// assert_eq!(map.values().collect::<Vec<_>>(), [&1, &2, &3]);
+    /// ```
     pub fn values(&self) -> Values<K, V, H>
     where
         K: BorshDeserialize,
@@ -253,6 +355,26 @@ where
 
     /// A mutable iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a mut V`.
+    /// An iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a V`.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert(1, 1);
+    /// map.insert(2, 2);
+    /// map.insert(3, 3);
+    /// 
+    /// // Double all values
+    /// map.values_mut().for_each(|v| {
+    ///     *v *= 2;
+    /// });
+    /// 
+    /// assert_eq!(map.values().collect::<Vec<_>>(), [&2, &4, &6]);
+    /// ```
     pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
     where
         K: BorshDeserialize,
@@ -272,6 +394,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// assert!(map.insert("test".to_string(), 5u8).is_none());
+    /// assert_eq!(map.get("test"), Some(&5));
+    /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -285,6 +417,18 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// assert!(map.insert("test".to_string(), 5u8).is_none());
+    /// 
+    /// *map.get_mut("test").unwrap() = 6;
+    /// assert_eq!(map["test"], 6);
+    /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
@@ -300,6 +444,20 @@ where
     /// If the map did have this key present, the value is updated, and the old
     /// value is returned. The key is not updated, though; this matters for
     /// types that can be `==` without being identical.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// assert_eq!(map.is_empty());
+    /// 
+    /// map.insert(1, 1);
+    /// 
+    /// assert_eq!(!map.is_empty());
+    /// assert_eq!(map.values().collect::<Vec<_>>(), [&1]);
+    /// ```
     pub fn insert(&mut self, k: K, value: V) -> Option<V>
     where
         K: Clone + BorshDeserialize,
@@ -321,6 +479,17 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert("test".to_string(), 7u8);
+    /// 
+    /// assert!(map.contains_key("test"));
+    /// ```
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -335,6 +504,20 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    /// 
+    /// # Examples
+    ///
+    /// ``` 
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b")
+    /// map.insert("test".to_string(), 7u8);
+    /// assert_eq!(map.len(), 1);
+    /// 
+    /// map.remove("test");
+    /// 
+    /// assert_eq!(map.len(), 0);
+    /// ```
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q> + BorshDeserialize,

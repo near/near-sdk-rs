@@ -25,7 +25,7 @@ impl<T> LookupSet<T> {
     ///
     /// ```
     /// use near_sdk::collections::LookupSet;
-    /// let mut set: LookupSet<u32> = LookupSet::new(b"m".to_vec());
+    /// let mut set: LookupSet<u32> = LookupSet::new(b"m");
     /// ```
     pub fn new<S>(element_prefix: S) -> Self
     where
