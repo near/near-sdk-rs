@@ -101,16 +101,47 @@ where
     /// Returns the number of elements in the vector, also referred to as its size.
     /// This function returns a `u32` rather than the [`Vec`] equivalent of `usize` to have
     /// consistency between targets.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"a");
+    /// vec.push(1);
+    /// vec.push(2);
+    /// assert_eq!(vec.len(), 2);
+    /// ```
     pub fn len(&self) -> u32 {
         self.len
     }
 
     /// Returns `true` if the vector contains no elements.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"a");
+    /// assert!(vec.is_empty());
+    ///
+    /// vec.push(1);
+    /// assert!(!vec.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::Vector;
+    /// 
+    /// let mut vec = Vector::new(b"a");
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -120,6 +151,19 @@ where
 
     /// Removes all elements from the collection. This will remove all storage values for the
     /// length of the [`Vector`].
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"a");
+    /// vec.push(1);
+    /// 
+    /// vec.clear();
+    /// 
+    /// assert!(!vec.is_empty());
+    /// ```
     pub fn clear(&mut self) {
         for i in 0..self.len {
             self.values.set(i, None);
@@ -138,6 +182,19 @@ where
     /// # Panics
     ///
     /// Panics if `index` is out of bounds.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// vec.push("test");
+    /// 
+    /// vec.set(0,"new_value");
+    /// 
+    /// assert_eq!(vec.get(0),Some("new_value"));
+    /// ```
     pub fn set(&mut self, index: u32, value: T) {
         if index >= self.len() {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
@@ -151,6 +208,17 @@ where
     /// # Panics
     ///
     /// Panics if new length exceeds `u32::MAX`
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// vec.push("test");
+    /// 
+    /// assert_eq!(!vec.is_empty());
+    /// ```
     pub fn push(&mut self, element: T) {
         let last_idx = self.len();
         self.len =
@@ -164,6 +232,18 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     /// Returns the element by index or `None` if it is not present.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// vec.push("test");
+    /// 
+    /// assert_eq!(Some("test"), vec.get(0));
+    /// assert_eq!(None, vec.get(3));
+    /// ```
     pub fn get(&self, index: u32) -> Option<&T> {
         if index >= self.len() {
             return None;
@@ -172,6 +252,23 @@ where
     }
 
     /// Returns a mutable reference to the element at the `index` provided.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// let x = vec![0, 1, 2];
+    /// vec.extend(x);
+    /// 
+    /// if let Some(elem) = vec.get_mut(1) {
+    ///     *elem = 42;
+    /// }
+    /// 
+    /// let actual: Vec<_> = vec.iter().cloned().collect();
+    /// assert_eq!(actual, &[0, 42, 2]);
+    /// ```
     pub fn get_mut(&mut self, index: u32) -> Option<&mut T> {
         if index >= self.len {
             return None;
@@ -194,6 +291,21 @@ where
     /// # Panics
     ///
     /// Panics if `index` is out of bounds.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// let baseline = vec![1, 2, 3];
+    /// vec.extend(baseline.clone());
+    /// 
+    /// vec.swap_remove(0);
+    /// 
+    /// assert_eq!(iter.get(0), 3);
+    /// assert_eq!(vec.swap_remove(1), 2);
+    /// ```
     pub fn swap_remove(&mut self, index: u32) -> T {
         if self.is_empty() {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
@@ -204,6 +316,19 @@ where
     }
 
     /// Removes the last element from a vector and returns it, or `None` if it is empty.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// let x = vec![1,2,3];
+    /// vec.extend(x);
+    /// 
+    /// assert_eq!(vec.pop(), Some(3));
+    /// assert_eq!(vec.pop(), Some(2));
+    /// ```
     pub fn pop(&mut self) -> Option<T> {
         let new_idx = self.len.checked_sub(1)?;
         let prev = self.values.get_mut_inner(new_idx).replace(None);
@@ -217,6 +342,19 @@ where
     ///
     /// If `index` is out of bounds.
     // TODO determine if this should be stabilized, included for backwards compat with old version
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// vec.push("test");
+    /// 
+    /// vec.replace(0,"replaced");
+    /// 
+    /// assert_eq!(vec.get(0),Some("replaced"));
+    /// ```
     pub fn replace(&mut self, index: u32, element: T) -> T {
         if index >= self.len {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
@@ -226,12 +364,40 @@ where
 
     /// Returns an iterator over the vector. This iterator will lazily load any values iterated
     /// over from storage.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// let baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    /// vec.extend(baseline.clone());
+    /// 
+    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), vec![0, 4, 5, 6, 7, 8, 9]);
+    /// ```
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
     }
 
     /// Returns an iterator over the [`Vector`] that allows modifying each value. This iterator
     /// will lazily load any values iterated over from storage.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::store::Vector;
+    ///
+    /// let mut vec = Vector::new(b"v");
+    /// let baseline = vec![1, 2, 3];
+    /// vec.extend(baseline.clone());
+    /// 
+    /// let mut iter = vec.iter_mut();
+    /// 
+    /// assert_eq!(iter.next(), Some(&mut 3));
+    /// assert_eq!(iter.next(), Some(&mut 2));
+    /// assert_eq!(iter.next(), Some(&mut 1));
+    /// ```
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut::new(self)
     }
@@ -246,6 +412,20 @@ where
     ///
     /// This will not panic on invalid ranges (`end > length` or `end < start`) and instead the
     /// iterator will just be empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut vec = Vector::new(b"v");
+    /// let baseline = vec![1, 2, 3];
+    /// vec.extend(baseline.clone());
+    /// 
+    /// assert!(Iterator::eq(vec.drain(..), baseline.drain(..)));
+    ///
+    /// // A full range clears the vector
+    /// vec.drain(..);
+    /// assert_eq!(vec, &[])
+    /// ```
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
         R: RangeBounds<u32>,
