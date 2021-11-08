@@ -1,6 +1,9 @@
 # Changelog
 
 ## [unreleased]
+- Add drain iterator for `near_sdk::store::UnorderedMap`. [PR 613](https://github.com/near/near-sdk-rs/pull/613).
+  - Will remove all values and iterate over owned values that were removed
+- Fix codegen for methods inside a `#[near_bindgen]` to allow using `mut self` which will generate the same code as `self` and will not persist state. [PR 616](https://github.com/near/near-sdk-rs/pull/616).
 
 ## `4.0.0-pre.4` [10-15-2021]
 - Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)
@@ -14,6 +17,8 @@
   - When mixing using `sys` and `env`, reduces chance of collision for using `0`
 - store: Implement caching `LookupMap` type. This is the new iteration of the previous version of `near_sdk::collections::LookupMap` that has an updated API, and is located at `near_sdk::store::LookupMap`. [PR 487](https://github.com/near/near-sdk-rs/pull/487).
   - The internal storage format has changed from `collections::LookupMap` so the type cannot be swapped out without some migration.
+- Implement `drain` iterator for `near_sdk::store::Vector`. [PR 592](https://github.com/near/near-sdk-rs/pull/592)
+  - This allows any range of the vector to be removed and iterate on the removed values and the vector will be collapsed
 - store: Implement caching `UnorderedMap` type. [PR 584](https://github.com/near/near-sdk-rs/pull/584).
   - Similar change to `LookupMap` update, and is an iterable version of that data structure.
   - Data structure has also changed internal storage format and cannot be swapped with `collections::UnorderedMap` without manual migration.

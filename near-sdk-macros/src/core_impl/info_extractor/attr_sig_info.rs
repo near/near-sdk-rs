@@ -105,7 +105,7 @@ impl AttrSigInfo {
 
         if let Some(ref receiver) = receiver {
             if matches!(method_type, MethodType::Regular) {
-                if receiver.mutability.is_none() {
+                if receiver.mutability.is_none() || receiver.reference.is_none() {
                     method_type = MethodType::View;
                 }
             } else {
