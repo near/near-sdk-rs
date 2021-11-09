@@ -57,4 +57,6 @@ pub trait StorageManagement {
     fn storage_balance_bounds(&self) -> StorageBalanceBounds;
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance>;
+
+    fn is_account_registered(&self, account_id: &AccountId) -> bool;
 }

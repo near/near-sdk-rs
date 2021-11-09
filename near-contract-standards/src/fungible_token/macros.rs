@@ -104,6 +104,10 @@ macro_rules! impl_fungible_token_storage {
             fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
                 self.$token.storage_balance_of(account_id)
             }
+
+            fn is_account_registered(&self, account_id: &AccountId) -> bool {
+                self.$token.is_account_registered(account_id)
+            }
         }
     };
 }
