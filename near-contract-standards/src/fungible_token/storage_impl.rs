@@ -30,6 +30,14 @@ impl FungibleToken {
         }
     }
 
+    pub fn is_account_registered(&self, account_id: &AccountId) -> bool {
+        if self.accounts.contains_key(account_id) {
+            true
+        } else {
+            false
+        }
+    }
+
     fn internal_storage_balance_of(&self, account_id: &AccountId) -> Option<StorageBalance> {
         if self.accounts.contains_key(account_id) {
             Some(StorageBalance { total: self.storage_balance_bounds().min, available: 0.into() })
