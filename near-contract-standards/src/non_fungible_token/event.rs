@@ -1,122 +1,97 @@
-// use std::fmt;
+use std::fmt::Display;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-#[allow(non_camel_case_types)]
-#[derive(Serialize)]
-pub enum Event {
-    nft_mint,
-    nft_burn,
-    nft_transfer,
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "standard")]
+#[serde(rename_all = "snake_case")]
+pub enum NearEvent {
+    Nep171(Nep171Event),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Nep171Event {
+    pub version: String,
+    #[serde(flatten)]
+    pub event_kind: Nep171EventKind,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "event", content = "data")]
+#[serde(rename_all = "snake_case")]
+#[allow(clippy::enum_variant_names)]
+pub enum Nep171EventKind {
+    NftMint(Vec<NftMintData>),
+    NftTransfer(Vec<NftTransferData>),
+    NftBurn(Vec<NftBurnData>),
 }
 
 #[skip_serializing_none]
-#[derive(Serialize)]
-pub struct NftMintLog {
-    owner_id: String,
-    token_ids: Vec<String>,
-    memo: Option<String>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NftMintData {
+    pub owner_id: String,
+    pub token_ids: Vec<String>,
+    pub memo: Option<String>,
 }
 
 #[skip_serializing_none]
-#[derive(Serialize)]
-pub struct NftBurnLog {
-    owner_id: String,
-    authorized_id: Option<String>,
-    token_ids: Vec<String>,
-    memo: Option<String>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NftTransferData {
+    pub authorized_id: Option<String>,
+    pub old_owner_id: String,
+    pub new_owner_id: String,
+    pub token_ids: Vec<String>,
+    pub memo: Option<String>,
 }
 
 #[skip_serializing_none]
-#[derive(Serialize)]
-pub struct NftTransferLog {
-    authorized_id: Option<String>,
-    old_owner_id: String,
-    new_owner_id: String,
-    token_ids: Vec<String>,
-    memo: Option<String>,
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NftBurnData {
+    pub authorized_id: Option<String>,
+    pub owner_id: String,
+    pub token_ids: Vec<String>,
+    pub memo: Option<String>,
 }
 
-pub enum EventLogData {
-    Mint(NftMintLog),
-    Burn(NftBurnLog),
-    Transfer(NftTransferLog),
-}
-
-impl Serialize for EventLogData {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use EventLogData::*;
-        match self {
-            Mint(log) => log.serialize(serializer),
-            Burn(log) => log.serialize(serializer),
-            Transfer(log) => log.serialize(serializer),
-        }
-    }
-}
-
-impl From<NftMintLog> for EventLogData {
-    fn from(log: NftMintLog) -> Self {
-        EventLogData::Mint(log)
-    }
-}
-
-impl From<NftTransferLog> for EventLogData {
-    fn from(log: NftTransferLog) -> Self {
-        EventLogData::Transfer(log)
-    }
-}
-
-impl From<NftBurnLog> for EventLogData {
-    fn from(log: NftBurnLog) -> Self {
-        EventLogData::Burn(log)
-    }
-}
-
-#[derive(Serialize)]
-pub struct EventLog {
-    standard: String,
-    version: String,
-    event: Event,
-    data: Vec<EventLogData>,
-}
-
-impl std::fmt::Display for EventLog {
+impl Display for NearEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&serde_json::to_string(self).unwrap())
+        f.write_str(&format!("EVENT_JSON:{}", self.to_json_string()))
     }
 }
 
-impl EventLog {
-    pub fn new(standard: String, version: String, event: Event, data: Vec<EventLogData>) -> Self {
-        Self { standard, version, event, data }
+use Nep171EventKind::*;
+
+impl NearEvent {
+    pub fn new_171(version: String, event_kind: Nep171EventKind) -> Self {
+        NearEvent::Nep171(Nep171Event { version, event_kind })
     }
 
-    pub fn new_nep171(event: Event, data: Vec<EventLogData>) -> Self {
-        EventLog::new("nep171".to_string(), "1.0.0".to_string(), event, data)
+    pub fn new_171_v1(event_kind: Nep171EventKind) -> Self {
+        NearEvent::new_171("1.0.0".to_string(), event_kind)
     }
 
-    pub fn nft_burn(data: Vec<NftBurnLog>) -> Self {
-        EventLog::new_nep171(Event::nft_burn, data.into_iter().map(|log| log.into()).collect())
+    pub fn nft_burn(data: Vec<NftBurnData>) -> Self {
+        NearEvent::new_171_v1(NftBurn(data))
+    }
+    pub fn nft_transfer(data: Vec<NftTransferData>) -> Self {
+        NearEvent::new_171_v1(NftTransfer(data))
     }
 
-    pub fn nft_mint(data: Vec<NftMintLog>) -> Self {
-        EventLog::new_nep171(Event::nft_mint, data.into_iter().map(|log| log.into()).collect())
+    pub fn nft_mint(data: Vec<NftMintData>) -> Self {
+        NearEvent::new_171_v1(NftMint(data))
     }
 
-    pub fn nft_transfer(data: Vec<NftTransferLog>) -> Self {
-        EventLog::new_nep171(Event::nft_transfer, data.into_iter().map(|log| log.into()).collect())
+    pub(crate) fn to_json_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
     }
 
     pub fn log(&self) {
-        near_sdk::env::log_str(&format!("EVENT_JSON:{}", self));
+        near_sdk::env::log_str(&self.to_string());
     }
 
     pub fn log_nft_mint(owner_id: String, token_ids: Vec<String>, memo: Option<String>) {
-        EventLog::nft_mint(vec![NftMintLog { owner_id, token_ids, memo }]).log();
+        NearEvent::nft_mint(vec![NftMintData { owner_id, token_ids, memo }]).log();
     }
     pub fn log_nft_transfer(
         old_owner_id: String,
@@ -125,7 +100,7 @@ impl EventLog {
         memo: Option<String>,
         authorized_id: Option<String>,
     ) {
-        EventLog::nft_transfer(vec![NftTransferLog {
+        NearEvent::nft_transfer(vec![NftTransferData {
             authorized_id,
             old_owner_id,
             new_owner_id,
@@ -141,7 +116,7 @@ impl EventLog {
         token_ids: Vec<String>,
         memo: Option<String>,
     ) {
-        EventLog::nft_burn(vec![NftBurnLog { owner_id, authorized_id, token_ids, memo }]).log();
+        NearEvent::nft_burn(vec![NftBurnData { owner_id, authorized_id, token_ids, memo }]).log();
     }
 }
 
@@ -153,8 +128,8 @@ mod tests {
     fn nft_mint() {
         let owner_id = "bob".to_string();
         let token_ids = vec!["0", "1"].iter().map(|t| t.to_string()).collect();
-        let mint_log = NftMintLog { owner_id, token_ids, memo: None };
-        let event_log = EventLog::nft_mint(vec![mint_log]);
+        let mint_log = NftMintData { owner_id, token_ids, memo: None };
+        let event_log = NearEvent::nft_mint(vec![mint_log]);
         assert_eq!(
             serde_json::to_string(&event_log).unwrap(),
             r#"{"standard":"nep171","version":"1.0.0","event":"nft_mint","data":[{"owner_id":"bob","token_ids":["0","1"]}]}"#
@@ -165,13 +140,13 @@ mod tests {
     fn nft_burn() {
         let owner_id = "bob".to_string();
         let token_ids = vec!["0", "1"].iter().map(|t| t.to_string()).collect();
-        let log = EventLog::nft_burn(vec![NftBurnLog {
+        let log = NearEvent::nft_burn(vec![NftBurnData {
             owner_id,
             authorized_id: None,
             token_ids,
             memo: None,
         }])
-        .to_string();
+        .to_json_string();
         assert_eq!(
             log,
             r#"{"standard":"nep171","version":"1.0.0","event":"nft_burn","data":[{"owner_id":"bob","token_ids":["0","1"]}]}"#
@@ -183,14 +158,14 @@ mod tests {
         let old_owner_id = "bob".to_string();
         let new_owner_id = "alice".to_string();
         let token_ids = vec!["0", "1"].iter().map(|t| t.to_string()).collect();
-        let log = EventLog::nft_transfer(vec![NftTransferLog {
+        let log = NearEvent::nft_transfer(vec![NftTransferData {
             old_owner_id,
             new_owner_id,
             authorized_id: None,
             token_ids,
             memo: None,
         }])
-        .to_string();
+        .to_json_string();
         assert_eq!(
             log,
             r#"{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"bob","new_owner_id":"alice","token_ids":["0","1"]}]}"#
