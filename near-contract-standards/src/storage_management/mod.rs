@@ -2,7 +2,7 @@ use near_sdk::json_types::U128;
 use near_sdk::serde::Serialize;
 use near_sdk::AccountId;
 
-#[derive(Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
     pub total: U128,
