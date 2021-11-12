@@ -10,8 +10,6 @@ pub struct StorageBalance {
     pub available: U128,
 }
 
-/// Implements both `serde` and `borsh` serialization.
-/// `serde` is typically useful when returning a struct in JSON format for a frontend.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalanceBounds {
