@@ -3,8 +3,6 @@ use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
 
-/// Implements both `serde` and `borsh` serialization.
-/// `serde` is typically useful when returning a struct in JSON format for a frontend.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct StorageBalance {
