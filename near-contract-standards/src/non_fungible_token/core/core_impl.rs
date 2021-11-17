@@ -311,13 +311,18 @@ impl NonFungibleToken {
     /// * Assumes there will be a refund to the owner after covering the storage costs
     ///
     pub fn internal_mint(
-      &mut self,
-      token_id: TokenId,
-      token_owner_id: AccountId,
-      token_metadata: Option<TokenMetadata>,
-  ) -> Token {
-      self.internal_mint_with_refund(token_id, token_owner_id, token_metadata, Some(self.owner_id.clone()))
-  }
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: AccountId,
+        token_metadata: Option<TokenMetadata>,
+    ) -> Token {
+        self.internal_mint_with_refund(
+            token_id,
+            token_owner_id,
+            token_metadata,
+            Some(self.owner_id.clone()),
+        )
+    }
 
     /// Mint a new token without checking:
     /// * Whether the caller id is equal to the `owner_id`

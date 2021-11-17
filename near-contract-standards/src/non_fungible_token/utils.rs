@@ -27,23 +27,23 @@ pub fn refund_approved_account_ids(
 }
 
 pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
-  let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
-  let attached_deposit = env::attached_deposit();
+    let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
+    let attached_deposit = env::attached_deposit();
 
-  require!(
-      required_cost <= attached_deposit,
-      format!("Must attach {} yoctoNEAR to cover storage", required_cost)
-  );
+    require!(
+        required_cost <= attached_deposit,
+        format!("Must attach {} yoctoNEAR to cover storage", required_cost)
+    );
 
-  let refund = attached_deposit - required_cost;
-  if refund > 1 {
-      Promise::new(account_id).transfer(refund);
-  }
+    let refund = attached_deposit - required_cost;
+    if refund > 1 {
+        Promise::new(account_id).transfer(refund);
+    }
 }
 
 /// Assumes that the precedecessor will be refunded
 pub fn refund_deposit(storage_used: u64) {
-  refund_deposit_to_account(storage_used, env::predecessor_account_id())
+    refund_deposit_to_account(storage_used, env::predecessor_account_id())
 }
 
 pub fn hash_account_id(account_id: &AccountId) -> CryptoHash {
