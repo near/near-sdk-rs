@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 
-pub enum PromiseAction {
+enum PromiseAction {
     CreateAccount,
     DeployContract {
         code: Vec<u8>,
@@ -93,7 +93,7 @@ impl PromiseAction {
     }
 }
 
-pub struct PromiseSingle {
+struct PromiseSingle {
     pub account_id: AccountId,
     pub actions: RefCell<Vec<PromiseAction>>,
     pub after: RefCell<Option<Promise>>,
@@ -203,7 +203,7 @@ impl BorshSchema for Promise {
 }
 
 #[derive(Clone)]
-pub enum PromiseSubtype {
+enum PromiseSubtype {
     Single(Rc<PromiseSingle>),
     Joint(Rc<PromiseJoint>),
 }
