@@ -19,6 +19,7 @@ pub type TxResult = Result<ExecutionOutcome, ExecutionOutcome>;
 
 /// An ExecutionResult is created by a UserAccount submitting a transaction.
 /// It wraps an ExecutionOutcome which is the same object returned from an RPC call.
+#[must_use]
 #[derive(Clone)]
 pub struct ExecutionResult {
     runtime: Rc<RefCell<RuntimeStandalone>>,

@@ -22,12 +22,8 @@ fn simulate_simple_transfer() {
 
     // Transfer from root to alice.
     // Uses default gas amount, `near_sdk_sim::DEFAULT_GAS`
-    call!(
-        root,
-        ft.ft_transfer(alice.account_id(), transfer_amount.into(), None),
-        deposit = 1
-    )
-    .assert_success();
+    call!(root, ft.ft_transfer(alice.account_id(), transfer_amount.into(), None), deposit = 1)
+        .assert_success();
 
     let root_balance: U128 = view!(ft.ft_balance_of(root.account_id())).unwrap_json();
     let alice_balance: U128 = view!(ft.ft_balance_of(alice.account_id())).unwrap_json();
@@ -128,10 +124,7 @@ fn simulate_transfer_call_with_burned_amount() {
     let callback_outcome = outcome.get_receipt_results().remove(1).unwrap();
 
     assert_eq!(callback_outcome.logs()[0], "The account of the sender was deleted");
-    assert_eq!(
-        callback_outcome.logs()[1],
-        format!("Account @{} burned {}", root.account_id(), 10)
-    );
+    assert_eq!(callback_outcome.logs()[1], format!("Account @{} burned {}", root.account_id(), 10));
 
     let used_amount: U128 = callback_outcome.unwrap_json();
     // Sender deleted the account. Even though the returned amount was 10, it was not refunded back
@@ -181,7 +174,7 @@ fn simulate_transfer_call_when_called_contract_not_registered_with_ft() {
     let (root, ft, defi, _alice) = init(initial_balance);
 
     // call fails because DEFI contract is not registered as FT user
-    call!(
+    let res = call!(
         root,
         ft.ft_transfer_call(
             defi.account_id(),
@@ -191,6 +184,7 @@ fn simulate_transfer_call_when_called_contract_not_registered_with_ft() {
         ),
         deposit = 1
     );
+    assert!(matches!(res.status(), ExecutionStatus::Failure(_)));
 
     // balances remain unchanged
     let root_balance: U128 = view!(ft.ft_balance_of(root.account_id())).unwrap_json();
@@ -217,7 +211,8 @@ fn simulate_transfer_call_with_promise_and_refund() {
             refund_amount.to_string()
         ),
         deposit = 1
-    );
+    )
+    .assert_success();
 
     let root_balance: U128 = view!(ft.ft_balance_of(root.account_id())).unwrap_json();
     let defi_balance: U128 = view!(ft.ft_balance_of(defi.account_id())).unwrap_json();

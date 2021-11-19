@@ -39,7 +39,8 @@ fn simulate_transfer_call_fast_return_to_sender() {
             "return-it-now".into()
         ),
         deposit = 1
-    );
+    )
+    .assert_success();
 
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     assert_eq!(token.owner_id, root.account_id());
@@ -59,7 +60,8 @@ fn simulate_transfer_call_slow_return_to_sender() {
             "return-it-later".into()
         ),
         deposit = 1
-    );
+    )
+    .assert_success();
 
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     assert_eq!(token.owner_id, root.account_id());
@@ -79,7 +81,8 @@ fn simulate_transfer_call_fast_keep_with_sender() {
             "keep-it-now".into()
         ),
         deposit = 1
-    );
+    )
+    .assert_success();
 
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     assert_eq!(token.owner_id, receiver.account_id());
@@ -99,7 +102,8 @@ fn simulate_transfer_call_slow_keep_with_sender() {
             "keep-it-later".into()
         ),
         deposit = 1
-    );
+    )
+    .assert_success();
 
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     assert_eq!(token.owner_id, receiver.account_id());
@@ -119,7 +123,8 @@ fn simulate_transfer_call_receiver_panics() {
             "incorrect message".into()
         ),
         deposit = 1
-    );
+    )
+    .assert_success();
 
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
     assert_eq!(token.owner_id, root.account_id());

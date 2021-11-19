@@ -71,7 +71,8 @@ pub fn init() -> (
             }
         ),
         deposit = 7000000000000000000000
-    );
+    )
+    .assert_success();
 
     let alice = root.create_user(AccountId::new_unchecked("alice".to_string()), to_yocto("100"));
 
@@ -126,5 +127,6 @@ pub fn helper_mint(
             }
         ),
         deposit = 7000000000000000000000
-    );
+    )
+    .assert_success();
 }
