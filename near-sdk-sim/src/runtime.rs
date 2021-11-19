@@ -347,7 +347,12 @@ impl RuntimeStandalone {
     }
 
     /// Returns a ViewResult containing the value or error and any logs
-    pub fn view_method_call(&self, account_id: &str, method_name: &str, args: &[u8]) -> ViewResult {
+    pub fn view_method_call(
+        &self,
+        account_id: &str,
+        function_name: &str,
+        args: &[u8],
+    ) -> ViewResult {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};
         let mut logs = vec![];
@@ -365,7 +370,7 @@ impl RuntimeStandalone {
             trie_update,
             view_state,
             &account_id.to_string(),
-            method_name,
+            function_name,
             args,
             &mut logs,
             self.epoch_info_provider.as_ref(),
