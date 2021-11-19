@@ -15,7 +15,7 @@ pub enum VmAction {
         code: Vec<u8>,
     },
     FunctionCall {
-        method_name: String,
+        function_name: String,
         args: Vec<u8>,
         gas: Gas,
         deposit: Balance,
@@ -36,7 +36,7 @@ pub enum VmAction {
         nonce: u64,
         allowance: Option<Balance>,
         receiver_id: AccountId,
-        method_names: Vec<String>,
+        function_names: Vec<String>,
     },
     DeleteKey {
         public_key: PublicKey,

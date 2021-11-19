@@ -98,14 +98,14 @@ impl External for SdkExternal {
     fn append_action_function_call(
         &mut self,
         receipt_index: u64,
-        method_name: Vec<u8>,
+        function_name: Vec<u8>,
         arguments: Vec<u8>,
         attached_deposit: u128,
         prepaid_gas: u64,
     ) -> Result<()> {
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
             VmAction::FunctionCall {
-                method_name: String::from_utf8(method_name)
+                function_name: String::from_utf8(function_name)
                     // * Unwrap here is fine because this is only used in mocks
                     .expect("method name must be utf8 bytes"),
                 args: arguments,
@@ -162,18 +162,18 @@ impl External for SdkExternal {
         nonce: u64,
         allowance: Option<u128>,
         receiver_id: String,
-        method_names: Vec<Vec<u8>>,
+        function_names: Vec<Vec<u8>>,
     ) -> Result<()> {
         let public_key = PublicKey::try_from(public_key).unwrap();
-        let method_names =
-            method_names.into_iter().map(|s| String::from_utf8(s).unwrap()).collect();
+        let function_names =
+            function_names.into_iter().map(|s| String::from_utf8(s).unwrap()).collect();
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
             VmAction::AddKeyWithFunctionCall {
                 public_key,
                 nonce,
                 allowance,
                 receiver_id: AccountId::new_unchecked(receiver_id),
-                method_names,
+                function_names,
             },
         );
         Ok(())
