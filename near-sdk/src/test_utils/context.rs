@@ -117,11 +117,8 @@ impl VMContextBuilder {
     }
 
     pub fn is_view(&mut self, is_view: bool) -> &mut Self {
-        self.context.view_config = if is_view {
-            Some(ViewConfig { max_gas_burnt: 200000000000000 })
-        } else {
-            None
-        };
+        self.context.view_config =
+            if is_view { Some(ViewConfig { max_gas_burnt: 200000000000000 }) } else { None };
         self
     }
 
