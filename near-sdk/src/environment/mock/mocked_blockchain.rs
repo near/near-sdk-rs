@@ -24,8 +24,8 @@ impl Default for MockedBlockchain {
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
-            Default::default(),
-            Default::default(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
             vec![],
             Default::default(),
             Default::default(),
@@ -71,7 +71,6 @@ impl MockedBlockchain {
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
-                Default::default(),
                 u32::MAX,
             )
         };

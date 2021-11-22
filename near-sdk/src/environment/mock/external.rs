@@ -3,6 +3,7 @@ use crate::{
     types::{AccountId, Balance, Gas},
     PublicKey,
 };
+use near_vm_logic::types::AccountId as VmAccountId;
 use near_vm_logic::{External, HostError, ValuePtr};
 use std::{collections::HashMap, convert::TryFrom};
 
@@ -64,14 +65,18 @@ impl External for SdkExternal {
         Ok(self.fake_trie.contains_key(key))
     }
 
-    fn create_receipt(&mut self, receipt_indices: Vec<u64>, receiver_id: String) -> Result<u64> {
+    fn create_receipt(
+        &mut self,
+        receipt_indices: Vec<u64>,
+        receiver_id: VmAccountId,
+    ) -> Result<u64> {
         if let Some(index) = receipt_indices.iter().find(|&&el| el >= self.receipts.len() as u64) {
             return Err(HostError::InvalidReceiptIndex { receipt_index: *index }.into());
         }
         let res = self.receipts.len() as u64;
         self.receipts.push(Receipt {
             receipt_indices,
-            receiver_id: AccountId::new_unchecked(receiver_id),
+            receiver_id: AccountId::new_unchecked(String::from(receiver_id)),
             actions: vec![],
         });
         Ok(res)
@@ -161,7 +166,7 @@ impl External for SdkExternal {
         public_key: Vec<u8>,
         nonce: u64,
         allowance: Option<u128>,
-        receiver_id: String,
+        receiver_id: VmAccountId,
         function_names: Vec<Vec<u8>>,
     ) -> Result<()> {
         let public_key = PublicKey::try_from(public_key).unwrap();
@@ -172,7 +177,7 @@ impl External for SdkExternal {
                 public_key,
                 nonce,
                 allowance,
-                receiver_id: AccountId::new_unchecked(receiver_id),
+                receiver_id: AccountId::new_unchecked(String::from(receiver_id)),
                 function_names,
             },
         );
@@ -192,10 +197,12 @@ impl External for SdkExternal {
     fn append_action_delete_account(
         &mut self,
         receipt_index: u64,
-        beneficiary_id: String,
+        beneficiary_id: VmAccountId,
     ) -> Result<()> {
         self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
-            VmAction::DeleteAccount { beneficiary_id: AccountId::new_unchecked(beneficiary_id) },
+            VmAction::DeleteAccount {
+                beneficiary_id: AccountId::new_unchecked(String::from(beneficiary_id)),
+            },
         );
         Ok(())
     }
@@ -206,8 +213,8 @@ impl External for SdkExternal {
 
     fn reset_touched_nodes_counter(&mut self) {}
 
-    fn validator_stake(&self, account_id: &String) -> Result<Option<Balance>> {
-        Ok(self.validators.get(account_id).cloned())
+    fn validator_stake(&self, account_id: &VmAccountId) -> Result<Option<Balance>> {
+        Ok(self.validators.get(account_id.as_ref()).cloned())
     }
 
     fn validator_total_stake(&self) -> Result<Balance> {

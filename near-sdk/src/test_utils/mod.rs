@@ -79,7 +79,7 @@ macro_rules! testing_env {
         $crate::testing_env!($context, $config, $fee_config, Default::default());
     };
     ($context:expr) => {
-        $crate::testing_env!($context, Default::default(), Default::default());
+        $crate::testing_env!($context, $crate::VMConfig::test(), $crate::RuntimeFeesConfig::test());
     };
 }
 
