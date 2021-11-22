@@ -186,6 +186,7 @@ pub fn outcome_into_result(
 
 /// The result of a view call.  Contains the logs made during the view method call and Result value,
 /// which can be unwrapped and deserialized.
+#[must_use]
 #[derive(Debug)]
 pub struct ViewResult {
     result: Result<Vec<u8>, Box<dyn std::error::Error>>,
