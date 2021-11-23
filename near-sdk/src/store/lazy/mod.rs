@@ -66,7 +66,7 @@ where
     T: BorshSerialize,
 {
     /// Key bytes to index the contract's storage.
-    storage_key: Vec<u8>,
+    storage_key: Box<[u8]>,
     #[borsh_skip]
     /// Cached value which is lazily loaded and deserialized from storage.
     cache: OnceCell<CacheEntry<T>>,
@@ -81,7 +81,7 @@ where
         S: IntoStorageKey,
     {
         Self {
-            storage_key: key.into_storage_key(),
+            storage_key: key.into_storage_key().into_boxed_slice(),
             cache: OnceCell::from(CacheEntry::new_modified(Some(value))),
         }
     }
