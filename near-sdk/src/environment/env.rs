@@ -270,8 +270,8 @@ pub fn keccak256_hash(value: &[u8]) -> [u8; 32] {
 
 /// Hashes the bytes using the Keccak-512 hash function. This returns a 64 byte hash.
 pub fn keccak512_hash(value: &[u8]) -> [u8; 64] {
-    //* SAFETY: keccak512 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid keccak512 implementation.
     unsafe {
         sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
