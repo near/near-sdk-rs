@@ -1,6 +1,4 @@
-use crate::{env::read_register_fixed_32, sys};
-
-const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
+use crate::env;
 
 mod private {
     /// Seal `CryptoHasher` implementations to limit usage to the builtin implementations
@@ -28,14 +26,7 @@ impl CryptoHasher for Sha256 {
     type Digest = [u8; 32];
 
     fn hash(ingest: &[u8]) -> Self::Digest {
-        //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
-        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-        //*         because all bytes are filled. This assumes a valid sha256 implementation.
-        unsafe {
-            sys::sha256(ingest.len() as _, ingest.as_ptr() as _, ATOMIC_OP_REGISTER);
-
-            read_register_fixed_32(ATOMIC_OP_REGISTER)
-        }
+        env::sha256_hash(ingest)
     }
 }
 
@@ -48,13 +39,6 @@ impl CryptoHasher for Keccak256 {
     type Digest = [u8; 32];
 
     fn hash(ingest: &[u8]) -> Self::Digest {
-        //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
-        //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-        //*         because all bytes are filled. This assumes a valid keccak256 implementation.
-        unsafe {
-            sys::keccak256(ingest.len() as _, ingest.as_ptr() as _, ATOMIC_OP_REGISTER);
-
-            read_register_fixed_32(ATOMIC_OP_REGISTER)
-        }
+        env::keccak256_hash(ingest)
     }
 }
