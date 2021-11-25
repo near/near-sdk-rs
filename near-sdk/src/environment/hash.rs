@@ -1,6 +1,4 @@
-use std::mem::MaybeUninit;
-
-use crate::sys;
+use crate::{env::read_register_fixed_32, sys};
 
 const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 
@@ -36,9 +34,7 @@ impl CryptoHasher for Sha256 {
         unsafe {
             sys::sha256(ingest.len() as _, ingest.as_ptr() as _, ATOMIC_OP_REGISTER);
 
-            let mut hash = [MaybeUninit::<u8>::uninit(); 32];
-            sys::read_register(ATOMIC_OP_REGISTER, hash.as_mut_ptr() as _);
-            std::mem::transmute(hash)
+            read_register_fixed_32(ATOMIC_OP_REGISTER)
         }
     }
 }
@@ -58,9 +54,7 @@ impl CryptoHasher for Keccak256 {
         unsafe {
             sys::keccak256(ingest.len() as _, ingest.as_ptr() as _, ATOMIC_OP_REGISTER);
 
-            let mut hash = [MaybeUninit::<u8>::uninit(); 32];
-            sys::read_register(ATOMIC_OP_REGISTER, hash.as_mut_ptr() as _);
-            std::mem::transmute(hash)
+            read_register_fixed_32(ATOMIC_OP_REGISTER)
         }
     }
 }
