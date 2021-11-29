@@ -1,6 +1,6 @@
 use super::{Receipt, VmAction};
 use crate::{
-    types::{AccountId, Balance, Gas},
+    types::{Balance, Gas},
     PublicKey,
 };
 use near_vm_logic::types::AccountId as VmAccountId;
@@ -76,7 +76,7 @@ impl External for SdkExternal {
         let res = self.receipts.len() as u64;
         self.receipts.push(Receipt {
             receipt_indices,
-            receiver_id: AccountId::new_unchecked(String::from(receiver_id)),
+            receiver_id: receiver_id.into(),
             actions: vec![],
         });
         Ok(res)
@@ -177,7 +177,7 @@ impl External for SdkExternal {
                 public_key,
                 nonce,
                 allowance,
-                receiver_id: AccountId::new_unchecked(String::from(receiver_id)),
+                receiver_id: receiver_id.into(),
                 function_names,
             },
         );
@@ -199,11 +199,11 @@ impl External for SdkExternal {
         receipt_index: u64,
         beneficiary_id: VmAccountId,
     ) -> Result<()> {
-        self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
-            VmAction::DeleteAccount {
-                beneficiary_id: AccountId::new_unchecked(String::from(beneficiary_id)),
-            },
-        );
+        self.receipts
+            .get_mut(receipt_index as usize)
+            .unwrap()
+            .actions
+            .push(VmAction::DeleteAccount { beneficiary_id: beneficiary_id.into() });
         Ok(())
     }
 

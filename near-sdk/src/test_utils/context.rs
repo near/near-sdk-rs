@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::AccountId;
@@ -31,10 +32,10 @@ impl VMContextBuilder {
     pub fn new() -> Self {
         Self {
             context: VMContext {
-                current_account_id: alice().as_str().parse().unwrap(),
-                signer_account_id: bob().as_str().parse().unwrap(),
+                current_account_id: alice().try_into().unwrap(),
+                signer_account_id: bob().try_into().unwrap(),
                 signer_account_pk: vec![0u8; 32],
-                predecessor_account_id: bob().as_str().parse().unwrap(),
+                predecessor_account_id: bob().try_into().unwrap(),
                 input: vec![],
                 block_index: 0,
                 block_timestamp: 0,
@@ -52,12 +53,12 @@ impl VMContextBuilder {
     }
 
     pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.current_account_id = account_id.as_str().parse().unwrap();
+        self.context.current_account_id = account_id.try_into().unwrap();
         self
     }
 
     pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.signer_account_id = account_id.as_str().parse().unwrap();
+        self.context.signer_account_id = account_id.try_into().unwrap();
         self
     }
 
@@ -67,7 +68,7 @@ impl VMContextBuilder {
     }
 
     pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.predecessor_account_id = account_id.as_str().parse().unwrap();
+        self.context.predecessor_account_id = account_id.try_into().unwrap();
         self
     }
 
