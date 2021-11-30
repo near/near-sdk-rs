@@ -360,13 +360,10 @@ impl NonFungibleToken {
             }])
         };
 
-        let mint_log = NftMintData { owner_id, token_ids, memo: None };
-        let event_log = NearEvent::nft_mint(vec![mint_log]);
-
         //convert the struct of type EventLogJson to actual json so we can log it
         let serialized_nft_mint_log = serde_json::to_string(&nft_mint_log).expect("Unable to convert NFT mint log to JSON");
         //log the serialized json
-        env::log_str(&format!("EVENT_JSON:{:?}", serialized_nft_mint_log.to_json_string())); 
+        env::log_str(&format!("EVENT_JSON:{:?}", serialized_nft_mint_log)); 
         env::log_str(&serialized_nft_mint_log); 
         // Return any extra attached deposit not used for storage
         refund_deposit(env::storage_usage() - initial_storage_usage);
