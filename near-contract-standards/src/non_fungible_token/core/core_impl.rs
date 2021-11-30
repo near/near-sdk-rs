@@ -1,6 +1,6 @@
 use super::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
-use crate::non_fungible_token::events::{EventLogJson, EventLogJsonData};
+use crate::non_fungible_token::events::{EventLog, EventLogVariant};
 use crate::non_fungible_token::events::NftMintLog;
 use crate::non_fungible_token::metadata::{TokenMetadata, NFT_METADATA_SPEC, NFT_STANDARD_NAME};
 use crate::non_fungible_token::token::{Token, TokenId};
@@ -349,22 +349,18 @@ impl NonFungibleToken {
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
         
         //construct the mint log as per the events standard
-        let nft_mint_log: EventLogJson = EventLogJson {
+        let nft_mint_log: EventLog = EventLog {
             standard: NFT_STANDARD_NAME.to_string(), //standard name ("nep171")
             version: NFT_METADATA_SPEC.to_string(), //version of the standard ("nft-1.0.0")
-            event: "nft_mint".to_string(), //the event that is triggered
-            data: EventLogJsonData::NftMintLog( vec![ NftMintLog { //the data related with the event stored in a vector
+            event: EventLogVariant::NftMint( vec![ NftMintLog { //the data related with the event stored in a vector
                 owner_id: token_owner_id.to_string(), //owner of the token
                 token_ids: vec![token_id.to_string()], //vector of token IDs that were minted
                 memo: None, //an optional memo to include
             }])
         };
 
-        //convert the struct of type EventLogJson to actual json so we can log it
-        let serialized_nft_mint_log = serde_json::to_string(&nft_mint_log).expect("Unable to convert NFT mint log to JSON");
         //log the serialized json
-        env::log_str(&format!("EVENT_JSON:{:?}", serialized_nft_mint_log)); 
-        env::log_str(&serialized_nft_mint_log); 
+        env::log_str(&nft_mint_log.to_string()); 
         // Return any extra attached deposit not used for storage
         refund_deposit(env::storage_usage() - initial_storage_usage);
 
