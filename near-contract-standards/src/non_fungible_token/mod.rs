@@ -12,6 +12,9 @@ mod macros;
 /// Metadata traits and implementation according to the [NFT enumeration standard](https://nomicon.io/Standards/NonFungibleToken/Metadata.html).
 /// This covers both the contract metadata and the individual token metadata.
 pub mod metadata;
+/// Events traits according to the [Events standard](https://nomicon.io/Standards/NonFungibleToken/Event.html)
+/// this covers the EventLogJson and the data structures for mint and tranfer logs
+pub mod events;
 /// The Token struct for the non-fungible token.
 mod token;
 pub use self::token::{Token, TokenId};
