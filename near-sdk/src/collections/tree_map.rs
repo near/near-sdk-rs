@@ -586,10 +586,7 @@ where
     V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TreeMap")
-            .field("root", &self.root)
-            .field("tree", &self.tree)
-            .finish()
+        f.debug_struct("TreeMap").field("root", &self.root).field("tree", &self.tree).finish()
     }
 }
 

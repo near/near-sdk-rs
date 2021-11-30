@@ -238,10 +238,7 @@ impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
 #[cfg(not(feature = "expensive-debug"))]
 impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Vector")
-            .field("len", &self.len)
-            .field("prefix", &self.prefix)
-            .finish()
+        f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
     }
 }
 
@@ -498,10 +495,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", deserialize_only_vec),
-                format!(
-                    "Vector {{ len: 5, prefix: {:?} }}",
-                    deserialize_only_vec.prefix
-                )
+                format!("Vector {{ len: 5, prefix: {:?} }}", deserialize_only_vec.prefix)
             );
         }
     }

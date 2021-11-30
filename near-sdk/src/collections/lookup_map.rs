@@ -135,9 +135,7 @@ where
     V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LookupMap")
-            .field("key_prefix", &self.key_prefix)
-            .finish()
+        f.debug_struct("LookupMap").field("key_prefix", &self.key_prefix).finish()
     }
 }
 

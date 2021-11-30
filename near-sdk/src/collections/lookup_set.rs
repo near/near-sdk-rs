@@ -93,9 +93,7 @@ where
     T: std::fmt::Debug + BorshSerialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LookupSet")
-            .field("element_prefix", &self.element_prefix)
-            .finish()
+        f.debug_struct("LookupSet").field("element_prefix", &self.element_prefix).finish()
     }
 }
 
