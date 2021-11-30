@@ -241,7 +241,7 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 /// the given amount and gas.
 pub fn promise_create(
     account_id: AccountId,
-    method_name: &str,
+    function_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -251,8 +251,8 @@ pub fn promise_create(
         sys::promise_create(
             account_id.len() as _,
             account_id.as_ptr() as _,
-            method_name.len() as _,
-            method_name.as_ptr() as _,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
@@ -265,7 +265,7 @@ pub fn promise_create(
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
-    method_name: &str,
+    function_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -276,8 +276,8 @@ pub fn promise_then(
             promise_idx,
             account_id.len() as _,
             account_id.as_ptr() as _,
-            method_name.len() as _,
-            method_name.as_ptr() as _,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
@@ -324,7 +324,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
 
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
-    method_name: &str,
+    function_name: &str,
     arguments: &[u8],
     amount: Balance,
     gas: Gas,
@@ -332,8 +332,8 @@ pub fn promise_batch_action_function_call(
     unsafe {
         sys::promise_batch_action_function_call(
             promise_index,
-            method_name.len() as _,
-            method_name.as_ptr() as _,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
@@ -380,7 +380,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     nonce: u64,
     allowance: Balance,
     receiver_id: &AccountId,
-    method_names: &str,
+    function_names: &str,
 ) {
     let receiver_id: &str = receiver_id.as_ref();
     unsafe {
@@ -392,8 +392,8 @@ pub fn promise_batch_action_add_key_with_function_call(
             &allowance as *const Balance as _,
             receiver_id.len() as _,
             receiver_id.as_ptr() as _,
-            method_names.len() as _,
-            method_names.as_ptr() as _,
+            function_names.len() as _,
+            function_names.as_ptr() as _,
         )
     }
 }

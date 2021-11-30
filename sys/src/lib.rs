@@ -59,8 +59,8 @@ extern "C" {
     pub fn promise_create(
         account_id_len: u64,
         account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -70,8 +70,8 @@ extern "C" {
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -87,8 +87,8 @@ extern "C" {
     pub fn promise_batch_action_deploy_contract(promise_index: u64, code_len: u64, code_ptr: u64);
     pub fn promise_batch_action_function_call(
         promise_index: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -115,8 +115,8 @@ extern "C" {
         allowance_ptr: u64,
         receiver_id_len: u64,
         receiver_id_ptr: u64,
-        method_names_len: u64,
-        method_names_ptr: u64,
+        function_names_len: u64,
+        function_names_ptr: u64,
     );
     pub fn promise_batch_action_delete_key(
         promise_index: u64,
