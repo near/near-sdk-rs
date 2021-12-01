@@ -201,6 +201,7 @@ impl External for SdkExternal {
     ) -> Result<()> {
         self.receipts
             .get_mut(receipt_index as usize)
+            .ok_or_else(|| HostError::InvalidReceiptIndex { receipt_index })
             .unwrap()
             .actions
             .push(VmAction::DeleteAccount { beneficiary_id: beneficiary_id.into() });
