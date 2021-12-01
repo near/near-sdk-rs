@@ -10,6 +10,9 @@ pub use vec::Vector;
 pub mod lookup_map;
 pub use self::lookup_map::LookupMap;
 
+pub mod lookup_set;
+pub use self::lookup_set::LookupSet;
+
 pub mod unordered_map;
 pub use self::unordered_map::UnorderedMap;
 
