@@ -278,7 +278,7 @@ impl NonFungibleToken {
             log!("Memo: {}", memo);
         }
 
-        //default the authorized ID to be None for the logs
+        // Default the authorized ID to be None for the logs.
         let mut authorized_id = None;
         //if the approval ID was provided, set the authorized ID equal to the sender
         if approval_id.is_some() {

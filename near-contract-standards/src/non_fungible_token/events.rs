@@ -2,8 +2,8 @@ use std::fmt;
 
 use near_sdk::serde::{Deserialize, Serialize};
 
-//enum that represents the data type of the EventLogJson.
-//the enum can either be an NftMintLog or an NftTransferLog
+/// Enum that represents the data type of the EventLog.
+/// The enum can either be an NftMint or an NftTransfer.
 #[derive(Serialize, Deserialize, Debug)]
 /*
     outputs JSON in the following order: <tag>: <field>, <content>: <field_data>
@@ -20,13 +20,12 @@ pub enum EventLogVariant {
     NftTransfer(Vec<NftTransferLog>),
 }
 
-// Interface to capture data
-// about an event
-// Arguments
-// * `standard`: name of standard e.g. nep171
-// * `version`: e.g. 1.0.0
-// * `event`: string
-// * `data`: associate event data
+/// Interface to capture data about an event
+///
+/// Arguments:
+/// * `standard`: name of standard e.g. nep171
+/// * `version`: e.g. 1.0.0
+/// * `event`: associate event data
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct EventLog {
