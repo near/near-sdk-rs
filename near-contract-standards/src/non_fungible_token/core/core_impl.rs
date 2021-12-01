@@ -288,7 +288,7 @@ impl NonFungibleToken {
         // Construct the mint log as per the events standard.
         let nft_transfer_log: EventLog = EventLog {
             // Standard name ("nep171").
-            standard: NFT_STANDARD_NAME.to_string(), 
+            standard: NFT_STANDARD_NAME.to_string(),
             // Version of the standard ("nft-1.0.0").
             version: NFT_METADATA_SPEC.to_string(),
             // The data related with the event stored in a vector.
@@ -382,17 +382,17 @@ impl NonFungibleToken {
         // Construct the mint log as per the events standard.
         let nft_mint_log: EventLog = EventLog {
             // Standard name ("nep171").
-            standard: NFT_STANDARD_NAME.to_string(), 
+            standard: NFT_STANDARD_NAME.to_string(),
             // Version of the standard ("nft-1.0.0").
-            version: NFT_METADATA_SPEC.to_string(),  
+            version: NFT_METADATA_SPEC.to_string(),
             // The data related with the event stored in a vector.
             event: EventLogVariant::NftMint(vec![NftMintLog {
                 // Owner of the token.
-                owner_id: owner_id.to_string(), 
+                owner_id: owner_id.to_string(),
                 // Vector of token IDs that were minted.
-                token_ids: vec![token_id.to_string()], 
+                token_ids: vec![token_id.to_string()],
                 // An optional memo to include.
-                memo: None,                     
+                memo: None,
             }]),
         };
 
