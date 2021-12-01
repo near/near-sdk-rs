@@ -231,20 +231,21 @@ mod tests {
         let new_owner_id = "alice";
         let token_ids = make_tokens(vec!["0", "1"]);
         let log = NearEvent::nft_transfer(vec![
-          NftTransferData {
-            old_owner_id: new_owner_id.to_string(),
-            new_owner_id: old_owner_id.to_string(),
-            authorized_id: Some("4".to_string()),
-            token_ids: make_tokens(vec!["2", "3"]),
-            memo: Some("has memo".to_string()),
-          },
-          NftTransferData {
-            old_owner_id: old_owner_id.to_string(),
-            new_owner_id: new_owner_id.to_string(),
-            authorized_id: None,
-            token_ids,
-            memo: None,
-        }])
+            NftTransferData {
+                old_owner_id: new_owner_id.to_string(),
+                new_owner_id: old_owner_id.to_string(),
+                authorized_id: Some("4".to_string()),
+                token_ids: make_tokens(vec!["2", "3"]),
+                memo: Some("has memo".to_string()),
+            },
+            NftTransferData {
+                old_owner_id: old_owner_id.to_string(),
+                new_owner_id: new_owner_id.to_string(),
+                authorized_id: None,
+                token_ids,
+                memo: None,
+            },
+        ])
         .to_json_string();
         assert_eq!(
             log,
