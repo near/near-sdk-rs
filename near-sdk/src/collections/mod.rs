@@ -44,7 +44,7 @@ pub use lookup_map::LookupMap;
 mod lookup_set;
 pub use lookup_set::LookupSet;
 
-mod vector;
+pub mod vector;
 pub use vector::Vector;
 
 mod unordered_map;

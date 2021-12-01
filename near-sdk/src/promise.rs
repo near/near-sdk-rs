@@ -6,13 +6,13 @@ use std::rc::Rc;
 
 use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
 
-pub enum PromiseAction {
+enum PromiseAction {
     CreateAccount,
     DeployContract {
         code: Vec<u8>,
     },
     FunctionCall {
-        method_name: String,
+        function_name: String,
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
@@ -32,7 +32,7 @@ pub enum PromiseAction {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: String,
+        function_names: String,
         nonce: u64,
     },
     DeleteKey {
@@ -51,10 +51,10 @@ impl PromiseAction {
             DeployContract { code } => {
                 crate::env::promise_batch_action_deploy_contract(promise_index, code)
             }
-            FunctionCall { method_name, arguments, amount, gas } => {
+            FunctionCall { function_name, arguments, amount, gas } => {
                 crate::env::promise_batch_action_function_call(
                     promise_index,
-                    method_name,
+                    function_name,
                     arguments,
                     *amount,
                     *gas,
@@ -73,14 +73,14 @@ impl PromiseAction {
                     *nonce,
                 )
             }
-            AddAccessKey { public_key, allowance, receiver_id, method_names, nonce } => {
+            AddAccessKey { public_key, allowance, receiver_id, function_names, nonce } => {
                 crate::env::promise_batch_action_add_key_with_function_call(
                     promise_index,
                     public_key,
                     *nonce,
                     *allowance,
                     receiver_id,
-                    method_names,
+                    function_names,
                 )
             }
             DeleteKey { public_key } => {
@@ -93,7 +93,7 @@ impl PromiseAction {
     }
 }
 
-pub struct PromiseSingle {
+struct PromiseSingle {
     pub account_id: AccountId,
     pub actions: RefCell<Vec<PromiseAction>>,
     pub after: RefCell<Option<Promise>>,
@@ -203,7 +203,7 @@ impl BorshSchema for Promise {
 }
 
 #[derive(Clone)]
-pub enum PromiseSubtype {
+enum PromiseSubtype {
     Single(Rc<PromiseSingle>),
     Joint(Rc<PromiseJoint>),
 }
@@ -245,12 +245,12 @@ impl Promise {
     /// A low-level interface for making a function call to the account that this promise acts on.
     pub fn function_call(
         self,
-        method_name: String,
+        function_name: String,
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
     ) -> Self {
-        self.add_action(PromiseAction::FunctionCall { method_name, arguments, amount, gas })
+        self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
     }
 
     /// Transfer tokens to the account that this promise acts on.
@@ -274,16 +274,16 @@ impl Promise {
     }
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
-    /// only a restricted set of methods. Here `method_names` is a comma separated list of methods,
+    /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
     /// e.g. `"method_a,method_b".to_string()`.
     pub fn add_access_key(
         self,
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: String,
+        function_names: String,
     ) -> Self {
-        self.add_access_key_with_nonce(public_key, allowance, receiver_id, method_names, 0)
+        self.add_access_key_with_nonce(public_key, allowance, receiver_id, function_names, 0)
     }
 
     /// Add an access key with a provided nonce.
@@ -292,14 +292,14 @@ impl Promise {
         public_key: PublicKey,
         allowance: Balance,
         receiver_id: AccountId,
-        method_names: String,
+        function_names: String,
         nonce: u64,
     ) -> Self {
         self.add_action(PromiseAction::AddAccessKey {
             public_key,
             allowance,
             receiver_id,
-            method_names,
+            function_names,
             nonce,
         })
     }

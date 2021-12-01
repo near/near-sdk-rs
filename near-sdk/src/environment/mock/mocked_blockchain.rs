@@ -217,8 +217,8 @@ mod mock_chain {
     extern "C" fn promise_create(
         account_id_len: u64,
         account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -228,8 +228,8 @@ mod mock_chain {
             b.promise_create(
                 account_id_len,
                 account_id_ptr,
-                method_name_len,
-                method_name_ptr,
+                function_name_len,
+                function_name_ptr,
                 arguments_len,
                 arguments_ptr,
                 amount_ptr,
@@ -242,8 +242,8 @@ mod mock_chain {
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -254,8 +254,8 @@ mod mock_chain {
                 promise_index,
                 account_id_len,
                 account_id_ptr,
-                method_name_len,
-                method_name_ptr,
+                function_name_len,
+                function_name_ptr,
                 arguments_len,
                 arguments_ptr,
                 amount_ptr,
@@ -296,8 +296,8 @@ mod mock_chain {
     #[no_mangle]
     extern "C" fn promise_batch_action_function_call(
         promise_index: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -306,8 +306,8 @@ mod mock_chain {
         with_mock_interface(|b| {
             b.promise_batch_action_function_call(
                 promise_index,
-                method_name_len,
-                method_name_ptr,
+                function_name_len,
+                function_name_ptr,
                 arguments_len,
                 arguments_ptr,
                 amount_ptr,
@@ -355,8 +355,8 @@ mod mock_chain {
         allowance_ptr: u64,
         receiver_id_len: u64,
         receiver_id_ptr: u64,
-        method_names_len: u64,
-        method_names_ptr: u64,
+        function_names_len: u64,
+        function_names_ptr: u64,
     ) {
         with_mock_interface(|b| {
             b.promise_batch_action_add_key_with_function_call(
@@ -367,8 +367,8 @@ mod mock_chain {
                 allowance_ptr,
                 receiver_id_len,
                 receiver_id_ptr,
-                method_names_len,
-                method_names_ptr,
+                function_names_len,
+                function_names_ptr,
             )
         })
     }

@@ -20,6 +20,11 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[repr(transparent)]
 pub struct Gas(pub u64);
 
+impl Gas {
+    /// One Tera gas, which is 10^12 gas units.
+    pub const ONE_TERA: Gas = Gas(1_000_000_000_000);
+}
+
 impl Serialize for Gas {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
