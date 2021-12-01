@@ -285,24 +285,31 @@ impl NonFungibleToken {
             authorized_id = Some(sender_id.to_string());
         }
 
-        //construct the mint log as per the events standard
+        // Construct the mint log as per the events standard.
         let nft_transfer_log: EventLog = EventLog {
-            standard: NFT_STANDARD_NAME.to_string(), //standard name ("nep171")
-            version: NFT_METADATA_SPEC.to_string(),  //version of the standard ("nft-1.0.0")
+            // Standard name ("nep171").
+            standard: NFT_STANDARD_NAME.to_string(), 
+            // Version of the standard ("nft-1.0.0").
+            version: NFT_METADATA_SPEC.to_string(),
+            // The data related with the event stored in a vector.
             event: EventLogVariant::NftTransfer(vec![NftTransferLog {
-                //the data related with the event stored in a vector
+                // The optional authorized account ID to transfer the token on behalf of the old owner.
                 authorized_id,
+                // The old owner's account ID.
                 old_owner_id: owner_id.to_string(),
+                // The account ID of the new owner of the token.
                 new_owner_id: receiver_id.to_string(),
+                // A vector containing the token IDs as strings.
                 token_ids: vec![token_id.to_string()],
+                // An optional memo to include.
                 memo,
             }]),
         };
 
-        //log the serialized json
+        // Log the serialized json.
         env::log_str(&nft_transfer_log.to_string());
 
-        // return previous owner & approvals
+        // Return previous owner & approvals
         (owner_id, approved_account_ids)
     }
 
@@ -372,21 +379,26 @@ impl NonFungibleToken {
         let approved_account_ids =
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
-        //construct the mint log as per the events standard
+        // Construct the mint log as per the events standard.
         let nft_mint_log: EventLog = EventLog {
-            standard: NFT_STANDARD_NAME.to_string(), //standard name ("nep171")
-            version: NFT_METADATA_SPEC.to_string(),  //version of the standard ("nft-1.0.0")
+            // Standard name ("nep171").
+            standard: NFT_STANDARD_NAME.to_string(), 
+            // Version of the standard ("nft-1.0.0").
+            version: NFT_METADATA_SPEC.to_string(),  
+            // The data related with the event stored in a vector.
             event: EventLogVariant::NftMint(vec![NftMintLog {
-                //the data related with the event stored in a vector
-                owner_id: owner_id.to_string(), //owner of the token
-                token_ids: vec![token_id.to_string()], //vector of token IDs that were minted
-                memo: None,                     //an optional memo to include
+                // Owner of the token.
+                owner_id: owner_id.to_string(), 
+                // Vector of token IDs that were minted.
+                token_ids: vec![token_id.to_string()], 
+                // An optional memo to include.
+                memo: None,                     
             }]),
         };
 
-        //log the serialized json
+        // Log the serialized json.
         env::log_str(&nft_mint_log.to_string());
-        // Return any extra attached deposit not used for storage
+        // Return any extra attached deposit not used for storage.
         refund_deposit(env::storage_usage() - initial_storage_usage);
 
         Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }

@@ -5,15 +5,9 @@ use near_sdk::serde::{Deserialize, Serialize};
 /// Enum that represents the data type of the EventLog.
 /// The enum can either be an NftMint or an NftTransfer.
 #[derive(Serialize, Deserialize, Debug)]
-/*
-    outputs JSON in the following order: <tag>: <field>, <content>: <field_data>
-    In this case an example would be: "event": "NftMint", "data": <NftMintLog Vector Data>
-*/
 #[serde(tag = "event", content = "data")]
-//turns all the fields into snake case (NftMint --> nft_mint)
 #[serde(rename_all = "snake_case")]
 #[serde(crate = "near_sdk::serde")]
-//makes it so that adding new fields isn't a breaking change
 #[non_exhaustive]
 pub enum EventLogVariant {
     NftMint(Vec<NftMintLog>),
@@ -32,7 +26,7 @@ pub struct EventLog {
     pub standard: String,
     pub version: String,
 
-    //don't have "event": {<EventLogVariant>} in the JSON, just have the contents {<EventLogVariant>}
+    // `flatten` to not have "event": {<EventLogVariant>} in the JSON, just have the contents of {<EventLogVariant>}.
     #[serde(flatten)]
     pub event: EventLogVariant,
 }
@@ -46,39 +40,40 @@ impl fmt::Display for EventLog {
     }
 }
 
-// An event log to capture token minting
-// Arguments
-// * `owner_id`: "account.near"
-// * `token_ids`: ["1", "abc"]
-// * `memo`: optional message
+/// An event log to capture token minting
+///
+/// Arguments
+/// * `owner_id`: "account.near"
+/// * `token_ids`: ["1", "abc"]
+/// * `memo`: optional message
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct NftMintLog {
     pub owner_id: String,
     pub token_ids: Vec<String>,
 
-    //Only serialize if the option is not none
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<String>,
 }
 
-// An event log to capture token transfer
-// Arguments
-// * `authorized_id`: approved account to transfer
-// * `old_owner_id`: "owner.near"
-// * `new_owner_id`: "receiver.near"
-// * `token_ids`: ["1", "12345abc"]
-// * `memo`: optional message
+/// An event log to capture token transfer
+///
+/// Arguments
+/// * `authorized_id`: approved account to transfer
+/// * `old_owner_id`: "owner.near"
+/// * `new_owner_id`: "receiver.near"
+/// * `token_ids`: ["1", "12345abc"]
+/// * `memo`: optional message
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct NftTransferLog {
-    //Only serialize if the option is not none
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorized_id: Option<String>,
+
     pub old_owner_id: String,
     pub new_owner_id: String,
     pub token_ids: Vec<String>,
-    //Only serialize if the option is not none
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<String>,
 }
