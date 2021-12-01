@@ -5,7 +5,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
-/// This name of the NFT standard we're using
+/// This is the name of the NFT standard we're using
 pub const NFT_STANDARD_NAME: &str = "nep171";
 
 /// Metadata for the NFT contract itself.

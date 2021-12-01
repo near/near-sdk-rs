@@ -274,7 +274,7 @@ impl NonFungibleToken {
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
         log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
-        if let Some(memo) = memo.clone() {
+        if let Some(memo) = memo.as_ref() {
             log!("Memo: {}", memo);
         }
 
@@ -344,7 +344,7 @@ impl NonFungibleToken {
             env::panic_str("token_id must be unique");
         }
 
-        let owner_id: AccountId = token_owner_id.clone();
+        let owner_id: AccountId = token_owner_id;
 
         // Core behavior: every token must have an owner
         self.owner_by_id.insert(&token_id, &owner_id);
