@@ -11,12 +11,12 @@ use once_cell::unsync::OnceCell;
 use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
+use super::ERR_NOT_EXIST;
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
-const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
 type LookupKey = [u8; 32];
 

@@ -1,9 +1,17 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use std::ops::Bound;
+mod entry;
+mod impls;
+mod iter;
 
-use crate::collections::LookupMap;
-use crate::collections::{append, Vector};
-use crate::{env, IntoStorageKey};
+pub use entry::Entry;
+pub use iter::{Iter, IterMut, Values, ValuesMut};
+// pub use iter::{Iter, IterMut, Keys, Values, ValuesMut};
+
+use borsh::{BorshDeserialize, BorshSerialize};
+use std::borrow::Borrow;
+
+use crate::crypto_hash::{CryptoHasher, Sha256};
+use crate::store::{LookupMap, Vector};
+use crate::IntoStorageKey;
 
 /// TreeMap based on AVL-tree
 ///
@@ -15,68 +23,101 @@ use crate::{env, IntoStorageKey};
 /// - `range` of K elements:    O(Klog(N))
 ///
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct TreeMap<K, V> {
-    root: u64,
-    val: LookupMap<K, V>,
+pub struct TreeMap<K, V, H = Sha256>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    root: u32,
+    values: LookupMap<K, V, H>,
     tree: Vector<Node<K>>,
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Node<K> {
-    id: u64,
+    id: u32,
     key: K,           // key stored in a node
-    lft: Option<u64>, // left link of a node
-    rgt: Option<u64>, // right link of a node
-    ht: u64,          // height of a subtree at a node
+    lft: Option<u32>, // left link of a node
+    rgt: Option<u32>, // right link of a node
+    ht: u32,          // height of a subtree at a node
 }
 
 impl<K> Node<K>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
 {
-    fn of(id: u64, key: K) -> Self {
+    fn of(id: u32, key: K) -> Self {
         Self { id, key, lft: None, rgt: None, ht: 1 }
     }
 }
 
-impl<K, V> TreeMap<K, V>
+impl<K, V> TreeMap<K, V, Sha256>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
-    V: BorshSerialize + BorshDeserialize,
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
 {
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
+        Self::with_hasher(prefix)
+    }
+}
+
+impl<K, V, H> TreeMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    pub fn with_hasher<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
         let prefix = prefix.into_storage_key();
-        Self {
-            root: 0,
-            val: LookupMap::new(append(&prefix, b'v')),
-            tree: Vector::new(append(&prefix, b'n')),
-        }
+        let mut vec_key = prefix.into_storage_key();
+        let map_key = [vec_key.as_slice(), b"v"].concat();
+        vec_key.push(b'n');
+        Self { root: 0, values: LookupMap::with_hasher(map_key), tree: Vector::new(vec_key) }
     }
 
-    pub fn len(&self) -> u64 {
+    /// Return the amount of elements inside of the map.
+    pub fn len(&self) -> u32 {
         self.tree.len()
     }
 
+    /// Returns true if there are no elements inside of the map.
     pub fn is_empty(&self) -> bool {
         self.tree.is_empty()
     }
+}
 
+impl<K, V, H> TreeMap<K, V, H>
+where
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    /// Clears the map, removing all key-value pairs. Keeps the allocated memory
+    /// for reuse.
     pub fn clear(&mut self) {
         self.root = 0;
-        for n in self.tree.iter() {
-            self.val.remove(&n.key);
+        for k in self.tree.drain(..) {
+            // Set instead of remove to avoid loading the value from storage.
+            self.values.set(k.key, None);
         }
-        self.tree.clear();
     }
 
-    fn node(&self, id: u64) -> Option<Node<K>> {
+    fn node(&self, id: u32) -> Option<&Node<K>> {
         self.tree.get(id)
     }
 
-    fn save(&mut self, node: &Node<K>) {
+    fn node_mut(&mut self, id: u32) -> Option<&mut Node<K>> {
+        self.tree.get_mut(id)
+    }
+
+    fn save(&mut self, node: Node<K>) {
         if node.id < self.len() {
             self.tree.replace(node.id, node);
         } else {
@@ -84,25 +125,76 @@ where
         }
     }
 
-    pub fn contains_key(&self, key: &K) -> bool {
-        self.val.get(key).is_some()
+    /// Returns `true` if the map contains a value for the specified key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + ToOwned<Owned = K> + Ord,
+    {
+        self.values.contains_key(k)
     }
 
-    pub fn get(&self, key: &K) -> Option<V> {
-        self.val.get(key)
+    /// Returns a reference to the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + ToOwned<Owned = K>,
+    {
+        self.values.get(k)
     }
 
-    pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
-        if !self.contains_key(key) {
-            self.root = self.insert_at(self.root, self.len(), key);
+    /// Returns a mutable reference to the value corresponding to the key.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
+    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + ToOwned<Owned = K>,
+    {
+        self.values.get_mut(k)
+    }
+
+    /// Inserts a key-value pair into the map.
+    ///
+    /// If the map did not have this key present, [`None`] is returned.
+    ///
+    /// If the map did have this key present, the value is updated, and the old
+    /// value is returned. The key is not updated, though; this matters for
+    /// types that can be `==` without being identical.
+    pub fn insert(&mut self, key: K, value: V) -> Option<V>
+    where
+        K: Clone + BorshDeserialize,
+    {
+        if !self.contains_key(&key) {
+            self.root = self.insert_at(self.root, self.len(), key.clone());
         }
-        self.val.insert(key, val)
+        self.values.insert(key, value)
     }
 
-    pub fn remove(&mut self, key: &K) -> Option<V> {
+    /// Removes a key from the map, returning the value at the key if the key
+    /// was previously in the map.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
+    pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q> + BorshDeserialize,
+        Q: BorshSerialize + ToOwned<Owned = K> + Ord,
+    {
         if self.contains_key(key) {
             self.root = self.do_remove(key);
-            self.val.remove(key)
+            self.values.remove(key)
         } else {
             // no such key, nothing to do
             None
@@ -110,13 +202,13 @@ where
     }
 
     /// Returns the smallest stored key from the tree
-    pub fn min(&self) -> Option<K> {
-        self.min_at(self.root, self.root).map(|(n, _)| n.key)
+    pub fn min(&self) -> Option<&K> {
+        self.min_at(self.root, self.root).map(|(n, _)| &n.key)
     }
 
     /// Returns the largest stored key from the tree
-    pub fn max(&self) -> Option<K> {
-        self.max_at(self.root, self.root).map(|(n, _)| n.key)
+    pub fn max(&self) -> Option<&K> {
+        self.max_at(self.root, self.root).map(|(n, _)| &n.key)
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
@@ -147,49 +239,43 @@ where
         }
     }
 
-    /// Iterate all entries in ascending order: min to max, both inclusive
-    pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::asc(self)
-    }
+    // /// Iterate all entries in ascending order: min to max, both inclusive
+    // pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    //     Cursor::asc(self)
+    // }
 
-    /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
-    pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::asc_from(self, key)
-    }
+    // /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
+    // pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+    //     Cursor::asc_from(self, key)
+    // }
 
-    /// Iterate all entries in descending order: max to min, both inclusive
-    pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::desc(self)
-    }
+    // /// Iterate all entries in descending order: max to min, both inclusive
+    // pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
+    //     Cursor::desc(self)
+    // }
 
-    /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
-    pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::desc_from(self, key)
-    }
+    // /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
+    // pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
+    //     Cursor::desc_from(self, key)
+    // }
 
-    /// Iterate entries in ascending order according to specified bounds.
-    ///
-    /// # Panics
-    ///
-    /// Panics if range start > end.
-    /// Panics if range start == end and both bounds are Excluded.
-    pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
-        let (lo, hi) = match r {
-            (Bound::Included(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
-            (Bound::Excluded(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
-            (Bound::Included(a), Bound::Excluded(b)) if a > b => env::panic_str("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => env::panic_str("Invalid range."),
-            (lo, hi) => (lo, hi),
-        };
+    // /// Iterate entries in ascending order according to specified bounds.
+    // ///
+    // /// # Panics
+    // ///
+    // /// Panics if range start > end.
+    // /// Panics if range start == end and both bounds are Excluded.
+    // pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
+    //     let (lo, hi) = match r {
+    //         (Bound::Included(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
+    //         (Bound::Excluded(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
+    //         (Bound::Included(a), Bound::Excluded(b)) if a > b => env::panic_str("Invalid range."),
+    //         (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => env::panic_str("Invalid range."),
+    //         (lo, hi) => (lo, hi),
+    //     };
 
-        Cursor::range(self, lo, hi)
-    }
-
-    /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`TreeMap`].
-    /// This function collects elements from [`TreeMap::iter`].
-    pub fn to_vec(&self) -> Vec<(K, V)> {
-        self.iter().collect()
-    }
+    //     Cursor::range(self, lo, hi)
+    // }
 
     //
     // Internal utilities
@@ -198,8 +284,8 @@ where
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn min_at(&self, mut at: u64, p: u64) -> Option<(Node<K>, Node<K>)> {
-        let mut parent: Option<Node<K>> = self.node(p);
+    fn min_at(&self, mut at: u32, p: u32) -> Option<(&Node<K>, &Node<K>)> {
+        let mut parent: Option<&Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
             match node.as_ref().and_then(|n| n.lft) {
@@ -217,8 +303,8 @@ where
     /// Returns (node, parent node) of right-most lower (max) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn max_at(&self, mut at: u64, p: u64) -> Option<(Node<K>, Node<K>)> {
-        let mut parent: Option<Node<K>> = self.node(p);
+    fn max_at(&self, mut at: u32, p: u32) -> Option<(&Node<K>, &Node<K>)> {
+        let mut parent: Option<&Node<K>> = self.node(p);
         loop {
             let node = self.node(at);
             match node.as_ref().and_then(|n| n.rgt) {
@@ -233,7 +319,7 @@ where
         }
     }
 
-    fn above_at(&self, mut at: u64, key: &K) -> Option<K> {
+    fn above_at(&self, mut at: u32, key: &K) -> Option<K> {
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
@@ -258,7 +344,7 @@ where
         seen
     }
 
-    fn below_at(&self, mut at: u64, key: &K) -> Option<K> {
+    fn below_at(&self, mut at: u32, key: &K) -> Option<K> {
         let mut seen: Option<K> = None;
         loop {
             let node = self.node(at);
@@ -283,10 +369,10 @@ where
         seen
     }
 
-    fn insert_at(&mut self, at: u64, id: u64, key: &K) -> u64 {
-        match self.node(at) {
+    fn insert_at(&mut self, at: u32, id: u32, key: K) -> u32 {
+        match self.node_mut(at).cloned() {
             None => {
-                self.save(&Node::of(id, key.clone()));
+                self.save(Node::of(id, key));
                 at
             }
             Some(mut node) => {
@@ -321,7 +407,7 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
-        self.save(node);
+        self.save(node.to_owned());
     }
 
     // Balance = difference in heights between left and right subtrees at given node.
@@ -334,8 +420,8 @@ where
 
     // Left rotation of an AVL subtree with at node `at`.
     // New root of subtree is returned, caller is responsible for updating proper link from parent.
-    fn rotate_left(&mut self, node: &mut Node<K>) -> u64 {
-        let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
+    fn rotate_left(&mut self, node: &mut Node<K>) -> u32 {
+        let mut lft = node.lft.and_then(|id| self.node(id)).unwrap().clone();
         let lft_rgt = lft.rgt;
 
         // at.L = at.L.R
@@ -353,8 +439,8 @@ where
 
     // Right rotation of an AVL subtree at node in `at`.
     // New root of subtree is returned, caller is responsible for updating proper link from parent.
-    fn rotate_right(&mut self, node: &mut Node<K>) -> u64 {
-        let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap();
+    fn rotate_right(&mut self, node: &mut Node<K>) -> u32 {
+        let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap().clone();
         let rgt_lft = rgt.lft;
 
         // at.R = at.R.L
@@ -371,17 +457,17 @@ where
     }
 
     // Check balance at a given node and enforce it if necessary with respective rotations.
-    fn enforce_balance(&mut self, node: &mut Node<K>) -> u64 {
+    fn enforce_balance(&mut self, node: &mut Node<K>) -> u32 {
         let balance = self.get_balance(node);
         if balance > 1 {
-            let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
+            let mut lft = node.lft.and_then(|id| self.node(id)).unwrap().clone();
             if self.get_balance(&lft) < 0 {
                 let rotated = self.rotate_right(&mut lft);
                 node.lft = Some(rotated);
             }
             self.rotate_left(node)
         } else if balance < -1 {
-            let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap();
+            let mut rgt = node.rgt.and_then(|id| self.node(id)).unwrap().clone();
             if self.get_balance(&rgt) > 0 {
                 let rotated = self.rotate_left(&mut rgt);
                 node.rgt = Some(rotated);
@@ -394,12 +480,17 @@ where
 
     // Returns (node, parent node) for a node that holds the `key`.
     // For root node, same node is returned for node and parent node.
-    fn lookup_at(&self, mut at: u64, key: &K) -> Option<(Node<K>, Node<K>)> {
-        let mut p: Node<K> = self.node(at).unwrap();
+    fn lookup_at<Q: ?Sized>(&self, mut at: u32, key: &Q) -> Option<(&Node<K>, &Node<K>)>
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + Eq + PartialOrd,
+    {
+        let mut p: &Node<K> = self.node(at).unwrap();
         while let Some(node) = self.node(at) {
-            if node.key.eq(key) {
+            let node_key: &Q = node.key.borrow();
+            if node_key.eq(key) {
                 return Some((node, p));
-            } else if node.key.lt(key) {
+            } else if node_key.lt(key) {
                 match node.rgt {
                     Some(rgt) => {
                         p = node;
@@ -422,8 +513,8 @@ where
 
     // Navigate from root to node holding `key` and backtrace back to the root
     // enforcing balance (if necessary) along the way.
-    fn check_balance(&mut self, at: u64, key: &K) -> u64 {
-        match self.node(at) {
+    fn check_balance(&mut self, at: u32, key: &K) -> u32 {
+        match self.node(at).cloned() {
             Some(mut node) => {
                 if !node.key.eq(key) {
                     if node.key.gt(key) {
@@ -451,11 +542,15 @@ where
     // - right-most (max) node of the left subtree (containing smaller keys) of node holding `key`
     // - or left-most (min) node of the right subtree (containing larger keys) of node holding `key`
     //
-    fn do_remove(&mut self, key: &K) -> u64 {
+    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> u32
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + Eq + PartialOrd,
+    {
         // r_node - node containing key of interest
         // p_node - immediate parent node of r_node
         let (mut r_node, mut p_node) = match self.lookup_at(self.root, key) {
-            Some(x) => x,
+            Some((l, r)) => (l.clone(), r.clone()),
             None => return self.root, // cannot remove a missing key, no changes to the tree needed
         };
 
@@ -463,8 +558,9 @@ where
         let rgt_opt = r_node.rgt;
 
         if lft_opt.is_none() && rgt_opt.is_none() {
+            let p_node_key: &Q = p_node.key.borrow();
             // remove leaf
-            if p_node.key.lt(key) {
+            if p_node_key.lt(key) {
                 p_node.rgt = None;
             } else {
                 p_node.lft = None;
@@ -485,7 +581,8 @@ where
 
                 // k - max key from left subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (n, mut p) = self.max_at(lft, r_node.id).unwrap();
+                let (n, p) = self.max_at(lft, r_node.id).unwrap();
+                let (n, mut p) = (n.clone(), p.clone());
                 let k = n.key.clone();
 
                 if p.rgt.as_ref().map(|&id| id == n.id).unwrap_or_default() {
@@ -501,10 +598,10 @@ where
                 if r_node.id == p.id {
                     // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
                     // that leads to nasty lost update of the key, refresh below fixes that
-                    r_node = self.node(r_node.id).unwrap();
+                    r_node = self.node(r_node.id).unwrap().clone();
                 }
                 r_node.key = k;
-                self.save(&r_node);
+                self.save(r_node.to_owned());
 
                 self.swap_with_last(n.id);
 
@@ -517,7 +614,8 @@ where
 
                 // k - min key from right subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (n, mut p) = self.min_at(rgt, r_node.id).unwrap();
+                let (n, p) = self.min_at(rgt, r_node.id).unwrap();
+                let (n, mut p) = (n.clone(), p.clone());
                 let k = n.key.clone();
 
                 if p.lft.map(|id| id == n.id).unwrap_or_default() {
@@ -533,10 +631,10 @@ where
                 if r_node.id == p.id {
                     // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
                     // that leads to nasty lost update of the key, refresh below fixes that
-                    r_node = self.node(r_node.id).unwrap();
+                    r_node = self.node(r_node.id).unwrap().clone();
                 }
                 r_node.key = k;
-                self.save(&r_node);
+                self.save(r_node.to_owned());
 
                 self.swap_with_last(n.id);
 
@@ -551,15 +649,17 @@ where
     // to node with given `id`, and remove node `len - 1` (pop the vector of nodes).
     // This ensures that among `n` nodes in the tree, max `id` is `n-1`, so when new node is inserted,
     // it gets an `id` as its position in the vector.
-    fn swap_with_last(&mut self, id: u64) {
+    fn swap_with_last(&mut self, id: u32) {
         if id == self.len() - 1 {
             // noop: id is already last element in the vector
             self.tree.pop();
             return;
         }
 
-        let key = self.node(self.len() - 1).map(|n| n.key).unwrap();
-        let (mut n, mut p) = self.lookup_at(self.root, &key).unwrap();
+        let (mut n, mut p) = {
+            let key = self.node(self.len() - 1).map(|n| &n.key).unwrap();
+            self.lookup_at(self.root, &key).map(|(n, p)| (n.clone(), p.clone())).unwrap()
+        };
 
         if n.id != p.id {
             if p.lft.map(|id| id == n.id).unwrap_or_default() {
@@ -567,7 +667,7 @@ where
             } else {
                 p.rgt = Some(id);
             }
-            self.save(&p);
+            self.save(p.to_owned());
         }
 
         if self.root == n.id {
@@ -575,150 +675,279 @@ where
         }
 
         n.id = id;
-        self.save(&n);
+        self.save(n.to_owned());
         self.tree.pop();
     }
 }
 
-impl<'a, K, V> IntoIterator for &'a TreeMap<K, V>
+// impl<K, V, H> Iterator for Cursor<'_, K, V, H>
+// where
+//     K: Ord + Clone + BorshSerialize + BorshDeserialize,
+//     V: BorshSerialize + BorshDeserialize,
+//     H: CryptoHasher<Digest = [u8; 32]>,
+// {
+//     type Item = (K, V);
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         <Self as Iterator>::nth(self, 0)
+//     }
+
+//     fn size_hint(&self) -> (usize, Option<usize>) {
+//         // Constrains max count. Not worth it to cause storage reads to make this more accurate.
+//         (0, Some(self.map.len() as usize))
+//     }
+
+//     fn count(mut self) -> usize {
+//         // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
+//         // how many elements are left to iterate without loading keys in order. This could be
+//         // optimized in the case of a standard iterator by having a separate type, but this would
+//         // be a breaking change, so there will be slightly more reads than necessary in this case.
+//         let mut count = 0;
+//         while self.key.is_some() {
+//             count += 1;
+//             self.progress_key();
+//         }
+//         count
+//     }
+
+//     fn nth(&mut self, n: usize) -> Option<Self::Item> {
+//         for _ in 0..n {
+//             // Skip over elements not iterated over to get to `nth`. This avoids loading values
+//             // from storage.
+//             self.progress_key();
+//         }
+
+//         let key = self.progress_key()?;
+//         let value = self.map.get(&key)?;
+
+//         Some((key, value))
+//     }
+
+//     fn last(mut self) -> Option<Self::Item> {
+//         if self.asc && matches!(self.hi, Bound::Unbounded) {
+//             self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+//         } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
+//             self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+//         } else {
+//             // Cannot guarantee what the last is within the range, must load keys until last.
+//             let key = core::iter::from_fn(|| self.progress_key()).last();
+//             key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+//         }
+//     }
+// }
+
+// impl<K, V, H> std::iter::FusedIterator for Cursor<'_, K, V, H>
+// where
+//     K: Ord + Clone + BorshSerialize + BorshDeserialize,
+//     V: BorshSerialize + BorshDeserialize,
+//     H: CryptoHasher<Digest = [u8; 32]>,
+// {
+// }
+
+// fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
+//     (match lo {
+//         Bound::Included(ref x) => key >= x,
+//         Bound::Excluded(ref x) => key > x,
+//         Bound::Unbounded => true,
+//     }) && (match hi {
+//         Bound::Included(ref x) => key <= x,
+//         Bound::Excluded(ref x) => key < x,
+//         Bound::Unbounded => true,
+//     })
+// }
+
+// pub struct Cursor<'a, K, V, H>
+// where
+//     K: BorshSerialize + Ord,
+//     V: BorshSerialize,
+//     H: CryptoHasher<Digest = [u8; 32]>,
+// {
+//     asc: bool,
+//     lo: Bound<K>,
+//     hi: Bound<K>,
+//     key: Option<K>,
+//     map: &'a TreeMap<K, V, H>,
+// }
+
+// impl<'a, K, V, H> Cursor<'a, K, V, H>
+// where
+//     K: Ord + Clone + BorshSerialize + BorshDeserialize,
+//     V: BorshSerialize + BorshDeserialize,
+//     H: CryptoHasher<Digest = [u8; 32]>,
+// {
+//     fn asc(map: &'a TreeMap<K, V, H>) -> Self {
+//         let key: Option<K> = map.min();
+//         Self { asc: true, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
+//     }
+
+//     fn asc_from(map: &'a TreeMap<K, V, H>, key: K) -> Self {
+//         let key = map.higher(&key);
+//         Self { asc: true, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
+//     }
+
+//     fn desc(map: &'a TreeMap<K, V, H>) -> Self {
+//         let key: Option<K> = map.max();
+//         Self { asc: false, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
+//     }
+
+//     fn desc_from(map: &'a TreeMap<K, V, H>, key: K) -> Self {
+//         let key = map.lower(&key);
+//         Self { asc: false, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
+//     }
+
+//     fn range(map: &'a TreeMap<K, V, H>, lo: Bound<K>, hi: Bound<K>) -> Self {
+//         let key = match &lo {
+//             Bound::Included(k) if map.contains_key(k) => Some(k.clone()),
+//             Bound::Included(k) | Bound::Excluded(k) => map.higher(k),
+//             _ => None,
+//         };
+//         let key = key.filter(|k| fits(k, &lo, &hi));
+
+//         Self { asc: true, key, lo, hi, map }
+//     }
+
+//     /// Progresses the key one index, will return the previous key
+//     fn progress_key(&mut self) -> Option<K> {
+//         let new_key = self
+//             .key
+//             .as_ref()
+//             .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
+//             .filter(|k| fits(k, &self.lo, &self.hi));
+//         core::mem::replace(&mut self.key, new_key)
+//     }
+// }
+
+impl<K, V, H> TreeMap<K, V, H>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
-    V: BorshSerialize + BorshDeserialize,
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    type Item = (K, V);
-    type IntoIter = Cursor<'a, K, V>;
+    /// An iterator visiting all key-value pairs in arbitrary order.
+    /// The iterator element type is `(&'a K, &'a V)`.
+    pub fn iter(&self) -> Iter<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Iter::new(self)
+    }
 
-    fn into_iter(self) -> Self::IntoIter {
-        Cursor::asc(self)
+    /// An iterator visiting all key-value pairs in arbitrary order,
+    /// with exclusive references to the values.
+    /// The iterator element type is `(&'a K, &'a mut V)`.
+    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        IterMut::new(self)
+    }
+
+    // /// An iterator visiting all keys in arbitrary order.
+    // /// The iterator element type is `&'a K`.
+    // pub fn keys(&self) -> Keys<K>
+    // where
+    //     K: BorshDeserialize,
+    // {
+    //     Keys::new(self)
+    // }
+
+    /// An iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a V`.
+    pub fn values(&self) -> Values<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Values::new(self)
+    }
+
+    /// A mutable iterator visiting all values in arbitrary order.
+    /// The iterator element type is `&'a mut V`.
+    pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        ValuesMut::new(self)
     }
 }
 
-impl<K, V> Iterator for Cursor<'_, K, V>
+impl<K, V, H> TreeMap<K, V, H>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    type Item = (K, V);
+    /// Removes a key from the map, returning the stored key and value if the
+    /// key was previously in the map.
+    ///
+    /// The key may be any borrowed form of the map's key type, but
+    /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
+    /// those for the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::TreeMap;
+    ///
+    /// let mut map = TreeMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.remove(&1), Some("a".to_string()));
+    /// assert_eq!(map.remove(&1), None);
+    /// ```
+    pub fn remove_entry<Q: ?Sized>(&mut self, k: &Q) -> Option<(K, V)>
+    where
+        K: Borrow<Q> + BorshDeserialize,
+        Q: BorshSerialize + ToOwned<Owned = K>,
+    {
+        todo!()
+        // // Remove value
+        // let old_value = self.values.remove(k)?;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        <Self as Iterator>::nth(self, 0)
+        // // Remove key with index if value exists
+        // let key = self
+        //     .keys
+        //     .remove(old_value.key_index)
+        //     .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+
+        // // Return removed value
+        // Some((key, old_value.value))
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        // Constrains max count. Not worth it to cause storage reads to make this more accurate.
-        (0, Some(self.map.len() as usize))
-    }
-
-    fn count(mut self) -> usize {
-        // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
-        // how many elements are left to iterate without loading keys in order. This could be
-        // optimized in the case of a standard iterator by having a separate type, but this would
-        // be a breaking change, so there will be slightly more reads than necessary in this case.
-        let mut count = 0;
-        while self.key.is_some() {
-            count += 1;
-            self.progress_key();
-        }
-        count
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        for _ in 0..n {
-            // Skip over elements not iterated over to get to `nth`. This avoids loading values
-            // from storage.
-            self.progress_key();
-        }
-
-        let key = self.progress_key()?;
-        let value = self.map.get(&key)?;
-
-        Some((key, value))
-    }
-
-    fn last(mut self) -> Option<Self::Item> {
-        if self.asc && matches!(self.hi, Bound::Unbounded) {
-            self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
-        } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
-            self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
-        } else {
-            // Cannot guarantee what the last is within the range, must load keys until last.
-            let key = core::iter::from_fn(|| self.progress_key()).last();
-            key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
-        }
-    }
+    // /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    // /// ```
+    // /// use near_sdk::store::TreeMap;
+    // ///
+    // /// let mut count = TreeMap::new(b"m");
+    // ///
+    // /// for ch in [7, 2, 4, 7, 4, 1, 7] {
+    // ///     let counter = count.entry(ch).or_insert(0);
+    // ///     *counter += 1;
+    // /// }
+    // ///
+    // /// assert_eq!(count[&4], 2);
+    // /// assert_eq!(count[&7], 3);
+    // /// assert_eq!(count[&1], 1);
+    // /// assert_eq!(count.get(&8), None);
+    // /// ```
+    // pub fn entry(&mut self, key: K) -> Entry<K, V>
+    // where
+    //     K: Clone,
+    // {
+    //     Entry::new(self.values.entry(key), &mut self.keys)
+    // }
 }
 
-impl<K, V> std::iter::FusedIterator for Cursor<'_, K, V>
+impl<K, V, H> TreeMap<K, V, H>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
-    V: BorshSerialize + BorshDeserialize,
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
 {
-}
-
-fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
-    (match lo {
-        Bound::Included(ref x) => key >= x,
-        Bound::Excluded(ref x) => key > x,
-        Bound::Unbounded => true,
-    }) && (match hi {
-        Bound::Included(ref x) => key <= x,
-        Bound::Excluded(ref x) => key < x,
-        Bound::Unbounded => true,
-    })
-}
-
-pub struct Cursor<'a, K, V> {
-    asc: bool,
-    lo: Bound<K>,
-    hi: Bound<K>,
-    key: Option<K>,
-    map: &'a TreeMap<K, V>,
-}
-
-impl<'a, K, V> Cursor<'a, K, V>
-where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
-    V: BorshSerialize + BorshDeserialize,
-{
-    fn asc(map: &'a TreeMap<K, V>) -> Self {
-        let key: Option<K> = map.min();
-        Self { asc: true, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-    }
-
-    fn asc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
-        let key = map.higher(&key);
-        Self { asc: true, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-    }
-
-    fn desc(map: &'a TreeMap<K, V>) -> Self {
-        let key: Option<K> = map.max();
-        Self { asc: false, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-    }
-
-    fn desc_from(map: &'a TreeMap<K, V>, key: K) -> Self {
-        let key = map.lower(&key);
-        Self { asc: false, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-    }
-
-    fn range(map: &'a TreeMap<K, V>, lo: Bound<K>, hi: Bound<K>) -> Self {
-        let key = match &lo {
-            Bound::Included(k) if map.contains_key(k) => Some(k.clone()),
-            Bound::Included(k) | Bound::Excluded(k) => map.higher(k),
-            _ => None,
-        };
-        let key = key.filter(|k| fits(k, &lo, &hi));
-
-        Self { asc: true, key, lo, hi, map }
-    }
-
-    /// Progresses the key one index, will return the previous key
-    fn progress_key(&mut self) -> Option<K> {
-        let new_key = self
-            .key
-            .as_ref()
-            .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
-            .filter(|k| fits(k, &self.lo, &self.hi));
-        core::mem::replace(&mut self.key, new_key)
+    /// Flushes the intermediate values of the map before this is called when the structure is
+    /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
+    /// in memory.
+    pub fn flush(&mut self) {
+        self.values.flush();
+        self.tree.flush();
     }
 }
 
@@ -737,15 +966,16 @@ mod tests {
     use std::fmt::{Debug, Result};
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
-    fn height<K, V>(tree: &TreeMap<K, V>) -> u64
+    fn height<K, V, H>(tree: &TreeMap<K, V, H>) -> u32
     where
         K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
+        H: CryptoHasher<Digest = [u8; 32]>,
     {
         tree.node(tree.root).map(|n| n.ht).unwrap_or_default()
     }
 
-    fn random(n: u64) -> Vec<u32> {
+    fn random(n: u32) -> Vec<u32> {
         let mut rng = rand::thread_rng();
         let mut vec = Vec::with_capacity(n as usize);
         (0..n).for_each(|_| {
@@ -758,7 +988,7 @@ mod tests {
         std::primitive::f64::log(x, 2.0f64)
     }
 
-    fn max_tree_height(n: u64) -> u64 {
+    fn max_tree_height(n: u32) -> u32 {
         // h <= C * log2(n + D) + B
         // where:
         // C =~ 1.440, D =~ 1.065, B =~ 0.328
@@ -768,7 +998,7 @@ mod tests {
         const D: f64 = 1.065;
 
         let h = C * log2(n as f64 + D) + B;
-        h.ceil() as u64
+        h.ceil() as u32
     }
 
     impl<K> Debug for Node<K>
@@ -786,15 +1016,16 @@ mod tests {
         }
     }
 
-    impl<K, V> Debug for TreeMap<K, V>
+    impl<K, V, H> Debug for TreeMap<K, V, H>
     where
         K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
         V: Debug + BorshSerialize + BorshDeserialize,
+        H: CryptoHasher<Digest = [u8; 32]>,
     {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             f.debug_struct("TreeMap")
                 .field("root", &self.root)
-                .field("tree", &self.tree.iter().collect::<Vec<Node<K>>>())
+                .field("tree", &self.tree.iter().collect::<Vec<&Node<K>>>())
                 .finish()
         }
     }
@@ -817,13 +1048,13 @@ mod tests {
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
         assert_eq!(height(&map), 0);
 
-        map.insert(&3, &3);
+        map.insert(3, 3);
         assert_eq!(height(&map), 1);
 
-        map.insert(&2, &2);
+        map.insert(2, 2);
         assert_eq!(height(&map), 2);
 
-        map.insert(&1, &1);
+        map.insert(1, 1);
         assert_eq!(height(&map), 2);
 
         let root = map.root;
@@ -838,13 +1069,13 @@ mod tests {
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
         assert_eq!(height(&map), 0);
 
-        map.insert(&1, &1);
+        map.insert(1, 1);
         assert_eq!(height(&map), 1);
 
-        map.insert(&2, &2);
+        map.insert(2, 2);
         assert_eq!(height(&map), 2);
 
-        map.insert(&3, &3);
+        map.insert(3, 3);
 
         let root = map.root;
         assert_eq!(root, 1);
@@ -858,14 +1089,14 @@ mod tests {
     fn test_insert_lookup_n_asc() {
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
 
-        let n: u64 = 30;
+        let n: u32 = 30;
         let cases = (0..2 * (n as i32)).collect::<Vec<i32>>();
 
         let mut counter = 0;
-        for k in &cases {
-            if *k % 2 == 0 {
+        for k in cases.iter().copied() {
+            if k % 2 == 0 {
                 counter += 1;
-                map.insert(k, &counter);
+                map.insert(k, counter);
             }
         }
 
@@ -873,7 +1104,7 @@ mod tests {
         for k in &cases {
             if *k % 2 == 0 {
                 counter += 1;
-                assert_eq!(map.get(k), Some(counter));
+                assert_eq!(map.get(k), Some(&counter));
             } else {
                 assert_eq!(map.get(k), None);
             }
@@ -886,22 +1117,22 @@ mod tests {
     #[test]
     pub fn test_insert_one() {
         let mut map = TreeMap::new(b"m");
-        assert_eq!(None, map.insert(&1, &2));
-        assert_eq!(2, map.insert(&1, &3).unwrap());
+        assert_eq!(None, map.insert(1, 2));
+        assert_eq!(2, map.insert(1, 3).unwrap());
     }
 
     #[test]
     fn test_insert_lookup_n_desc() {
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
 
-        let n: u64 = 30;
+        let n: u32 = 30;
         let cases = (0..2 * (n as i32)).rev().collect::<Vec<i32>>();
 
         let mut counter = 0;
-        for k in &cases {
-            if *k % 2 == 0 {
+        for k in cases.iter().copied() {
+            if k % 2 == 0 {
                 counter += 1;
-                map.insert(k, &counter);
+                map.insert(k, counter);
             }
         }
 
@@ -909,7 +1140,7 @@ mod tests {
         for k in &cases {
             if *k % 2 == 0 {
                 counter += 1;
-                assert_eq!(map.get(k), Some(counter));
+                assert_eq!(map.get(k), Some(&counter));
             } else {
                 assert_eq!(map.get(k), None);
             }
@@ -930,12 +1161,12 @@ mod tests {
             let n = 1 << k;
             let input: Vec<u32> = random(n);
 
-            for x in &input {
-                map.insert(x, &42);
+            for x in input.iter().copied() {
+                map.insert(x, 42);
             }
 
             for x in &input {
-                assert_eq!(map.get(x), Some(42));
+                assert_eq!(map.get(x), Some(&42));
             }
 
             assert!(height(&map) <= max_tree_height(n));
@@ -943,31 +1174,31 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_min() {
-        let n: u64 = 30;
-        let vec = random(n);
+    // #[test]
+    // fn test_min() {
+    //     let n: u32 = 30;
+    //     let vec = random(n);
 
-        let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
-        for x in vec.iter().rev() {
-            map.insert(x, &1);
-        }
+    //     let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
+    //     for x in vec.iter().rev().copied() {
+    //         map.insert(x, 1);
+    //     }
 
-        assert_eq!(map.min().unwrap(), *vec.iter().min().unwrap());
-        map.clear();
-    }
+    //     assert_eq!(map.min().unwrap(), *vec.iter().min().unwrap());
+    //     map.clear();
+    // }
 
     #[test]
     fn test_max() {
-        let n: u64 = 30;
+        let n: u32 = 30;
         let vec = random(n);
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(b't');
-        for x in vec.iter().rev() {
-            map.insert(x, &1);
+        for x in vec.iter().rev().copied() {
+            map.insert(x, 1);
         }
 
-        assert_eq!(map.max().unwrap(), *vec.iter().max().unwrap());
+        assert_eq!(map.max().unwrap(), vec.iter().max().unwrap());
         map.clear();
     }
 
@@ -976,8 +1207,8 @@ mod tests {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
-        for x in vec.iter() {
-            map.insert(x, &1);
+        for x in vec.into_iter() {
+            map.insert(x, 1);
         }
 
         assert_eq!(map.lower(&5), None);
@@ -996,8 +1227,8 @@ mod tests {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
-        for x in vec.iter() {
-            map.insert(x, &1);
+        for x in vec.into_iter() {
+            map.insert(x, 1);
         }
 
         assert_eq!(map.higher(&5), Some(10));
@@ -1016,8 +1247,8 @@ mod tests {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
-        for x in vec.iter() {
-            map.insert(x, &1);
+        for x in vec.into_iter() {
+            map.insert(x, 1);
         }
 
         assert_eq!(map.floor_key(&5), None);
@@ -1036,8 +1267,8 @@ mod tests {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
-        for x in vec.iter() {
-            map.insert(x, &1);
+        for x in vec.into_iter() {
+            map.insert(x, 1);
         }
 
         assert_eq!(map.ceil_key(&5), Some(10));
@@ -1054,8 +1285,8 @@ mod tests {
     #[test]
     fn test_remove_1() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        map.insert(&1, &1);
-        assert_eq!(map.get(&1), Some(1));
+        map.insert(1, 1);
+        assert_eq!(map.get(&1), Some(&1));
         map.remove(&1);
         assert_eq!(map.get(&1), None);
         assert_eq!(map.tree.len(), 0);
@@ -1066,7 +1297,7 @@ mod tests {
     fn test_remove_3() {
         let map: TreeMap<u32, u32> = avl(&[(0, 0)], &[0, 0, 1]);
 
-        assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![]);
+        assert_eq!(map.iter().collect::<Vec<(&u32, &u32)>>(), vec![]);
     }
 
     #[test]
@@ -1076,12 +1307,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1095,12 +1326,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1115,12 +1346,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1135,12 +1366,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1157,12 +1388,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1180,12 +1411,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1200,12 +1431,12 @@ mod tests {
 
         for x in &vec {
             assert_eq!(map.get(x), None);
-            map.insert(x, &1);
-            assert_eq!(map.get(x), Some(1));
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
         }
 
         for x in &vec {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1224,37 +1455,37 @@ mod tests {
 
         for (i, (k1, k2)) in insert.iter().zip(remove.iter()).enumerate() {
             let v = i as u32;
-            map.insert(k1, &v);
-            map.insert(k2, &v);
+            map.insert(*k1, v);
+            map.insert(*k2, v);
         }
 
         for k in remove.iter() {
             map.remove(k);
         }
 
-        assert_eq!(map.len(), insert.len() as u64);
+        assert_eq!(map.len(), insert.len() as u32);
 
-        for (i, k) in insert.iter().enumerate() {
-            assert_eq!(map.get(k), Some(i as u32));
+        for (i, k) in (0..).zip(insert.iter()) {
+            assert_eq!(map.get(k), Some(&i));
         }
     }
 
     #[test]
     fn test_remove_n() {
-        let n: u64 = 20;
+        let n: u32 = 20;
         let vec = random(n);
 
         let mut set: HashSet<u32> = HashSet::new();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         for x in &vec {
-            map.insert(x, &1);
+            map.insert(*x, 1);
             set.insert(*x);
         }
 
-        assert_eq!(map.len(), set.len() as u64);
+        assert_eq!(map.len(), set.len() as u32);
 
         for x in &set {
-            assert_eq!(map.get(x), Some(1));
+            assert_eq!(map.get(x), Some(&1));
             map.remove(x);
             assert_eq!(map.get(x), None);
         }
@@ -1267,17 +1498,17 @@ mod tests {
     #[test]
     fn test_remove_root_3() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        map.insert(&2, &1);
-        map.insert(&3, &1);
-        map.insert(&1, &1);
-        map.insert(&4, &1);
+        map.insert(2, 1);
+        map.insert(3, 1);
+        map.insert(1, 1);
+        map.insert(4, 1);
 
         map.remove(&2);
 
-        assert_eq!(map.get(&1), Some(1));
+        assert_eq!(map.get(&1), Some(&1));
         assert_eq!(map.get(&2), None);
-        assert_eq!(map.get(&3), Some(1));
-        assert_eq!(map.get(&4), Some(1));
+        assert_eq!(map.get(&3), Some(&1));
+        assert_eq!(map.get(&4), Some(&1));
         map.clear();
     }
 
@@ -1287,8 +1518,8 @@ mod tests {
         let rem: Vec<u32> = vec![2982517385, 1833990072];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        map.insert(&ins[0], &1);
-        map.insert(&ins[1], &1);
+        map.insert(ins[0], 1);
+        map.insert(ins[1], 1);
 
         map.remove(&rem[0]);
         map.remove(&rem[1]);
@@ -1304,11 +1535,11 @@ mod tests {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in 0..30 {
-            map.insert(&x, &x);
-            map.insert(&42, &x);
+            map.insert(x, x);
+            map.insert(42, x);
         }
 
-        assert_eq!(map.get(&42), Some(29));
+        assert_eq!(map.get(&42), Some(&29));
         assert_eq!(map.len(), 31);
         assert_eq!(map.tree.len(), 31);
 
@@ -1327,12 +1558,12 @@ mod tests {
 
             for x in &ins {
                 set.insert(*x);
-                map.insert(x, &42);
+                map.insert(*x, 42);
             }
 
             for x in &rem {
                 set.insert(*x);
-                map.insert(x, &42);
+                map.insert(*x, 42);
             }
 
             for x in &rem {
@@ -1340,7 +1571,7 @@ mod tests {
                 map.remove(x);
             }
 
-            assert_eq!(map.len(), set.len() as u64);
+            assert_eq!(map.len(), set.len() as u32);
 
             let h = height(&map);
             let h_max = max_tree_height(n);
@@ -1357,35 +1588,18 @@ mod tests {
     }
 
     #[test]
-    fn test_to_vec() {
-        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        map.insert(&1, &41);
-        map.insert(&2, &42);
-        map.insert(&3, &43);
-
-        assert_eq!(map.to_vec(), vec![(1, 41), (2, 42), (3, 43)]);
-        map.clear();
-    }
-
-    #[test]
-    fn test_to_vec_empty() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.to_vec().is_empty());
-    }
-
-    #[test]
     fn test_iter() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        map.insert(&1, &41);
-        map.insert(&2, &42);
-        map.insert(&3, &43);
+        map.insert(1, 41);
+        map.insert(2, 42);
+        map.insert(3, 43);
 
-        assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
+        assert_eq!(map.iter().collect::<Vec<_>>(), vec![(&1, &41), (&2, &42), (&3, &43)]);
 
         // Test custom iterator impls
-        assert_eq!(map.iter().nth(1), Some((2, 42)));
+        assert_eq!(map.iter().nth(1), Some((&2, &42)));
         assert_eq!(map.iter().count(), 3);
-        assert_eq!(map.iter().last(), Some((3, 43)));
+        assert_eq!(map.iter().last(), Some((&3, &43)));
         map.clear();
     }
 
@@ -1398,205 +1612,208 @@ mod tests {
     #[test]
     fn test_iter_rev() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        map.insert(&1, &41);
-        map.insert(&2, &42);
-        map.insert(&3, &43);
+        map.insert(1, 41);
+        map.insert(2, 42);
+        map.insert(3, 43);
 
-        assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
+        assert_eq!(
+            map.iter().rev().collect::<Vec<(&u32, &u32)>>(),
+            vec![(&3, &43), (&2, &42), (&1, &41)]
+        );
 
         // Test custom iterator impls
-        assert_eq!(map.iter_rev().nth(1), Some((2, 42)));
-        assert_eq!(map.iter_rev().count(), 3);
-        assert_eq!(map.iter_rev().last(), Some((1, 41)));
+        assert_eq!(map.iter().rev().nth(1), Some((&2, &42)));
+        assert_eq!(map.iter().rev().count(), 3);
+        assert_eq!(map.iter().rev().last(), Some((&1, &41)));
         map.clear();
     }
 
     #[test]
     fn test_iter_rev_empty() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert_eq!(map.iter_rev().count(), 0);
+        assert_eq!(map.iter().rev().count(), 0);
     }
 
-    #[test]
-    fn test_iter_from() {
-        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    // #[test]
+    // fn test_iter_from() {
+    //     let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+    //     let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+    //     let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
-        for x in &one {
-            map.insert(x, &42);
-        }
+    //     for x in &one {
+    //         map.insert(*x, 42);
+    //     }
 
-        for x in &two {
-            map.insert(x, &42);
-        }
+    //     for x in &two {
+    //         map.insert(*x, 42);
+    //     }
 
-        assert_eq!(
-            map.iter_from(29).collect::<Vec<(u32, u32)>>(),
-            vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]
-        );
+    //     assert_eq!(
+    //         map.iter_from(29).collect::<Vec<(u32, u32)>>(),
+    //         vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]
+    //     );
 
-        assert_eq!(
-            map.iter_from(30).collect::<Vec<(u32, u32)>>(),
-            vec![(35, 42), (40, 42), (45, 42), (50, 42)]
-        );
+    //     assert_eq!(
+    //         map.iter_from(30).collect::<Vec<(u32, u32)>>(),
+    //         vec![(35, 42), (40, 42), (45, 42), (50, 42)]
+    //     );
 
-        assert_eq!(
-            map.iter_from(31).collect::<Vec<(u32, u32)>>(),
-            vec![(35, 42), (40, 42), (45, 42), (50, 42)]
-        );
+    //     assert_eq!(
+    //         map.iter_from(31).collect::<Vec<(u32, u32)>>(),
+    //         vec![(35, 42), (40, 42), (45, 42), (50, 42)]
+    //     );
 
-        // Test custom iterator impls
-        assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
-        assert_eq!(map.iter_from(31).count(), 4);
-        assert_eq!(map.iter_from(31).last(), Some((50, 42)));
+    //     // Test custom iterator impls
+    //     assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
+    //     assert_eq!(map.iter_from(31).count(), 4);
+    //     assert_eq!(map.iter_from(31).last(), Some((50, 42)));
 
-        map.clear();
-    }
+    //     map.clear();
+    // }
 
-    #[test]
-    fn test_iter_from_empty() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert_eq!(map.iter_from(42).count(), 0);
-    }
+    // #[test]
+    // fn test_iter_from_empty() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     assert_eq!(map.iter_from(42).count(), 0);
+    // }
 
-    #[test]
-    fn test_iter_rev_from() {
-        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    // #[test]
+    // fn test_iter_rev_from() {
+    //     let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+    //     let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+    //     let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
-        for x in &one {
-            map.insert(x, &42);
-        }
+    //     for x in &one {
+    //         map.insert(x, &42);
+    //     }
 
-        for x in &two {
-            map.insert(x, &42);
-        }
+    //     for x in &two {
+    //         map.insert(x, &42);
+    //     }
 
-        assert_eq!(
-            map.iter_rev_from(29).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
-        );
+    //     assert_eq!(
+    //         map.iter_rev_from(29).collect::<Vec<(u32, u32)>>(),
+    //         vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+    //     );
 
-        assert_eq!(
-            map.iter_rev_from(30).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
-        );
+    //     assert_eq!(
+    //         map.iter_rev_from(30).collect::<Vec<(u32, u32)>>(),
+    //         vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+    //     );
 
-        assert_eq!(
-            map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
-            vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
-        );
+    //     assert_eq!(
+    //         map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
+    //         vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+    //     );
 
-        // Test custom iterator impls
-        assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
-        assert_eq!(map.iter_rev_from(31).count(), 6);
-        assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
+    //     // Test custom iterator impls
+    //     assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
+    //     assert_eq!(map.iter_rev_from(31).count(), 6);
+    //     assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
 
-        map.clear();
-    }
+    //     map.clear();
+    // }
 
-    #[test]
-    fn test_range() {
-        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    // #[test]
+    // fn test_range() {
+    //     let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+    //     let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+    //     let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
-        for x in &one {
-            map.insert(x, &42);
-        }
+    //     for x in &one {
+    //         map.insert(x, &42);
+    //     }
 
-        for x in &two {
-            map.insert(x, &42);
-        }
+    //     for x in &two {
+    //         map.insert(x, &42);
+    //     }
 
-        assert_eq!(
-            map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
-            vec![(20, 42), (25, 42)]
-        );
+    //     assert_eq!(
+    //         map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
+    //         vec![(20, 42), (25, 42)]
+    //     );
 
-        assert_eq!(
-            map.range((Bound::Excluded(10), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
-            vec![(15, 42), (20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
-        );
+    //     assert_eq!(
+    //         map.range((Bound::Excluded(10), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
+    //         vec![(15, 42), (20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
+    //     );
 
-        assert_eq!(
-            map.range((Bound::Included(20), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
-            vec![(20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
-        );
+    //     assert_eq!(
+    //         map.range((Bound::Included(20), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
+    //         vec![(20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
+    //     );
 
-        assert_eq!(
-            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (30, 42), (35, 42), (40, 42)]
-        );
+    //     assert_eq!(
+    //         map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
+    //         vec![(25, 42), (30, 42), (35, 42), (40, 42)]
+    //     );
 
-        assert_eq!(
-            map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
-            vec![]
-        );
+    //     assert_eq!(
+    //         map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
+    //         vec![]
+    //     );
 
-        assert_eq!(
-            map.range((Bound::Included(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42)]
-        );
+    //     assert_eq!(
+    //         map.range((Bound::Included(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
+    //         vec![(25, 42)]
+    //     );
 
-        assert_eq!(
-            map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
-            vec![]
-        ); // the range makes no sense, but `BTreeMap` does not panic in this case
+    //     assert_eq!(
+    //         map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
+    //         vec![]
+    //     ); // the range makes no sense, but `BTreeMap` does not panic in this case
 
-        // Test custom iterator impls
-        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
-        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
-        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
+    //     // Test custom iterator impls
+    //     assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
+    //     assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
+    //     assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
 
-        map.clear();
-    }
+    //     map.clear();
+    // }
 
-    #[test]
-    #[should_panic(expected = "Invalid range.")]
-    fn test_range_panics_same_excluded() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
-    }
+    // #[test]
+    // #[should_panic(expected = "Invalid range.")]
+    // fn test_range_panics_same_excluded() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
+    // }
 
-    #[test]
-    #[should_panic(expected = "Invalid range.")]
-    fn test_range_panics_non_overlap_incl_exlc() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
-    }
+    // #[test]
+    // #[should_panic(expected = "Invalid range.")]
+    // fn test_range_panics_non_overlap_incl_exlc() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
+    // }
 
-    #[test]
-    #[should_panic(expected = "Invalid range.")]
-    fn test_range_panics_non_overlap_excl_incl() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
-    }
+    // #[test]
+    // #[should_panic(expected = "Invalid range.")]
+    // fn test_range_panics_non_overlap_excl_incl() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
+    // }
 
-    #[test]
-    #[should_panic(expected = "Invalid range.")]
-    fn test_range_panics_non_overlap_incl_incl() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let _ = map.range((Bound::Included(2), Bound::Included(1)));
-    }
+    // #[test]
+    // #[should_panic(expected = "Invalid range.")]
+    // fn test_range_panics_non_overlap_incl_incl() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     let _ = map.range((Bound::Included(2), Bound::Included(1)));
+    // }
 
-    #[test]
-    #[should_panic(expected = "Invalid range.")]
-    fn test_range_panics_non_overlap_excl_excl() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
-    }
+    // #[test]
+    // #[should_panic(expected = "Invalid range.")]
+    // fn test_range_panics_non_overlap_excl_excl() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
+    // }
 
-    #[test]
-    fn test_iter_rev_from_empty() {
-        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert_eq!(map.iter_rev_from(42).count(), 0);
-    }
+    // #[test]
+    // fn test_iter_rev_from_empty() {
+    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    //     assert_eq!(map.iter_rev_from(42).count(), 0);
+    // }
 
     #[test]
     fn test_balance_regression_1() {
@@ -1620,15 +1837,15 @@ mod tests {
     // Property-based tests of AVL-based TreeMap against std::collections::BTreeMap
     //
 
-    fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> TreeMap<K, V>
+    fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> TreeMap<K, V, Sha256>
     where
         K: Ord + Clone + BorshSerialize + BorshDeserialize,
-        V: Default + BorshSerialize + BorshDeserialize,
+        V: Default + BorshSerialize + BorshDeserialize + Clone,
     {
         test_env::setup_free();
-        let mut map: TreeMap<K, V> = TreeMap::new(next_trie_id());
+        let mut map: TreeMap<K, V, _> = TreeMap::new(next_trie_id());
         for k in remove {
-            map.insert(k, &Default::default());
+            map.insert(k.clone(), Default::default());
         }
         let n = insert.len().max(remove.len());
         for i in 0..n {
@@ -1637,7 +1854,7 @@ mod tests {
             }
             if i < insert.len() {
                 let (k, v) = &insert[i];
-                map.insert(k, v);
+                map.insert(k.clone(), v.clone());
             }
         }
         map
@@ -1670,8 +1887,8 @@ mod tests {
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let a = avl(&insert, &remove);
             let b = rb(&insert, &remove);
-            let v1: Vec<(u32, u32)> = a.iter().collect();
-            let v2: Vec<(u32, u32)> = b.into_iter().collect();
+            let v1: Vec<(&u32, &u32)> = a.iter().collect();
+            let v2: Vec<(&u32, &u32)> = b.iter().collect();
             v1 == v2
         }
 
@@ -1680,10 +1897,11 @@ mod tests {
             .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
     }
 
-    fn is_balanced<K, V>(map: &TreeMap<K, V>, root: u64) -> bool
+    fn is_balanced<K, V, H>(map: &TreeMap<K, V, H>, root: u32) -> bool
     where
         K: Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
         V: Debug + BorshSerialize + BorshDeserialize,
+        H: CryptoHasher<Digest = [u8; 32]>,
     {
         let node = map.node(root).unwrap();
         let balance = map.get_balance(&node);
@@ -1721,60 +1939,60 @@ mod tests {
             .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
     }
 
-    fn range_prop(
-        insert: Vec<(u32, u32)>,
-        remove: Vec<u32>,
-        range: (Bound<u32>, Bound<u32>),
-    ) -> bool {
-        let a = avl(&insert, &remove);
-        let b = rb(&insert, &remove);
-        let v1: Vec<(u32, u32)> = a.range(range).collect();
-        let v2: Vec<(u32, u32)> = b.range(range).map(|(k, v)| (*k, *v)).collect();
-        v1 == v2
-    }
+    // fn range_prop(
+    //     insert: Vec<(u32, u32)>,
+    //     remove: Vec<u32>,
+    //     range: (Bound<u32>, Bound<u32>),
+    // ) -> bool {
+    //     let a = avl(&insert, &remove);
+    //     let b = rb(&insert, &remove);
+    //     let v1: Vec<(u32, u32)> = a.range(range).collect();
+    //     let v2: Vec<(u32, u32)> = b.range(range).map(|(k, v)| (*k, *v)).collect();
+    //     v1 == v2
+    // }
 
-    type Prop = fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>, u32, u32) -> bool;
+    // type Prop = fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>, u32, u32) -> bool;
 
-    #[test]
-    fn prop_avl_vs_rb_range_incl_incl() {
-        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-            let range = (Bound::Included(r1.min(r2)), Bound::Included(r1.max(r2)));
-            range_prop(insert, remove, range)
-        }
+    // #[test]
+    // fn prop_avl_vs_rb_range_incl_incl() {
+    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+    //         let range = (Bound::Included(r1.min(r2)), Bound::Included(r1.max(r2)));
+    //         range_prop(insert, remove, range)
+    //     }
 
-        QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    }
+    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    // }
 
-    #[test]
-    fn prop_avl_vs_rb_range_incl_excl() {
-        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-            let range = (Bound::Included(r1.min(r2)), Bound::Excluded(r1.max(r2)));
-            range_prop(insert, remove, range)
-        }
+    // #[test]
+    // fn prop_avl_vs_rb_range_incl_excl() {
+    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+    //         let range = (Bound::Included(r1.min(r2)), Bound::Excluded(r1.max(r2)));
+    //         range_prop(insert, remove, range)
+    //     }
 
-        QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    }
+    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    // }
 
-    #[test]
-    fn prop_avl_vs_rb_range_excl_incl() {
-        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-            let range = (Bound::Excluded(r1.min(r2)), Bound::Included(r1.max(r2)));
-            range_prop(insert, remove, range)
-        }
+    // #[test]
+    // fn prop_avl_vs_rb_range_excl_incl() {
+    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+    //         let range = (Bound::Excluded(r1.min(r2)), Bound::Included(r1.max(r2)));
+    //         range_prop(insert, remove, range)
+    //     }
 
-        QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    }
+    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    // }
 
-    #[test]
-    fn prop_avl_vs_rb_range_excl_excl() {
-        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-            // (Excluded(x), Excluded(x)) is invalid range, checking against it makes no sense
-            r1 == r2 || {
-                let range = (Bound::Excluded(r1.min(r2)), Bound::Excluded(r1.max(r2)));
-                range_prop(insert, remove, range)
-            }
-        }
+    // #[test]
+    // fn prop_avl_vs_rb_range_excl_excl() {
+    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+    //         // (Excluded(x), Excluded(x)) is invalid range, checking against it makes no sense
+    //         r1 == r2 || {
+    //             let range = (Bound::Excluded(r1.min(r2)), Bound::Excluded(r1.max(r2)));
+    //             range_prop(insert, remove, range)
+    //         }
+    //     }
 
-        QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    }
+    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    // }
 }

@@ -56,7 +56,10 @@ pub use unordered_set::UnorderedSet;
 mod lazy_option;
 pub use lazy_option::LazyOption;
 
+
+#[cfg(feature = "unstable")]
 mod tree_map;
+#[cfg(feature = "unstable")]
 pub use tree_map::TreeMap;
 
 pub const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
