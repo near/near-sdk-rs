@@ -376,7 +376,7 @@ impl NonFungibleToken {
             standard: NFT_STANDARD_NAME.to_string(), //standard name ("nep171")
             version: NFT_METADATA_SPEC.to_string(), //version of the standard ("nft-1.0.0")
             event: EventLogVariant::NftMint( vec![ NftMintLog { //the data related with the event stored in a vector
-                owner_id: token_owner_id.to_string(), //owner of the token
+                owner_id: owner_id.to_string(), //owner of the token
                 token_ids: vec![token_id.to_string()], //vector of token IDs that were minted
                 memo: None, //an optional memo to include
             }])
