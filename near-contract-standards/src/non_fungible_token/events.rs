@@ -9,9 +9,9 @@ use near_sdk::serde::{Deserialize, Serialize};
     outputs JSON in the following order: <tag>: <field>, <content>: <field_data>
     In this case an example would be: "event": "NftMint", "data": <NftMintLog Vector Data>
 */
-#[serde(tag = "event", content = "data")] 
+#[serde(tag = "event", content = "data")]
 //turns all the fields into snake case (NftMint --> nft_mint)
-#[serde(rename_all = "snake_case")] 
+#[serde(rename_all = "snake_case")]
 #[serde(crate = "near_sdk::serde")]
 //makes it so that adding new fields isn't a breaking change
 #[non_exhaustive]
@@ -37,7 +37,6 @@ pub struct EventLog {
     #[serde(flatten)]
     pub event: EventLogVariant,
 }
-
 
 impl fmt::Display for EventLog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -117,13 +116,11 @@ mod tests {
         let log = EventLog {
             standard: "nep171".to_string(),
             version: "1.0.0".to_string(),
-            event: EventLogVariant::NftMint(vec![
-                NftMintLog {
-                    owner_id: "foundation.near".to_owned(),
-                    token_ids: vec!["aurora".to_string(), "proximitylabs".to_string()],
-                    memo: None,
-                },
-            ])
+            event: EventLogVariant::NftMint(vec![NftMintLog {
+                owner_id: "foundation.near".to_owned(),
+                token_ids: vec!["aurora".to_string(), "proximitylabs".to_string()],
+                memo: None,
+            }]),
         };
         assert_eq!(expected, log.to_string());
     }
@@ -134,15 +131,13 @@ mod tests {
         let log = EventLog {
             standard: "nep171".to_string(),
             version: "1.0.0".to_string(),
-            event: EventLogVariant::NftTransfer(vec![
-                NftTransferLog {
-                    authorized_id: Some("market.near".to_string()),
-                    old_owner_id: "user1.near".to_string(),
-                    new_owner_id: "user2.near".to_string(),
-                    token_ids: vec!["token".to_string()],
-                    memo: Some("Go Team!".to_owned()),
-                },
-            ])
+            event: EventLogVariant::NftTransfer(vec![NftTransferLog {
+                authorized_id: Some("market.near".to_string()),
+                old_owner_id: "user1.near".to_string(),
+                new_owner_id: "user2.near".to_string(),
+                token_ids: vec!["token".to_string()],
+                memo: Some("Go Team!".to_owned()),
+            }]),
         };
         assert_eq!(expected, log.to_string());
     }
