@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::AccountId;
@@ -7,6 +6,7 @@ use crate::{
 };
 use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 use near_vm_logic::{VMConfig, ViewConfig};
+use std::convert::TryInto;
 
 /// Returns a pre-defined account_id from a list of 6.
 pub fn accounts(id: usize) -> AccountId {
