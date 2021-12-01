@@ -309,7 +309,6 @@ impl NonFungibleToken {
     ///   Typically the account will be the owner. If `None`, will not refund. This is useful for delaying refunding
     ///   until multiple tokens have been minted.
     /// * Assumes there will be a refund to the owner after covering the storage costs
-    ///
     pub fn internal_mint(
         &mut self,
         token_id: TokenId,
@@ -329,7 +328,6 @@ impl NonFungibleToken {
     /// * `refund_id` will transfer the left over balance after storage costs are calculated to the provided account.
     ///   Typically the account will be the owner. If `None`, will not refund. This is useful for delaying refunding
     ///   until multiple tokens have been minted.
-    ///
     pub fn internal_mint_with_refund(
         &mut self,
         token_id: TokenId,
