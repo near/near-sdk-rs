@@ -46,7 +46,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id));
 
-        require!(env::predecessor_account_id() == owner_id, "Predecessor must be token owner.");
+        require!(env::predecessor_account_id() == &owner_id, "Predecessor must be token owner.");
 
         let next_approval_id_by_id = expect_approval(self.next_approval_id_by_id.as_mut());
         // update HashMap of approvals for this token
@@ -90,14 +90,14 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id));
         let predecessor_account_id = env::predecessor_account_id();
 
-        require!(predecessor_account_id == owner_id, "Predecessor must be token owner.");
+        require!(predecessor_account_id == &owner_id, "Predecessor must be token owner.");
 
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) = &mut approvals_by_id.get(&token_id) {
             // if account_id was already not approved, do nothing
             if approved_account_ids.remove(&account_id).is_some() {
                 refund_approved_account_ids_iter(
-                    predecessor_account_id,
+                    predecessor_account_id.clone(),
                     core::iter::once(&account_id),
                 );
                 // if this was the last approval, remove the whole HashMap to save space.
@@ -120,12 +120,12 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id));
         let predecessor_account_id = env::predecessor_account_id();
 
-        require!(predecessor_account_id == owner_id, "Predecessor must be token owner.");
+        require!(predecessor_account_id == &owner_id, "Predecessor must be token owner.");
 
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) = &mut approvals_by_id.get(&token_id) {
             // otherwise, refund owner for storage costs of all approvals...
-            refund_approved_account_ids(predecessor_account_id, approved_account_ids);
+            refund_approved_account_ids(predecessor_account_id.clone(), approved_account_ids);
             // ...and remove whole HashMap of approvals
             approvals_by_id.remove(&token_id);
         }

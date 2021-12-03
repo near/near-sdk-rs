@@ -298,7 +298,7 @@ impl NonFungibleToken {
         token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
-        assert_eq!(env::predecessor_account_id(), self.owner_id, "Unauthorized");
+        assert_eq!(env::predecessor_account_id(), &self.owner_id, "Unauthorized");
 
         self.internal_mint(token_id, token_owner_id, token_metadata)
     }
@@ -363,7 +363,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
+        self.internal_transfer(sender_id, &receiver_id, &token_id, approval_id, memo);
     }
 
     fn nft_transfer_call(
@@ -377,10 +377,10 @@ impl NonFungibleTokenCore for NonFungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
-            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
+            self.internal_transfer(sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_receiver::nft_on_transfer(
-            sender_id,
+            sender_id.clone(),
             old_owner.clone(),
             token_id.clone(),
             msg,
@@ -393,7 +393,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             receiver_id,
             token_id,
             old_approvals,
-            env::current_account_id(),
+            env::current_account_id().clone(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
         ))

@@ -43,7 +43,7 @@ impl CrossContract {
         Promise::new(account_id)
             .create_account()
             .transfer(amount.0)
-            .add_full_access_key(env::signer_account_pk())
+            .add_full_access_key(env::signer_account_pk().clone())
             .deploy_contract(
                 include_bytes!("../../status-message/res/status_message.wasm").to_vec(),
             );
@@ -62,7 +62,7 @@ impl CrossContract {
 
         ext::merge_sort(arr0, account_id.clone(), 0, prepaid_gas / 4)
             .and(ext::merge_sort(arr1, account_id.clone(), 0, prepaid_gas / 4))
-            .then(ext::merge(account_id, 0, prepaid_gas / 4))
+            .then(ext::merge(account_id.clone(), 0, prepaid_gas / 4))
             .into()
     }
 
@@ -128,7 +128,7 @@ impl CrossContract {
         log!("complex_call");
         ext_status_message::set_status(message, account_id.clone(), 0, prepaid_gas / 3).then(
             ext_status_message::get_status(
-                env::signer_account_id(),
+                env::signer_account_id().clone(),
                 account_id,
                 0,
                 prepaid_gas / 3,

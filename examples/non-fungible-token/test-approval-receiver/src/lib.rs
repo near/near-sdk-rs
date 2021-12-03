@@ -57,7 +57,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
     ) -> PromiseOrValue<String> {
         // Verifying that we were called by non-fungible token contract that we expect.
         require!(
-            env::predecessor_account_id() == self.non_fungible_token_account_id,
+            env::predecessor_account_id() == &self.non_fungible_token_account_id,
             "Only supports the one non-fungible token contract"
         );
         log!(
@@ -72,8 +72,13 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::ok_go(msg, account_id, NO_DEPOSIT, prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
-                    .into()
+                ext_self::ok_go(
+                    msg,
+                    account_id.clone(),
+                    NO_DEPOSIT,
+                    prepaid_gas - GAS_FOR_NFT_ON_APPROVE,
+                )
+                .into()
             }
         }
     }

@@ -2,9 +2,9 @@ use crate::account::*;
 use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
-use near_sdk::AccountId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::AccountId;
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;
 
@@ -21,7 +21,7 @@ pub struct MissionControl {
 impl MissionControl {
     pub fn add_agent(&mut self) {
         let account_id = env::signer_account_id();
-        self.agents.insert(account_id, Agent { account: agent_default(), is_alive: true });
+        self.agents.insert(account_id.clone(), Agent { account: agent_default(), is_alive: true });
     }
 
     pub fn assets_quantity(&self, account_id: AccountId, asset: Asset) -> Option<Quantity> {

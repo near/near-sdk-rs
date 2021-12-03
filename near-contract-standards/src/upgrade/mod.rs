@@ -8,7 +8,7 @@ pub trait Ownable {
     fn assert_owner(&self) {
         require!(env::predecessor_account_id() == self.get_owner(), "Owner must be predecessor");
     }
-    fn get_owner(&self) -> AccountId;
+    fn get_owner(&self) -> &AccountId;
     fn set_owner(&mut self, owner: AccountId);
 }
 
@@ -39,8 +39,8 @@ impl Upgrade {
 }
 
 impl Ownable for Upgrade {
-    fn get_owner(&self) -> AccountId {
-        self.owner.clone()
+    fn get_owner(&self) -> &AccountId {
+        &self.owner
     }
 
     fn set_owner(&mut self, owner: AccountId) {
@@ -78,6 +78,6 @@ impl Upgradable for Upgrade {
         let code = env::storage_read(b"upgrade")
             .unwrap_or_else(|| env::panic_str("No upgrade code available"));
         env::storage_remove(b"upgrade");
-        Promise::new(env::current_account_id()).deploy_contract(code)
+        Promise::new(env::current_account_id().clone()).deploy_contract(code)
     }
 }

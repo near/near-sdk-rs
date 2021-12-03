@@ -73,7 +73,7 @@ impl FunToken {
     pub fn set_allowance(&mut self, escrow_account_id: AccountId, allowance: String) {
         let allowance = u128::from_str(&allowance).expect("Failed to parse allowance");
         let owner_id = env::predecessor_account_id();
-        if escrow_account_id == owner_id {
+        if &escrow_account_id == owner_id {
             env::panic_str("Can't set allowance for yourself");
         }
         let mut account = self.get_account(&owner_id);
@@ -106,7 +106,7 @@ impl FunToken {
         account.balance -= lock_amount;
 
         // If locking by escrow, need to check and update the allowance.
-        if escrow_account_id != owner_id {
+        if escrow_account_id != &owner_id {
             let allowance = account.get_allowance(&escrow_account_id);
             if allowance < lock_amount {
                 env::panic_str("Not enough allowance");
@@ -143,7 +143,7 @@ impl FunToken {
         account.set_locked_balance(&escrow_account_id, locked_balance - unlock_amount);
 
         // If unlocking by escrow, need to update allowance.
-        if escrow_account_id != owner_id {
+        if escrow_account_id != &owner_id {
             let allowance = account.get_allowance(&escrow_account_id);
             account.set_allowance(&escrow_account_id, allowance + unlock_amount);
         }
@@ -190,7 +190,7 @@ impl FunToken {
             account.balance -= remaining_amount;
 
             // If transferring by escrow, need to check and update allowance.
-            if escrow_account_id != owner_id {
+            if escrow_account_id != &owner_id {
                 let allowance = account.get_allowance(&escrow_account_id);
                 // Checking and updating unlocked balance
                 if allowance < remaining_amount {
@@ -210,7 +210,7 @@ impl FunToken {
 
     /// Same as `transfer_from` with `owner_id` `predecessor_id`.
     pub fn transfer(&mut self, new_owner_id: AccountId, amount: String) {
-        self.transfer_from(env::predecessor_account_id(), new_owner_id, amount);
+        self.transfer_from(env::predecessor_account_id().clone(), new_owner_id, amount);
     }
 
     /// Returns total supply of tokens.

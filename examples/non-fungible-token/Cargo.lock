@@ -1862,6 +1862,7 @@ dependencies = [
  "near-sdk-macros",
  "near-sys",
  "near-vm-logic 0.10.0",
+ "once_cell",
  "serde",
  "serde_json",
  "wee_alloc",
@@ -2131,9 +2132,9 @@ checksum = "a9a7ab5d64814df0fe4a4b5ead45ed6c5f181ee3ff04ba344313a6c80446c5d4"
 
 [[package]]
 name = "once_cell"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10acf907b94fc1b1a152d08ef97e7759650268cf986bf127f387e602b02c7e5a"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "opaque-debug"

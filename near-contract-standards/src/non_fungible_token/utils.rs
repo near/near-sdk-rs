@@ -37,7 +37,7 @@ pub fn refund_deposit(storage_used: u64) {
 
     let refund = attached_deposit - required_cost;
     if refund > 1 {
-        Promise::new(env::predecessor_account_id()).transfer(refund);
+        Promise::new(env::predecessor_account_id().clone()).transfer(refund);
     }
 }
 

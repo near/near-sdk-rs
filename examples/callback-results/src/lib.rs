@@ -24,15 +24,15 @@ impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8) -> Promise {
         let gas_per_promise = env::prepaid_gas() / 5;
-        ext::a(env::current_account_id(), 0, gas_per_promise)
-            .and(ext::b(fail_b, env::current_account_id(), 0, gas_per_promise))
-            .and(ext::c(c_value, env::current_account_id(), 0, gas_per_promise))
-            .then(ext::handle_callbacks(env::current_account_id(), 0, gas_per_promise))
+        ext::a(env::current_account_id().clone(), 0, gas_per_promise)
+            .and(ext::b(fail_b, env::current_account_id().clone(), 0, gas_per_promise))
+            .and(ext::c(c_value, env::current_account_id().clone(), 0, gas_per_promise))
+            .then(ext::handle_callbacks(env::current_account_id().clone(), 0, gas_per_promise))
     }
 
     /// Calls function c with a value that will always succeed
     pub fn a() -> Promise {
-        ext::c(A_VALUE, env::current_account_id(), 0, env::prepaid_gas() / 2)
+        ext::c(A_VALUE, env::current_account_id().clone(), 0, env::prepaid_gas() / 2)
     }
 
     /// Returns a static string if fail is false, return 

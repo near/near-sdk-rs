@@ -13,6 +13,7 @@ use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 use near_sys as sys;
+use once_cell::sync::OnceCell;
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -112,25 +113,31 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 // # Context API #
 // ###############
 /// The id of the account that owns the current contract.
-pub fn current_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(current_account_id))
+pub fn current_account_id() -> &'static AccountId {
+    static INSTANCE: OnceCell<AccountId> = OnceCell::new();
+    INSTANCE.get_or_init(|| assert_valid_account_id(method_into_register!(current_account_id)))
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
-pub fn signer_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(signer_account_id))
+pub fn signer_account_id() -> &'static AccountId {
+    static INSTANCE: OnceCell<AccountId> = OnceCell::new();
+    INSTANCE.get_or_init(|| assert_valid_account_id(method_into_register!(signer_account_id)))
 }
 
 /// The public key of the account that did the signing.
-pub fn signer_account_pk() -> PublicKey {
-    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
+pub fn signer_account_pk() -> &'static PublicKey {
+    static INSTANCE: OnceCell<PublicKey> = OnceCell::new();
+    INSTANCE.get_or_init(|| {
+        PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
+    })
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
-pub fn predecessor_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(predecessor_account_id))
+pub fn predecessor_account_id() -> &'static AccountId {
+    static INSTANCE: OnceCell<AccountId> = OnceCell::new();
+    INSTANCE.get_or_init(|| assert_valid_account_id(method_into_register!(predecessor_account_id)))
 }
 
 /// Helper function to convert and check the account ID from bytes from the runtime.
@@ -142,8 +149,9 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
-pub fn input() -> Option<Vec<u8>> {
-    try_method_into_register!(input)
+pub fn input() -> Option<&'static [u8]> {
+    static INSTANCE: OnceCell<Option<Vec<u8>>> = OnceCell::new();
+    INSTANCE.get_or_init(|| try_method_into_register!(input)).as_ref().map(Vec::as_slice)
 }
 
 /// Current block index.
@@ -154,17 +162,20 @@ pub fn block_index() -> BlockHeight {
 
 /// Returns the height of the block the transaction is being executed in.
 pub fn block_height() -> BlockHeight {
-    unsafe { sys::block_height() }
+    static INSTANCE: OnceCell<BlockHeight> = OnceCell::new();
+    *INSTANCE.get_or_init(|| unsafe { sys::block_height() })
 }
 
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp() -> u64 {
-    unsafe { sys::block_timestamp() }
+    static INSTANCE: OnceCell<u64> = OnceCell::new();
+    *INSTANCE.get_or_init(|| unsafe { sys::block_timestamp() })
 }
 
 /// Current epoch height.
 pub fn epoch_height() -> u64 {
-    unsafe { sys::epoch_height() }
+    static INSTANCE: OnceCell<u64> = OnceCell::new();
+    *INSTANCE.get_or_init(|| unsafe { sys::epoch_height() })
 }
 
 /// Current total storage usage of this smart contract that this account would be paying for.
@@ -193,14 +204,18 @@ pub fn account_locked_balance() -> Balance {
 /// The balance that was attached to the call that will be immediately deposited before the
 /// contract execution starts
 pub fn attached_deposit() -> Balance {
-    let data = [0u8; size_of::<Balance>()];
-    unsafe { sys::attached_deposit(data.as_ptr() as u64) };
-    Balance::from_le_bytes(data)
+    static INSTANCE: OnceCell<Balance> = OnceCell::new();
+    *INSTANCE.get_or_init(|| {
+        let data = [0u8; size_of::<Balance>()];
+        unsafe { sys::attached_deposit(data.as_ptr() as u64) };
+        Balance::from_le_bytes(data)
+    })
 }
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 pub fn prepaid_gas() -> Gas {
-    Gas(unsafe { sys::prepaid_gas() })
+    static INSTANCE: OnceCell<Gas> = OnceCell::new();
+    *INSTANCE.get_or_init(|| Gas(unsafe { sys::prepaid_gas() }))
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
@@ -212,8 +227,9 @@ pub fn used_gas() -> Gas {
 // # Math API #
 // ############
 /// Get random seed from the register.
-pub fn random_seed() -> Vec<u8> {
-    method_into_register!(random_seed)
+pub fn random_seed() -> &'static [u8] {
+    static INSTANCE: OnceCell<Vec<u8>> = OnceCell::new();
+    INSTANCE.get_or_init(|| method_into_register!(random_seed)).as_slice()
 }
 
 /// Hashes the random sequence of bytes using sha256.

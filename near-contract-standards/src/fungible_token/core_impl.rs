@@ -156,7 +156,7 @@ impl FungibleTokenCore for FungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
+        self.internal_transfer(sender_id, &receiver_id, amount, memo);
     }
 
     fn ft_transfer_call(
@@ -169,7 +169,7 @@ impl FungibleTokenCore for FungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
+        self.internal_transfer(sender_id, &receiver_id, amount, memo);
         // Initiating receiver's call and the callback
         ext_fungible_token_receiver::ft_on_transfer(
             sender_id.clone(),
@@ -180,10 +180,10 @@ impl FungibleTokenCore for FungibleToken {
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
         .then(ext_self::ft_resolve_transfer(
-            sender_id,
+            sender_id.clone(),
             receiver_id,
             amount.into(),
-            env::current_account_id(),
+            env::current_account_id().clone(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
         ))

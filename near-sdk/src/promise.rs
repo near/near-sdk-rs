@@ -181,7 +181,7 @@ impl PromiseJoint {
 /// Promise::new("bob_near".parse().unwrap())
 ///   .create_account()
 ///   .transfer(1000)
-///   .add_full_access_key(env::signer_account_pk());
+///   .add_full_access_key(env::signer_account_pk().clone());
 /// ```
 #[derive(Clone)]
 pub struct Promise {

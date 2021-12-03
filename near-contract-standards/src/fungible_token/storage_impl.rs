@@ -13,12 +13,12 @@ impl FungibleToken {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();
         let force = force.unwrap_or(false);
-        if let Some(balance) = self.accounts.get(&account_id) {
+        if let Some(balance) = self.accounts.get(account_id) {
             if balance == 0 || force {
-                self.accounts.remove(&account_id);
+                self.accounts.remove(account_id);
                 self.total_supply -= balance;
                 Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
-                Some((account_id, balance))
+                Some((account_id.clone(), balance))
             } else {
                 env::panic_str(
                     "Can't unregister the account with the positive balance without force",
@@ -48,11 +48,11 @@ impl StorageManagement for FungibleToken {
         registration_only: Option<bool>,
     ) -> StorageBalance {
         let amount: Balance = env::attached_deposit();
-        let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
+        let account_id = account_id.unwrap_or_else(|| env::predecessor_account_id().clone());
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(amount);
+                Promise::new(env::predecessor_account_id().clone()).transfer(amount);
             }
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
@@ -63,7 +63,7 @@ impl StorageManagement for FungibleToken {
             self.internal_register_account(&account_id);
             let refund = amount - min_balance;
             if refund > 0 {
-                Promise::new(env::predecessor_account_id()).transfer(refund);
+                Promise::new(env::predecessor_account_id().clone()).transfer(refund);
             }
         }
         self.internal_storage_balance_of(&account_id).unwrap()
@@ -78,7 +78,7 @@ impl StorageManagement for FungibleToken {
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         assert_one_yocto();
         let predecessor_account_id = env::predecessor_account_id();
-        if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
+        if let Some(storage_balance) = self.internal_storage_balance_of(predecessor_account_id) {
             match amount {
                 Some(amount) if amount.0 > 0 => {
                     env::panic_str("The amount is greater than the available storage balance");

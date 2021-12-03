@@ -125,7 +125,7 @@ impl CrossContract {
         );
         let promise1 = env::promise_then(
             promise0,
-            env::current_account_id(),
+            env::current_account_id().clone(),
             "check_promise",
             json!({}).to_string().as_bytes(),
             0,

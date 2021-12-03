@@ -16,7 +16,7 @@ impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         let account_id = env::signer_account_id();
         log!("{} set_status with message {}", account_id, message);
-        self.records.insert(account_id, message);
+        self.records.insert(account_id.clone(), message);
     }
 
     pub fn get_status(&self, account_id: AccountId) -> Option::<String> {
