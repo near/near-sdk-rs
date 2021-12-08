@@ -16,7 +16,9 @@ use crate::store::LookupMap;
 use crate::{env, IntoStorageKey};
 
 fn expect<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::abort())
+    // TODO switch back
+    val.unwrap()
+    // val.unwrap_or_else(|| env::abort())
 }
 
 /// TreeMap based on AVL-tree
@@ -105,7 +107,7 @@ where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
 {
     fn of(key: K) -> Self {
-        Self { key, lft: None, rgt: None, ht: 0 }
+        Self { key, lft: None, rgt: None, ht: 1 }
     }
 
     fn left<'a>(&self, list: &'a FreeList<Node<K>>) -> Option<(FreeListIndex, &'a Node<K>)> {
@@ -173,15 +175,6 @@ where
             self.values.set(k.key, None);
         }
     }
-
-    // fn save(&mut self, node: Node<K>) {
-    // todo!()
-    // if node.id < self.len() {
-    //     self.tree.replace(node.id, node);
-    // } else {
-    //     self.tree.push(node);
-    // }
-    // }
 
     /// Returns `true` if the map contains a value for the specified key.
     ///
@@ -255,11 +248,7 @@ where
         K: Borrow<Q> + BorshDeserialize,
         Q: BorshSerialize + ToOwned<Owned = K> + Ord,
     {
-        let existing = self.values.remove(key);
-        if existing.is_some() {
-            self.tree.root = self.tree.do_remove(key);
-        }
-        existing
+        self.remove_entry(key).map(|(_, v)| v)
     }
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
@@ -281,6 +270,11 @@ where
     }
 }
 
+enum Edge {
+    Left,
+    Right,
+}
+
 impl<K> Tree<K>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
@@ -292,13 +286,13 @@ where
     /// Returns the smallest stored key from the tree
     fn min(&self) -> Option<&K> {
         let root = self.root?;
-        self.min_at(root, root).map(|(n, _)| &n.key)
+        self.min_at(root).map(|(n, _)| &n.key)
     }
 
     /// Returns the largest stored key from the tree
     fn max(&self) -> Option<&K> {
         let root = self.root?;
-        self.max_at(root, root).map(|(n, _)| &n.key)
+        self.max_at(root).map(|(n, _)| &n.key)
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
@@ -359,17 +353,20 @@ where
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
     // TODO check if ok to pass reference to root instead of looking up index
-    fn min_at(&self, mut at: FreeListIndex, p: FreeListIndex) -> Option<(&Node<K>, &Node<K>)> {
-        let mut parent: Option<&Node<K>> = self.node(p);
+    fn min_at(
+        &self,
+        mut at: FreeListIndex,
+    ) -> Option<(&Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
+        let mut parent: Option<(FreeListIndex, &Node<K>)> = None;
         loop {
             let node = self.node(at);
-            match node.as_ref().and_then(|n| n.lft) {
+            match node.and_then(|n| n.lft) {
                 Some(lft) => {
+                    parent = Some((at, expect(node)));
                     at = lft;
-                    parent = node;
                 }
                 None => {
-                    return node.and_then(|n| parent.map(|p| (n, p)));
+                    return node.map(|node| (node, parent));
                 }
             }
         }
@@ -378,17 +375,20 @@ where
     /// Returns (node, parent node) of right-most lower (max) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn max_at(&self, mut at: FreeListIndex, p: FreeListIndex) -> Option<(&Node<K>, &Node<K>)> {
-        let mut parent: Option<&Node<K>> = self.node(p);
+    fn max_at(
+        &self,
+        mut at: FreeListIndex,
+    ) -> Option<(&Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
+        let mut parent: Option<(FreeListIndex, &Node<K>)> = None;
         loop {
             let node = self.node(at);
-            match node.as_ref().and_then(|n| n.rgt) {
+            match node.and_then(|n| n.rgt) {
                 Some(rgt) => {
-                    parent = node;
+                    parent = Some((at, expect(node)));
                     at = rgt;
                 }
                 None => {
-                    return node.and_then(|n| parent.map(|p| (n, p)));
+                    return node.map(|node| (node, parent));
                 }
             }
         }
@@ -447,7 +447,7 @@ where
     fn internal_insert(&mut self, key: K) {
         if let Some(root) = self.root {
             let node = expect(self.node(root)).clone();
-            self.insert_at(node, root, key);
+            self.root = Some(self.insert_at(node, root, key));
         } else {
             self.root = Some(self.nodes.insert(Node::of(key)));
         }
@@ -460,13 +460,13 @@ where
         } else {
             if key.lt(&node.key) {
                 let idx = match node.lft {
-                    Some(lft) => self.insert_at(expect(self.node(lft)).clone(), id, key),
+                    Some(lft) => self.insert_at(expect(self.node(lft)).clone(), lft, key),
                     None => self.nodes.insert(Node::of(key)),
                 };
                 node.lft = Some(idx);
             } else {
                 let idx = match node.rgt {
-                    Some(rgt) => self.insert_at(expect(self.node(rgt)).clone(), id, key),
+                    Some(rgt) => self.insert_at(expect(self.node(rgt)).clone(), rgt, key),
                     None => self.nodes.insert(Node::of(key)),
                 };
                 node.rgt = Some(idx);
@@ -484,7 +484,7 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
-        // Cloning and saving before enforcing balance seems weird, but I don't know a way
+        // Cloning and saving while updating height seems weird, but I don't know a way
         // around without using unsafe, yet.
         *expect(self.nodes.get_mut(id)) = node.clone();
     }
@@ -501,7 +501,7 @@ where
     // New root of subtree is returned, caller is responsible for updating proper link from parent.
     fn rotate_left(&mut self, node: &mut Node<K>, id: FreeListIndex) -> FreeListIndex {
         // TODO clone shouldn't be required
-        let (left_id, mut left) = expect(node.right(&self.nodes).map(|(id, n)| (id, n.clone())));
+        let (left_id, mut left) = expect(node.left(&self.nodes).map(|(id, n)| (id, n.clone())));
         let lft_rgt = left.rgt;
 
         // at.L = at.L.R
@@ -559,22 +559,27 @@ where
         }
     }
 
-    // Returns (node, parent node) for a node that holds the `key`.
-    // For root node, same node is returned for node and parent node.
-    fn lookup_at<Q: ?Sized>(&self, mut at: FreeListIndex, key: &Q) -> Option<(&Node<K>, &Node<K>)>
+    /// Returns (node, parent node) for a node that holds the `key`.
+    /// For root node, same node is returned for node and parent node.
+    fn lookup_at<Q: ?Sized>(
+        &self,
+        mut at: FreeListIndex,
+        key: &Q,
+    ) -> Option<((FreeListIndex, &Node<K>), Option<(FreeListIndex, &Node<K>, Edge)>)>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
     {
-        let mut p: &Node<K> = self.node(at).unwrap();
-        while let Some(node) = self.node(at) {
+        let mut p = None;
+        let mut curr = Some(self.node(at).unwrap());
+        while let Some(node) = curr {
             let node_key: &Q = node.key.borrow();
             if node_key.eq(key) {
-                return Some((node, p));
+                return Some(((at, node), p));
             } else if node_key.lt(key) {
                 match node.rgt {
                     Some(rgt) => {
-                        p = node;
+                        p = Some((at, node, Edge::Right));
                         at = rgt;
                     }
                     None => break,
@@ -582,12 +587,13 @@ where
             } else {
                 match node.lft {
                     Some(lft) => {
-                        p = node;
+                        p = Some((at, node, Edge::Left));
                         at = lft;
                     }
                     None => break,
                 }
             }
+            curr = self.node(at);
         }
         None
     }
@@ -623,111 +629,116 @@ where
     // - right-most (max) node of the left subtree (containing smaller keys) of node holding `key`
     // - or left-most (min) node of the right subtree (containing larger keys) of node holding `key`
     //
-    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> Option<FreeListIndex>
+    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> (Option<FreeListIndex>, Option<K>)
     where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
     {
         // r_node - node containing key of interest
         // p_node - immediate parent node of r_node
-        let (mut r_node, mut p_node) = match self.root.and_then(|root| self.lookup_at(root, key)) {
-            Some((l, r)) => (l.clone(), r.clone()),
-            None => return self.root, // cannot remove a missing key, no changes to the tree needed
+        let ((r_id, r_node), parent) = match self.root.and_then(|root| self.lookup_at(root, key)) {
+            // TODO clone might not be necessary
+            Some((l, r)) => (l.clone(), r.map(|(i, n, e)| (i, n.clone(), e))),
+            None => return (self.root, None), // cannot remove a missing key, no changes to the tree needed
         };
 
         let lft_opt = r_node.lft;
         let rgt_opt = r_node.rgt;
 
         if lft_opt.is_none() && rgt_opt.is_none() {
-            todo!()
-            // let p_node_key: &Q = p_node.key.borrow();
-            // // remove leaf
-            // if p_node_key.lt(key) {
-            //     p_node.rgt = None;
-            // } else {
-            //     p_node.lft = None;
-            // }
-            // self.update_height(&mut p_node);
+            let new_id = if let Some((p_id, mut p_node, p_edge)) = parent {
+                // remove leaf
+                match p_edge {
+                    Edge::Right => {
+                        p_node.rgt = None;
+                    }
+                    Edge::Left => {
+                        p_node.lft = None;
+                    }
+                }
+                self.update_height(&mut p_node, p_id);
 
-            // self.swap_with_last(r_node.id);
+                // removing node might have caused a imbalance - balance the tree up to the root,
+                // starting from lowest affected key - the parent of a leaf node in this case.
+                // At this point, we can assume there is a root because there is at least the parent
+                self.root.map(|root| self.check_balance(root, &p_node.key))
+            } else {
+                self.root
+            };
 
-            // // removing node might have caused a imbalance - balance the tree up to the root,
-            // // starting from lowest affected key - the parent of a leaf node in this case
-            // self.check_balance(self.root, &p_node.key)
+            let removed = expect(self.nodes.remove(r_id));
+
+            (new_id, Some(removed.key))
         } else {
             // non-leaf node, select subtree to proceed with
-            let b = self.get_balance(&r_node);
+            let b = self.get_balance(r_node);
             if b >= 0 {
-                todo!()
-                // // proceed with left subtree
-                // let lft = lft_opt.unwrap();
+                // proceed with left subtree
+                let lft = expect(lft_opt);
 
-                // // k - max key from left subtree
-                // // n - node that holds key k, p - immediate parent of n
-                // let (n, p) = self.max_at(lft, r_node.id).unwrap();
-                // let (n, mut p) = (n.clone(), p.clone());
-                // let k = n.key.clone();
+                // k - max key from left subtree
+                // n - node that holds key k, p - immediate parent of n
+                // let parent_id = r_id;
+                let (n, parent) = self.max_at(lft).unwrap();
+                let (n, mut parent) = (n, parent.map(|(i, n)| (i, n.clone())));
+                let k = n.key.clone();
 
-                // if p.rgt.as_ref().map(|&id| id == n.id).unwrap_or_default() {
-                //     // n is on right link of p
-                //     p.rgt = n.lft;
-                // } else {
-                //     // n is on left link of p
-                //     p.lft = n.lft;
-                // }
+                if let Some((p_id, parent_node)) = &mut parent {
+                    if parent_node.rgt.as_ref().map(|&id| id == lft).unwrap_or_default() {
+                        // n is on right link of p
+                        parent_node.rgt = n.lft;
+                    } else {
+                        // n is on left link of p
+                        parent_node.lft = n.lft;
+                    }
+                    self.update_height(parent_node, *p_id);
+                }
 
-                // self.update_height(&mut p);
-
-                // if r_node.id == p.id {
+                // TODO see if refresh is actually necessary. I don't think it is
+                // if r_id == p_id {
                 //     // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
                 //     // that leads to nasty lost update of the key, refresh below fixes that
                 //     r_node = self.node(r_node.id).unwrap().clone();
                 // }
-                // r_node.key = k;
-                // self.save(r_node.to_owned());
+                let removed = expect(self.nodes.remove(r_id));
 
-                // self.swap_with_last(n.id);
-
-                // // removing node might have caused an imbalance - balance the tree up to the root,
-                // // starting from the lowest affected key (max key from left subtree in this case)
-                // self.check_balance(self.root, &p.key)
+                // removing node might have caused an imbalance - balance the tree up to the root,
+                // starting from the lowest affected key (max key from left subtree in this case)
+                let new_root = self
+                    .root
+                    .map(|root| self.check_balance(root, &parent.map(|p| p.1.key).unwrap_or(k)));
+                (new_root, Some(removed.key))
             } else {
-                todo!()
-                // // proceed with right subtree
-                // let rgt = rgt_opt.unwrap();
+                // proceed with right subtree
+                let rgt = expect(rgt_opt);
 
-                // // k - min key from right subtree
-                // // n - node that holds key k, p - immediate parent of n
-                // let (n, p) = self.min_at(rgt, r_node.id).unwrap();
-                // let (n, mut p) = (n.clone(), p.clone());
-                // let k = n.key.clone();
+                // k - min key from right subtree
+                // n - node that holds key k, p - immediate parent of n
+                let (n, parent) = self.min_at(rgt).unwrap();
+                let (n, mut parent) = (n, parent.map(|(i, n)| (i, n.clone())));
+                let k = n.key.clone();
 
-                // if p.lft.map(|id| id == n.id).unwrap_or_default() {
-                //     // n is on left link of p
-                //     p.lft = n.rgt;
-                // } else {
-                //     // n is on right link of p
-                //     p.rgt = n.rgt;
-                // }
+                if let Some((p_id, parent_node)) = &mut parent {
+                    if parent_node.lft.as_ref().map(|&id| id == rgt).unwrap_or_default() {
+                        // n is on left link of p
+                        parent_node.lft = n.rgt;
+                    } else {
+                        // n is on right link of p
+                        parent_node.rgt = n.rgt;
+                    }
+                    self.update_height(parent_node, *p_id);
+                }
 
-                // self.update_height(&mut p);
+                let removed = expect(self.nodes.remove(r_id));
 
-                // if r_node.id == p.id {
-                //     // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
-                //     // that leads to nasty lost update of the key, refresh below fixes that
-                //     r_node = self.node(r_node.id).unwrap().clone();
-                // }
-                // r_node.key = k;
-                // self.save(r_node.to_owned());
-
-                // self.swap_with_last(n.id);
-
-                // // removing node might have caused a imbalance - balance the tree up to the root,
-                // // starting from the lowest affected key (min key from right subtree in this case)
-                // self.check_balance(self.root, &p.key)
+                // removing node might have caused an imbalance - balance the tree up to the root,
+                // starting from the lowest affected key (max key from left subtree in this case)
+                let new_root = self
+                    .root
+                    .map(|root| self.check_balance(root, &parent.map(|p| p.1.key).unwrap_or(k)));
+                (new_root, Some(removed.key))
             }
-        };
-        todo!()
+        }
     }
 
     // // Move content of node with id = `len - 1` (parent left or right link, left, right, key, height)
@@ -979,23 +990,16 @@ where
     /// assert_eq!(map.remove(&1), Some("a".to_string()));
     /// assert_eq!(map.remove(&1), None);
     /// ```
-    pub fn remove_entry<Q: ?Sized>(&mut self, k: &Q) -> Option<(K, V)>
+    pub fn remove_entry<Q: ?Sized>(&mut self, key: &Q) -> Option<(K, V)>
     where
-        K: Borrow<Q> + BorshDeserialize,
-        Q: BorshSerialize + ToOwned<Owned = K>,
+        K: Borrow<Q> + BorshDeserialize + Clone,
+        Q: BorshSerialize + ToOwned<Owned = K> + Eq + PartialOrd,
     {
-        todo!()
-        // // Remove value
-        // let old_value = self.values.remove(k)?;
-
-        // // Remove key with index if value exists
-        // let key = self
-        //     .keys
-        //     .remove(old_value.key_index)
-        //     .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-
-        // // Return removed value
-        // Some((key, old_value.value))
+        self.values.remove(key).map(|removed_value| {
+            let (new_root, removed) = self.tree.do_remove(key);
+            self.tree.root = new_root;
+            (expect(removed), removed_value)
+        })
     }
 
     // /// Gets the given key's corresponding entry in the map for in-place manipulation.
@@ -1139,9 +1143,11 @@ mod tests {
 
         map.insert(2, 2);
         assert_eq!(height(&map), 2);
+        println!("2l {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         map.insert(1, 1);
         assert_eq!(height(&map), 2);
+        println!("3l {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         let root = map.tree.root.unwrap();
         assert_eq!(root, FreeListIndex(1));
@@ -1160,8 +1166,10 @@ mod tests {
 
         map.insert(2, 2);
         assert_eq!(height(&map), 2);
+        println!("2r {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         map.insert(3, 3);
+        println!("3r {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         let root = map.tree.root.unwrap();
         assert_eq!(root, FreeListIndex(1));
