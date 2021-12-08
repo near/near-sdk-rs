@@ -1,3 +1,7 @@
+//* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
+//* https://github.com/rust-lang/rust-clippy/issues/8091
+#![allow(clippy::redundant_closure)]
+
 #[cfg(test)]
 extern crate quickcheck;
 

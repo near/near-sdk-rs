@@ -98,7 +98,6 @@ impl GenesisConfig {
 pub struct Block {
     prev_block: Option<Arc<Block>>,
     state_root: CryptoHash,
-    gas_burnt: Gas,
     pub epoch_height: EpochHeight,
     pub block_height: BlockHeight,
     pub block_timestamp: u64,
@@ -127,7 +126,6 @@ impl Block {
             block_timestamp: genesis_config.genesis_time,
             gas_price: genesis_config.gas_price,
             gas_limit: genesis_config.gas_limit,
-            gas_burnt: 0,
         }
     }
 
@@ -145,7 +143,6 @@ impl Block {
             state_root: new_state_root,
             block_height: self.block_height + 1,
             epoch_height: (self.block_height + 1) / epoch_length,
-            gas_burnt: 0,
         }
     }
 }
