@@ -152,7 +152,7 @@ where
         Cursor::asc(self)
     }
 
-    /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
+    // Iterate entries in ascending order: given key (exclusive) to max (inclusive)
     pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
         Cursor::asc_from(self, key)
     }

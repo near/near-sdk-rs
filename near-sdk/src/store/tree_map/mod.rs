@@ -255,28 +255,26 @@ where
         K: Borrow<Q> + BorshDeserialize,
         Q: BorshSerialize + ToOwned<Owned = K> + Ord,
     {
-        if self.contains_key(key) {
+        let existing = self.values.remove(key);
+        if existing.is_some() {
             self.tree.root = self.tree.do_remove(key);
-            self.values.remove(key)
-        } else {
-            // no such key, nothing to do
-            None
         }
+        existing
     }
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
-    pub fn ceil_key(&self, key: &K) -> Option<K> {
+    fn ceil_key<'a: 'b, 'b: 'a>(&'a self, key: &'b K) -> Option<&K> {
         if self.contains_key(key) {
-            Some(key.clone())
+            Some(key)
         } else {
             self.tree.higher(key)
         }
     }
 
     /// Returns the largest key that is less or equal to key given as the parameter
-    pub fn floor_key(&self, key: &K) -> Option<K> {
+    fn floor_key<'a: 'b, 'b: 'a>(&'a self, key: &'b K) -> Option<&K> {
         if self.contains_key(key) {
-            Some(key.clone())
+            Some(key)
         } else {
             self.tree.lower(key)
         }
@@ -304,13 +302,13 @@ where
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
-    fn higher(&self, key: &K) -> Option<K> {
+    fn higher(&self, key: &K) -> Option<&K> {
         let root = self.root?;
         self.above_at(root, key)
     }
 
     /// Returns the largest key that is strictly less than key given as the parameter
-    fn lower(&self, key: &K) -> Option<K> {
+    fn lower(&self, key: &K) -> Option<&K> {
         let root = self.root?;
         self.below_at(root, key)
     }
@@ -396,8 +394,8 @@ where
         }
     }
 
-    fn above_at(&self, mut at: FreeListIndex, key: &K) -> Option<K> {
-        let mut seen: Option<K> = None;
+    fn above_at(&self, mut at: FreeListIndex, key: &K) -> Option<&K> {
+        let mut seen: Option<&K> = None;
         loop {
             let node = self.node(at);
             match node.as_ref().map(|n| &n.key) {
@@ -408,7 +406,7 @@ where
                             None => break,
                         }
                     } else {
-                        seen = Some(k.clone());
+                        seen = Some(k);
                         match node.and_then(|n| n.lft) {
                             Some(lft) => at = lft,
                             None => break,
@@ -421,14 +419,14 @@ where
         seen
     }
 
-    fn below_at(&self, mut at: FreeListIndex, key: &K) -> Option<K> {
-        let mut seen: Option<K> = None;
+    fn below_at(&self, mut at: FreeListIndex, key: &K) -> Option<&K> {
+        let mut seen: Option<&K> = None;
         loop {
             let node = self.node(at);
-            match node.as_ref().map(|n| &n.key) {
+            match node.map(|n| &n.key) {
                 Some(k) => {
                     if k.lt(key) {
-                        seen = Some(k.clone());
+                        seen = Some(k);
                         match node.and_then(|n| n.rgt) {
                             Some(rgt) => at = rgt,
                             None => break,
@@ -475,10 +473,6 @@ where
             };
 
             self.update_height(&mut node, id);
-
-            // Cloning and saving before enforcing balance seems weird, but I don't know a way
-            // around without using unsafe, yet.
-            *expect(self.nodes.get_mut(id)) = node.clone();
             self.enforce_balance(&mut node, id)
         }
     }
@@ -490,6 +484,9 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
+        // Cloning and saving before enforcing balance seems weird, but I don't know a way
+        // around without using unsafe, yet.
+        *expect(self.nodes.get_mut(id)) = node.clone();
     }
 
     // Balance = difference in heights between left and right subtrees at given node.
@@ -1302,11 +1299,11 @@ mod tests {
 
         assert_eq!(map.tree.lower(&5), None);
         assert_eq!(map.tree.lower(&10), None);
-        assert_eq!(map.tree.lower(&11), Some(10));
-        assert_eq!(map.tree.lower(&20), Some(10));
-        assert_eq!(map.tree.lower(&49), Some(40));
-        assert_eq!(map.tree.lower(&50), Some(40));
-        assert_eq!(map.tree.lower(&51), Some(50));
+        assert_eq!(map.tree.lower(&11), Some(&10));
+        assert_eq!(map.tree.lower(&20), Some(&10));
+        assert_eq!(map.tree.lower(&49), Some(&40));
+        assert_eq!(map.tree.lower(&50), Some(&40));
+        assert_eq!(map.tree.lower(&51), Some(&50));
 
         map.clear();
     }
@@ -1320,11 +1317,11 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.tree.higher(&5), Some(10));
-        assert_eq!(map.tree.higher(&10), Some(20));
-        assert_eq!(map.tree.higher(&11), Some(20));
-        assert_eq!(map.tree.higher(&20), Some(30));
-        assert_eq!(map.tree.higher(&49), Some(50));
+        assert_eq!(map.tree.higher(&5), Some(&10));
+        assert_eq!(map.tree.higher(&10), Some(&20));
+        assert_eq!(map.tree.higher(&11), Some(&20));
+        assert_eq!(map.tree.higher(&20), Some(&30));
+        assert_eq!(map.tree.higher(&49), Some(&50));
         assert_eq!(map.tree.higher(&50), None);
         assert_eq!(map.tree.higher(&51), None);
 
@@ -1341,12 +1338,12 @@ mod tests {
         }
 
         assert_eq!(map.floor_key(&5), None);
-        assert_eq!(map.floor_key(&10), Some(10));
-        assert_eq!(map.floor_key(&11), Some(10));
-        assert_eq!(map.floor_key(&20), Some(20));
-        assert_eq!(map.floor_key(&49), Some(40));
-        assert_eq!(map.floor_key(&50), Some(50));
-        assert_eq!(map.floor_key(&51), Some(50));
+        assert_eq!(map.floor_key(&10), Some(&10));
+        assert_eq!(map.floor_key(&11), Some(&10));
+        assert_eq!(map.floor_key(&20), Some(&20));
+        assert_eq!(map.floor_key(&49), Some(&40));
+        assert_eq!(map.floor_key(&50), Some(&50));
+        assert_eq!(map.floor_key(&51), Some(&50));
 
         map.clear();
     }
@@ -1360,12 +1357,12 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.ceil_key(&5), Some(10));
-        assert_eq!(map.ceil_key(&10), Some(10));
-        assert_eq!(map.ceil_key(&11), Some(20));
-        assert_eq!(map.ceil_key(&20), Some(20));
-        assert_eq!(map.ceil_key(&49), Some(50));
-        assert_eq!(map.ceil_key(&50), Some(50));
+        assert_eq!(map.ceil_key(&5), Some(&10));
+        assert_eq!(map.ceil_key(&10), Some(&10));
+        assert_eq!(map.ceil_key(&11), Some(&20));
+        assert_eq!(map.ceil_key(&20), Some(&20));
+        assert_eq!(map.ceil_key(&49), Some(&50));
+        assert_eq!(map.ceil_key(&50), Some(&50));
         assert_eq!(map.ceil_key(&51), None);
 
         map.clear();
