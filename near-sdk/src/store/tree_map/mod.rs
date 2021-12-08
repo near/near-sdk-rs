@@ -28,20 +28,71 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
 ///
-#[derive(BorshSerialize, BorshDeserialize)]
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    root: Option<FreeListIndex>,
     values: LookupMap<K, V, H>,
-    tree: FreeList<Node<K>>,
+    tree: Tree<K>,
+}
+
+//? Manual implementations needed only because borsh derive is leaking field types
+// https://github.com/near/borsh-rs/issues/41
+impl<K, V, H> BorshSerialize for TreeMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn serialize<W: borsh::maybestd::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), borsh::maybestd::io::Error> {
+        BorshSerialize::serialize(&self.values, writer)?;
+        BorshSerialize::serialize(&self.tree, writer)?;
+        Ok(())
+    }
+}
+
+impl<K, V, H> BorshDeserialize for TreeMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+        Ok(Self {
+            values: BorshDeserialize::deserialize(buf)?,
+            tree: BorshDeserialize::deserialize(buf)?,
+        })
+    }
+}
+
+#[derive(BorshDeserialize, BorshSerialize)]
+struct Tree<K>
+where
+    K: BorshSerialize + Ord,
+{
+    root: Option<FreeListIndex>,
+    nodes: FreeList<Node<K>>,
+}
+
+impl<K> Tree<K>
+where
+    K: BorshSerialize + Ord,
+{
+    fn new<S>(prefix: S) -> Self
+    where
+        S: IntoStorageKey,
+    {
+        Tree { root: None, nodes: FreeList::new(prefix) }
+    }
 }
 
 #[derive(Clone, BorshSerialize, BorshDeserialize)]
-pub struct Node<K> {
+struct Node<K> {
     // id: FreeListIndex,
     key: K,                     // key stored in a node
     lft: Option<FreeListIndex>, // left link of a node
@@ -93,17 +144,17 @@ where
         let mut vec_key = prefix.into_storage_key();
         let map_key = [vec_key.as_slice(), b"v"].concat();
         vec_key.push(b'n');
-        Self { root: None, values: LookupMap::with_hasher(map_key), tree: FreeList::new(vec_key) }
+        Self { values: LookupMap::with_hasher(map_key), tree: Tree::new(vec_key) }
     }
 
     /// Return the amount of elements inside of the map.
     pub fn len(&self) -> u32 {
-        self.tree.len()
+        self.tree.nodes.len()
     }
 
     /// Returns true if there are no elements inside of the map.
     pub fn is_empty(&self) -> bool {
-        self.tree.is_empty()
+        self.tree.nodes.is_empty()
     }
 }
 
@@ -116,15 +167,11 @@ where
     /// Clears the map, removing all key-value pairs. Keeps the allocated memory
     /// for reuse.
     pub fn clear(&mut self) {
-        self.root = None;
-        for k in self.tree.drain() {
+        self.tree.root = None;
+        for k in self.tree.nodes.drain() {
             // Set instead of remove to avoid loading the value from storage.
             self.values.set(k.key, None);
         }
-    }
-
-    fn node(&self, id: FreeListIndex) -> Option<&Node<K>> {
-        self.tree.get(id)
     }
 
     // fn save(&mut self, node: Node<K>) {
@@ -187,19 +234,14 @@ where
         K: Clone + BorshDeserialize,
     {
         // fix pattern when refactor
-        let mut insert_key = false;
-        let res = match self.values.entry(key.clone()) {
+        match self.values.entry(key.clone()) {
             lm::Entry::Occupied(mut v) => Some(core::mem::replace(v.get_mut(), value)),
             lm::Entry::Vacant(v) => {
-                insert_key = true;
+                self.tree.internal_insert(key);
                 v.insert(value);
                 None
             }
-        };
-        if insert_key {
-            self.internal_insert(key);
         }
-        res
     }
 
     /// Removes a key from the map, returning the value at the key if the key
@@ -214,7 +256,7 @@ where
         Q: BorshSerialize + ToOwned<Owned = K> + Ord,
     {
         if self.contains_key(key) {
-            self.root = self.do_remove(key);
+            self.tree.root = self.tree.do_remove(key);
             self.values.remove(key)
         } else {
             // no such key, nothing to do
@@ -222,36 +264,12 @@ where
         }
     }
 
-    /// Returns the smallest stored key from the tree
-    pub fn min(&self) -> Option<&K> {
-        let root = self.root?;
-        self.min_at(root, root).map(|(n, _)| &n.key)
-    }
-
-    /// Returns the largest stored key from the tree
-    pub fn max(&self) -> Option<&K> {
-        let root = self.root?;
-        self.max_at(root, root).map(|(n, _)| &n.key)
-    }
-
-    /// Returns the smallest key that is strictly greater than key given as the parameter
-    pub fn higher(&self, key: &K) -> Option<K> {
-        let root = self.root?;
-        self.above_at(root, key)
-    }
-
-    /// Returns the largest key that is strictly less than key given as the parameter
-    pub fn lower(&self, key: &K) -> Option<K> {
-        let root = self.root?;
-        self.below_at(root, key)
-    }
-
     /// Returns the smallest key that is greater or equal to key given as the parameter
     pub fn ceil_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
             Some(key.clone())
         } else {
-            self.higher(key)
+            self.tree.higher(key)
         }
     }
 
@@ -260,8 +278,41 @@ where
         if self.contains_key(key) {
             Some(key.clone())
         } else {
-            self.lower(key)
+            self.tree.lower(key)
         }
+    }
+}
+
+impl<K> Tree<K>
+where
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+{
+    fn node(&self, id: FreeListIndex) -> Option<&Node<K>> {
+        self.nodes.get(id)
+    }
+
+    /// Returns the smallest stored key from the tree
+    fn min(&self) -> Option<&K> {
+        let root = self.root?;
+        self.min_at(root, root).map(|(n, _)| &n.key)
+    }
+
+    /// Returns the largest stored key from the tree
+    fn max(&self) -> Option<&K> {
+        let root = self.root?;
+        self.max_at(root, root).map(|(n, _)| &n.key)
+    }
+
+    /// Returns the smallest key that is strictly greater than key given as the parameter
+    fn higher(&self, key: &K) -> Option<K> {
+        let root = self.root?;
+        self.above_at(root, key)
+    }
+
+    /// Returns the largest key that is strictly less than key given as the parameter
+    fn lower(&self, key: &K) -> Option<K> {
+        let root = self.root?;
+        self.below_at(root, key)
     }
 
     // /// Iterate all entries in ascending order: min to max, both inclusive
@@ -400,7 +451,7 @@ where
             let node = expect(self.node(root)).clone();
             self.insert_at(node, root, key);
         } else {
-            self.root = Some(self.tree.insert(Node::of(key)));
+            self.root = Some(self.nodes.insert(Node::of(key)));
         }
     }
 
@@ -412,13 +463,13 @@ where
             if key.lt(&node.key) {
                 let idx = match node.lft {
                     Some(lft) => self.insert_at(expect(self.node(lft)).clone(), id, key),
-                    None => self.tree.insert(Node::of(key)),
+                    None => self.nodes.insert(Node::of(key)),
                 };
                 node.lft = Some(idx);
             } else {
                 let idx = match node.rgt {
                     Some(rgt) => self.insert_at(expect(self.node(rgt)).clone(), id, key),
-                    None => self.tree.insert(Node::of(key)),
+                    None => self.nodes.insert(Node::of(key)),
                 };
                 node.rgt = Some(idx);
             };
@@ -427,7 +478,7 @@ where
 
             // Cloning and saving before enforcing balance seems weird, but I don't know a way
             // around without using unsafe, yet.
-            *expect(self.tree.get_mut(id)) = node.clone();
+            *expect(self.nodes.get_mut(id)) = node.clone();
             self.enforce_balance(&mut node, id)
         }
     }
@@ -453,7 +504,7 @@ where
     // New root of subtree is returned, caller is responsible for updating proper link from parent.
     fn rotate_left(&mut self, node: &mut Node<K>, id: FreeListIndex) -> FreeListIndex {
         // TODO clone shouldn't be required
-        let (left_id, mut left) = expect(node.right(&self.tree).map(|(id, n)| (id, n.clone())));
+        let (left_id, mut left) = expect(node.right(&self.nodes).map(|(id, n)| (id, n.clone())));
         let lft_rgt = left.rgt;
 
         // at.L = at.L.R
@@ -472,7 +523,7 @@ where
     // Right rotation of an AVL subtree at node in `at`.
     // New root of subtree is returned, caller is responsible for updating proper link from parent.
     fn rotate_right(&mut self, node: &mut Node<K>, id: FreeListIndex) -> FreeListIndex {
-        let (rgt_id, mut rgt) = expect(node.right(&self.tree).map(|(id, r)| (id, r.clone())));
+        let (rgt_id, mut rgt) = expect(node.right(&self.nodes).map(|(id, r)| (id, r.clone())));
         let rgt_lft = rgt.lft;
 
         // at.R = at.R.L
@@ -492,7 +543,7 @@ where
     fn enforce_balance(&mut self, node: &mut Node<K>, id: FreeListIndex) -> FreeListIndex {
         let balance = self.get_balance(node);
         if balance > 1 {
-            let (left_id, mut left) = expect(node.left(&self.tree).map(|(id, n)| (id, n.clone())));
+            let (left_id, mut left) = expect(node.left(&self.nodes).map(|(id, n)| (id, n.clone())));
             if self.get_balance(&left) < 0 {
                 let rotated = self.rotate_right(&mut left, left_id);
                 node.lft = Some(rotated);
@@ -500,7 +551,7 @@ where
             self.rotate_left(node, id)
         } else if balance < -1 {
             let (right_id, mut right) =
-                expect(node.right(&self.tree).map(|(id, r)| (id, r.clone())));
+                expect(node.right(&self.nodes).map(|(id, r)| (id, r.clone())));
             if self.get_balance(&right) > 0 {
                 let rotated = self.rotate_left(&mut right, right_id);
                 node.rgt = Some(rotated);
@@ -985,7 +1036,7 @@ where
     /// in memory.
     pub fn flush(&mut self) {
         self.values.flush();
-        self.tree.flush();
+        self.tree.nodes.flush();
     }
 }
 
@@ -1010,7 +1061,7 @@ mod tests {
         V: BorshSerialize + BorshDeserialize,
         H: CryptoHasher<Digest = [u8; 32]>,
     {
-        tree.root.and_then(|root| tree.node(root)).map(|n| n.ht).unwrap_or_default()
+        tree.tree.root.and_then(|root| tree.tree.node(root)).map(|n| n.ht).unwrap_or_default()
     }
 
     fn random(n: u32) -> Vec<u32> {
@@ -1062,8 +1113,8 @@ mod tests {
     {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             f.debug_struct("TreeMap")
-                .field("root", &self.root)
-                .field("tree", &self.tree.iter().collect::<Vec<&Node<K>>>())
+                .field("root", &self.tree.root)
+                .field("tree", &self.tree.nodes.iter().collect::<Vec<&Node<K>>>())
                 .finish()
         }
     }
@@ -1075,10 +1126,10 @@ mod tests {
         assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
         assert!(!map.contains_key(&42));
-        assert_eq!(map.min(), None);
-        assert_eq!(map.max(), None);
-        assert_eq!(map.lower(&42), None);
-        assert_eq!(map.higher(&42), None);
+        assert_eq!(map.tree.min(), None);
+        assert_eq!(map.tree.max(), None);
+        assert_eq!(map.tree.lower(&42), None);
+        assert_eq!(map.tree.higher(&42), None);
     }
 
     #[test]
@@ -1095,9 +1146,9 @@ mod tests {
         map.insert(1, 1);
         assert_eq!(height(&map), 2);
 
-        let root = map.root.unwrap();
+        let root = map.tree.root.unwrap();
         assert_eq!(root, FreeListIndex(1));
-        assert_eq!(map.node(root).map(|n| n.key), Some(2));
+        assert_eq!(map.tree.node(root).map(|n| n.key), Some(2));
 
         map.clear();
     }
@@ -1115,9 +1166,9 @@ mod tests {
 
         map.insert(3, 3);
 
-        let root = map.root.unwrap();
+        let root = map.tree.root.unwrap();
         assert_eq!(root, FreeListIndex(1));
-        assert_eq!(map.node(root).map(|n| n.key), Some(2));
+        assert_eq!(map.tree.node(root).map(|n| n.key), Some(2));
         assert_eq!(height(&map), 2);
 
         map.clear();
@@ -1236,7 +1287,7 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.max().unwrap(), vec.iter().max().unwrap());
+        assert_eq!(map.tree.max().unwrap(), vec.iter().max().unwrap());
         map.clear();
     }
 
@@ -1249,13 +1300,13 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.lower(&5), None);
-        assert_eq!(map.lower(&10), None);
-        assert_eq!(map.lower(&11), Some(10));
-        assert_eq!(map.lower(&20), Some(10));
-        assert_eq!(map.lower(&49), Some(40));
-        assert_eq!(map.lower(&50), Some(40));
-        assert_eq!(map.lower(&51), Some(50));
+        assert_eq!(map.tree.lower(&5), None);
+        assert_eq!(map.tree.lower(&10), None);
+        assert_eq!(map.tree.lower(&11), Some(10));
+        assert_eq!(map.tree.lower(&20), Some(10));
+        assert_eq!(map.tree.lower(&49), Some(40));
+        assert_eq!(map.tree.lower(&50), Some(40));
+        assert_eq!(map.tree.lower(&51), Some(50));
 
         map.clear();
     }
@@ -1269,13 +1320,13 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.higher(&5), Some(10));
-        assert_eq!(map.higher(&10), Some(20));
-        assert_eq!(map.higher(&11), Some(20));
-        assert_eq!(map.higher(&20), Some(30));
-        assert_eq!(map.higher(&49), Some(50));
-        assert_eq!(map.higher(&50), None);
-        assert_eq!(map.higher(&51), None);
+        assert_eq!(map.tree.higher(&5), Some(10));
+        assert_eq!(map.tree.higher(&10), Some(20));
+        assert_eq!(map.tree.higher(&11), Some(20));
+        assert_eq!(map.tree.higher(&20), Some(30));
+        assert_eq!(map.tree.higher(&49), Some(50));
+        assert_eq!(map.tree.higher(&50), None);
+        assert_eq!(map.tree.higher(&51), None);
 
         map.clear();
     }
@@ -1327,7 +1378,7 @@ mod tests {
         assert_eq!(map.get(&1), Some(&1));
         map.remove(&1);
         assert_eq!(map.get(&1), None);
-        assert_eq!(map.tree.len(), 0);
+        assert_eq!(map.tree.nodes.len(), 0);
         map.clear();
     }
 
@@ -1480,7 +1531,7 @@ mod tests {
         }
 
         assert_eq!(map.len(), 0, "map.len() > 0");
-        assert_eq!(map.tree.len(), 0, "map.tree is not empty");
+        assert_eq!(map.tree.nodes.len(), 0, "map.tree is not empty");
         map.clear();
     }
 
@@ -1529,7 +1580,7 @@ mod tests {
         }
 
         assert_eq!(map.len(), 0, "map.len() > 0");
-        assert_eq!(map.tree.len(), 0, "map.tree is not empty");
+        assert_eq!(map.tree.nodes.len(), 0, "map.tree is not empty");
         map.clear();
     }
 
@@ -1579,7 +1630,7 @@ mod tests {
 
         assert_eq!(map.get(&42), Some(&29));
         assert_eq!(map.len(), 31);
-        assert_eq!(map.tree.len(), 31);
+        assert_eq!(map.tree.nodes.len(), 31);
 
         map.clear();
     }
@@ -1859,7 +1910,7 @@ mod tests {
         let remove = vec![0, 0, 0, 1];
 
         let map = avl(&insert, &remove);
-        assert!(is_balanced(&map, map.root.unwrap()));
+        assert!(is_balanced(&map, map.tree.root.unwrap()));
     }
 
     #[test]
@@ -1868,7 +1919,7 @@ mod tests {
         let remove = vec![0, 0, 0, 3, 5, 6, 7, 4];
 
         let map = avl(&insert, &remove);
-        assert!(is_balanced(&map, map.root.unwrap()));
+        assert!(is_balanced(&map, map.tree.root.unwrap()));
     }
 
     //
@@ -1941,8 +1992,8 @@ mod tests {
         V: Debug + BorshSerialize + BorshDeserialize,
         H: CryptoHasher<Digest = [u8; 32]>,
     {
-        let node = map.node(root).unwrap();
-        let balance = map.get_balance(&node);
+        let node = map.tree.node(root).unwrap();
+        let balance = map.tree.get_balance(&node);
 
         (balance >= -1 && balance <= 1)
             && node.lft.map(|id| is_balanced(map, id)).unwrap_or(true)
@@ -1955,7 +2006,7 @@ mod tests {
 
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let map = avl(&insert, &remove);
-            map.is_empty() || is_balanced(&map, map.root.unwrap())
+            map.is_empty() || is_balanced(&map, map.tree.root.unwrap())
         }
 
         QuickCheck::new()
