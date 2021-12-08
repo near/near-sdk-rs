@@ -5,7 +5,9 @@ mod receipt;
 pub(crate) use self::external::SdkExternal;
 pub use self::mocked_blockchain::MockedBlockchain;
 pub use self::receipt::{Receipt, VmAction};
+use crate::AccountId;
 use core::cell::RefCell;
+use near_primitives_core::account::id::ParseAccountError;
 
 thread_local! {
     /// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and
@@ -21,4 +23,18 @@ where
     F: FnOnce(&mut MockedBlockchain) -> R,
 {
     BLOCKCHAIN_INTERFACE.with(|b| f(&mut b.borrow_mut()))
+}
+
+impl From<near_vm_logic::types::AccountId> for AccountId {
+    fn from(id: near_vm_logic::types::AccountId) -> Self {
+        Self::new_unchecked(String::from(id))
+    }
+}
+
+impl std::convert::TryFrom<AccountId> for near_vm_logic::types::AccountId {
+    type Error = ParseAccountError;
+
+    fn try_from(value: AccountId) -> Result<Self, Self::Error> {
+        value.as_str().parse()
+    }
 }

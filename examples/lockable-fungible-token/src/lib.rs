@@ -250,29 +250,13 @@ impl FunToken {
 #[cfg(test)]
 mod tests {
     use near_sdk::test_utils::test_env::{alice, bob, carol};
+    use near_sdk::test_utils::VMContextBuilder;
     use near_sdk::{testing_env, VMContext};
 
     use super::*;
 
     fn get_context(predecessor_account_id: AccountId) -> VMContext {
-        VMContext {
-            current_account_id: alice().into(),
-            signer_account_id: bob().into(),
-            signer_account_pk: vec![0, 1, 2],
-            predecessor_account_id: predecessor_account_id.into(),
-            input: vec![],
-            block_index: 0,
-            block_timestamp: 0,
-            account_balance: 0,
-            account_locked_balance: 0,
-            storage_usage: 10u64.pow(6),
-            attached_deposit: 0,
-            prepaid_gas: 10u64.pow(18),
-            random_seed: vec![0, 1, 2],
-            is_view: false,
-            output_data_receivers: vec![],
-            epoch_height: 0,
-        }
+        VMContextBuilder::new().predecessor_account_id(predecessor_account_id).build()
     }
 
     #[test]

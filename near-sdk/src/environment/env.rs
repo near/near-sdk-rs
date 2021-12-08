@@ -57,8 +57,8 @@ macro_rules! method_into_register {
 ///
 /// ```no_run
 /// # let context = near_sdk::test_utils::VMContextBuilder::new().build();
-/// # let vm_config = Default::default();
-/// # let fees_config = Default::default();
+/// # let vm_config = near_sdk::VMConfig::test();
+/// # let fees_config = near_sdk::RuntimeFeesConfig::test();
 /// # let storage = Default::default();
 /// # let validators = Default::default();
 /// let mocked_blockchain = near_sdk::MockedBlockchain::new(

@@ -42,8 +42,8 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 /// // Or include arguments up to the five optional
 /// testing_env!(
 ///     context,
-///     VMConfig::default(),
-///     RuntimeFeesConfig::default(),
+///     VMConfig::test(),
+///     RuntimeFeesConfig::test(),
 ///     HashMap::default(),
 ///     Vec::default(),
 /// );
@@ -79,7 +79,7 @@ macro_rules! testing_env {
         $crate::testing_env!($context, $config, $fee_config, Default::default());
     };
     ($context:expr) => {
-        $crate::testing_env!($context, Default::default(), Default::default());
+        $crate::testing_env!($context, $crate::VMConfig::test(), $crate::RuntimeFeesConfig::test());
     };
 }
 
