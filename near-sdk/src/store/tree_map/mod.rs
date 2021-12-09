@@ -13,7 +13,7 @@ use super::lookup_map as lm;
 use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::store::free_list::{FreeList, FreeListIndex};
 use crate::store::LookupMap;
-use crate::{env, IntoStorageKey};
+use crate::IntoStorageKey;
 
 fn expect<T>(val: Option<T>) -> T {
     // TODO switch back
@@ -95,7 +95,6 @@ where
 
 #[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
 struct Node<K> {
-    // id: FreeListIndex,
     key: K,                     // key stored in a node
     lft: Option<FreeListIndex>, // left link of a node
     rgt: Option<FreeListIndex>, // right link of a node
@@ -658,7 +657,7 @@ where
 
         if lft_opt.is_none() && rgt_opt.is_none() {
             // Node is leaf, can simply remove and rebalance.
-            let new_id = if let Some((p_id, mut p_node, p_edge)) = remove_parent {
+            let mut new_id = if let Some((p_id, mut p_node, p_edge)) = remove_parent {
                 match p_edge {
                     Edge::Right => {
                         p_node.rgt = None;
@@ -678,6 +677,9 @@ where
             };
 
             let removed = expect(self.nodes.remove(r_id));
+            if Some(r_id) == self.root {
+                new_id = None;
+            }
 
             (new_id, Some(removed.key))
         } else {
@@ -2019,6 +2021,15 @@ mod tests {
         QuickCheck::new()
             .tests(300)
             .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
+    }
+
+    #[test]
+    fn insert_delete_insert() {
+        let mut map = TreeMap::new(b"t");
+        map.insert(0, 0);
+        assert_eq!(map.remove(&0), Some(0));
+        map.insert(0, 0);
+        assert!(is_balanced(&map, map.tree.root.unwrap()));
     }
 
     fn is_balanced<K, V, H>(map: &TreeMap<K, V, H>, root: FreeListIndex) -> bool
