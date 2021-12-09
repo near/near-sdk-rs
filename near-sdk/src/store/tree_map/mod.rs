@@ -93,7 +93,7 @@ where
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
 struct Node<K> {
     // id: FreeListIndex,
     key: K,                     // key stored in a node
@@ -162,7 +162,7 @@ where
 
 impl<K, V, H> TreeMap<K, V, H>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
     V: BorshSerialize + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
@@ -224,7 +224,7 @@ where
     /// types that can be `==` without being identical.
     pub fn insert(&mut self, key: K, value: V) -> Option<V>
     where
-        K: Clone + BorshDeserialize,
+        K: Clone + BorshDeserialize + std::fmt::Debug,
     {
         // fix pattern when refactor
         match self.values.entry(key.clone()) {
@@ -277,7 +277,8 @@ enum Edge {
 
 impl<K> Tree<K>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    // K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
 {
     fn node(&self, id: FreeListIndex) -> Option<&Node<K>> {
         self.nodes.get(id)
@@ -286,13 +287,13 @@ where
     /// Returns the smallest stored key from the tree
     fn min(&self) -> Option<&K> {
         let root = self.root?;
-        self.min_at(root).map(|(n, _)| &n.key)
+        self.min_at(root).map(|(_, n, _)| &n.key)
     }
 
     /// Returns the largest stored key from the tree
     fn max(&self) -> Option<&K> {
         let root = self.root?;
-        self.max_at(root).map(|(n, _)| &n.key)
+        self.max_at(root).map(|(_, n, _)| &n.key)
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
@@ -356,7 +357,7 @@ where
     fn min_at(
         &self,
         mut at: FreeListIndex,
-    ) -> Option<(&Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
+    ) -> Option<(FreeListIndex, &Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
         let mut parent: Option<(FreeListIndex, &Node<K>)> = None;
         loop {
             let node = self.node(at);
@@ -366,7 +367,7 @@ where
                     at = lft;
                 }
                 None => {
-                    return node.map(|node| (node, parent));
+                    return node.map(|node| (at, node, parent));
                 }
             }
         }
@@ -378,7 +379,7 @@ where
     fn max_at(
         &self,
         mut at: FreeListIndex,
-    ) -> Option<(&Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
+    ) -> Option<(FreeListIndex, &Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
         let mut parent: Option<(FreeListIndex, &Node<K>)> = None;
         loop {
             let node = self.node(at);
@@ -388,7 +389,7 @@ where
                     at = rgt;
                 }
                 None => {
-                    return node.map(|node| (node, parent));
+                    return node.map(|node| (at, node, parent));
                 }
             }
         }
@@ -444,7 +445,10 @@ where
         seen
     }
 
-    fn internal_insert(&mut self, key: K) {
+    fn internal_insert(&mut self, key: K)
+    where
+        K: std::fmt::Debug,
+    {
         if let Some(root) = self.root {
             let node = expect(self.node(root)).clone();
             self.root = Some(self.insert_at(node, root, key));
@@ -453,7 +457,10 @@ where
         }
     }
 
-    fn insert_at(&mut self, mut node: Node<K>, id: FreeListIndex, key: K) -> FreeListIndex {
+    fn insert_at(&mut self, mut node: Node<K>, id: FreeListIndex, key: K) -> FreeListIndex
+    where
+        K: std::fmt::Debug,
+    {
         if key.eq(&node.key) {
             // This branch should not be hit, because we check for existence in insert.
             id
@@ -486,6 +493,7 @@ where
         node.ht = 1 + std::cmp::max(lft, rgt);
         // Cloning and saving while updating height seems weird, but I don't know a way
         // around without using unsafe, yet.
+        // TODO remove this side effect
         *expect(self.nodes.get_mut(id)) = node.clone();
     }
 
@@ -512,7 +520,7 @@ where
 
         // at = at.L
         self.update_height(node, id);
-        self.update_height(&mut left, id);
+        self.update_height(&mut left, left_id);
 
         left_id
     }
@@ -531,7 +539,7 @@ where
 
         // at = at.R
         self.update_height(node, id);
-        self.update_height(&mut rgt, id);
+        self.update_height(&mut rgt, rgt_id);
 
         rgt_id
     }
@@ -634,11 +642,15 @@ where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
     {
+        // println!("DR1 {:?}", self.nodes.iter().collect::<Vec<_>>());
         // r_node - node containing key of interest
         // p_node - immediate parent node of r_node
-        let ((r_id, r_node), parent) = match self.root.and_then(|root| self.lookup_at(root, key)) {
+        let ((r_id, mut r_node), remove_parent) = match self
+            .root
+            .and_then(|root| self.lookup_at(root, key))
+        {
             // TODO clone might not be necessary
-            Some((l, r)) => (l.clone(), r.map(|(i, n, e)| (i, n.clone(), e))),
+            Some(((l_id, node), r)) => ((l_id, node.clone()), r.map(|(i, n, e)| (i, n.clone(), e))),
             None => return (self.root, None), // cannot remove a missing key, no changes to the tree needed
         };
 
@@ -646,8 +658,8 @@ where
         let rgt_opt = r_node.rgt;
 
         if lft_opt.is_none() && rgt_opt.is_none() {
-            let new_id = if let Some((p_id, mut p_node, p_edge)) = parent {
-                // remove leaf
+            // Node is leaf, can simply remove and rebalance.
+            let new_id = if let Some((p_id, mut p_node, p_edge)) = remove_parent {
                 match p_edge {
                     Edge::Right => {
                         p_node.rgt = None;
@@ -670,73 +682,84 @@ where
 
             (new_id, Some(removed.key))
         } else {
-            // non-leaf node, select subtree to proceed with
-            let b = self.get_balance(r_node);
+            // non-leaf node, select subtree to proceed with depending on balance
+            let b = self.get_balance(&r_node);
             if b >= 0 {
                 // proceed with left subtree
-                let lft = expect(lft_opt);
+                let left = expect(lft_opt);
 
-                // k - max key from left subtree
+                // k - min key from left subtree
                 // n - node that holds key k, p - immediate parent of n
-                // let parent_id = r_id;
-                let (n, parent) = self.max_at(lft).unwrap();
-                let (n, mut parent) = (n, parent.map(|(i, n)| (i, n.clone())));
-                let k = n.key.clone();
+                let (min_id, _, parent) = self.max_at(left).unwrap();
+                let mut parent = parent.map(|(i, n)| (i, n.clone()));
 
-                if let Some((p_id, parent_node)) = &mut parent {
-                    if parent_node.rgt.as_ref().map(|&id| id == lft).unwrap_or_default() {
-                        // n is on right link of p
-                        parent_node.rgt = n.lft;
-                    } else {
-                        // n is on left link of p
-                        parent_node.lft = n.lft;
-                    }
+                let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
+                    // Min has a parent, attach its left node to the parent before moving
+                    let min_right = expect(self.nodes.remove(min_id));
+
+                    parent_node.rgt = min_right.lft;
+
+                    let r_key = core::mem::replace(&mut r_node.key, min_right.key);
                     self.update_height(parent_node, *p_id);
-                }
+                    r_key
+                } else {
+                    let max_left = expect(self.nodes.remove(min_id));
 
-                // TODO see if refresh is actually necessary. I don't think it is
-                // if r_id == p_id {
-                //     // r_node.id and p.id can overlap on small trees (2 levels, 2-3 nodes)
-                //     // that leads to nasty lost update of the key, refresh below fixes that
-                //     r_node = self.node(r_node.id).unwrap().clone();
-                // }
-                let removed = expect(self.nodes.remove(r_id));
+                    // Update link and move key into removal node location
+                    r_node.lft = max_left.lft;
+
+                    let r_key = core::mem::replace(&mut r_node.key, max_left.key);
+                    self.update_height(&mut r_node, r_id);
+                    r_key
+                };
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                let new_root = self
-                    .root
-                    .map(|root| self.check_balance(root, &parent.map(|p| p.1.key).unwrap_or(k)));
-                (new_root, Some(removed.key))
+                let new_root = self.root.map(|root| {
+                    self.check_balance(
+                        root,
+                        parent.as_ref().map(|p| &p.1.key).unwrap_or(&r_node.key),
+                    )
+                });
+                (new_root, Some(replaced_key))
             } else {
                 // proceed with right subtree
                 let rgt = expect(rgt_opt);
 
                 // k - min key from right subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (n, parent) = self.min_at(rgt).unwrap();
-                let (n, mut parent) = (n, parent.map(|(i, n)| (i, n.clone())));
-                let k = n.key.clone();
+                let (min_id, _, parent) = self.min_at(rgt).unwrap();
+                let mut parent = parent.map(|(i, n)| (i, n.clone()));
 
-                if let Some((p_id, parent_node)) = &mut parent {
-                    if parent_node.lft.as_ref().map(|&id| id == rgt).unwrap_or_default() {
-                        // n is on left link of p
-                        parent_node.lft = n.rgt;
-                    } else {
-                        // n is on right link of p
-                        parent_node.rgt = n.rgt;
-                    }
+                let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
+                    // Min has a parent, attach its right node to the parent before moving
+                    let min_right = expect(self.nodes.remove(min_id));
+
+                    parent_node.lft = min_right.rgt;
+
+                    let r_key = core::mem::replace(&mut r_node.key, min_right.key);
                     self.update_height(parent_node, *p_id);
-                }
+                    r_key
+                } else {
+                    let min_right = expect(self.nodes.remove(min_id));
 
-                let removed = expect(self.nodes.remove(r_id));
+                    // Update link and move key into removal node location
+                    r_node.rgt = min_right.rgt;
+
+                    let r_key = core::mem::replace(&mut r_node.key, min_right.key);
+                    self.update_height(&mut r_node, r_id);
+                    r_key
+                };
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                let new_root = self
-                    .root
-                    .map(|root| self.check_balance(root, &parent.map(|p| p.1.key).unwrap_or(k)));
-                (new_root, Some(removed.key))
+                let new_root = self.root.map(|root| {
+                    self.check_balance(
+                        root,
+                        parent.as_ref().map(|p| &p.1.key).unwrap_or(&r_node.key),
+                    )
+                });
+                (new_root, Some(replaced_key))
             }
         }
     }
@@ -969,7 +992,7 @@ where
 
 impl<K, V, H> TreeMap<K, V, H>
 where
-    K: BorshSerialize + Ord,
+    K: BorshSerialize + Ord + std::fmt::Debug,
     V: BorshSerialize + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
@@ -1058,7 +1081,7 @@ mod tests {
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     fn height<K, V, H>(tree: &TreeMap<K, V, H>) -> u32
     where
-        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
         V: BorshSerialize + BorshDeserialize,
         H: CryptoHasher<Digest = [u8; 32]>,
     {
@@ -1089,21 +1112,6 @@ mod tests {
 
         let h = C * log2(n as f64 + D) + B;
         h.ceil() as u32
-    }
-
-    impl<K> Debug for Node<K>
-    where
-        K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            f.debug_struct("Node")
-                // .field("id", &self.id)
-                .field("key", &self.key)
-                .field("lft", &self.lft)
-                .field("rgt", &self.rgt)
-                .field("ht", &self.ht)
-                .finish()
-        }
     }
 
     impl<K, V, H> Debug for TreeMap<K, V, H>
@@ -1143,11 +1151,9 @@ mod tests {
 
         map.insert(2, 2);
         assert_eq!(height(&map), 2);
-        println!("2l {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         map.insert(1, 1);
         assert_eq!(height(&map), 2);
-        println!("3l {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         let root = map.tree.root.unwrap();
         assert_eq!(root, FreeListIndex(1));
@@ -1166,10 +1172,8 @@ mod tests {
 
         map.insert(2, 2);
         assert_eq!(height(&map), 2);
-        println!("2r {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         map.insert(3, 3);
-        println!("3r {:?}", map.tree.nodes.iter().collect::<Vec<_>>());
 
         let root = map.tree.root.unwrap();
         assert_eq!(root, FreeListIndex(1));
@@ -1391,7 +1395,7 @@ mod tests {
     fn test_remove_3() {
         let map: TreeMap<u32, u32> = avl(&[(0, 0)], &[0, 0, 1]);
 
-        assert_eq!(map.iter().collect::<Vec<(&u32, &u32)>>(), vec![]);
+        assert!(map.is_empty());
     }
 
     #[test]
@@ -1423,6 +1427,7 @@ mod tests {
             map.insert(*x, 1);
             assert_eq!(map.get(x), Some(&1));
         }
+        assert_eq!(map.tree.nodes.get(FreeListIndex(0)).unwrap().key, 1);
 
         for x in &vec {
             assert_eq!(map.get(x), Some(&1));
@@ -1933,7 +1938,7 @@ mod tests {
 
     fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> TreeMap<K, V, Sha256>
     where
-        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
         V: Default + BorshSerialize + BorshDeserialize + Clone,
     {
         test_env::setup_free();
