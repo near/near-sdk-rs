@@ -1,11 +1,10 @@
 use std::iter::FusedIterator;
+use std::ops::Bound;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, TreeMap};
+use super::{expect, LookupMap, Tree, TreeMap};
 use crate::crypto_hash::CryptoHasher;
-use crate::store::ERR_INCONSISTENT_STATE;
-use crate::{env, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a TreeMap<K, V, H>
 where
@@ -35,7 +34,7 @@ where
     }
 }
 
-/// An iterator over elements of a [`TreeMap`].
+/// An iterator over elements of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `iter` method on [`TreeMap`].
 pub struct Iter<'a, K, V, H>
@@ -44,9 +43,7 @@ where
     V: BorshSerialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    /// Values iterator which contains empty and filled cells.
-    keys: free_list::Iter<'a, K>,
-    /// Reference to underlying map to lookup values with `keys`.
+    keys: Keys<'a, K>,
     values: &'a LookupMap<K, V, H>,
 }
 
@@ -57,8 +54,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(map: &'a TreeMap<K, V, H>) -> Self {
-        todo!()
-        // Self { keys: map.keys.iter(), values: &map.values }
+        Self { keys: Keys::new_unbounded(&map.tree), values: &map.values }
     }
 }
 
@@ -76,7 +72,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        let entry = expect(self.values.get(key));
 
         Some((key, &entry))
     }
@@ -117,13 +113,13 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        let entry = expect(self.values.get(key));
 
         Some((key, &entry))
     }
 }
 
-/// A mutable iterator over elements of a [`TreeMap`].
+/// A mutable iterator over elements of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `iter_mut` method on [`TreeMap`].
 pub struct IterMut<'a, K, V, H>
@@ -133,7 +129,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Values iterator which contains empty and filled cells.
-    keys: free_list::Iter<'a, K>,
+    keys: Keys<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, V, H>,
 }
@@ -145,16 +141,14 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(map: &'a mut TreeMap<K, V, H>) -> Self {
-        todo!()
-        // Self { keys: map.keys.iter_mut(), values: &mut map.values }
+        Self { keys: Keys::new_unbounded(&map.tree), values: &mut map.values }
     }
     fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
     where
         K: Clone,
         V: BorshDeserialize,
     {
-        let entry =
-            self.values.get_mut(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        let entry = expect(self.values.get_mut(key));
         //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
         //*         will only give out one mutable reference for every individual key in the bucket
         //*         during the iteration, and there is no overlap. This operates under the
@@ -223,62 +217,131 @@ where
     }
 }
 
-// /// An iterator over the keys of a [`TreeMap`].
-// ///
-// /// This `struct` is created by the `keys` method on [`TreeMap`].
-// pub struct Keys<'a, K: 'a>
-// where
-//     K: BorshSerialize + BorshDeserialize,
-// {
-//     inner: free_list::Iter<'a, K>,
-// }
+/// An iterator over the keys of a [`TreeMap`], in sorted order.
+///
+/// This `struct` is created by the `keys` method on [`TreeMap`].
+pub struct Keys<'a, K: 'a>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+{
+    tree: &'a Tree<K>,
+    length: u32,
+    min: Bound<&'a K>,
+    max: Bound<&'a K>,
+}
 
-// impl<'a, K> Keys<'a, K>
-// where
-//     K: BorshSerialize + BorshDeserialize,
-// {
-//     pub(super) fn new<V, H>(map: &'a TreeMap<K, V, H>) -> Self
-//     where
-//         K: Ord,
-//         V: BorshSerialize,
-//         H: CryptoHasher<Digest = [u8; 32]>,
-//     {
-//         Self { inner: map.keys.iter() }
-//     }
-// }
+impl<'a, K> Keys<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+{
+    pub(super) fn new(tree: &'a Tree<K>, bounds: (Bound<&'a K>, Bound<&'a K>)) -> Self {
+        let (min, max) = bounds;
+        Self { tree, length: tree.nodes.len(), min, max }
+    }
 
-// impl<'a, K> Iterator for Keys<'a, K>
-// where
-//     K: BorshSerialize + BorshDeserialize,
-// {
-//     type Item = &'a K;
+    pub(super) fn new_unbounded(map: &'a Tree<K>) -> Self {
+        Self::new(map, (Bound::Unbounded, Bound::Unbounded))
+    }
 
-//     fn next(&mut self) -> Option<&'a K> {
-//         self.inner.next()
-//     }
+    fn next_asc(&self) -> Option<&'a K>
+    where
+        K: Clone,
+    {
+        match self.min {
+            Bound::Unbounded => self.tree.min(),
+            Bound::Included(bound) => self.tree.ceil_key(bound),
+            Bound::Excluded(bound) => self.tree.higher(bound),
+        }
+    }
 
-//     fn size_hint(&self) -> (usize, Option<usize>) {
-//         self.inner.size_hint()
-//     }
+    fn next_desc(&self) -> Option<&'a K>
+    where
+        K: Clone,
+    {
+        match self.max {
+            Bound::Unbounded => self.tree.max(),
+            Bound::Included(bound) => self.tree.floor_key(bound),
+            Bound::Excluded(bound) => self.tree.lower(bound),
+        }
+    }
+}
 
-//     fn count(self) -> usize {
-//         self.inner.count()
-//     }
-// }
+impl<'a, K> Iterator for Keys<'a, K>
+where
+    // TODO yoink clone bound, probably shouldn't be needed
+    K: BorshSerialize + BorshDeserialize + Ord + Clone,
+{
+    type Item = &'a K;
 
-// impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
-// impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
+    fn next(&mut self) -> Option<&'a K> {
+        if self.length == 0 {
+            // Short circuit if all elements have been iterated.
+            return None;
+        }
 
-// impl<'a, K> DoubleEndedIterator for Keys<'a, K>
-// where
-//     K: BorshSerialize + Ord + BorshDeserialize,
-// {
-//     fn next_back(&mut self) -> Option<&'a K> {
-//         self.inner.next_back()
-//     }
-// }
+        let next = self.next_asc();
+        if let Some(bound) = next {
+            // Update minimum bound.
+            self.min = Bound::Excluded(bound);
 
-/// An iterator over the values of a [`TreeMap`].
+            // Decrease count of potential elements
+            self.length -= 1;
+        } else {
+            // No more elements to iterate, set length to 0 to avoid duplicate lookups.
+            // Bounds can never be updated manually once initialized, so this can be done.
+            self.length = 0;
+        }
+
+        next
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.length as usize;
+        (len, Some(len))
+    }
+
+    fn count(self) -> usize {
+        self.length as usize
+    }
+}
+
+impl<'a, K> ExactSizeIterator for Keys<'a, K> where
+    K: BorshSerialize + BorshDeserialize + Ord + Clone
+{
+}
+impl<'a: 'b, 'b: 'a, K> FusedIterator for Keys<'a, K> where
+    K: BorshSerialize + BorshDeserialize + Ord + Clone
+{
+}
+
+impl<'a: 'b, 'b: 'a, K> DoubleEndedIterator for Keys<'a, K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+{
+    fn next_back(&mut self) -> Option<&'a K> {
+        if self.length == 0 {
+            // Short circuit if all elements have been iterated.
+            return None;
+        }
+
+        let next = self.next_desc();
+        if let Some(bound) = next {
+            // Update maximum bound.
+            self.max = Bound::Excluded(bound);
+
+            // Decrease count of potential elements
+            self.length -= 1;
+        } else {
+            // No more elements to iterate, set length to 0 to avoid duplicate lookups.
+            // Bounds can never be updated manually once initialized, so this can be done.
+            self.length = 0;
+        }
+
+        next
+    }
+}
+
+/// An iterator over the values of a [`TreeMap`], in order by key.
 ///
 /// This `struct` is created by the `values` method on [`TreeMap`].
 pub struct Values<'a, K, V, H>
@@ -356,7 +419,7 @@ where
     }
 }
 
-/// A mutable iterator over values of a [`TreeMap`].
+/// A mutable iterator over values of a [`TreeMap`], in order by key.
 ///
 /// This `struct` is created by the `values_mut` method on [`TreeMap`].
 pub struct ValuesMut<'a, K, V, H>

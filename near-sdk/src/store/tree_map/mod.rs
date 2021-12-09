@@ -3,8 +3,7 @@ mod impls;
 mod iter;
 
 pub use entry::Entry;
-pub use iter::{Iter, IterMut, Values, ValuesMut};
-// pub use iter::{Iter, IterMut, Keys, Values, ValuesMut};
+pub use iter::{Iter, IterMut, Keys, Values, ValuesMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
@@ -161,13 +160,16 @@ where
 
 impl<K, V, H> TreeMap<K, V, H>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
+    K: Ord + Clone + BorshSerialize,
     V: BorshSerialize + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Clears the map, removing all key-value pairs. Keeps the allocated memory
     /// for reuse.
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self)
+    where
+        K: BorshDeserialize,
+    {
         self.tree.root = None;
         for k in self.tree.nodes.drain() {
             // Set instead of remove to avoid loading the value from storage.
@@ -223,7 +225,7 @@ where
     /// types that can be `==` without being identical.
     pub fn insert(&mut self, key: K, value: V) -> Option<V>
     where
-        K: Clone + BorshDeserialize + std::fmt::Debug,
+        K: Clone + BorshDeserialize,
     {
         // fix pattern when refactor
         match self.values.entry(key.clone()) {
@@ -249,24 +251,6 @@ where
     {
         self.remove_entry(key).map(|(_, v)| v)
     }
-
-    /// Returns the smallest key that is greater or equal to key given as the parameter
-    fn ceil_key<'a: 'b, 'b: 'a>(&'a self, key: &'b K) -> Option<&K> {
-        if self.contains_key(key) {
-            Some(key)
-        } else {
-            self.tree.higher(key)
-        }
-    }
-
-    /// Returns the largest key that is less or equal to key given as the parameter
-    fn floor_key<'a: 'b, 'b: 'a>(&'a self, key: &'b K) -> Option<&K> {
-        if self.contains_key(key) {
-            Some(key)
-        } else {
-            self.tree.lower(key)
-        }
-    }
 }
 
 enum Edge {
@@ -277,7 +261,7 @@ enum Edge {
 impl<K> Tree<K>
 where
     // K: Ord + Clone + BorshSerialize + BorshDeserialize,
-    K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
 {
     fn node(&self, id: FreeListIndex) -> Option<&Node<K>> {
         self.nodes.get(id)
@@ -307,47 +291,25 @@ where
         self.below_at(root, key)
     }
 
-    // /// Iterate all entries in ascending order: min to max, both inclusive
-    // pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
-    //     Cursor::asc(self)
-    // }
+    fn contains(&self, key: &K) -> bool {
+        self.root.map(|root| self.contains_at(root, key)).unwrap_or_default()
+    }
 
-    // /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
-    // pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-    //     Cursor::asc_from(self, key)
-    // }
+    fn floor_key<'a, 'b: 'a>(&'a self, key: &'b K) -> Option<&'a K> {
+        if self.contains(key) {
+            Some(key)
+        } else {
+            self.lower(key)
+        }
+    }
 
-    // /// Iterate all entries in descending order: max to min, both inclusive
-    // pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
-    //     Cursor::desc(self)
-    // }
-
-    // /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
-    // pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-    //     Cursor::desc_from(self, key)
-    // }
-
-    // /// Iterate entries in ascending order according to specified bounds.
-    // ///
-    // /// # Panics
-    // ///
-    // /// Panics if range start > end.
-    // /// Panics if range start == end and both bounds are Excluded.
-    // pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
-    //     let (lo, hi) = match r {
-    //         (Bound::Included(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
-    //         (Bound::Excluded(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
-    //         (Bound::Included(a), Bound::Excluded(b)) if a > b => env::panic_str("Invalid range."),
-    //         (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => env::panic_str("Invalid range."),
-    //         (lo, hi) => (lo, hi),
-    //     };
-
-    //     Cursor::range(self, lo, hi)
-    // }
-
-    //
-    // Internal utilities
-    //
+    fn ceil_key<'a, 'b: 'a>(&'a self, key: &'b K) -> Option<&'a K> {
+        if self.contains(key) {
+            Some(key)
+        } else {
+            self.higher(key)
+        }
+    }
 
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
@@ -396,24 +358,19 @@ where
 
     fn above_at(&self, mut at: FreeListIndex, key: &K) -> Option<&K> {
         let mut seen: Option<&K> = None;
-        loop {
-            let node = self.node(at);
-            match node.as_ref().map(|n| &n.key) {
-                Some(k) => {
-                    if k.le(key) {
-                        match node.and_then(|n| n.rgt) {
-                            Some(rgt) => at = rgt,
-                            None => break,
-                        }
-                    } else {
-                        seen = Some(k);
-                        match node.and_then(|n| n.lft) {
-                            Some(lft) => at = lft,
-                            None => break,
-                        }
-                    }
+        while let Some(node) = self.node(at) {
+            let k = &node.key;
+            if k.le(key) {
+                match node.rgt {
+                    Some(rgt) => at = rgt,
+                    None => break,
                 }
-                None => break,
+            } else {
+                seen = Some(k);
+                match node.lft {
+                    Some(lft) => at = lft,
+                    None => break,
+                }
             }
         }
         seen
@@ -421,33 +378,45 @@ where
 
     fn below_at(&self, mut at: FreeListIndex, key: &K) -> Option<&K> {
         let mut seen: Option<&K> = None;
-        loop {
-            let node = self.node(at);
-            match node.map(|n| &n.key) {
-                Some(k) => {
-                    if k.lt(key) {
-                        seen = Some(k);
-                        match node.and_then(|n| n.rgt) {
-                            Some(rgt) => at = rgt,
-                            None => break,
-                        }
-                    } else {
-                        match node.and_then(|n| n.lft) {
-                            Some(lft) => at = lft,
-                            None => break,
-                        }
-                    }
+        while let Some(node) = self.node(at) {
+            let k = &node.key;
+            if k.lt(key) {
+                seen = Some(k);
+                match node.rgt {
+                    Some(rgt) => at = rgt,
+                    None => break,
                 }
-                None => break,
+            } else {
+                match node.lft {
+                    Some(lft) => at = lft,
+                    None => break,
+                }
             }
         }
         seen
     }
 
-    fn internal_insert(&mut self, key: K)
-    where
-        K: std::fmt::Debug,
-    {
+    fn contains_at(&self, mut at: FreeListIndex, key: &K) -> bool {
+        while let Some(node) = self.node(at) {
+            let k = &node.key;
+            if k.eq(key) {
+                return true;
+            } else if k.lt(key) {
+                match node.rgt {
+                    Some(rgt) => at = rgt,
+                    None => break,
+                }
+            } else {
+                match node.lft {
+                    Some(lft) => at = lft,
+                    None => break,
+                }
+            }
+        }
+        false
+    }
+
+    fn internal_insert(&mut self, key: K) {
         if let Some(root) = self.root {
             let node = expect(self.node(root)).clone();
             self.root = Some(self.insert_at(node, root, key));
@@ -456,10 +425,7 @@ where
         }
     }
 
-    fn insert_at(&mut self, mut node: Node<K>, id: FreeListIndex, key: K) -> FreeListIndex
-    where
-        K: std::fmt::Debug,
-    {
+    fn insert_at(&mut self, mut node: Node<K>, id: FreeListIndex, key: K) -> FreeListIndex {
         if key.eq(&node.key) {
             // This branch should not be hit, because we check for existence in insert.
             id
@@ -578,7 +544,7 @@ where
         Q: BorshSerialize + Eq + PartialOrd,
     {
         let mut p = None;
-        let mut curr = Some(self.node(at).unwrap());
+        let mut curr = Some(expect(self.node(at)));
         while let Some(node) = curr {
             let node_key: &Q = node.key.borrow();
             if node_key.eq(key) {
@@ -691,7 +657,7 @@ where
 
                 // k - min key from left subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (min_id, _, parent) = self.max_at(left).unwrap();
+                let (min_id, _, parent) = expect(self.max_at(left));
                 let mut parent = parent.map(|(i, n)| (i, n.clone()));
 
                 let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
@@ -730,7 +696,7 @@ where
 
                 // k - min key from right subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (min_id, _, parent) = self.min_at(rgt).unwrap();
+                let (min_id, _, parent) = expect(self.min_at(rgt));
                 let mut parent = parent.map(|(i, n)| (i, n.clone()));
 
                 let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
@@ -766,179 +732,7 @@ where
             }
         }
     }
-
-    // // Move content of node with id = `len - 1` (parent left or right link, left, right, key, height)
-    // // to node with given `id`, and remove node `len - 1` (pop the vector of nodes).
-    // // This ensures that among `n` nodes in the tree, max `id` is `n-1`, so when new node is inserted,
-    // // it gets an `id` as its position in the vector.
-    // fn swap_with_last(&mut self, id: u32) {
-    //     if id == self.len() - 1 {
-    //         // noop: id is already last element in the vector
-    //         self.tree.pop();
-    //         return;
-    //     }
-
-    //     let (mut n, mut p) = {
-    //         let key = self.node(self.len() - 1).map(|n| &n.key).unwrap();
-    //         // TODO clone
-    //         self.lookup_at(self.root, &key).map(|(n, p)| (n.clone(), p.clone())).unwrap()
-    //     };
-
-    //     if n.id != p.id {
-    //         if p.lft.map(|id| id == n.id).unwrap_or_default() {
-    //             p.lft = Some(id);
-    //         } else {
-    //             p.rgt = Some(id);
-    //         }
-    //         self.save(p);
-    //     }
-
-    //     if self.root == n.id {
-    //         self.root = id;
-    //     }
-
-    //     n.id = id;
-    //     self.save(n);
-    //     self.tree.pop();
-    // }
 }
-
-// impl<K, V, H> Iterator for Cursor<'_, K, V, H>
-// where
-//     K: Ord + Clone + BorshSerialize + BorshDeserialize,
-//     V: BorshSerialize + BorshDeserialize,
-//     H: CryptoHasher<Digest = [u8; 32]>,
-// {
-//     type Item = (K, V);
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         <Self as Iterator>::nth(self, 0)
-//     }
-
-//     fn size_hint(&self) -> (usize, Option<usize>) {
-//         // Constrains max count. Not worth it to cause storage reads to make this more accurate.
-//         (0, Some(self.map.len() as usize))
-//     }
-
-//     fn count(mut self) -> usize {
-//         // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
-//         // how many elements are left to iterate without loading keys in order. This could be
-//         // optimized in the case of a standard iterator by having a separate type, but this would
-//         // be a breaking change, so there will be slightly more reads than necessary in this case.
-//         let mut count = 0;
-//         while self.key.is_some() {
-//             count += 1;
-//             self.progress_key();
-//         }
-//         count
-//     }
-
-//     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-//         for _ in 0..n {
-//             // Skip over elements not iterated over to get to `nth`. This avoids loading values
-//             // from storage.
-//             self.progress_key();
-//         }
-
-//         let key = self.progress_key()?;
-//         let value = self.map.get(&key)?;
-
-//         Some((key, value))
-//     }
-
-//     fn last(mut self) -> Option<Self::Item> {
-//         if self.asc && matches!(self.hi, Bound::Unbounded) {
-//             self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
-//         } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
-//             self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
-//         } else {
-//             // Cannot guarantee what the last is within the range, must load keys until last.
-//             let key = core::iter::from_fn(|| self.progress_key()).last();
-//             key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
-//         }
-//     }
-// }
-
-// impl<K, V, H> std::iter::FusedIterator for Cursor<'_, K, V, H>
-// where
-//     K: Ord + Clone + BorshSerialize + BorshDeserialize,
-//     V: BorshSerialize + BorshDeserialize,
-//     H: CryptoHasher<Digest = [u8; 32]>,
-// {
-// }
-
-// fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
-//     (match lo {
-//         Bound::Included(ref x) => key >= x,
-//         Bound::Excluded(ref x) => key > x,
-//         Bound::Unbounded => true,
-//     }) && (match hi {
-//         Bound::Included(ref x) => key <= x,
-//         Bound::Excluded(ref x) => key < x,
-//         Bound::Unbounded => true,
-//     })
-// }
-
-// pub struct Cursor<'a, K, V, H>
-// where
-//     K: BorshSerialize + Ord,
-//     V: BorshSerialize,
-//     H: CryptoHasher<Digest = [u8; 32]>,
-// {
-//     asc: bool,
-//     lo: Bound<K>,
-//     hi: Bound<K>,
-//     key: Option<K>,
-//     map: &'a TreeMap<K, V, H>,
-// }
-
-// impl<'a, K, V, H> Cursor<'a, K, V, H>
-// where
-//     K: Ord + Clone + BorshSerialize + BorshDeserialize,
-//     V: BorshSerialize + BorshDeserialize,
-//     H: CryptoHasher<Digest = [u8; 32]>,
-// {
-//     fn asc(map: &'a TreeMap<K, V, H>) -> Self {
-//         let key: Option<K> = map.min();
-//         Self { asc: true, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-//     }
-
-//     fn asc_from(map: &'a TreeMap<K, V, H>, key: K) -> Self {
-//         let key = map.higher(&key);
-//         Self { asc: true, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-//     }
-
-//     fn desc(map: &'a TreeMap<K, V, H>) -> Self {
-//         let key: Option<K> = map.max();
-//         Self { asc: false, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-//     }
-
-//     fn desc_from(map: &'a TreeMap<K, V, H>, key: K) -> Self {
-//         let key = map.lower(&key);
-//         Self { asc: false, key, lo: Bound::Unbounded, hi: Bound::Unbounded, map }
-//     }
-
-//     fn range(map: &'a TreeMap<K, V, H>, lo: Bound<K>, hi: Bound<K>) -> Self {
-//         let key = match &lo {
-//             Bound::Included(k) if map.contains_key(k) => Some(k.clone()),
-//             Bound::Included(k) | Bound::Excluded(k) => map.higher(k),
-//             _ => None,
-//         };
-//         let key = key.filter(|k| fits(k, &lo, &hi));
-
-//         Self { asc: true, key, lo, hi, map }
-//     }
-
-//     /// Progresses the key one index, will return the previous key
-//     fn progress_key(&mut self) -> Option<K> {
-//         let new_key = self
-//             .key
-//             .as_ref()
-//             .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
-//             .filter(|k| fits(k, &self.lo, &self.hi));
-//         core::mem::replace(&mut self.key, new_key)
-//     }
-// }
 
 impl<K, V, H> TreeMap<K, V, H>
 where
@@ -965,14 +759,14 @@ where
         IterMut::new(self)
     }
 
-    // /// An iterator visiting all keys in arbitrary order.
-    // /// The iterator element type is `&'a K`.
-    // pub fn keys(&self) -> Keys<K>
-    // where
-    //     K: BorshDeserialize,
-    // {
-    //     Keys::new(self)
-    // }
+    /// An iterator visiting all keys in arbitrary order.
+    /// The iterator element type is `&'a K`.
+    pub fn keys(&self) -> Keys<K>
+    where
+        K: BorshDeserialize,
+    {
+        Keys::new_unbounded(&self.tree)
+    }
 
     /// An iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a V`.
@@ -995,7 +789,7 @@ where
 
 impl<K, V, H> TreeMap<K, V, H>
 where
-    K: BorshSerialize + Ord + std::fmt::Debug,
+    K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
@@ -1084,7 +878,7 @@ mod tests {
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     fn height<K, V, H>(tree: &TreeMap<K, V, H>) -> u32
     where
-        K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
         H: CryptoHasher<Digest = [u8; 32]>,
     {
@@ -1352,13 +1146,13 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.floor_key(&5), None);
-        assert_eq!(map.floor_key(&10), Some(&10));
-        assert_eq!(map.floor_key(&11), Some(&10));
-        assert_eq!(map.floor_key(&20), Some(&20));
-        assert_eq!(map.floor_key(&49), Some(&40));
-        assert_eq!(map.floor_key(&50), Some(&50));
-        assert_eq!(map.floor_key(&51), Some(&50));
+        assert_eq!(map.tree.floor_key(&5), None);
+        assert_eq!(map.tree.floor_key(&10), Some(&10));
+        assert_eq!(map.tree.floor_key(&11), Some(&10));
+        assert_eq!(map.tree.floor_key(&20), Some(&20));
+        assert_eq!(map.tree.floor_key(&49), Some(&40));
+        assert_eq!(map.tree.floor_key(&50), Some(&50));
+        assert_eq!(map.tree.floor_key(&51), Some(&50));
 
         map.clear();
     }
@@ -1372,13 +1166,13 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.ceil_key(&5), Some(&10));
-        assert_eq!(map.ceil_key(&10), Some(&10));
-        assert_eq!(map.ceil_key(&11), Some(&20));
-        assert_eq!(map.ceil_key(&20), Some(&20));
-        assert_eq!(map.ceil_key(&49), Some(&50));
-        assert_eq!(map.ceil_key(&50), Some(&50));
-        assert_eq!(map.ceil_key(&51), None);
+        assert_eq!(map.tree.ceil_key(&5), Some(&10));
+        assert_eq!(map.tree.ceil_key(&10), Some(&10));
+        assert_eq!(map.tree.ceil_key(&11), Some(&20));
+        assert_eq!(map.tree.ceil_key(&20), Some(&20));
+        assert_eq!(map.tree.ceil_key(&49), Some(&50));
+        assert_eq!(map.tree.ceil_key(&50), Some(&50));
+        assert_eq!(map.tree.ceil_key(&51), None);
 
         map.clear();
     }
@@ -1965,7 +1759,7 @@ mod tests {
 
     fn avl<K, V>(insert: &[(K, V)], remove: &[K]) -> TreeMap<K, V, Sha256>
     where
-        K: Ord + Clone + BorshSerialize + BorshDeserialize + std::fmt::Debug,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: Default + BorshSerialize + BorshDeserialize + Clone,
     {
         test_env::setup_free();
