@@ -13,12 +13,10 @@ use super::lookup_map as lm;
 use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::store::free_list::{FreeList, FreeListIndex};
 use crate::store::LookupMap;
-use crate::IntoStorageKey;
+use crate::{env, IntoStorageKey};
 
 fn expect<T>(val: Option<T>) -> T {
-    // TODO switch back
-    val.unwrap()
-    // val.unwrap_or_else(|| env::abort())
+    val.unwrap_or_else(|| env::abort())
 }
 
 /// TreeMap based on AVL-tree
@@ -334,7 +332,6 @@ where
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    // TODO check if ok to pass reference to root instead of looking up index
     fn min_at(
         &self,
         mut at: FreeListIndex,
@@ -535,9 +532,9 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
-        // Cloning and saving while updating height seems weird, but I don't know a way
-        // around without using unsafe, yet.
-        // TODO remove this side effect
+        // This side effect isn't great, but a lot of logic depends on values in storage/cache to be
+        // up to date. Until changes and the tree are kept all in a single data structure, this
+        // will be necessary. 
         *expect(self.nodes.get_mut(id)) = node.clone();
     }
 
@@ -552,7 +549,6 @@ where
     // Left rotation of an AVL subtree with at node `at`.
     // New root of subtree is returned, caller is responsible for updating proper link from parent.
     fn rotate_left(&mut self, node: &mut Node<K>, id: FreeListIndex) -> FreeListIndex {
-        // TODO clone shouldn't be required
         let (left_id, mut left) = expect(node.left(&self.nodes).map(|(id, n)| (id, n.clone())));
         let lft_rgt = left.rgt;
 
@@ -653,7 +649,6 @@ where
             .root
             .and_then(|root| self.lookup_at(root, key))
         {
-            // TODO clone might not be necessary
             Some(((l_id, node), r)) => ((l_id, node.clone()), r.map(|(i, n, e)| (i, n.clone(), e))),
             None => return (self.root, None), // cannot remove a missing key, no changes to the tree needed
         };
@@ -1355,28 +1350,6 @@ mod tests {
     fn test_remove_7_regression_1() {
         let vec: Vec<u32> =
             vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
-        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-
-        for x in &vec {
-            assert_eq!(map.get(x), None);
-            map.insert(*x, 1);
-            assert_eq!(map.get(x), Some(&1));
-        }
-
-        assert!(is_balanced(&map, map.tree.root.unwrap()));
-
-        for x in &vec {
-            assert_eq!(map.get(x), Some(&1));
-            map.remove(x);
-            assert_eq!(map.get(x), None);
-        }
-        map.clear();
-    }
-
-    #[test]
-    // TODO remove
-    fn aate() {
-        let vec: Vec<u32> = vec![3, 1, 6, 4, 0, 5, 2];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
