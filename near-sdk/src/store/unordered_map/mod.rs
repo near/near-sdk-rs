@@ -208,7 +208,7 @@ where
     {
         for k in self.keys.drain() {
             // Set instead of remove to avoid loading the value from storage.
-            // This enforces a clone, but this is better th
+            // This enforces a clone, but this is better than invoking a more costly operation.
             self.values.set(k, None);
         }
     }

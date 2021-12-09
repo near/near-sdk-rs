@@ -16,6 +16,9 @@ pub use self::lookup_set::LookupSet;
 pub mod unordered_map;
 pub use self::unordered_map::UnorderedMap;
 
+mod unordered_set;
+pub use self::unordered_set::UnorderedSet;
+
 mod index_map;
 pub(crate) use self::index_map::IndexMap;
 
