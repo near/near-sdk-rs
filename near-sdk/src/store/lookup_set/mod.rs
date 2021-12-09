@@ -1,11 +1,17 @@
 mod impls;
 
 use crate::crypto_hash::{CryptoHasher, Sha256};
-use crate::store::LookupMap;
-use crate::IntoStorageKey;
+use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 use std::fmt;
+use std::marker::PhantomData;
+
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+
+type LookupKey = [u8; 32];
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupSet<T, H = Sha256>
@@ -13,7 +19,22 @@ where
     T: BorshSerialize + Ord,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    map: LookupMap<T, (), H>,
+    prefix: Box<[u8]>,
+
+    /// Cache that keeps track the state of elements in the underlying set.
+    #[borsh_skip]
+    cache: RefCell<BTreeMap<T, Cell<EntryState>>>,
+
+    #[borsh_skip]
+    hasher: PhantomData<H>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) enum EntryState {
+    Inserted, // The element is cached as freshly inserted
+    Deleted,  // The element is cached as freshly deleted
+    Present,  // The element is definitely present on the trie
+    Absent,   // The element is definitely absent from the trie
 }
 
 impl<T, H> Drop for LookupSet<T, H>
@@ -32,7 +53,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LookupSet").field("map", &self.map).finish()
+        f.debug_struct("LookupSet").field("prefix", &self.prefix).finish()
     }
 }
 
@@ -54,6 +75,27 @@ where
     T: BorshSerialize + Ord,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
+    fn lookup_key<Q: ?Sized>(prefix: &[u8], value: &Q, buffer: &mut Vec<u8>) -> LookupKey
+    where
+        Q: BorshSerialize,
+        T: Borrow<Q>,
+    {
+        // Concat the prefix with serialized key and hash the bytes for the lookup key.
+        buffer.extend(prefix);
+        value.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
+
+        H::hash(buffer)
+    }
+
+    fn contains_trie_element<Q: ?Sized>(prefix: &[u8], value: &Q) -> bool
+    where
+        Q: BorshSerialize,
+        T: Borrow<Q>,
+    {
+        let lookup_key = Self::lookup_key(prefix, value, &mut Vec::new());
+        env::storage_has_key(&lookup_key)
+    }
+
     /// Initialize a [`LookupSet`] with a custom hash function.
     ///
     /// # Example
@@ -67,7 +109,11 @@ where
     where
         S: IntoStorageKey,
     {
-        Self { map: LookupMap::with_hasher(prefix) }
+        Self {
+            prefix: prefix.into_storage_key().into_boxed_slice(),
+            cache: Default::default(),
+            hasher: Default::default(),
+        }
     }
 
     /// Returns `true` if the set contains the specified value.
@@ -80,7 +126,20 @@ where
         T: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
-        self.map.contains_key(value)
+        let mut cache = self.cache.borrow_mut();
+        match cache.get(value).map(|cell| cell.get()) {
+            Some(EntryState::Inserted) | Some(EntryState::Present) => true,
+            Some(EntryState::Deleted) | Some(EntryState::Absent) => false,
+            None => {
+                let is_contained = Self::contains_trie_element(&self.prefix, value);
+                if is_contained {
+                    cache.insert(value.to_owned(), Cell::new(EntryState::Present));
+                } else {
+                    cache.insert(value.to_owned(), Cell::new(EntryState::Absent));
+                }
+                is_contained
+            }
+        }
     }
 
     /// Adds a value to the set.
@@ -88,11 +147,26 @@ where
     /// If the set did not have this value present, true is returned.
     ///
     /// If the set did have this value present, false is returned.
-    pub fn insert(&mut self, value: T) -> bool
-    where
-        T: Clone,
-    {
-        self.map.insert(value, ()).is_none()
+    pub fn insert(&mut self, value: T) -> bool {
+        let mut cache = self.cache.borrow_mut();
+        match cache.get_mut(&value) {
+            Some(cell) => match cell.get() {
+                EntryState::Inserted | EntryState::Present => false,
+                EntryState::Deleted | EntryState::Absent => {
+                    cell.replace(EntryState::Inserted);
+                    true
+                }
+            },
+            None => {
+                if Self::contains_trie_element(&self.prefix, &value) {
+                    cache.insert(value, Cell::new(EntryState::Present));
+                    false
+                } else {
+                    cache.insert(value, Cell::new(EntryState::Inserted));
+                    true
+                }
+            }
+        }
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
@@ -105,7 +179,25 @@ where
         T: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
-        self.map.remove(value).is_some()
+        let mut cache = self.cache.borrow_mut();
+        match cache.get_mut(value) {
+            Some(cell) => match cell.get() {
+                EntryState::Inserted | EntryState::Present => {
+                    cell.replace(EntryState::Deleted);
+                    true
+                }
+                EntryState::Deleted | EntryState::Absent => false,
+            },
+            None => {
+                if Self::contains_trie_element(&self.prefix, value) {
+                    cache.insert(value.to_owned(), Cell::new(EntryState::Deleted));
+                    true
+                } else {
+                    cache.insert(value.to_owned(), Cell::new(EntryState::Absent));
+                    false
+                }
+            }
+        }
     }
 }
 
@@ -118,7 +210,24 @@ where
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
     /// in memory.
     pub fn flush(&mut self) {
-        self.map.flush()
+        let mut buf = Vec::new();
+        for (k, v) in self.cache.borrow_mut().iter_mut() {
+            match v.get() {
+                EntryState::Inserted => {
+                    buf.clear();
+                    let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
+                    env::storage_write(&lookup_key, &[]);
+                    v.replace(EntryState::Present);
+                }
+                EntryState::Deleted => {
+                    buf.clear();
+                    let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
+                    env::storage_remove(&lookup_key);
+                    v.replace(EntryState::Absent);
+                }
+                EntryState::Present | EntryState::Absent => {}
+            }
+        }
     }
 }
 
@@ -212,7 +321,7 @@ mod tests {
     fn test_debug() {
         let set = LookupSet::<u8, Sha256>::new(b"m");
 
-        assert_eq!(format!("{:?}", set), "LookupSet { map: LookupMap { prefix: [109] } }")
+        assert_eq!(format!("{:?}", set), "LookupSet { prefix: [109] }")
     }
 
     #[test]
