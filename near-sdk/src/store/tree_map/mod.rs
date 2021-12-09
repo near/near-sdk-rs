@@ -102,7 +102,7 @@ struct Node<K> {
 
 impl<K> Node<K>
 where
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    K: BorshSerialize + BorshDeserialize,
 {
     fn of(key: K) -> Self {
         Self { key, lft: None, rgt: None, ht: 1 }
@@ -260,8 +260,7 @@ enum Edge {
 
 impl<K> Tree<K>
 where
-    // K: Ord + Clone + BorshSerialize + BorshDeserialize,
-    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    K: Ord + BorshSerialize + BorshDeserialize,
 {
     fn node(&self, id: FreeListIndex) -> Option<&Node<K>> {
         self.nodes.get(id)
@@ -415,8 +414,55 @@ where
         }
         false
     }
+    
+    /// Returns (node, parent node) for a node that holds the `key`.
+    /// For root node, same node is returned for node and parent node.
+    fn lookup_at<Q: ?Sized>(
+        &self,
+        mut at: FreeListIndex,
+        key: &Q,
+    ) -> Option<((FreeListIndex, &Node<K>), Option<(FreeListIndex, &Node<K>, Edge)>)>
+    where
+        K: Borrow<Q>,
+        Q: BorshSerialize + Eq + PartialOrd,
+    {
+        let mut p = None;
+        let mut curr = Some(expect(self.node(at)));
+        while let Some(node) = curr {
+            let node_key: &Q = node.key.borrow();
+            if node_key.eq(key) {
+                return Some(((at, node), p));
+            } else if node_key.lt(key) {
+                match node.rgt {
+                    Some(rgt) => {
+                        p = Some((at, node, Edge::Right));
+                        at = rgt;
+                    }
+                    None => break,
+                }
+            } else {
+                match node.lft {
+                    Some(lft) => {
+                        p = Some((at, node, Edge::Left));
+                        at = lft;
+                    }
+                    None => break,
+                }
+            }
+            curr = self.node(at);
+        }
+        None
+    }
+}
 
-    fn internal_insert(&mut self, key: K) {
+impl<K> Tree<K>
+where
+    K: Ord + BorshSerialize + BorshDeserialize + Clone,
+{
+    fn internal_insert(&mut self, key: K)
+    where
+        K: Clone,
+    {
         if let Some(root) = self.root {
             let node = expect(self.node(root)).clone();
             self.root = Some(self.insert_at(node, root, key));
@@ -530,45 +576,6 @@ where
         } else {
             id
         }
-    }
-
-    /// Returns (node, parent node) for a node that holds the `key`.
-    /// For root node, same node is returned for node and parent node.
-    fn lookup_at<Q: ?Sized>(
-        &self,
-        mut at: FreeListIndex,
-        key: &Q,
-    ) -> Option<((FreeListIndex, &Node<K>), Option<(FreeListIndex, &Node<K>, Edge)>)>
-    where
-        K: Borrow<Q>,
-        Q: BorshSerialize + Eq + PartialOrd,
-    {
-        let mut p = None;
-        let mut curr = Some(expect(self.node(at)));
-        while let Some(node) = curr {
-            let node_key: &Q = node.key.borrow();
-            if node_key.eq(key) {
-                return Some(((at, node), p));
-            } else if node_key.lt(key) {
-                match node.rgt {
-                    Some(rgt) => {
-                        p = Some((at, node, Edge::Right));
-                        at = rgt;
-                    }
-                    None => break,
-                }
-            } else {
-                match node.lft {
-                    Some(lft) => {
-                        p = Some((at, node, Edge::Left));
-                        at = lft;
-                    }
-                    None => break,
-                }
-            }
-            curr = self.node(at);
-        }
-        None
     }
 
     // Navigate from root to node holding `key` and backtrace back to the root
@@ -1924,6 +1931,7 @@ mod tests {
 
     //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
     // }
+
     #[test]
     fn entry_api() {
         let mut map = TreeMap::new(b"b");

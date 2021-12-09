@@ -243,10 +243,7 @@ where
         Self::new(map, (Bound::Unbounded, Bound::Unbounded))
     }
 
-    fn next_asc(&self) -> Option<&'a K>
-    where
-        K: Clone,
-    {
+    fn next_asc(&self) -> Option<&'a K> {
         match self.min {
             Bound::Unbounded => self.tree.min(),
             Bound::Included(bound) => self.tree.ceil_key(bound),
@@ -254,10 +251,7 @@ where
         }
     }
 
-    fn next_desc(&self) -> Option<&'a K>
-    where
-        K: Clone,
-    {
+    fn next_desc(&self) -> Option<&'a K> {
         match self.max {
             Bound::Unbounded => self.tree.max(),
             Bound::Included(bound) => self.tree.floor_key(bound),
@@ -268,8 +262,7 @@ where
 
 impl<'a, K> Iterator for Keys<'a, K>
 where
-    // TODO yoink clone bound, probably shouldn't be needed
-    K: BorshSerialize + BorshDeserialize + Ord + Clone,
+    K: BorshSerialize + BorshDeserialize + Ord,
 {
     type Item = &'a K;
 
@@ -305,18 +298,15 @@ where
     }
 }
 
-impl<'a, K> ExactSizeIterator for Keys<'a, K> where
-    K: BorshSerialize + BorshDeserialize + Ord + Clone
-{
-}
+impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize + Ord {}
 impl<'a: 'b, 'b: 'a, K> FusedIterator for Keys<'a, K> where
-    K: BorshSerialize + BorshDeserialize + Ord + Clone
+    K: BorshSerialize + BorshDeserialize + Ord
 {
 }
 
 impl<'a: 'b, 'b: 'a, K> DoubleEndedIterator for Keys<'a, K>
 where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    K: BorshSerialize + Ord + BorshDeserialize,
 {
     fn next_back(&mut self) -> Option<&'a K> {
         if self.length == 0 {
