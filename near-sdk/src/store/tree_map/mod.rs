@@ -74,7 +74,7 @@ where
 #[derive(BorshDeserialize, BorshSerialize)]
 struct Tree<K>
 where
-    K: BorshSerialize + Ord,
+    K: BorshSerialize,
 {
     root: Option<FreeListIndex>,
     nodes: FreeList<Node<K>>,
@@ -822,28 +822,28 @@ where
         })
     }
 
-    // /// Gets the given key's corresponding entry in the map for in-place manipulation.
-    // /// ```
-    // /// use near_sdk::store::TreeMap;
-    // ///
-    // /// let mut count = TreeMap::new(b"m");
-    // ///
-    // /// for ch in [7, 2, 4, 7, 4, 1, 7] {
-    // ///     let counter = count.entry(ch).or_insert(0);
-    // ///     *counter += 1;
-    // /// }
-    // ///
-    // /// assert_eq!(count[&4], 2);
-    // /// assert_eq!(count[&7], 3);
-    // /// assert_eq!(count[&1], 1);
-    // /// assert_eq!(count.get(&8), None);
-    // /// ```
-    // pub fn entry(&mut self, key: K) -> Entry<K, V>
-    // where
-    //     K: Clone,
-    // {
-    //     Entry::new(self.values.entry(key), &mut self.keys)
-    // }
+    /// Gets the given key's corresponding entry in the map for in-place manipulation.
+    /// ```
+    /// use near_sdk::store::TreeMap;
+    ///
+    /// let mut count = TreeMap::new(b"m");
+    ///
+    /// for ch in [7, 2, 4, 7, 4, 1, 7] {
+    ///     let counter = count.entry(ch).or_insert(0);
+    ///     *counter += 1;
+    /// }
+    ///
+    /// assert_eq!(count[&4], 2);
+    /// assert_eq!(count[&7], 3);
+    /// assert_eq!(count[&1], 1);
+    /// assert_eq!(count.get(&8), None);
+    /// ```
+    pub fn entry(&mut self, key: K) -> Entry<K, V>
+    where
+        K: Clone,
+    {
+        Entry::new(self.values.entry(key), &mut self.tree)
+    }
 }
 
 impl<K, V, H> TreeMap<K, V, H>
@@ -1924,4 +1924,50 @@ mod tests {
 
     //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
     // }
+    #[test]
+    fn entry_api() {
+        let mut map = TreeMap::new(b"b");
+        {
+            let test_entry = map.entry("test".to_string());
+            assert_eq!(test_entry.key(), "test");
+            let entry_ref = test_entry.or_insert(8u8);
+            *entry_ref += 1;
+        }
+        assert_eq!(map["test"], 9);
+
+        // Try getting entry of filled value
+        let value = map.entry("test".to_string()).and_modify(|v| *v += 3).or_default();
+        assert_eq!(*value, 12);
+    }
+
+    #[test]
+    fn map_iterator() {
+        let mut map = TreeMap::new(b"b");
+
+        map.insert(0u8, 0u8);
+        map.insert(1, 1);
+        map.insert(2, 2);
+        map.insert(3, 3);
+        map.remove(&1);
+        let iter = map.iter();
+        assert_eq!(iter.len(), 3);
+        assert_eq!(iter.collect::<Vec<_>>(), [(&0, &0), (&2, &2), (&3, &3)]);
+
+        let iter = map.iter_mut().rev();
+        assert_eq!(iter.collect::<Vec<_>>(), [(&3, &mut 3), (&2, &mut 2), (&0, &mut 0)]);
+
+        let mut iter = map.iter();
+        assert_eq!(iter.nth(2), Some((&3, &3)));
+        // Check fused iterator assumption that each following one will be None
+        assert_eq!(iter.next(), None);
+
+        // Double all values
+        map.values_mut().for_each(|v| {
+            *v *= 2;
+        });
+        assert_eq!(map.values().collect::<Vec<_>>(), [&0, &4, &6]);
+
+        // Collect all keys
+        assert_eq!(map.keys().collect::<Vec<_>>(), [&0, &2, &3]);
+    }
 }

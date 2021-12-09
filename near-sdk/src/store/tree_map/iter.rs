@@ -74,7 +74,7 @@ where
         let key = self.keys.nth(n)?;
         let entry = expect(self.values.get(key));
 
-        Some((key, &entry))
+        Some((key, entry))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -115,7 +115,7 @@ where
         let key = self.keys.nth_back(n)?;
         let entry = expect(self.values.get(key));
 
-        Some((key, &entry))
+        Some((key, entry))
     }
 }
 

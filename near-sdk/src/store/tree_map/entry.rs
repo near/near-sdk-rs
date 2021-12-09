@@ -1,6 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::store::{lookup_map as lm, FreeList};
+use super::Tree;
+use crate::store::lookup_map as lm;
 
 /// A view into a single entry in the map, which can be vacant or occupied.
 pub enum Entry<'a, K: 'a, V: 'a>
@@ -15,15 +16,12 @@ impl<'a, K, V> Entry<'a, K, V>
 where
     K: BorshSerialize,
 {
-    // pub(super) fn new(
-    //     lm_entry: lm::Entry<'a, K, ValueAndIndex<V>>,
-    //     keys: &'a mut FreeList<K>,
-    // ) -> Self {
-    //     match lm_entry {
-    //         lm::Entry::Occupied(value_entry) => Self::Occupied(OccupiedEntry { value_entry, keys }),
-    //         lm::Entry::Vacant(value_entry) => Self::Vacant(VacantEntry { value_entry, keys }),
-    //     }
-    // }
+    pub(super) fn new(lm_entry: lm::Entry<'a, K, V>, keys: &'a mut Tree<K>) -> Self {
+        match lm_entry {
+            lm::Entry::Occupied(value_entry) => Self::Occupied(OccupiedEntry { value_entry, keys }),
+            lm::Entry::Vacant(value_entry) => Self::Vacant(VacantEntry { value_entry, keys }),
+        }
+    }
 }
 
 impl<'a, K, V> Entry<'a, K, V>
@@ -50,7 +48,7 @@ where
 
 impl<'a, K, V> Entry<'a, K, V>
 where
-    K: BorshSerialize + BorshDeserialize + Clone,
+    K: BorshSerialize + BorshDeserialize + Clone + Ord,
 {
     /// Ensures a value is in the entry by inserting the default if empty, and returns
     /// a mutable reference to the value in the entry.
@@ -185,7 +183,7 @@ where
     K: BorshSerialize,
 {
     value_entry: lm::OccupiedEntry<'a, K, V>,
-    keys: &'a mut FreeList<K>,
+    keys: &'a mut Tree<K>,
 }
 
 impl<'a, K, V> OccupiedEntry<'a, K, V>
@@ -217,12 +215,11 @@ where
     /// ```
     pub fn remove_entry(self) -> (K, V)
     where
-        K: BorshDeserialize,
+        K: BorshDeserialize + Ord + Clone,
     {
-        todo!()
-        // let (key, value) = self.value_entry.remove_entry();
-        // self.keys.remove(value.key_index);
-        // (key, value)
+        let (key, value) = self.value_entry.remove_entry();
+        self.keys.do_remove(&key);
+        (key, value)
     }
 
     /// Gets a reference to the value in the entry.
@@ -342,7 +339,7 @@ where
     /// ```
     pub fn remove(self) -> V
     where
-        K: BorshDeserialize,
+        K: BorshDeserialize + Ord + Clone,
     {
         self.remove_entry().1
     }
@@ -355,7 +352,7 @@ where
     K: BorshSerialize,
 {
     value_entry: lm::VacantEntry<'a, K, V>,
-    keys: &'a mut FreeList<K>,
+    keys: &'a mut Tree<K>,
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V>
@@ -404,11 +401,10 @@ where
     /// ```
     pub fn insert(self, value: V) -> &'a mut V
     where
-        K: BorshDeserialize + Clone,
+        K: BorshDeserialize + Clone + Ord,
     {
-        todo!()
-        // // Vacant entry so we know key doesn't exist
-        // let key_index = self.keys.insert(self.key().to_owned());
-        // &mut self.value_entry.insert(ValueAndIndex { value, key_index }).value
+        // Vacant entry so we know key doesn't exist
+        self.keys.internal_insert(self.key().to_owned());
+        self.value_entry.insert(value)
     }
 }
