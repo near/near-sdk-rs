@@ -3,10 +3,11 @@ mod impls;
 mod iter;
 
 pub use entry::Entry;
-pub use iter::{Iter, IterMut, Keys, Values, ValuesMut};
+pub use iter::{Iter, IterMut, Keys, Range, RangeMut, Values, ValuesMut};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
+use std::ops::RangeBounds;
 
 use super::lookup_map as lm;
 use crate::crypto_hash::{CryptoHasher, Sha256};
@@ -23,7 +24,7 @@ fn expect<T>(val: Option<T>) -> T {
 /// TreeMap based on AVL-tree
 ///
 /// Runtime complexity (worst case):
-/// - `get`/`contains_key`:     O(1) - UnorderedMap lookup
+/// - `get`/`contains_key`:     O(1) - LookupMap lookup
 /// - `insert`/`remove`:        O(log(N))
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
@@ -279,31 +280,51 @@ where
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
-    fn higher(&self, key: &K) -> Option<&K> {
+    fn higher<Q>(&self, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
         let root = self.root?;
         self.above_at(root, key)
     }
 
     /// Returns the largest key that is strictly less than key given as the parameter
-    fn lower(&self, key: &K) -> Option<&K> {
+    fn lower<Q>(&self, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
         let root = self.root?;
         self.below_at(root, key)
     }
 
-    fn contains(&self, key: &K) -> bool {
-        self.root.map(|root| self.contains_at(root, key)).unwrap_or_default()
+    fn equal_key<Q>(&self, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
+        self.root.map(|root| self.equal_at(root, key)).unwrap_or_default()
     }
 
-    fn floor_key<'a, 'b: 'a>(&'a self, key: &'b K) -> Option<&'a K> {
-        if self.contains(key) {
+    fn floor_key<Q>(&self, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
+        if let Some(key) = self.equal_key(key) {
             Some(key)
         } else {
             self.lower(key)
         }
     }
 
-    fn ceil_key<'a, 'b: 'a>(&'a self, key: &'b K) -> Option<&'a K> {
-        if self.contains(key) {
+    fn ceil_key<Q>(&self, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
+        if let Some(key) = self.equal_key(key) {
             Some(key)
         } else {
             self.higher(key)
@@ -355,17 +376,21 @@ where
         }
     }
 
-    fn above_at(&self, mut at: FreeListIndex, key: &K) -> Option<&K> {
+    fn above_at<Q>(&self, mut at: FreeListIndex, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
         let mut seen: Option<&K> = None;
         while let Some(node) = self.node(at) {
-            let k = &node.key;
+            let k: &Q = node.key.borrow();
             if k.le(key) {
                 match node.rgt {
                     Some(rgt) => at = rgt,
                     None => break,
                 }
             } else {
-                seen = Some(k);
+                seen = Some(&node.key);
                 match node.lft {
                     Some(lft) => at = lft,
                     None => break,
@@ -375,12 +400,16 @@ where
         seen
     }
 
-    fn below_at(&self, mut at: FreeListIndex, key: &K) -> Option<&K> {
+    fn below_at<Q>(&self, mut at: FreeListIndex, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
         let mut seen: Option<&K> = None;
         while let Some(node) = self.node(at) {
-            let k = &node.key;
+            let k: &Q = node.key.borrow();
             if k.lt(key) {
-                seen = Some(k);
+                seen = Some(&node.key);
                 match node.rgt {
                     Some(rgt) => at = rgt,
                     None => break,
@@ -395,11 +424,15 @@ where
         seen
     }
 
-    fn contains_at(&self, mut at: FreeListIndex, key: &K) -> bool {
+    fn equal_at<Q>(&self, mut at: FreeListIndex, key: &Q) -> Option<&K>
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
         while let Some(node) = self.node(at) {
-            let k = &node.key;
+            let k: &Q = node.key.borrow();
             if k.eq(key) {
-                return true;
+                return Some(&node.key);
             } else if k.lt(key) {
                 match node.rgt {
                     Some(rgt) => at = rgt,
@@ -412,9 +445,9 @@ where
                 }
             }
         }
-        false
+        None
     }
-    
+
     /// Returns (node, parent node) for a node that holds the `key`.
     /// For root node, same node is returned for node and parent node.
     fn lookup_at<Q: ?Sized>(
@@ -791,6 +824,83 @@ where
         K: BorshDeserialize,
     {
         ValuesMut::new(self)
+    }
+
+    /// Constructs a double-ended iterator over a sub-range of elements in the map.
+    /// The simplest way is to use the range syntax `min..max`, thus `range(min..max)` will
+    /// yield elements from min (inclusive) to max (exclusive).
+    /// The range may also be entered as `(Bound<T>, Bound<T>)`, so for example
+    /// `range((Excluded(4), Included(10)))` will yield a left-exclusive, right-inclusive
+    /// range from 4 to 10.
+    ///
+    /// # Panics
+    ///
+    /// Panics if range `start > end`.
+    /// Panics if range `start == end` and both bounds are `Excluded`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use near_sdk::store::TreeMap;
+    /// use std::ops::Bound::Included;
+    ///
+    /// let mut map = TreeMap::new(b"t");
+    /// map.insert(3, "a".to_string());
+    /// map.insert(5, "b".to_string());
+    /// map.insert(8, "c".to_string());
+    /// for (key, value) in map.range((Included(&4), Included(&8))) {
+    ///     println!("{}: {}", key, value);
+    /// }
+    /// assert_eq!(Some((&5, &"b".to_string())), map.range(4..).next());
+    /// ```
+    pub fn range<'a, R: 'a, Q: 'a>(&'a self, range: R) -> Range<'a, K, V, H>
+    where
+        K: BorshDeserialize + Borrow<Q>,
+        Q: ?Sized + Ord,
+        R: RangeBounds<Q>,
+    {
+        Range::new(self, (range.start_bound(), range.end_bound()))
+    }
+
+    /// Constructs a mutable double-ended iterator over a sub-range of elements in the map.
+    /// The simplest way is to use the range syntax `min..max`, thus `range(min..max)` will
+    /// yield elements from min (inclusive) to max (exclusive).
+    /// The range may also be entered as `(Bound<T>, Bound<T>)`, so for example
+    /// `range((Excluded(4), Included(10)))` will yield a left-exclusive, right-inclusive
+    /// range from 4 to 10.
+    ///
+    /// # Panics
+    ///
+    /// Panics if range `start > end`.
+    /// Panics if range `start == end` and both bounds are `Excluded`.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use near_sdk::store::TreeMap;
+    ///
+    /// let mut map: TreeMap<i32, i32> = TreeMap::new(b"t");
+    /// map.extend([4, 6, 8, 11]
+    ///     .iter()
+    ///     .map(|&s| (s, 0)));
+    /// for (_, balance) in map.range_mut(6..10) {
+    ///     *balance += 100;
+    /// }
+    /// for (id, balance) in &map {
+    ///     println!("{} => {}", id, balance);
+    /// }
+    /// ```
+    pub fn range_mut<R, Q>(&mut self, range: R) -> RangeMut<'_, K, V, H>
+    where
+        K: BorshDeserialize + Borrow<Q>,
+        Q: ?Sized + Ord,
+        R: RangeBounds<Q>,
+    {
+        RangeMut::new(self, (range.start_bound(), range.end_bound()))
     }
 }
 

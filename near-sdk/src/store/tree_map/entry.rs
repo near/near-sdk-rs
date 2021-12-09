@@ -33,9 +33,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::TreeMap;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// assert_eq!(map.entry("poneyland".to_string()).key(), &"poneyland");
     /// ```
     pub fn key(&self) -> &K {
@@ -56,9 +56,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::TreeMap;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     ///
     /// map.entry("poneyland".to_string()).or_insert(3);
     /// assert_eq!(map["poneyland"], 3);
@@ -76,9 +76,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::TreeMap;
     ///
-    /// let mut map: UnorderedMap<String, String> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, String> = TreeMap::new(b"m");
     /// let s = "hoho".to_string();
     ///
     /// map.entry("poneyland".to_string()).or_insert_with(|| s);
@@ -99,9 +99,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::TreeMap;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     ///
     /// map.entry("poneyland".to_string()).or_insert_with_key(|key| key.chars().count() as u32);
     ///
@@ -127,9 +127,9 @@ where
     ///
     /// ```
     /// # fn main() {
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::TreeMap;
     ///
-    /// let mut map: UnorderedMap<String, Option<u32>> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, Option<u32>> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_default();
     ///
     /// assert_eq!(map["poneyland"], None);
@@ -151,9 +151,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::TreeMap;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     ///
     /// map.entry("poneyland".to_string())
     ///    .and_modify(|e| { *e += 1 })
@@ -176,7 +176,7 @@ where
     }
 }
 
-/// View into an occupied entry in a [`UnorderedMap`](super::UnorderedMap).
+/// View into an occupied entry in a [`TreeMap`](super::TreeMap).
 /// This is part of the [`Entry`] enum.
 pub struct OccupiedEntry<'a, K, V>
 where
@@ -200,10 +200,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(o) = map.entry("poneyland".to_string()) {
@@ -227,10 +227,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(o) = map.entry("poneyland".to_string()) {
@@ -251,10 +251,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// assert_eq!(map["poneyland"], 12);
@@ -282,10 +282,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// assert_eq!(map["poneyland"], 12);
@@ -304,10 +304,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(mut o) = map.entry("poneyland".to_string()) {
@@ -325,10 +325,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
     ///
     /// if let Entry::Occupied(o) = map.entry("poneyland".to_string()) {
@@ -345,7 +345,7 @@ where
     }
 }
 
-/// View into a vacant entry in a [`UnorderedMap`](super::UnorderedMap).
+/// View into a vacant entry in a [`TreeMap`](super::TreeMap).
 /// This is part of the [`Entry`] enum.
 pub struct VacantEntry<'a, K, V>
 where
@@ -370,10 +370,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     ///
     /// if let Entry::Vacant(v) = map.entry("poneyland".to_string()) {
     ///     v.into_key();
@@ -389,10 +389,10 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::TreeMap;
+    /// use near_sdk::store::tree_map::Entry;
     ///
-    /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
+    /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
     ///
     /// if let Entry::Vacant(o) = map.entry("poneyland".to_string()) {
     ///     o.insert(37);
