@@ -238,7 +238,7 @@ where
     /// }
     /// ```
     pub fn get(&self) -> &V {
-        &self.value_entry.get()
+        self.value_entry.get()
     }
 
     /// Gets a mutable reference to the value in the entry.
@@ -317,7 +317,7 @@ where
     /// assert_eq!(map["poneyland"], 15);
     /// ```
     pub fn insert(&mut self, value: V) -> V {
-        core::mem::replace(&mut self.value_entry.get_mut(), value)
+        core::mem::replace(self.value_entry.get_mut(), value)
     }
 
     /// Takes the value out of the entry, and returns it.

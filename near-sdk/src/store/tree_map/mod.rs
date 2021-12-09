@@ -15,6 +15,8 @@ use crate::store::free_list::{FreeList, FreeListIndex};
 use crate::store::LookupMap;
 use crate::{env, IntoStorageKey};
 
+type NodeAndIndex<'a, K> = (FreeListIndex, &'a Node<K>);
+
 fn expect<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::abort())
 }
@@ -268,13 +270,13 @@ where
     /// Returns the smallest stored key from the tree
     fn min(&self) -> Option<&K> {
         let root = self.root?;
-        self.min_at(root).map(|(_, n, _)| &n.key)
+        self.min_at(root).map(|((_, n), _)| &n.key)
     }
 
     /// Returns the largest stored key from the tree
     fn max(&self) -> Option<&K> {
         let root = self.root?;
-        self.max_at(root).map(|(_, n, _)| &n.key)
+        self.max_at(root).map(|((_, n), _)| &n.key)
     }
 
     /// Returns the smallest key that is strictly greater than key given as the parameter
@@ -332,11 +334,8 @@ where
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn min_at(
-        &self,
-        mut at: FreeListIndex,
-    ) -> Option<(FreeListIndex, &Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
-        let mut parent: Option<(FreeListIndex, &Node<K>)> = None;
+    fn min_at(&self, mut at: FreeListIndex) -> Option<(NodeAndIndex<K>, Option<NodeAndIndex<K>>)> {
+        let mut parent: Option<NodeAndIndex<K>> = None;
         loop {
             let node = self.node(at);
             match node.and_then(|n| n.lft) {
@@ -345,7 +344,7 @@ where
                     at = lft;
                 }
                 None => {
-                    return node.map(|node| (at, node, parent));
+                    return node.map(|node| ((at, node), parent));
                 }
             }
         }
@@ -354,11 +353,8 @@ where
     /// Returns (node, parent node) of right-most lower (max) node starting from given node `at`.
     /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
     /// its parent must be explicitly provided in advance.
-    fn max_at(
-        &self,
-        mut at: FreeListIndex,
-    ) -> Option<(FreeListIndex, &Node<K>, Option<(FreeListIndex, &Node<K>)>)> {
-        let mut parent: Option<(FreeListIndex, &Node<K>)> = None;
+    fn max_at(&self, mut at: FreeListIndex) -> Option<(NodeAndIndex<K>, Option<NodeAndIndex<K>>)> {
+        let mut parent: Option<NodeAndIndex<K>> = None;
         loop {
             let node = self.node(at);
             match node.and_then(|n| n.rgt) {
@@ -367,7 +363,7 @@ where
                     at = rgt;
                 }
                 None => {
-                    return node.map(|node| (at, node, parent));
+                    return node.map(|node| ((at, node), parent));
                 }
             }
         }
@@ -447,11 +443,12 @@ where
 
     /// Returns (node, parent node) for a node that holds the `key`.
     /// For root node, same node is returned for node and parent node.
+    #[allow(clippy::type_complexity)]
     fn lookup_at<Q: ?Sized>(
         &self,
         mut at: FreeListIndex,
         key: &Q,
-    ) -> Option<((FreeListIndex, &Node<K>), Option<(FreeListIndex, &Node<K>, Edge)>)>
+    ) -> Option<(NodeAndIndex<K>, Option<(FreeListIndex, &Node<K>, Edge)>)>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
@@ -534,7 +531,7 @@ where
         node.ht = 1 + std::cmp::max(lft, rgt);
         // This side effect isn't great, but a lot of logic depends on values in storage/cache to be
         // up to date. Until changes and the tree are kept all in a single data structure, this
-        // will be necessary. 
+        // will be necessary.
         *expect(self.nodes.get_mut(id)) = node.clone();
     }
 
@@ -692,7 +689,7 @@ where
 
                 // k - min key from left subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (min_id, _, parent) = expect(self.max_at(left));
+                let ((min_id, _), parent) = expect(self.max_at(left));
                 let mut parent = parent.map(|(i, n)| (i, n.clone()));
 
                 let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
@@ -731,7 +728,7 @@ where
 
                 // k - min key from right subtree
                 // n - node that holds key k, p - immediate parent of n
-                let (min_id, _, parent) = expect(self.min_at(rgt));
+                let ((min_id, _), parent) = expect(self.min_at(rgt));
                 let mut parent = parent.map(|(i, n)| (i, n.clone()));
 
                 let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
@@ -1923,7 +1920,7 @@ mod tests {
         H: CryptoHasher<Digest = [u8; 32]>,
     {
         let node = map.tree.node(root).unwrap();
-        let balance = map.tree.get_balance(&node);
+        let balance = map.tree.get_balance(node);
 
         (balance >= -1 && balance <= 1)
             && node.lft.map(|id| is_balanced(map, id)).unwrap_or(true)
