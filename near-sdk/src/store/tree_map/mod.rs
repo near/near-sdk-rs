@@ -642,7 +642,6 @@ where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
     {
-        // println!("DR1 {:?}", self.nodes.iter().collect::<Vec<_>>());
         // r_node - node containing key of interest
         // p_node - immediate parent node of r_node
         let ((r_id, mut r_node), remove_parent) = match self
@@ -695,12 +694,13 @@ where
 
                 let replaced_key = if let Some((p_id, parent_node)) = &mut parent {
                     // Min has a parent, attach its left node to the parent before moving
-                    let min_right = expect(self.nodes.remove(min_id));
+                    let min_left = expect(self.nodes.remove(min_id));
 
-                    parent_node.rgt = min_right.lft;
+                    parent_node.rgt = min_left.lft;
 
-                    let r_key = core::mem::replace(&mut r_node.key, min_right.key);
+                    let r_key = core::mem::replace(&mut r_node.key, min_left.key);
                     self.update_height(parent_node, *p_id);
+                    *expect(self.nodes.get_mut(r_id)) = r_node.clone();
                     r_key
                 } else {
                     let max_left = expect(self.nodes.remove(min_id));
@@ -739,6 +739,7 @@ where
 
                     let r_key = core::mem::replace(&mut r_node.key, min_right.key);
                     self.update_height(parent_node, *p_id);
+                    *expect(self.nodes.get_mut(r_id)) = r_node.clone();
                     r_key
                 } else {
                     let min_right = expect(self.nodes.remove(min_id));
@@ -1448,6 +1449,30 @@ mod tests {
             map.insert(*x, 1);
             assert_eq!(map.get(x), Some(&1));
         }
+
+        assert!(is_balanced(&map, map.tree.root.unwrap()));
+
+        for x in &vec {
+            assert_eq!(map.get(x), Some(&1));
+            map.remove(x);
+            assert_eq!(map.get(x), None);
+        }
+        map.clear();
+    }
+
+    #[test]
+    // TODO remove
+    fn aate() {
+        let vec: Vec<u32> = vec![3, 1, 6, 4, 0, 5, 2];
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        for x in &vec {
+            assert_eq!(map.get(x), None);
+            map.insert(*x, 1);
+            assert_eq!(map.get(x), Some(&1));
+        }
+
+        assert!(is_balanced(&map, map.tree.root.unwrap()));
 
         for x in &vec {
             assert_eq!(map.get(x), Some(&1));
