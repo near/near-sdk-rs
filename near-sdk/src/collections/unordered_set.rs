@@ -171,6 +171,18 @@ where
     }
 }
 
+impl<T> std::fmt::Debug for UnorderedSet<T>
+where
+    T: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UnorderedSet")
+            .field("element_index_prefix", &self.element_index_prefix)
+            .field("elements", &self.elements)
+            .finish()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -329,5 +341,25 @@ mod tests {
 
         let actual: HashSet<u64> = set.iter().collect();
         assert_eq!(actual, keys);
+    }
+
+    #[test]
+    fn test_debug() {
+        let mut set = UnorderedSet::new(b"m");
+        set.insert(&1u64);
+        set.insert(&3u64);
+        set.insert(&2u64);
+
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(
+                format!("{:?}", set),
+                "UnorderedSet { element_index_prefix: [109, 105], elements: [1, 3, 2] }"
+            );
+        } else {
+            assert_eq!(
+                format!("{:?}", set),
+                "UnorderedSet { element_index_prefix: [109, 105], elements: Vector { len: 3, prefix: [109, 101] } }"
+            );
+        }
     }
 }

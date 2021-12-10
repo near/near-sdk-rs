@@ -21,7 +21,6 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
 #[derive(BorshSerialize, BorshDeserialize)]
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
@@ -233,6 +232,13 @@ where
 impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.to_vec().fmt(f)
+    }
+}
+
+#[cfg(not(feature = "expensive-debug"))]
+impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
     }
 }
 
@@ -474,7 +480,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", vec),
-                format!("Vector {{ len: 5, prefix: {:?}, el: PhantomData }}", vec.prefix)
+                format!("Vector {{ len: 5, prefix: {:?} }}", vec.prefix)
             );
         }
 
@@ -489,10 +495,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", deserialize_only_vec),
-                format!(
-                    "Vector {{ len: 5, prefix: {:?}, el: PhantomData }}",
-                    deserialize_only_vec.prefix
-                )
+                format!("Vector {{ len: 5, prefix: {:?} }}", deserialize_only_vec.prefix)
             );
         }
     }
