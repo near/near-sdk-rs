@@ -797,7 +797,7 @@ where
     where
         K: BorshDeserialize,
     {
-        Keys::new_unbounded(&self.tree)
+        Keys::new(&self.tree)
     }
 
     /// An iterator visiting all values in arbitrary order.
@@ -983,6 +983,7 @@ mod tests {
     use std::collections::HashSet;
     use std::fmt::Formatter;
     use std::fmt::{Debug, Result};
+    use std::ops::Bound;
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     fn height<K, V, H>(tree: &TreeMap<K, V, H>) -> u32
@@ -1641,186 +1642,160 @@ mod tests {
         assert_eq!(map.iter().rev().count(), 0);
     }
 
-    // #[test]
-    // fn test_iter_from() {
-    //     let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+    #[test]
+    fn test_iter_from() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-    //     let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-    //     let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
-    //     for x in &one {
-    //         map.insert(*x, 42);
-    //     }
+        for x in &one {
+            map.insert(*x, 42);
+        }
 
-    //     for x in &two {
-    //         map.insert(*x, 42);
-    //     }
+        for x in &two {
+            map.insert(*x, 42);
+        }
 
-    //     assert_eq!(
-    //         map.iter_from(29).collect::<Vec<(u32, u32)>>(),
-    //         vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]
-    //     );
+        assert_eq!(
+            map.range(30..).map(|(&a, &b)| (a, b)).collect::<Vec<(u32, u32)>>(),
+            vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.iter_from(30).collect::<Vec<(u32, u32)>>(),
-    //         vec![(35, 42), (40, 42), (45, 42), (50, 42)]
-    //     );
+        assert_eq!(
+            map.range(31..).map(|(&a, &b)| (a, b)).collect::<Vec<(u32, u32)>>(),
+            vec![(35, 42), (40, 42), (45, 42), (50, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.iter_from(31).collect::<Vec<(u32, u32)>>(),
-    //         vec![(35, 42), (40, 42), (45, 42), (50, 42)]
-    //     );
+        // Test custom iterator impls
+        assert_eq!(map.range(31..).nth(2), Some((&45, &42)));
+        assert_eq!(map.range(31..).count(), 4);
+        assert_eq!(map.range(31..).last(), Some((&50, &42)));
 
-    //     // Test custom iterator impls
-    //     assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
-    //     assert_eq!(map.iter_from(31).count(), 4);
-    //     assert_eq!(map.iter_from(31).last(), Some((50, 42)));
+        map.clear();
+    }
 
-    //     map.clear();
-    // }
+    #[test]
+    fn test_iter_from_empty() {
+        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+        assert_eq!(map.range(42..).count(), 0);
+    }
 
-    // #[test]
-    // fn test_iter_from_empty() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     assert_eq!(map.iter_from(42).count(), 0);
-    // }
+    #[test]
+    fn test_iter_rev_from() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-    // #[test]
-    // fn test_iter_rev_from() {
-    //     let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
-    //     let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-    //     let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        for x in &one {
+            map.insert(*x, 42);
+        }
 
-    //     for x in &one {
-    //         map.insert(x, &42);
-    //     }
+        for x in &two {
+            map.insert(*x, 42);
+        }
 
-    //     for x in &two {
-    //         map.insert(x, &42);
-    //     }
+        assert_eq!(
+            map.range(..29).rev().map(|(&a, &b)| (a, b)).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.iter_rev_from(29).collect::<Vec<(u32, u32)>>(),
-    //         vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
-    //     );
+        assert_eq!(
+            map.range(..30).rev().map(|(&a, &b)| (a, b)).collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.iter_rev_from(30).collect::<Vec<(u32, u32)>>(),
-    //         vec![(25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
-    //     );
+        assert_eq!(
+            map.range(..31).rev().map(|(&a, &b)| (a, b)).collect::<Vec<(u32, u32)>>(),
+            vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
-    //         vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
-    //     );
+        // Test custom iterator impls
+        assert_eq!(map.range(..31).rev().nth(2), Some((&20, &42)));
+        assert_eq!(map.range(..31).rev().count(), 6);
+        assert_eq!(map.range(..31).rev().last(), Some((&5, &42)));
 
-    //     // Test custom iterator impls
-    //     assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
-    //     assert_eq!(map.iter_rev_from(31).count(), 6);
-    //     assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
+        map.clear();
+    }
 
-    //     map.clear();
-    // }
+    #[test]
+    fn test_range() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-    // #[test]
-    // fn test_range() {
-    //     let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
 
-    //     let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-    //     let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        for x in &one {
+            map.insert(*x, 42);
+        }
 
-    //     for x in &one {
-    //         map.insert(x, &42);
-    //     }
+        for x in &two {
+            map.insert(*x, 42);
+        }
 
-    //     for x in &two {
-    //         map.insert(x, &42);
-    //     }
+        assert_eq!(
+            map.range((Bound::Included(20), Bound::Excluded(30)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![(20, 42), (25, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
-    //         vec![(20, 42), (25, 42)]
-    //     );
+        assert_eq!(
+            map.range((Bound::Excluded(10), Bound::Included(40)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![(15, 42), (20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.range((Bound::Excluded(10), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
-    //         vec![(15, 42), (20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
-    //     );
+        assert_eq!(
+            map.range((Bound::Included(20), Bound::Included(40)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![(20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.range((Bound::Included(20), Bound::Included(40))).collect::<Vec<(u32, u32)>>(),
-    //         vec![(20, 42), (25, 42), (30, 42), (35, 42), (40, 42)]
-    //     );
+        assert_eq!(
+            map.range((Bound::Excluded(20), Bound::Excluded(45)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42), (30, 42), (35, 42), (40, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
-    //         vec![(25, 42), (30, 42), (35, 42), (40, 42)]
-    //     );
+        assert_eq!(
+            map.range((Bound::Excluded(25), Bound::Excluded(30)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![]
+        );
 
-    //     assert_eq!(
-    //         map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
-    //         vec![]
-    //     );
+        assert_eq!(
+            map.range((Bound::Included(25), Bound::Included(25)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![(25, 42)]
+        );
 
-    //     assert_eq!(
-    //         map.range((Bound::Included(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
-    //         vec![(25, 42)]
-    //     );
+        assert_eq!(
+            map.range((Bound::Excluded(25), Bound::Included(25)))
+                .map(|(&a, &b)| (a, b))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![]
+        ); // the range makes no sense, but `BTreeMap` does not panic in this case
 
-    //     assert_eq!(
-    //         map.range((Bound::Excluded(25), Bound::Included(25))).collect::<Vec<(u32, u32)>>(),
-    //         vec![]
-    //     ); // the range makes no sense, but `BTreeMap` does not panic in this case
+        // Test custom iterator impls
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((&35, &42)));
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((&40, &42)));
 
-    //     // Test custom iterator impls
-    //     assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
-    //     assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
-    //     assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
+        map.clear();
+    }
 
-    //     map.clear();
-    // }
-
-    // #[test]
-    // #[should_panic(expected = "Invalid range.")]
-    // fn test_range_panics_same_excluded() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
-    // }
-
-    // #[test]
-    // #[should_panic(expected = "Invalid range.")]
-    // fn test_range_panics_non_overlap_incl_exlc() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
-    // }
-
-    // #[test]
-    // #[should_panic(expected = "Invalid range.")]
-    // fn test_range_panics_non_overlap_excl_incl() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
-    // }
-
-    // #[test]
-    // #[should_panic(expected = "Invalid range.")]
-    // fn test_range_panics_non_overlap_incl_incl() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     let _ = map.range((Bound::Included(2), Bound::Included(1)));
-    // }
-
-    // #[test]
-    // #[should_panic(expected = "Invalid range.")]
-    // fn test_range_panics_non_overlap_excl_excl() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
-    // }
-
-    // #[test]
-    // fn test_iter_rev_from_empty() {
-    //     let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-    //     assert_eq!(map.iter_rev_from(42).count(), 0);
-    // }
+    #[test]
+    fn test_iter_rev_from_empty() {
+        let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+        assert_eq!(map.range(..=42).rev().count(), 0);
+    }
 
     #[test]
     fn test_balance_regression_1() {

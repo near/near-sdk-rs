@@ -54,7 +54,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(map: &'a TreeMap<K, V, H>) -> Self {
-        Self { keys: Keys::new_unbounded(&map.tree), values: &map.values }
+        Self { keys: Keys::new(&map.tree), values: &map.values }
     }
 }
 
@@ -119,6 +119,23 @@ where
     }
 }
 
+fn get_entry_mut<'a, 'b, K, V, H>(map: &'b mut LookupMap<K, V, H>, key: &'a K) -> (&'a K, &'a mut V)
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    let entry = expect(map.get_mut(key));
+    //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
+    //*         will only give out one mutable reference for every individual key in the bucket
+    //*         during the iteration, and there is no overlap. This operates under the
+    //*         assumption that all elements in the bucket are unique and no hash collisions.
+    //*         Because we use 32 byte hashes and all keys are verified unique based on the
+    //*         `TreeMap` API, this is safe.
+    let value = unsafe { &mut *(entry as *mut V) };
+    (key, value)
+}
+
 /// A mutable iterator over elements of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `iter_mut` method on [`TreeMap`].
@@ -141,22 +158,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(map: &'a mut TreeMap<K, V, H>) -> Self {
-        Self { keys: Keys::new_unbounded(&map.tree), values: &mut map.values }
-    }
-    fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
-    where
-        K: Clone,
-        V: BorshDeserialize,
-    {
-        let entry = expect(self.values.get_mut(key));
-        //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
-        //*         will only give out one mutable reference for every individual key in the bucket
-        //*         during the iteration, and there is no overlap. This operates under the
-        //*         assumption that all elements in the bucket are unique and no hash collisions.
-        //*         Because we use 32 byte hashes and all keys are verified unique based on the
-        //*         `TreeMap` API, this is safe.
-        let value = unsafe { &mut *(entry as *mut V) };
-        (key, value)
+        Self { keys: Keys::new(&map.tree), values: &mut map.values }
     }
 }
 
@@ -174,7 +176,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        Some(self.get_entry_mut(key))
+        Some(get_entry_mut(self.values, key))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -213,7 +215,7 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        Some(self.get_entry_mut(key))
+        Some(get_entry_mut(self.values, key))
     }
 }
 
@@ -266,6 +268,28 @@ where
     Some((min, max))
 }
 
+fn next_asc<'a, K>(tree: &'a Tree<K>, bound: Bound<&'a K>) -> Option<&'a K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    match bound {
+        Bound::Unbounded => tree.min(),
+        Bound::Included(bound) => tree.ceil_key(bound),
+        Bound::Excluded(bound) => tree.higher(bound),
+    }
+}
+
+fn next_desc<'a, K>(tree: &'a Tree<K>, bound: Bound<&'a K>) -> Option<&'a K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    match bound {
+        Bound::Unbounded => tree.max(),
+        Bound::Included(bound) => tree.floor_key(bound),
+        Bound::Excluded(bound) => tree.lower(bound),
+    }
+}
+
 /// An iterator over the keys of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `keys` method on [`TreeMap`].
@@ -283,36 +307,8 @@ impl<'a, K> Keys<'a, K>
 where
     K: BorshSerialize + BorshDeserialize + Ord,
 {
-    pub(super) fn new<Q>(tree: &'a Tree<K>, bounds: (Bound<&Q>, Bound<&Q>)) -> Self
-    where
-        K: Borrow<Q>,
-        Q: ?Sized + Ord,
-    {
-        if let Some((min, max)) = get_range_bounds(tree, bounds) {
-            Self { tree, length: tree.nodes.len(), min, max }
-        } else {
-            Self { tree, length: 0, min: Bound::Unbounded, max: Bound::Unbounded }
-        }
-    }
-
-    pub(super) fn new_unbounded(map: &'a Tree<K>) -> Self {
-        Self::new(map, (Bound::Unbounded, Bound::Unbounded))
-    }
-
-    fn next_asc(&self) -> Option<&'a K> {
-        match self.min {
-            Bound::Unbounded => self.tree.min(),
-            Bound::Included(bound) => self.tree.ceil_key(bound),
-            Bound::Excluded(bound) => self.tree.higher(bound),
-        }
-    }
-
-    fn next_desc(&self) -> Option<&'a K> {
-        match self.max {
-            Bound::Unbounded => self.tree.max(),
-            Bound::Included(bound) => self.tree.floor_key(bound),
-            Bound::Excluded(bound) => self.tree.lower(bound),
-        }
+    pub(super) fn new(tree: &'a Tree<K>) -> Self {
+        Self { tree, length: tree.nodes.len(), min: Bound::Unbounded, max: Bound::Unbounded }
     }
 }
 
@@ -328,10 +324,10 @@ where
             return None;
         }
 
-        let next = self.next_asc();
-        if let Some(bound) = next {
+        let next = next_asc(self.tree, self.min);
+        if let Some(next) = next {
             // Update minimum bound.
-            self.min = Bound::Excluded(bound);
+            self.min = Bound::Excluded(next);
 
             // Decrease count of potential elements
             self.length -= 1;
@@ -355,12 +351,9 @@ where
 }
 
 impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize + Ord {}
-impl<'a: 'b, 'b: 'a, K> FusedIterator for Keys<'a, K> where
-    K: BorshSerialize + BorshDeserialize + Ord
-{
-}
+impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize + Ord {}
 
-impl<'a: 'b, 'b: 'a, K> DoubleEndedIterator for Keys<'a, K>
+impl<'a, K> DoubleEndedIterator for Keys<'a, K>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
 {
@@ -370,10 +363,137 @@ where
             return None;
         }
 
-        let next = self.next_desc();
-        if let Some(bound) = next {
+        let next = next_desc(self.tree, self.max);
+        if let Some(next) = next {
             // Update maximum bound.
-            self.max = Bound::Excluded(bound);
+            self.max = Bound::Excluded(next);
+
+            // Decrease count of potential elements
+            self.length -= 1;
+        } else {
+            // No more elements to iterate, set length to 0 to avoid duplicate lookups.
+            // Bounds can never be updated manually once initialized, so this can be done.
+            self.length = 0;
+        }
+
+        next
+    }
+}
+
+/// An iterator over the keys of a [`TreeMap`], in sorted order.
+///
+/// This `struct` is created by the `keys` method on [`TreeMap`].
+pub struct KeysRange<'a, K: 'a>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+{
+    tree: &'a Tree<K>,
+    length: u32,
+    min: Bound<&'a K>,
+    max: Bound<&'a K>,
+}
+
+impl<'a, K> KeysRange<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+{
+    pub(super) fn new<Q>(tree: &'a Tree<K>, bounds: (Bound<&Q>, Bound<&Q>)) -> Self
+    where
+        K: Borrow<Q>,
+        Q: ?Sized + Ord,
+    {
+        if let Some((min, max)) = get_range_bounds(tree, bounds) {
+            Self { tree, length: tree.nodes.len(), min, max }
+        } else {
+            Self { tree, length: 0, min: Bound::Unbounded, max: Bound::Unbounded }
+        }
+    }
+}
+
+impl<'a, K> Iterator for KeysRange<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+{
+    type Item = &'a K;
+
+    fn next(&mut self) -> Option<&'a K> {
+        if self.length == 0 {
+            // Short circuit if all elements have been iterated.
+            return None;
+        }
+
+        let next = next_asc(self.tree, self.min);
+        if let Some(next) = next {
+            // Check to make sure next key isn't past opposite bound.
+            match self.max {
+                Bound::Included(bound) => {
+                    if next.gt(bound) {
+                        self.length = 0;
+                        return None;
+                    }
+                }
+                Bound::Excluded(bound) => {
+                    if !next.lt(bound) {
+                        self.length = 0;
+                        return None;
+                    }
+                }
+                Bound::Unbounded => (),
+            }
+
+            // Update minimum bound.
+            self.min = Bound::Excluded(next);
+
+            // Decrease count of potential elements
+            self.length -= 1;
+        } else {
+            // No more elements to iterate, set length to 0 to avoid duplicate lookups.
+            // Bounds can never be updated manually once initialized, so this can be done.
+            self.length = 0;
+        }
+
+        next
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.length as usize;
+        (0, Some(len))
+    }
+}
+
+impl<'a, K> FusedIterator for KeysRange<'a, K> where K: BorshSerialize + BorshDeserialize + Ord {}
+
+impl<'a, K> DoubleEndedIterator for KeysRange<'a, K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    fn next_back(&mut self) -> Option<&'a K> {
+        if self.length == 0 {
+            // Short circuit if all elements have been iterated.
+            return None;
+        }
+
+        let next = next_desc(self.tree, self.max);
+        if let Some(next) = next {
+            // Check to make sure next key isn't past opposite bound
+            match self.min {
+                Bound::Included(bound) => {
+                    if next.lt(bound) {
+                        self.length = 0;
+                        return None;
+                    }
+                }
+                Bound::Excluded(bound) => {
+                    if !next.gt(bound) {
+                        self.length = 0;
+                        return None;
+                    }
+                }
+                Bound::Unbounded => (),
+            }
+
+            // Update maximum bound.
+            self.max = Bound::Excluded(next);
 
             // Decrease count of potential elements
             self.length -= 1;
@@ -552,7 +672,7 @@ where
     V: BorshSerialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    keys: Keys<'a, K>,
+    keys: KeysRange<'a, K>,
     values: &'a LookupMap<K, V, H>,
 }
 
@@ -567,7 +687,7 @@ where
         K: Borrow<Q>,
         Q: ?Sized + Ord,
     {
-        Self { keys: Keys::new(&map.tree, bounds), values: &map.values }
+        Self { keys: KeysRange::new(&map.tree, bounds), values: &map.values }
     }
 }
 
@@ -593,19 +713,8 @@ where
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.keys.size_hint()
     }
-
-    fn count(self) -> usize {
-        self.keys.count()
-    }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for Range<'a, K, V, H>
-where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
-    V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-}
 impl<'a, K, V, H> FusedIterator for Range<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
@@ -641,8 +750,7 @@ where
     V: BorshSerialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    /// Values iterator which contains empty and filled cells.
-    keys: Keys<'a, K>,
+    keys: KeysRange<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, V, H>,
 }
@@ -658,23 +766,7 @@ where
         K: Borrow<Q>,
         Q: ?Sized + Ord,
     {
-        Self { keys: Keys::new(&map.tree, bounds), values: &mut map.values }
-    }
-
-    fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
-    where
-        K: Clone,
-        V: BorshDeserialize,
-    {
-        let entry = expect(self.values.get_mut(key));
-        //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
-        //*         will only give out one mutable reference for every individual key in the bucket
-        //*         during the iteration, and there is no overlap. This operates under the
-        //*         assumption that all elements in the bucket are unique and no hash collisions.
-        //*         Because we use 32 byte hashes and all keys are verified unique based on the
-        //*         `TreeMap` API, this is safe.
-        let value = unsafe { &mut *(entry as *mut V) };
-        (key, value)
+        Self { keys: KeysRange::new(&map.tree, bounds), values: &mut map.values }
     }
 }
 
@@ -692,25 +784,14 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        Some(self.get_entry_mut(key))
+        Some(get_entry_mut(self.values, key))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.keys.size_hint()
     }
-
-    fn count(self) -> usize {
-        self.keys.count()
-    }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for RangeMut<'a, K, V, H>
-where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
-    V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-}
 impl<'a, K, V, H> FusedIterator for RangeMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
@@ -731,6 +812,6 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        Some(self.get_entry_mut(key))
+        Some(get_entry_mut(self.values, key))
     }
 }
