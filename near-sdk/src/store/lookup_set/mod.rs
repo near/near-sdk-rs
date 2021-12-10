@@ -1,11 +1,10 @@
 mod impls;
 
 use crate::crypto_hash::{CryptoHasher, Sha256};
-use crate::{env, IntoStorageKey};
+use crate::{env, IntoStorageKey, StableMap};
 use borsh::{BorshDeserialize, BorshSerialize};
+use once_cell::unsync::OnceCell;
 use std::borrow::Borrow;
-use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -23,7 +22,7 @@ where
 
     /// Cache that keeps track the state of elements in the underlying set.
     #[borsh_skip]
-    cache: RefCell<BTreeMap<T, Cell<EntryState>>>,
+    cache: StableMap<T, OnceCell<EntryState>>,
 
     #[borsh_skip]
     hasher: PhantomData<H>,
@@ -96,6 +95,25 @@ where
         env::storage_has_key(&lookup_key)
     }
 
+    fn get_mut_inner<Q: ?Sized>(&mut self, value: &Q) -> &mut EntryState
+    where
+        T: Borrow<Q>,
+        Q: BorshSerialize + ToOwned<Owned = T>,
+    {
+        let prefix = &self.prefix;
+        //* ToOwned bound, which forces a clone, is required to be able to keep the value in the cache
+        let entry = self.cache.get_mut(value.to_owned());
+        entry.get_or_init(|| {
+            if Self::contains_trie_element(prefix, value) {
+                EntryState::Present
+            } else {
+                EntryState::Absent
+            }
+        });
+        let entry = entry.get_mut().unwrap_or_else(|| unreachable!());
+        entry
+    }
+
     /// Initialize a [`LookupSet`] with a custom hash function.
     ///
     /// # Example
@@ -126,18 +144,16 @@ where
         T: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
-        let mut cache = self.cache.borrow_mut();
-        match cache.get(value).map(|cell| cell.get()) {
+        let entry_cell = self.cache.get(value.to_owned());
+        match entry_cell.get() {
             Some(EntryState::Inserted) | Some(EntryState::Present) => true,
             Some(EntryState::Deleted) | Some(EntryState::Absent) => false,
             None => {
-                let is_contained = Self::contains_trie_element(&self.prefix, value);
-                if is_contained {
-                    cache.insert(value.to_owned(), Cell::new(EntryState::Present));
-                } else {
-                    cache.insert(value.to_owned(), Cell::new(EntryState::Absent));
-                }
-                is_contained
+                let lookup_key = Self::lookup_key(&self.prefix, value, &mut Vec::new());
+                let contains = env::storage_has_key(&lookup_key);
+                let _ =
+                    entry_cell.set(if contains { EntryState::Present } else { EntryState::Absent });
+                contains
             }
         }
     }
@@ -147,24 +163,40 @@ where
     /// If the set did not have this value present, true is returned.
     ///
     /// If the set did have this value present, false is returned.
-    pub fn insert(&mut self, value: T) -> bool {
-        let mut cache = self.cache.borrow_mut();
-        match cache.get_mut(&value) {
-            Some(cell) => match cell.get() {
-                EntryState::Inserted | EntryState::Present => false,
-                EntryState::Deleted | EntryState::Absent => {
-                    cell.replace(EntryState::Inserted);
-                    true
-                }
-            },
-            None => {
-                if Self::contains_trie_element(&self.prefix, &value) {
-                    cache.insert(value, Cell::new(EntryState::Present));
-                    false
-                } else {
-                    cache.insert(value, Cell::new(EntryState::Inserted));
-                    true
-                }
+    pub fn insert(&mut self, value: T) -> bool
+    where
+        T: Clone,
+    {
+        let entry = self.get_mut_inner(&value);
+        match entry {
+            EntryState::Inserted | EntryState::Present => false,
+            EntryState::Deleted => {
+                let _ = std::mem::replace(entry, EntryState::Present);
+                true
+            }
+            EntryState::Absent => {
+                let _ = std::mem::replace(entry, EntryState::Inserted);
+                true
+            }
+        }
+    }
+
+    /// Puts the given value into the set.
+    ///
+    /// This function will not return whether the passed value was already in the set.
+    /// Use [`LookupSet::insert`] if you need that.
+    pub fn put(&mut self, value: T) {
+        let entry = self.cache.get_mut(value);
+        match entry.get_mut() {
+            Some(EntryState::Inserted) | Some(EntryState::Present) => {}
+            Some(EntryState::Deleted) => {
+                let _ = entry.set(EntryState::Present);
+            }
+            Some(EntryState::Absent) | None => {
+                // It is safe to mark an entry as `Inserted` even if it is already present on trie;
+                // it just means we will invoke `env::storage_write` one more time than strictly
+                // necessary.
+                let _ = entry.set(EntryState::Inserted);
             }
         }
     }
@@ -179,24 +211,17 @@ where
         T: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
-        let mut cache = self.cache.borrow_mut();
-        match cache.get_mut(value) {
-            Some(cell) => match cell.get() {
-                EntryState::Inserted | EntryState::Present => {
-                    cell.replace(EntryState::Deleted);
-                    true
-                }
-                EntryState::Deleted | EntryState::Absent => false,
-            },
-            None => {
-                if Self::contains_trie_element(&self.prefix, value) {
-                    cache.insert(value.to_owned(), Cell::new(EntryState::Deleted));
-                    true
-                } else {
-                    cache.insert(value.to_owned(), Cell::new(EntryState::Absent));
-                    false
-                }
+        let entry = self.get_mut_inner(&value);
+        match entry {
+            EntryState::Inserted => {
+                let _ = std::mem::replace(entry, EntryState::Absent);
+                true
             }
+            EntryState::Present => {
+                let _ = std::mem::replace(entry, EntryState::Deleted);
+                true
+            }
+            EntryState::Deleted | EntryState::Absent => false,
         }
     }
 }
@@ -211,21 +236,23 @@ where
     /// in memory.
     pub fn flush(&mut self) {
         let mut buf = Vec::new();
-        for (k, v) in self.cache.borrow_mut().iter_mut() {
-            match v.get() {
-                EntryState::Inserted => {
-                    buf.clear();
-                    let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
-                    env::storage_write(&lookup_key, &[]);
-                    v.replace(EntryState::Present);
+        for (k, v) in self.cache.inner().iter_mut() {
+            if let Some(entry) = v.get_mut() {
+                match entry {
+                    EntryState::Inserted => {
+                        buf.clear();
+                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
+                        env::storage_write(&lookup_key, &[]);
+                        let _ = std::mem::replace(entry, EntryState::Present);
+                    }
+                    EntryState::Deleted => {
+                        buf.clear();
+                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
+                        env::storage_remove(&lookup_key);
+                        let _ = std::mem::replace(entry, EntryState::Absent);
+                    }
+                    EntryState::Present | EntryState::Absent => {}
                 }
-                EntryState::Deleted => {
-                    buf.clear();
-                    let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
-                    env::storage_remove(&lookup_key);
-                    v.replace(EntryState::Absent);
-                }
-                EntryState::Present | EntryState::Absent => {}
             }
         }
     }

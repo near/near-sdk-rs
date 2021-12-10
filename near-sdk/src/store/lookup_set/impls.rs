@@ -12,7 +12,7 @@ where
         I: IntoIterator<Item = T>,
     {
         iter.into_iter().for_each(move |elem| {
-            self.insert(elem);
+            self.put(elem);
         });
     }
 }
