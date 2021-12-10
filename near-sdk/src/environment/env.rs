@@ -304,8 +304,8 @@ pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
 ///
 /// Returns 64 bytes representing the public key if the recovery was successful.
 pub fn ecrecover(
-    hash: &[u8; 32],
-    signature: &[u8; 64],
+    hash: &[u8],
+    signature: &[u8],
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
@@ -877,10 +877,8 @@ mod tests {
     #[test]
     fn test_ecrecover() {
         test_env::setup_free();
-        for EcrecoverTest { m, v, sig, mc, res } in from_slice::<'_, Vec<_>>(
-            std::fs::read("tests/ecrecover-tests.json").unwrap().as_slice(),
-        )
-        .unwrap()
+        for EcrecoverTest { m, v, sig, mc, res } in
+            from_slice::<'_, Vec<_>>(include_bytes!("../../tests/ecrecover-tests.json")).unwrap()
         {
             assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
         }
