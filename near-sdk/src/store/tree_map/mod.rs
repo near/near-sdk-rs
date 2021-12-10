@@ -204,6 +204,29 @@ where
         self.values.get(k)
     }
 
+    /// Returns the key-value pair corresponding to the supplied key.
+    ///
+    /// The supplied key may be any borrowed form of the map's key type, but the ordering
+    /// on the borrowed form *must* match the ordering on the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::TreeMap;
+    ///
+    /// let mut map = TreeMap::new(b"t");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.get_key_value(&1), Some((&1, &"a".to_string())));
+    /// assert_eq!(map.get_key_value(&2), None);
+    /// ```
+    pub fn get_key_value<Q: ?Sized>(&self, k: &Q) -> Option<(&K, &V)>
+    where
+        K: Borrow<Q> + BorshDeserialize,
+        Q: BorshSerialize + ToOwned<Owned = K> + Ord,
+    {
+        self.values.get(k).map(|v| (expect(self.tree.equal_key(k)), v))
+    }
+
     /// Returns a mutable reference to the value corresponding to the key.
     ///
     /// The key may be any borrowed form of the map's key type, but
