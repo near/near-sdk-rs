@@ -1930,62 +1930,62 @@ mod tests {
             .quickcheck(prop as fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>) -> bool);
     }
 
-    // fn range_prop(
-    //     insert: Vec<(u32, u32)>,
-    //     remove: Vec<u32>,
-    //     range: (Bound<u32>, Bound<u32>),
-    // ) -> bool {
-    //     let a = avl(&insert, &remove);
-    //     let b = rb(&insert, &remove);
-    //     let v1: Vec<(u32, u32)> = a.range(range).collect();
-    //     let v2: Vec<(u32, u32)> = b.range(range).map(|(k, v)| (*k, *v)).collect();
-    //     v1 == v2
-    // }
+    fn range_prop(
+        insert: Vec<(u32, u32)>,
+        remove: Vec<u32>,
+        range: (Bound<u32>, Bound<u32>),
+    ) -> bool {
+        let a = avl(&insert, &remove);
+        let b = rb(&insert, &remove);
+        let v1: Vec<(&u32, &u32)> = a.range(range).collect();
+        let v2: Vec<(&u32, &u32)> = b.range(range).collect();
+        v1 == v2
+    }
 
-    // type Prop = fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>, u32, u32) -> bool;
+    type Prop = fn(std::vec::Vec<(u32, u32)>, std::vec::Vec<u32>, u32, u32) -> bool;
 
-    // #[test]
-    // fn prop_avl_vs_rb_range_incl_incl() {
-    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-    //         let range = (Bound::Included(r1.min(r2)), Bound::Included(r1.max(r2)));
-    //         range_prop(insert, remove, range)
-    //     }
+    #[test]
+    fn prop_avl_vs_rb_range_incl_incl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            let range = (Bound::Included(r1.min(r2)), Bound::Included(r1.max(r2)));
+            range_prop(insert, remove, range)
+        }
 
-    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    // }
+        QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
 
-    // #[test]
-    // fn prop_avl_vs_rb_range_incl_excl() {
-    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-    //         let range = (Bound::Included(r1.min(r2)), Bound::Excluded(r1.max(r2)));
-    //         range_prop(insert, remove, range)
-    //     }
+    #[test]
+    fn prop_avl_vs_rb_range_incl_excl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            let range = (Bound::Included(r1.min(r2)), Bound::Excluded(r1.max(r2)));
+            range_prop(insert, remove, range)
+        }
 
-    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    // }
+        QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
 
-    // #[test]
-    // fn prop_avl_vs_rb_range_excl_incl() {
-    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-    //         let range = (Bound::Excluded(r1.min(r2)), Bound::Included(r1.max(r2)));
-    //         range_prop(insert, remove, range)
-    //     }
+    #[test]
+    fn prop_avl_vs_rb_range_excl_incl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            let range = (Bound::Excluded(r1.min(r2)), Bound::Included(r1.max(r2)));
+            range_prop(insert, remove, range)
+        }
 
-    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    // }
+        QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
 
-    // #[test]
-    // fn prop_avl_vs_rb_range_excl_excl() {
-    //     fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
-    //         // (Excluded(x), Excluded(x)) is invalid range, checking against it makes no sense
-    //         r1 == r2 || {
-    //             let range = (Bound::Excluded(r1.min(r2)), Bound::Excluded(r1.max(r2)));
-    //             range_prop(insert, remove, range)
-    //         }
-    //     }
+    #[test]
+    fn prop_avl_vs_rb_range_excl_excl() {
+        fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>, r1: u32, r2: u32) -> bool {
+            // (Excluded(x), Excluded(x)) is invalid range, checking against it makes no sense
+            r1 == r2 || {
+                let range = (Bound::Excluded(r1.min(r2)), Bound::Excluded(r1.max(r2)));
+                range_prop(insert, remove, range)
+            }
+        }
 
-    //     QuickCheck::new().tests(300).quickcheck(prop as Prop);
-    // }
+        QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
 
     #[test]
     fn entry_api() {
