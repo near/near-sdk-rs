@@ -21,7 +21,7 @@ pub struct TreeMap<K, V> {
     tree: Vector<Node<K>>,
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
 pub struct Node<K> {
     id: u64,
     key: K,           // key stored in a node
@@ -580,6 +580,16 @@ where
     }
 }
 
+impl<K, V> std::fmt::Debug for TreeMap<K, V>
+where
+    K: std::fmt::Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TreeMap").field("root", &self.root).field("tree", &self.tree).finish()
+    }
+}
+
 impl<'a, K, V> IntoIterator for &'a TreeMap<K, V>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
@@ -733,8 +743,6 @@ mod tests {
     use quickcheck::QuickCheck;
     use std::collections::BTreeMap;
     use std::collections::HashSet;
-    use std::fmt::Formatter;
-    use std::fmt::{Debug, Result};
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     fn height<K, V>(tree: &TreeMap<K, V>) -> u64
@@ -769,34 +777,6 @@ mod tests {
 
         let h = C * log2(n as f64 + D) + B;
         h.ceil() as u64
-    }
-
-    impl<K> Debug for Node<K>
-    where
-        K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            f.debug_struct("Node")
-                .field("id", &self.id)
-                .field("key", &self.key)
-                .field("lft", &self.lft)
-                .field("rgt", &self.rgt)
-                .field("ht", &self.ht)
-                .finish()
-        }
-    }
-
-    impl<K, V> Debug for TreeMap<K, V>
-    where
-        K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
-        V: Debug + BorshSerialize + BorshDeserialize,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            f.debug_struct("TreeMap")
-                .field("root", &self.root)
-                .field("tree", &self.tree.iter().collect::<Vec<Node<K>>>())
-                .finish()
-        }
     }
 
     #[test]
@@ -1682,8 +1662,8 @@ mod tests {
 
     fn is_balanced<K, V>(map: &TreeMap<K, V>, root: u64) -> bool
     where
-        K: Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
-        V: Debug + BorshSerialize + BorshDeserialize,
+        K: std::fmt::Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
     {
         let node = map.node(root).unwrap();
         let balance = map.get_balance(&node);
@@ -1776,5 +1756,28 @@ mod tests {
         }
 
         QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
+
+    #[test]
+    fn test_debug() {
+        let mut map = TreeMap::new(b"m");
+        map.insert(&1, &100);
+        map.insert(&3, &300);
+        map.insert(&2, &200);
+
+        if cfg!(feature = "expensive-debug") {
+            let node1 = "Node { id: 0, key: 1, lft: None, rgt: None, ht: 1 }";
+            let node2 = "Node { id: 2, key: 2, lft: Some(0), rgt: Some(1), ht: 2 }";
+            let node3 = "Node { id: 1, key: 3, lft: None, rgt: None, ht: 1 }";
+            assert_eq!(
+                format!("{:?}", map),
+                format!("TreeMap {{ root: 2, tree: [{}, {}, {}] }}", node1, node3, node2)
+            );
+        } else {
+            assert_eq!(
+                format!("{:?}", map),
+                "TreeMap { root: 2, tree: Vector { len: 3, prefix: [109, 110] } }"
+            );
+        }
     }
 }
