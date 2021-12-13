@@ -152,22 +152,22 @@ impl<'a> NearEvent<'a> {
         format!("EVENT_JSON:{}", self.to_json_string())
     }
 
-    pub fn log(&self) {
+    pub fn emit(&self) {
         near_sdk::env::log_str(&self.to_json_event_string());
     }
 
-    pub fn log_nft_mint<S>(owner_id: S, token_ids: Vec<S>, memo: Option<S>)
+    pub fn emit_nft_mint<S>(owner_id: S, token_ids: Vec<S>, memo: Option<S>)
     where
         S: Into<Cow<'a, str>>,
     {
-        NearEvent::log_nft_mints(vec![NftMintData::new(owner_id, token_ids, memo)]);
+        NearEvent::emit_nft_mints(vec![NftMintData::new(owner_id, token_ids, memo)]);
     }
 
-    pub fn log_nft_mints(data: Vec<NftMintData<'a>>) {
-        NearEvent::nft_mint(data).log();
+    pub fn emit_nft_mints(data: Vec<NftMintData<'a>>) {
+        NearEvent::nft_mint(data).emit();
     }
 
-    pub fn log_nft_transfer<S>(
+    pub fn emit_nft_transfer<S>(
         old_owner_id: String,
         new_owner_id: String,
         token_ids: Vec<String>,
@@ -176,7 +176,7 @@ impl<'a> NearEvent<'a> {
     ) where
         S: Into<Cow<'a, str>>,
     {
-        NearEvent::log_nft_transfers(vec![NftTransferData::new(
+        NearEvent::emit_nft_transfers(vec![NftTransferData::new(
             old_owner_id,
             new_owner_id,
             token_ids,
@@ -185,8 +185,8 @@ impl<'a> NearEvent<'a> {
         )]);
     }
 
-    pub fn log_nft_transfers(data: Vec<NftTransferData<'a>>) {
-        NearEvent::nft_transfer(data).log()
+    pub fn emit_nft_transfers(data: Vec<NftTransferData<'a>>) {
+        NearEvent::nft_transfer(data).emit()
     }
 
     pub fn log_nft_burn<S>(
@@ -197,11 +197,11 @@ impl<'a> NearEvent<'a> {
     ) where
         S: Into<Cow<'a, str>>,
     {
-        NearEvent::log_nft_burns(vec![NftBurnData::new(owner_id, token_ids, authorized_id, memo)]);
+        NearEvent::emit_nft_burns(vec![NftBurnData::new(owner_id, token_ids, authorized_id, memo)]);
     }
 
-    pub fn log_nft_burns(data: Vec<NftBurnData<'a>>) {
-        NearEvent::nft_burn(data).log()
+    pub fn emit_nft_burns(data: Vec<NftBurnData<'a>>) {
+        NearEvent::nft_burn(data).emit()
     }
 }
 
