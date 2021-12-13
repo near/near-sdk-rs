@@ -95,7 +95,6 @@ where
     hasher: PhantomData<H>,
 }
 
-// #[derive(Default)]
 struct EntryAndHash<V> {
     value: OnceCell<CacheEntry<V>>,
     hash: OnceCell<[u8; 32]>,

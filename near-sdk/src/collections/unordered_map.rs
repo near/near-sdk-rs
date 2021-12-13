@@ -241,6 +241,20 @@ where
     }
 }
 
+impl<K, V> std::fmt::Debug for UnorderedMap<K, V>
+where
+    K: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+    V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UnorderedMap")
+            .field("key_index_prefix", &self.key_index_prefix)
+            .field("keys", &self.keys)
+            .field("values", &self.values)
+            .finish()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -441,5 +455,27 @@ mod tests {
 
         let actual: HashMap<u64, u64> = map.iter().collect();
         assert_eq!(actual, key_to_value);
+    }
+
+    #[test]
+    fn test_debug() {
+        let mut map = UnorderedMap::new(b"m");
+        map.insert(&1u64, &100u64);
+        map.insert(&3u64, &300u64);
+        map.insert(&2u64, &200u64);
+
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(
+                format!("{:?}", map),
+                "UnorderedMap { key_index_prefix: [109, 105], keys: [1, 3, 2], values: [100, 300, 200] }"
+            );
+        } else {
+            assert_eq!(
+                format!("{:?}", map),
+                "UnorderedMap { key_index_prefix: [109, 105], \
+                keys: Vector { len: 3, prefix: [109, 107] }, \
+                values: Vector { len: 3, prefix: [109, 118] } }"
+            );
+        }
     }
 }
