@@ -77,12 +77,12 @@ impl UserTransaction {
     /// Execute contract call to receiver
     pub fn function_call(
         mut self,
-        method_name: String,
+        function_name: String,
         args: Vec<u8>,
         gas: Gas,
         deposit: Balance,
     ) -> Self {
-        self.transaction = self.transaction.function_call(method_name, args, gas, deposit);
+        self.transaction = self.transaction.function_call(function_name, args, gas, deposit);
         self
     }
 

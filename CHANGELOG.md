@@ -1,6 +1,16 @@
 # Changelog
 
 ## [unreleased]
+- fix(standards): Fix NFT impl macros to not import `HashMap` and `near_sdk::json_types::U128`. [PR 571](https://github.com/near/near-sdk-rs/pull/571).
+- Add drain iterator for `near_sdk::store::UnorderedMap`. [PR 613](https://github.com/near/near-sdk-rs/pull/613).
+  - Will remove all values and iterate over owned values that were removed
+- Fix codegen for methods inside a `#[near_bindgen]` to allow using `mut self` which will generate the same code as `self` and will not persist state. [PR 616](https://github.com/near/near-sdk-rs/pull/616).
+- Make function call terminology consistent by switching from method name usages. [PR 633](https://github.com/near/near-sdk-rs/pull/633).
+  - This is only a breaking change if inspecting the `VmAction`s of receipts in mocked environments. All other changes are positional argument names.
+- Add consts for near, yocto, and tgas. [PR 640](https://github.com/near/near-sdk-rs/pull/640).
+  - `near_sdk::ONE_NEAR`, `near_sdk::ONE_YOCTO`, `near_sdk::Gas::ONE_TERA`
+- Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)
+- store: Implement caching `LookupSet` type. This is the new iteration of the previous version of `near_sdk::collections::LookupSet` that has an updated API, and is located at `near_sdk::store::LookupSet`. [PR 654](https://github.com/near/near-sdk-rs/pull/654).
 
 ## `4.0.0-pre.4` [10-15-2021]
 - Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)
@@ -14,6 +24,8 @@
   - When mixing using `sys` and `env`, reduces chance of collision for using `0`
 - store: Implement caching `LookupMap` type. This is the new iteration of the previous version of `near_sdk::collections::LookupMap` that has an updated API, and is located at `near_sdk::store::LookupMap`. [PR 487](https://github.com/near/near-sdk-rs/pull/487).
   - The internal storage format has changed from `collections::LookupMap` so the type cannot be swapped out without some migration.
+- Implement `drain` iterator for `near_sdk::store::Vector`. [PR 592](https://github.com/near/near-sdk-rs/pull/592)
+  - This allows any range of the vector to be removed and iterate on the removed values and the vector will be collapsed
 - store: Implement caching `UnorderedMap` type. [PR 584](https://github.com/near/near-sdk-rs/pull/584).
   - Similar change to `LookupMap` update, and is an iterable version of that data structure.
   - Data structure has also changed internal storage format and cannot be swapped with `collections::UnorderedMap` without manual migration.

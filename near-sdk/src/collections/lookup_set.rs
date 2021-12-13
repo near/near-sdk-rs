@@ -88,6 +88,15 @@ where
     }
 }
 
+impl<T> std::fmt::Debug for LookupSet<T>
+where
+    T: std::fmt::Debug + BorshSerialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LookupSet").field("element_prefix", &self.element_prefix).finish()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -203,5 +212,15 @@ mod tests {
         for key in keys {
             assert!(set.contains(&key));
         }
+    }
+
+    #[test]
+    fn test_debug() {
+        let set: LookupSet<u64> = LookupSet::new(b"m");
+
+        assert_eq!(
+            format!("{:?}", set),
+            format!("LookupSet {{ element_prefix: {:?} }}", set.element_prefix)
+        );
     }
 }

@@ -21,3 +21,9 @@ pub type Timestamp = u64;
 
 /// Raw type for 32 bytes of the hash.
 pub type CryptoHash = [u8; 32];
+
+/// Balance of one Yocto NEAR, which is the smallest denomination. This value is 10^-24 of one NEAR.
+pub const ONE_YOCTO: Balance = 1;
+
+/// Balance of one NEAR, which is 10^24 Yocto NEAR.
+pub const ONE_NEAR: Balance = 1_000_000_000_000_000_000_000_000;

@@ -12,7 +12,7 @@ use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
-pub use self::iter::{Iter, IterMut, Keys, Values, ValuesMut};
+pub use self::iter::{Drain, Iter, IterMut, Keys, Values, ValuesMut};
 use super::free_list::FreeListIndex;
 use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
 
@@ -216,6 +216,21 @@ where
 
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"m");
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
+    /// map.insert("c".to_string(), 3);
+    ///
+    /// for (key, val) in map.iter() {
+    ///     println!("key: {} val: {}", key, val);
+    /// }
+    /// ```
     pub fn iter(&self) -> Iter<K, V, H>
     where
         K: BorshDeserialize,
@@ -226,6 +241,26 @@ where
     /// An iterator visiting all key-value pairs in arbitrary order,
     /// with exclusive references to the values.
     /// The iterator element type is `(&'a K, &'a mut V)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"m");
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
+    /// map.insert("c".to_string(), 3);
+    ///
+    /// // Update all values
+    /// for (_, val) in map.iter_mut() {
+    ///     *val *= 2;
+    /// }
+    ///
+    /// for (key, val) in &map {
+    ///     println!("key: {} val: {}", key, val);
+    /// }
+    /// ```
     pub fn iter_mut(&mut self) -> IterMut<K, V, H>
     where
         K: BorshDeserialize,
@@ -235,6 +270,21 @@ where
 
     /// An iterator visiting all keys in arbitrary order.
     /// The iterator element type is `&'a K`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"m");
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
+    /// map.insert("c".to_string(), 3);
+    ///
+    /// for key in map.keys() {
+    ///     println!("{}", key);
+    /// }
+    /// ```
     pub fn keys(&self) -> Keys<K>
     where
         K: BorshDeserialize,
@@ -244,6 +294,21 @@ where
 
     /// An iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a V`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"m");
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
+    /// map.insert("c".to_string(), 3);
+    ///
+    /// for val in map.values() {
+    ///     println!("{}", val);
+    /// }
+    /// ```
     pub fn values(&self) -> Values<K, V, H>
     where
         K: BorshDeserialize,
@@ -253,11 +318,57 @@ where
 
     /// A mutable iterator visiting all values in arbitrary order.
     /// The iterator element type is `&'a mut V`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"m");
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
+    /// map.insert("c".to_string(), 3);
+    ///
+    /// for val in map.values_mut() {
+    ///     *val = *val + 10;
+    /// }
+    ///
+    /// for val in map.values() {
+    ///     println!("{}", val);
+    /// }
+    /// ```
     pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
     where
         K: BorshDeserialize,
     {
         ValuesMut::new(self)
+    }
+
+    /// Clears the map, returning all key-value pairs as an iterator.
+    ///
+    /// This will clear all values, even if only some key/value pairs are yielded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut a = UnorderedMap::new(b"m");
+    /// a.insert(1, "a".to_string());
+    /// a.insert(2, "b".to_string());
+    ///
+    /// for (k, v) in a.drain().take(1) {
+    ///     assert!(k == 1 || k == 2);
+    ///     assert!(&v == "a" || &v == "b");
+    /// }
+    ///
+    /// assert!(a.is_empty());
+    /// ```
+    pub fn drain(&mut self) -> Drain<K, V, H>
+    where
+        K: BorshDeserialize,
+    {
+        Drain::new(self)
     }
 }
 

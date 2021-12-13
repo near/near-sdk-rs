@@ -98,7 +98,6 @@ impl GenesisConfig {
 pub struct Block {
     prev_block: Option<Arc<Block>>,
     state_root: CryptoHash,
-    gas_burnt: Gas,
     pub epoch_height: EpochHeight,
     pub block_height: BlockHeight,
     pub block_timestamp: u64,
@@ -127,7 +126,6 @@ impl Block {
             block_timestamp: genesis_config.genesis_time,
             gas_price: genesis_config.gas_price,
             gas_limit: genesis_config.gas_limit,
-            gas_burnt: 0,
         }
     }
 
@@ -145,7 +143,6 @@ impl Block {
             state_root: new_state_root,
             block_height: self.block_height + 1,
             epoch_height: (self.block_height + 1) / epoch_length,
-            gas_burnt: 0,
         }
     }
 }
@@ -347,7 +344,12 @@ impl RuntimeStandalone {
     }
 
     /// Returns a ViewResult containing the value or error and any logs
-    pub fn view_method_call(&self, account_id: &str, method_name: &str, args: &[u8]) -> ViewResult {
+    pub fn view_method_call(
+        &self,
+        account_id: &str,
+        function_name: &str,
+        args: &[u8],
+    ) -> ViewResult {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};
         let mut logs = vec![];
@@ -365,7 +367,7 @@ impl RuntimeStandalone {
             trie_update,
             view_state,
             &account_id.to_string(),
-            method_name,
+            function_name,
             args,
             &mut logs,
             self.epoch_info_provider.as_ref(),
