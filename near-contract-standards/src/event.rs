@@ -156,8 +156,7 @@ impl<'a> NearEvent<'a> {
         near_sdk::env::log_str(&self.to_json_event_string());
     }
 
-    pub fn emit_nft_mint(owner_id: &str, token_ids: Vec<&str>, memo: Option<&str>)
-    {
+    pub fn emit_nft_mint(owner_id: &str, token_ids: Vec<&str>, memo: Option<&str>) {
         NearEvent::emit_nft_mints(vec![NftMintData::new(owner_id, token_ids, memo)]);
     }
 
@@ -171,8 +170,7 @@ impl<'a> NearEvent<'a> {
         token_ids: Vec<&str>,
         authorized_id: Option<&str>,
         memo: Option<&str>,
-    )
-    {
+    ) {
         NearEvent::emit_nft_transfers(vec![NftTransferData::new(
             old_owner_id,
             new_owner_id,
@@ -191,8 +189,7 @@ impl<'a> NearEvent<'a> {
         token_ids: Vec<&str>,
         authorized_id: Option<&str>,
         memo: Option<&str>,
-    )
-    {
+    ) {
         NearEvent::emit_nft_burns(vec![NftBurnData::new(owner_id, token_ids, authorized_id, memo)]);
     }
 
