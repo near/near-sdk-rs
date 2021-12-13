@@ -156,9 +156,7 @@ impl<'a> NearEvent<'a> {
         near_sdk::env::log_str(&self.to_json_event_string());
     }
 
-    pub fn emit_nft_mint<S>(owner_id: S, token_ids: Vec<S>, memo: Option<S>)
-    where
-        S: Into<Cow<'a, str>>,
+    pub fn emit_nft_mint(owner_id: &str, token_ids: Vec<&str>, memo: Option<&str>)
     {
         NearEvent::emit_nft_mints(vec![NftMintData::new(owner_id, token_ids, memo)]);
     }
@@ -167,14 +165,13 @@ impl<'a> NearEvent<'a> {
         NearEvent::nft_mint(data).emit();
     }
 
-    pub fn emit_nft_transfer<S>(
-        old_owner_id: String,
-        new_owner_id: String,
-        token_ids: Vec<String>,
-        authorized_id: Option<String>,
-        memo: Option<String>,
-    ) where
-        S: Into<Cow<'a, str>>,
+    pub fn emit_nft_transfer(
+        old_owner_id: &str,
+        new_owner_id: &str,
+        token_ids: Vec<&str>,
+        authorized_id: Option<&str>,
+        memo: Option<&str>,
+    )
     {
         NearEvent::emit_nft_transfers(vec![NftTransferData::new(
             old_owner_id,
@@ -189,13 +186,12 @@ impl<'a> NearEvent<'a> {
         NearEvent::nft_transfer(data).emit()
     }
 
-    pub fn log_nft_burn<S>(
-        owner_id: S,
-        token_ids: Vec<S>,
-        authorized_id: Option<S>,
-        memo: Option<S>,
-    ) where
-        S: Into<Cow<'a, str>>,
+    pub fn emit_nft_burn(
+        owner_id: &str,
+        token_ids: Vec<&str>,
+        authorized_id: Option<&str>,
+        memo: Option<&str>,
+    )
     {
         NearEvent::emit_nft_burns(vec![NftBurnData::new(owner_id, token_ids, authorized_id, memo)]);
     }
@@ -265,11 +261,11 @@ mod tests {
 
     #[test]
     fn nft_transfer() {
-        let old_owner_id = "bob";
+        let old_owner_id = "bob".to_string();
         let new_owner_id = "alice";
         let token_ids = vec!["0", "1"];
-        let log = NearEvent::nft_transfer(vec![NftTransferData::new(
-            old_owner_id,
+        let log = NearEvent::nft_transfer(vec![NftTransferData::new::<&str>(
+            &old_owner_id,
             new_owner_id,
             token_ids,
             None,
