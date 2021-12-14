@@ -9,7 +9,8 @@
   - This is only a breaking change if inspecting the `VmAction`s of receipts in mocked environments. All other changes are positional argument names.
 - Add consts for near, yocto, and tgas. [PR 640](https://github.com/near/near-sdk-rs/pull/640).
   - `near_sdk::ONE_NEAR`, `near_sdk::ONE_YOCTO`, `near_sdk::Gas::ONE_TERA`
-- Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)9
+- Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)
+- store: Implement caching `LookupSet` type. This is the new iteration of the previous version of `near_sdk::collections::LookupSet` that has an updated API, and is located at `near_sdk::store::LookupSet`. [PR 654](https://github.com/near/near-sdk-rs/pull/654).
 - Added `_array` suffix versions of `sha256`, `keccak256`, and `keccak512` hash functions in `env` [PR 646](https://github.com/near/near-sdk-rs/pull/646)
   - These return a fixed length array instead of heap allocating with `Vec<u8>`
 

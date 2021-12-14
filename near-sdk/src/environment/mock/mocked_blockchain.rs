@@ -37,7 +37,7 @@ impl Default for MockedBlockchain {
 struct LogicFixture {
     ext: Box<SdkExternal>,
     memory: Box<dyn MemoryLike>,
-    #[allow(clippy::box_vec)]
+    #[allow(clippy::box_collection)]
     promise_results: Box<Vec<VmPromiseResult>>,
     config: Box<VMConfig>,
     fees_config: Box<RuntimeFeesConfig>,
