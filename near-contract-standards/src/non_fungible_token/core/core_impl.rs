@@ -318,7 +318,7 @@ impl NonFungibleToken {
             token_id,
             token_owner_id,
             token_metadata,
-            Some(self.owner_id.clone()),
+            Some(env::predecessor_account_id()),
         )
     }
 
