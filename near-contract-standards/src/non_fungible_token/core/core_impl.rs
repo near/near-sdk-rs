@@ -305,7 +305,7 @@ impl NonFungibleToken {
 
     /// Mint a new token without checking:
     /// * Whether the caller id is equal to the `owner_id`
-    /// * Assumes there will be a refund to the owner after covering the storage costs
+    /// * Assumes there will be a refund to the predecessor after covering the storage costs
     ///
     /// Returns the newly minted token
     pub fn internal_mint(
