@@ -21,6 +21,7 @@ fn check_example_size(example: &str) -> usize {
 }
 
 #[test]
+#[ignore = "Size of contracts currently kept in sync with changes"]
 fn lock_fungible_code_size_check() {
     let size = check_example_size("lockable-fungible-token");
 
@@ -29,6 +30,7 @@ fn lock_fungible_code_size_check() {
 }
 
 #[test]
+#[ignore = "Size of contracts currently kept in sync with changes"]
 fn status_message_code_size_check() {
     let size = check_example_size("status-message");
 
