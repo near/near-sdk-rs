@@ -129,6 +129,16 @@ where
     }
 }
 
+impl<K, V> std::fmt::Debug for LookupMap<K, V>
+where
+    K: std::fmt::Debug + BorshSerialize,
+    V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LookupMap").field("key_prefix", &self.key_prefix).finish()
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -283,5 +293,15 @@ mod tests {
         for (key, value) in key_to_value {
             assert_eq!(map.get(&key).unwrap(), value);
         }
+    }
+
+    #[test]
+    fn test_debug() {
+        let map: LookupMap<u64, u64> = LookupMap::new(b"m");
+
+        assert_eq!(
+            format!("{:?}", map),
+            format!("LookupMap {{ key_prefix: {:?} }}", map.key_prefix)
+        );
     }
 }
