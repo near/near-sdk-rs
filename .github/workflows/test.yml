@@ -48,4 +48,5 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: Swatinem/rust-cache@v1
-      - run: cargo check --features unstable
+      - run: cargo check -p near-sdk --features unstable
+      - run: cargo check -p near-contract-standards
