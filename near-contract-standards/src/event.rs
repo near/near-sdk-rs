@@ -133,13 +133,17 @@ impl<'a> NearEvent<'a> {
         NearEvent::new_171("1.0.0", event_kind)
     }
 
+    #[must_use = "don't forget to .emit() the event"]
     pub fn nft_burn(data: Vec<NftBurnData<'a>>) -> Self {
         NearEvent::new_171_v1(Nep171EventKind::NftBurn(data))
     }
+
+    #[must_use = "don't forget to .emit() the event"]
     pub fn nft_transfer(data: Vec<NftTransferData<'a>>) -> Self {
         NearEvent::new_171_v1(Nep171EventKind::NftTransfer(data))
     }
 
+    #[must_use = "don't forget to .emit() the event"]
     pub fn nft_mint(data: Vec<NftMintData<'a>>) -> Self {
         NearEvent::new_171_v1(Nep171EventKind::NftMint(data))
     }
@@ -154,47 +158,6 @@ impl<'a> NearEvent<'a> {
 
     pub fn emit(&self) {
         near_sdk::env::log_str(&self.to_json_event_string());
-    }
-
-    pub fn emit_nft_mint(owner_id: &str, token_ids: Vec<&str>, memo: Option<&str>) {
-        NearEvent::emit_nft_mints(vec![NftMintData::new(owner_id, token_ids, memo)]);
-    }
-
-    pub fn emit_nft_mints(data: Vec<NftMintData<'a>>) {
-        NearEvent::nft_mint(data).emit();
-    }
-
-    pub fn emit_nft_transfer(
-        old_owner_id: &str,
-        new_owner_id: &str,
-        token_ids: Vec<&str>,
-        authorized_id: Option<&str>,
-        memo: Option<&str>,
-    ) {
-        NearEvent::emit_nft_transfers(vec![NftTransferData::new(
-            old_owner_id,
-            new_owner_id,
-            token_ids,
-            authorized_id,
-            memo,
-        )]);
-    }
-
-    pub fn emit_nft_transfers(data: Vec<NftTransferData<'a>>) {
-        NearEvent::nft_transfer(data).emit()
-    }
-
-    pub fn emit_nft_burn(
-        owner_id: &str,
-        token_ids: Vec<&str>,
-        authorized_id: Option<&str>,
-        memo: Option<&str>,
-    ) {
-        NearEvent::emit_nft_burns(vec![NftBurnData::new(owner_id, token_ids, authorized_id, memo)]);
-    }
-
-    pub fn emit_nft_burns(data: Vec<NftBurnData<'a>>) {
-        NearEvent::nft_burn(data).emit()
     }
 }
 
