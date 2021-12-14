@@ -78,6 +78,13 @@ impl ImplItemMethodInfo {
             quote! {}
         };
         let body = if matches!(method_type, &MethodType::Init) {
+            if matches!(returns, ReturnType::Default) {
+                return syn::Error::new(
+                    ident.span(),
+                    "Init methods must return the contract state",
+                )
+                .to_compile_error();
+            }
             quote! {
                 if near_sdk::env::state_exists() {
                     near_sdk::env::panic_str("The contract has already been initialized");
@@ -86,6 +93,13 @@ impl ImplItemMethodInfo {
                 near_sdk::env::state_write(&contract);
             }
         } else if matches!(method_type, &MethodType::InitIgnoreState) {
+            if matches!(returns, ReturnType::Default) {
+                return syn::Error::new(
+                    ident.span(),
+                    "Init methods must return the contract state",
+                )
+                .to_compile_error();
+            }
             quote! {
                 let contract = #struct_type::#ident(#arg_list);
                 near_sdk::env::state_write(&contract);
