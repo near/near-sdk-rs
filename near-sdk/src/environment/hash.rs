@@ -26,7 +26,7 @@ impl CryptoHasher for Sha256 {
     type Digest = [u8; 32];
 
     fn hash(ingest: &[u8]) -> Self::Digest {
-        env::sha256_hash(ingest)
+        env::sha256_array(ingest)
     }
 }
 
@@ -39,6 +39,6 @@ impl CryptoHasher for Keccak256 {
     type Digest = [u8; 32];
 
     fn hash(ingest: &[u8]) -> Self::Digest {
-        env::keccak256_hash(ingest)
+        env::keccak256_array(ingest)
     }
 }

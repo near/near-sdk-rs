@@ -9,7 +9,9 @@
   - This is only a breaking change if inspecting the `VmAction`s of receipts in mocked environments. All other changes are positional argument names.
 - Add consts for near, yocto, and tgas. [PR 640](https://github.com/near/near-sdk-rs/pull/640).
   - `near_sdk::ONE_NEAR`, `near_sdk::ONE_YOCTO`, `near_sdk::Gas::ONE_TERA`
-- Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)
+- Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)9
+- Added `_array` suffix versions of `sha256`, `keccak256`, and `keccak512` hash functions in `env` [PR 646](https://github.com/near/near-sdk-rs/pull/646)
+  - These return a fixed length array instead of heap allocating with `Vec<u8>`
 
 ## `4.0.0-pre.4` [10-15-2021]
 - Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)

@@ -233,21 +233,21 @@ pub fn random_seed() -> Vec<u8> {
 
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
-    sha256_hash(value).to_vec()
+    sha256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
-    keccak256_hash(value).to_vec()
+    keccak256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
-    keccak512_hash(value).to_vec()
+    keccak512_array(value).to_vec()
 }
 
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
-pub fn sha256_hash(value: &[u8]) -> [u8; 32] {
+pub fn sha256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid sha256 implementation.
@@ -258,7 +258,7 @@ pub fn sha256_hash(value: &[u8]) -> [u8; 32] {
 }
 
 /// Hashes the bytes using the Keccak-256 hash function. This returns a 32 byte hash.
-pub fn keccak256_hash(value: &[u8]) -> [u8; 32] {
+pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid keccak256 implementation.
@@ -269,7 +269,7 @@ pub fn keccak256_hash(value: &[u8]) -> [u8; 32] {
 }
 
 /// Hashes the bytes using the Keccak-512 hash function. This returns a 64 byte hash.
-pub fn keccak512_hash(value: &[u8]) -> [u8; 64] {
+pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
     //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid keccak512 implementation.
@@ -769,17 +769,17 @@ mod tests {
     #[test]
     fn hash_smoke_tests() {
         assert_eq!(
-            &super::sha256_hash(b"some value"),
+            &super::sha256_array(b"some value"),
             base64::decode("qz0H8xacy9DtbEtF3iFRn5+TjHLSQSSZiquUnOg7tRs").unwrap().as_slice()
         );
 
         assert_eq!(
-            &super::keccak256_hash(b"some value"),
+            &super::keccak256_array(b"some value"),
             base64::decode("+Sjftfxys7v7mlzLDumEOye0rB68Jab294PiPr1H7x8=").unwrap().as_slice()
         );
 
         assert_eq!(
-            &super::keccak512_hash(b"some value"),
+            &super::keccak512_array(b"some value"),
             base64::decode(
                 "PjjRQKhRIzdO5j7CCJc6o5uHNJ0XzKyUiiST4YsYtZEyIM0XS09RGql5dwCeFr5IX8\
                     lPXidDy5uwV501q0EFgw=="
