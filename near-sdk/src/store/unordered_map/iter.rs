@@ -402,3 +402,89 @@ where
         self.inner.nth_back(n).map(|(_, v)| v)
     }
 }
+
+/// A draining iterator for [`UnorderedMap<K, V, H>`].
+#[derive(Debug)]
+pub struct Drain<'a, K, V>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+    V: BorshSerialize,
+{
+    keys: free_list::Drain<'a, K>,
+    values: &'a mut LookupMap<K, ValueAndIndex<V>>,
+}
+
+impl<'a, K, V> Drain<'a, K, V>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+    V: BorshSerialize,
+{
+    pub(crate) fn new(list: &'a mut UnorderedMap<K, V>) -> Self {
+        Self { keys: list.keys.drain(), values: &mut list.values }
+    }
+
+    fn remaining(&self) -> usize {
+        self.keys.remaining()
+    }
+
+    fn remove_value(&mut self, key: K) -> (K, V)
+    where
+        K: Clone,
+        V: BorshDeserialize,
+    {
+        let value = self
+            .values
+            .remove(&key)
+            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
+            .value;
+
+        (key, value)
+    }
+}
+
+impl<'a, K, V> Iterator for Drain<'a, K, V>
+where
+    K: BorshSerialize + BorshDeserialize + Ord + Clone,
+    V: BorshSerialize + BorshDeserialize,
+{
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let key = self.keys.next()?;
+        Some(self.remove_value(key))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.remaining();
+        (remaining, Some(remaining))
+    }
+
+    fn count(self) -> usize {
+        self.remaining()
+    }
+}
+
+impl<'a, K, V> ExactSizeIterator for Drain<'a, K, V>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+{
+}
+
+impl<'a, K, V> FusedIterator for Drain<'a, K, V>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+{
+}
+
+impl<'a, K, V> DoubleEndedIterator for Drain<'a, K, V>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        let key = self.keys.next_back()?;
+        Some(self.remove_value(key))
+    }
+}

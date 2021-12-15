@@ -24,8 +24,8 @@ impl Default for MockedBlockchain {
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
-            Default::default(),
-            Default::default(),
+            VMConfig::test(),
+            RuntimeFeesConfig::test(),
             vec![],
             Default::default(),
             Default::default(),
@@ -37,7 +37,7 @@ impl Default for MockedBlockchain {
 struct LogicFixture {
     ext: Box<SdkExternal>,
     memory: Box<dyn MemoryLike>,
-    #[allow(clippy::box_vec)]
+    #[allow(clippy::box_collection)]
     promise_results: Box<Vec<VmPromiseResult>>,
     config: Box<VMConfig>,
     fees_config: Box<RuntimeFeesConfig>,
@@ -71,7 +71,6 @@ impl MockedBlockchain {
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
-                Default::default(),
                 u32::MAX,
             )
         };
@@ -217,8 +216,8 @@ mod mock_chain {
     extern "C" fn promise_create(
         account_id_len: u64,
         account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -228,8 +227,8 @@ mod mock_chain {
             b.promise_create(
                 account_id_len,
                 account_id_ptr,
-                method_name_len,
-                method_name_ptr,
+                function_name_len,
+                function_name_ptr,
                 arguments_len,
                 arguments_ptr,
                 amount_ptr,
@@ -242,8 +241,8 @@ mod mock_chain {
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -254,8 +253,8 @@ mod mock_chain {
                 promise_index,
                 account_id_len,
                 account_id_ptr,
-                method_name_len,
-                method_name_ptr,
+                function_name_len,
+                function_name_ptr,
                 arguments_len,
                 arguments_ptr,
                 amount_ptr,
@@ -296,8 +295,8 @@ mod mock_chain {
     #[no_mangle]
     extern "C" fn promise_batch_action_function_call(
         promise_index: u64,
-        method_name_len: u64,
-        method_name_ptr: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
         arguments_len: u64,
         arguments_ptr: u64,
         amount_ptr: u64,
@@ -306,8 +305,8 @@ mod mock_chain {
         with_mock_interface(|b| {
             b.promise_batch_action_function_call(
                 promise_index,
-                method_name_len,
-                method_name_ptr,
+                function_name_len,
+                function_name_ptr,
                 arguments_len,
                 arguments_ptr,
                 amount_ptr,
@@ -355,8 +354,8 @@ mod mock_chain {
         allowance_ptr: u64,
         receiver_id_len: u64,
         receiver_id_ptr: u64,
-        method_names_len: u64,
-        method_names_ptr: u64,
+        function_names_len: u64,
+        function_names_ptr: u64,
     ) {
         with_mock_interface(|b| {
             b.promise_batch_action_add_key_with_function_call(
@@ -367,8 +366,8 @@ mod mock_chain {
                 allowance_ptr,
                 receiver_id_len,
                 receiver_id_ptr,
-                method_names_len,
-                method_names_ptr,
+                function_names_len,
+                function_names_ptr,
             )
         })
     }

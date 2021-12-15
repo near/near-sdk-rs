@@ -82,7 +82,6 @@ where
     cache: StableMap<K, EntryAndHash<V>>,
 }
 
-// #[derive(Default)]
 struct EntryAndHash<V> {
     value: OnceCell<CacheEntry<V>>,
     lookup_key: OnceCell<LookupKey>,

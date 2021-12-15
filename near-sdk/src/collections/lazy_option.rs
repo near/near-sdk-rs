@@ -123,6 +123,19 @@ where
     }
 }
 
+impl<T> std::fmt::Debug for LazyOption<T>
+where
+    T: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if cfg!(feature = "expensive-debug") {
+            self.get().fmt(f)
+        } else {
+            f.debug_struct("LazyOption").field("storage_key", &self.storage_key).finish()
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -172,5 +185,22 @@ mod tests {
         let a = LazyOption::new(b"a", Some(&42u32));
         assert!(a.is_some());
         assert_eq!(a.get(), Some(42));
+    }
+
+    #[test]
+    pub fn test_debug() {
+        let mut lazy_option = LazyOption::new(b"m", None);
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "None");
+        } else {
+            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+        }
+
+        lazy_option.set(&1u64);
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "Some(1)");
+        } else {
+            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+        }
     }
 }

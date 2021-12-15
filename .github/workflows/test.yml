@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
+        toolchain: [stable, 1.56.0]
     steps:
       - uses: actions/checkout@v2
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
