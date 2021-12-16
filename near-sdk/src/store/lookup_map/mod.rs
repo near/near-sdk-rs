@@ -185,18 +185,6 @@ where
             }
         }
     }
-
-    // fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> LookupKey
-    // where
-    //     Q: BorshSerialize,
-    //     K: Borrow<Q>,
-    // {
-    //     // Concat the prefix with serialized key and hash the bytes for the lookup key.
-    //     buffer.extend(prefix);
-    //     key.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-
-    //     H::hash(buffer)
-    // }
 }
 
 impl<K, V, H> LookupMap<K, V, H>
