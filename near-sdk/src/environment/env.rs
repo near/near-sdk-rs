@@ -3,9 +3,9 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
+use std::{convert::TryFrom, mem::MaybeUninit};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::mock::MockedBlockchain;
@@ -49,6 +49,21 @@ macro_rules! method_into_register {
     ( $method:ident ) => {{
         expect_register(try_method_into_register!($method))
     }};
+}
+
+//* Note: need specific length functions because const generics don't work with mem::transmute
+//* https://github.com/rust-lang/rust/issues/61956
+
+pub(crate) unsafe fn read_register_fixed_32(register_id: u64) -> [u8; 32] {
+    let mut hash = [MaybeUninit::<u8>::uninit(); 32];
+    sys::read_register(register_id, hash.as_mut_ptr() as _);
+    std::mem::transmute(hash)
+}
+
+pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
+    let mut hash = [MaybeUninit::<u8>::uninit(); 64];
+    sys::read_register(register_id, hash.as_mut_ptr() as _);
+    std::mem::transmute(hash)
 }
 
 /// Replaces the current low-level blockchain interface accessible through `env::*` with another
@@ -218,20 +233,50 @@ pub fn random_seed() -> Vec<u8> {
 
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
-    unsafe { sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    expect_register(read_register(ATOMIC_OP_REGISTER))
+    sha256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
-    unsafe { sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    expect_register(read_register(ATOMIC_OP_REGISTER))
+    keccak256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
-    unsafe { sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    expect_register(read_register(ATOMIC_OP_REGISTER))
+    keccak512_array(value).to_vec()
+}
+
+/// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
+pub fn sha256_array(value: &[u8]) -> [u8; 32] {
+    //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid sha256 implementation.
+    unsafe {
+        sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Hashes the bytes using the Keccak-256 hash function. This returns a 32 byte hash.
+pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
+    //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid keccak256 implementation.
+    unsafe {
+        sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Hashes the bytes using the Keccak-512 hash function. This returns a 64 byte hash.
+pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
+    //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid keccak512 implementation.
+    unsafe {
+        sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_64(ATOMIC_OP_REGISTER)
+    }
 }
 
 // ################
@@ -718,5 +763,29 @@ mod tests {
         assert!(!is_valid_account_id(&[0, 1]));
         assert!(!is_valid_account_id(&[0, 1, 2]));
         assert!(is_valid_account_id(b"near"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn hash_smoke_tests() {
+        assert_eq!(
+            &super::sha256_array(b"some value"),
+            base64::decode("qz0H8xacy9DtbEtF3iFRn5+TjHLSQSSZiquUnOg7tRs").unwrap().as_slice()
+        );
+
+        assert_eq!(
+            &super::keccak256_array(b"some value"),
+            base64::decode("+Sjftfxys7v7mlzLDumEOye0rB68Jab294PiPr1H7x8=").unwrap().as_slice()
+        );
+
+        assert_eq!(
+            &super::keccak512_array(b"some value"),
+            base64::decode(
+                "PjjRQKhRIzdO5j7CCJc6o5uHNJ0XzKyUiiST4YsYtZEyIM0XS09RGql5dwCeFr5IX8\
+                    lPXidDy5uwV501q0EFgw=="
+            )
+            .unwrap()
+            .as_slice()
+        );
     }
 }
