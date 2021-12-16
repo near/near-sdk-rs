@@ -1,4 +1,6 @@
 use super::resolver::NonFungibleTokenResolver;
+use crate::event::{NearEvent, NftMintData};
+use crate::event::{NearEvent, NftTransferData};
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
@@ -244,7 +246,7 @@ impl NonFungibleToken {
             self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
 
         // check if authorized
-        if sender_id != &owner_id {
+        let sender_id = if sender_id != &owner_id {
             // if approval extension is NOT being used, or if token has no approved accounts
             let app_acc_ids =
                 approved_account_ids.as_ref().unwrap_or_else(|| env::panic_str("Unauthorized"));
@@ -265,16 +267,23 @@ impl NonFungibleToken {
                     actual_approval_id, approval_id
                 )
             );
-        }
+            Some(sender_id)
+        } else {
+            None
+        };
 
         require!(&owner_id != receiver_id, "Current and next owner must differ");
 
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
-        log!("Transfer {} from {} to {}", token_id, sender_id, receiver_id);
-        if let Some(memo) = memo {
-            log!("Memo: {}", memo);
-        }
+        NearEvent::nft_transfer(vec![NftTransferData::new(
+            &owner_id,
+            receiver_id,
+            vec![token_id],
+            sender_id,
+            memo,
+        )])
+        .emit();
 
         // return previous owner & approvals
         (owner_id, approved_account_ids)
@@ -376,6 +385,14 @@ impl NonFungibleToken {
         if let Some((id, storage_usage)) = initial_storage_usage {
             refund_deposit_to_account(env::storage_usage() - storage_usage, id)
         }
+
+        NearEvent::nft_mint(vec![NftMintData::new(
+            &owner_id,
+            vec![&token_id],
+            None as Option<&str>,
+        )])
+        .emit();
+
         // Return any extra attached deposit not used for storage
 
         Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
