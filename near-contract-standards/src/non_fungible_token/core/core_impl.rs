@@ -1,6 +1,5 @@
 use super::resolver::NonFungibleTokenResolver;
-use crate::event::{NearEvent, NftMintData};
-use crate::event::{NearEvent, NftTransferData};
+use crate::event::{NearEvent, NftMintData, NftTransferData};
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
