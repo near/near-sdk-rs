@@ -266,7 +266,13 @@ mod tests {
                 Some("4".to_string()),
                 Some("has memo"),
             ),
-            NftTransferData::new(old_owner_id, new_owner_id, token_ids, AUTHORIZED_ID_NONE, MEMO_NONE),
+            NftTransferData::new(
+                old_owner_id,
+                new_owner_id,
+                token_ids,
+                AUTHORIZED_ID_NONE,
+                MEMO_NONE,
+            ),
         ])
         .to_json_string();
         assert_eq!(
