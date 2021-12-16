@@ -536,6 +536,8 @@ pub fn panic_str(message: &str) -> ! {
 pub fn abort() -> ! {
     // Use wasm32 unreachable call to avoid including the `panic` external function in Wasm.
     #[cfg(target_arch = "wasm32")]
+    //* This was stabilized recently (~ >1.51), so ignore warnings but don't enforce higher msrv
+    #[allow(unused_unsafe)]
     unsafe {
         core::arch::wasm32::unreachable()
     }
