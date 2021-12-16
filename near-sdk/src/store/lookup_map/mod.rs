@@ -18,8 +18,6 @@ const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
-// type LookupKey = [u8; 32];
-
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
