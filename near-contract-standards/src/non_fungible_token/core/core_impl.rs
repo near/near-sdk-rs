@@ -120,7 +120,7 @@ impl NonFungibleToken {
     fn measure_min_token_storage_cost(&mut self) {
         let initial_storage_usage = env::storage_usage();
         // 64 Length because this is the max account id length
-        let tmp_token_id = "a".repeat(64); 
+        let tmp_token_id = "a".repeat(64);
         let tmp_owner_id = AccountId::new_unchecked("a".repeat(64));
 
         // 1. set some dummy data
