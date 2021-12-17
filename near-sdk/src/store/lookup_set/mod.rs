@@ -62,8 +62,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::LookupSet;
+    /// use near_sdk::store::{LookupSet, Keccak256};
     ///
     /// let map = LookupSet::<String, Keccak256>::with_hasher(b"m");
     /// ```

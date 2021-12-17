@@ -180,8 +180,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::{UnorderedMap, Keccak256};
     ///
     /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
