@@ -3,7 +3,6 @@ mod impls;
 
 use std::borrow::Borrow;
 use std::fmt;
-use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
@@ -89,9 +88,6 @@ where
     /// invalidated.
     #[borsh_skip]
     cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
-
-    #[borsh_skip]
-    hasher: PhantomData<H>,
 }
 
 struct EntryAndHash<V, T> {
@@ -163,11 +159,7 @@ where
     where
         S: IntoStorageKey,
     {
-        Self {
-            prefix: prefix.into_storage_key().into_boxed_slice(),
-            cache: Default::default(),
-            hasher: Default::default(),
-        }
+        Self { prefix: prefix.into_storage_key().into_boxed_slice(), cache: Default::default() }
     }
 
     /// Overwrites the current value for the given key.

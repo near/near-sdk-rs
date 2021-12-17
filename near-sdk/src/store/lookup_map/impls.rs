@@ -24,7 +24,7 @@ where
 
 impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for LookupMap<K, V, H>
 where
-    K: BorshSerialize + Ord + Clone + Borrow<Q>,
+    K: BorshSerialize + Ord + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: StorageKeyer,
     <H as StorageKeyer>::KeyType: AsRef<[u8]>,
