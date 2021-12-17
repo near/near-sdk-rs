@@ -191,6 +191,10 @@ mod mock_chain {
         with_mock_interface(|b| b.keccak512(value_len, value_ptr, register_id))
     }
     #[no_mangle]
+    extern "C" fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.ripemd160(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
     extern "C" fn value_return(value_len: u64, value_ptr: u64) {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }

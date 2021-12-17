@@ -1,6 +1,5 @@
 use crate::test_utils::VMContextBuilder;
-use crate::{env, mock::MockedBlockchain, AccountId, VMConfig};
-use near_primitives_core::runtime::fees::RuntimeFeesConfig;
+use crate::{testing_env, AccountId, VMConfig};
 
 pub fn alice() -> AccountId {
     AccountId::new_unchecked("alice.near".to_string())
@@ -15,28 +14,25 @@ pub fn carol() -> AccountId {
 }
 
 /// Updates the blockchain interface with the config passed in.
-// TODO(austinabell): This seems like a footgun, not clear it's replacing the context with default
+#[deprecated(
+    since = "4.0.0",
+    note = "Use `testing_env!` macro to initialize with specific VMConfig"
+)]
 pub fn setup_with_config(vm_config: VMConfig) {
-    let context = VMContextBuilder::new().build();
-    let storage = crate::mock::with_mocked_blockchain(|b| b.take_storage());
-    env::set_blockchain_interface(MockedBlockchain::new(
-        context,
-        vm_config,
-        RuntimeFeesConfig::test(),
-        vec![],
-        storage,
-        Default::default(),
-        None,
-    ));
+    testing_env!(VMContextBuilder::new().build(), vm_config)
 }
 
 /// Setup the blockchain interface with a default configuration.
+#[deprecated(
+    since = "4.0.0",
+    note = "Mocked blockchain is now setup by default, use `testing_env!`"
+)]
 pub fn setup() {
-    setup_with_config(VMConfig::test());
+    testing_env!(VMContextBuilder::new().build());
 }
 
-// free == effectively unlimited gas
+/// free == effectively unlimited gas
 /// Sets up the blockchain interface with a [`VMConfig`] which sets the gas costs to zero.
 pub fn setup_free() {
-    setup_with_config(VMConfig::free());
+    crate::testing_env!(VMContextBuilder::new().build(), VMConfig::free())
 }
