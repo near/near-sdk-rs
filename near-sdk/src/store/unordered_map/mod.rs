@@ -7,7 +7,7 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::store::{Sha256, ToKey};
+use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -28,7 +28,7 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::store).
+/// [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 /// ```
@@ -180,7 +180,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::{UnorderedMap, Keccak256};
+    /// use near_sdk::store::{UnorderedMap, key::Keccak256};
     ///
     /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```

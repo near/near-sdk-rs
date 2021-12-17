@@ -1,5 +1,5 @@
 use super::LookupSet;
-use crate::store::ToKey;
+use crate::store::key::ToKey;
 use borsh::BorshSerialize;
 
 impl<T, H> Extend<T> for LookupSet<T, H>

@@ -7,7 +7,7 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::store::{Identity, ToKey};
+use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 
@@ -22,10 +22,11 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
 /// using the map's [`CryptoHasher`] implementation.
 ///
-/// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall
-/// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
-/// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::store).
+/// The default hash function for [`LookupMap`] is [`Identity`] which just prefixes the serialized
+/// key object and uses these bytes as the key. This is to be backwards-compatible with
+/// [`collections::LookupMap`](crate::collections::LookupMap) and be fast for small keys.
+/// To use a custom function, use [`with_hasher`]. Alternative builtin hash functions can be found
+/// at [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 /// ```
@@ -150,7 +151,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::{LookupMap, Keccak256};
+    /// use near_sdk::store::{LookupMap, key::Keccak256};
     ///
     /// let map = LookupMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
@@ -386,7 +387,7 @@ where
 mod tests {
     use super::LookupMap;
     use crate::env;
-    use crate::store::{Keccak256, ToKey};
+    use crate::store::key::{Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;
