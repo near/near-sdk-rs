@@ -11,13 +11,14 @@ mod private {
     impl Sealed for super::Identity {}
 }
 
-/// Cryptographic hashes that can be used within the SDK as a hashing function.
-pub trait CryptoHasher: self::private::Sealed {
-    /// Output type of the hashing function.
-    type Digest;
+/// Trait used to generate keys to store data based on a serializable structure.
+pub trait StorageKeyer: self::private::Sealed {
+    /// Output type for the generated lookup key.
+    type KeyType;
 
-    /// Hashes raw bytes and returns the `Digest` output.
-    fn hash(ingest: &[u8]) -> Self::Digest;
+    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
+    where
+        Q: BorshSerialize;
 }
 
 /// Sha256 hash helper which hashes through a syscall. This type satisfies the [`CryptoHasher`]
@@ -25,11 +26,18 @@ pub trait CryptoHasher: self::private::Sealed {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Sha256 {}
 
-impl CryptoHasher for Sha256 {
-    type Digest = [u8; 32];
+impl StorageKeyer for Sha256 {
+    type KeyType = [u8; 32];
 
-    fn hash(ingest: &[u8]) -> Self::Digest {
-        env::sha256_array(ingest)
+    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
+    where
+        Q: BorshSerialize,
+    {
+        // Prefix the serialized bytes, then hash the combined value.
+        buffer.extend(prefix);
+        key.serialize(buffer).unwrap_or_else(|_| env::abort());
+
+        env::sha256_array(buffer)
     }
 }
 
@@ -38,37 +46,18 @@ impl CryptoHasher for Sha256 {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Keccak256 {}
 
-impl CryptoHasher for Keccak256 {
-    type Digest = [u8; 32];
-
-    fn hash(ingest: &[u8]) -> Self::Digest {
-        env::keccak256_array(ingest)
-    }
-}
-
-pub trait StorageKeyer: self::private::Sealed {
-    type KeyType;
-
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
-    where
-        Q: BorshSerialize;
-}
-
-impl<T> StorageKeyer for T
-where
-    T: CryptoHasher,
-{
-    type KeyType = <T as CryptoHasher>::Digest;
+impl StorageKeyer for Keccak256 {
+    type KeyType = [u8; 32];
 
     fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where
         Q: BorshSerialize,
     {
-        // Concat the prefix with serialized key and hash the bytes for the lookup key.
+        // Prefix the serialized bytes, then hash the combined value.
         buffer.extend(prefix);
         key.serialize(buffer).unwrap_or_else(|_| env::abort());
 
-        T::hash(buffer)
+        env::keccak256_array(buffer)
     }
 }
 
@@ -81,7 +70,7 @@ impl StorageKeyer for Identity {
     where
         Q: BorshSerialize,
     {
-        // Prefix the serialized bytes
+        // Prefix the serialized bytes and return a copy of this buffer.
         buffer.extend(prefix);
         key.serialize(buffer).unwrap_or_else(|_| env::abort());
 

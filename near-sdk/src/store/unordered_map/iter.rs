@@ -2,14 +2,15 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{CryptoHasher, LookupMap, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
+use super::{LookupMap, StorageKeyer, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
 use crate::{env, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a V);
     type IntoIter = Iter<'a, K, V, H>;
@@ -23,7 +24,8 @@ impl<'a, K, V, H> IntoIterator for &'a mut UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V, H>;
@@ -40,7 +42,8 @@ pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     /// Values iterator which contains empty and filled cells.
     keys: free_list::Iter<'a, K>,
@@ -52,7 +55,8 @@ impl<'a, K, V, H> Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter(), values: &map.values }
@@ -63,7 +67,8 @@ impl<'a, K, V, H> Iterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a V);
 
@@ -91,14 +96,16 @@ impl<'a, K, V, H> ExactSizeIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -106,7 +113,8 @@ impl<'a, K, V, H> DoubleEndedIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -127,7 +135,8 @@ pub struct IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     /// Values iterator which contains empty and filled cells.
     keys: free_list::IterMut<'a, K>,
@@ -139,7 +148,8 @@ impl<'a, K, V, H> IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter_mut(), values: &mut map.values }
@@ -166,7 +176,8 @@ impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a mut V);
 
@@ -192,14 +203,16 @@ impl<'a, K, V, H> ExactSizeIterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -207,7 +220,8 @@ impl<'a, K, V, H> DoubleEndedIterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -237,7 +251,8 @@ where
     where
         K: Ord,
         V: BorshSerialize,
-        H: CryptoHasher<Digest = [u8; 32]>,
+        H: StorageKeyer,
+        <H as StorageKeyer>::KeyType: AsRef<[u8]>,
     {
         Self { inner: map.keys.iter() }
     }
@@ -281,7 +296,8 @@ pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     inner: Iter<'a, K, V, H>,
 }
@@ -290,7 +306,8 @@ impl<'a, K, V, H> Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
         Self { inner: map.iter() }
@@ -301,7 +318,8 @@ impl<'a, K, V, H> Iterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a V;
 
@@ -326,14 +344,16 @@ impl<'a, K, V, H> ExactSizeIterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -341,7 +361,8 @@ impl<'a, K, V, H> DoubleEndedIterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -359,7 +380,8 @@ pub struct ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     inner: IterMut<'a, K, V, H>,
 }
@@ -368,7 +390,8 @@ impl<'a, K, V, H> ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { inner: map.iter_mut() }
@@ -379,7 +402,8 @@ impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a mut V;
 
@@ -404,14 +428,16 @@ impl<'a, K, V, H> ExactSizeIterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -419,7 +445,8 @@ impl<'a, K, V, H> DoubleEndedIterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -436,7 +463,8 @@ pub struct Drain<'a, K, V, H>
 where
     K: BorshSerialize + BorshDeserialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     keys: free_list::Drain<'a, K>,
     values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
@@ -446,7 +474,8 @@ impl<'a, K, V, H> Drain<'a, K, V, H>
 where
     K: BorshSerialize + BorshDeserialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     pub(crate) fn new(list: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { keys: list.keys.drain(), values: &mut list.values }
@@ -475,7 +504,8 @@ impl<'a, K, V, H> Iterator for Drain<'a, K, V, H>
 where
     K: BorshSerialize + BorshDeserialize + Ord + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     type Item = (K, V);
 
@@ -498,7 +528,8 @@ impl<'a, K, V, H> ExactSizeIterator for Drain<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -506,7 +537,8 @@ impl<'a, K, V, H> FusedIterator for Drain<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -514,7 +546,8 @@ impl<'a, K, V, H> DoubleEndedIterator for Drain<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         let key = self.keys.next_back()?;

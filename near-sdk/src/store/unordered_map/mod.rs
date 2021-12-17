@@ -7,7 +7,7 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
+use crate::crypto_hash::{Sha256, StorageKeyer};
 use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -81,7 +81,8 @@ pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     keys: FreeList<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
@@ -99,7 +100,8 @@ impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -115,7 +117,8 @@ impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -129,7 +132,8 @@ impl<K, V, H> Drop for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -140,7 +144,8 @@ impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedMap")
@@ -168,7 +173,8 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`UnorderedMap`] with a custom hash function.
     ///
@@ -376,7 +382,8 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     /// Returns a reference to the value corresponding to the key.
     ///
@@ -517,7 +524,8 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: StorageKeyer,
+    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
