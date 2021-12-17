@@ -315,19 +315,26 @@ impl NonFungibleToken {
     /// * Whether the caller id is equal to the `owner_id`
     /// * Assumes there will be a refund to the predecessor after covering the storage costs
     ///
-    /// Returns the newly minted token
+    /// Returns the newly minted token and emits the mint event
     pub fn internal_mint(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
-        self.internal_mint_with_refund(
+        let token = self.internal_mint_with_refund(
             token_id,
             token_owner_id,
             token_metadata,
             Some(env::predecessor_account_id()),
-        )
+        );
+        NearEvent::nft_mint(vec![NftMintData::new(
+            &token.owner_id,
+            vec![&token.token_id],
+            None as Option<&str>,
+        )])
+        .emit();
+        token
     }
 
     /// Mint a new token without checking:
@@ -336,7 +343,7 @@ impl NonFungibleToken {
     ///   Typically the account will be the owner. If `None`, will not refund. This is useful for delaying refunding
     ///   until multiple tokens have been minted.
     ///
-    /// Returns the newly minted token
+    /// Returns the newly minted token and does not emit the mint event
     pub fn internal_mint_with_refund(
         &mut self,
         token_id: TokenId,
@@ -384,13 +391,6 @@ impl NonFungibleToken {
         if let Some((id, storage_usage)) = initial_storage_usage {
             refund_deposit_to_account(env::storage_usage() - storage_usage, id)
         }
-
-        NearEvent::nft_mint(vec![NftMintData::new(
-            &owner_id,
-            vec![&token_id],
-            None as Option<&str>,
-        )])
-        .emit();
 
         // Return any extra attached deposit not used for storage
 
