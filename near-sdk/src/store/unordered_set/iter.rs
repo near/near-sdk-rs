@@ -109,8 +109,6 @@ where
     elements: free_list::Iter<'a, T>,
 
     other: &'a UnorderedSet<T, H>,
-
-    el: PhantomData<H>,
 }
 
 impl<'a, T, H> Difference<'a, T, H>
@@ -119,7 +117,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
-        Self { elements: set.elements.iter(), other, el: Default::default() }
+        Self { elements: set.elements.iter(), other }
     }
 }
 
@@ -183,8 +181,6 @@ where
     elements: free_list::Iter<'a, T>,
 
     other: &'a UnorderedSet<T, H>,
-
-    el: PhantomData<H>,
 }
 
 impl<'a, T, H> Intersection<'a, T, H>
@@ -193,7 +189,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
-        Self { elements: set.elements.iter(), other, el: Default::default() }
+        Self { elements: set.elements.iter(), other }
     }
 }
 
@@ -352,8 +348,6 @@ where
     elements: free_list::Drain<'a, T>,
 
     index: &'a mut LookupMap<T, FreeListIndex, H>,
-
-    el: PhantomData<H>,
 }
 
 impl<'a, T, H> Drain<'a, T, H>
@@ -362,7 +356,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(crate) fn new(set: &'a mut UnorderedSet<T, H>) -> Self {
-        Self { elements: set.elements.drain(), index: &mut set.index, el: Default::default() }
+        Self { elements: set.elements.drain(), index: &mut set.index }
     }
 
     fn remaining(&self) -> usize {

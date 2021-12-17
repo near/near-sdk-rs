@@ -383,7 +383,7 @@ where
     /// a.insert(2);
     ///
     /// for v in a.drain().take(1) {
-    ///     assert!(k == 1 || k == 2);
+    ///     assert!(v == 1 || v == 2);
     /// }
     ///
     /// assert!(a.is_empty());
