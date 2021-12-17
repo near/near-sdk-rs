@@ -1,7 +1,7 @@
 mod impls;
 
-use crate::crypto_hash::{Identity, StorageKeyer};
 use crate::store::LookupMap;
+use crate::store::{Identity, ToKey};
 use crate::IntoStorageKey;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
@@ -11,8 +11,8 @@ use std::fmt;
 pub struct LookupSet<T, H = Identity>
 where
     T: BorshSerialize + Ord,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     map: LookupMap<T, (), H>,
 }
@@ -20,8 +20,8 @@ where
 impl<T, H> Drop for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -31,8 +31,8 @@ where
 impl<T, H> fmt::Debug for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupSet").field("map", &self.map).finish()
@@ -55,8 +55,8 @@ where
 impl<T, H> LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`LookupSet`] with a custom hash function.
     ///
@@ -116,8 +116,8 @@ where
 impl<T, H> LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the set before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -131,7 +131,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupSet;
-    use crate::crypto_hash::Keccak256;
+    use crate::store::Keccak256;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;

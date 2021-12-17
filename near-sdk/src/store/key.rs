@@ -3,7 +3,7 @@ use borsh::BorshSerialize;
 use crate::env;
 
 mod private {
-    /// Seal `CryptoHasher` implementations to limit usage to the builtin implementations
+    /// Seal `ToKey` implementations to limit usage to the builtin implementations
     pub trait Sealed {}
 
     impl Sealed for super::Sha256 {}
@@ -12,11 +12,11 @@ mod private {
 }
 
 /// Trait used to generate keys to store data based on a serializable structure.
-pub trait StorageKeyer: self::private::Sealed {
+pub trait ToKey: self::private::Sealed {
     /// Output type for the generated lookup key.
     type KeyType;
 
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
+    fn to_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where
         Q: BorshSerialize;
 }
@@ -26,10 +26,10 @@ pub trait StorageKeyer: self::private::Sealed {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Sha256 {}
 
-impl StorageKeyer for Sha256 {
+impl ToKey for Sha256 {
     type KeyType = [u8; 32];
 
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
+    fn to_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where
         Q: BorshSerialize,
     {
@@ -46,10 +46,10 @@ impl StorageKeyer for Sha256 {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Keccak256 {}
 
-impl StorageKeyer for Keccak256 {
+impl ToKey for Keccak256 {
     type KeyType = [u8; 32];
 
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
+    fn to_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where
         Q: BorshSerialize,
     {
@@ -63,10 +63,10 @@ impl StorageKeyer for Keccak256 {
 
 pub enum Identity {}
 
-impl StorageKeyer for Identity {
+impl ToKey for Identity {
     type KeyType = Vec<u8>;
 
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
+    fn to_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> Self::KeyType
     where
         Q: BorshSerialize,
     {

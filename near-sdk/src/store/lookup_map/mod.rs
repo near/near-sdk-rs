@@ -7,7 +7,7 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::crypto_hash::{Identity, StorageKeyer};
+use crate::store::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 
@@ -25,7 +25,7 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// [`near_sdk::crypto_hash`](crate::store).
 ///
 /// # Examples
 /// ```
@@ -79,8 +79,8 @@ pub struct LookupMap<K, V, H = Identity>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     prefix: Box<[u8]>,
     /// Cache for loads and intermediate changes to the underlying vector.
@@ -105,8 +105,8 @@ impl<K, V, H> Drop for LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -117,8 +117,8 @@ impl<K, V, H> fmt::Debug for LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupMap").field("prefix", &self.prefix).finish()
@@ -143,8 +143,8 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`LookupMap`] with a custom hash function.
     ///
@@ -183,8 +183,8 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
@@ -195,7 +195,7 @@ where
         Q: BorshSerialize,
         K: Borrow<Q>,
     {
-        let key = H::lookup_key(prefix, key, &mut Vec::new());
+        let key = H::to_key(prefix, key, &mut Vec::new());
         let storage_bytes = env::storage_read(key.as_ref());
         (key, storage_bytes.as_deref().map(Self::deserialize_element))
     }
@@ -283,7 +283,7 @@ where
         }
 
         // Value is not in cache, check if storage has value for given key.
-        let storage_key = H::lookup_key(&self.prefix, k, &mut Vec::new());
+        let storage_key = H::to_key(&self.prefix, k, &mut Vec::new());
         let contains = env::storage_has_key(storage_key.as_ref());
 
         if !contains {
@@ -344,8 +344,8 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -358,7 +358,7 @@ where
                     let prefix = &self.prefix;
                     let key = v.hash.get_or_init(|| {
                         buf.clear();
-                        H::lookup_key(prefix, k, &mut buf)
+                        H::to_key(prefix, k, &mut buf)
                     });
                     match val.value().as_ref() {
                         Some(modified) => {
@@ -386,8 +386,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupMap;
-    use crate::crypto_hash::{Keccak256, StorageKeyer};
     use crate::env;
+    use crate::store::{Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;
@@ -571,7 +571,7 @@ mod tests {
         // Create duplicate which references same data
         assert_eq!(map[&5], 8);
 
-        let storage_key = Keccak256::lookup_key(b"m", &5, &mut Vec::new());
+        let storage_key = Keccak256::to_key(b"m", &5, &mut Vec::new());
         assert!(!env::storage_has_key(&storage_key));
 
         drop(map);

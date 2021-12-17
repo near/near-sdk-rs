@@ -2,15 +2,15 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ERR_NOT_EXIST};
-use crate::{crypto_hash::StorageKeyer, env};
+use super::{LookupMap, ToKey, ERR_NOT_EXIST};
+use crate::env;
 
 impl<K, V, H> Extend<(K, V)> for LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn extend<I>(&mut self, iter: I)
     where
@@ -26,8 +26,8 @@ impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;

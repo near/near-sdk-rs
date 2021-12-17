@@ -7,7 +7,7 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::crypto_hash::{Sha256, StorageKeyer};
+use crate::store::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -28,7 +28,7 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// [`near_sdk::crypto_hash`](crate::store).
 ///
 /// # Examples
 /// ```
@@ -81,8 +81,8 @@ pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     keys: FreeList<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
@@ -100,8 +100,8 @@ impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -117,8 +117,8 @@ impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -132,8 +132,8 @@ impl<K, V, H> Drop for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -144,8 +144,8 @@ impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedMap")
@@ -173,8 +173,8 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`UnorderedMap`] with a custom hash function.
     ///
@@ -382,8 +382,8 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Returns a reference to the value corresponding to the key.
     ///
@@ -524,8 +524,8 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

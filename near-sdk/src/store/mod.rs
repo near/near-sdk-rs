@@ -22,5 +22,8 @@ pub(crate) use self::index_map::IndexMap;
 pub(crate) mod free_list;
 pub(crate) use self::free_list::FreeList;
 
+mod key;
+pub use self::key::{Identity, Keccak256, Sha256, ToKey};
+
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart \
 										contract execution terminate unexpectedly?";

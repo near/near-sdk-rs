@@ -1,12 +1,12 @@
 use super::LookupSet;
-use crate::crypto_hash::StorageKeyer;
+use crate::store::ToKey;
 use borsh::BorshSerialize;
 
 impl<T, H> Extend<T> for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: StorageKeyer,
-    <H as StorageKeyer>::KeyType: AsRef<[u8]>,
+    H: ToKey,
+    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn extend<I>(&mut self, iter: I)
     where
