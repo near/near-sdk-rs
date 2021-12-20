@@ -341,6 +341,7 @@ mod tests {
             assert_eq!(bl_d.len(), bu_d.len());
             assert!(Iterator::eq(bl_d, bu_d));
         }
+        assert!(bucket.elements.is_empty());
         assert!(bucket.is_empty());
         crate::mock::with_mocked_blockchain(|m| assert!(m.take_storage().is_empty()));
     }
