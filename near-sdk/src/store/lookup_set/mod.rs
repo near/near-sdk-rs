@@ -1,11 +1,16 @@
 mod impls;
 
 use crate::crypto_hash::{CryptoHasher, Sha256};
-use crate::store::LookupMap;
-use crate::IntoStorageKey;
+use crate::{env, IntoStorageKey, StableMap};
 use borsh::{BorshDeserialize, BorshSerialize};
+use once_cell::unsync::OnceCell;
 use std::borrow::Borrow;
 use std::fmt;
+use std::marker::PhantomData;
+
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+
+type LookupKey = [u8; 32];
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupSet<T, H = Sha256>
@@ -13,7 +18,26 @@ where
     T: BorshSerialize + Ord,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    map: LookupMap<T, (), H>,
+    prefix: Box<[u8]>,
+
+    /// Cache that keeps track the state of elements in the underlying set.
+    #[borsh_skip]
+    cache: StableMap<T, OnceCell<EntryState>>,
+
+    #[borsh_skip]
+    hasher: PhantomData<H>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) enum EntryState {
+    /// The element is cached as freshly inserted, but not necessarily absent from the trie
+    Inserted,
+    /// The element is cached as freshly deleted, but not necessarily present on the trie
+    Deleted,
+    /// The element is definitely present on the trie
+    Present,
+    /// The element is definitely absent from the trie
+    Absent,
 }
 
 impl<T, H> Drop for LookupSet<T, H>
@@ -32,7 +56,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LookupSet").field("map", &self.map).finish()
+        f.debug_struct("LookupSet").field("prefix", &self.prefix).finish()
     }
 }
 
@@ -54,6 +78,46 @@ where
     T: BorshSerialize + Ord,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
+    fn lookup_key<Q: ?Sized>(prefix: &[u8], value: &Q, buffer: &mut Vec<u8>) -> LookupKey
+    where
+        Q: BorshSerialize,
+        T: Borrow<Q>,
+    {
+        // Concat the prefix with serialized key and hash the bytes for the lookup key.
+        buffer.extend(prefix);
+        value.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
+
+        H::hash(buffer)
+    }
+
+    fn contains_trie_element<Q: ?Sized>(prefix: &[u8], value: &Q) -> bool
+    where
+        Q: BorshSerialize,
+        T: Borrow<Q>,
+    {
+        let lookup_key = Self::lookup_key(prefix, value, &mut Vec::new());
+        env::storage_has_key(&lookup_key)
+    }
+
+    fn get_mut_inner<Q: ?Sized>(&mut self, value: &Q) -> &mut EntryState
+    where
+        T: Borrow<Q>,
+        Q: BorshSerialize + ToOwned<Owned = T>,
+    {
+        let prefix = &self.prefix;
+        //* ToOwned bound, which forces a clone, is required to be able to keep the value in the cache
+        let entry = self.cache.get_mut(value.to_owned());
+        entry.get_or_init(|| {
+            if Self::contains_trie_element(prefix, value) {
+                EntryState::Present
+            } else {
+                EntryState::Absent
+            }
+        });
+        let entry = entry.get_mut().unwrap_or_else(|| env::abort());
+        entry
+    }
+
     /// Initialize a [`LookupSet`] with a custom hash function.
     ///
     /// # Example
@@ -67,7 +131,11 @@ where
     where
         S: IntoStorageKey,
     {
-        Self { map: LookupMap::with_hasher(prefix) }
+        Self {
+            prefix: prefix.into_storage_key().into_boxed_slice(),
+            cache: Default::default(),
+            hasher: Default::default(),
+        }
     }
 
     /// Returns `true` if the set contains the specified value.
@@ -80,7 +148,19 @@ where
         T: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
-        self.map.contains_key(value)
+        let entry_cell = self.cache.get(value.to_owned());
+        match entry_cell.get_or_init(|| {
+            let lookup_key = Self::lookup_key(&self.prefix, value, &mut Vec::new());
+            let contains = env::storage_has_key(&lookup_key);
+            if contains {
+                EntryState::Present
+            } else {
+                EntryState::Absent
+            }
+        }) {
+            EntryState::Inserted | EntryState::Present => true,
+            EntryState::Deleted | EntryState::Absent => false,
+        }
     }
 
     /// Adds a value to the set.
@@ -92,7 +172,31 @@ where
     where
         T: Clone,
     {
-        self.map.insert(value, ()).is_none()
+        let entry = self.get_mut_inner(&value);
+        match entry {
+            EntryState::Inserted | EntryState::Present => false,
+            EntryState::Deleted | EntryState::Absent => {
+                *entry = EntryState::Inserted;
+                true
+            }
+        }
+    }
+
+    /// Puts the given value into the set.
+    ///
+    /// This function will not return whether the passed value was already in the set.
+    /// Use [`LookupSet::insert`] if you need that.
+    pub fn put(&mut self, value: T) {
+        let entry_cell = self.cache.get_mut(value);
+        // It is safe to preemptively mark an entry as `Inserted` even if it is already present on
+        // trie; it just means we will invoke `env::storage_write` one more time than strictly
+        // necessary.
+        entry_cell.get_or_init(|| EntryState::Inserted);
+        let entry = entry_cell.get_mut().unwrap_or_else(|| env::abort());
+        match entry {
+            EntryState::Inserted | EntryState::Present => {}
+            EntryState::Deleted | EntryState::Absent => *entry = EntryState::Inserted,
+        }
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
@@ -105,7 +209,14 @@ where
         T: Borrow<Q>,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
-        self.map.remove(value).is_some()
+        let entry = self.get_mut_inner(value);
+        match entry {
+            EntryState::Present | EntryState::Inserted => {
+                *entry = EntryState::Deleted;
+                true
+            }
+            EntryState::Deleted | EntryState::Absent => false,
+        }
     }
 }
 
@@ -118,7 +229,26 @@ where
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
     /// in memory.
     pub fn flush(&mut self) {
-        self.map.flush()
+        let mut buf = Vec::new();
+        for (k, v) in self.cache.inner().iter_mut() {
+            if let Some(entry) = v.get_mut() {
+                match entry {
+                    EntryState::Inserted => {
+                        buf.clear();
+                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
+                        env::storage_write(&lookup_key, &[]);
+                        *entry = EntryState::Present;
+                    }
+                    EntryState::Deleted => {
+                        buf.clear();
+                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
+                        env::storage_remove(&lookup_key);
+                        *entry = EntryState::Absent;
+                    }
+                    EntryState::Present | EntryState::Absent => {}
+                }
+            }
+        }
     }
 }
 
@@ -212,7 +342,7 @@ mod tests {
     fn test_debug() {
         let set = LookupSet::<u8, Sha256>::new(b"m");
 
-        assert_eq!(format!("{:?}", set), "LookupSet { map: LookupMap { prefix: [109] } }")
+        assert_eq!(format!("{:?}", set), "LookupSet { prefix: [109] }")
     }
 
     #[test]
@@ -233,10 +363,144 @@ mod tests {
         assert!(dup_set.contains(&5u8));
     }
 
+    #[test]
+    fn test_contains_all_states() {
+        let mut set = LookupSet::new(b"m");
+        // Uninitialized value that is absent from the trie
+        assert!(!set.contains(&8));
+        // Initialized value which state is `Absent`
+        assert!(!set.contains(&8));
+        set.insert(8);
+        // Initialized value which state is `Inserted`
+        assert!(set.contains(&8));
+        set.remove(&8);
+        // Initialized value which state is `Deleted`
+        assert!(!set.contains(&8));
+        set.insert(8);
+
+        // Drop the set which should flush all data
+        drop(set);
+
+        let dup_set = LookupSet::new(b"m");
+        // Uninitialized value that is present on the trie
+        assert!(dup_set.contains(&8));
+        // Initialized value which state is `Present`
+        assert!(dup_set.contains(&8));
+    }
+
+    #[test]
+    fn test_insert_all_states() {
+        let mut set = LookupSet::new(b"m");
+        // Uninitialized value that is absent from the trie
+        assert!(set.insert(8));
+        // Initialized value which state is `Inserted`
+        assert!(!set.insert(8));
+        set.remove(&8);
+        // Initialized value which state is `Deleted`
+        assert!(set.insert(8));
+
+        // Drop the set which should flush all data
+        drop(set);
+
+        let mut dup_set = LookupSet::new(b"m");
+        // Uninitialized value that is present on the trie
+        assert!(!dup_set.insert(8));
+        // Initialized value which state is `Present`
+        assert!(!dup_set.insert(8));
+    }
+
+    #[test]
+    fn test_put_all_states() {
+        let mut set = LookupSet::new(b"m");
+        // Uninitialized value that is absent from the trie
+        set.put(8);
+        assert!(set.contains(&8));
+        // Initialized value which state is `Inserted`
+        set.put(8);
+        assert!(set.contains(&8));
+
+        set.remove(&8);
+        // Initialized value which state is `Deleted`
+        set.put(8);
+        assert!(set.contains(&8));
+
+        // Drop the set which should flush all data
+        drop(set);
+
+        {
+            let mut dup_set = LookupSet::new(b"m");
+            // Uninitialized value that is present on the trie
+            dup_set.put(8);
+            assert!(dup_set.contains(&8));
+        }
+
+        {
+            let mut dup_set = LookupSet::new(b"m");
+            assert!(dup_set.contains(&8));
+            // Initialized value which state is `Present`
+            dup_set.put(8);
+            assert!(dup_set.contains(&8));
+        }
+    }
+
+    #[test]
+    fn test_remove_all_states() {
+        let mut set = LookupSet::new(b"m");
+        // Uninitialized value that is absent from the trie
+        assert!(!set.remove(&8));
+        // Initialized value which state is `Absent`
+        assert!(!set.remove(&8));
+        set.insert(8);
+        // Initialized value which state is `Inserted`
+        assert!(set.remove(&8));
+        // Initialized value which state is `Deleted`
+        assert!(!set.remove(&8));
+
+        // Drop the set which should flush all data
+        set.insert(8);
+        drop(set);
+
+        {
+            let mut dup_set = LookupSet::new(b"m");
+            // Uninitialized value that is present on the trie
+            assert!(dup_set.remove(&8));
+            dup_set.insert(8);
+        }
+
+        {
+            let mut dup_set = LookupSet::new(b"m");
+            assert!(dup_set.contains(&8));
+            // Initialized value which state is `Present`
+            assert!(dup_set.remove(&8));
+        }
+    }
+
+    #[test]
+    fn test_remove_present_after_put() {
+        let lookup_key = LookupSet::<u8>::lookup_key(b"m", &8u8, &mut Vec::new());
+        {
+            // Scoped to make sure set is dropped and persist changes
+            let mut set = LookupSet::new(b"m");
+            set.put(8u8);
+        }
+        assert!(crate::env::storage_has_key(&lookup_key));
+        {
+            let mut set = LookupSet::new(b"m");
+            set.put(8u8);
+            set.remove(&8);
+        }
+        assert!(!crate::env::storage_has_key(&lookup_key));
+        {
+            let set = LookupSet::new(b"m");
+            assert!(!set.contains(&8));
+        }
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Insert(u8),
         Remove(u8),
+        Put(u8),
         Flush,
         Restore,
         Contains(u8),
@@ -268,6 +532,13 @@ mod tests {
                             let r1 = ls.remove(&v);
                             let r2 = hs.remove(&v);
                             assert_eq!(r1, r2)
+                        }
+                        Op::Put(v) => {
+                            ls.put(v);
+                            hs.insert(v);
+
+                            // Extra contains just to make sure put happened correctly
+                            assert_eq!(ls.contains(&v), hs.contains(&v));
                         }
                         Op::Flush => {
                             ls.flush();
