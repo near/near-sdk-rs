@@ -211,7 +211,6 @@ where
             // This enforces a clone, but this is better th
             self.values.set(k, None);
         }
-        self.keys.clear();
     }
 
     /// An iterator visiting all key-value pairs in arbitrary order.
