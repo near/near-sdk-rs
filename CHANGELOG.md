@@ -10,12 +10,13 @@
 - Add consts for near, yocto, and tgas. [PR 640](https://github.com/near/near-sdk-rs/pull/640).
   - `near_sdk::ONE_NEAR`, `near_sdk::ONE_YOCTO`, `near_sdk::Gas::ONE_TERA`
 - Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)
-- store: Implement caching `LookupSet` type. This is the new iteration of the previous version of `near_sdk::collections::LookupSet` that has an updated API, and is located at `near_sdk::store::LookupSet`. [PR 654](https://github.com/near/near-sdk-rs/pull/654).
+- store: Implement caching `LookupSet` type. This is the new iteration of the previous version of `near_sdk::collections::LookupSet` that has an updated API, and is located at `near_sdk::store::LookupSet`. [PR 654](https://github.com/near/near-sdk-rs/pull/654), [PR 664](https://github.com/near/near-sdk-rs/pull/664).
 - Deprecate `testing_env_with_promise_results`, `setup_with_config`, and `setup` due to these functions being unneeded anymore or have unintended side effects [PR 671](https://github.com/near/near-sdk-rs/pull/671)
   - Added missing pattern for only including context and vm config to `testing_env!` to remove friction
 - Added `_array` suffix versions of `sha256`, `keccak256`, and `keccak512` hash functions in `env` [PR 646](https://github.com/near/near-sdk-rs/pull/646)
   - These return a fixed length array instead of heap allocating with `Vec<u8>`
 - Added `ripemd160_array` hash function that returns a fixed length byte array [PR 648](https://github.com/near/near-sdk-rs/pull/648)
+- Added `ecrecover` under `unstable` feature for recovering signer address by message hash and a corresponding signature. [PR 658](https://github.com/near/near-sdk-rs/pull/658).
 
 ## `4.0.0-pre.4` [10-15-2021]
 - Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)

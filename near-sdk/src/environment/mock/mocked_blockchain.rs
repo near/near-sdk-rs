@@ -195,6 +195,20 @@ mod mock_chain {
         with_mock_interface(|b| b.ripemd160(value_len, value_ptr, register_id))
     }
     #[no_mangle]
+    extern "C" fn ecrecover(
+        hash_len: u64,
+        hash_ptr: u64,
+        sig_len: u64,
+        sig_ptr: u64,
+        v: u64,
+        malleability_flag: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.ecrecover(hash_len, hash_ptr, sig_len, sig_ptr, v, malleability_flag, register_id)
+        })
+    }
+    #[no_mangle]
     extern "C" fn value_return(value_len: u64, value_ptr: u64) {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }
