@@ -46,7 +46,7 @@ where
 
 impl<'a, T, H> Iterator for Iter<'a, T, H>
 where
-    T: BorshSerialize + Ord + BorshDeserialize + Clone,
+    T: BorshSerialize + Ord + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = &'a T;
@@ -70,20 +70,20 @@ where
 
 impl<'a, T, H> ExactSizeIterator for Iter<'a, T, H>
 where
-    T: BorshSerialize + Ord + BorshDeserialize + Clone,
+    T: BorshSerialize + Ord + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
 impl<'a, T, H> FusedIterator for Iter<'a, T, H>
 where
-    T: BorshSerialize + Ord + BorshDeserialize + Clone,
+    T: BorshSerialize + Ord + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
 }
 
 impl<'a, T, H> DoubleEndedIterator for Iter<'a, T, H>
 where
-    T: BorshSerialize + Ord + BorshDeserialize + Clone,
+    T: BorshSerialize + Ord + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
