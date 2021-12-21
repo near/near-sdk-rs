@@ -21,8 +21,7 @@ pub trait ToKey: self::private::Sealed {
         Q: BorshSerialize;
 }
 
-/// Sha256 hash helper which hashes through a syscall. This type satisfies the [`CryptoHasher`]
-/// trait.
+/// Sha256 hash helper which hashes through a syscall. This type satisfies the [`ToKey`] trait.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Sha256 {}
 
@@ -41,8 +40,7 @@ impl ToKey for Sha256 {
     }
 }
 
-/// Keccak256 hash helper which hashes through a syscall. This type satisfies the [`CryptoHasher`]
-/// trait.
+/// Keccak256 hash helper which hashes through a syscall. This type satisfies the [`ToKey`] trait.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Keccak256 {}
 
@@ -61,6 +59,7 @@ impl ToKey for Keccak256 {
     }
 }
 
+/// Identity hash which just prefixes all of the serializes bytes and uses it as the key.
 pub enum Identity {}
 
 impl ToKey for Identity {

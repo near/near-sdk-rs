@@ -23,7 +23,7 @@ const ERR_NOT_EXIST: &str = "Key does not exist in map";
 /// that it stores the keys so that [`UnorderedMap`] can be iterable.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`CryptoHasher`] implementation.
+/// using the map's [`ToKey`] implementation.
 ///
 /// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
