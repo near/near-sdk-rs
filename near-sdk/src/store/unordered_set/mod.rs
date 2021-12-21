@@ -12,6 +12,74 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
 use std::fmt;
 
+/// A lazily loaded storage set that stores its content directly on the storage trie.
+/// This structure is similar to [`near_sdk::store::LookupSet`](crate::store::LookupSet), except
+/// that it keeps track of the elements so that [`UnorderedSet`] can be iterable among other things.
+///
+/// As with the [`LookupSet`] type, an `UnorderedSet` requires that the elements
+/// implement the [`BorshSerialize`] and [`Ord`] traits. This can frequently be achieved by
+/// using `#[derive(BorshSerialize, Ord)]`. Some functions also require elements to implement the
+/// [`BorshDeserialize`] trait.
+///
+/// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
+/// element using the set's [`CryptoHasher`] implementation.
+///
+/// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
+/// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
+/// use [`with_hasher`]. Alternative builtin hash functions can be found at
+/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::store::UnorderedSet;
+///
+/// // Initializes a set, the generic types can be inferred to `UnorderedSet<String, Sha256>`
+/// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
+/// let mut set = UnorderedSet::new(b"a");
+///
+/// set.insert("test".to_string());
+/// assert!(set.contains("test"));
+/// assert!(set.remove("test"));
+/// ```
+///
+/// [`UnorderedSet`] also implements various binary operations, which allow
+/// for iterating various combinations of two sets.
+///
+/// ```
+/// use near_sdk::store::UnorderedSet;
+/// use std::collections::HashSet;
+///
+/// let mut set1 = UnorderedSet::new(b"m");
+/// set1.insert(1);
+/// set1.insert(2);
+/// set1.insert(3);
+///
+/// let mut set2 = UnorderedSet::new(b"n");
+/// set2.insert(2);
+/// set2.insert(3);
+/// set2.insert(4);
+///
+/// assert_eq!(
+///     set1.union(&set2).collect::<HashSet<_>>(),
+///     [1, 2, 3, 4].iter().collect()
+/// );
+/// assert_eq!(
+///     set1.intersection(&set2).collect::<HashSet<_>>(),
+///     [2, 3].iter().collect()
+/// );
+/// assert_eq!(
+///     set1.difference(&set2).collect::<HashSet<_>>(),
+///     [1].iter().collect()
+/// );
+/// assert_eq!(
+///     set1.symmetric_difference(&set2).collect::<HashSet<_>>(),
+///     [1, 4].iter().collect()
+/// );
+/// ```
+///
+/// [`with_hasher`]: Self::with_hasher
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
@@ -19,36 +87,6 @@ where
 {
     elements: FreeList<T>,
     index: LookupMap<T, FreeListIndex, H>,
-}
-
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<T, H> BorshSerialize for UnorderedSet<T, H>
-where
-    T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
-        BorshSerialize::serialize(&self.elements, writer)?;
-        BorshSerialize::serialize(&self.index, writer)?;
-        Ok(())
-    }
-}
-
-impl<T, H> BorshDeserialize for UnorderedSet<T, H>
-where
-    T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
-        Ok(Self {
-            elements: BorshDeserialize::deserialize(buf)?,
-            index: BorshDeserialize::deserialize(buf)?,
-        })
-    }
 }
 
 impl<T, H> Drop for UnorderedSet<T, H>
@@ -127,9 +165,8 @@ where
         T: BorshDeserialize + Clone,
     {
         for e in self.elements.drain() {
-            self.index.remove(&e);
+            self.index.set(e, None);
         }
-        self.elements.clear();
     }
 
     /// Visits the values representing the difference, i.e., the values that are in `self` but not
@@ -364,7 +401,7 @@ where
     ///     println!("val: {}", val);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<T, H>
+    pub fn iter(&self) -> Iter<T>
     where
         T: BorshDeserialize,
     {
@@ -507,7 +544,6 @@ mod tests {
     fn test_drain() {
         let mut s = UnorderedSet::new(b"m");
         s.extend(1..100);
-        println!("{}", s.len());
 
         // Drain the set a few times to make sure that it does have any random residue
         for _ in 0..20 {

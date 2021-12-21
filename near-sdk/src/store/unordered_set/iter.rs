@@ -3,7 +3,6 @@ use crate::store::free_list::FreeListIndex;
 use crate::store::{free_list, LookupMap};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::{Chain, FusedIterator};
-use std::marker::PhantomData;
 
 impl<'a, T, H> IntoIterator for &'a UnorderedSet<T, H>
 where
@@ -11,7 +10,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = &'a T;
-    type IntoIter = Iter<'a, T, H>;
+    type IntoIter = Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -24,30 +23,28 @@ where
 /// See its documentation for more.
 ///
 /// [`iter`]: UnorderedSet::iter
-pub struct Iter<'a, T, H>
+pub struct Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     elements: free_list::Iter<'a, T>,
-
-    el: PhantomData<H>,
 }
 
-impl<'a, T, H> Iter<'a, T, H>
+impl<'a, T> Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
-    pub(super) fn new(set: &'a UnorderedSet<T, H>) -> Self {
-        Self { elements: set.elements.iter(), el: Default::default() }
+    pub(super) fn new<H>(set: &'a UnorderedSet<T, H>) -> Self
+    where
+        H: CryptoHasher<Digest = [u8; 32]>,
+    {
+        Self { elements: set.elements.iter() }
     }
 }
 
-impl<'a, T, H> Iterator for Iter<'a, T, H>
+impl<'a, T> Iterator for Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     type Item = &'a T;
 
@@ -68,23 +65,12 @@ where
     }
 }
 
-impl<'a, T, H> ExactSizeIterator for Iter<'a, T, H>
-where
-    T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-}
-impl<'a, T, H> FusedIterator for Iter<'a, T, H>
-where
-    T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
-{
-}
+impl<'a, T> ExactSizeIterator for Iter<'a, T> where T: BorshSerialize + Ord + BorshDeserialize {}
+impl<'a, T> FusedIterator for Iter<'a, T> where T: BorshSerialize + Ord + BorshDeserialize {}
 
-impl<'a, T, H> DoubleEndedIterator for Iter<'a, T, H>
+impl<'a, T> DoubleEndedIterator for Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -297,7 +283,7 @@ where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: CryptoHasher<Digest = [u8; 32]>,
 {
-    iter: Chain<Iter<'a, T, H>, Difference<'a, T, H>>,
+    iter: Chain<Iter<'a, T>, Difference<'a, T, H>>,
 }
 
 impl<'a, T, H> Union<'a, T, H>
