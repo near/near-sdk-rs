@@ -115,34 +115,16 @@ where
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        <Self as Iterator>::nth(self, 0)
+        loop {
+            let elt = self.elements.next()?;
+            if !self.other.contains(elt) {
+                return Some(elt);
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (0, self.elements.size_hint().1)
-    }
-
-    fn count(mut self) -> usize {
-        let mut count = 0usize;
-        for element in self.elements.by_ref() {
-            if !self.other.contains(element) {
-                count += 1;
-            }
-        }
-        count
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let mut count = 0usize;
-        for element in self.elements.by_ref() {
-            if !self.other.contains(element) {
-                if count == n {
-                    return Some(element);
-                }
-                count += 1;
-            }
-        }
-        None
     }
 }
 
@@ -187,34 +169,16 @@ where
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        <Self as Iterator>::nth(self, 0)
+        loop {
+            let elt = self.elements.next()?;
+            if self.other.contains(elt) {
+                return Some(elt);
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (0, self.elements.size_hint().1)
-    }
-
-    fn count(mut self) -> usize {
-        let mut count = 0usize;
-        for element in self.elements.by_ref() {
-            if self.other.contains(element) {
-                count += 1;
-            }
-        }
-        count
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        let mut count = 0usize;
-        for element in self.elements.by_ref() {
-            if self.other.contains(element) {
-                if count == n {
-                    return Some(element);
-                }
-                count += 1;
-            }
-        }
-        None
     }
 }
 
