@@ -1,7 +1,7 @@
 use crate::core_impl::info_extractor::serializer_attr::SerializerAttr;
 use crate::core_impl::info_extractor::SerializerType;
 use quote::ToTokens;
-use syn::{Attribute, Error, Ident, Pat, PatType, Token, Type, spanned::Spanned};
+use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
 
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
