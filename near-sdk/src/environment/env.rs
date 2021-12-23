@@ -731,12 +731,6 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::test_env;
-    use hex::FromHex;
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
-    use serde_json::from_slice;
-    use std::fmt::Display;
 
     #[test]
     fn test_is_valid_account_id_strings() {
@@ -851,33 +845,40 @@ mod tests {
         );
     }
 
-    #[derive(Deserialize)]
-    struct EcrecoverTest {
-        #[serde(with = "hex::serde")]
-        m: [u8; 32],
-        v: u8,
-        #[serde(with = "hex::serde")]
-        sig: [u8; 64],
-        mc: bool,
-        #[serde(deserialize_with = "deserialize_option_hex")]
-        res: Option<[u8; 64]>,
-    }
-
-    fn deserialize_option_hex<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-    where
-        D: Deserializer<'de>,
-        T: FromHex,
-        <T as FromHex>::Error: Display,
-    {
-        Deserialize::deserialize(deserializer)
-            .map(|v: Option<&str>| v.map(FromHex::from_hex).transpose().map_err(Error::custom))
-            .and_then(|v| v)
-    }
-
     #[cfg(not(target_arch = "wasm32"))]
     #[cfg(feature = "unstable")]
     #[test]
     fn test_ecrecover() {
+        use crate::test_utils::test_env;
+        use hex::FromHex;
+        use serde::de::Error;
+        use serde::{Deserialize, Deserializer};
+        use serde_json::from_slice;
+        use std::fmt::Display;
+
+        #[derive(Deserialize)]
+        struct EcrecoverTest {
+            #[serde(with = "hex::serde")]
+            m: [u8; 32],
+            v: u8,
+            #[serde(with = "hex::serde")]
+            sig: [u8; 64],
+            mc: bool,
+            #[serde(deserialize_with = "deserialize_option_hex")]
+            res: Option<[u8; 64]>,
+        }
+
+        fn deserialize_option_hex<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+        where
+            D: Deserializer<'de>,
+            T: FromHex,
+            <T as FromHex>::Error: Display,
+        {
+            Deserialize::deserialize(deserializer)
+                .map(|v: Option<&str>| v.map(FromHex::from_hex).transpose().map_err(Error::custom))
+                .and_then(|v| v)
+        }
+
         test_env::setup_free();
         for EcrecoverTest { m, v, sig, mc, res } in
             from_slice::<'_, Vec<_>>(include_bytes!("../../tests/ecrecover-tests.json")).unwrap()

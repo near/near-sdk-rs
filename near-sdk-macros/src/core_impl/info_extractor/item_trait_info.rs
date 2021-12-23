@@ -1,6 +1,5 @@
 use super::TraitItemMethodInfo;
 use inflector::Inflector;
-use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, ItemTrait, TraitItem};
 
@@ -18,7 +17,7 @@ impl ItemTraitInfo {
     pub fn new(original: &mut ItemTrait, mod_name_override: Option<Ident>) -> syn::Result<Self> {
         let mod_name = mod_name_override.unwrap_or({
             let res = original.ident.to_string().to_snake_case();
-            Ident::new(&res, Span::call_site())
+            Ident::new(&res, original.span())
         });
 
         let mut methods = vec![];
