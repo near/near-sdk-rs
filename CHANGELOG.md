@@ -1,15 +1,20 @@
 # Changelog
 
-## [unreleased]
+## `4.0.0-pre.5` [12-23-2021]
 - fix(standards): Fix NFT impl macros to not import `HashMap` and `near_sdk::json_types::U128`. [PR 571](https://github.com/near/near-sdk-rs/pull/571).
 - Add drain iterator for `near_sdk::store::UnorderedMap`. [PR 613](https://github.com/near/near-sdk-rs/pull/613).
   - Will remove all values and iterate over owned values that were removed
 - Fix codegen for methods inside a `#[near_bindgen]` to allow using `mut self` which will generate the same code as `self` and will not persist state. [PR 616](https://github.com/near/near-sdk-rs/pull/616).
 - Make function call terminology consistent by switching from method name usages. [PR 633](https://github.com/near/near-sdk-rs/pull/633).
   - This is only a breaking change if inspecting the `VmAction`s of receipts in mocked environments. All other changes are positional argument names.
+- Implement new iterator for `collections::Vec` to optimize for `nth` and `count`. [PR 634](https://github.com/near/near-sdk-rs/pull/634)
+  - This is useful specifically for things like pagination, where `.skip(x)` will not load the first `x` elements anymore
+  - Does not affect any `store` collections, which are already optimized, this just optimizes the legacy `collections` that use `Vec`
 - Add consts for near, yocto, and tgas. [PR 640](https://github.com/near/near-sdk-rs/pull/640).
   - `near_sdk::ONE_NEAR`, `near_sdk::ONE_YOCTO`, `near_sdk::Gas::ONE_TERA`
 - Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)
+- Implemented `Debug` for all `collection` and `store` types. [PR 647](https://github.com/near/near-sdk-rs/pull/647)
+- Added new internal mint function to allow specifying or ignoring refund. [PR 618](https://github.com/near/near-sdk-rs/pull/618)
 - store: Implement caching `LookupSet` type. This is the new iteration of the previous version of `near_sdk::collections::LookupSet` that has an updated API, and is located at `near_sdk::store::LookupSet`. [PR 654](https://github.com/near/near-sdk-rs/pull/654), [PR 664](https://github.com/near/near-sdk-rs/pull/664).
 - Deprecate `testing_env_with_promise_results`, `setup_with_config`, and `setup` due to these functions being unneeded anymore or have unintended side effects [PR 671](https://github.com/near/near-sdk-rs/pull/671)
   - Added missing pattern for only including context and vm config to `testing_env!` to remove friction
@@ -17,6 +22,7 @@
   - These return a fixed length array instead of heap allocating with `Vec<u8>`
 - Added `ripemd160_array` hash function that returns a fixed length byte array [PR 648](https://github.com/near/near-sdk-rs/pull/648)
 - Added `ecrecover` under `unstable` feature for recovering signer address by message hash and a corresponding signature. [PR 658](https://github.com/near/near-sdk-rs/pull/658).
+- standards: Add require statement to ensure minimum needed gas in FT and NFT transfers at start of method. [PR 678](https://github.com/near/near-sdk-rs/pull/678)
 
 ## `4.0.0-pre.4` [10-15-2021]
 - Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)
