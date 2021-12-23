@@ -5,6 +5,7 @@ use near_sdk::serde::{Deserialize, Serialize};
     PartialEq,
     Eq,
     PartialOrd,
+    Ord,
     Hash,
     Clone,
     Copy,
@@ -25,6 +26,7 @@ pub enum Resource {
     PartialEq,
     Eq,
     PartialOrd,
+    Ord,
     Hash,
     Clone,
     Copy,
@@ -46,6 +48,7 @@ pub enum Reward {
     PartialEq,
     Eq,
     PartialOrd,
+    Ord,
     Hash,
     Clone,
     Copy,
@@ -63,7 +66,7 @@ pub enum Asset {
 }
 
 #[derive(
-    PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, BorshDeserialize, BorshSerialize,
+    PartialEq, Eq, Hash, Serialize, Deserialize, BorshDeserialize, BorshSerialize, Ord, PartialOrd,
 )]
 #[serde(crate = "near_sdk::serde")]
 pub enum Exchange {

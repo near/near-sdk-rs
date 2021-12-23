@@ -49,12 +49,12 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         require!(env::predecessor_account_id() == owner_id, "Predecessor must be token owner.");
 
         let next_approval_id_by_id = expect_approval(self.next_approval_id_by_id.as_mut());
-        // update HashMap of approvals for this token
+        // update BTreeMap of approvals for this token
         let approved_account_ids = &mut approvals_by_id.get(&token_id).unwrap_or_default();
         let approval_id: u64 = next_approval_id_by_id.get(&token_id).unwrap_or(1u64);
         let old_approval_id = approved_account_ids.insert(account_id.clone(), approval_id);
 
-        // save updated approvals HashMap to contract's LookupMap
+        // save updated approvals BTreeMap to contract's LookupMap
         approvals_by_id.insert(&token_id, approved_account_ids);
 
         // increment next_approval_id for this token
@@ -100,11 +100,11 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                     predecessor_account_id,
                     core::iter::once(&account_id),
                 );
-                // if this was the last approval, remove the whole HashMap to save space.
+                // if this was the last approval, remove the whole BTreeMap to save space.
                 if approved_account_ids.is_empty() {
                     approvals_by_id.remove(&token_id);
                 } else {
-                    // otherwise, update approvals_by_id with updated HashMap
+                    // otherwise, update approvals_by_id with updated BTreeMap
                     approvals_by_id.insert(&token_id, approved_account_ids);
                 }
             }
@@ -126,7 +126,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         if let Some(approved_account_ids) = &mut approvals_by_id.get(&token_id) {
             // otherwise, refund owner for storage costs of all approvals...
             refund_approved_account_ids(predecessor_account_id, approved_account_ids);
-            // ...and remove whole HashMap of approvals
+            // ...and remove whole BTreeMap of approvals
             approvals_by_id.remove(&token_id);
         }
     }
@@ -156,7 +156,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let actual_approval_id = if let Some(id) = approved_account_ids.get(&approved_account_id) {
             id
         } else {
-            // account not in approvals HashMap
+            // account not in approvals BTreeMap
             return false;
         };
 

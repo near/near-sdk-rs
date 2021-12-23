@@ -2,7 +2,7 @@ use crate::asset::*;
 use crate::rate::*;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::ops;
 
 #[derive(
@@ -23,11 +23,11 @@ pub struct Quantity(pub i32);
 
 #[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
-pub struct Account(pub HashMap<Asset, Quantity>);
+pub struct Account(pub BTreeMap<Asset, Quantity>);
 
 pub enum Tranx {
     Approved(Account, Account),
-    Denied(HashMap<Asset, Quantity>),
+    Denied(BTreeMap<Asset, Quantity>),
 }
 
 impl Account {
@@ -43,7 +43,7 @@ impl Account {
         let debit = &Account(rate.debit.clone()) * quantity;
         let (buyer, seller) = (&(buyer - &debit) + &credit, &(seller - &credit) + &debit);
         let mut success = true;
-        let mut deficit = HashMap::new();
+        let mut deficit = BTreeMap::new();
         {
             let Account(buyer) = &buyer;
             let Account(debit) = debit;
@@ -64,7 +64,7 @@ impl Account {
         }
     }
 
-    pub fn map(&self) -> &HashMap<Asset, Quantity> {
+    pub fn map(&self) -> &BTreeMap<Asset, Quantity> {
         let Account(map) = self;
         map
     }
@@ -83,7 +83,7 @@ impl Account {
     where
         F: Fn(&Quantity, &Quantity) -> Quantity,
     {
-        let mut acc = HashMap::new();
+        let mut acc = BTreeMap::new();
         let mut lhs = lhs.clone();
         let mut rhs = rhs.clone();
         lhs.prime(&rhs);

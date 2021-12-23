@@ -115,7 +115,7 @@ impl NonFungibleTokenMetadataProvider for Contract {
 mod tests {
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use super::*;
 
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(token.token_id, token_id);
         assert_eq!(token.owner_id, accounts(0));
         assert_eq!(token.metadata.unwrap(), sample_token_metadata());
-        assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
+        assert_eq!(token.approved_account_ids.unwrap(), BTreeMap::new());
     }
 
     #[test]
@@ -215,7 +215,7 @@ mod tests {
             assert_eq!(token.token_id, token_id);
             assert_eq!(token.owner_id, accounts(1));
             assert_eq!(token.metadata.unwrap(), sample_token_metadata());
-            assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
+            assert_eq!(token.approved_account_ids.unwrap(), BTreeMap::new());
         } else {
             panic!("token not correctly created, or not found by nft_token");
         }

@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::str::FromStr;
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -9,9 +9,9 @@ pub struct Account {
     /// Current unlocked balance.
     pub balance: Balance,
     /// Allowed account to the allowance amount.
-    pub allowances: HashMap<AccountId, Balance>,
+    pub allowances: BTreeMap<AccountId, Balance>,
     /// Allowed account to locked balance.
-    pub locked_balances: HashMap<AccountId, Balance>,
+    pub locked_balances: BTreeMap<AccountId, Balance>,
 }
 
 impl Account {

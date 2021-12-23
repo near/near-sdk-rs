@@ -12,7 +12,7 @@ use near_sdk::{
     assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, BorshStorageKey,
     CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
@@ -26,7 +26,7 @@ trait NFTResolver {
         previous_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
-        approved_account_ids: Option<HashMap<AccountId, u64>>,
+        approved_account_ids: Option<BTreeMap<AccountId, u64>>,
     ) -> bool;
 }
 
@@ -69,7 +69,7 @@ pub struct NonFungibleToken {
     pub tokens_per_owner: Option<LookupMap<AccountId, UnorderedSet<TokenId>>>,
 
     // required by approval extension
-    pub approvals_by_id: Option<LookupMap<TokenId, HashMap<AccountId, u64>>>,
+    pub approvals_by_id: Option<LookupMap<TokenId, BTreeMap<AccountId, u64>>>,
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
 }
 
@@ -152,7 +152,7 @@ impl NonFungibleToken {
             tokens_per_owner.insert(&tmp_owner_id, u);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
-            let mut approvals = HashMap::new();
+            let mut approvals = BTreeMap::new();
             approvals.insert(tmp_owner_id.clone(), 1u64);
             approvals_by_id.insert(&tmp_token_id, &approvals);
         }
@@ -235,7 +235,7 @@ impl NonFungibleToken {
         #[allow(clippy::ptr_arg)] token_id: &TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
-    ) -> (AccountId, Option<HashMap<AccountId, u64>>) {
+    ) -> (AccountId, Option<BTreeMap<AccountId, u64>>) {
         let owner_id =
             self.owner_by_id.get(token_id).unwrap_or_else(|| env::panic_str("Token not found"));
 
@@ -370,9 +370,9 @@ impl NonFungibleToken {
             tokens_per_owner.insert(&owner_id, &token_ids);
         }
 
-        // Approval Management extension: return empty HashMap as part of Token
+        // Approval Management extension: return empty BTreeMap as part of Token
         let approved_account_ids =
-            if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
+            if self.approvals_by_id.is_some() { Some(BTreeMap::new()) } else { None };
 
         if let Some((id, storage_usage)) = initial_storage_usage {
             refund_deposit_to_account(env::storage_usage() - storage_usage, id)
@@ -440,7 +440,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         let approved_account_ids = self
             .approvals_by_id
             .as_ref()
-            .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
+            .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(BTreeMap::new())));
         Some(Token { token_id, owner_id, metadata, approved_account_ids })
     }
 }
@@ -452,7 +452,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         previous_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
-        approved_account_ids: Option<HashMap<AccountId, u64>>,
+        approved_account_ids: Option<BTreeMap<AccountId, u64>>,
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {

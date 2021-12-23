@@ -3,7 +3,7 @@ use crate::asset::*;
 use crate::rate::*;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -13,7 +13,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn simulate(&mut self, rates: &HashMap<Exchange, Rate>, mission: &Account) {
+    pub fn simulate(&mut self, rates: &BTreeMap<Exchange, Rate>, mission: &Account) {
         // Every tick agent should be able to purchase 1 MissionTime.
         // First it tries to purchase MissionTime with its Resource through Exchange::MissionTimeWithResource.
         // If this fails, it will try to purchase through Exchange::MissionTimeWithTrust.

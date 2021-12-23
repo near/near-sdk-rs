@@ -2,19 +2,19 @@
 //! utilizing the underlying blockchain trie storage more efficiently.
 //!
 //! For example, the following smart contract does not work with state efficiently, because it will
-//! load the entire `HashMap` at the beginning of the contract call, and will save it entirely at
+//! load the entire `BTreeMap` at the beginning of the contract call, and will save it entirely at
 //! the end, in cases when there is state modification. This is fine for small number of elements,
 //! but very inefficient for large numbers.
 //!
 //! ```
-//! # use std::collections::HashMap;
+//! # use std::collections::BTreeMap;
 //! # use borsh::{BorshSerialize, BorshDeserialize};
 //! # use near_sdk_macros::near_bindgen;
 //!
 //! #[near_bindgen]
 //! #[derive(BorshDeserialize, BorshSerialize)]
 //! pub struct StatusMessage {
-//!    records: HashMap<String, String>,
+//!    records: BTreeMap<String, String>,
 //! }
 //! ```
 //!
@@ -32,7 +32,7 @@
 //! }
 //! ```
 //!
-//! The efficiency of `LookupMap` comes at the cost, since it has fewer methods than `HashMap` and is not
+//! The efficiency of `LookupMap` comes at the cost, since it has fewer methods than `BTreeMap` and is not
 //! that seemlessly integrated with the rest of the Rust standard library.
 
 mod legacy_tree_map;

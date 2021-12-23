@@ -1,7 +1,7 @@
 use crate::utils::{init, TOKEN_ID};
 use near_contract_standards::non_fungible_token::Token;
 use near_sdk_sim::{call, view};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[test]
 fn simulate_simple_approve() {
@@ -34,7 +34,7 @@ fn simulate_simple_approve() {
 
     // alternatively, one could check the data returned by nft_token
     let token: Token = view!(nft.nft_token(TOKEN_ID.into())).unwrap_json();
-    let mut expected_approvals = HashMap::new();
+    let mut expected_approvals = BTreeMap::new();
     expected_approvals.insert(alice.account_id(), 1);
     assert_eq!(token.approved_account_ids.unwrap(), expected_approvals);
 

@@ -41,12 +41,14 @@
 
 Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
-use near_sdk::{near_bindgen, env};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::{env, near_bindgen, AccountId};
+use std::collections::BTreeMap;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<AccountId, String>,
+    records: BTreeMap<AccountId, String>,
 }
 
 #[near_bindgen]
@@ -120,7 +122,7 @@ You can also prohibit `Default` trait initialization by using `near_sdk::PanicOn
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    records: BTreeMap<String, String>,
 }
 ```
 
@@ -182,12 +184,10 @@ The general workflow is the following:
 
    Here is an example of a smart contract struct:
    ```rust
-   use near_sdk::{near_bindgen, env};
-
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
    pub struct MyContract {
-       data: HashMap<u64, u64>
+       data: BTreeMap<u64, u64>
    }
    ```
 

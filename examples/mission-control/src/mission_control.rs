@@ -6,15 +6,15 @@ use near_sdk::AccountId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, near_bindgen};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[near_bindgen]
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct MissionControl {
     account: Account,
-    agents: HashMap<AccountId, Agent>,
-    rates: HashMap<Exchange, Rate>,
+    agents: BTreeMap<AccountId, Agent>,
+    rates: BTreeMap<Exchange, Rate>,
 }
 
 #[near_bindgen]
@@ -44,13 +44,13 @@ impl Default for MissionControl {
 }
 
 fn mission_default() -> Account {
-    Account(hashmap![
+    Account(map![
         Asset::MissionTime => Quantity(1000000),
     ])
 }
 
 fn agent_default() -> Account {
-    Account(hashmap![
+    Account(map![
         Asset::MissionTime => Quantity(1),
         Asset::Trust => Quantity(10000),
         Asset::Resource(Resource::Battery) => Quantity(10000),
@@ -60,12 +60,12 @@ fn agent_default() -> Account {
     ])
 }
 
-fn rates_default() -> HashMap<Exchange, Rate> {
-    hashmap![
+fn rates_default() -> BTreeMap<Exchange, Rate> {
+    map![
         Exchange::MissionTimeWithResource =>
         Rate {
-            credit: hashmap![Asset::MissionTime => Quantity(1)],
-            debit: hashmap![
+            credit: map![Asset::MissionTime => Quantity(1)],
+            debit: map![
                 Asset::Resource(Resource::Battery) => Quantity(20),
                 Asset::Resource(Resource::ThermalSensor) => Quantity(9),
                 Asset::Resource(Resource::RgbSensor) => Quantity(3),
@@ -74,8 +74,8 @@ fn rates_default() -> HashMap<Exchange, Rate> {
         },
         Exchange::MissionTimeWithTrust =>
         Rate {
-            credit: hashmap![Asset::MissionTime => Quantity(1)],
-            debit: hashmap![Asset::Trust => Quantity(1)],
+            credit: map![Asset::MissionTime => Quantity(1)],
+            debit: map![Asset::Trust => Quantity(1)],
         },
     ]
 }

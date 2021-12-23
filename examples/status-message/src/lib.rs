@@ -1,13 +1,13 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, log, metadata, near_bindgen, AccountId};
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 metadata! {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<AccountId, String>,
+    records: BTreeMap<AccountId, String>,
 }
 
 #[near_bindgen]

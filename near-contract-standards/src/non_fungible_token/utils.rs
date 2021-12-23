@@ -1,5 +1,5 @@
 use near_sdk::{env, require, AccountId, Balance, CryptoHash, Promise};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::mem::size_of;
 
 // TODO: need a way for end users to determine how much an approval will cost.
@@ -21,7 +21,7 @@ where
 
 pub fn refund_approved_account_ids(
     account_id: AccountId,
-    approved_account_ids: &HashMap<AccountId, u64>,
+    approved_account_ids: &BTreeMap<AccountId, u64>,
 ) -> Promise {
     refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
 }

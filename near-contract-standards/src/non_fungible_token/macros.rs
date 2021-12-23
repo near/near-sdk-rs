@@ -44,7 +44,7 @@ macro_rules! impl_non_fungible_token_core {
                 previous_owner_id: AccountId,
                 receiver_id: AccountId,
                 token_id: TokenId,
-                approved_account_ids: Option<std::collections::HashMap<AccountId, u64>>,
+                approved_account_ids: Option<std::collections::BTreeMap<AccountId, u64>>,
             ) -> bool {
                 self.$token.nft_resolve_transfer(
                     previous_owner_id,
