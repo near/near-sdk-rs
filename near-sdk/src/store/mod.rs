@@ -27,7 +27,7 @@ pub(crate) use self::free_list::FreeList;
 
 pub(crate) const ERR_INCONSISTENT_STATE: &str =
     "The collection is an inconsistent state. Did previous smart \
-										contract execution terminate unexpectedly?";
+        contract execution terminate unexpectedly?";
 
 // TODO don't need crate pub once moved
 pub(crate) const ERR_NOT_EXIST: &str = "Key does not exist in map";

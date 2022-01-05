@@ -2,18 +2,17 @@ mod entry;
 mod impls;
 mod iter;
 
-pub use entry::Entry;
-pub use iter::{Iter, IterMut, Keys, Range, RangeMut, Values, ValuesMut};
-
-use borsh::{BorshDeserialize, BorshSerialize};
-use std::borrow::Borrow;
-use std::ops::RangeBounds;
-
 use super::lookup_map as lm;
 use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::store::free_list::{FreeList, FreeListIndex};
 use crate::store::LookupMap;
 use crate::{env, IntoStorageKey};
+use borsh::{BorshDeserialize, BorshSerialize};
+pub use entry::Entry;
+pub use iter::{Iter, IterMut, Keys, Range, RangeMut, Values, ValuesMut};
+use std::borrow::Borrow;
+use std::fmt;
+use std::ops::RangeBounds;
 
 type NodeAndIndex<'a, K> = (FreeListIndex, &'a Node<K>);
 
@@ -29,7 +28,6 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
-///
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
@@ -38,6 +36,31 @@ where
 {
     values: LookupMap<K, V, H>,
     tree: Tree<K>,
+}
+
+impl<K, V, H> Drop for TreeMap<K, V, H>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn drop(&mut self) {
+        self.flush()
+    }
+}
+
+impl<K, V, H> fmt::Debug for TreeMap<K, V, H>
+where
+    K: Ord + Clone + fmt::Debug + BorshSerialize + BorshDeserialize,
+    V: fmt::Debug + BorshSerialize + BorshDeserialize,
+    H: CryptoHasher<Digest = [u8; 32]>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TreeMap")
+            .field("root", &self.tree.root)
+            .field("tree", &self.tree.nodes)
+            .finish()
+    }
 }
 
 //? Manual implementations needed only because borsh derive is leaking field types
@@ -997,15 +1020,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::test_env::setup_free;
     use crate::test_utils::{next_trie_id, test_env};
 
-    extern crate rand;
-    use self::rand::RngCore;
+    use arbitrary::{Arbitrary, Unstructured};
     use quickcheck::QuickCheck;
+    use rand::RngCore;
+    use rand::SeedableRng;
     use std::collections::BTreeMap;
     use std::collections::HashSet;
-    use std::fmt::Formatter;
-    use std::fmt::{Debug, Result};
     use std::ops::Bound;
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
@@ -1042,20 +1065,6 @@ mod tests {
 
         let h = C * log2(n as f64 + D) + B;
         h.ceil() as u32
-    }
-
-    impl<K, V, H> Debug for TreeMap<K, V, H>
-    where
-        K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
-        V: Debug + BorshSerialize + BorshDeserialize,
-        H: CryptoHasher<Digest = [u8; 32]>,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            f.debug_struct("TreeMap")
-                .field("root", &self.tree.root)
-                .field("tree", &self.tree.nodes.iter().collect::<Vec<&Node<K>>>())
-                .finish()
-        }
     }
 
     #[test]
@@ -1913,8 +1922,8 @@ mod tests {
 
     fn is_balanced<K, V, H>(map: &TreeMap<K, V, H>, root: FreeListIndex) -> bool
     where
-        K: Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
-        V: Debug + BorshSerialize + BorshDeserialize,
+        K: Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: BorshSerialize + BorshDeserialize,
         H: CryptoHasher<Digest = [u8; 32]>,
     {
         let node = map.tree.node(root).unwrap();
@@ -2055,5 +2064,59 @@ mod tests {
 
         // Collect all keys
         assert_eq!(map.keys().collect::<Vec<_>>(), [&0, &2, &3]);
+    }
+
+    #[derive(Arbitrary, Debug)]
+    enum Op {
+        Insert(u8, u8),
+        Remove(u8),
+        Flush,
+        Restore,
+        Get(u8),
+    }
+
+    #[test]
+    fn arbitrary() {
+        setup_free();
+
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut buf = vec![0; 4096];
+        for _ in 0..256 {
+            // Clear storage in-between runs
+            crate::mock::with_mocked_blockchain(|b| b.take_storage());
+            rng.fill_bytes(&mut buf);
+
+            let mut um = TreeMap::new(b"l");
+            let mut hm = BTreeMap::new();
+            let u = Unstructured::new(&buf);
+            if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
+                for op in ops {
+                    match op {
+                        Op::Insert(k, v) => {
+                            let r1 = um.insert(k, v);
+                            let r2 = hm.insert(k, v);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Remove(k) => {
+                            let r1 = um.remove(&k);
+                            let r2 = hm.remove(&k);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Flush => {
+                            um.flush();
+                        }
+                        Op::Restore => {
+                            let serialized = um.try_to_vec().unwrap();
+                            um = TreeMap::deserialize(&mut serialized.as_slice()).unwrap();
+                        }
+                        Op::Get(k) => {
+                            let r1 = um.get(&k);
+                            let r2 = hm.get(&k);
+                            assert_eq!(r1, r2)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
