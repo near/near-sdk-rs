@@ -36,7 +36,7 @@ where
     /// use near_sdk::store::TreeMap;
     ///
     /// let mut map: TreeMap<String, u32> = TreeMap::new(b"m");
-    /// assert_eq!(map.entry("poneyland".to_string()).key(), &"poneyland");
+    /// assert_eq!(map.entry("poneyland".to_string()).key(), "poneyland");
     /// ```
     pub fn key(&self) -> &K {
         match self {
@@ -139,10 +139,7 @@ where
     where
         V: Default,
     {
-        match self {
-            Self::Occupied(entry) => entry.into_mut(),
-            Self::Vacant(entry) => entry.insert(Default::default()),
-        }
+        self.or_insert_with(Default::default)
     }
 
     /// Provides in-place mutable access to an occupied entry before any

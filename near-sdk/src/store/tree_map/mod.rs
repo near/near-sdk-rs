@@ -532,10 +532,7 @@ impl<K> Tree<K>
 where
     K: Ord + BorshSerialize + BorshDeserialize + Clone,
 {
-    fn internal_insert(&mut self, key: K)
-    where
-        K: Clone,
-    {
+    fn internal_insert(&mut self, key: K) {
         if let Some(root) = self.root {
             let node = expect(self.node(root)).clone();
             self.root = Some(self.insert_at(node, root, key));
@@ -687,7 +684,7 @@ where
         Q: BorshSerialize + Eq + PartialOrd,
     {
         // r_node - node containing key of interest
-        // p_node - immediate parent node of r_node
+        // remove_parent - immediate parent node of r_node
         let ((r_id, mut r_node), remove_parent) = match self
             .root
             .and_then(|root| self.lookup_at(root, key))
