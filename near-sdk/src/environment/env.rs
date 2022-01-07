@@ -212,6 +212,22 @@ pub fn used_gas() -> Gas {
 // # Math API #
 // ############
 /// Get random seed from the register.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env;
+/// 
+/// fn rand_range(from: i32, to: i32)->i32{
+///     let seed=env::random_seed();
+///     let x = 123456789 ^ u32::from(seed[0]);
+///     let m = (to - from + 1) as u32;
+///     let t = x ^ x.wrapping_shl(11);
+///     let mut w: u32 = 88675123;
+///     w ^= w.wrapping_shr(19) ^ t ^ t.wrapping_shr(8);
+///     return from + (w % m) as i32;
+/// }
+/// ```
 pub fn random_seed() -> Vec<u8> {
     method_into_register!(random_seed)
 }
