@@ -8,10 +8,6 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::marker::PhantomData;
 
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
-
-type LookupKey = [u8; 32];
-
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupSet<T, H = Identity>
 where
@@ -82,25 +78,13 @@ where
     H: ToKey,
     <H as ToKey>::KeyType: AsRef<[u8]>,
 {
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], value: &Q, buffer: &mut Vec<u8>) -> LookupKey
-    where
-        Q: BorshSerialize,
-        T: Borrow<Q>,
-    {
-        // Concat the prefix with serialized key and hash the bytes for the lookup key.
-        buffer.extend(prefix);
-        value.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-
-        H::hash(buffer)
-    }
-
     fn contains_trie_element<Q: ?Sized>(prefix: &[u8], value: &Q) -> bool
     where
         Q: BorshSerialize,
         T: Borrow<Q>,
     {
-        let lookup_key = Self::lookup_key(prefix, value, &mut Vec::new());
-        env::storage_has_key(&lookup_key)
+        let lookup_key = H::to_key(prefix, value, &mut Vec::new());
+        env::storage_has_key(lookup_key.as_ref())
     }
 
     fn get_mut_inner<Q: ?Sized>(&mut self, value: &Q) -> &mut EntryState
@@ -153,8 +137,8 @@ where
     {
         let entry_cell = self.cache.get(value.to_owned());
         match entry_cell.get_or_init(|| {
-            let lookup_key = Self::lookup_key(&self.prefix, value, &mut Vec::new());
-            let contains = env::storage_has_key(&lookup_key);
+            let lookup_key = H::to_key(&self.prefix, value, &mut Vec::new());
+            let contains = env::storage_has_key(lookup_key.as_ref());
             if contains {
                 EntryState::Present
             } else {
@@ -239,14 +223,14 @@ where
                 match entry {
                     EntryState::Inserted => {
                         buf.clear();
-                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
-                        env::storage_write(&lookup_key, &[]);
+                        let lookup_key = H::to_key(&self.prefix, k, &mut buf);
+                        env::storage_write(lookup_key.as_ref(), &[]);
                         *entry = EntryState::Present;
                     }
                     EntryState::Deleted => {
                         buf.clear();
-                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
-                        env::storage_remove(&lookup_key);
+                        let lookup_key = H::to_key(&self.prefix, k, &mut buf);
+                        env::storage_remove(lookup_key.as_ref());
                         *entry = EntryState::Absent;
                     }
                     EntryState::Present | EntryState::Absent => {}
@@ -260,7 +244,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupSet;
-    use crate::store::key::Keccak256;
+    use crate::store::key::{Identity, Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;
@@ -498,7 +482,7 @@ mod tests {
 
     #[test]
     fn test_remove_present_after_put() {
-        let lookup_key = LookupSet::<u8>::lookup_key(b"m", &8u8, &mut Vec::new());
+        let lookup_key = Identity::to_key(b"m", &8u8, &mut Vec::new());
         {
             // Scoped to make sure set is dropped and persist changes
             let mut set = LookupSet::new(b"m");
