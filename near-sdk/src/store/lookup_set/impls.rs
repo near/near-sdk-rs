@@ -12,6 +12,8 @@ where
     where
         I: IntoIterator<Item = T>,
     {
-        self.map.extend(iter.into_iter().map(|k| (k, ())))
+        iter.into_iter().for_each(move |elem| {
+            self.put(elem);
+        });
     }
 }

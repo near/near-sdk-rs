@@ -54,6 +54,12 @@ macro_rules! method_into_register {
 //* Note: need specific length functions because const generics don't work with mem::transmute
 //* https://github.com/rust-lang/rust/issues/61956
 
+pub(crate) unsafe fn read_register_fixed_20(register_id: u64) -> [u8; 20] {
+    let mut hash = [MaybeUninit::<u8>::uninit(); 20];
+    sys::read_register(register_id, hash.as_mut_ptr() as _);
+    std::mem::transmute(hash)
+}
+
 pub(crate) unsafe fn read_register_fixed_32(register_id: u64) -> [u8; 32] {
     let mut hash = [MaybeUninit::<u8>::uninit(); 32];
     sys::read_register(register_id, hash.as_mut_ptr() as _);
@@ -276,6 +282,49 @@ pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
     unsafe {
         sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
         read_register_fixed_64(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Hashes the bytes using the RIPEMD-160 hash function. This returns a 20 byte hash.
+pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
+    //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
+    unsafe {
+        sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_20(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Recovers an ECDSA signer address from a 32-byte message `hash` and a corresponding `signature`
+/// along with `v` recovery byte.
+///
+/// Takes in an additional flag to check for malleability of the signature
+/// which is generally only ideal for transactions.
+///
+/// Returns 64 bytes representing the public key if the recovery was successful.
+#[cfg(feature = "unstable")]
+pub fn ecrecover(
+    hash: &[u8],
+    signature: &[u8],
+    v: u8,
+    malleability_flag: bool,
+) -> Option<[u8; 64]> {
+    unsafe {
+        let return_code = sys::ecrecover(
+            hash.len() as _,
+            hash.as_ptr() as _,
+            signature.len() as _,
+            signature.as_ptr() as _,
+            v as u64,
+            malleability_flag as u64,
+            ATOMIC_OP_REGISTER,
+        );
+        if return_code == 0 {
+            None
+        } else {
+            Some(read_register_fixed_64(ATOMIC_OP_REGISTER))
+        }
     }
 }
 
@@ -789,5 +838,52 @@ mod tests {
             .unwrap()
             .as_slice()
         );
+
+        assert_eq!(
+            &super::ripemd160_array(b"some value"),
+            base64::decode("CfAl/tcE4eysj4iyvaPlaHbaA6w=").unwrap().as_slice()
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn test_ecrecover() {
+        use crate::test_utils::test_env;
+        use hex::FromHex;
+        use serde::de::Error;
+        use serde::{Deserialize, Deserializer};
+        use serde_json::from_slice;
+        use std::fmt::Display;
+
+        #[derive(Deserialize)]
+        struct EcrecoverTest {
+            #[serde(with = "hex::serde")]
+            m: [u8; 32],
+            v: u8,
+            #[serde(with = "hex::serde")]
+            sig: [u8; 64],
+            mc: bool,
+            #[serde(deserialize_with = "deserialize_option_hex")]
+            res: Option<[u8; 64]>,
+        }
+
+        fn deserialize_option_hex<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+        where
+            D: Deserializer<'de>,
+            T: FromHex,
+            <T as FromHex>::Error: Display,
+        {
+            Deserialize::deserialize(deserializer)
+                .map(|v: Option<&str>| v.map(FromHex::from_hex).transpose().map_err(Error::custom))
+                .and_then(|v| v)
+        }
+
+        test_env::setup_free();
+        for EcrecoverTest { m, v, sig, mc, res } in
+            from_slice::<'_, Vec<_>>(include_bytes!("../../tests/ecrecover-tests.json")).unwrap()
+        {
+            assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
+        }
     }
 }
