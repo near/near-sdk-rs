@@ -164,7 +164,6 @@ where
     where
         S: IntoStorageKey,
     {
-        let prefix = prefix.into_storage_key();
         let mut vec_key = prefix.into_storage_key();
         let map_key = [vec_key.as_slice(), b"v"].concat();
         vec_key.push(b'n');
