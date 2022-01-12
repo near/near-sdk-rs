@@ -1598,7 +1598,7 @@ dependencies = [
 
 [[package]]
 name = "near-contract-standards"
-version = "4.0.0-pre.4"
+version = "4.0.0-pre.5"
 dependencies = [
  "near-sdk",
  "serde",
@@ -1874,7 +1874,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "4.0.0-pre.4"
+version = "4.0.0-pre.5"
 dependencies = [
  "base64 0.13.0",
  "borsh 0.9.1",
@@ -1890,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "4.0.0-pre.4"
+version = "4.0.0-pre.5"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -1900,7 +1900,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-sim"
-version = "4.0.0-pre.4"
+version = "4.0.0-pre.5"
 dependencies = [
  "funty",
  "lazy-static-include",

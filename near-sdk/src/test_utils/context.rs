@@ -112,8 +112,8 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn random_seed(&mut self, seed: Vec<u8>) -> &mut Self {
-        self.context.random_seed = seed;
+    pub fn random_seed(&mut self, seed: [u8; 32]) -> &mut Self {
+        self.context.random_seed = seed.to_vec();
         self
     }
 
