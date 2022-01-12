@@ -377,8 +377,6 @@ where
     }
 
     /// Returns (node, parent node) of left-most lower (min) node starting from given node `at`.
-    /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
-    /// its parent must be explicitly provided in advance.
     fn min_at(&self, mut at: FreeListIndex) -> Option<(NodeAndIndex<K>, Option<NodeAndIndex<K>>)> {
         let mut parent: Option<NodeAndIndex<K>> = None;
         loop {
@@ -396,8 +394,6 @@ where
     }
 
     /// Returns (node, parent node) of right-most lower (max) node starting from given node `at`.
-    /// As min_at only traverses the tree down, if a node `at` is the minimum node in a subtree,
-    /// its parent must be explicitly provided in advance.
     fn max_at(&self, mut at: FreeListIndex) -> Option<(NodeAndIndex<K>, Option<NodeAndIndex<K>>)> {
         let mut parent: Option<NodeAndIndex<K>> = None;
         loop {
@@ -486,8 +482,10 @@ where
         None
     }
 
-    /// Returns (node, parent node) for a node that holds the `key`.
-    /// For root node, same node is returned for node and parent node.
+    /// Returns node and parent node and respective metadata for a node that holds the `key`.
+    /// For root node, `None` is returned for the parent and metadata.
+    /// The metadata included in the result includes the indices for the node and parent, as well
+    /// as which edge the found node is of the parent, if one.
     #[allow(clippy::type_complexity)]
     fn lookup_at<Q: ?Sized>(
         &self,
