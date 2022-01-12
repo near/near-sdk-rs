@@ -21,12 +21,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Build gas-fee-tester
-        env: 
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/gas-fee-tester/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/gas-fee-tester/target/wasm32-unknown-unknown/release/*.wasm ./examples/gas-fee-tester/res/
-      - name: Test gas-fee-tester
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/gas-fee-tester/Cargo.toml --all
       - name: Build status-message-collections
         env: 
           RUSTFLAGS: '-C link-arg=-s'
