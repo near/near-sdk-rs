@@ -232,9 +232,25 @@ pub fn used_gas() -> Gas {
 // ############
 // # Math API #
 // ############
-/// Get random seed from the register.
+
+/// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
+/// the block. This value is not modified in any way each time this function is called within the
+/// same method/block.
 pub fn random_seed() -> Vec<u8> {
-    method_into_register!(random_seed)
+    random_seed_array().to_vec()
+}
+
+/// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
+/// the block. This value is not modified in any way each time this function is called within the
+/// same method/block.
+pub fn random_seed_array() -> [u8; 32] {
+    //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid random_seed implementation.
+    unsafe {
+        sys::random_seed(ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
 }
 
 /// Hashes the random sequence of bytes using sha256.
@@ -731,12 +747,6 @@ pub fn is_valid_account_id(account_id: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::test_env;
-    use hex::FromHex;
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
-    use serde_json::from_slice;
-    use std::fmt::Display;
 
     #[test]
     fn test_is_valid_account_id_strings() {
@@ -851,33 +861,50 @@ mod tests {
         );
     }
 
-    #[derive(Deserialize)]
-    struct EcrecoverTest {
-        #[serde(with = "hex::serde")]
-        m: [u8; 32],
-        v: u8,
-        #[serde(with = "hex::serde")]
-        sig: [u8; 64],
-        mc: bool,
-        #[serde(deserialize_with = "deserialize_option_hex")]
-        res: Option<[u8; 64]>,
-    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn random_seed_smoke_test() {
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
+            .random_seed([8; 32])
+            .build());
 
-    fn deserialize_option_hex<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-    where
-        D: Deserializer<'de>,
-        T: FromHex,
-        <T as FromHex>::Error: Display,
-    {
-        Deserialize::deserialize(deserializer)
-            .map(|v: Option<&str>| v.map(FromHex::from_hex).transpose().map_err(Error::custom))
-            .and_then(|v| v)
+        assert_eq!(super::random_seed(), [8; 32]);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[cfg(feature = "unstable")]
     #[test]
     fn test_ecrecover() {
+        use crate::test_utils::test_env;
+        use hex::FromHex;
+        use serde::de::Error;
+        use serde::{Deserialize, Deserializer};
+        use serde_json::from_slice;
+        use std::fmt::Display;
+
+        #[derive(Deserialize)]
+        struct EcrecoverTest {
+            #[serde(with = "hex::serde")]
+            m: [u8; 32],
+            v: u8,
+            #[serde(with = "hex::serde")]
+            sig: [u8; 64],
+            mc: bool,
+            #[serde(deserialize_with = "deserialize_option_hex")]
+            res: Option<[u8; 64]>,
+        }
+
+        fn deserialize_option_hex<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+        where
+            D: Deserializer<'de>,
+            T: FromHex,
+            <T as FromHex>::Error: Display,
+        {
+            Deserialize::deserialize(deserializer)
+                .map(|v: Option<&str>| v.map(FromHex::from_hex).transpose().map_err(Error::custom))
+                .and_then(|v| v)
+        }
+
         test_env::setup_free();
         for EcrecoverTest { m, v, sig, mc, res } in
             from_slice::<'_, Vec<_>>(include_bytes!("../../tests/ecrecover-tests.json")).unwrap()

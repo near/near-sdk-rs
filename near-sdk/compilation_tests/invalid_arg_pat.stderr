@@ -1,0 +1,5 @@
+error: Only identity patterns are supported in function arguments.
+  --> compilation_tests/invalid_arg_pat.rs:12:30
+   |
+12 |     pub fn insert(&mut self, (a, b): (u8, u32)) {}
+   |                              ^^^^^^
