@@ -18,7 +18,6 @@ const NFT_ID: &str = "nft";
 const TOKEN_RECEIVER_ID: &str = "token-receiver";
 const APPROVAL_RECEIVER_ID: &str = "approval-receiver";
 
-// TODO: how to export String instead of &str? Way too much `into`/`to_string` with &str.
 pub const TOKEN_ID: &str = "0";
 
 /// Initialize simulator and return:

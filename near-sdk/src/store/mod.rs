@@ -16,6 +16,9 @@ pub use self::lookup_set::LookupSet;
 pub mod unordered_map;
 pub use self::unordered_map::UnorderedMap;
 
+pub mod unordered_set;
+pub use self::unordered_set::UnorderedSet;
+
 pub mod tree_map;
 pub use self::tree_map::TreeMap;
 

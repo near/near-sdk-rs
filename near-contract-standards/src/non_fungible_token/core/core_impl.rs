@@ -3,7 +3,7 @@ use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{
-    hash_account_id, refund_approved_account_ids, refund_deposit,
+    hash_account_id, refund_approved_account_ids, refund_deposit_to_account,
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
@@ -15,7 +15,7 @@ use near_sdk::{
 use std::collections::HashMap;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -119,7 +119,8 @@ impl NonFungibleToken {
     // TODO: does this seem reasonable?
     fn measure_min_token_storage_cost(&mut self) {
         let initial_storage_usage = env::storage_usage();
-        let tmp_token_id = "a".repeat(64); // TODO: what's a reasonable max TokenId length?
+        // 64 Length because this is the max account id length
+        let tmp_token_id = "a".repeat(64);
         let tmp_owner_id = AccountId::new_unchecked("a".repeat(64));
 
         // 1. set some dummy data
@@ -305,13 +306,40 @@ impl NonFungibleToken {
 
     /// Mint a new token without checking:
     /// * Whether the caller id is equal to the `owner_id`
+    /// * Assumes there will be a refund to the predecessor after covering the storage costs
+    ///
+    /// Returns the newly minted token
     pub fn internal_mint(
         &mut self,
         token_id: TokenId,
         token_owner_id: AccountId,
         token_metadata: Option<TokenMetadata>,
     ) -> Token {
-        let initial_storage_usage = env::storage_usage();
+        self.internal_mint_with_refund(
+            token_id,
+            token_owner_id,
+            token_metadata,
+            Some(env::predecessor_account_id()),
+        )
+    }
+
+    /// Mint a new token without checking:
+    /// * Whether the caller id is equal to the `owner_id`
+    /// * `refund_id` will transfer the left over balance after storage costs are calculated to the provided account.
+    ///   Typically the account will be the owner. If `None`, will not refund. This is useful for delaying refunding
+    ///   until multiple tokens have been minted.
+    ///
+    /// Returns the newly minted token
+    pub fn internal_mint_with_refund(
+        &mut self,
+        token_id: TokenId,
+        token_owner_id: AccountId,
+        token_metadata: Option<TokenMetadata>,
+        refund_id: Option<AccountId>,
+    ) -> Token {
+        // Remember current storage usage if refund_id is Some
+        let initial_storage_usage = refund_id.map(|account_id| (account_id, env::storage_usage()));
+
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic_str("Must provide metadata");
         }
@@ -346,8 +374,10 @@ impl NonFungibleToken {
         let approved_account_ids =
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
+        if let Some((id, storage_usage)) = initial_storage_usage {
+            refund_deposit_to_account(env::storage_usage() - storage_usage, id)
+        }
         // Return any extra attached deposit not used for storage
-        refund_deposit(env::storage_usage() - initial_storage_usage);
 
         Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }
@@ -375,6 +405,10 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
+        require!(
+            env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
+            "More gas is required"
+        );
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
@@ -386,7 +420,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             msg,
             receiver_id.clone(),
             NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
+            env::prepaid_gas() - GAS_FOR_NFT_TRANSFER_CALL,
         )
         .then(ext_self::nft_resolve_transfer(
             old_owner,

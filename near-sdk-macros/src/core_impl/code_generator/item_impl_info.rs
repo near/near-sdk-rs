@@ -505,6 +505,21 @@ mod tests {
     }
 
     #[test]
+    fn init_no_return() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            pub fn method(k: &mut u64) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            compile_error! { "Init methods must return the contract state" }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
     fn init_ignore_state() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {

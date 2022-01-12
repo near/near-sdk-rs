@@ -3,9 +3,9 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use std::convert::TryFrom;
 use std::mem::size_of;
 use std::panic as std_panic;
+use std::{convert::TryFrom, mem::MaybeUninit};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::mock::MockedBlockchain;
@@ -49,6 +49,27 @@ macro_rules! method_into_register {
     ( $method:ident ) => {{
         expect_register(try_method_into_register!($method))
     }};
+}
+
+//* Note: need specific length functions because const generics don't work with mem::transmute
+//* https://github.com/rust-lang/rust/issues/61956
+
+pub(crate) unsafe fn read_register_fixed_20(register_id: u64) -> [u8; 20] {
+    let mut hash = [MaybeUninit::<u8>::uninit(); 20];
+    sys::read_register(register_id, hash.as_mut_ptr() as _);
+    std::mem::transmute(hash)
+}
+
+pub(crate) unsafe fn read_register_fixed_32(register_id: u64) -> [u8; 32] {
+    let mut hash = [MaybeUninit::<u8>::uninit(); 32];
+    sys::read_register(register_id, hash.as_mut_ptr() as _);
+    std::mem::transmute(hash)
+}
+
+pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
+    let mut hash = [MaybeUninit::<u8>::uninit(); 64];
+    sys::read_register(register_id, hash.as_mut_ptr() as _);
+    std::mem::transmute(hash)
 }
 
 /// Replaces the current low-level blockchain interface accessible through `env::*` with another
@@ -211,27 +232,116 @@ pub fn used_gas() -> Gas {
 // ############
 // # Math API #
 // ############
-/// Get random seed from the register.
+
+/// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
+/// the block. This value is not modified in any way each time this function is called within the
+/// same method/block.
 pub fn random_seed() -> Vec<u8> {
-    method_into_register!(random_seed)
+    random_seed_array().to_vec()
+}
+
+/// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
+/// the block. This value is not modified in any way each time this function is called within the
+/// same method/block.
+pub fn random_seed_array() -> [u8; 32] {
+    //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid random_seed implementation.
+    unsafe {
+        sys::random_seed(ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
 }
 
 /// Hashes the random sequence of bytes using sha256.
 pub fn sha256(value: &[u8]) -> Vec<u8> {
-    unsafe { sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    expect_register(read_register(ATOMIC_OP_REGISTER))
+    sha256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak256.
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
-    unsafe { sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    expect_register(read_register(ATOMIC_OP_REGISTER))
+    keccak256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak512.
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
-    unsafe { sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER) };
-    expect_register(read_register(ATOMIC_OP_REGISTER))
+    keccak512_array(value).to_vec()
+}
+
+/// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
+pub fn sha256_array(value: &[u8]) -> [u8; 32] {
+    //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid sha256 implementation.
+    unsafe {
+        sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Hashes the bytes using the Keccak-256 hash function. This returns a 32 byte hash.
+pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
+    //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid keccak256 implementation.
+    unsafe {
+        sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Hashes the bytes using the Keccak-512 hash function. This returns a 64 byte hash.
+pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
+    //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid keccak512 implementation.
+    unsafe {
+        sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_64(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Hashes the bytes using the RIPEMD-160 hash function. This returns a 20 byte hash.
+pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
+    //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
+    unsafe {
+        sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+        read_register_fixed_20(ATOMIC_OP_REGISTER)
+    }
+}
+
+/// Recovers an ECDSA signer address from a 32-byte message `hash` and a corresponding `signature`
+/// along with `v` recovery byte.
+///
+/// Takes in an additional flag to check for malleability of the signature
+/// which is generally only ideal for transactions.
+///
+/// Returns 64 bytes representing the public key if the recovery was successful.
+#[cfg(feature = "unstable")]
+pub fn ecrecover(
+    hash: &[u8],
+    signature: &[u8],
+    v: u8,
+    malleability_flag: bool,
+) -> Option<[u8; 64]> {
+    unsafe {
+        let return_code = sys::ecrecover(
+            hash.len() as _,
+            hash.as_ptr() as _,
+            signature.len() as _,
+            signature.as_ptr() as _,
+            v as u64,
+            malleability_flag as u64,
+            ATOMIC_OP_REGISTER,
+        );
+        if return_code == 0 {
+            None
+        } else {
+            Some(read_register_fixed_64(ATOMIC_OP_REGISTER))
+        }
+    }
 }
 
 // ################
@@ -491,6 +601,8 @@ pub fn panic_str(message: &str) -> ! {
 pub fn abort() -> ! {
     // Use wasm32 unreachable call to avoid including the `panic` external function in Wasm.
     #[cfg(target_arch = "wasm32")]
+    //* This was stabilized recently (~ >1.51), so ignore warnings but don't enforce higher msrv
+    #[allow(unused_unsafe)]
     unsafe {
         core::arch::wasm32::unreachable()
     }
@@ -718,5 +830,86 @@ mod tests {
         assert!(!is_valid_account_id(&[0, 1]));
         assert!(!is_valid_account_id(&[0, 1, 2]));
         assert!(is_valid_account_id(b"near"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn hash_smoke_tests() {
+        assert_eq!(
+            &super::sha256_array(b"some value"),
+            base64::decode("qz0H8xacy9DtbEtF3iFRn5+TjHLSQSSZiquUnOg7tRs").unwrap().as_slice()
+        );
+
+        assert_eq!(
+            &super::keccak256_array(b"some value"),
+            base64::decode("+Sjftfxys7v7mlzLDumEOye0rB68Jab294PiPr1H7x8=").unwrap().as_slice()
+        );
+
+        assert_eq!(
+            &super::keccak512_array(b"some value"),
+            base64::decode(
+                "PjjRQKhRIzdO5j7CCJc6o5uHNJ0XzKyUiiST4YsYtZEyIM0XS09RGql5dwCeFr5IX8\
+                    lPXidDy5uwV501q0EFgw=="
+            )
+            .unwrap()
+            .as_slice()
+        );
+
+        assert_eq!(
+            &super::ripemd160_array(b"some value"),
+            base64::decode("CfAl/tcE4eysj4iyvaPlaHbaA6w=").unwrap().as_slice()
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn random_seed_smoke_test() {
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
+            .random_seed([8; 32])
+            .build());
+
+        assert_eq!(super::random_seed(), [8; 32]);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(feature = "unstable")]
+    #[test]
+    fn test_ecrecover() {
+        use crate::test_utils::test_env;
+        use hex::FromHex;
+        use serde::de::Error;
+        use serde::{Deserialize, Deserializer};
+        use serde_json::from_slice;
+        use std::fmt::Display;
+
+        #[derive(Deserialize)]
+        struct EcrecoverTest {
+            #[serde(with = "hex::serde")]
+            m: [u8; 32],
+            v: u8,
+            #[serde(with = "hex::serde")]
+            sig: [u8; 64],
+            mc: bool,
+            #[serde(deserialize_with = "deserialize_option_hex")]
+            res: Option<[u8; 64]>,
+        }
+
+        fn deserialize_option_hex<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+        where
+            D: Deserializer<'de>,
+            T: FromHex,
+            <T as FromHex>::Error: Display,
+        {
+            Deserialize::deserialize(deserializer)
+                .map(|v: Option<&str>| v.map(FromHex::from_hex).transpose().map_err(Error::custom))
+                .and_then(|v| v)
+        }
+
+        test_env::setup_free();
+        for EcrecoverTest { m, v, sig, mc, res } in
+            from_slice::<'_, Vec<_>>(include_bytes!("../../tests/ecrecover-tests.json")).unwrap()
+        {
+            assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
+        }
     }
 }
