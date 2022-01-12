@@ -10,8 +10,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, require, AccountId, Balance, BorshStorageKey,
-    CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, ext_contract, require, AccountId, Balance, BorshStorageKey, CryptoHash,
+    Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 
@@ -273,11 +273,11 @@ impl NonFungibleToken {
         };
 
         require!(&owner_id != receiver_id, "Current and next owner must differ");
-        
+
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
-        
+
         NonFungibleToken::emit_transfer(&owner_id, receiver_id, token_id, sender_id, memo.as_ref());
-        
+
         // return previous owner & approvals
         (owner_id, approved_account_ids)
     }

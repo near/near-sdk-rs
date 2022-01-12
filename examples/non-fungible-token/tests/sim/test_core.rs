@@ -195,7 +195,6 @@ fn simulate_simple_transfer_logs() {
     assert_eq!(token.owner_id, alice.account_id());
 }
 
-
 #[test]
 fn simulate_simple_transfer_no_logs_on_failure() {
     let (root, nft, _, _, _) = init();
