@@ -162,7 +162,7 @@ fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produces_no_l
     let args = serde_json::to_vec(&args).unwrap();
     let res = root
         .create_transaction(nft.account_id())
-        .function_call("nft_transfer_call".to_string(), args, 35_000_000_000_000 + 1, 1)
+        .function_call("nft_transfer_call".to_string(), args, 35_000_000_000_000, 1)
         .submit();
 
     // Prints final log
