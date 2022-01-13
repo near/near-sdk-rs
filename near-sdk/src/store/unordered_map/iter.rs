@@ -130,7 +130,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     /// Values iterator which contains empty and filled cells.
-    keys: free_list::IterMut<'a, K>,
+    keys: free_list::Iter<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
 }
@@ -142,7 +142,7 @@ where
     H: CryptoHasher<Digest = [u8; 32]>,
 {
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
-        Self { keys: map.keys.iter_mut(), values: &mut map.values }
+        Self { keys: map.keys.iter(), values: &mut map.values }
     }
     fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
     where

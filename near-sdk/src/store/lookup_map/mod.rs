@@ -8,6 +8,7 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
+use super::ERR_NOT_EXIST;
 use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
@@ -16,7 +17,6 @@ pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
-const ERR_NOT_EXIST: &str = "Key does not exist in map";
 
 type LookupKey = [u8; 32];
 

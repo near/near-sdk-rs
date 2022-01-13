@@ -39,7 +39,7 @@ where
     /// use near_sdk::store::UnorderedMap;
     ///
     /// let mut map: UnorderedMap<String, u32> = UnorderedMap::new(b"m");
-    /// assert_eq!(map.entry("poneyland".to_string()).key(), &"poneyland");
+    /// assert_eq!(map.entry("poneyland".to_string()).key(), "poneyland");
     /// ```
     pub fn key(&self) -> &K {
         match self {
