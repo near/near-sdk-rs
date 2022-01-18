@@ -1,15 +1,15 @@
 use near_primitives::types::AccountId;
 use near_primitives::views::FinalExecutionStatus;
 use near_sdk::json_types::U128;
-use near_sdk::ONE_YOCTO;
-use tokio::fs;
+use near_sdk::{ONE_NEAR, ONE_YOCTO};
 use workspaces::prelude::*;
 use workspaces::{Account, Contract, DevNetwork, Network, Worker};
 
 // TODO: find/come up with a replacement for `to_yocto` from simtests
-const TEN_THOUSAND_NEAR: u128 = 100_000_000_000_000_000_000_000_000_000;
-const ONE_HUNDRED_NEAR: u128 = 100_000_000_000_000_000_000_000_000;
-const FIFTY_NEAR: u128 = 50_000_000_000_000_000_000_000_000;
+const TEN_THOUSAND_NEAR: u128 = 10_000 * ONE_NEAR;
+const ONE_HUNDRED_NEAR: u128 = 100 * ONE_NEAR;
+const FIFTY_NEAR: u128 = 50 * ONE_NEAR;
+const TEN_NEAR: u128 = 10 * ONE_NEAR;
 
 // TODO: We actually only use Sandbox here, but it is not being exported from workspaces, so we
 // have to be vague about the type
@@ -37,40 +37,40 @@ async fn init<N: DevNetwork>(
     worker: &Worker<N>,
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
-    let wasm = fs::read("res/fungible_token.wasm").await?;
-    let contract = worker.dev_deploy(wasm).await?;
+    let ft_contract =
+        worker.dev_deploy(include_bytes!("../res/fungible_token.wasm").to_vec()).await?;
+    let root = ft_contract.as_account();
 
-    let res = contract
+    let res = ft_contract
         .call(&worker, "new_default_meta")
-        .args_json((contract.as_account().id(), initial_balance))?
+        .args_json((root.id(), initial_balance))?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
-    let defi_wasm = fs::read("res/defi.wasm").await?;
-    let defi_contract = worker.dev_deploy(defi_wasm).await?;
+    let defi_contract = worker.dev_deploy(include_bytes!("../res/defi.wasm").to_vec()).await?;
 
     let res = defi_contract
         .call(&worker, "new")
-        .args_json(vec![contract.as_account().id()])?
+        .args_json(vec![root.id()])?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
-    let res = contract
+    let res = ft_contract
         .as_account()
         .create_subaccount(&worker, "alice")
-        .initial_balance(2000000000000000000000000)
+        .initial_balance(TEN_NEAR)
         .transact()
         .await?;
     assert!(matches!(res.details.status, FinalExecutionStatus::SuccessValue(_)));
     let alice = res.result;
-    register_user(worker, &contract, alice.id()).await?;
+    register_user(worker, &ft_contract, alice.id()).await?;
 
     let none: Option<bool> = None;
-    let res = contract
+    let res = ft_contract
         .call(&worker, "storage_deposit")
         .args_json((alice.id(), none))?
         .gas(300_000_000_000_000)
@@ -79,7 +79,7 @@ async fn init<N: DevNetwork>(
         .await?;
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
-    return Ok((contract, alice, defi_contract));
+    return Ok((ft_contract, alice, defi_contract));
 }
 
 #[tokio::test]
