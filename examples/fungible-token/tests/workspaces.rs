@@ -29,11 +29,10 @@ async fn init(
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let ft_contract =
         worker.dev_deploy(include_bytes!("../res/fungible_token.wasm").to_vec()).await?;
-    let root = ft_contract.as_account();
 
     let res = ft_contract
         .call(&worker, "new_default_meta")
-        .args_json((root.id(), initial_balance))?
+        .args_json((ft_contract.id(), initial_balance))?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
@@ -43,20 +42,19 @@ async fn init(
 
     let res = defi_contract
         .call(&worker, "new")
-        .args_json((root.id(),))?
+        .args_json((ft_contract.id(),))?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
-    let res = ft_contract
+    let alice = ft_contract
         .as_account()
         .create_subaccount(&worker, "alice")
         .initial_balance(parse_near!("10 N"))
         .transact()
-        .await?;
-    assert!(matches!(res.details.status, FinalExecutionStatus::SuccessValue(_)));
-    let alice = res.result;
+        .await?
+        .into_result()?;
     register_user(worker, &ft_contract, alice.id()).await?;
 
     let res = ft_contract
@@ -89,7 +87,6 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
     let transfer_amount = U128::from(parse_near!("100 N"));
     let worker = workspaces::sandbox();
     let (contract, alice, _) = init(&worker, initial_balance).await?;
-    let root = contract.as_account();
 
     let res = contract
         .call(&worker, "ft_transfer")
@@ -102,7 +99,7 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
 
     let root_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((root.id(),))?
+        .args_json((contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
@@ -194,18 +191,13 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
-    register_user(&worker, &contract, defi_contract.as_account().id()).await?;
+    register_user(&worker, &contract, defi_contract.id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
     // TODO: Pack into one transaction
     let res = contract
         .call(&worker, "ft_transfer_call")
-        .args_json((
-            defi_contract.as_account().id(),
-            transfer_amount,
-            Option::<String>::None,
-            "10",
-        ))?
+        .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -237,7 +229,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert_eq!(res.json::<U128>()?.0, transfer_amount.0 - 10);
     let defi_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((defi_contract.as_account().id(),))?
+        .args_json((defi_contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
@@ -254,17 +246,12 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
-    register_user(&worker, &contract, defi_contract.as_account().id()).await?;
+    register_user(&worker, &contract, defi_contract.id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
     let res = contract
         .call(&worker, "ft_transfer_call")
-        .args_json((
-            defi_contract.as_account().id(),
-            transfer_amount,
-            Option::<String>::None,
-            "take-my-money",
-        ))?
+        .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "take-my-money"))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -273,13 +260,13 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
 
     let root_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((contract.as_account().id(),))?
+        .args_json((contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((defi_contract.as_account().id(),))?
+        .args_json((defi_contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
@@ -300,12 +287,7 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
     // call fails because DEFI contract is not registered as FT user
     let res = contract
         .call(&worker, "ft_transfer_call")
-        .args_json((
-            defi_contract.as_account().id(),
-            transfer_amount,
-            Option::<String>::None,
-            "take-my-money",
-        ))?
+        .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "take-my-money"))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -315,13 +297,13 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
     // balances remain unchanged
     let root_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((contract.as_account().id(),))?
+        .args_json((contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((defi_contract.as_account().id(),))?
+        .args_json((defi_contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
@@ -340,12 +322,12 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
-    register_user(&worker, &contract, defi_contract.as_account().id()).await?;
+    register_user(&worker, &contract, defi_contract.id()).await?;
 
     let res = contract
         .call(&worker, "ft_transfer_call")
         .args_json((
-            defi_contract.as_account().id(),
+            defi_contract.id(),
             transfer_amount,
             Option::<String>::None,
             refund_amount.0.to_string(),
@@ -358,13 +340,13 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
 
     let root_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((contract.as_account().id(),))?
+        .args_json((contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((defi_contract.as_account().id(),))?
+        .args_json((defi_contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
@@ -382,13 +364,13 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
-    register_user(&worker, &contract, defi_contract.as_account().id()).await?;
+    register_user(&worker, &contract, defi_contract.id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
     let res = contract
         .call(&worker, "ft_transfer_call")
         .args_json((
-            defi_contract.as_account().id(),
+            defi_contract.id(),
             transfer_amount,
             Option::<String>::None,
             "no parsey as integer big panic oh no".to_string(),
@@ -414,13 +396,13 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     // balances remain unchanged
     let root_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((contract.as_account().id(),))?
+        .args_json((contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
         .call(&worker, "ft_balance_of")
-        .args_json((defi_contract.as_account().id(),))?
+        .args_json((defi_contract.id(),))?
         .view()
         .await?
         .json::<U128>()?;
