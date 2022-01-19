@@ -35,7 +35,7 @@ impl Callback {
         ext::c(A_VALUE, env::current_account_id(), 0, env::prepaid_gas() / 2)
     }
 
-    /// Returns a static string if fail is false, return 
+    /// Returns a static string if fail is false, return
     #[private]
     pub fn b(fail: bool) -> &'static str {
         if fail {
@@ -63,5 +63,65 @@ impl Callback {
             require!(s == "Some string");
         }
         (b.is_err(), c.is_err())
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use tokio::fs;
+    use workspaces::prelude::*;
+
+    #[tokio::test]
+    async fn workspaces_test() -> anyhow::Result<()> {
+        let wasm = fs::read("res/callback_results.wasm").await?;
+
+        let worker = workspaces::sandbox();
+
+        let contract = worker.dev_deploy(wasm).await?;
+
+        // Call function a only to ensure it has correct behaviour
+        let res = contract.call(&worker, "a").transact().await?;
+        assert_eq!(res.json::<u8>()?, 8);
+
+        // Following tests the function call where the `call_all` function always succeeds and handles
+        // the result of the async calls made from within the function with callbacks.
+
+        // No failures
+        let res = contract
+            .call(&worker, "call_all")
+            .args_json((false, 1u8))?
+            .gas(300_000_000_000_000)
+            .transact()
+            .await?;
+        assert_eq!(res.json::<(bool, bool)>()?, (false, false));
+
+        // Fail b
+        let res = contract
+            .call(&worker, "call_all")
+            .args_json((true, 1u8))?
+            .gas(300_000_000_000_000)
+            .transact()
+            .await?;
+        assert_eq!(res.json::<(bool, bool)>()?, (true, false));
+
+        // Fail c
+        let res = contract
+            .call(&worker, "call_all")
+            .args_json((false, 0u8))?
+            .gas(300_000_000_000_000)
+            .transact()
+            .await?;
+        assert_eq!(res.json::<(bool, bool)>()?, (false, true));
+
+        // Fail both b and c
+        let res = contract
+            .call(&worker, "call_all")
+            .args_json((true, 0u8))?
+            .gas(300_000_000_000_000)
+            .transact()
+            .await?;
+        assert_eq!(res.json::<(bool, bool)>()?, (true, true));
+
+        Ok(())
     }
 }
