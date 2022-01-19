@@ -11,10 +11,8 @@ const ONE_HUNDRED_NEAR: u128 = 100 * ONE_NEAR;
 const FIFTY_NEAR: u128 = 50 * ONE_NEAR;
 const TEN_NEAR: u128 = 10 * ONE_NEAR;
 
-// TODO: We actually only use Sandbox here, but it is not being exported from workspaces, so we
-// have to be vague about the type
-async fn register_user<N: Network>(
-    worker: &Worker<N>,
+async fn register_user(
+    worker: &Worker<impl Network>,
     contract: &Contract,
     account_id: &AccountId,
 ) -> anyhow::Result<()> {
@@ -31,10 +29,8 @@ async fn register_user<N: Network>(
     Ok(())
 }
 
-// TODO: We actually only use Sandbox here, but it is not being exported from workspaces, so we
-// have to be vague about the type
-async fn init<N: DevNetwork>(
-    worker: &Worker<N>,
+async fn init(
+    worker: &Worker<impl DevNetwork>,
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let ft_contract =
@@ -53,7 +49,7 @@ async fn init<N: DevNetwork>(
 
     let res = defi_contract
         .call(&worker, "new")
-        .args_json(vec![root.id()])?
+        .args_json((root.id(),))?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
@@ -88,7 +84,7 @@ async fn test_total_supply() -> anyhow::Result<()> {
     let worker = workspaces::sandbox();
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
-    let res = contract.view(&worker, "ft_total_supply", vec![]).await?;
+    let res = contract.call(&worker, "ft_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?, initial_balance);
 
     Ok(())
@@ -113,11 +109,15 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
     let root_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![root.id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((root.id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     let alice_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![alice.id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((alice.id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     assert_eq!(initial_balance.0 - transfer_amount.0, root_balance.0);
@@ -135,7 +135,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
     let none: Option<bool> = None;
     let res = alice
         .call(&worker, contract.id().clone(), "storage_unregister")
-        .args_json(vec![none])?
+        .args_json((none,))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -154,7 +154,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
     let none: Option<bool> = None;
     let res = contract
         .call(&worker, "storage_unregister")
-        .args_json(vec![none])?
+        .args_json((none,))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -164,7 +164,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
 
     let res = contract
         .call(&worker, "storage_unregister")
-        .args_json(vec![Some(false)])?
+        .args_json((Some(false),))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -183,14 +183,14 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
 
     let res = contract
         .call(&worker, "storage_unregister")
-        .args_json(vec![Some(true)])?
+        .args_json((Some(true),))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
-    let res = contract.view(&worker, "ft_total_supply", vec![]).await?;
+    let res = contract.call(&worker, "ft_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?.0, 0);
 
     Ok(())
@@ -219,7 +219,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
     let res = contract
         .call(&worker, "storage_unregister")
-        .args_json(vec![Some(true)])?
+        .args_json((Some(true),))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -239,10 +239,12 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     // // to the sender, but was taken out of the receiver's balance and was burned.
     // assert_eq!(used_amount.0, transfer_amount);
 
-    let res = contract.view(&worker, "ft_total_supply", vec![]).await?;
+    let res = contract.call(&worker, "ft_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?.0, transfer_amount.0 - 10);
     let defi_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![defi_contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((defi_contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     assert_eq!(defi_balance.0, transfer_amount.0 - 10);
@@ -272,11 +274,15 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
     let root_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![defi_contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((defi_contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     assert_eq!(initial_balance.0 - transfer_amount.0, root_balance.0);
@@ -306,11 +312,15 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
 
     // balances remain unchanged
     let root_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![defi_contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((defi_contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     assert_eq!(initial_balance.0, root_balance.0);
@@ -346,11 +356,15 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
 
     let root_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![defi_contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((defi_contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     assert_eq!(initial_balance.0 - transfer_amount.0 + refund_amount.0, root_balance.0);
@@ -399,11 +413,15 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
 
     // balances remain unchanged
     let root_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     let defi_balance = contract
-        .view(&worker, "ft_balance_of", serde_json::to_vec(&vec![defi_contract.as_account().id()])?)
+        .call(&worker, "ft_balance_of")
+        .args_json((defi_contract.as_account().id(),))?
+        .view()
         .await?
         .json::<U128>()?;
     assert_eq!(initial_balance.0, root_balance.0);
