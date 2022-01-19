@@ -11,10 +11,9 @@ async fn register_user(
     contract: &Contract,
     account_id: &AccountId,
 ) -> anyhow::Result<()> {
-    let none: Option<bool> = None;
     let res = contract
         .call(&worker, "storage_deposit")
-        .args_json((account_id, none))?
+        .args_json((account_id, Option::<bool>::None))?
         .gas(300_000_000_000_000)
         .deposit(near_sdk::env::storage_byte_cost() * 125)
         .transact()
@@ -60,10 +59,9 @@ async fn init(
     let alice = res.result;
     register_user(worker, &ft_contract, alice.id()).await?;
 
-    let none: Option<bool> = None;
     let res = ft_contract
         .call(&worker, "storage_deposit")
-        .args_json((alice.id(), none))?
+        .args_json((alice.id(), Option::<bool>::None))?
         .gas(300_000_000_000_000)
         .deposit(near_sdk::env::storage_byte_cost() * 125)
         .transact()
@@ -93,10 +91,9 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
     let (contract, alice, _) = init(&worker, initial_balance).await?;
     let root = contract.as_account();
 
-    let none: Option<String> = None;
     let res = contract
         .call(&worker, "ft_transfer")
-        .args_json((alice.id(), transfer_amount, none))?
+        .args_json((alice.id(), transfer_amount, Option::<bool>::None))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -127,10 +124,9 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
     let worker = workspaces::sandbox();
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
-    let none: Option<bool> = None;
     let res = alice
         .call(&worker, contract.id().clone(), "storage_unregister")
-        .args_json((none,))?
+        .args_json((Option::<bool>::None,))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -146,10 +142,9 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
     let worker = workspaces::sandbox();
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
-    let none: Option<bool> = None;
     let res = contract
         .call(&worker, "storage_unregister")
-        .args_json((none,))?
+        .args_json((Option::<bool>::None,))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -203,10 +198,14 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
 
     // root invests in defi by calling `ft_transfer_call`
     // TODO: Pack into one transaction
-    let none: Option<String> = None;
     let res = contract
         .call(&worker, "ft_transfer_call")
-        .args_json((defi_contract.as_account().id(), transfer_amount, none, "10"))?
+        .args_json((
+            defi_contract.as_account().id(),
+            transfer_amount,
+            Option::<String>::None,
+            "10",
+        ))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -258,10 +257,14 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
     register_user(&worker, &contract, defi_contract.as_account().id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
-    let none: Option<String> = None;
     let res = contract
         .call(&worker, "ft_transfer_call")
-        .args_json((defi_contract.as_account().id(), transfer_amount, none, "take-my-money"))?
+        .args_json((
+            defi_contract.as_account().id(),
+            transfer_amount,
+            Option::<String>::None,
+            "take-my-money",
+        ))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -295,10 +298,14 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // call fails because DEFI contract is not registered as FT user
-    let none: Option<String> = None;
     let res = contract
         .call(&worker, "ft_transfer_call")
-        .args_json((defi_contract.as_account().id(), transfer_amount, none, "take-my-money"))?
+        .args_json((
+            defi_contract.as_account().id(),
+            transfer_amount,
+            Option::<String>::None,
+            "take-my-money",
+        ))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
@@ -335,13 +342,12 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     // defi contract must be registered as a FT account
     register_user(&worker, &contract, defi_contract.as_account().id()).await?;
 
-    let none: Option<String> = None;
     let res = contract
         .call(&worker, "ft_transfer_call")
         .args_json((
             defi_contract.as_account().id(),
             transfer_amount,
-            none,
+            Option::<String>::None,
             refund_amount.0.to_string(),
         ))?
         .gas(300_000_000_000_000)
@@ -379,13 +385,12 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     register_user(&worker, &contract, defi_contract.as_account().id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
-    let none: Option<String> = None;
     let res = contract
         .call(&worker, "ft_transfer_call")
         .args_json((
             defi_contract.as_account().id(),
             transfer_amount,
-            none,
+            Option::<String>::None,
             "no parsey as integer big panic oh no".to_string(),
         ))?
         .gas(300_000_000_000_000)
