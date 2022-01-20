@@ -48,7 +48,7 @@ pub trait FungibleTokenContract {
     /// Returns the total supply of the token in a decimal string representation.
     fn ft_total_supply(&self) -> U128;
 
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
+    /// Returns the balance of the account. If the account doesn't exist, `"0"` must be returned.
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
 
