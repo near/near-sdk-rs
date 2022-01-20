@@ -52,8 +52,8 @@ impl<'a> NftMintData<'a> {
     {
         Self {
             owner_id: owner_id.into(),
-            token_ids: token_ids.into_iter().map(|s| s.into()).collect(),
-            memo: memo.map(|t| t.into()),
+            token_ids: token_ids.into_iter().map(Into::into).collect(),
+            memo: memo.map(Into::into),
         }
     }
 }
