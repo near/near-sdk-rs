@@ -11,7 +11,7 @@ near-sdk = { path = "../../near-sdk" }
 near-units = "0.2.0"
 serde_json = "1.0"
 tokio = { version = "1.14", features = ["full"] }
-workspaces = "0.1"
+workspaces = { git = "https://github.com/near/workspaces-rs", rev = "24679177d262e21a73c7c15004ef141cd08d8147" }
 
 # remember to include a line for each contract
 fungible-token = { path = "./ft" }
