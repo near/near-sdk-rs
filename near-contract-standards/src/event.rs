@@ -165,7 +165,6 @@ mod tests {
     fn alice() -> AccountId {
         AccountId::new_unchecked("alice".to_string())
     }
-    // const MEMO_NONE: Option<String> = None;
 
     #[test]
     fn nft_mint() {
