@@ -1,20 +1,4 @@
-
-/// This file makes heavy use of Copy-on-write references to strings.
-/// Since the logs should be light weight they should not clone any string.
-/// Using generic arguments bound to `Into<Cow<'a, str>>` any reference passed that uses
-/// can provide a reference to a string can be used. E.g. `&String, String, &str, &AccountId`
-/// This also makes it more ergonomic since not only one type can be passed.
-/// 
-/// The unfortunate aspect to this, however, is that the lifetime `'a` is introduced.
-/// This is so that if the `Cow` value has a longer lifetime than the reference it is pointing to it will
-/// copy the string to ensure it still has access to it.  Hence, copy-on-write, where write here is
-/// dropping the reference.
-/// 
-/// While this makes the internal types more complicated the external API will automatically provide the lifetime.
-/// 
-/// See discussion in this PR for more details: https://github.com/near/near-sdk-rs/pull/627
-use std::borrow::Cow;
-
+use near_sdk::AccountId;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -51,25 +35,20 @@ pub enum Nep171EventKind<'a> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NftMintData<'a> {
     #[serde(borrow)]
-    pub owner_id: Cow<'a, str>,
+    pub owner_id: &'a str,
     #[serde(borrow)]
-    pub token_ids: Vec<Cow<'a, str>>,
+    pub token_ids: Vec<&'a str>,
     #[serde(borrow)]
-    pub memo: Option<Cow<'a, str>>,
+    pub memo: Option<&'a str>,
 }
 
 impl<'a> NftMintData<'a> {
-    pub fn new<O, T, M>(owner_id: O, token_ids: Vec<T>, memo: Option<M>) -> NftMintData<'a>
-    where
-        O: Into<Cow<'a, str>>,
-        T: Into<Cow<'a, str>>,
-        M: Into<Cow<'a, str>>,
-    {
-        Self {
-            owner_id: owner_id.into(),
-            token_ids: token_ids.into_iter().map(Into::into).collect(),
-            memo: memo.map(Into::into),
-        }
+    pub fn new(
+        owner_id: &'a AccountId,
+        token_ids: Vec<&'a str>,
+        memo: Option<&'a str>,
+    ) -> NftMintData<'a> {
+        Self { owner_id: owner_id.as_str(), token_ids, memo }
     }
 }
 
@@ -77,38 +56,31 @@ impl<'a> NftMintData<'a> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NftTransferData<'a> {
     #[serde(borrow)]
-    pub old_owner_id: Cow<'a, str>,
+    pub old_owner_id: &'a str,
     #[serde(borrow)]
-    pub new_owner_id: Cow<'a, str>,
+    pub new_owner_id: &'a str,
     #[serde(borrow)]
-    pub token_ids: Vec<Cow<'a, str>>,
+    pub token_ids: Vec<&'a str>,
     #[serde(borrow)]
-    pub authorized_id: Option<Cow<'a, str>>,
+    pub authorized_id: Option<&'a str>,
     #[serde(borrow)]
-    pub memo: Option<Cow<'a, str>>,
+    pub memo: Option<&'a str>,
 }
 
 impl<'a> NftTransferData<'a> {
-    pub fn new<O, N, T, A, M>(
-        old_owner_id: O,
-        new_owner_id: N,
-        token_ids: Vec<T>,
-        authorized_id: Option<A>,
-        memo: Option<M>,
-    ) -> NftTransferData<'a>
-    where
-        O: Into<Cow<'a, str>>,
-        N: Into<Cow<'a, str>>,
-        T: Into<Cow<'a, str>>,
-        A: Into<Cow<'a, str>>,
-        M: Into<Cow<'a, str>>,
-    {
+    pub fn new(
+        old_owner_id: &'a AccountId,
+        new_owner_id: &'a AccountId,
+        token_ids: Vec<&'a str>,
+        authorized_id: Option<&'a AccountId>,
+        memo: Option<&'a str>,
+    ) -> NftTransferData<'a> {
         Self {
-            authorized_id: authorized_id.map(|t| t.into()),
-            old_owner_id: old_owner_id.into(),
-            new_owner_id: new_owner_id.into(),
-            token_ids: token_ids.into_iter().map(|s| s.into()).collect(),
-            memo: memo.map(|t| t.into()),
+            authorized_id: authorized_id.map(|id| id.as_str()),
+            old_owner_id: old_owner_id.as_str(),
+            new_owner_id: new_owner_id.as_str(),
+            token_ids,
+            memo,
         }
     }
 }
@@ -117,33 +89,27 @@ impl<'a> NftTransferData<'a> {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NftBurnData<'a> {
     #[serde(borrow)]
-    pub owner_id: Cow<'a, str>,
+    pub owner_id: &'a str,
     #[serde(borrow)]
-    pub token_ids: Vec<Cow<'a, str>>,
+    pub token_ids: Vec<&'a str>,
     #[serde(borrow)]
-    pub authorized_id: Option<Cow<'a, str>>,
+    pub authorized_id: Option<&'a str>,
     #[serde(borrow)]
-    pub memo: Option<Cow<'a, str>>,
+    pub memo: Option<&'a str>,
 }
 
 impl<'a> NftBurnData<'a> {
-    pub fn new<O, T, A, M>(
-        owner_id: O,
-        token_ids: Vec<T>,
-        authorized_id: Option<A>,
-        memo: Option<M>,
-    ) -> NftBurnData<'a>
-    where
-        O: Into<Cow<'a, str>>,
-        T: Into<Cow<'a, str>>,
-        A: Into<Cow<'a, str>>,
-        M: Into<Cow<'a, str>>,
-    {
+    pub fn new(
+        owner_id: &'a AccountId,
+        token_ids: Vec<&'a str>,
+        authorized_id: Option<&'a AccountId>,
+        memo: Option<&'a str>,
+    ) -> NftBurnData<'a> {
         Self {
-            owner_id: owner_id.into(),
-            token_ids: token_ids.into_iter().map(|s| s.into()).collect(),
-            authorized_id: authorized_id.map(|t| t.into()),
-            memo: memo.map(|t| t.into()),
+            owner_id: owner_id.as_str(),
+            token_ids,
+            authorized_id: authorized_id.map(|id| id.as_str()),
+            memo,
         }
     }
 }
@@ -180,7 +146,8 @@ impl<'a> NearEvent<'a> {
         format!("EVENT_JSON:{}", self.to_json_string())
     }
 
-    pub fn emit(&self) {
+    /// Logs the event to the host. This is required to ensure that the event is triggered.
+    pub fn emit(self) {
         near_sdk::env::log_str(&self.to_json_event_string());
     }
 }
@@ -188,17 +155,22 @@ impl<'a> NearEvent<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use near_sdk::AccountId;
 
-    const AUTHORIZED_ID_NONE: Option<String> = None;
-    const MEMO_NONE: Option<&String> = None;
+    fn bob() -> AccountId {
+        AccountId::new_unchecked("bob".to_string())
+    }
+
+    fn alice() -> AccountId {
+        AccountId::new_unchecked("alice".to_string())
+    }
+    // const MEMO_NONE: Option<String> = None;
 
     #[test]
     fn nft_mint() {
-        let owner_id = "bob";
+        let owner_id = &bob();
         let token_ids = vec!["0", "1"];
-        let mint_log = NftMintData::new(owner_id, token_ids, MEMO_NONE);
+        let mint_log = NftMintData::new(owner_id, token_ids, None);
         let event_log = NearEvent::nft_mint(vec![mint_log]);
         assert_eq!(
             serde_json::to_string(&event_log).unwrap(),
@@ -208,9 +180,9 @@ mod tests {
 
     #[test]
     fn nft_mints() {
-        let owner_id = "bob";
+        let owner_id = &bob();
         let token_ids = vec!["0", "1"];
-        let mint_log = NftMintData::new(owner_id, token_ids, MEMO_NONE);
+        let mint_log = NftMintData::new(owner_id, token_ids, None);
         let alice = AccountId::new_unchecked("alice".to_string());
         let event_log = NearEvent::nft_mint(vec![
             mint_log,
@@ -224,9 +196,9 @@ mod tests {
 
     #[test]
     fn nft_burn() {
-        let owner_id = "bob";
+        let owner_id = &bob();
         let token_ids = vec!["0", "1"];
-        let burn_data = NftBurnData::new(owner_id, token_ids, AUTHORIZED_ID_NONE, MEMO_NONE);
+        let burn_data = NftBurnData::new(owner_id, token_ids, None, None);
         let log = NearEvent::nft_burn(vec![burn_data]).to_json_string();
         assert_eq!(
             log,
@@ -236,30 +208,30 @@ mod tests {
 
     #[test]
     fn nft_burns() {
-        let owner_id = "bob";
+        let owner_id = &bob();
         let token_ids = vec!["0", "1"];
         let log = NearEvent::nft_burn(vec![
-            NftBurnData::new("alice", vec!["2", "3"], Some("4"), Some("has memo")),
-            NftBurnData::new(owner_id, token_ids, AUTHORIZED_ID_NONE, MEMO_NONE),
+            NftBurnData::new(&alice(), vec!["2", "3"], Some(&bob()), Some(&"has memo".to_string())),
+            NftBurnData::new(owner_id, token_ids, None, None),
         ])
         .to_json_string();
         assert_eq!(
             log,
-            r#"{"standard":"nep171","version":"1.0.0","event":"nft_burn","data":[{"owner_id":"alice","token_ids":["2","3"],"authorized_id":"4","memo":"has memo"},{"owner_id":"bob","token_ids":["0","1"]}]}"#
+            r#"{"standard":"nep171","version":"1.0.0","event":"nft_burn","data":[{"owner_id":"alice","token_ids":["2","3"],"authorized_id":"bob","memo":"has memo"},{"owner_id":"bob","token_ids":["0","1"]}]}"#
         );
     }
 
     #[test]
     fn nft_transfer() {
-        let old_owner_id = "bob".to_string();
-        let new_owner_id = "alice";
+        let old_owner_id = &bob();
+        let new_owner_id = &alice();
         let token_ids = vec!["0", "1"];
         let log = NearEvent::nft_transfer(vec![NftTransferData::new(
-            &old_owner_id,
+            old_owner_id,
             new_owner_id,
             token_ids,
-            AUTHORIZED_ID_NONE,
-            MEMO_NONE,
+            None,
+            None,
         )])
         .to_json_string();
         assert_eq!(
@@ -270,29 +242,23 @@ mod tests {
 
     #[test]
     fn nft_transfers() {
-        let old_owner_id = "bob";
-        let new_owner_id = "alice";
+        let old_owner_id = &bob();
+        let new_owner_id = &alice();
         let token_ids = vec!["0", "1"];
         let log = NearEvent::nft_transfer(vec![
             NftTransferData::new(
                 new_owner_id,
                 old_owner_id,
                 vec!["2", "3"],
-                Some("4".to_string()),
+                Some(&bob()),
                 Some("has memo"),
             ),
-            NftTransferData::new(
-                old_owner_id,
-                new_owner_id,
-                token_ids,
-                AUTHORIZED_ID_NONE,
-                MEMO_NONE,
-            ),
+            NftTransferData::new(old_owner_id, new_owner_id, token_ids, None, None),
         ])
         .to_json_string();
         assert_eq!(
             log,
-            r#"{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"alice","new_owner_id":"bob","token_ids":["2","3"],"authorized_id":"4","memo":"has memo"},{"old_owner_id":"bob","new_owner_id":"alice","token_ids":["0","1"]}]}"#
+            r#"{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"alice","new_owner_id":"bob","token_ids":["2","3"],"authorized_id":"bob","memo":"has memo"},{"old_owner_id":"bob","new_owner_id":"alice","token_ids":["0","1"]}]}"#
         );
     }
 }

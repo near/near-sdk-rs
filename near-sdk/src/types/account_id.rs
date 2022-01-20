@@ -1,6 +1,5 @@
 use borsh::{maybestd::io, BorshDeserialize, BorshSchema, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
-use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -66,12 +65,6 @@ impl fmt::Display for AccountId {
 impl From<AccountId> for String {
     fn from(id: AccountId) -> Self {
         id.0
-    }
-}
-
-impl<'a> From<&'a AccountId> for Cow<'a, str> {
-    fn from(id: &'a AccountId) -> Self {
-        Cow::Borrowed(id.as_str())
     }
 }
 

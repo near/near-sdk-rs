@@ -276,7 +276,13 @@ impl NonFungibleToken {
 
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
-        NonFungibleToken::emit_transfer(&owner_id, receiver_id, token_id, sender_id, memo.as_ref());
+        NonFungibleToken::emit_transfer(
+            &owner_id,
+            receiver_id,
+            token_id,
+            sender_id,
+            memo,
+        );
 
         // return previous owner & approvals
         (owner_id, approved_account_ids)
@@ -287,14 +293,14 @@ impl NonFungibleToken {
         receiver_id: &AccountId,
         token_id: &str,
         sender_id: Option<&AccountId>,
-        memo: Option<&String>,
+        memo: Option<String>,
     ) {
         NearEvent::nft_transfer(vec![NftTransferData::new(
             owner_id,
             receiver_id,
             vec![token_id],
             sender_id.filter(|sender_id| *sender_id == owner_id),
-            memo,
+            memo.as_deref(),
         )])
         .emit();
     }
