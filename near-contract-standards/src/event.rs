@@ -1,3 +1,18 @@
+
+/// This file makes heavy use of Copy-on-write references to strings.
+/// Since the logs should be light weight they should not clone any string.
+/// Using generic arguments bound to `Into<Cow<'a, str>>` any reference passed that uses
+/// can provide a reference to a string can be used. E.g. `&String, String, &str, &AccountId`
+/// This also makes it more ergonomic since not only one type can be passed.
+/// 
+/// The unfortunate aspect to this, however, is that the lifetime `'a` is introduced.
+/// This is so that if the `Cow` value has a longer lifetime than the reference it is pointing to it will
+/// copy the string to ensure it still has access to it.  Hence, copy-on-write, where write here is
+/// dropping the reference.
+/// 
+/// While this makes the internal types more complicated the external API will automatically provide the lifetime.
+/// 
+/// See discussion in this PR for more details: https://github.com/near/near-sdk-rs/pull/627
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
