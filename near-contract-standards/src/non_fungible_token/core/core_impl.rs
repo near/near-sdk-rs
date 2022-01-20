@@ -276,13 +276,7 @@ impl NonFungibleToken {
 
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
 
-        NonFungibleToken::emit_transfer(
-            &owner_id,
-            receiver_id,
-            token_id,
-            sender_id,
-            memo,
-        );
+        NonFungibleToken::emit_transfer(&owner_id, receiver_id, token_id, sender_id, memo);
 
         // return previous owner & approvals
         (owner_id, approved_account_ids)
@@ -360,7 +354,7 @@ impl NonFungibleToken {
     ///   Typically the account will be the owner. If `None`, will not refund. This is useful for delaying refunding
     ///   until multiple tokens have been minted.
     ///
-    /// Returns the newly minted token and does not emit the mint event
+    /// Returns the newly minted token and does not emit the mint event. This allows minting multiple before emitting.
     pub fn internal_mint_with_refund(
         &mut self,
         token_id: TokenId,
