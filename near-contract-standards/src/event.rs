@@ -146,7 +146,8 @@ impl<'a> NearEvent<'a> {
         format!("EVENT_JSON:{}", self.to_json_string())
     }
 
-    /// Logs the event to the host. This is required to ensure that the event is triggered.
+    /// Logs the event to the host. This is required to ensure that the event is triggered
+    /// and to consume the event.
     pub fn emit(self) {
         near_sdk::env::log_str(&self.to_json_event_string());
     }
