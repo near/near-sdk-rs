@@ -19,6 +19,9 @@ pub use self::unordered_map::UnorderedMap;
 pub mod unordered_set;
 pub use self::unordered_set::UnorderedSet;
 
+pub mod tree_map;
+pub use self::tree_map::TreeMap;
+
 mod index_map;
 pub(crate) use self::index_map::IndexMap;
 
@@ -28,5 +31,8 @@ pub(crate) use self::free_list::FreeList;
 /// Storage key hash function types and trait to override map hash functions.
 pub mod key;
 
-const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart \
-										contract execution terminate unexpectedly?";
+pub(crate) const ERR_INCONSISTENT_STATE: &str =
+    "The collection is an inconsistent state. Did previous smart \
+        contract execution terminate unexpectedly?";
+
+pub(crate) const ERR_NOT_EXIST: &str = "Key does not exist in map";

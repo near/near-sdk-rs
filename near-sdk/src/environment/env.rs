@@ -232,9 +232,25 @@ pub fn used_gas() -> Gas {
 // ############
 // # Math API #
 // ############
-/// Get random seed from the register.
+
+/// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
+/// the block. This value is not modified in any way each time this function is called within the
+/// same method/block.
 pub fn random_seed() -> Vec<u8> {
-    method_into_register!(random_seed)
+    random_seed_array().to_vec()
+}
+
+/// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
+/// the block. This value is not modified in any way each time this function is called within the
+/// same method/block.
+pub fn random_seed_array() -> [u8; 32] {
+    //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
+    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
+    //*         because all bytes are filled. This assumes a valid random_seed implementation.
+    unsafe {
+        sys::random_seed(ATOMIC_OP_REGISTER);
+        read_register_fixed_32(ATOMIC_OP_REGISTER)
+    }
 }
 
 /// Hashes the random sequence of bytes using sha256.
@@ -843,6 +859,16 @@ mod tests {
             &super::ripemd160_array(b"some value"),
             base64::decode("CfAl/tcE4eysj4iyvaPlaHbaA6w=").unwrap().as_slice()
         );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn random_seed_smoke_test() {
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
+            .random_seed([8; 32])
+            .build());
+
+        assert_eq!(super::random_seed(), [8; 32]);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
