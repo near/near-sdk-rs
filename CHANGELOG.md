@@ -2,8 +2,14 @@
 
 ## [unreleased]
 
+## `4.0.0-pre.6` [01-21-2021]
+
 ### Features
 - Added `env::random_seed_array` to return a fixed length array of the `random_seed` and optimizes the existing function. [PR 692](https://github.com/near/near-sdk-rs/pull/692)
+- Implemented new iteration of `UnorderedSet` and `TreeMap` under `near_sdk::store` which is available with the `unstable` feature flag. [PR 672](https://github.com/near/near-sdk-rs/pull/672) and [PR 665](https://github.com/near/near-sdk-rs/pull/665)
+
+### Fixes
+- Improved macro spans for better errors with `#[near_bindgen]` macro. [PR 683](https://github.com/near/near-sdk-rs/pull/683)
 
 ## `4.0.0-pre.5` [12-23-2021]
 - fix(standards): Fix NFT impl macros to not import `HashMap` and `near_sdk::json_types::U128`. [PR 571](https://github.com/near/near-sdk-rs/pull/571).
