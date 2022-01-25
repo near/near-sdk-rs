@@ -7,3 +7,7 @@ pub mod storage_management;
 /// This upgrade standard is a use case where a staging area exists for a WASM
 /// blob, allowing it to be stored for a period of time before deployed.
 pub mod upgrade;
+
+/// Log JSON events to be caught by indexer
+pub mod event;
+pub use event::NearEvent;
