@@ -22,14 +22,12 @@ fn simulate_simple_approve() {
 
     // check nft_is_approved, with approval_id=1
     let alice_approval_id_is_1: bool =
-        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.account_id(), Some(1)))
-            .unwrap_json();
+        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.account_id(), Some(1))).unwrap_json();
     assert!(alice_approval_id_is_1);
 
     // check nft_is_approved, with approval_id=2
     let alice_approval_id_is_2: bool =
-        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.account_id(), Some(2)))
-            .unwrap_json();
+        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.account_id(), Some(2))).unwrap_json();
     assert!(!alice_approval_id_is_2);
 
     // alternatively, one could check the data returned by nft_token
@@ -43,8 +41,7 @@ fn simulate_simple_approve() {
         .assert_success();
 
     let alice_approval_id_is_2: bool =
-        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.account_id(), Some(2)))
-            .unwrap_json();
+        view!(nft.nft_is_approved(TOKEN_ID.into(), alice.account_id(), Some(2))).unwrap_json();
     assert!(alice_approval_id_is_2);
 
     // approving another account gives different approval_id
@@ -145,8 +142,7 @@ fn simulate_revoke() {
     .assert_success();
 
     // root revokes alice
-    call!(root, nft.nft_revoke(TOKEN_ID.into(), alice.account_id()), deposit = 1)
-        .assert_success();
+    call!(root, nft.nft_revoke(TOKEN_ID.into(), alice.account_id()), deposit = 1).assert_success();
 
     // alice is revoked...
     let alice_approved: bool =

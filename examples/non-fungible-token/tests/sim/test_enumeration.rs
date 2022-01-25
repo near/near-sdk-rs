@@ -93,28 +93,24 @@ fn simulate_enum_nft_tokens_for_owner() {
     assert_eq!(owner_tokens.len(), 0);
 
     // Get tokens with no optional args
-    owner_tokens =
-        view!(nft.nft_tokens_for_owner(root.account_id(), None, None)).unwrap_json();
+    owner_tokens = view!(nft.nft_tokens_for_owner(root.account_id(), None, None)).unwrap_json();
     assert_eq!(owner_tokens.len(), 4);
 
     // With from_index and no limit
     owner_tokens =
-        view!(nft.nft_tokens_for_owner(root.account_id(), Some(U128::from(2)), None))
-            .unwrap_json();
+        view!(nft.nft_tokens_for_owner(root.account_id(), Some(U128::from(2)), None)).unwrap_json();
     assert_eq!(owner_tokens.len(), 2);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "2".to_string());
     assert_eq!(owner_tokens.get(1).unwrap().token_id, "3".to_string());
 
     // With from_index and limit 1
-    owner_tokens =
-        view!(nft.nft_tokens_for_owner(root.account_id(), Some(U128::from(1)), Some(1)))
-            .unwrap_json();
+    owner_tokens = view!(nft.nft_tokens_for_owner(root.account_id(), Some(U128::from(1)), Some(1)))
+        .unwrap_json();
     assert_eq!(owner_tokens.len(), 1);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "1".to_string());
 
     // No from_index but limit 3
-    owner_tokens =
-        view!(nft.nft_tokens_for_owner(root.account_id(), None, Some(3))).unwrap_json();
+    owner_tokens = view!(nft.nft_tokens_for_owner(root.account_id(), None, Some(3))).unwrap_json();
     assert_eq!(owner_tokens.len(), 3);
     assert_eq!(owner_tokens.get(0).unwrap().token_id, "0".to_string());
     assert_eq!(owner_tokens.get(1).unwrap().token_id, "1".to_string());
