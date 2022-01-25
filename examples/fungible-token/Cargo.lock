@@ -1516,15 +1516,15 @@ dependencies = [
 
 [[package]]
 name = "near-sandbox-utils"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9baaf175c86346efdef75e4fcb758a357a94bb85a5cea2be5b4b3587391a9816"
+checksum = "51766f7cdbe34f7358f0dd2286297425ce7d57907078818b6e461b4ce83159fb"
 dependencies = [
  "anyhow",
  "binary-install",
+ "chrono",
  "hex 0.3.2",
  "home",
- "siphasher",
 ]
 
 [[package]]
@@ -2850,8 +2850,9 @@ dependencies = [
 
 [[package]]
 name = "workspaces"
-version = "0.1.0"
-source = "git+https://github.com/near/workspaces-rs?rev=24679177d262e21a73c7c15004ef141cd08d8147#24679177d262e21a73c7c15004ef141cd08d8147"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f46b5b989c75d33dad4dfee4a5e402d87cae8f72129fe6d0126800883c2b83b"
 dependencies = [
  "anyhow",
  "async-trait",
