@@ -1,10 +1,9 @@
-use near_primitives::types::AccountId;
 use near_primitives::views::FinalExecutionStatus;
 use near_sdk::json_types::U128;
 use near_sdk::ONE_YOCTO;
 use near_units::parse_near;
 use workspaces::prelude::*;
-use workspaces::{Account, Contract, DevNetwork, Network, Worker};
+use workspaces::{Account, AccountId, Contract, DevNetwork, Network, Worker};
 
 async fn register_user(
     worker: &Worker<impl Network>,
@@ -194,7 +193,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     register_user(&worker, &contract, defi_contract.id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
-    // TODO: Pack into one transaction
+    // TODO: Put two actions below into a batched transaction once workspaces supports them
     let res = contract
         .call(&worker, "ft_transfer_call")
         .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))?
@@ -406,7 +405,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
         .view()
         .await?
         .json::<U128>()?;
-    assert_eq!(initial_balance.0, root_balance.0);
+    assert_eq!(initial_balance, root_balance);
     assert_eq!(0, defi_balance.0);
 
     Ok(())
