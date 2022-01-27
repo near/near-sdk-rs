@@ -10,7 +10,7 @@
 //! The three events in this standard are [`NftMintData`], [`NftTransferData`], and [`NftBurnData`].
 //!
 //! These events can be logged by calling `.emit()` on them if a single event, or calling
-//! [`emit_nft_mint`], [`emit_nft_transfer`], or [`emit_nft_burn`] respectively.
+//! [`emit_nft_mints`], [`emit_nft_transfers`], or [`emit_nft_burns`] respectively.
 
 use crate::event::NearEvent;
 use near_sdk::AccountId;
@@ -48,7 +48,7 @@ impl NftMintData<'_> {
     /// Logs the event to the host. This is required to ensure that the event is triggered
     /// and to consume the event.
     pub fn emit(self) {
-        emit_nft_mint(&[self])
+        emit_nft_mints(&[self])
     }
 }
 
@@ -69,7 +69,7 @@ impl NftTransferData<'_> {
     /// Logs the event to the host. This is required to ensure that the event is triggered
     /// and to consume the event.
     pub fn emit(self) {
-        emit_nft_transfer(&[self])
+        emit_nft_transfers(&[self])
     }
 }
 
@@ -88,7 +88,7 @@ impl NftBurnData<'_> {
     /// Logs the event to the host. This is required to ensure that the event is triggered
     /// and to consume the event.
     pub fn emit(self) {
-        emit_nft_burn(&[self])
+        emit_nft_burns(&[self])
     }
 }
 
@@ -96,25 +96,25 @@ fn new_171<'a>(version: &'static str, event_kind: Nep171EventKind<'a>) -> NearEv
     NearEvent::Nep171(Nep171Event { version, event_kind })
 }
 
-fn new_171_v1<'a>(event_kind: Nep171EventKind<'a>) -> NearEvent<'a> {
+fn new_171_v1(event_kind: Nep171EventKind) -> NearEvent {
     new_171("1.0.0", event_kind)
 }
 
 /// Emits an nft burn event, through [`env::log_str`](near_sdk::env::log_str),
 /// where each [`NftBurnData`] represents the data of each burn.
-pub fn emit_nft_burn<'a>(data: &'a [NftBurnData<'a>]) {
+pub fn emit_nft_burns<'a>(data: &'a [NftBurnData<'a>]) {
     new_171_v1(Nep171EventKind::NftBurn(data)).emit()
 }
 
 /// Emits an nft transfer event, through [`env::log_str`](near_sdk::env::log_str),
 /// where each [`NftTransferData`] represents the data of each transfer.
-pub fn emit_nft_transfer<'a>(data: &'a [NftTransferData<'a>]) {
+pub fn emit_nft_transfers<'a>(data: &'a [NftTransferData<'a>]) {
     new_171_v1(Nep171EventKind::NftTransfer(data)).emit()
 }
 
 /// Emits an nft mint event, through [`env::log_str`](near_sdk::env::log_str),
 /// where each [`NftMintData`] represents the data of each mint.
-pub fn emit_nft_mint<'a>(data: &'a [NftMintData<'a>]) {
+pub fn emit_nft_mints<'a>(data: &'a [NftMintData<'a>]) {
     new_171_v1(Nep171EventKind::NftMint(data)).emit()
 }
 
@@ -135,8 +135,7 @@ mod tests {
     fn nft_mint() {
         let owner_id = &bob();
         let token_ids = &["0", "1"];
-        let mint_log = NftMintData { owner_id, token_ids, memo: None };
-        emit_nft_mint(&[mint_log]);
+        NftMintData { owner_id, token_ids, memo: None }.emit();
         assert_eq!(
             test_utils::get_logs()[0],
             r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_mint","data":[{"owner_id":"bob","token_ids":["0","1"]}]}"#
@@ -148,10 +147,9 @@ mod tests {
         let owner_id = &bob();
         let token_ids = &["0", "1"];
         let mint_log = NftMintData { owner_id, token_ids, memo: None };
-        let alice = AccountId::new_unchecked("alice".to_string());
-        emit_nft_mint(&[
+        emit_nft_mints(&[
             mint_log,
-            NftMintData { owner_id: &alice, token_ids: &["2", "3"], memo: Some("has memo") },
+            NftMintData { owner_id: &alice(), token_ids: &["2", "3"], memo: Some("has memo") },
         ]);
         assert_eq!(
             test_utils::get_logs()[0],
@@ -163,8 +161,7 @@ mod tests {
     fn nft_burn() {
         let owner_id = &bob();
         let token_ids = &["0", "1"];
-        let burn_data = NftBurnData { owner_id, token_ids, authorized_id: None, memo: None };
-        emit_nft_burn(&[burn_data]);
+        NftBurnData { owner_id, token_ids, authorized_id: None, memo: None }.emit();
         assert_eq!(
             test_utils::get_logs()[0],
             r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_burn","data":[{"owner_id":"bob","token_ids":["0","1"]}]}"#
@@ -175,7 +172,7 @@ mod tests {
     fn nft_burns() {
         let owner_id = &bob();
         let token_ids = &["0", "1"];
-        emit_nft_burn(&[
+        emit_nft_burns(&[
             NftBurnData {
                 owner_id: &alice(),
                 token_ids: &["2", "3"],
@@ -195,13 +192,8 @@ mod tests {
         let old_owner_id = &bob();
         let new_owner_id = &alice();
         let token_ids = &["0", "1"];
-        emit_nft_transfer(&[NftTransferData {
-            old_owner_id,
-            new_owner_id,
-            token_ids,
-            authorized_id: None,
-            memo: None,
-        }]);
+        NftTransferData { old_owner_id, new_owner_id, token_ids, authorized_id: None, memo: None }
+            .emit();
         assert_eq!(
             test_utils::get_logs()[0],
             r#"EVENT_JSON:{"standard":"nep171","version":"1.0.0","event":"nft_transfer","data":[{"old_owner_id":"bob","new_owner_id":"alice","token_ids":["0","1"]}]}"#
@@ -213,7 +205,7 @@ mod tests {
         let old_owner_id = &bob();
         let new_owner_id = &alice();
         let token_ids = &["0", "1"];
-        emit_nft_transfer(&[
+        emit_nft_transfers(&[
             NftTransferData {
                 old_owner_id: &alice(),
                 new_owner_id: &bob(),
