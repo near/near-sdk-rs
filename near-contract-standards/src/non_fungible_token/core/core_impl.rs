@@ -1,6 +1,6 @@
 use super::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
-use crate::non_fungible_token::events::{NftMintData, NftTransferData};
+use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{
@@ -289,7 +289,7 @@ impl NonFungibleToken {
         sender_id: Option<&AccountId>,
         memo: Option<String>,
     ) {
-        NftTransferData {
+        NftTransfer {
             old_owner_id: owner_id,
             new_owner_id: receiver_id,
             token_ids: &[token_id],
@@ -339,7 +339,7 @@ impl NonFungibleToken {
             token_metadata,
             Some(env::predecessor_account_id()),
         );
-        NftMintData { owner_id: &token.owner_id, token_ids: &[&token.token_id], memo: None }.emit();
+        NftMint { owner_id: &token.owner_id, token_ids: &[&token.token_id], memo: None }.emit();
         token
     }
 
