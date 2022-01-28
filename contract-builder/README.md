@@ -26,6 +26,10 @@ If you need to compile some other contracts, you can first export the path to th
 export HOST_DIR=/root/contracts/
 ```
 
+## Using on Mac M1 hardware
+
+Use `build_m1.sh` and `run_m1.sh` instead.
+
 ## Build contracts in docker
 
 Enter mounted path first:
