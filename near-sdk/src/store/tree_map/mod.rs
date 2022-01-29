@@ -3,8 +3,8 @@ mod impls;
 mod iter;
 
 use super::lookup_map as lm;
-use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::store::free_list::{FreeList, FreeListIndex};
+use crate::store::key::{Sha256, ToKey};
 use crate::store::LookupMap;
 use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -32,7 +32,7 @@ pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     values: LookupMap<K, V, H>,
     tree: Tree<K>,
@@ -42,7 +42,7 @@ impl<K, V, H> Drop for TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -53,7 +53,7 @@ impl<K, V, H> fmt::Debug for TreeMap<K, V, H>
 where
     K: Ord + Clone + fmt::Debug + BorshSerialize + BorshDeserialize,
     V: fmt::Debug + BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TreeMap")
@@ -69,7 +69,7 @@ impl<K, V, H> BorshSerialize for TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -85,7 +85,7 @@ impl<K, V, H> BorshDeserialize for TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -158,7 +158,7 @@ impl<K, V, H> TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -185,7 +185,7 @@ impl<K, V, H> TreeMap<K, V, H>
 where
     K: Ord + Clone + BorshSerialize,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Clears the map, removing all key-value pairs. Keeps the allocated memory
     /// for reuse.
@@ -810,7 +810,7 @@ impl<K, V, H> TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
@@ -940,7 +940,7 @@ impl<K, V, H> TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Removes a key from the map, returning the stored key and value if the
     /// key was previously in the map.
@@ -999,7 +999,7 @@ impl<K, V, H> TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -1030,7 +1030,7 @@ mod tests {
     where
         K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
-        H: CryptoHasher<Digest = [u8; 32]>,
+        H: ToKey,
     {
         tree.tree.root.and_then(|root| tree.tree.node(root)).map(|n| n.ht).unwrap_or_default()
     }
@@ -1918,7 +1918,7 @@ mod tests {
     where
         K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
-        H: CryptoHasher<Digest = [u8; 32]>,
+        H: ToKey,
     {
         let node = map.tree.node(root).unwrap();
         let balance = map.tree.get_balance(node);
