@@ -1,6 +1,6 @@
 mod impls;
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
+use crate::store::key::{Identity, ToKey};
 use crate::{env, IntoStorageKey, StableMap};
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
@@ -8,15 +8,11 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::marker::PhantomData;
 
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
-
-type LookupKey = [u8; 32];
-
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct LookupSet<T, H = Sha256>
+pub struct LookupSet<T, H = Identity>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     prefix: Box<[u8]>,
 
@@ -43,7 +39,7 @@ pub(crate) enum EntryState {
 impl<T, H> Drop for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -53,14 +49,14 @@ where
 impl<T, H> fmt::Debug for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupSet").field("prefix", &self.prefix).finish()
     }
 }
 
-impl<T> LookupSet<T, Sha256>
+impl<T> LookupSet<T, Identity>
 where
     T: BorshSerialize + Ord,
 {
@@ -76,27 +72,15 @@ where
 impl<T, H> LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], value: &Q, buffer: &mut Vec<u8>) -> LookupKey
-    where
-        Q: BorshSerialize,
-        T: Borrow<Q>,
-    {
-        // Concat the prefix with serialized key and hash the bytes for the lookup key.
-        buffer.extend(prefix);
-        value.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-
-        H::hash(buffer)
-    }
-
     fn contains_trie_element<Q: ?Sized>(prefix: &[u8], value: &Q) -> bool
     where
         Q: BorshSerialize,
         T: Borrow<Q>,
     {
-        let lookup_key = Self::lookup_key(prefix, value, &mut Vec::new());
-        env::storage_has_key(&lookup_key)
+        let lookup_key = H::to_key(prefix, value, &mut Vec::new());
+        env::storage_has_key(lookup_key.as_ref())
     }
 
     fn get_mut_inner<Q: ?Sized>(&mut self, value: &Q) -> &mut EntryState
@@ -122,8 +106,7 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::LookupSet;
+    /// use near_sdk::store::{LookupSet, key::Keccak256};
     ///
     /// let map = LookupSet::<String, Keccak256>::with_hasher(b"m");
     /// ```
@@ -150,8 +133,8 @@ where
     {
         let entry_cell = self.cache.get(value.to_owned());
         match entry_cell.get_or_init(|| {
-            let lookup_key = Self::lookup_key(&self.prefix, value, &mut Vec::new());
-            let contains = env::storage_has_key(&lookup_key);
+            let lookup_key = H::to_key(&self.prefix, value, &mut Vec::new());
+            let contains = env::storage_has_key(lookup_key.as_ref());
             if contains {
                 EntryState::Present
             } else {
@@ -223,7 +206,7 @@ where
 impl<T, H> LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Flushes the intermediate values of the set before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -235,14 +218,14 @@ where
                 match entry {
                     EntryState::Inserted => {
                         buf.clear();
-                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
-                        env::storage_write(&lookup_key, &[]);
+                        let lookup_key = H::to_key(&self.prefix, k, &mut buf);
+                        env::storage_write(lookup_key.as_ref(), &[]);
                         *entry = EntryState::Present;
                     }
                     EntryState::Deleted => {
                         buf.clear();
-                        let lookup_key = Self::lookup_key(&self.prefix, k, &mut buf);
-                        env::storage_remove(&lookup_key);
+                        let lookup_key = H::to_key(&self.prefix, k, &mut buf);
+                        env::storage_remove(lookup_key.as_ref());
                         *entry = EntryState::Absent;
                     }
                     EntryState::Present | EntryState::Absent => {}
@@ -256,7 +239,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupSet;
-    use crate::crypto_hash::{Keccak256, Sha256};
+    use crate::store::key::{Identity, Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;
@@ -314,6 +297,23 @@ mod tests {
     }
 
     #[test]
+    fn identity_compat_v1() {
+        use crate::collections::LookupSet as LS1;
+
+        let mut ls1 = LS1::new(b"m");
+        ls1.insert(&8u8);
+        ls1.insert(&0);
+        assert!(ls1.contains(&8));
+
+        let mut ls2 = LookupSet::new(b"m");
+        assert!(ls2.contains(&8u8));
+        assert!(ls2.remove(&0));
+        ls2.flush();
+
+        assert!(!ls1.contains(&0));
+    }
+
+    #[test]
     fn test_extend() {
         let mut set = LookupSet::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_debug() {
-        let set = LookupSet::<u8, Sha256>::new(b"m");
+        let set = LookupSet::<u8>::new(b"m");
 
         assert_eq!(format!("{:?}", set), "LookupSet { prefix: [109] }")
     }
@@ -477,7 +477,7 @@ mod tests {
 
     #[test]
     fn test_remove_present_after_put() {
-        let lookup_key = LookupSet::<u8>::lookup_key(b"m", &8u8, &mut Vec::new());
+        let lookup_key = Identity::to_key(b"m", &8u8, &mut Vec::new());
         {
             // Scoped to make sure set is dropped and persist changes
             let mut set = LookupSet::new(b"m");

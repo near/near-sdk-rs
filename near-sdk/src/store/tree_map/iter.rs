@@ -4,13 +4,13 @@ use std::{borrow::Borrow, iter::FusedIterator};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{expect, LookupMap, Tree, TreeMap};
-use crate::crypto_hash::CryptoHasher;
+use crate::store::key::ToKey;
 
 impl<'a, K, V, H> IntoIterator for &'a TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = (&'a K, &'a V);
     type IntoIter = Iter<'a, K, V, H>;
@@ -24,7 +24,7 @@ impl<'a, K, V, H> IntoIterator for &'a mut TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V, H>;
@@ -41,7 +41,7 @@ pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     keys: Keys<'a, K>,
     values: &'a LookupMap<K, V, H>,
@@ -51,7 +51,7 @@ impl<'a, K, V, H> Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(map: &'a TreeMap<K, V, H>) -> Self {
         Self { keys: Keys::new(&map.tree), values: &map.values }
@@ -62,7 +62,7 @@ impl<'a, K, V, H> Iterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = (&'a K, &'a V);
 
@@ -90,14 +90,14 @@ impl<'a, K, V, H> ExactSizeIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 impl<'a, K, V, H> FusedIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -105,7 +105,7 @@ impl<'a, K, V, H> DoubleEndedIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -123,7 +123,7 @@ fn get_entry_mut<'a, 'b, K, V, H>(map: &'b mut LookupMap<K, V, H>, key: &'a K) -
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     let entry = expect(map.get_mut(key));
     //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
@@ -143,7 +143,7 @@ pub struct IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Values iterator which contains empty and filled cells.
     keys: Keys<'a, K>,
@@ -155,7 +155,7 @@ impl<'a, K, V, H> IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(map: &'a mut TreeMap<K, V, H>) -> Self {
         Self { keys: Keys::new(&map.tree), values: &mut map.values }
@@ -166,7 +166,7 @@ impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = (&'a K, &'a mut V);
 
@@ -192,14 +192,14 @@ impl<'a, K, V, H> ExactSizeIterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -207,7 +207,7 @@ impl<'a, K, V, H> DoubleEndedIterator for IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -514,7 +514,7 @@ pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     inner: Iter<'a, K, V, H>,
 }
@@ -523,7 +523,7 @@ impl<'a, K, V, H> Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(map: &'a TreeMap<K, V, H>) -> Self {
         Self { inner: map.iter() }
@@ -534,7 +534,7 @@ impl<'a, K, V, H> Iterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a V;
 
@@ -559,14 +559,14 @@ impl<'a, K, V, H> ExactSizeIterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 impl<'a, K, V, H> FusedIterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -574,7 +574,7 @@ impl<'a, K, V, H> DoubleEndedIterator for Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -592,7 +592,7 @@ pub struct ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     inner: IterMut<'a, K, V, H>,
 }
@@ -601,7 +601,7 @@ impl<'a, K, V, H> ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(map: &'a mut TreeMap<K, V, H>) -> Self {
         Self { inner: map.iter_mut() }
@@ -612,7 +612,7 @@ impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a mut V;
 
@@ -637,14 +637,14 @@ impl<'a, K, V, H> ExactSizeIterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 impl<'a, K, V, H> FusedIterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -652,7 +652,7 @@ impl<'a, K, V, H> DoubleEndedIterator for ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -670,7 +670,7 @@ pub struct Range<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     keys: KeysRange<'a, K>,
     values: &'a LookupMap<K, V, H>,
@@ -680,7 +680,7 @@ impl<'a, K, V, H> Range<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new<Q>(map: &'a TreeMap<K, V, H>, bounds: (Bound<&Q>, Bound<&Q>)) -> Self
     where
@@ -695,7 +695,7 @@ impl<'a, K, V, H> Iterator for Range<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = (&'a K, &'a V);
 
@@ -719,7 +719,7 @@ impl<'a, K, V, H> FusedIterator for Range<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -727,7 +727,7 @@ impl<'a, K, V, H> DoubleEndedIterator for Range<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -748,7 +748,7 @@ pub struct RangeMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     keys: KeysRange<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
@@ -759,7 +759,7 @@ impl<'a, K, V, H> RangeMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new<Q>(map: &'a mut TreeMap<K, V, H>, bounds: (Bound<&Q>, Bound<&Q>)) -> Self
     where
@@ -774,7 +774,7 @@ impl<'a, K, V, H> Iterator for RangeMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = (&'a K, &'a mut V);
 
@@ -796,7 +796,7 @@ impl<'a, K, V, H> FusedIterator for RangeMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -804,7 +804,7 @@ impl<'a, K, V, H> DoubleEndedIterator for RangeMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
