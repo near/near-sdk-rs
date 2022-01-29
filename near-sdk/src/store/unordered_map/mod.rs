@@ -80,7 +80,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     keys: FreeList<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
@@ -99,7 +98,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -116,7 +114,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -131,7 +128,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -143,7 +139,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedMap")
@@ -172,7 +167,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`UnorderedMap`] with a custom hash function.
     ///
@@ -378,7 +372,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Returns a reference to the value corresponding to the key.
     ///
@@ -520,7 +513,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

@@ -9,7 +9,6 @@ impl<'a, T, H> IntoIterator for &'a UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
@@ -39,7 +38,6 @@ where
     pub(super) fn new<H>(set: &'a UnorderedSet<T, H>) -> Self
     where
         H: ToKey,
-        <H as ToKey>::KeyType: AsRef<[u8]>,
     {
         Self { elements: set.elements.iter() }
     }
@@ -94,7 +92,6 @@ pub struct Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     elements: free_list::Iter<'a, T>,
 
@@ -105,7 +102,6 @@ impl<'a, T, H> Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.iter(), other }
@@ -116,7 +112,6 @@ impl<'a, T, H> Iterator for Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a T;
 
@@ -138,7 +133,6 @@ impl<'a, T, H> FusedIterator for Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -152,7 +146,6 @@ pub struct Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     elements: free_list::Iter<'a, T>,
 
@@ -163,7 +156,6 @@ impl<'a, T, H> Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.iter(), other }
@@ -174,7 +166,6 @@ impl<'a, T, H> Iterator for Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a T;
 
@@ -196,7 +187,6 @@ impl<'a, T, H> FusedIterator for Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -210,7 +200,6 @@ pub struct SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     iter: Chain<Difference<'a, T, H>, Difference<'a, T, H>>,
 }
@@ -219,7 +208,6 @@ impl<'a, T, H> SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { iter: set.difference(other).chain(other.difference(set)) }
@@ -230,7 +218,6 @@ impl<'a, T, H> Iterator for SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a T;
 
@@ -247,7 +234,6 @@ impl<'a, T, H> FusedIterator for SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -261,7 +247,6 @@ pub struct Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     iter: Chain<Iter<'a, T>, Difference<'a, T, H>>,
 }
@@ -270,7 +255,6 @@ impl<'a, T, H> Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { iter: set.iter().chain(other.difference(set)) }
@@ -281,7 +265,6 @@ impl<'a, T, H> Iterator for Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a T;
 
@@ -298,7 +281,6 @@ impl<'a, T, H> FusedIterator for Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -313,7 +295,6 @@ pub struct Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     elements: free_list::Drain<'a, T>,
 
@@ -324,7 +305,6 @@ impl<'a, T, H> Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(crate) fn new(set: &'a mut UnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.drain(), index: &mut set.index }
@@ -339,7 +319,6 @@ impl<'a, T, H> Iterator for Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = T;
 
@@ -363,7 +342,6 @@ impl<'a, T, H> ExactSizeIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -371,7 +349,6 @@ impl<'a, T, H> FusedIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -379,7 +356,6 @@ impl<'a, T, H> DoubleEndedIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.elements.next_back()

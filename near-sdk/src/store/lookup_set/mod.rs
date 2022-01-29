@@ -13,7 +13,6 @@ pub struct LookupSet<T, H = Identity>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     prefix: Box<[u8]>,
 
@@ -41,7 +40,6 @@ impl<T, H> Drop for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -52,7 +50,6 @@ impl<T, H> fmt::Debug for LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupSet").field("prefix", &self.prefix).finish()
@@ -76,7 +73,6 @@ impl<T, H> LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn contains_trie_element<Q: ?Sized>(prefix: &[u8], value: &Q) -> bool
     where
@@ -211,7 +207,6 @@ impl<T, H> LookupSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the set before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

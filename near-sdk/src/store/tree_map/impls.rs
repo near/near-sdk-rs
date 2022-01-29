@@ -10,7 +10,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn extend<I>(&mut self, iter: I)
     where
@@ -27,7 +26,7 @@ where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
+
     Q: BorshSerialize + ToOwned<Owned = K>,
 {
     type Output = V;

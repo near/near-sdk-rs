@@ -10,7 +10,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a V);
     type IntoIter = Iter<'a, K, V, H>;
@@ -25,7 +24,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a mut V);
     type IntoIter = IterMut<'a, K, V, H>;
@@ -43,7 +41,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Values iterator which contains empty and filled cells.
     keys: free_list::Iter<'a, K>,
@@ -56,7 +53,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter(), values: &map.values }
@@ -68,7 +64,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a V);
 
@@ -97,7 +92,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for Iter<'a, K, V, H>
@@ -105,7 +99,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -114,7 +107,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -136,7 +128,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Values iterator which contains empty and filled cells.
     keys: free_list::Iter<'a, K>,
@@ -149,7 +140,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter(), values: &mut map.values }
@@ -177,7 +167,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = (&'a K, &'a mut V);
 
@@ -204,7 +193,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H>
@@ -212,7 +200,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -221,7 +208,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -252,7 +238,6 @@ where
         K: Ord,
         V: BorshSerialize,
         H: ToKey,
-        <H as ToKey>::KeyType: AsRef<[u8]>,
     {
         Self { inner: map.keys.iter() }
     }
@@ -297,7 +282,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     inner: Iter<'a, K, V, H>,
 }
@@ -307,7 +291,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
         Self { inner: map.iter() }
@@ -319,7 +302,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a V;
 
@@ -345,7 +327,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for Values<'a, K, V, H>
@@ -353,7 +334,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -362,7 +342,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -381,7 +360,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     inner: IterMut<'a, K, V, H>,
 }
@@ -391,7 +369,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { inner: map.iter_mut() }
@@ -403,7 +380,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = &'a mut V;
 
@@ -429,7 +405,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 impl<'a, K, V, H> FusedIterator for ValuesMut<'a, K, V, H>
@@ -437,7 +412,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -446,7 +420,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
@@ -464,7 +437,6 @@ where
     K: BorshSerialize + BorshDeserialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     keys: free_list::Drain<'a, K>,
     values: &'a mut LookupMap<K, ValueAndIndex<V>, H>,
@@ -475,7 +447,6 @@ where
     K: BorshSerialize + BorshDeserialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub(crate) fn new(list: &'a mut UnorderedMap<K, V, H>) -> Self {
         Self { keys: list.keys.drain(), values: &mut list.values }
@@ -505,7 +476,6 @@ where
     K: BorshSerialize + BorshDeserialize + Ord + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     type Item = (K, V);
 
@@ -529,7 +499,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -538,7 +507,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
 }
 
@@ -547,7 +515,6 @@ where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         let key = self.keys.next_back()?;

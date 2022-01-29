@@ -6,7 +6,6 @@ impl<T, H> Extend<T> for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn extend<I>(&mut self, iter: I)
     where

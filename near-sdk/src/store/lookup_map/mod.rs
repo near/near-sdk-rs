@@ -81,7 +81,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     prefix: Box<[u8]>,
     /// Cache for loads and intermediate changes to the underlying vector.
@@ -107,7 +106,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -119,7 +117,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupMap").field("prefix", &self.prefix).finish()
@@ -145,7 +142,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`LookupMap`] with a custom hash function.
     ///
@@ -184,7 +180,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
@@ -345,7 +340,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

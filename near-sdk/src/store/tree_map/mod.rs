@@ -33,7 +33,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     values: LookupMap<K, V, H>,
     tree: Tree<K>,
@@ -44,7 +43,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -56,7 +54,6 @@ where
     K: Ord + Clone + fmt::Debug + BorshSerialize + BorshDeserialize,
     V: fmt::Debug + BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TreeMap")
@@ -73,7 +70,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -90,7 +86,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -164,7 +159,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -192,7 +186,6 @@ where
     K: Ord + Clone + BorshSerialize,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Clears the map, removing all key-value pairs. Keeps the allocated memory
     /// for reuse.
@@ -818,7 +811,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// An iterator visiting all key-value pairs in arbitrary order.
     /// The iterator element type is `(&'a K, &'a V)`.
@@ -949,7 +941,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Removes a key from the map, returning the stored key and value if the
     /// key was previously in the map.
@@ -1009,7 +1000,6 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -1041,7 +1031,6 @@ mod tests {
         K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
         H: ToKey,
-        <H as ToKey>::KeyType: AsRef<[u8]>,
     {
         tree.tree.root.and_then(|root| tree.tree.node(root)).map(|n| n.ht).unwrap_or_default()
     }
@@ -1930,7 +1919,6 @@ mod tests {
         K: Ord + Clone + BorshSerialize + BorshDeserialize,
         V: BorshSerialize + BorshDeserialize,
         H: ToKey,
-        <H as ToKey>::KeyType: AsRef<[u8]>,
     {
         let node = map.tree.node(root).unwrap();
         let balance = map.tree.get_balance(node);

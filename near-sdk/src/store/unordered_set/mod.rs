@@ -84,7 +84,6 @@ pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     elements: FreeList<T>,
     index: LookupMap<T, FreeListIndex, H>,
@@ -94,7 +93,6 @@ impl<T, H> Drop for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn drop(&mut self) {
         self.flush()
@@ -105,7 +103,6 @@ impl<T, H> fmt::Debug for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedSet")
@@ -132,7 +129,6 @@ impl<T, H> UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
-    <H as ToKey>::KeyType: AsRef<[u8]>,
 {
     /// Initialize a [`UnorderedSet`] with a custom hash function.
     ///
