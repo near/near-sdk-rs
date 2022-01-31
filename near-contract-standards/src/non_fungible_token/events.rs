@@ -7,17 +7,17 @@
 //! This is an extension of the events format (nep-297):
 //! <https://github.com/near/NEPs/blob/master/specs/Standards/EventsFormat.md>
 //!
-//! The three events in this standard are [`NftMintData`], [`NftTransferData`], and [`NftBurnData`].
+//! The three events in this standard are [`NftMint`], [`NftTransfer`], and [`NftBurn`].
 //!
 //! These events can be logged by calling `.emit()` on them if a single event, or calling
-//! [`NftMintData::emit_many`], [`NftTransferData::emit_many`],
-//! or [`NftBurnData::emit_many`] respectively.
+//! [`NftMint::emit_many`], [`NftTransfer::emit_many`],
+//! or [`NftBurn::emit_many`] respectively.
 
 use crate::event::NearEvent;
 use near_sdk::AccountId;
 use serde::Serialize;
 
-/// Data to log for an NFT mint event. To log this event, call [`.emit()`](NftMintData::emit).
+/// Data to log for an NFT mint event. To log this event, call [`.emit()`](NftMint::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
 pub struct NftMint<'a> {
@@ -35,14 +35,14 @@ impl NftMint<'_> {
     }
 
     /// Emits an nft mint event, through [`env::log_str`](near_sdk::env::log_str),
-    /// where each [`NftMintData`] represents the data of each mint.
+    /// where each [`NftMint`] represents the data of each mint.
     pub fn emit_many(data: &[NftMint<'_>]) {
         new_171_v1(Nep171EventKind::NftMint(data)).emit()
     }
 }
 
 /// Data to log for an NFT transfer event. To log this event,
-/// call [`.emit()`](NftTransferData::emit).
+/// call [`.emit()`](NftTransfer::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
 pub struct NftTransfer<'a> {
@@ -63,13 +63,13 @@ impl NftTransfer<'_> {
     }
 
     /// Emits an nft transfer event, through [`env::log_str`](near_sdk::env::log_str),
-    /// where each [`NftTransferData`] represents the data of each transfer.
+    /// where each [`NftTransfer`] represents the data of each transfer.
     pub fn emit_many(data: &[NftTransfer<'_>]) {
         new_171_v1(Nep171EventKind::NftTransfer(data)).emit()
     }
 }
 
-/// Data to log for an NFT burn event. To log this event, call [`.emit()`](NftBurnData::emit).
+/// Data to log for an NFT burn event. To log this event, call [`.emit()`](NftBurn::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
 pub struct NftBurn<'a> {
@@ -89,7 +89,7 @@ impl NftBurn<'_> {
     }
 
     /// Emits an nft burn event, through [`env::log_str`](near_sdk::env::log_str),
-    /// where each [`NftBurnData`] represents the data of each burn.
+    /// where each [`NftBurn`] represents the data of each burn.
     pub fn emit_many<'a>(data: &'a [NftBurn<'a>]) {
         new_171_v1(Nep171EventKind::NftBurn(data)).emit()
     }
