@@ -1,4 +1,5 @@
 use crate::fungible_token::core::FungibleTokenCore;
+use crate::fungible_token::events::FtTransfer;
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
@@ -138,10 +139,13 @@ impl FungibleToken {
         require!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
-        log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
-        if let Some(memo) = memo {
-            log!("Memo: {}", memo);
+        FtTransfer {
+            old_owner_id: sender_id,
+            new_owner_id: receiver_id,
+            amount: &U128(amount),
+            memo: memo.as_deref(),
         }
+        .emit();
     }
 
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
