@@ -1,5 +1,6 @@
-use super::{CryptoHasher, UnorderedSet};
+use super::UnorderedSet;
 use crate::store::free_list::FreeListIndex;
+use crate::store::key::ToKey;
 use crate::store::{free_list, LookupMap};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::{Chain, FusedIterator};
@@ -7,7 +8,7 @@ use std::iter::{Chain, FusedIterator};
 impl<'a, T, H> IntoIterator for &'a UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
@@ -36,7 +37,7 @@ where
 {
     pub(super) fn new<H>(set: &'a UnorderedSet<T, H>) -> Self
     where
-        H: CryptoHasher<Digest = [u8; 32]>,
+        H: ToKey,
     {
         Self { elements: set.elements.iter() }
     }
@@ -90,7 +91,7 @@ where
 pub struct Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     elements: free_list::Iter<'a, T>,
 
@@ -100,7 +101,7 @@ where
 impl<'a, T, H> Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.iter(), other }
@@ -110,7 +111,7 @@ where
 impl<'a, T, H> Iterator for Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a T;
 
@@ -131,7 +132,7 @@ where
 impl<'a, T, H> FusedIterator for Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -144,7 +145,7 @@ where
 pub struct Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     elements: free_list::Iter<'a, T>,
 
@@ -154,7 +155,7 @@ where
 impl<'a, T, H> Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.iter(), other }
@@ -164,7 +165,7 @@ where
 impl<'a, T, H> Iterator for Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a T;
 
@@ -185,7 +186,7 @@ where
 impl<'a, T, H> FusedIterator for Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -198,7 +199,7 @@ where
 pub struct SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     iter: Chain<Difference<'a, T, H>, Difference<'a, T, H>>,
 }
@@ -206,7 +207,7 @@ where
 impl<'a, T, H> SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { iter: set.difference(other).chain(other.difference(set)) }
@@ -216,7 +217,7 @@ where
 impl<'a, T, H> Iterator for SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a T;
 
@@ -232,7 +233,7 @@ where
 impl<'a, T, H> FusedIterator for SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -245,7 +246,7 @@ where
 pub struct Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     iter: Chain<Iter<'a, T>, Difference<'a, T, H>>,
 }
@@ -253,7 +254,7 @@ where
 impl<'a, T, H> Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
         Self { iter: set.iter().chain(other.difference(set)) }
@@ -263,7 +264,7 @@ where
 impl<'a, T, H> Iterator for Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = &'a T;
 
@@ -279,7 +280,7 @@ where
 impl<'a, T, H> FusedIterator for Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
@@ -293,7 +294,7 @@ where
 pub struct Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     elements: free_list::Drain<'a, T>,
 
@@ -303,7 +304,7 @@ where
 impl<'a, T, H> Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     pub(crate) fn new(set: &'a mut UnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.drain(), index: &mut set.index }
@@ -317,7 +318,7 @@ where
 impl<'a, T, H> Iterator for Drain<'a, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     type Item = T;
 
@@ -340,21 +341,21 @@ where
 impl<'a, T, H> ExactSizeIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
 impl<'a, T, H> FusedIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
 }
 
 impl<'a, T, H> DoubleEndedIterator for Drain<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.elements.next_back()

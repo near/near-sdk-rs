@@ -1,7 +1,7 @@
 # Changelog
 
 ## [unreleased]
-- Added event logs to `near-contract-standards`. Currently only NFT related events. [PR 627](https://github.com/near/near-sdk-rs/pull/627)
+- Added FT and NFT event logs to `near-contract-standards`. [PR 627](https://github.com/near/near-sdk-rs/pull/627) and [PR 723](https://github.com/near/near-sdk-rs/pull/723)
 
 ## `4.0.0-pre.6` [01-21-2021]
 
