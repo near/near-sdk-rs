@@ -2,6 +2,9 @@
 
 ## [unreleased]
 
+### Fixes
+- Fix `Token` id field name from `token_id` to `id` to match spec https://github.com/near/NEPs/blob/master/specs/Standards/NonFungibleToken/Core.md#nft-interface. [PR 727](https://github.com/near/near-sdk-rs/pull/727)
+
 ## `4.0.0-pre.7` [02-02-2022]
 
 ### Features
