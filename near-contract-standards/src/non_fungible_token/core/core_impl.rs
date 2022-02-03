@@ -339,7 +339,7 @@ impl NonFungibleToken {
             token_metadata,
             Some(env::predecessor_account_id()),
         );
-        NftMint { owner_id: &token.owner_id, token_ids: &[&token.token_id], memo: None }.emit();
+        NftMint { owner_id: &token.owner_id, token_ids: &[&token.id], memo: None }.emit();
         token
     }
 
@@ -400,7 +400,7 @@ impl NonFungibleToken {
 
         // Return any extra attached deposit not used for storage
 
-        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
+        Token { id: token_id, owner_id, metadata: token_metadata, approved_account_ids }
     }
 }
 
@@ -462,7 +462,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             .approvals_by_id
             .as_ref()
             .and_then(|by_id| by_id.get(&token_id).or_else(|| Some(HashMap::new())));
-        Some(Token { token_id, owner_id, metadata, approved_account_ids })
+        Some(Token { id: token_id, owner_id, metadata, approved_account_ids })
     }
 }
 

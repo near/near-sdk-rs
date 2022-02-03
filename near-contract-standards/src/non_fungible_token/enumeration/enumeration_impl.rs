@@ -14,7 +14,7 @@ impl NonFungibleToken {
         let approved_account_ids =
             Some(self.approvals_by_id.as_ref().unwrap().get(&token_id).unwrap_or_default());
 
-        Token { token_id, owner_id, metadata, approved_account_ids }
+        Token { id: token_id, owner_id, metadata, approved_account_ids }
     }
 }
 
