@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk-sim"
-version = "4.0.0-pre.6"
+version = "4.0.0-pre.7"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2018"
 license = "GPL-3.0"
@@ -13,7 +13,7 @@ NEAR Simulator & cross-contract testing library
 
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "=4.0.0-pre.6" }
+near-sdk = { path = "../near-sdk", version = "=4.0.0-pre.7" }
 near-crypto = "=0.1.0"
 near-primitives = "=0.1.0-pre.1"
 near-vm-logic = "=4.0.0-pre.1"
