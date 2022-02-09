@@ -10,10 +10,10 @@ pub struct Callback;
 #[ext_contract(ext)]
 pub trait ExtCrossContract {
     fn a() -> Promise;
-    fn b(fail: bool) -> String;
+    fn b(fail: bool) -> &'static str;
     fn c(value: u8) -> u8;
     fn handle_callbacks(
-        #[callback_result] a: Result<u8, PromiseError>,
+        #[callback_unwrap] a: u8,
         #[callback_result] b: Result<String, PromiseError>,
         #[callback_result] c: Result<u8, PromiseError>,
     ) -> (bool, bool, bool);
