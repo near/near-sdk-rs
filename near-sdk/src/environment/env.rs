@@ -185,7 +185,7 @@ pub fn block_timestamp() -> u64 {
 
 /// Current block timestamp, i.e, number of non-leap-milliseconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp_ms() -> u64 {
-  block_timestamp() / 10u64.pow(6)
+    block_timestamp() / 10u64.pow(6)
 }
 
 /// Current epoch height.
