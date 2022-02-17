@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn nft_burns() {
+    fn ft_burns() {
         let owner_id = &bob();
         let amount = &U128(100);
         FtBurn::emit_many(&[
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn nft_transfers() {
+    fn ft_transfers() {
         let old_owner_id = &bob();
         let new_owner_id = &alice();
         let amount = &U128(100);
