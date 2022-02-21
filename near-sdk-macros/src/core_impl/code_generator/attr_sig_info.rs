@@ -4,6 +4,7 @@ use crate::core_impl::info_extractor::{
     ArgInfo, AttrSigInfo, BindgenArgType, InputStructType, SerializerType,
 };
 use quote::quote;
+use syn::{GenericArgument, Path, PathArguments, Type};
 
 impl AttrSigInfo {
     /// Create struct representing input arguments.
@@ -191,10 +192,40 @@ impl AttrSigInfo {
                         }
                     }
                     BindgenArgType::CallbackResultArg => {
-                        let deserialize = deserialize_data(serializer_ty);
+                        let ok_type = extract_ok_type(ty).unwrap_or_else(||
+                            panic!("Function parameters marked with #[callback_result] should have \
+                                type Result<T, PromiseError>")
+                        );
+
+                        let deserialization_branch = match ok_type {
+                            // The unit type in this context is a bit special because functions
+                            // without an explicit return type do not serialize their response.
+                            // But when someone tries to refer to their callback result with
+                            // `#[callback_result]` they specify the callback type as
+                            // `Result<(), PromiseError` which cannot be correctly deserialized from
+                            // an empty byte array.
+                            //
+                            // So instead of going through serde, we do a manual check
+                            // that the byte array is either empty or contains the string "null".
+                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
+                                quote! {
+                                    near_sdk::PromiseResult::Successful(data) if data.is_empty() || data == vec!(110, 117, 108, 108) =>
+                                        Ok(()),
+                                    near_sdk::PromiseResult::Successful(_) =>
+                                        panic!("Failed to deserialize callback using JSON: expected\
+                                            an empty byte array or \"null\"")
+                                }
+                            }
+                            _ => {
+                                let deserialize = deserialize_data(serializer_ty);
+                                quote! {
+                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                }
+                            }
+                        };
                         let result = quote! {
                             match near_sdk::env::promise_result(#idx) {
-                                near_sdk::PromiseResult::Successful(data) => Ok(#deserialize),
+                                #deserialization_branch,
                                 near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
                                 near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
                             }
@@ -230,6 +261,38 @@ impl AttrSigInfo {
                 }).collect();
             }
             })
+    }
+}
+
+/// Checks whether the given path is literally "Result".
+/// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
+/// `type StringResult = Result<String, String>`.
+fn path_is_result(path: &Path) -> bool {
+    path.leading_colon.is_none()
+        && path.segments.len() == 1
+        && path.segments.iter().next().unwrap().ident == "Result"
+}
+
+/// Extracts the Ok type from a `Result` type.
+///
+/// For example, given `Result<String, u8>` type it will return `String` type.
+fn extract_ok_type(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Path(type_path) if type_path.qself.is_none() && path_is_result(&type_path.path) => {
+            // Get the first segment of the path (there should be only one, in fact: "Result"):
+            let type_params = &type_path.path.segments.first()?.arguments;
+            // We are interested in the first angle-bracketed param responsible for Ok type ("<String, _>"):
+            let generic_arg = match type_params {
+                PathArguments::AngleBracketed(params) => Some(params.args.first()?),
+                _ => None,
+            }?;
+            // This argument must be a type:
+            match generic_arg {
+                GenericArgument::Type(ty) => Some(ty),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 
