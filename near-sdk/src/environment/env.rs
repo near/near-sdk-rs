@@ -183,6 +183,11 @@ pub fn block_timestamp() -> u64 {
     unsafe { sys::block_timestamp() }
 }
 
+/// Current block timestamp, i.e, number of non-leap-milliseconds since January 1, 1970 0:00:00 UTC.
+pub fn block_timestamp_ms() -> u64 {
+    block_timestamp() / 1_000_000
+}
+
 /// Current epoch height.
 pub fn epoch_height() -> u64 {
     unsafe { sys::epoch_height() }
