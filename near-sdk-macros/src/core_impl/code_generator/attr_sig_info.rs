@@ -197,31 +197,28 @@ impl AttrSigInfo {
                                 type Result<T, PromiseError>")
                         );
 
+                        let deserialize = deserialize_data(serializer_ty);
                         let deserialization_branch = match ok_type {
                             // The unit type in this context is a bit special because functions
                             // without an explicit return type do not serialize their response.
                             // But when someone tries to refer to their callback result with
                             // `#[callback_result]` they specify the callback type as
-                            // `Result<(), PromiseError` which cannot be correctly deserialized from
+                            // `Result<(), PromiseError>` which cannot be correctly deserialized from
                             // an empty byte array.
                             //
-                            // So instead of going through serde, we do a manual check
-                            // that the byte array is either empty or contains the string "null".
-                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
+                            // So instead of going through serde, we consider deserialization to be
+                            // successful if the byte array is empty or try the normal
+                            // deserialization otherwise.
+                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
                                 quote! {
-                                    near_sdk::PromiseResult::Successful(data) if data.is_empty() || data == vec!(110, 117, 108, 108) =>
+                                    near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
                                         Ok(()),
-                                    near_sdk::PromiseResult::Successful(_) =>
-                                        panic!("Failed to deserialize callback using JSON: expected\
-                                            an empty byte array or \"null\"")
-                                }
-                            }
-                            _ => {
-                                let deserialize = deserialize_data(serializer_ty);
+                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                },
+                            _ =>
                                 quote! {
                                     near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
                                 }
-                            }
                         };
                         let result = quote! {
                             match near_sdk::env::promise_result(#idx) {
