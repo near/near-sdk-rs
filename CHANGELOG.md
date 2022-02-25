@@ -1,9 +1,10 @@
 # Changelog
 
 ## [unreleased]
-
 ### Features
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
+
+- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
 
 ## `4.0.0-pre.7` [02-02-2022]
 
