@@ -2,8 +2,8 @@ mod impls;
 mod iter;
 
 use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
-use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::store::free_list::FreeListIndex;
+use crate::store::key::{Sha256, ToKey};
 use crate::store::unordered_set::iter::{
     Difference, Drain, Intersection, Iter, SymmetricDifference, Union,
 };
@@ -27,7 +27,7 @@ use std::fmt;
 /// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 ///
@@ -83,7 +83,7 @@ use std::fmt;
 pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     elements: FreeList<T>,
     index: LookupMap<T, FreeListIndex, H>,
@@ -92,7 +92,7 @@ where
 impl<T, H> Drop for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -102,7 +102,7 @@ where
 impl<T, H> fmt::Debug for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedSet")
@@ -128,13 +128,13 @@ where
 impl<T, H> UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Initialize a [`UnorderedSet`] with a custom hash function.
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
+    /// use near_sdk::store::key::Keccak256;
     /// use near_sdk::store::UnorderedMap;
     ///
     /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");

@@ -18,7 +18,7 @@ use near_sdk::PromiseOrValue;
 /// and [NonFungibleTokenResolver](crate::non_fungible_token::core::NonFungibleTokenResolver) to
 /// understand how the cross-contract call work.
 ///
-/// [core non-fungible token standard]: https://nomicon.io/Standards/NonFungibleToken/Core.html
+/// [core non-fungible token standard]: <https://nomicon.io/Standards/NonFungibleToken/Core.html>
 pub trait NonFungibleTokenCore {
     /// Simple transfer. Transfer a given `token_id` from current owner to
     /// `receiver_id`.
@@ -28,11 +28,11 @@ pub trait NonFungibleTokenCore {
     /// * Contract MUST panic if called by someone other than token owner or,
     ///   if using Approval Management, one of the approved accounts
     /// * `approval_id` is for use with Approval Management,
-    ///   see https://nomicon.io/Standards/NonFungibleToken/ApprovalManagement.html
+    ///   see <https://nomicon.io/Standards/NonFungibleToken/ApprovalManagement.html>
     /// * If using Approval Management, contract MUST nullify approved accounts on
     ///   successful transfer.
     /// * TODO: needed? Both accounts must be registered with the contract for transfer to
-    ///   succeed. See see https://nomicon.io/Standards/StorageManagement.html
+    ///   succeed. See see <https://nomicon.io/Standards/StorageManagement.html>
     ///
     /// Arguments:
     /// * `receiver_id`: the valid NEAR account receiving the token

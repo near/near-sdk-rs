@@ -60,7 +60,7 @@ impl ImplItemMethodInfo {
             quote! {}
         } else {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
-            let error = format!("Method {} doesn't accept deposit", ident.to_string());
+            let error = format!("Method {} doesn't accept deposit", ident);
             quote! {
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic_str(#error);
@@ -68,7 +68,7 @@ impl ImplItemMethodInfo {
             }
         };
         let is_private_check = if *is_private {
-            let error = format!("Method {} is private", ident.to_string());
+            let error = format!("Method {} is private", ident);
             quote! {
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str(#error);

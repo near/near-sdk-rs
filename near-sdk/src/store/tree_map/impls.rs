@@ -2,10 +2,10 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{ToKey, UnorderedMap, ERR_NOT_EXIST};
 use crate::env;
+use crate::store::{key::ToKey, TreeMap, ERR_NOT_EXIST};
 
-impl<K, V, H> Extend<(K, V)> for UnorderedMap<K, V, H>
+impl<K, V, H> Extend<(K, V)> for TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -21,7 +21,7 @@ where
     }
 }
 
-impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for UnorderedMap<K, V, H>
+impl<K, V, H, Q: ?Sized> core::ops::Index<&Q> for TreeMap<K, V, H>
 where
     K: BorshSerialize + Ord + Clone + Borrow<Q>,
     V: BorshSerialize + BorshDeserialize,
