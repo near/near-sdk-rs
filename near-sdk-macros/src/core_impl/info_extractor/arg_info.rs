@@ -1,8 +1,7 @@
 use crate::core_impl::info_extractor::serializer_attr::SerializerAttr;
 use crate::core_impl::info_extractor::SerializerType;
-use proc_macro2::Span;
 use quote::ToTokens;
-use syn::{Attribute, Error, Ident, Pat, PatType, Token, Type};
+use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
 
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
@@ -54,7 +53,7 @@ impl ArgInfo {
             }
             _ => {
                 return Err(Error::new(
-                    Span::call_site(),
+                    original.span(),
                     "Only identity patterns are supported in function arguments.",
                 ));
             }
@@ -64,7 +63,7 @@ impl ArgInfo {
                 (None, None, (*x).clone())
             }
             Type::Reference(r) => (Some(r.and_token), r.mutability, (*r.elem.as_ref()).clone()),
-            _ => return Err(Error::new(Span::call_site(), "Unsupported argument type.")),
+            _ => return Err(Error::new(original.span(), "Unsupported argument type.")),
         };
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;

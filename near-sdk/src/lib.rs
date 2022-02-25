@@ -13,9 +13,6 @@ pub use near_sdk_macros::{
 #[cfg(feature = "unstable")]
 pub mod store;
 
-#[cfg(feature = "unstable")]
-pub use environment::hash as crypto_hash;
-
 pub mod collections;
 mod environment;
 pub use environment::env;

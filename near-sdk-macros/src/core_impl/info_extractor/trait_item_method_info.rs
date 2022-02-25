@@ -1,5 +1,4 @@
 use super::AttrSigInfo;
-use proc_macro2::Span;
 use syn::spanned::Spanned;
 use syn::{Error, LitStr, TraitItemMethod};
 
@@ -28,7 +27,8 @@ impl TraitItemMethodInfo {
 
         let attr_sig_info = AttrSigInfo::new(attrs, sig)?;
 
-        let ident_byte_str = LitStr::new(&attr_sig_info.ident.to_string(), Span::call_site());
+        let ident_byte_str =
+            LitStr::new(&attr_sig_info.ident.to_string(), attr_sig_info.ident.span());
 
         Ok(Self { attr_sig_info, original: original.clone(), ident_byte_str })
     }

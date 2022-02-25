@@ -3,6 +3,7 @@ pub mod test_env;
 
 mod context;
 use crate::mock::Receipt;
+#[allow(deprecated)]
 pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 
 /// Initializes a testing environment to mock interactions which would otherwise go through a
@@ -69,17 +70,20 @@ macro_rules! testing_env {
             $crate::mock::with_mocked_blockchain(|b| b.take_storage()),
             $validators,
             None,
-        ));
+        ))
     };
     ($context:expr, $config:expr, $fee_config:expr, $validators:expr $(,)?) => {
-        $crate::testing_env!($context, $config, $fee_config, $validators, Default::default());
+        $crate::testing_env!($context, $config, $fee_config, $validators, Default::default())
     };
 
     ($context:expr, $config:expr, $fee_config:expr $(,)?) => {
-        $crate::testing_env!($context, $config, $fee_config, Default::default());
+        $crate::testing_env!($context, $config, $fee_config, Default::default())
+    };
+    ($context:expr, $config:expr $(,)?) => {
+        $crate::testing_env!($context, $config, $crate::RuntimeFeesConfig::test())
     };
     ($context:expr) => {
-        $crate::testing_env!($context, $crate::VMConfig::test(), $crate::RuntimeFeesConfig::test());
+        $crate::testing_env!($context, $crate::VMConfig::test())
     };
 }
 

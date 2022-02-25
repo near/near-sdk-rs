@@ -1,5 +1,6 @@
 pub mod core;
 pub mod core_impl;
+pub mod events;
 pub mod macros;
 pub mod metadata;
 pub mod receiver;

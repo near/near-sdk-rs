@@ -7,28 +7,26 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
+use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 pub use self::iter::{Drain, Iter, IterMut, Keys, Values, ValuesMut};
 use super::free_list::FreeListIndex;
-use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
-
-const ERR_NOT_EXIST: &str = "Key does not exist in map";
+use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 
 /// A lazily loaded storage map that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupMap`](crate::store::LookupMap), except
 /// that it stores the keys so that [`UnorderedMap`] can be iterable.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`CryptoHasher`] implementation.
+/// using the map's [`ToKey`] implementation.
 ///
 /// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 /// ```
@@ -81,7 +79,7 @@ pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     keys: FreeList<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
@@ -99,7 +97,7 @@ impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -115,7 +113,7 @@ impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -129,7 +127,7 @@ impl<K, V, H> Drop for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -140,7 +138,7 @@ impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedMap")
@@ -168,14 +166,13 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Initialize a [`UnorderedMap`] with a custom hash function.
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::{UnorderedMap, key::Keccak256};
     ///
     /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
@@ -208,10 +205,8 @@ where
     {
         for k in self.keys.drain() {
             // Set instead of remove to avoid loading the value from storage.
-            // This enforces a clone, but this is better th
             self.values.set(k, None);
         }
-        self.keys.clear();
     }
 
     /// An iterator visiting all key-value pairs in arbitrary order.
@@ -376,7 +371,7 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Returns a reference to the value corresponding to the key.
     ///
@@ -517,7 +512,7 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values

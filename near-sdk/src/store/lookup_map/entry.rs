@@ -16,7 +16,7 @@ impl<'a, K, V> Entry<'a, K, V> {
     /// use near_sdk::store::LookupMap;
     ///
     /// let mut map: LookupMap<String, u32> = LookupMap::new(b"m");
-    /// assert_eq!(map.entry("poneyland".to_string()).key(), &"poneyland");
+    /// assert_eq!(map.entry("poneyland".to_string()).key(), "poneyland");
     /// ```
     pub fn key(&self) -> &K {
         match self {
