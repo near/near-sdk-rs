@@ -3,8 +3,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use crate::core_impl::info_extractor::{
     ArgInfo, AttrSigInfo, BindgenArgType, InputStructType, SerializerType,
 };
+use crate::core_impl::utils;
 use quote::quote;
-use syn::{GenericArgument, Path, PathArguments, Type};
 
 impl AttrSigInfo {
     /// Create struct representing input arguments.
@@ -192,7 +192,7 @@ impl AttrSigInfo {
                         }
                     }
                     BindgenArgType::CallbackResultArg => {
-                        let ok_type = if let Some(ok_type) = extract_ok_type(ty) {
+                        let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
                             ok_type
                         } else {
                             return syn::Error::new_spanned(ty, "Function parameters marked with \
@@ -259,38 +259,6 @@ impl AttrSigInfo {
                 }).collect();
             }
             })
-    }
-}
-
-/// Checks whether the given path is literally "Result".
-/// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
-/// `type StringResult = Result<String, String>`.
-fn path_is_result(path: &Path) -> bool {
-    path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments.iter().next().unwrap().ident == "Result"
-}
-
-/// Extracts the Ok type from a `Result` type.
-///
-/// For example, given `Result<String, u8>` type it will return `String` type.
-fn extract_ok_type(ty: &Type) -> Option<&Type> {
-    match ty {
-        Type::Path(type_path) if type_path.qself.is_none() && path_is_result(&type_path.path) => {
-            // Get the first segment of the path (there should be only one, in fact: "Result"):
-            let type_params = &type_path.path.segments.first()?.arguments;
-            // We are interested in the first angle-bracketed param responsible for Ok type ("<String, _>"):
-            let generic_arg = match type_params {
-                PathArguments::AngleBracketed(params) => Some(params.args.first()?),
-                _ => None,
-            }?;
-            // This argument must be a type:
-            match generic_arg {
-                GenericArgument::Type(ty) => Some(ty),
-                _ => None,
-            }
-        }
-        _ => None,
     }
 }
 
