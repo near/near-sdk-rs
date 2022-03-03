@@ -17,6 +17,13 @@ enum PromiseAction {
         amount: Balance,
         gas: Gas,
     },
+    FunctionCallWeight {
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+        weight: u64,
+    },
     Transfer {
         amount: Balance,
     },
@@ -58,6 +65,16 @@ impl PromiseAction {
                     arguments,
                     *amount,
                     *gas,
+                )
+            }
+            FunctionCallWeight { function_name, arguments, amount, gas, weight } => {
+                crate::env::promise_batch_action_function_call_weight(
+                    promise_index,
+                    function_name,
+                    arguments,
+                    *amount,
+                    *gas,
+                    *weight,
                 )
             }
             Transfer { amount } => {
@@ -251,6 +268,27 @@ impl Promise {
         gas: Gas,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
+    }
+
+    /// A low-level interface for making a function call to the account that this promise acts on.
+    /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
+    /// on this function call at the end of the scheduling method execution.
+    pub fn function_call_weight(
+        self,
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+        // TODO type
+        weight: u64,
+    ) -> Self {
+        self.add_action(PromiseAction::FunctionCallWeight {
+            function_name,
+            arguments,
+            amount,
+            gas,
+            weight,
+        })
     }
 
     /// Transfer tokens to the account that this promise acts on.

@@ -457,6 +457,28 @@ pub fn promise_batch_action_function_call(
     }
 }
 
+pub fn promise_batch_action_function_call_weight(
+    promise_index: PromiseIndex,
+    function_name: &str,
+    arguments: &[u8],
+    amount: Balance,
+    gas: Gas,
+    weight: u64,
+) {
+    unsafe {
+        sys::promise_batch_action_function_call_weight(
+            promise_index,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas.0,
+            weight
+        )
+    }
+}
+
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
     unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
 }
