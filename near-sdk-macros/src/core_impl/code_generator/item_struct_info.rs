@@ -20,6 +20,7 @@ pub fn generate_ext_struct(input: &ItemStruct) -> proc_macro2::TokenStream {
     let name = quote! {#new_name};
     let generics = &input.generics;
     quote! {
+      #[must_use]
       pub struct #name {
         pub(crate) account_id: near_sdk::AccountId,
         pub(crate) amount: u128,
@@ -66,6 +67,7 @@ mod tests {
         let st: ItemStruct = syn::parse_str("struct Test { a: u8 }").unwrap();
         let actual = generate_ext_struct(&st);
         let expected = quote!(
+          #[must_use]
           pub struct TestExt {
             pub(crate) account_id: near_sdk::AccountId,
             pub(crate) amount: u128,
