@@ -192,11 +192,12 @@ impl AttrSigInfo {
                         }
                     }
                     BindgenArgType::CallbackResultArg => {
-                        let ok_type = extract_ok_type(ty).unwrap_or_else(||
-                            panic!("Function parameters marked with #[callback_result] should have \
-                                type Result<T, PromiseError>")
-                        );
-
+                        let ok_type = if let Some(ok_type) = extract_ok_type(ty) {
+                            ok_type
+                        } else {
+                            return syn::Error::new_spanned(ty, "Function parameters marked with \
+                                #[callback_result] should have type Result<T, PromiseError>").into_compile_error()
+                        };
                         let deserialize = deserialize_data(serializer_ty);
                         let deserialization_branch = match ok_type {
                             // The unit type in this context is a bit special because functions
