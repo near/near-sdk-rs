@@ -1,7 +1,4 @@
-use crate::core_impl::{
-    info_extractor::{InputStructType, SerializerType, TraitItemMethodInfo},
-    AttrSigInfo,
-};
+use crate::core_impl::{info_extractor::TraitItemMethodInfo, serializer};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
@@ -11,7 +8,7 @@ impl TraitItemMethodInfo {
         let ident = &self.attr_sig_info.ident;
         let ident_byte_str = &self.ident_byte_str;
         let pat_type_list = self.attr_sig_info.pat_type_list();
-        let serialize = TraitItemMethodInfo::generate_serialier(
+        let serialize = serializer::generate_serializer(
             &self.attr_sig_info,
             &self.attr_sig_info.result_serializer,
         );
@@ -26,33 +23,6 @@ impl TraitItemMethodInfo {
                     __gas,
                 )
             }
-        }
-    }
-
-    pub fn generate_serialier(
-        attr_sig_info: &AttrSigInfo,
-        serializer: &SerializerType,
-    ) -> TokenStream2 {
-        let has_input_args = attr_sig_info.input_args().next().is_some();
-        if !has_input_args {
-            return quote! { let args = vec![]; };
-        }
-        let struct_decl = attr_sig_info.input_struct(InputStructType::Serialization);
-        let constructor_call = attr_sig_info.constructor_expr();
-        let constructor = quote! { let args = #constructor_call; };
-        let value_ser = match serializer {
-            SerializerType::JSON => quote! {
-                let args = near_sdk::serde_json::to_vec(&args).expect("Failed to serialize the cross contract args using JSON.");
-            },
-            SerializerType::Borsh => quote! {
-                let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args).expect("Failed to serialize the cross contract args using Borsh.");
-            },
-        };
-
-        quote! {
-          #struct_decl
-          #constructor
-          #value_ser
         }
     }
 }

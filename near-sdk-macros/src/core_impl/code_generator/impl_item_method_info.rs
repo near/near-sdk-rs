@@ -1,5 +1,8 @@
-use crate::core_impl::info_extractor::{
-    AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
+use crate::core_impl::{
+    info_extractor::{
+        AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
+    },
+    serializer,
 };
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -178,14 +181,14 @@ impl ImplItemMethodInfo {
         }
     }
 
-    pub fn marshal_method(&self) -> TokenStream2 {
+    pub(crate) fn generate_sim_method_wrapper(&self) -> TokenStream2 {
         let ImplItemMethodInfo { attr_signature_info, .. } = self;
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
         let pat_type_list = attr_signature_info.pat_type_list();
         let serialize_args = if has_input_args {
             match &attr_signature_info.input_serializer {
-                SerializerType::Borsh => crate::TraitItemMethodInfo::generate_serialier(
+                SerializerType::Borsh => serializer::generate_serializer(
                     attr_signature_info,
                     &attr_signature_info.input_serializer,
                 ),
@@ -232,6 +235,46 @@ impl ImplItemMethodInfo {
             pub fn #ident#generics(#params) #return_ident {
                 #serialize_args
                 near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), #ident_str, args, #is_view)
+            }
+        }
+    }
+
+    /// Generate methods on <StructName>Ext to enable calling each method.
+    pub(crate) fn generate_ext_method_wrapper(&self) -> TokenStream2 {
+        let ImplItemMethodInfo { attr_signature_info, .. } = self;
+
+        let pat_type_list = attr_signature_info.pat_type_list();
+        let serialize = serializer::generate_serializer(
+            &self.attr_signature_info,
+            &self.attr_signature_info.input_serializer,
+        );
+
+        let AttrSigInfo {
+            non_bindgen_attrs,
+            ident,
+            original_sig,
+            ..
+        } = attr_signature_info;
+        let ident_str = ident.to_string();
+        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
+            quote! {
+                #acc
+                #value
+            }
+        });
+        let Signature { generics, .. } = original_sig;
+        quote! {
+            #non_bindgen_attrs
+            pub fn #ident#generics(self, #pat_type_list) -> near_sdk::Promise {
+                #serialize
+                near_sdk::Promise::new(self.account_id)
+                .function_call_weight(
+                    #ident_str.to_string(),
+                    args,
+                    self.amount,
+                    self.static_gas,
+                    self.gas_weight,
+                )
             }
         }
     }
