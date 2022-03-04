@@ -474,7 +474,7 @@ pub fn promise_batch_action_function_call_weight(
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
             gas.0,
-            weight
+            weight,
         )
     }
 }

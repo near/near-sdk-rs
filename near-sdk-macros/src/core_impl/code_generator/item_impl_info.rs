@@ -42,7 +42,7 @@ impl ItemImplInfo {
         let name = match syn::parse::<Ident>(orig_name.into()) {
             Ok(n) => format_ident!("{}Ext", n),
             Err(e) => {
-                return TokenStream2::from(syn::Error::new(self.ty.span(), e).to_compile_error())
+                return syn::Error::new(self.ty.span(), e).to_compile_error()
             }
         };
         let mut res = TokenStream2::new();

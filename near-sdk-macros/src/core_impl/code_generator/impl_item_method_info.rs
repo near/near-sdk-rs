@@ -1,7 +1,5 @@
 use crate::core_impl::{
-    info_extractor::{
-        AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType,
-    },
+    info_extractor::{AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType},
     serializer,
 };
 use proc_macro2::TokenStream as TokenStream2;
@@ -249,12 +247,7 @@ impl ImplItemMethodInfo {
             &self.attr_signature_info.input_serializer,
         );
 
-        let AttrSigInfo {
-            non_bindgen_attrs,
-            ident,
-            original_sig,
-            ..
-        } = attr_signature_info;
+        let AttrSigInfo { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
         let ident_str = ident.to_string();
         let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
             quote! {
