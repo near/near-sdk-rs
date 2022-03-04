@@ -1,6 +1,6 @@
 use crate::core_impl::{
     info_extractor::{
-        AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
+        AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType,
     },
     serializer,
 };
@@ -21,7 +21,7 @@ impl ImplItemMethodInfo {
         let arg_struct;
         let arg_parsing;
         if has_input_args {
-            arg_struct = attr_signature_info.input_struct(InputStructType::Deserialization);
+            arg_struct = attr_signature_info.input_struct_deser();
             let decomposition = attr_signature_info.decomposition_pattern();
             let serializer_invocation = match attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {

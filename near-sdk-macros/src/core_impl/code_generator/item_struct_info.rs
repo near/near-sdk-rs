@@ -18,6 +18,7 @@ pub fn generate_ext_struct(input: &ItemStruct) -> proc_macro2::TokenStream {
     let ident = &input.ident;
     let new_name = format_ident!("{}Ext", ident);
     let name = quote! {#new_name};
+    let generics = &input.generics;
     quote! {
       pub struct #name {
         pub(crate) account_id: near_sdk::AccountId,
@@ -41,7 +42,7 @@ pub fn generate_ext_struct(input: &ItemStruct) -> proc_macro2::TokenStream {
         }
       }
 
-      impl #ident {
+      impl#generics #ident#generics {
         /// API for calling this contract's functions in a subsequent execution.
         pub fn ext(account_id: near_sdk::AccountId) -> #name {
           #name {

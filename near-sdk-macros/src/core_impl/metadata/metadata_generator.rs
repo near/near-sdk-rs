@@ -1,4 +1,4 @@
-use crate::{BindgenArgType, ImplItemMethodInfo, InputStructType, MethodType, SerializerType};
+use crate::{BindgenArgType, ImplItemMethodInfo, MethodType, SerializerType};
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -41,8 +41,7 @@ impl ImplItemMethodInfo {
             &MethodType::Init | &MethodType::InitIgnoreState
         );
         let args = if self.attr_signature_info.input_args().next().is_some() {
-            let input_struct =
-                self.attr_signature_info.input_struct(InputStructType::Deserialization);
+            let input_struct = self.attr_signature_info.input_struct_deser();
             // If input args are JSON then we need to additionally specify schema for them.
             let additional_schema = match &self.attr_signature_info.input_serializer {
                 SerializerType::Borsh => TokenStream2::new(),

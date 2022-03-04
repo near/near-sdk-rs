@@ -61,10 +61,10 @@ mod tests {
                 ) -> near_sdk::Promise {
                     #[derive(near_sdk :: serde :: Serialize)]
                     #[serde(crate = "near_sdk::serde")]
-                    struct Input {
-                        arr: Vec<u8>,
+                    struct Input<'nearinput> {
+                        arr: &'nearinput Vec<u8>,
                     }
-                    let args = Input { arr, };
+                    let args = Input { arr: &arr, };
                     let args = near_sdk::serde_json::to_vec(&args)
                         .expect("Failed to serialize the cross contract args using JSON.");
                     near_sdk::Promise::new(__account_id).function_call(
@@ -112,10 +112,10 @@ mod tests {
                 __gas: near_sdk::Gas
             ) -> near_sdk::Promise {
                 #[derive(near_sdk :: borsh :: BorshSerialize)]
-                struct Input {
-                    v: Vec<String>,
+                struct Input<'nearinput> {
+                    v: &'nearinput Vec<String>,
                 }
-                let args = Input { v, };
+                let args = Input { v: &v, };
                 let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
                     .expect("Failed to serialize the cross contract args using Borsh.");
                 near_sdk::Promise::new(__account_id).function_call(

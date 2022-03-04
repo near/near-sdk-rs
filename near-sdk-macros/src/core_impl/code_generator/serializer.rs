@@ -1,4 +1,4 @@
-use crate::core_impl::info_extractor::{AttrSigInfo, InputStructType, SerializerType};
+use crate::core_impl::info_extractor::{AttrSigInfo, SerializerType};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
@@ -10,8 +10,8 @@ pub fn generate_serializer(
     if !has_input_args {
         return quote! { let args = vec![]; };
     }
-    let struct_decl = attr_sig_info.input_struct(InputStructType::Serialization);
-    let constructor_call = attr_sig_info.constructor_expr();
+    let struct_decl = attr_sig_info.input_struct_ser();
+    let constructor_call = attr_sig_info.constructor_expr_ref();
     let constructor = quote! { let args = #constructor_call; };
     let value_ser = match serializer {
         SerializerType::JSON => quote! {

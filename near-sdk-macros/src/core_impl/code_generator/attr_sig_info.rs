@@ -1,11 +1,40 @@
 use proc_macro2::TokenStream as TokenStream2;
 
-use crate::core_impl::info_extractor::{
-    ArgInfo, AttrSigInfo, BindgenArgType, InputStructType, SerializerType,
-};
+use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
 use quote::quote;
 
 impl AttrSigInfo {
+    pub fn input_struct_ser(&self) -> TokenStream2 {
+        let args: Vec<_> = self.input_args().collect();
+        assert!(
+            !args.is_empty(),
+            "Can only generate input struct for when input args are specified"
+        );
+        let attribute = match &self.input_serializer {
+            SerializerType::JSON => quote! {
+                #[derive(near_sdk::serde::Serialize)]
+                #[serde(crate = "near_sdk::serde")]
+            },
+            SerializerType::Borsh => {
+                quote! {
+                    #[derive(near_sdk::borsh::BorshSerialize)]
+                }
+            }
+        };
+        let mut fields = TokenStream2::new();
+        for arg in args {
+            let ArgInfo { ty, ident, .. } = &arg;
+            fields.extend(quote! {
+                #ident: &'nearinput #ty,
+            });
+        }
+        quote! {
+            #attribute
+            struct Input<'nearinput> {
+                #fields
+            }
+        }
+    }
     /// Create struct representing input arguments.
     /// * input_struct_type represents whether the input structure will be used for serialization
     ///     (e.g. for a promise input) or deserialization (e.g. for a method input).
@@ -22,35 +51,22 @@ impl AttrSigInfo {
     ///   arg2: (u64, Vec<String>),
     /// }
     /// ```
-    pub fn input_struct(&self, input_struct_type: InputStructType) -> TokenStream2 {
+    pub fn input_struct_deser(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
             !args.is_empty(),
             "Can only generate input struct for when input args are specified"
         );
-        let attribute = match input_struct_type {
-            InputStructType::Serialization => match &self.input_serializer {
-                SerializerType::JSON => quote! {
-                    #[derive(near_sdk::serde::Serialize)]
-                    #[serde(crate = "near_sdk::serde")]
-                },
-                SerializerType::Borsh => {
-                    quote! {
-                        #[derive(near_sdk::borsh::BorshSerialize)]
-                    }
-                }
+        let attribute = match &self.input_serializer {
+            SerializerType::JSON => quote! {
+                #[derive(near_sdk::serde::Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
             },
-            InputStructType::Deserialization => match &self.input_serializer {
-                SerializerType::JSON => quote! {
-                    #[derive(near_sdk::serde::Deserialize)]
-                    #[serde(crate = "near_sdk::serde")]
-                },
-                SerializerType::Borsh => {
-                    quote! {
-                        #[derive(near_sdk::borsh::BorshDeserialize)]
-                    }
+            SerializerType::Borsh => {
+                quote! {
+                    #[derive(near_sdk::borsh::BorshDeserialize)]
                 }
-            },
+            }
         };
         let mut fields = TokenStream2::new();
         for arg in args {
@@ -96,16 +112,16 @@ impl AttrSigInfo {
         }
     }
 
-    /// Create expression that constructs the struct.
+    /// Create expression that constructs the struct with references to each variable.
     /// # Example:
     /// ```ignore
     /// Input {
-    ///     arg0,
-    ///     arg1,
-    ///     arg2,
+    ///     arg0: &arg0,
+    ///     arg1: &arg1,
+    ///     arg2: &arg2,
     /// }
     /// ```
-    pub fn constructor_expr(&self) -> TokenStream2 {
+    pub fn constructor_expr_ref(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
             !args.is_empty(),
@@ -115,7 +131,7 @@ impl AttrSigInfo {
         for arg in args {
             let ArgInfo { ident, .. } = &arg;
             fields.extend(quote! {
-            #ident,
+                #ident: &#ident,
             });
         }
         quote! {
