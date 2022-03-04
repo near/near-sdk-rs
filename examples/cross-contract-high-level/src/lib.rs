@@ -1,33 +1,11 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env,
-    ext_contract,
-    json_types::U128,
-    log,
-    near_bindgen,
-    AccountId,
-    Promise,
-    PromiseOrValue,
+    env, ext_contract, json_types::U128, log, near_bindgen, AccountId, Promise, PromiseOrValue,
 };
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct CrossContract {}
-
-// One can provide a name, e.g. `ext` to use for generated methods.
-#[ext_contract(ext)]
-pub trait ExtCrossContract {
-    fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
-    fn merge(
-        &self,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data0: Vec<u8>,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        data1: Vec<u8>,
-    ) -> Vec<u8>;
-}
 
 // If the name is not provided, the namespace for generated methods in derived by applying snake
 // case to the trait name, e.g. ext_status_message.
@@ -57,12 +35,12 @@ impl CrossContract {
         let pivot = arr.len() / 2;
         let arr0 = arr[..pivot].to_vec();
         let arr1 = arr[pivot..].to_vec();
-        let prepaid_gas = env::prepaid_gas();
         let account_id = env::current_account_id();
 
-        ext::merge_sort(arr0, account_id.clone(), 0, prepaid_gas / 4)
-            .and(ext::merge_sort(arr1, account_id.clone(), 0, prepaid_gas / 4))
-            .then(ext::merge(account_id, 0, prepaid_gas / 4))
+        Self::ext(account_id.clone())
+            .merge_sort(arr0)
+            .and(Self::ext(account_id.clone()).merge_sort(arr1))
+            .then(Self::ext(account_id).merge())
             .into()
     }
 
