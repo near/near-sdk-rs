@@ -26,7 +26,6 @@ impl<K, V> LookupMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// ```
@@ -109,7 +108,6 @@ where
     /// # Examples
     /// 
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"c");
@@ -129,7 +127,6 @@ where
     /// # Examples
     /// 
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     /// 
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"g");
@@ -150,7 +147,6 @@ where
     /// # Examples
     /// 
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"r");
@@ -174,7 +170,6 @@ where
     /// # Examples
     /// 
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"i");
@@ -194,7 +189,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupMap;
     /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"e");
     /// let mut source = vec![];

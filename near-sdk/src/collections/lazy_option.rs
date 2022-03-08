@@ -74,7 +74,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LazyOption;
     ///
     /// let option: LazyOption<u32> = LazyOption::new(b"l", Some(&42));
@@ -111,7 +110,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LazyOption;
     ///
     /// let mut option: LazyOption<u32> = LazyOption::new(b"l", Some(&42));
@@ -128,7 +126,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LazyOption;
     ///
     /// let mut option: LazyOption<u32> = LazyOption::new(b"l", Some(&42));
@@ -145,7 +142,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LazyOption;
     ///
     /// let mut option: LazyOption<u32> = LazyOption::new(b"t", None);
@@ -164,7 +160,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LazyOption;
     ///
     /// let mut option: LazyOption<u32> = LazyOption::new(b"t", None);
@@ -180,7 +175,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LazyOption;
     ///
     /// let mut option: LazyOption<u32> = LazyOption::new(b"t", None);

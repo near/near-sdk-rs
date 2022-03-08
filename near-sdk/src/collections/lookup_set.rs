@@ -76,6 +76,8 @@ where
     /// # Examples
     /// 
     /// ```
+    /// use near_sdk::collections::LookupSet;
+    ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"c");
     /// let mut is_present = set.contains(&"Toyota".into());
     /// assert_eq!(is_present, false);
@@ -93,6 +95,8 @@ where
     /// # Examples
     /// 
     /// ```
+    /// use near_sdk::collections::LookupSet;
+    ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"r");
     /// let mut was_present = set.remove(&"Toyota".into());
     /// assert_eq!(was_present, false);
@@ -112,7 +116,6 @@ where
     /// # Examples
     /// 
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::LookupSet;
     ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"i");

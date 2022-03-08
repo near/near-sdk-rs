@@ -49,7 +49,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
@@ -71,7 +70,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
@@ -92,7 +90,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
@@ -126,7 +123,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
@@ -143,7 +139,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
@@ -163,7 +158,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
@@ -184,7 +178,6 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
     ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
