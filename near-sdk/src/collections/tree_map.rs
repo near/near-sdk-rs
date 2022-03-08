@@ -45,11 +45,13 @@ where
     V: BorshSerialize + BorshDeserialize,
 {
     /// Makes a new, empty TreeMap
+    ///
     /// # Examples
     ///
     /// ```
     /// use near_sdk::borsh::{self, BorshSerialize};
     /// use near_sdk::collections::TreeMap;
+    ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// ```
     pub fn new<S>(prefix: S) -> Self
@@ -64,6 +66,19 @@ where
         }
     }
 
+    /// Returns the number of elements in the tree, also referred to as its size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// tree.insert(&1, &10);
+    /// tree.insert(&2, &20);
+    /// assert_eq!(tree.len(), 2);
+    /// ```
     pub fn len(&self) -> u64 {
         self.tree.len()
     }
@@ -72,6 +87,20 @@ where
         self.tree.is_empty()
     }
 
+    /// Clears the tree, removing all elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// tree.insert(&1, &10);
+    /// tree.insert(&2, &20);
+    /// tree.clear();
+    /// assert_eq!(tree.len(), 0);
+    /// ```
     pub fn clear(&mut self) {
         self.root = 0;
         for n in self.tree.iter() {
@@ -92,14 +121,56 @@ where
         }
     }
 
+    /// Returns true if the map contains a given key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.contains_key(&1), false);
+    /// tree.insert(&1, &10);
+    /// assert_eq!(tree.contains_key(&1), true);
+    /// ```
     pub fn contains_key(&self, key: &K) -> bool {
         self.val.get(key).is_some()
     }
 
+    /// Returns the value corresponding to the key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.get(&1), None);
+    /// tree.insert(&1, &10);
+    /// assert_eq!(tree.get(&1), Some(10));
+    /// ```
     pub fn get(&self, key: &K) -> Option<V> {
         self.val.get(key)
     }
 
+    /// Inserts a key-value pair into the tree.
+    /// If the tree did not have this key present, `None` is returned. Otherwise returns
+    /// a value. Note, the keys that have the same hash value are undistinguished by
+    /// the implementation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.insert(&1, &10), None);
+    /// assert_eq!(tree.insert(&1, &20), Some(10));
+    /// assert_eq!(tree.contains_key(&1), true);
+    /// ```
     pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
         if !self.contains_key(key) {
             self.root = self.insert_at(self.root, self.len(), key);
@@ -107,6 +178,21 @@ where
         self.val.insert(key, val)
     }
 
+    /// Removes a key from the tree, returning the value at the key if the key was previously in the
+    /// tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.remove(&1), None);
+    /// tree.insert(&1, &10);
+    /// assert_eq!(tree.remove(&1), Some(10));
+    /// assert_eq!(tree.contains_key(&1), false);
+    /// ```
     pub fn remove(&mut self, key: &K) -> Option<V> {
         if self.contains_key(key) {
             self.root = self.do_remove(key);
