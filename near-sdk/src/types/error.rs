@@ -28,7 +28,7 @@ pub trait FunctionError {
 
 impl<T> FunctionError for T
 where
-    T: Borrow<str>
+    T: Borrow<str>,
 {
     fn panic(&self) {
         crate::env::panic_str(self.borrow())

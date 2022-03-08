@@ -1,4 +1,4 @@
-use syn::{Type, Path, PathArguments, GenericArgument};
+use syn::{GenericArgument, Path, PathArguments, Type};
 
 /// Checks whether the given path is literally "Result".
 /// Note that it won't match a fully qualified name `core::result::Result` or a type alias like

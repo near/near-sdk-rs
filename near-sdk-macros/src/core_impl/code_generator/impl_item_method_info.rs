@@ -139,7 +139,7 @@ impl ImplItemMethodInfo {
                     #contract_ser
                 },
                 ReturnType::Type(_, return_type)
-                    if utils::type_is_result(&return_type) && *is_returns_result =>
+                    if utils::type_is_result(return_type) && *is_returns_result =>
                 {
                     let value_ser = match result_serializer {
                         SerializerType::JSON => quote! {
