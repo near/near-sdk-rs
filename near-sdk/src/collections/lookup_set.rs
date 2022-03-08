@@ -72,11 +72,35 @@ where
     }
 
     /// Returns true if the set contains an element.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// let mut set: LookupSet<String> = LookupSet::new(b"c");
+    /// let mut is_present = set.contains(&"Toyota".into());
+    /// assert_eq!(is_present, false);
+    /// 
+    /// set.insert(&"Toyota".into());
+    /// is_present = set.contains(&"Toyota".into());
+    /// assert_eq!(is_present, true);
+    /// ```
     pub fn contains(&self, element: &T) -> bool {
         self.contains_raw(&Self::serialize_element(element))
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// let mut set: LookupSet<String> = LookupSet::new(b"r");
+    /// let mut was_present = set.remove(&"Toyota".into());
+    /// assert_eq!(was_present, false);
+    /// 
+    /// set.insert(&"Toyota".into());
+    /// was_present = set.remove(&"Toyota".into());
+    /// assert_eq!(was_present, true);
+    /// ```
     pub fn remove(&mut self, element: &T) -> bool {
         self.remove_raw(&Self::serialize_element(element))
     }
@@ -84,6 +108,20 @@ where
     /// Adds a value to the set.
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupSet;
+    ///
+    /// let mut set: LookupSet<String> = LookupSet::new(b"i");
+    /// let mut is_added = set.insert(&"Toyota".into());
+    /// assert_eq!(is_added, true);
+    ///
+    /// is_added = set.insert(&"Toyota".into());
+    /// assert_eq!(is_added, false);
+    /// ```
     pub fn insert(&mut self, element: &T) -> bool {
         self.insert_raw(&Self::serialize_element(element))
     }
