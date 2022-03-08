@@ -111,12 +111,10 @@ where
     /// use near_sdk::collections::LookupMap;
     ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"c");
-    /// let mut has_key = map.contains_key(&"Toyota".into());
-    /// assert_eq!(has_key, false);
+    /// assert_eq!(map.contains_key(&"Toyota".into()), false);
     ///
     /// map.insert(&"Toyota".into(), &"Camry".into());
-    /// has_key = map.contains_key(&"Toyota".into());
-    /// assert_eq!(has_key, true);
+    /// assert_eq!(map.contains_key(&"Toyota".into()), true);
     /// ```
     pub fn contains_key(&self, key: &K) -> bool {
         self.contains_key_raw(&Self::serialize_key(key))
@@ -130,12 +128,10 @@ where
     /// use near_sdk::collections::LookupMap;
     /// 
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"g");
-    /// let mut value = map.get(&"Toyota".into());
-    /// assert_eq!(value, None);
+    /// assert_eq!(map.get(&"Toyota".into()), None);
     ///
     /// map.insert(&"Toyota".into(), &"Camry".into());
-    /// value = map.get(&"Toyota".into());
-    /// assert_eq!(value, Some("Camry".into()));
+    /// assert_eq!(map.get(&"Toyota".into()), Some("Camry".into()));
     /// ```
     pub fn get(&self, key: &K) -> Option<V> {
         self.get_raw(&Self::serialize_key(key)).map(|value_raw| Self::deserialize_value(&value_raw))
@@ -150,12 +146,10 @@ where
     /// use near_sdk::collections::LookupMap;
     ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"r");
-    /// let mut value = map.remove(&"Toyota".into());
-    /// assert_eq!(value, None);
+    /// assert_eq!(map.remove(&"Toyota".into()), None);
     ///
     /// map.insert(&"Toyota".into(), &"Camry".into());
-    /// value = map.remove(&"Toyota".into());
-    /// assert_eq!(value, Some("Camry".into()));
+    /// assert_eq!(map.remove(&"Toyota".into()), Some("Camry".into()));
     /// ```
     pub fn remove(&mut self, key: &K) -> Option<V> {
         self.remove_raw(&Self::serialize_key(key))
@@ -173,10 +167,8 @@ where
     /// use near_sdk::collections::LookupMap;
     ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"i");
-    /// let mut value = map.insert(&"Toyota".into(), &"Camry".into());
-    /// assert_eq!(value, None);
-    /// value = map.insert(&"Toyota".into(), &"Corolla".into());
-    /// assert_eq!(value, Some("Camry".into()));
+    /// assert_eq!(map.insert(&"Toyota".into(), &"Camry".into()), None);
+    /// assert_eq!(map.insert(&"Toyota".into(), &"Corolla".into()), Some("Camry".into()));
     /// ```
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
         self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
@@ -190,6 +182,7 @@ where
     ///
     /// ```
     /// use near_sdk::collections::LookupMap;
+    ///
     /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"e");
     /// let mut source = vec![];
     /// 

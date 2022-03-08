@@ -79,12 +79,10 @@ where
     /// use near_sdk::collections::LookupSet;
     ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"c");
-    /// let mut is_present = set.contains(&"Toyota".into());
-    /// assert_eq!(is_present, false);
+    /// assert_eq!(set.contains(&"Element".into()), false);
     /// 
-    /// set.insert(&"Toyota".into());
-    /// is_present = set.contains(&"Toyota".into());
-    /// assert_eq!(is_present, true);
+    /// set.insert(&"Element".into());
+    /// assert_eq!(set.contains(&"Element".into()), true);
     /// ```
     pub fn contains(&self, element: &T) -> bool {
         self.contains_raw(&Self::serialize_element(element))
@@ -98,12 +96,10 @@ where
     /// use near_sdk::collections::LookupSet;
     ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"r");
-    /// let mut was_present = set.remove(&"Toyota".into());
-    /// assert_eq!(was_present, false);
+    /// assert_eq!(set.remove(&"Element".into()), false);
     /// 
-    /// set.insert(&"Toyota".into());
-    /// was_present = set.remove(&"Toyota".into());
-    /// assert_eq!(was_present, true);
+    /// set.insert(&"Element".into());
+    /// assert_eq!(set.remove(&"Element".into()), true);
     /// ```
     pub fn remove(&mut self, element: &T) -> bool {
         self.remove_raw(&Self::serialize_element(element))
@@ -119,11 +115,8 @@ where
     /// use near_sdk::collections::LookupSet;
     ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"i");
-    /// let mut is_added = set.insert(&"Toyota".into());
-    /// assert_eq!(is_added, true);
-    ///
-    /// is_added = set.insert(&"Toyota".into());
-    /// assert_eq!(is_added, false);
+    /// assert_eq!(set.insert(&"Element".into()), true);
+    /// assert_eq!(set.insert(&"Element".into()), false);
     /// ```
     pub fn insert(&mut self, element: &T) -> bool {
         self.insert_raw(&Self::serialize_element(element))
