@@ -105,17 +105,62 @@ where
     }
 
     /// Returns true if the map contains a given key.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"c");
+    /// let mut has_key = map.contains_key(&"Toyota".into());
+    /// assert_eq!(has_key, false);
+    ///
+    /// map.insert(&"Toyota".into(), &"Camry".into());
+    /// has_key = map.contains_key(&"Toyota".into());
+    /// assert_eq!(has_key, true);
+    /// ```
     pub fn contains_key(&self, key: &K) -> bool {
         self.contains_key_raw(&Self::serialize_key(key))
     }
 
     /// Returns the value corresponding to the key.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupMap;
+    /// 
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"g");
+    /// let mut value = map.get(&"Toyota".into());
+    /// assert_eq!(value, None);
+    ///
+    /// map.insert(&"Toyota".into(), &"Camry".into());
+    /// value = map.get(&"Toyota".into());
+    /// assert_eq!(value, Some("Camry".into()));
+    /// ```
     pub fn get(&self, key: &K) -> Option<V> {
         self.get_raw(&Self::serialize_key(key)).map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
     /// Removes a key from the map, returning the value at the key if the key was previously in the
     /// map.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"r");
+    /// let mut value = map.remove(&"Toyota".into());
+    /// assert_eq!(value, None);
+    ///
+    /// map.insert(&"Toyota".into(), &"Camry".into());
+    /// value = map.remove(&"Toyota".into());
+    /// assert_eq!(value, Some("Camry".into()));
+    /// ```
     pub fn remove(&mut self, key: &K) -> Option<V> {
         self.remove_raw(&Self::serialize_key(key))
             .map(|value_raw| Self::deserialize_value(&value_raw))
@@ -125,6 +170,19 @@ where
     /// If the map did not have this key present, `None` is returned. Otherwise returns
     /// a value. Note, the keys that have the same hash value are undistinguished by
     /// the implementation.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// use near_sdk::borsh::{self, BorshSerialize};
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"i");
+    /// let mut value = map.insert(&"Toyota".into(), &"Camry".into());
+    /// assert_eq!(value, None);
+    /// value = map.insert(&"Toyota".into(), &"Corolla".into());
+    /// assert_eq!(value, Some("Camry".into()));
+    /// ```
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
         self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
             .map(|value_raw| Self::deserialize_value(&value_raw))
