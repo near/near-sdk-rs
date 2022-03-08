@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 /// Enables contract runtime to panic with the given type. Any error type used in conjunction
 /// with `#[return_result]` has to implement this trait.
 ///
@@ -12,7 +10,7 @@ use std::borrow::Borrow;
 /// }
 ///
 /// impl FunctionError for Error {
-///     fn panic(&self) {
+///     fn panic(&self) -> ! {
 ///         match self {
 ///             Error::NotFound =>
 ///                 near_sdk::env::panic_str("not found"),
@@ -23,14 +21,14 @@ use std::borrow::Borrow;
 /// }
 /// ```
 pub trait FunctionError {
-    fn panic(&self);
+    fn panic(&self) -> !;
 }
 
 impl<T> FunctionError for T
 where
-    T: Borrow<str>,
+    T: AsRef<str>,
 {
-    fn panic(&self) {
-        crate::env::panic_str(self.borrow())
+    fn panic(&self) -> ! {
+        crate::env::panic_str(self.as_ref())
     }
 }
