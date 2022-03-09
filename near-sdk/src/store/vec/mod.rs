@@ -139,7 +139,7 @@ where
     /// ```
     /// use near_sdk::store::Vector;
     /// 
-    /// let mut vec = Vector::new(b"a");
+    /// let mut vec: Vector<u8> = Vector::new(b"a");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
@@ -161,7 +161,7 @@ where
     /// 
     /// vec.clear();
     /// 
-    /// assert!(!vec.is_empty());
+    /// assert!(vec.is_empty());
     /// ```
     pub fn clear(&mut self) {
         for i in 0..self.len {
@@ -188,11 +188,11 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// vec.push("test");
+    /// vec.push("test".to_string());
     /// 
-    /// vec.set(0,"new_value");
+    /// vec.set(0,"new_value".to_string());
     /// 
-    /// assert_eq!(vec.get(0),Some("new_value"));
+    /// assert_eq!(vec.get(0),Some("new_value".to_string()));
     /// ```
     pub fn set(&mut self, index: u32, value: T) {
         if index >= self.len() {
@@ -214,9 +214,9 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// vec.push("test");
+    /// vec.push("test".to_string());
     /// 
-    /// assert_eq!(!vec.is_empty());
+    /// assert!(!vec.is_empty());
     /// ```
     pub fn push(&mut self, element: T) {
         let last_idx = self.len();
@@ -238,9 +238,9 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// vec.push("test");
+    /// vec.push("test".to_string());
     /// 
-    /// assert_eq!(Some("test"), vec.get(0));
+    /// assert_eq!(Some("test".to_string()), vec.get(0));
     /// assert_eq!(None, vec.get(3));
     /// ```
     pub fn get(&self, index: u32) -> Option<&T> {
@@ -296,13 +296,13 @@ where
     /// ```
     /// use near_sdk::store::Vector;
     ///
-    /// let mut vec = Vector::new(b"v");
+    /// let mut vec: Vector<u8> = Vector::new(b"v");
     /// let baseline = vec![1, 2, 3];
     /// vec.extend(baseline.clone());
     /// 
     /// vec.swap_remove(0);
     /// 
-    /// assert_eq!(iter.get(0), 3);
+    /// assert_eq!(vec.get(0), 3);
     /// assert_eq!(vec.swap_remove(1), 2);
     /// ```
     pub fn swap_remove(&mut self, index: u32) -> T {
@@ -348,11 +348,11 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// vec.push("test");
+    /// vec.push("test".to_string());
     /// 
-    /// vec.replace(0,"replaced");
+    /// vec.replace(0,"replaced".to_string());
     /// 
-    /// assert_eq!(vec.get(0),Some("replaced"));
+    /// assert_eq!(vec.get(0),Some("replaced".to_string()));
     /// ```
     pub fn replace(&mut self, index: u32, element: T) -> T {
         if index >= self.len {
@@ -415,6 +415,9 @@ where
     /// # Examples
     ///
     /// ```
+    ///
+    /// use near_sdk::store::Vector;
+    ///
     /// let mut vec = Vector::new(b"v");
     /// let baseline = vec![1, 2, 3];
     /// vec.extend(baseline.clone());

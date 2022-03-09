@@ -201,10 +201,10 @@ where
     /// ```
     /// use near_sdk::store::UnorderedMap;
     /// 
-    /// let mut map = UnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert_eq!(map.len(), 0);
-    /// map.insert(1, 1);
-    /// map.insert(2, 2);
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
     /// assert_eq!(map.len(), 2);
     /// ```
     pub fn len(&self) -> u32 {
@@ -217,10 +217,10 @@ where
     /// ```
     /// use near_sdk::store::UnorderedMap;
     /// 
-    /// let mut map = UnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert_eq!(map.is_empty());
-    /// map.insert(1, 1);
-    /// assert_eq!(!map.is_empty());
+    /// map.insert("a".to_string(), 1);
+    /// assert!(!map.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
@@ -234,8 +234,8 @@ where
     /// ```
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b");
-    /// map.insert(1, 1);
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// map.insert("a".to_string(), 1);
     /// 
     /// map.clear();
     ///
@@ -427,7 +427,7 @@ where
     /// ``` 
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b")
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     /// assert_eq!(map.get("test"), Some(&5));
     /// ```
@@ -450,7 +450,7 @@ where
     /// ``` 
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b")
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     /// 
     /// *map.get_mut("test").unwrap() = 6;
@@ -477,12 +477,12 @@ where
     /// ``` 
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b")
-    /// assert_eq!(map.is_empty());
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// assert!(map.is_empty());
     /// 
-    /// map.insert(1, 1);
+    /// map.insert("a".to_string(), 1);
     /// 
-    /// assert_eq!(!map.is_empty());
+    /// assert!(!map.is_empty());
     /// assert_eq!(map.values().collect::<Vec<_>>(), [&1]);
     /// ```
     pub fn insert(&mut self, k: K, value: V) -> Option<V>
@@ -512,7 +512,7 @@ where
     /// ``` 
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b")
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     /// 
     /// assert!(map.contains_key("test"));
@@ -537,7 +537,7 @@ where
     /// ``` 
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b")
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     /// assert_eq!(map.len(), 1);
     /// 

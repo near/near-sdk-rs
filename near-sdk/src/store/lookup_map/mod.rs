@@ -135,7 +135,7 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     /// 
-    /// let mut map = LookupMap::new(b"m");
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -228,10 +228,10 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     ///
-    /// let mut map = LookupMap::new(b"m");
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
     ///
-    /// map.insert(1, "a");
-    /// assert_eq!(map.get(&1), Some(&"a"));
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.get(&1), Some(&"a".to_string()));
     /// assert_eq!(map.get(&2), None);
     /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
@@ -276,11 +276,11 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     ///
-    /// let mut map = LookupMap::new(b"m");
-    /// map.insert(1, "a");
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
     /// if let Some(x) = map.get_mut(&1) {
-    ///     *x = "b";
-    ///     assert_eq!(map[&1], "b");
+    ///     *x = "b".to_string();
+    ///     assert_eq!(map[&1], "b".to_string());
     /// }
     /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
@@ -303,13 +303,13 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     ///
-    /// let mut map = LookupMap::new(b"m");
-    /// assert_eq!(map.insert(37, "a"), None);
-    /// assert_eq!(map.is_empty(), false);
+    /// llet mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.insert(37, "a".to_string()), None);
+    /// assert_eq!(map.contains_key(&37), true);
     /// 
-    /// map.insert(37, "b");
-    /// assert_eq!(map.insert(37, "c"), Some("b"));
-    /// assert_eq!(map[&37], "c");
+    /// map.insert(37, "b".to_string());
+    /// assert_eq!(map.insert(37, "c".to_string()), Some("b".to_string()));
+    /// assert_eq!(map[&37], "c".to_string());
     /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
@@ -328,8 +328,8 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     ///
-    /// let mut map = LookupMap::new(b"m");
-    /// map.insert(1, "a");
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
     /// assert_eq!(map.contains_key(&1), true);
     /// assert_eq!(map.contains_key(&2), false);
     /// ```
@@ -370,9 +370,9 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     ///
-    /// let mut map = LookupMap::new(b"m");
-    /// map.insert(1, "a");
-    /// assert_eq!(map.remove(&1), Some("a"));
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.remove(&1), Some("a".to_string()));
     /// assert_eq!(map.remove(&1), None);
     /// ```
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
