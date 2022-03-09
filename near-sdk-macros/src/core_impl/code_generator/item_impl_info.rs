@@ -1,5 +1,7 @@
+use crate::core_impl::ext::generate_ext_function_wrappers;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
+use quote::ToTokens;
 use syn::{spanned::Spanned, Ident};
 
 impl ItemImplInfo {
@@ -15,7 +17,7 @@ impl ItemImplInfo {
     }
 
     pub fn generate_sim_method_wrapper(&self) -> TokenStream2 {
-        use quote::{format_ident, quote, ToTokens};
+        use quote::{format_ident, quote};
         let orig_name = self.ty.clone().into_token_stream();
         let mut name = quote! {Contract};
         if let Ok(input) = syn::parse::<Ident>(orig_name.into()) {
@@ -37,24 +39,15 @@ impl ItemImplInfo {
     }
 
     pub fn generate_ext_wrapper_code(&self) -> TokenStream2 {
-        use quote::{format_ident, quote, ToTokens};
-        let orig_name = self.ty.clone().into_token_stream();
-        let name = match syn::parse::<Ident>(orig_name.into()) {
-            Ok(n) => format_ident!("{}Ext", n),
-            Err(e) => {
-                return syn::Error::new(self.ty.span(), e).to_compile_error()
-            }
-        };
-        let mut res = TokenStream2::new();
-        for method in &self.methods {
-            if method.is_public || self.is_trait_impl {
-                res.extend(method.generate_ext_method_wrapper());
-            }
-        }
-        quote! {
-            impl #name {
-                #res
-            }
+        match syn::parse::<Ident>(self.ty.to_token_stream().into()) {
+            Ok(n) => generate_ext_function_wrappers(
+                &n,
+                self.methods
+                    .iter()
+                    .filter(|m| m.is_public || self.is_trait_impl)
+                    .map(|m| &m.attr_signature_info),
+            ),
+            Err(e) => return syn::Error::new(self.ty.span(), e).to_compile_error(),
         }
     }
 }
@@ -769,65 +762,6 @@ mod tests {
                   let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
                       .expect("Failed to serialize the cross contract args using Borsh.");
                   near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "borsh_test", args, false)
-                }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
-    }
-
-    #[test]
-    fn ext_basic_json() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &String) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = method_info.generate_ext_method_wrapper();
-        let expected = quote!(
-                pub fn method(self, k: &String,) -> near_sdk::Promise {
-                    #[derive(near_sdk :: serde :: Serialize)]
-                    #[serde(crate = "near_sdk::serde")]
-                    struct Input<'nearinput> {
-                        k: &'nearinput String,
-                    }
-                    let args = Input { k: &k, };
-                    let args = near_sdk::serde_json::to_vec(&args)
-                        .expect("Failed to serialize the cross contract args using JSON.");
-                    near_sdk::Promise::new(self.account_id)
-                        .function_call_weight(
-                            "method".to_string(),
-                            args,
-                            self.amount,
-                            self.static_gas,
-                            self.gas_weight,
-                        )
-                }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
-    }
-
-    #[test]
-    fn ext_basic_borsh() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str(r#"
-          pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
-        "#).unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = method_info.generate_ext_method_wrapper();
-        let expected = quote!(
-                pub fn borsh_test(self, a: String,) -> near_sdk::Promise {
-                  #[derive(near_sdk :: borsh :: BorshSerialize)]
-                  struct Input<'nearinput> {
-                      a: &'nearinput String,
-                  }
-                  let args = Input { a: &a, };
-                  let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
-                      .expect("Failed to serialize the cross contract args using Borsh.");
-                    near_sdk::Promise::new(self.account_id)
-                        .function_call_weight(
-                            "borsh_test".to_string(),
-                            args,
-                            self.amount,
-                            self.static_gas,
-                            self.gas_weight,
-                        )
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());

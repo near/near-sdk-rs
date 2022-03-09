@@ -74,7 +74,12 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
             Ok(x) => x,
             Err(err) => return TokenStream::from(err.to_compile_error()),
         };
-        item_trait_info.wrapped_module().into()
+        let ext_api = item_trait_info.wrap_trait_ext();
+
+        TokenStream::from(quote! {
+            #input
+            #ext_api
+        })
     } else {
         TokenStream::from(
             syn::Error::new(Span::call_site(), "ext_contract can only be used on traits")

@@ -236,41 +236,6 @@ impl ImplItemMethodInfo {
             }
         }
     }
-
-    /// Generate methods on <StructName>Ext to enable calling each method.
-    pub(crate) fn generate_ext_method_wrapper(&self) -> TokenStream2 {
-        let ImplItemMethodInfo { attr_signature_info, .. } = self;
-
-        let pat_type_list = attr_signature_info.pat_type_list();
-        let serialize = serializer::generate_serializer(
-            &self.attr_signature_info,
-            &self.attr_signature_info.input_serializer,
-        );
-
-        let AttrSigInfo { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
-        let ident_str = ident.to_string();
-        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
-            quote! {
-                #acc
-                #value
-            }
-        });
-        let Signature { generics, .. } = original_sig;
-        quote! {
-            #non_bindgen_attrs
-            pub fn #ident#generics(self, #pat_type_list) -> near_sdk::Promise {
-                #serialize
-                near_sdk::Promise::new(self.account_id)
-                .function_call_weight(
-                    #ident_str.to_string(),
-                    args,
-                    self.amount,
-                    self.static_gas,
-                    self.gas_weight,
-                )
-            }
-        }
-    }
 }
 
 fn json_serialize(attr_signature_info: &AttrSigInfo) -> TokenStream2 {

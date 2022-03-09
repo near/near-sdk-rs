@@ -95,23 +95,17 @@ impl CrossContract {
     //    }
 
     pub fn simple_call(&mut self, account_id: AccountId, message: String) {
-        ext_status_message::set_status(message, account_id, 0, env::prepaid_gas() / 2);
+        ext_status_message::ext(account_id).set_status(message);
     }
     pub fn complex_call(&mut self, account_id: AccountId, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
-        let prepaid_gas = env::prepaid_gas();
         log!("complex_call");
-        ext_status_message::set_status(message, account_id.clone(), 0, prepaid_gas / 3).then(
-            ext_status_message::get_status(
-                env::signer_account_id(),
-                account_id,
-                0,
-                prepaid_gas / 3,
-            ),
-        )
+        ext_status_message::ext(account_id.clone())
+            .set_status(message)
+            .then(ext_status_message::ext(account_id).get_status(env::signer_account_id()))
     }
 
     pub fn transfer_money(&mut self, account_id: AccountId, amount: u64) {

@@ -1,6 +1,6 @@
 use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::events::FtTransfer;
-use crate::fungible_token::resolver::FungibleTokenResolver;
+use crate::fungible_token::resolver::{fungible_token_resolver_ext, FungibleTokenResolver};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
@@ -11,18 +11,6 @@ use near_sdk::{
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
-
-const NO_DEPOSIT: Balance = 0;
-
-#[ext_contract(ext_self)]
-trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
 
 #[ext_contract(ext_fungible_token_receiver)]
 pub trait FungibleTokenReceiver {
@@ -179,23 +167,15 @@ impl FungibleTokenCore for FungibleToken {
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         // Initiating receiver's call and the callback
-        ext_fungible_token_receiver::ft_on_transfer(
-            sender_id.clone(),
-            amount.into(),
-            msg,
-            receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
-        )
-        .then(ext_self::ft_resolve_transfer(
-            sender_id,
-            receiver_id,
-            amount.into(),
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+        ext_fungible_token_receiver::ext(receiver_id.clone())
+            .with_static_gas(env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL)
+            .ft_on_transfer(sender_id.clone(), amount.into(), msg)
+            .then(
+                fungible_token_resolver_ext::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
+            )
+            .into()
     }
 
     fn ft_total_supply(&self) -> U128 {
