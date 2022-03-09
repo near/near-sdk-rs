@@ -31,7 +31,7 @@ Currently this crate depends on a the GitHub repo of [nearcore](https://github.c
 
 ```toml
 [dev-dependencies]
-near-sdk-sim = "3.2.0"
+near-sdk-sim = "4.0.0-pre.6"
 
 ```
 
@@ -39,7 +39,7 @@ And update `near-sdk` too:
 
 ```toml
 [dependencies]
-near-sdk = "3.1.0"
+near-sdk = "4.0.0-pre.6"
 
 ```
 
@@ -64,8 +64,8 @@ Now in the root of the project (`contract-wrap`), create a new `Cargo.toml`. You
 
 ```toml
 [dev-dependencies]
-near-sdk = "3.1.0"
-near-sdk-sim = "3.2.0"
+near-sdk = "4.0.0-pre.6"
+near-sdk-sim = "4.0.0-pre.6"
 contract = { path = "./contract" }
 
 [workspace]
@@ -121,7 +121,7 @@ pub fn init() -> (UserAccount, UserAccount, UserAccount) {
     );
 
     let alice = root.create_user(
-        "alice".to_string(),
+        "alice".parse().unwrap(),
         to_yocto("100") // initial balance
     );
 
@@ -228,7 +228,7 @@ pub fn init() -> (UserAccount, ContractAccount<TokenContract>, UserAccount) {
     );
 
     let alice = root.create_user(
-        "alice".to_string(),
+        "alice".parse().unwrap(),
         to_yocto("100") // initial balance
     );
 

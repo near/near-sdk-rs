@@ -16,13 +16,13 @@ use near_primitives::test_utils::account_new;
 use near_primitives::test_utils::MockEpochInfoProvider;
 use near_primitives::transaction::{ExecutionOutcome, ExecutionStatus, SignedTransaction};
 use near_primitives::types::{
-    AccountId, AccountInfo, Balance, BlockHeight, EpochHeight, EpochId, EpochInfoProvider, Gas,
+    AccountInfo, Balance, BlockHeight, EpochHeight, EpochId, EpochInfoProvider, Gas,
     StateChangeCause,
 };
 use near_primitives::version::PROTOCOL_VERSION;
 use near_primitives::views::ViewApplyState;
 use near_runtime::{state_viewer::TrieViewer, ApplyState, Runtime};
-use near_sdk::Duration;
+use near_sdk::{AccountId, Duration};
 use near_store::{
     get_access_key, get_account, set_account, test_utils::create_test_store, ShardTries, Store,
 };
@@ -32,11 +32,11 @@ const DEFAULT_BLOCK_PROD_TIME: Duration = 1_000_000_000;
 
 pub fn init_runtime(
     genesis_config: Option<GenesisConfig>,
-) -> (RuntimeStandalone, InMemorySigner, String) {
+) -> (RuntimeStandalone, InMemorySigner, AccountId) {
     let mut genesis = genesis_config.unwrap_or_default();
     genesis.runtime_config.wasm_config.limit_config.max_total_prepaid_gas = genesis.gas_limit;
-    let root_account_id = "root".to_string();
-    let signer = genesis.init_root_signer(&root_account_id);
+    let root_account_id: AccountId = AccountId::new_unchecked("root".to_string());
+    let signer = genesis.init_root_signer(root_account_id.as_str());
     let runtime = RuntimeStandalone::new_with_store(genesis);
     (runtime, signer, root_account_id)
 }
@@ -98,7 +98,6 @@ impl GenesisConfig {
 pub struct Block {
     prev_block: Option<Arc<Block>>,
     state_root: CryptoHash,
-    gas_burnt: Gas,
     pub epoch_height: EpochHeight,
     pub block_height: BlockHeight,
     pub block_timestamp: u64,
@@ -127,7 +126,6 @@ impl Block {
             block_timestamp: genesis_config.genesis_time,
             gas_price: genesis_config.gas_price,
             gas_limit: genesis_config.gas_limit,
-            gas_burnt: 0,
         }
     }
 
@@ -145,7 +143,6 @@ impl Block {
             state_root: new_state_root,
             block_height: self.block_height + 1,
             epoch_height: (self.block_height + 1) / epoch_length,
-            gas_burnt: 0,
         }
     }
 }
@@ -243,10 +240,7 @@ impl RuntimeStandalone {
     }
 
     pub fn profile_of_outcome(&self, hash: &CryptoHash) -> Option<ProfileData> {
-        match self.profile.get(hash) {
-            Some(p) => Some(p.clone()),
-            _ => None,
-        }
+        self.profile.get(hash).cloned()
     }
 
     /// Processes all transactions and pending receipts until there is no pending_receipts left
@@ -330,7 +324,7 @@ impl RuntimeStandalone {
     /// Force alter account and change state_root.
     pub fn force_account_update(&mut self, account_id: AccountId, account: &Account) {
         let mut trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
-        set_account(&mut trie_update, account_id, account);
+        set_account(&mut trie_update, String::from(account_id), account);
         trie_update.commit(StateChangeCause::ValidatorAccountsUpdate);
         let (trie_changes, _) = trie_update.finalize().expect("Unexpected Storage error");
         let (store_update, new_root) = self.tries.apply_all(&trie_changes, 0).unwrap();
@@ -350,7 +344,12 @@ impl RuntimeStandalone {
     }
 
     /// Returns a ViewResult containing the value or error and any logs
-    pub fn view_method_call(&self, account_id: &str, method_name: &str, args: &[u8]) -> ViewResult {
+    pub fn view_method_call(
+        &self,
+        account_id: &str,
+        function_name: &str,
+        args: &[u8],
+    ) -> ViewResult {
         let trie_update = self.tries.new_trie_update(0, self.cur_block.state_root);
         let viewer = TrieViewer {};
         let mut logs = vec![];
@@ -368,7 +367,7 @@ impl RuntimeStandalone {
             trie_update,
             view_state,
             &account_id.to_string(),
-            method_name,
+            function_name,
             args,
             &mut logs,
             self.epoch_info_provider.as_ref(),
@@ -423,8 +422,8 @@ mod tests {
 
     #[test]
     fn single_test() {
-        let foo = Foo {};
-        foo._private();
+        let _foo = Foo {};
+        _foo._private();
     }
 
     #[test]
@@ -449,7 +448,7 @@ mod tests {
     #[test]
     fn process_all() {
         let (mut runtime, signer, _) = init_runtime(None);
-        assert_eq!(runtime.view_account(&"alice"), None);
+        assert_eq!(runtime.view_account("alice"), None);
         let outcome = runtime.resolve_tx(SignedTransaction::create_account(
             1,
             signer.account_id.clone(),
@@ -464,7 +463,7 @@ mod tests {
             Ok((_, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }))
         ));
         assert_eq!(
-            runtime.view_account(&"alice"),
+            runtime.view_account("alice"),
             Some(Account {
                 amount: 165437999999999999999000,
                 code_hash: CryptoHash::default(),
@@ -528,11 +527,7 @@ mod tests {
         runtime.process_all().unwrap();
 
         assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
-        let res = runtime.view_method_call(
-            &"status",
-            "get_status",
-            "{\"account_id\": \"root\"}".as_bytes(),
-        );
+        let res = runtime.view_method_call("status", "get_status", b"{\"account_id\": \"root\"}");
 
         let caller_status = String::from_utf8(res.unwrap()).unwrap();
         assert_eq!("\"caller status is ok!\"", caller_status);
@@ -541,10 +536,10 @@ mod tests {
     #[test]
     fn test_force_update_account() {
         let (mut runtime, _, _) = init_runtime(None);
-        let mut bob_account = runtime.view_account(&"root").unwrap();
+        let mut bob_account = runtime.view_account("root").unwrap();
         bob_account.locked = 10000;
-        runtime.force_account_update("root".into(), &bob_account);
-        assert_eq!(runtime.view_account(&"root").unwrap().locked, 10000);
+        runtime.force_account_update("root".parse().unwrap(), &bob_account);
+        assert_eq!(runtime.view_account("root").unwrap().locked, 10000);
     }
 
     #[test]

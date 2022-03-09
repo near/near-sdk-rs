@@ -1,0 +1,12 @@
+[package]
+name = "non-fungible-token"
+version = "1.1.0"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = { path = "../../../near-sdk" }
+near-contract-standards = { path = "../../../near-contract-standards" }

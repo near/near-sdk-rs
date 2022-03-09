@@ -28,6 +28,8 @@
       <a href="https://github.com/near/near-sdk-rs#building-rust-contract">Building Rust Contract</a>
       <span> | </span>
       <a href="https://docs.rs/near-sdk">Reference Documentation</a>
+      <span> | </span>
+      <a href="https://github.com/near/near-sdk-rs#contributing">Contributing</a>
     </h3>
 </div>
 
@@ -44,7 +46,7 @@ use near_sdk::{near_bindgen, env};
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
-    records: HashMap<String, String>,
+    records: HashMap<AccountId, String>,
 }
 
 #[near_bindgen]
@@ -54,7 +56,7 @@ impl StatusMessage {
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: String) -> Option<String> {
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
         self.records.get(&account_id).cloned()
     }
 }
@@ -109,7 +111,7 @@ want to disable default initialization then you can prohibit it like this:
 ```rust
 impl Default for StatusMessage {
     fn default() -> Self {
-        panic!("Contract should be initialized before the usage.")
+        near_sdk::env::panic_str("Contract should be initialized before the usage.")
     }
 }
 ```
@@ -148,8 +150,8 @@ pub fn my_method(&mut self) {
 /// Which is equivalent to
 
 pub fn my_method(&mut self ) {
-    if env::current_account_id() != env::predecessor_account_id() {
-        near_sdk::env::panic("Method method is private".as_bytes());
+    if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
+        near_sdk::env::panic_str("Method method is private");
     }
 ...
 }
@@ -220,4 +222,8 @@ Since WebAssembly compiler includes a bunch of debug information into the binary
 different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
 that allows to compile the binary.
 
-**Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contact-builder)**
+**Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contract-builder)**
+
+## Contributing
+
+If you are interested in contributing, please look at the [contributing guidelines](CONTRIBUTING.md).

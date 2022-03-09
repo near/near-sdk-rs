@@ -3,7 +3,7 @@ use std::ops::Bound;
 
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};
-use crate::IntoStorageKey;
+use crate::{env, IntoStorageKey};
 
 /// TreeMap based on AVL-tree
 ///
@@ -21,7 +21,7 @@ pub struct TreeMap<K, V> {
     tree: Vector<Node<K>>,
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
 pub struct Node<K> {
     id: u64,
     key: K,           // key stored in a node
@@ -60,6 +60,10 @@ where
         self.tree.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.tree.is_empty()
+    }
+
     pub fn clear(&mut self) {
         self.root = 0;
         for n in self.tree.iter() {
@@ -89,16 +93,16 @@ where
     }
 
     pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
-        if !self.contains_key(&key) {
-            self.root = self.insert_at(self.root, self.len(), &key);
+        if !self.contains_key(key) {
+            self.root = self.insert_at(self.root, self.len(), key);
         }
-        self.val.insert(&key, &val)
+        self.val.insert(key, val)
     }
 
     pub fn remove(&mut self, key: &K) -> Option<V> {
-        if self.contains_key(&key) {
-            self.root = self.do_remove(&key);
-            self.val.remove(&key)
+        if self.contains_key(key) {
+            self.root = self.do_remove(key);
+            self.val.remove(key)
         } else {
             // no such key, nothing to do
             None
@@ -145,22 +149,22 @@ where
 
     /// Iterate all entries in ascending order: min to max, both inclusive
     pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::asc(&self)
+        Cursor::asc(self)
     }
 
     /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
     pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::asc_from(&self, key)
+        Cursor::asc_from(self, key)
     }
 
     /// Iterate all entries in descending order: max to min, both inclusive
     pub fn iter_rev(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::desc(&self)
+        Cursor::desc(self)
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
     pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
-        Cursor::desc_from(&self, key)
+        Cursor::desc_from(self, key)
     }
 
     /// Iterate entries in ascending order according to specified bounds.
@@ -171,14 +175,14 @@ where
     /// Panics if range start == end and both bounds are Excluded.
     pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
-            (Bound::Included(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
-            (Bound::Excluded(a), Bound::Included(b)) if a > b => panic!("Invalid range."),
-            (Bound::Included(a), Bound::Excluded(b)) if a > b => panic!("Invalid range."),
-            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => panic!("Invalid range."),
+            (Bound::Included(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
+            (Bound::Excluded(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),
+            (Bound::Included(a), Bound::Excluded(b)) if a > b => env::panic_str("Invalid range."),
+            (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => env::panic_str("Invalid range."),
             (lo, hi) => (lo, hi),
         };
 
-        Cursor::range(&self, lo, hi)
+        Cursor::range(self, lo, hi)
     }
 
     /// Helper function which creates a [`Vec<(K, V)>`] of all items in the [`TreeMap`].
@@ -317,7 +321,7 @@ where
         let rgt = node.rgt.and_then(|id| self.node(id).map(|n| n.ht)).unwrap_or_default();
 
         node.ht = 1 + std::cmp::max(lft, rgt);
-        self.save(&node);
+        self.save(node);
     }
 
     // Balance = difference in heights between left and right subtrees at given node.
@@ -368,7 +372,7 @@ where
 
     // Check balance at a given node and enforce it if necessary with respective rotations.
     fn enforce_balance(&mut self, node: &mut Node<K>) -> u64 {
-        let balance = self.get_balance(&node);
+        let balance = self.get_balance(node);
         if balance > 1 {
             let mut lft = node.lft.and_then(|id| self.node(id)).unwrap();
             if self.get_balance(&lft) < 0 {
@@ -421,10 +425,7 @@ where
     fn check_balance(&mut self, at: u64, key: &K) -> u64 {
         match self.node(at) {
             Some(mut node) => {
-                if node.key.eq(key) {
-                    self.update_height(&mut node);
-                    self.enforce_balance(&mut node)
-                } else {
+                if !node.key.eq(key) {
                     if node.key.gt(key) {
                         if let Some(l) = node.lft {
                             let id = self.check_balance(l, key);
@@ -434,9 +435,9 @@ where
                         let id = self.check_balance(r, key);
                         node.rgt = Some(id);
                     }
-                    self.update_height(&mut node);
-                    self.enforce_balance(&mut node)
                 }
+                self.update_height(&mut node);
+                self.enforce_balance(&mut node)
             }
             None => at,
         }
@@ -579,6 +580,16 @@ where
     }
 }
 
+impl<K, V> std::fmt::Debug for TreeMap<K, V>
+where
+    K: std::fmt::Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TreeMap").field("root", &self.root).field("tree", &self.tree).finish()
+    }
+}
+
 impl<'a, K, V> IntoIterator for &'a TreeMap<K, V>
 where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
@@ -600,17 +611,58 @@ where
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let this_key = self.key.clone();
-
-        let next_key = self
-            .key
-            .take()
-            .and_then(|k| if self.asc { self.map.higher(&k) } else { self.map.lower(&k) })
-            .filter(|k| fits(k, &self.lo, &self.hi));
-        self.key = next_key;
-
-        this_key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        <Self as Iterator>::nth(self, 0)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // Constrains max count. Not worth it to cause storage reads to make this more accurate.
+        (0, Some(self.map.len() as usize))
+    }
+
+    fn count(mut self) -> usize {
+        // Because this Cursor allows for bounded/starting from a key, there is no way of knowing
+        // how many elements are left to iterate without loading keys in order. This could be
+        // optimized in the case of a standard iterator by having a separate type, but this would
+        // be a breaking change, so there will be slightly more reads than necessary in this case.
+        let mut count = 0;
+        while self.key.is_some() {
+            count += 1;
+            self.progress_key();
+        }
+        count
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        for _ in 0..n {
+            // Skip over elements not iterated over to get to `nth`. This avoids loading values
+            // from storage.
+            self.progress_key();
+        }
+
+        let key = self.progress_key()?;
+        let value = self.map.get(&key)?;
+
+        Some((key, value))
+    }
+
+    fn last(mut self) -> Option<Self::Item> {
+        if self.asc && matches!(self.hi, Bound::Unbounded) {
+            self.map.max().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else if !self.asc && matches!(self.lo, Bound::Unbounded) {
+            self.map.min().and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        } else {
+            // Cannot guarantee what the last is within the range, must load keys until last.
+            let key = core::iter::from_fn(|| self.progress_key()).last();
+            key.and_then(|k| self.map.get(&k).map(|v| (k, v)))
+        }
+    }
+}
+
+impl<K, V> std::iter::FusedIterator for Cursor<'_, K, V>
+where
+    K: Ord + Clone + BorshSerialize + BorshDeserialize,
+    V: BorshSerialize + BorshDeserialize,
+{
 }
 
 fn fits<K: Ord>(key: &K, lo: &Bound<K>, hi: &Bound<K>) -> bool {
@@ -668,6 +720,16 @@ where
 
         Self { asc: true, key, lo, hi, map }
     }
+
+    /// Progresses the key one index, will return the previous key
+    fn progress_key(&mut self) -> Option<K> {
+        let new_key = self
+            .key
+            .as_ref()
+            .and_then(|k| if self.asc { self.map.higher(k) } else { self.map.lower(k) })
+            .filter(|k| fits(k, &self.lo, &self.hi));
+        core::mem::replace(&mut self.key, new_key)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -679,10 +741,8 @@ mod tests {
     extern crate rand;
     use self::rand::RngCore;
     use quickcheck::QuickCheck;
-    use serde::export::Formatter;
     use std::collections::BTreeMap;
     use std::collections::HashSet;
-    use std::fmt::{Debug, Result};
 
     /// Return height of the tree - number of nodes on the longest path starting from the root node.
     fn height<K, V>(tree: &TreeMap<K, V>) -> u64
@@ -719,38 +779,8 @@ mod tests {
         h.ceil() as u64
     }
 
-    impl<K> Debug for Node<K>
-    where
-        K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            f.debug_struct("Node")
-                .field("id", &self.id)
-                .field("key", &self.key)
-                .field("lft", &self.lft)
-                .field("rgt", &self.rgt)
-                .field("ht", &self.ht)
-                .finish()
-        }
-    }
-
-    impl<K, V> Debug for TreeMap<K, V>
-    where
-        K: Ord + Clone + Debug + BorshSerialize + BorshDeserialize,
-        V: Debug + BorshSerialize + BorshDeserialize,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-            f.debug_struct("TreeMap")
-                .field("root", &self.root)
-                .field("tree", &self.tree.iter().collect::<Vec<Node<K>>>())
-                .finish()
-        }
-    }
-
     #[test]
     fn test_empty() {
-        test_env::setup();
-
         let map: TreeMap<u8, u8> = TreeMap::new(b't');
         assert_eq!(map.len(), 0);
         assert_eq!(height(&map), 0);
@@ -764,8 +794,6 @@ mod tests {
 
     #[test]
     fn test_insert_3_rotate_l_l() {
-        test_env::setup();
-
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
         assert_eq!(height(&map), 0);
 
@@ -787,8 +815,6 @@ mod tests {
 
     #[test]
     fn test_insert_3_rotate_r_r() {
-        test_env::setup();
-
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
         assert_eq!(height(&map), 0);
 
@@ -810,8 +836,6 @@ mod tests {
 
     #[test]
     fn test_insert_lookup_n_asc() {
-        test_env::setup();
-
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
 
         let n: u64 = 30;
@@ -840,9 +864,14 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_lookup_n_desc() {
-        test_env::setup();
+    pub fn test_insert_one() {
+        let mut map = TreeMap::new(b"m");
+        assert_eq!(None, map.insert(&1, &2));
+        assert_eq!(2, map.insert(&1, &3).unwrap());
+    }
 
+    #[test]
+    fn test_insert_lookup_n_desc() {
         let mut map: TreeMap<i32, i32> = TreeMap::new(next_trie_id());
 
         let n: u64 = 30;
@@ -896,8 +925,6 @@ mod tests {
 
     #[test]
     fn test_min() {
-        test_env::setup();
-
         let n: u64 = 30;
         let vec = random(n);
 
@@ -912,8 +939,6 @@ mod tests {
 
     #[test]
     fn test_max() {
-        test_env::setup();
-
         let n: u64 = 30;
         let vec = random(n);
 
@@ -928,8 +953,6 @@ mod tests {
 
     #[test]
     fn test_lower() {
-        test_env::setup();
-
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -950,8 +973,6 @@ mod tests {
 
     #[test]
     fn test_higher() {
-        test_env::setup();
-
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -972,8 +993,6 @@ mod tests {
 
     #[test]
     fn test_floor_key() {
-        test_env::setup();
-
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -994,8 +1013,6 @@ mod tests {
 
     #[test]
     fn test_ceil_key() {
-        test_env::setup();
-
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
 
@@ -1016,8 +1033,6 @@ mod tests {
 
     #[test]
     fn test_remove_1() {
-        test_env::setup();
-
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(&1, &1);
         assert_eq!(map.get(&1), Some(1));
@@ -1029,8 +1044,6 @@ mod tests {
 
     #[test]
     fn test_remove_3() {
-        test_env::setup();
-
         let map: TreeMap<u32, u32> = avl(&[(0, 0)], &[0, 0, 1]);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![]);
@@ -1038,8 +1051,6 @@ mod tests {
 
     #[test]
     fn test_remove_3_desc() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![3, 2, 1];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
@@ -1059,8 +1070,6 @@ mod tests {
 
     #[test]
     fn test_remove_3_asc() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![1, 2, 3];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
@@ -1080,8 +1089,6 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_1() {
-        test_env::setup();
-
         let vec: Vec<u32> =
             vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
@@ -1102,8 +1109,6 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_2() {
-        test_env::setup();
-
         let vec: Vec<u32> =
             vec![700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
@@ -1124,8 +1129,6 @@ mod tests {
 
     #[test]
     fn test_remove_9_regression() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![
             1186903464, 506371929, 1738679820, 1883936615, 1815331350, 1512669683, 3581743264,
             1396738166, 1902061760,
@@ -1148,8 +1151,6 @@ mod tests {
 
     #[test]
     fn test_remove_20_regression_1() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![
             552517392, 3638992158, 1015727752, 2500937532, 638716734, 586360620, 2476692174,
             1425948996, 3608478547, 757735878, 2709959928, 2092169539, 3620770200, 783020918,
@@ -1173,8 +1174,6 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression() {
-        test_env::setup();
-
         let vec: Vec<u32> = vec![280, 606, 163, 857, 436, 508, 44, 801];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
@@ -1201,7 +1200,6 @@ mod tests {
         let insert = vec![882, 398, 161, 76];
         let remove = vec![242, 687, 860, 811];
 
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for (i, (k1, k2)) in insert.iter().zip(remove.iter()).enumerate() {
@@ -1223,8 +1221,6 @@ mod tests {
 
     #[test]
     fn test_remove_n() {
-        test_env::setup();
-
         let n: u64 = 20;
         let vec = random(n);
 
@@ -1250,8 +1246,6 @@ mod tests {
 
     #[test]
     fn test_remove_root_3() {
-        test_env::setup();
-
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(&2, &1);
         map.insert(&3, &1);
@@ -1269,8 +1263,6 @@ mod tests {
 
     #[test]
     fn test_insert_2_remove_2_regression() {
-        test_env::setup();
-
         let ins: Vec<u32> = vec![11760225, 611327897];
         let rem: Vec<u32> = vec![2982517385, 1833990072];
 
@@ -1289,7 +1281,6 @@ mod tests {
 
     #[test]
     fn test_insert_n_duplicates() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in 0..30 {
@@ -1306,8 +1297,6 @@ mod tests {
 
     #[test]
     fn test_insert_2n_remove_n_random() {
-        test_env::setup();
-
         for k in 1..4 {
             let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
             let mut set: HashSet<u32> = HashSet::new();
@@ -1343,14 +1332,12 @@ mod tests {
 
     #[test]
     fn test_remove_empty() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert_eq!(map.remove(&1), None);
     }
 
     #[test]
     fn test_to_vec() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(&1, &41);
         map.insert(&2, &42);
@@ -1362,52 +1349,56 @@ mod tests {
 
     #[test]
     fn test_to_vec_empty() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         assert!(map.to_vec().is_empty());
     }
 
     #[test]
     fn test_iter() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(&1, &41);
         map.insert(&2, &42);
         map.insert(&3, &43);
 
         assert_eq!(map.iter().collect::<Vec<(u32, u32)>>(), vec![(1, 41), (2, 42), (3, 43)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter().nth(1), Some((2, 42)));
+        assert_eq!(map.iter().count(), 3);
+        assert_eq!(map.iter().last(), Some((3, 43)));
         map.clear();
     }
 
     #[test]
     fn test_iter_empty() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter().count(), 0);
     }
 
     #[test]
     fn test_iter_rev() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(&1, &41);
         map.insert(&2, &42);
         map.insert(&3, &43);
 
         assert_eq!(map.iter_rev().collect::<Vec<(u32, u32)>>(), vec![(3, 43), (2, 42), (1, 41)]);
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev().nth(1), Some((2, 42)));
+        assert_eq!(map.iter_rev().count(), 3);
+        assert_eq!(map.iter_rev().last(), Some((1, 41)));
         map.clear();
     }
 
     #[test]
     fn test_iter_rev_empty() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_rev().collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev().count(), 0);
     }
 
     #[test]
     fn test_iter_from() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         let one: Vec<u32> = vec![10, 20, 30, 40, 50];
@@ -1435,19 +1426,23 @@ mod tests {
             map.iter_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(35, 42), (40, 42), (45, 42), (50, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_from(31).nth(2), Some((45, 42)));
+        assert_eq!(map.iter_from(31).count(), 4);
+        assert_eq!(map.iter_from(31).last(), Some((50, 42)));
+
         map.clear();
     }
 
     #[test]
     fn test_iter_from_empty() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_from(42).count(), 0);
     }
 
     #[test]
     fn test_iter_rev_from() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         let one: Vec<u32> = vec![10, 20, 30, 40, 50];
@@ -1475,12 +1470,17 @@ mod tests {
             map.iter_rev_from(31).collect::<Vec<(u32, u32)>>(),
             vec![(30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
         );
+
+        // Test custom iterator impls
+        assert_eq!(map.iter_rev_from(31).nth(2), Some((20, 42)));
+        assert_eq!(map.iter_rev_from(31).count(), 6);
+        assert_eq!(map.iter_rev_from(31).last(), Some((5, 42)));
+
         map.clear();
     }
 
     #[test]
     fn test_range() {
-        test_env::setup();
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         let one: Vec<u32> = vec![10, 20, 30, 40, 50];
@@ -1515,11 +1515,6 @@ mod tests {
         );
 
         assert_eq!(
-            map.range((Bound::Excluded(20), Bound::Excluded(45))).collect::<Vec<(u32, u32)>>(),
-            vec![(25, 42), (30, 42), (35, 42), (40, 42)]
-        );
-
-        assert_eq!(
             map.range((Bound::Excluded(25), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
             vec![]
         );
@@ -1534,13 +1529,17 @@ mod tests {
             vec![]
         ); // the range makes no sense, but `BTreeMap` does not panic in this case
 
+        // Test custom iterator impls
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
+        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
+
         map.clear();
     }
 
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_same_excluded() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
     }
@@ -1548,7 +1547,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_incl_exlc() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
     }
@@ -1556,7 +1554,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_excl_incl() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
     }
@@ -1564,7 +1561,6 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_incl_incl() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Included(1)));
     }
@@ -1572,16 +1568,14 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_non_overlap_excl_excl() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
     }
 
     #[test]
     fn test_iter_rev_from_empty() {
-        test_env::setup();
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        assert!(map.iter_rev_from(42).collect::<Vec<(u32, u32)>>().is_empty());
+        assert_eq!(map.iter_rev_from(42).count(), 0);
     }
 
     #[test]
@@ -1668,8 +1662,8 @@ mod tests {
 
     fn is_balanced<K, V>(map: &TreeMap<K, V>, root: u64) -> bool
     where
-        K: Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
-        V: Debug + BorshSerialize + BorshDeserialize,
+        K: std::fmt::Debug + Ord + Clone + BorshSerialize + BorshDeserialize,
+        V: std::fmt::Debug + BorshSerialize + BorshDeserialize,
     {
         let node = map.node(root).unwrap();
         let balance = map.get_balance(&node);
@@ -1685,7 +1679,7 @@ mod tests {
 
         fn prop(insert: Vec<(u32, u32)>, remove: Vec<u32>) -> bool {
             let map = avl(&insert, &remove);
-            map.len() == 0 || is_balanced(&map, map.root)
+            map.is_empty() || is_balanced(&map, map.root)
         }
 
         QuickCheck::new()
@@ -1762,5 +1756,28 @@ mod tests {
         }
 
         QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
+
+    #[test]
+    fn test_debug() {
+        let mut map = TreeMap::new(b"m");
+        map.insert(&1, &100);
+        map.insert(&3, &300);
+        map.insert(&2, &200);
+
+        if cfg!(feature = "expensive-debug") {
+            let node1 = "Node { id: 0, key: 1, lft: None, rgt: None, ht: 1 }";
+            let node2 = "Node { id: 2, key: 2, lft: Some(0), rgt: Some(1), ht: 2 }";
+            let node3 = "Node { id: 1, key: 3, lft: None, rgt: None, ht: 1 }";
+            assert_eq!(
+                format!("{:?}", map),
+                format!("TreeMap {{ root: 2, tree: [{}, {}, {}] }}", node1, node3, node2)
+            );
+        } else {
+            assert_eq!(
+                format!("{:?}", map),
+                "TreeMap { root: 2, tree: Vector { len: 3, prefix: [109, 110] } }"
+            );
+        }
     }
 }

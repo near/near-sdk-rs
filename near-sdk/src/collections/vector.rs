@@ -1,5 +1,7 @@
 //! A vector implemented on a trie. Unlike standard vector does not support insertion and removal
 //! of an element results in the last element being placed in the empty position.
+use core::ops::Range;
+use std::iter::FusedIterator;
 use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -7,19 +9,18 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
 
-const ERR_INCONSISTENT_STATE: &[u8] = b"The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
-const ERR_ELEMENT_DESERIALIZATION: &[u8] = b"Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &[u8] = b"Cannot serialize element";
-const ERR_INDEX_OUT_OF_BOUNDS: &[u8] = b"Index out of bounds";
+const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
+const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
+const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic(ERR_INCONSISTENT_STATE))
+    val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
 }
 
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
 #[derive(BorshSerialize, BorshDeserialize)]
-#[cfg_attr(not(feature = "expensive-debug"), derive(Debug))]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
@@ -68,7 +69,7 @@ impl<T> Vector<T> {
     /// Panics if `index` is out of bounds.
     pub fn swap_remove_raw(&mut self, index: u64) -> Vec<u8> {
         if index >= self.len {
-            env::panic(ERR_INDEX_OUT_OF_BOUNDS)
+            env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)
         } else if index + 1 == self.len {
             expect_consistent_state(self.pop_raw())
         } else {
@@ -77,7 +78,7 @@ impl<T> Vector<T> {
             if env::storage_write(&lookup_key, &raw_last_value) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
-                env::panic(ERR_INCONSISTENT_STATE)
+                env::panic_str(ERR_INCONSISTENT_STATE)
             }
         }
     }
@@ -101,7 +102,7 @@ impl<T> Vector<T> {
             let raw_last_value = if env::storage_remove(&last_lookup_key) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
-                env::panic(ERR_INCONSISTENT_STATE)
+                env::panic_str(ERR_INCONSISTENT_STATE)
             };
             Some(raw_last_value)
         }
@@ -114,23 +115,20 @@ impl<T> Vector<T> {
     /// If `index` is out of bounds.
     pub fn replace_raw(&mut self, index: u64, raw_element: &[u8]) -> Vec<u8> {
         if index >= self.len {
-            env::panic(ERR_INDEX_OUT_OF_BOUNDS)
+            env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)
         } else {
             let lookup_key = self.index_to_lookup_key(index);
-            if env::storage_write(&lookup_key, &raw_element) {
+            if env::storage_write(&lookup_key, raw_element) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
-                env::panic(ERR_INCONSISTENT_STATE);
+                env::panic_str(ERR_INCONSISTENT_STATE);
             }
         }
     }
 
     /// Iterate over raw serialized elements.
-    pub fn iter_raw(&self) -> impl Iterator<Item = Vec<u8>> + '_ {
-        (0..self.len).map(move |i| {
-            let lookup_key = self.index_to_lookup_key(i);
-            expect_consistent_state(env::storage_read(&lookup_key))
-        })
+    pub fn iter_raw(&self) -> RawIter<T> {
+        RawIter::new(self)
     }
 
     /// Extends vector from the given collection of serialized elements.
@@ -157,7 +155,7 @@ where
     T: BorshSerialize,
 {
     fn serialize_element(element: &T) -> Vec<u8> {
-        element.try_to_vec().unwrap_or_else(|_| env::panic(ERR_ELEMENT_SERIALIZATION))
+        element.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION))
     }
 
     /// Appends an element to the back of the collection.
@@ -179,7 +177,8 @@ where
     T: BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
-        T::try_from_slice(&raw_element).unwrap_or_else(|_| env::panic(ERR_ELEMENT_DESERIALIZATION))
+        T::try_from_slice(raw_element)
+            .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
     }
 
     /// Returns the element by index or `None` if it is not present.
@@ -205,8 +204,8 @@ where
     }
 
     /// Iterate over deserialized elements.
-    pub fn iter(&self) -> impl Iterator<Item = T> + '_ {
-        self.iter_raw().map(|raw_element| Self::deserialize_element(&raw_element))
+    pub fn iter(&self) -> Iter<T> {
+        Iter::new(self)
     }
 
     pub fn to_vec(&self) -> Vec<T> {
@@ -236,6 +235,117 @@ impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
     }
 }
 
+#[cfg(not(feature = "expensive-debug"))]
+impl<T: std::fmt::Debug + BorshDeserialize> std::fmt::Debug for Vector<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vector").field("len", &self.len).field("prefix", &self.prefix).finish()
+    }
+}
+
+/// An iterator over raw serialized bytes of each element in the [`Vector`].
+pub struct RawIter<'a, T> {
+    vec: &'a Vector<T>,
+    range: Range<u64>,
+}
+
+impl<'a, T> RawIter<'a, T> {
+    fn new(vec: &'a Vector<T>) -> Self {
+        Self { vec, range: Range { start: 0, end: vec.len() } }
+    }
+
+    /// Returns number of elements left to iterate.
+    fn remaining(&self) -> usize {
+        (self.range.end - self.range.start) as usize
+    }
+}
+
+impl<'a, T> Iterator for RawIter<'a, T> {
+    type Item = Vec<u8>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        <Self as Iterator>::nth(self, 0)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.remaining();
+        (remaining, Some(remaining))
+    }
+
+    fn count(self) -> usize {
+        self.remaining()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        let idx = self.range.nth(n)?;
+        self.vec.get_raw(idx)
+    }
+}
+
+impl<'a, T> ExactSizeIterator for RawIter<'a, T> {}
+impl<'a, T> FusedIterator for RawIter<'a, T> {}
+
+impl<'a, T> DoubleEndedIterator for RawIter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        <Self as DoubleEndedIterator>::nth_back(self, 0)
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        let idx = self.range.nth_back(n)?;
+        self.vec.get_raw(idx)
+    }
+}
+
+/// An iterator over each element deserialized in the [`Vector`].
+pub struct Iter<'a, T> {
+    inner: RawIter<'a, T>,
+}
+
+impl<'a, T> Iter<'a, T> {
+    fn new(vec: &'a Vector<T>) -> Self {
+        Self { inner: RawIter::new(vec) }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T>
+where
+    T: BorshDeserialize,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        <Self as Iterator>::nth(self, 0)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.inner.remaining();
+        (remaining, Some(remaining))
+    }
+
+    fn count(self) -> usize {
+        self.inner.remaining()
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.inner.nth(n).map(|raw_element| Vector::deserialize_element(&raw_element))
+    }
+}
+
+impl<'a, T> ExactSizeIterator for Iter<'a, T> where T: BorshDeserialize {}
+impl<'a, T> FusedIterator for Iter<'a, T> where T: BorshDeserialize {}
+
+impl<'a, T> DoubleEndedIterator for Iter<'a, T>
+where
+    T: BorshDeserialize,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        <Self as DoubleEndedIterator>::nth_back(self, 0)
+    }
+
+    fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
+        self.inner.nth_back(n).map(|raw_element| Vector::deserialize_element(&raw_element))
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -243,11 +353,9 @@ mod tests {
     use rand::{Rng, SeedableRng};
 
     use crate::collections::Vector;
-    use crate::test_utils::test_env;
 
     #[test]
     fn test_push_pop() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -265,7 +373,6 @@ mod tests {
 
     #[test]
     pub fn test_replace() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(1);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -290,7 +397,6 @@ mod tests {
 
     #[test]
     pub fn test_swap_remove() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(2);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -316,7 +422,6 @@ mod tests {
 
     #[test]
     pub fn test_clear() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(3);
         let mut vec = Vector::new(b"v".to_vec());
         for _ in 0..100 {
@@ -332,7 +437,6 @@ mod tests {
 
     #[test]
     pub fn test_extend() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
         let mut vec = Vector::new(b"v".to_vec());
         let mut baseline = vec![];
@@ -357,7 +461,6 @@ mod tests {
 
     #[test]
     fn test_debug() {
-        test_env::setup();
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
         let prefix = b"v".to_vec();
         let mut vec = Vector::new(prefix.clone());
@@ -377,7 +480,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", vec),
-                format!("Vector {{ len: 5, prefix: {:?}, el: PhantomData }}", vec.prefix)
+                format!("Vector {{ len: 5, prefix: {:?} }}", vec.prefix)
             );
         }
 
@@ -386,17 +489,41 @@ mod tests {
 
         let deserialize_only_vec =
             Vector::<WithoutBorshSerialize> { len: vec.len(), prefix, el: Default::default() };
-        let baseline: Vec<_> = baseline.into_iter().map(|x| WithoutBorshSerialize(x)).collect();
+        let baseline: Vec<_> = baseline.into_iter().map(WithoutBorshSerialize).collect();
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:#?}", deserialize_only_vec), format!("{:#?}", baseline));
         } else {
             assert_eq!(
                 format!("{:?}", deserialize_only_vec),
-                format!(
-                    "Vector {{ len: 5, prefix: {:?}, el: PhantomData }}",
-                    deserialize_only_vec.prefix
-                )
+                format!("Vector {{ len: 5, prefix: {:?} }}", deserialize_only_vec.prefix)
             );
         }
+    }
+
+    #[test]
+    pub fn iterator_checks() {
+        let mut vec = Vector::new(b"v");
+        let mut baseline = vec![];
+        for i in 0..10 {
+            vec.push(&i);
+            baseline.push(i);
+        }
+
+        let mut vec_iter = vec.iter();
+        let mut bl_iter = baseline.iter();
+        assert_eq!(vec_iter.next(), bl_iter.next().copied());
+        assert_eq!(vec_iter.next_back(), bl_iter.next_back().copied());
+        assert_eq!(vec_iter.nth(3), bl_iter.nth(3).copied());
+        assert_eq!(vec_iter.nth_back(2), bl_iter.nth_back(2).copied());
+
+        // Check to make sure indexing overflow is handled correctly
+        assert!(vec_iter.nth(5).is_none());
+        assert!(bl_iter.nth(5).is_none());
+
+        assert!(vec_iter.next().is_none());
+        assert!(bl_iter.next().is_none());
+
+        // Count check
+        assert_eq!(vec.iter().count(), baseline.len());
     }
 }

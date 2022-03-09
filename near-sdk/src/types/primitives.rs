@@ -1,12 +1,13 @@
+#[cfg(not(target_arch = "wasm32"))]
 use near_primitives_core::hash::CryptoHash;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
 
 //* Type aliases from near_primitives_core
 
-/// Account identifier. Provides access to user's state.
-pub type AccountId = String;
 /// Hash used by a struct implementing the Merkle tree.
+#[cfg(not(target_arch = "wasm32"))]
 pub type MerkleHash = CryptoHash;
 /// Validator identifier in current group.
 pub type ValidatorId = u64;
@@ -24,10 +25,8 @@ pub type BlockHeight = u64;
 pub type EpochHeight = u64;
 /// Shard index, from 0 to NUM_SHARDS - 1.
 pub type ShardId = u64;
-/// Balance is type for storing amounts of tokens.
+/// Balance is a type for storing amounts of tokens, specified in yoctoNEAR.
 pub type Balance = u128;
-/// Gas is a type for storing amount of gas.
-pub type Gas = u64;
 
 /// Number of blocks in current group.
 pub type NumBlocks = u64;

@@ -1,15 +1,18 @@
-use std::convert::TryInto;
-
-use crate::environment::mocked_blockchain::MockedBlockchain;
-use crate::json_types::ValidAccountId;
+use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
+use crate::AccountId;
 use crate::{
     Balance, BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage, VMContext,
 };
+use near_primitives_core::runtime::fees::RuntimeFeesConfig;
+use near_vm_logic::{VMConfig, ViewConfig};
+use std::convert::TryInto;
 
 /// Returns a pre-defined account_id from a list of 6.
-pub fn accounts(id: usize) -> ValidAccountId {
-    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string().try_into().unwrap()
+pub fn accounts(id: usize) -> AccountId {
+    AccountId::new_unchecked(
+        ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string(),
+    )
 }
 
 /// Simple VMContext builder that allows to quickly create custom context in tests.
@@ -18,15 +21,21 @@ pub struct VMContextBuilder {
     pub context: VMContext,
 }
 
+impl Default for VMContextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 impl VMContextBuilder {
     pub fn new() -> Self {
         Self {
             context: VMContext {
-                current_account_id: alice(),
-                signer_account_id: bob(),
+                current_account_id: alice().try_into().unwrap(),
+                signer_account_id: bob().try_into().unwrap(),
                 signer_account_pk: vec![0u8; 32],
-                predecessor_account_id: bob(),
+                predecessor_account_id: bob().try_into().unwrap(),
                 input: vec![],
                 block_index: 0,
                 block_timestamp: 0,
@@ -37,29 +46,29 @@ impl VMContextBuilder {
                 attached_deposit: 0,
                 prepaid_gas: 300 * 10u64.pow(12),
                 random_seed: vec![0u8; 32],
-                is_view: false,
+                view_config: None,
                 output_data_receivers: vec![],
             },
         }
     }
 
-    pub fn current_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
-        self.context.current_account_id = account_id.into();
+    pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
+        self.context.current_account_id = account_id.try_into().unwrap();
         self
     }
 
-    pub fn signer_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
-        self.context.signer_account_id = account_id.into();
+    pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
+        self.context.signer_account_id = account_id.try_into().unwrap();
         self
     }
 
     pub fn signer_account_pk(&mut self, pk: PublicKey) -> &mut Self {
-        self.context.signer_account_pk = pk;
+        self.context.signer_account_pk = pk.into();
         self
     }
 
-    pub fn predecessor_account_id(&mut self, account_id: ValidAccountId) -> &mut Self {
-        self.context.predecessor_account_id = account_id.into();
+    pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
+        self.context.predecessor_account_id = account_id.try_into().unwrap();
         self
     }
 
@@ -99,17 +108,18 @@ impl VMContextBuilder {
     }
 
     pub fn prepaid_gas(&mut self, gas: Gas) -> &mut Self {
-        self.context.prepaid_gas = gas;
+        self.context.prepaid_gas = gas.0;
         self
     }
 
-    pub fn random_seed(&mut self, seed: Vec<u8>) -> &mut Self {
-        self.context.random_seed = seed;
+    pub fn random_seed(&mut self, seed: [u8; 32]) -> &mut Self {
+        self.context.random_seed = seed.to_vec();
         self
     }
 
     pub fn is_view(&mut self, is_view: bool) -> &mut Self {
-        self.context.is_view = is_view;
+        self.context.view_config =
+            if is_view { Some(ViewConfig { max_gas_burnt: 200000000000000 }) } else { None };
         self
     }
 
@@ -118,24 +128,20 @@ impl VMContextBuilder {
     }
 }
 
-// TODO: This probably shouldn't be necessary with the `testing_env` macro.
-/// Initializes the [`BlockchainInterface`] with a single promise result during execution.
-///
-/// [`BlockchainInterface`]: (crate::BlockchainInterface)
+/// Initializes the [`MockedBlockchain`] with a single promise result during execution.
+#[deprecated(since = "4.0.0", note = "Use `testing_env!` macro to initialize with promise results")]
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
-    let storage = crate::env::take_blockchain_interface()
-        .unwrap()
-        .as_mut_mocked_blockchain()
-        .unwrap()
-        .take_storage();
+    let storage = crate::mock::with_mocked_blockchain(|b| b.take_storage());
 
-    crate::env::set_blockchain_interface(Box::new(MockedBlockchain::new(
+    //? This probably shouldn't need to replace the existing mocked blockchain altogether?
+    //? Might be a good time to remove this utility function altogether
+    crate::env::set_blockchain_interface(MockedBlockchain::new(
         context,
-        Default::default(),
-        Default::default(),
+        VMConfig::test(),
+        RuntimeFeesConfig::test(),
         vec![promise_result],
         storage,
         Default::default(),
         None,
-    )));
+    ));
 }

@@ -10,8 +10,8 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use crate::env;
 use crate::IntoStorageKey;
 
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 
 /// An persistent lazy option, that stores a value in the storage.
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -53,7 +53,7 @@ impl<T> LazyOption<T> {
     }
 
     fn set_raw(&mut self, raw_value: &[u8]) -> bool {
-        env::storage_write(&self.storage_key, &raw_value)
+        env::storage_write(&self.storage_key, raw_value)
     }
 
     fn replace_raw(&mut self, raw_value: &[u8]) -> Option<Vec<u8>> {
@@ -76,7 +76,7 @@ where
     {
         let mut this = Self { storage_key: storage_key.into_storage_key(), el: PhantomData };
         if let Some(value) = value {
-            this.set(&value);
+            this.set(value);
         }
         this
     }
@@ -84,14 +84,14 @@ where
     fn serialize_value(value: &T) -> Vec<u8> {
         match value.try_to_vec() {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_SERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_SERIALIZATION),
         }
     }
 
     fn deserialize_value(raw_value: &[u8]) -> T {
-        match T::try_from_slice(&raw_value) {
+        match T::try_from_slice(raw_value) {
             Ok(x) => x,
-            Err(_) => env::panic(ERR_VALUE_DESERIALIZATION),
+            Err(_) => env::panic_str(ERR_VALUE_DESERIALIZATION),
         }
     }
 
@@ -123,16 +123,26 @@ where
     }
 }
 
+impl<T> std::fmt::Debug for LazyOption<T>
+where
+    T: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if cfg!(feature = "expensive-debug") {
+            self.get().fmt(f)
+        } else {
+            f.debug_struct("LazyOption").field("storage_key", &self.storage_key).finish()
+        }
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::test_utils::test_env;
-
     #[test]
     pub fn test_all() {
-        test_env::setup();
         let mut a = LazyOption::new(b"a", None);
         assert!(a.is_none());
         a.set(&42u32);
@@ -155,7 +165,6 @@ mod tests {
 
     #[test]
     pub fn test_multi() {
-        test_env::setup();
         let mut a = LazyOption::new(b"a", None);
         let mut b = LazyOption::new(b"b", None);
         assert!(a.is_none());
@@ -173,9 +182,25 @@ mod tests {
 
     #[test]
     pub fn test_init_value() {
-        test_env::setup();
         let a = LazyOption::new(b"a", Some(&42u32));
         assert!(a.is_some());
         assert_eq!(a.get(), Some(42));
+    }
+
+    #[test]
+    pub fn test_debug() {
+        let mut lazy_option = LazyOption::new(b"m", None);
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "None");
+        } else {
+            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+        }
+
+        lazy_option.set(&1u64);
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "Some(1)");
+        } else {
+            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+        }
     }
 }

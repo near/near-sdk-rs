@@ -1,0 +1,14 @@
+[package]
+name = "near-sys"
+version = "0.1.0"
+authors = ["Near Inc <hello@near.org>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+categories = ["wasm"]
+repository = "https://github.com/near/near-sdk-rs"
+homepage = "https://near-sdk.io"
+description = """
+Syscall definitions for builtin functions of the NEAR runtime.
+"""
+
+[dependencies]

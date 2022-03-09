@@ -1,5 +1,3 @@
-near_sdk::setup_alloc!();
-
 mod account;
 mod agent;
 mod asset;

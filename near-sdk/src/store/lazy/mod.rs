@@ -13,35 +13,36 @@ use crate::env;
 use crate::utils::{CacheEntry, EntryState};
 use crate::IntoStorageKey;
 
-const ERR_VALUE_SERIALIZATION: &[u8] = b"Cannot serialize value with Borsh";
-const ERR_VALUE_DESERIALIZATION: &[u8] = b"Cannot deserialize value with Borsh";
-const ERR_NOT_FOUND: &[u8] = b"No value found for the given key";
-const ERR_DELETED: &[u8] = b"The Lazy cell's value has been deleted. Verify the key has not been\
+const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
+const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
+const ERR_NOT_FOUND: &str = "No value found for the given key";
+const ERR_DELETED: &str = "The Lazy cell's value has been deleted. Verify the key has not been\
                             deleted manually.";
 
 fn expect_key_exists<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic(ERR_NOT_FOUND))
+    val.unwrap_or_else(|| env::panic_str(ERR_NOT_FOUND))
 }
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic(ERR_DELETED))
+    val.unwrap_or_else(|| env::panic_str(ERR_DELETED))
 }
 
-fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
+pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
 where
     T: BorshDeserialize,
 {
     let bytes = expect_key_exists(env::storage_read(key));
-    let val = T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic(ERR_VALUE_DESERIALIZATION));
+    let val =
+        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION));
     CacheEntry::new_cached(Some(val))
 }
 
-fn serialize_and_store<T>(key: &[u8], value: &T)
+pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = value.try_to_vec().unwrap_or_else(|_| env::panic(ERR_VALUE_SERIALIZATION));
-    env::storage_write(&key, &serialized);
+    let serialized = value.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
+    env::storage_write(key, &serialized);
 }
 
 /// An persistent lazily loaded value, that stores a value in the storage.
@@ -51,9 +52,8 @@ where
 ///
 /// # Examples
 /// ```
-/// use near_sdk::collections::Lazy;
+/// use near_sdk::store::Lazy;
 ///
-///# near_sdk::test_utils::test_env::setup();
 /// let mut a = Lazy::new(b"a", "test string".to_string());
 /// assert_eq!(*a, "test string");
 ///
@@ -66,7 +66,7 @@ where
     T: BorshSerialize,
 {
     /// Key bytes to index the contract's storage.
-    storage_key: Vec<u8>,
+    storage_key: Box<[u8]>,
     #[borsh_skip]
     /// Cached value which is lazily loaded and deserialized from storage.
     cache: OnceCell<CacheEntry<T>>,
@@ -81,7 +81,7 @@ where
         S: IntoStorageKey,
     {
         Self {
-            storage_key: key.into_storage_key(),
+            storage_key: key.into_storage_key().into_boxed_slice(),
             cache: OnceCell::from(CacheEntry::new_modified(Some(value))),
         }
     }
@@ -93,8 +93,7 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(Some(value)))
-                .ok()
-                .expect("cache is checked to not be filled above");
+                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"))
         }
     }
 
@@ -138,7 +137,7 @@ where
     /// This function will panic if the cache is not loaded and the value at the key does not exist.
     pub fn get_mut(&mut self) -> &mut T {
         self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
-        let entry = self.cache.get_mut().expect("cell should be filled above");
+        let entry = self.cache.get_mut().unwrap_or_else(|| env::abort());
 
         expect_consistent_state(entry.value_mut().as_mut())
     }
@@ -149,11 +148,8 @@ where
 mod tests {
     use super::*;
 
-    use crate::test_utils::test_env;
-
     #[test]
     pub fn test_lazy() {
-        test_env::setup();
         let mut a = Lazy::new(b"a", 8u32);
         assert_eq!(a.get(), &8);
 

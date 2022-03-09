@@ -1,15 +1,16 @@
 use crate::fungible_token::core::FungibleTokenCore;
+use crate::fungible_token::events::FtTransfer;
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, AccountId, Balance, Gas, IntoStorageKey,
+    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, Gas, IntoStorageKey,
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = 5_000_000_000_000;
-const GAS_FOR_FT_TRANSFER_CALL: Gas = 25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER;
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
+const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -48,7 +49,7 @@ pub trait FungibleTokenContract {
     /// Returns the total supply of the token in a decimal string representation.
     fn ft_total_supply(&self) -> U128;
 
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
+    /// Returns the balance of the account. If the account doesn't exist, `"0"` must be returned.
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
 
@@ -86,38 +87,44 @@ impl FungibleToken {
 
     fn measure_account_storage_usage(&mut self) {
         let initial_storage_usage = env::storage_usage();
-        let tmp_account_id = "a".repeat(64);
+        let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
         self.accounts.insert(&tmp_account_id, &0u128);
         self.account_storage_usage = env::storage_usage() - initial_storage_usage;
         self.accounts.remove(&tmp_account_id);
     }
 
     pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
-        match self.accounts.get(&account_id) {
+        match self.accounts.get(account_id) {
             Some(balance) => balance,
-            None => env::panic(format!("The account {} is not registered", &account_id).as_bytes()),
+            None => {
+                env::panic_str(format!("The account {} is not registered", &account_id).as_str())
+            }
         }
     }
 
     pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_add(amount) {
-            self.accounts.insert(&account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_add(amount).expect("Total supply overflow");
+            self.accounts.insert(account_id, &new_balance);
+            self.total_supply = self
+                .total_supply
+                .checked_add(amount)
+                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
-            env::panic(b"Balance overflow");
+            env::panic_str("Balance overflow");
         }
     }
 
     pub fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_sub(amount) {
-            self.accounts.insert(&account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_sub(amount).expect("Total supply overflow");
+            self.accounts.insert(account_id, &new_balance);
+            self.total_supply = self
+                .total_supply
+                .checked_sub(amount)
+                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
         } else {
-            env::panic(b"The account doesn't have enough balance");
+            env::panic_str("The account doesn't have enough balance");
         }
     }
 
@@ -128,56 +135,63 @@ impl FungibleToken {
         amount: Balance,
         memo: Option<String>,
     ) {
-        assert_ne!(sender_id, receiver_id, "Sender and receiver should be different");
-        assert!(amount > 0, "The amount should be a positive number");
+        require!(sender_id != receiver_id, "Sender and receiver should be different");
+        require!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
-        log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
-        if let Some(memo) = memo {
-            log!("Memo: {}", memo);
+        FtTransfer {
+            old_owner_id: sender_id,
+            new_owner_id: receiver_id,
+            amount: &U128(amount),
+            memo: memo.as_deref(),
         }
+        .emit();
     }
 
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
-        if self.accounts.insert(&account_id, &0).is_some() {
-            env::panic(b"The account is already registered");
+        if self.accounts.insert(account_id, &0).is_some() {
+            env::panic_str("The account is already registered");
         }
     }
 }
 
 impl FungibleTokenCore for FungibleToken {
-    fn ft_transfer(&mut self, receiver_id: ValidAccountId, amount: U128, memo: Option<String>) {
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
     }
 
     fn ft_transfer_call(
         &mut self,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         amount: U128,
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
+        require!(
+            env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
+            "More gas is required"
+        );
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, receiver_id.as_ref(), amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         // Initiating receiver's call and the callback
         ext_fungible_token_receiver::ft_on_transfer(
             sender_id.clone(),
             amount.into(),
             msg,
-            receiver_id.as_ref(),
+            receiver_id.clone(),
             NO_DEPOSIT,
             env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
         )
         .then(ext_self::ft_resolve_transfer(
             sender_id,
-            receiver_id.into(),
+            receiver_id,
             amount.into(),
-            &env::current_account_id(),
+            env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_RESOLVE_TRANSFER,
         ))
@@ -188,8 +202,8 @@ impl FungibleTokenCore for FungibleToken {
         self.total_supply.into()
     }
 
-    fn ft_balance_of(&self, account_id: ValidAccountId) -> U128 {
-        self.accounts.get(account_id.as_ref()).unwrap_or(0).into()
+    fn ft_balance_of(&self, account_id: AccountId) -> U128 {
+        self.accounts.get(&account_id).unwrap_or(0).into()
     }
 }
 
@@ -200,15 +214,14 @@ impl FungibleToken {
     pub fn internal_ft_resolve_transfer(
         &mut self,
         sender_id: &AccountId,
-        receiver_id: ValidAccountId,
+        receiver_id: AccountId,
         amount: U128,
     ) -> (u128, u128) {
-        let receiver_id: AccountId = receiver_id.into();
         let amount: Balance = amount.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
-            PromiseResult::NotReady => unreachable!(),
+            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
                     std::cmp::min(amount, unused_amount.0)
@@ -225,8 +238,8 @@ impl FungibleToken {
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
                 self.accounts.insert(&receiver_id, &(receiver_balance - refund_amount));
 
-                if let Some(sender_balance) = self.accounts.get(&sender_id) {
-                    self.accounts.insert(&sender_id, &(sender_balance + refund_amount));
+                if let Some(sender_balance) = self.accounts.get(sender_id) {
+                    self.accounts.insert(sender_id, &(sender_balance + refund_amount));
                     log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
                     return (amount - refund_amount, 0);
                 } else {
@@ -244,10 +257,10 @@ impl FungibleToken {
 impl FungibleTokenResolver for FungibleToken {
     fn ft_resolve_transfer(
         &mut self,
-        sender_id: ValidAccountId,
-        receiver_id: ValidAccountId,
+        sender_id: AccountId,
+        receiver_id: AccountId,
         amount: U128,
     ) -> U128 {
-        self.internal_ft_resolve_transfer(sender_id.as_ref(), receiver_id, amount).0.into()
+        self.internal_ft_resolve_transfer(&sender_id, receiver_id, amount).0.into()
     }
 }

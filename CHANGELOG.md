@@ -1,7 +1,88 @@
 # Changelog
 
 ## [unreleased]
+### Features
+- Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
 
+- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
+
+## `4.0.0-pre.7` [02-02-2022]
+
+### Features
+- Added FT and NFT event logs to `near-contract-standards`. [PR 627](https://github.com/near/near-sdk-rs/pull/627) and [PR 723](https://github.com/near/near-sdk-rs/pull/723)
+
+## `4.0.0-pre.6` [01-21-2022]
+
+### Features
+- Added `env::random_seed_array` to return a fixed length array of the `random_seed` and optimizes the existing function. [PR 692](https://github.com/near/near-sdk-rs/pull/692)
+- Implemented new iteration of `UnorderedSet` and `TreeMap` under `near_sdk::store` which is available with the `unstable` feature flag. [PR 672](https://github.com/near/near-sdk-rs/pull/672) and [PR 665](https://github.com/near/near-sdk-rs/pull/665)
+
+### Fixes
+- Improved macro spans for better errors with `#[near_bindgen]` macro. [PR 683](https://github.com/near/near-sdk-rs/pull/683)
+
+## `4.0.0-pre.5` [12-23-2021]
+- fix(standards): Fix NFT impl macros to not import `HashMap` and `near_sdk::json_types::U128`. [PR 571](https://github.com/near/near-sdk-rs/pull/571).
+- Add drain iterator for `near_sdk::store::UnorderedMap`. [PR 613](https://github.com/near/near-sdk-rs/pull/613).
+  - Will remove all values and iterate over owned values that were removed
+- Fix codegen for methods inside a `#[near_bindgen]` to allow using `mut self` which will generate the same code as `self` and will not persist state. [PR 616](https://github.com/near/near-sdk-rs/pull/616).
+- Make function call terminology consistent by switching from method name usages. [PR 633](https://github.com/near/near-sdk-rs/pull/633).
+  - This is only a breaking change if inspecting the `VmAction`s of receipts in mocked environments. All other changes are positional argument names.
+- Implement new iterator for `collections::Vec` to optimize for `nth` and `count`. [PR 634](https://github.com/near/near-sdk-rs/pull/634)
+  - This is useful specifically for things like pagination, where `.skip(x)` will not load the first `x` elements anymore
+  - Does not affect any `store` collections, which are already optimized, this just optimizes the legacy `collections` that use `Vec`
+- Add consts for near, yocto, and tgas. [PR 640](https://github.com/near/near-sdk-rs/pull/640).
+  - `near_sdk::ONE_NEAR`, `near_sdk::ONE_YOCTO`, `near_sdk::Gas::ONE_TERA`
+- Update SDK dependencies for `nearcore` crates used for mocking (`0.10`) and `borsh` (`0.9`)
+- Implemented `Debug` for all `collection` and `store` types. [PR 647](https://github.com/near/near-sdk-rs/pull/647)
+- Added new internal mint function to allow specifying or ignoring refund. [PR 618](https://github.com/near/near-sdk-rs/pull/618)
+- store: Implement caching `LookupSet` type. This is the new iteration of the previous version of `near_sdk::collections::LookupSet` that has an updated API, and is located at `near_sdk::store::LookupSet`. [PR 654](https://github.com/near/near-sdk-rs/pull/654), [PR 664](https://github.com/near/near-sdk-rs/pull/664).
+- Deprecate `testing_env_with_promise_results`, `setup_with_config`, and `setup` due to these functions being unneeded anymore or have unintended side effects [PR 671](https://github.com/near/near-sdk-rs/pull/671)
+  - Added missing pattern for only including context and vm config to `testing_env!` to remove friction
+- Added `_array` suffix versions of `sha256`, `keccak256`, and `keccak512` hash functions in `env` [PR 646](https://github.com/near/near-sdk-rs/pull/646)
+  - These return a fixed length array instead of heap allocating with `Vec<u8>`
+- Added `ripemd160_array` hash function that returns a fixed length byte array [PR 648](https://github.com/near/near-sdk-rs/pull/648)
+- Added `ecrecover` under `unstable` feature for recovering signer address by message hash and a corresponding signature. [PR 658](https://github.com/near/near-sdk-rs/pull/658).
+- standards: Add require statement to ensure minimum needed gas in FT and NFT transfers at start of method. [PR 678](https://github.com/near/near-sdk-rs/pull/678)
+
+## `4.0.0-pre.4` [10-15-2021]
+- Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)
+
+## `4.0.0-pre.3` [10-12-2021]
+- Introduce `#[callback_result]` annotation, which acts like `#[callback]` except that it returns `Result<T, PromiseError>` to allow error handling. [PR 554](https://github.com/near/near-sdk-rs/pull/554)
+  - Adds `#[callback_unwrap]` to replace `callback`
+- mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)
+  - Method names were changed to be strings in `4.0.0-pre.2` but this one was missed
+- env: Update the register used for temporary `env` methods to `u64::MAX - 2` from `0`. [PR 557](https://github.com/near/near-sdk-rs/pull/557).
+  - When mixing using `sys` and `env`, reduces chance of collision for using `0`
+- store: Implement caching `LookupMap` type. This is the new iteration of the previous version of `near_sdk::collections::LookupMap` that has an updated API, and is located at `near_sdk::store::LookupMap`. [PR 487](https://github.com/near/near-sdk-rs/pull/487).
+  - The internal storage format has changed from `collections::LookupMap` so the type cannot be swapped out without some migration.
+- Implement `drain` iterator for `near_sdk::store::Vector`. [PR 592](https://github.com/near/near-sdk-rs/pull/592)
+  - This allows any range of the vector to be removed and iterate on the removed values and the vector will be collapsed
+- store: Implement caching `UnorderedMap` type. [PR 584](https://github.com/near/near-sdk-rs/pull/584).
+  - Similar change to `LookupMap` update, and is an iterable version of that data structure.
+  - Data structure has also changed internal storage format and cannot be swapped with `collections::UnorderedMap` without manual migration.
+
+## `4.0.0-pre.2` [08-19-2021]
+- Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
+- Deprecate `env::panic` in favor of `env::panic_str`. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
+  - This method now takes a `&str` as the bytes are enforced to be utf8 in the runtime.
+  - Change is symmetric to `env::log_str` change in `4.0.0-pre.1`
+- Removes `PublicKey` generic on `env` promise batch calls. Functions now just take a reference to the `PublicKey`. [PR 495](https://github.com/near/near-sdk-rs/pull/495)
+- fix: Public keys can no longer be borsh deserialized from invalid bytes. [PR 502](https://github.com/near/near-sdk-rs/pull/502)
+  - Adds `Hash` derive to `PublicKey`
+- Changes method name parameters from bytes (`Vec<u8>` and `&[u8]`) to string equivalents for batch function call promises [PR 515](https://github.com/near/near-sdk-rs/pull/515)
+  - `promise_batch_action_function_call`, `Promise::function_call`, `promise_batch_action_add_key_with_function_call`, `Promise::add_access_key`, and `Promise::add_access_key_with_nonce` are afffected.
+  - Updates `promise_then`, `promise_create`, and `Receipt::FunctionCall`'s method name to string equivalents from bytes [PR 521](https://github.com/near/near-sdk-rs/pull/521/files).
+  - Instead of `b"method_name"` just use `"method_name"`, the bytes are enforced to be utf8 in the runtime.
+- Fixes `#[ext_contract]` codegen function signatures to take an `AccountId` instead of a generic `ToString` and converting unchecked to `AccountId`. [PR 518](https://github.com/near/near-sdk-rs/pull/518)
+- Fixes NFT contract standard `mint` function to not be in the `NonFungibleTokenCore` trait. [PR 525](https://github.com/near/near-sdk-rs/pull/525)
+  - If using the `mint` function from the code generated function on the contract, switch to call it on the `NonFungibleToken` field of the contract (`self.mint(..)` => `self.token.mint(..)`)
+- Fixes `nft_is_approved` method on contract standard to take `&self` instead of moving `self`.
+- Fixes `receiver_id` in `mock::Receipt` to `AccountId` from string. This is a change to the type added in `4.0.0-pre.1`. [PR 529](https://github.com/near/near-sdk-rs/pull/529)
+- Moves runtime syscalls to `near-sys` crate and includes new functions available [PR 507](https://github.com/near/near-sdk-rs/pull/507)
+
+## `4.0.0-pre.1` [07-23-2021]
+* Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
 * Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
 * Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
 * fix(promise): `PromiseOrValue` now correctly sets `should_return` flag correctly on serialization. [PR 407](https://github.com/near/near-sdk-rs/pull/407).
@@ -13,6 +94,28 @@
 * expose `cur_block` and `genesis_config` from `RuntimeStandalone` to configure simulation tests. [PR 390](https://github.com/near/near-sdk-rs/pull/390).
 * fix(simulator): failing with long chains. [PR 385](https://github.com/near/near-sdk-rs/pull/385).
 * Make block time configurable to sim contract tests. [PR 378](https://github.com/near/near-sdk-rs/pull/378).
+* Deprecate `env::log` in favour of `env::log_str`. The logs assume that the bytes are utf8, so this will be a cleaner interface to use. [PR 366](https://github.com/near/near-sdk-rs/pull/366).
+* Update syscall interface to no longer go through `BLOCKCHAIN_INTERFACE`. Instead uses `near_sdk::sys` which is under the `unstable` feature flag if needed. [PR 417](https://github.com/near/near-sdk-rs/pull/417).
+* Set up global allocator by default for WASM architectures. [PR 429](https://github.com/near/near-sdk-rs/pull/429).
+  * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.
+  * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overriden to a custom one or set manually if intended.
+* Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
+* Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`. [PR 448](https://github.com/near/near-sdk-rs/pull/448)
+  * Removes `ValidAccountId` to avoid having multiple types for account IDs.
+  * This type will have `ValidAccountId`'s JSON (de)serialization and the borsh serialization will be equivalent to what it was previously
+* Initializes default for `BLOCKCHAIN_INTERFACE` to avoid requiring to initialize testing environment for tests that don't require custom blockchain interface configuration. [PR 450](https://github.com/near/near-sdk-rs/pull/450)
+  * This default only affects outside of `wasm32` environments and is optional/backwards compatible
+* Deprecates `env::block_index` and replaces it with `env::block_height` for more consistent naming. [PR 474](https://github.com/near/near-sdk-rs/pull/474)
+* Updates internal NFT traits to not move the underlying type for methods. [PR 475](https://github.com/near/near-sdk-rs/pull/475)
+  * This should not be a breaking change if using the `impl` macros, only if implementing manually
+* Makes `BLOCKCHAIN_INTERFACE` a concrete type and no longer exports it. [PR 451](https://github.com/near/near-sdk-rs/pull/451)
+  * If for testing you need this mocked blockchain, `near_sdk::mock::with_mocked_blockchain` can be used
+  * `near_sdk::env::take_blockchain_interface` is removed, as this interface is no longer optional
+  * removes `BlockchainInterface` trait, as this interface is only used in mocked contexts now
+* Updates `Gas` type to be a newtype, which makes the API harder to misuse. [PR 471](https://github.com/near/near-sdk-rs/pull/471)
+  * This also changes the JSON serialization of this type to a string, to avoid precision loss when deserializing in JavaScript
+* `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
+* Expose `Receipt` and respective `VmAction`s in mocked contexts through replacing with a local interface and types. [PR 479](https://github.com/near/near-sdk-rs/pull/479)
 
 ## `3.1.0` [04-06-2021]
 
