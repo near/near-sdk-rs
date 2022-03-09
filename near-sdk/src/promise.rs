@@ -1,3 +1,4 @@
+use crate::env;
 use borsh::BorshSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -356,11 +357,13 @@ impl Promise {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
                 if after.is_some() {
-                    panic!("Cannot callback promise which is already scheduled after another");
+                    env::panic_str(
+                        "Cannot callback promise which is already scheduled after another",
+                    );
                 }
                 *after = Some(self)
             }
-            PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
+            PromiseSubtype::Joint(_) => env::panic_str("Cannot callback joint promise."),
         }
         other
     }
