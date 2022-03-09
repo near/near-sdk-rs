@@ -82,6 +82,43 @@ mod tests {
     }
 
     #[test]
+    fn owned_no_args_no_return_no_mut() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                contract.method();
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+
+    #[test]
+    fn mut_owned_no_args_no_return() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method(mut self) { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                contract.method();
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
     fn no_args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
@@ -463,6 +500,21 @@ mod tests {
                 let contract = Hello::method(&mut k,);
                 near_sdk::env::state_write(&contract);
             }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn init_no_return() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            pub fn method(k: &mut u64) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            compile_error! { "Init methods must return the contract state" }
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }

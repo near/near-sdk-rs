@@ -39,7 +39,6 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 /// ```
 /// use near_sdk::store::Vector;
 ///
-///# near_sdk::test_utils::test_env::setup();
 /// let mut vec = Vector::new(b"a");
 /// assert!(vec.is_empty());
 ///

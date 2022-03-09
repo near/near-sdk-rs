@@ -1,4 +1,5 @@
 use crate::fungible_token::core::FungibleTokenCore;
+use crate::fungible_token::events::FtTransfer;
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
@@ -48,7 +49,7 @@ pub trait FungibleTokenContract {
     /// Returns the total supply of the token in a decimal string representation.
     fn ft_total_supply(&self) -> U128;
 
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
+    /// Returns the balance of the account. If the account doesn't exist, `"0"` must be returned.
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
 
@@ -138,10 +139,13 @@ impl FungibleToken {
         require!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
-        log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
-        if let Some(memo) = memo {
-            log!("Memo: {}", memo);
+        FtTransfer {
+            old_owner_id: sender_id,
+            new_owner_id: receiver_id,
+            amount: &U128(amount),
+            memo: memo.as_deref(),
         }
+        .emit();
     }
 
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
@@ -167,6 +171,10 @@ impl FungibleTokenCore for FungibleToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
+        require!(
+            env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
+            "More gas is required"
+        );
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);

@@ -225,7 +225,7 @@ where
         Self { inner: list.elements.drain(..), remaining_count }
     }
 
-    fn remaining(&self) -> usize {
+    pub(crate) fn remaining(&self) -> usize {
         self.remaining_count
     }
 }

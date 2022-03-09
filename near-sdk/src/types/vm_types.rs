@@ -29,6 +29,7 @@ impl From<PromiseResult> for VmPromiseResult {
 
 /// All error variants which can occur with promise results.
 #[non_exhaustive]
+#[derive(Debug, PartialEq)]
 pub enum PromiseError {
     /// Promise result failed.
     Failed,

@@ -1,3 +1,7 @@
+//* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
+//* https://github.com/rust-lang/rust-clippy/issues/8091
+#![allow(clippy::redundant_closure)]
+
 #[cfg(test)]
 extern crate quickcheck;
 
@@ -8,9 +12,6 @@ pub use near_sdk_macros::{
 
 #[cfg(feature = "unstable")]
 pub mod store;
-
-#[cfg(feature = "unstable")]
-pub use environment::hash as crypto_hash;
 
 pub mod collections;
 mod environment;

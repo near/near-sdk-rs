@@ -2,13 +2,13 @@
 #[test]
 fn compilation_tests() {
     let t = trybuild::TestCases::new();
+    t.compile_fail("compilation_tests/invalid_arg_pat.rs");
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");
     t.pass("compilation_tests/trait_impl.rs");
     t.pass("compilation_tests/metadata.rs");
-    // TODO uncomment following compile failures when/if compiler version errors are equivalent
-    // t.compile_fail("compilation_tests/metadata_invalid_rust.rs");
-    // t.compile_fail("compilation_tests/bad_argument.rs");
+    t.compile_fail("compilation_tests/metadata_invalid_rust.rs");
+    t.compile_fail("compilation_tests/bad_argument.rs");
     t.pass("compilation_tests/complex.rs");
     t.compile_fail("compilation_tests/impl_generic.rs");
     t.pass("compilation_tests/references.rs");
