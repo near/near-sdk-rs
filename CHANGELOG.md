@@ -1,10 +1,14 @@
 # Changelog
 
 ## [unreleased]
+
 ### Features
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
+- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/736)
 
-- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
+### Fixes
+- Disallow invalid `Promise::then` chains. Will now panic with `promise_1.then(promise_2.then(promise_3))` syntax. [PR 410](https://github.com/near/near-sdk-rs/pull/410)
+  - Current implementation will schedule these promises in the incorrect order. With this format, it's unclear where the result from `promise_1` will be used, so it will panic at runtime. 
 
 ## `4.0.0-pre.7` [02-02-2022]
 
