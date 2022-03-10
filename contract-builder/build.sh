@@ -10,10 +10,14 @@ fi
 
 image_name="contract-builder"
 
-docker buildx create --name contract-builder --use 
-if [[ ${branch} == "master"]]; 
-then
-docker buildx build --platform linux/amd64,linux/arm64 -t nearprotocol/${image_name}:${branch}-${commit} -t nearprotocol/${image_name}:${branch} -t nearprotocol/${image_name}:latest --push .
+if docker buildx ls| grep -q contract-builder;then
+    docker buildx use --builder contract-builder
+else
+    docker buildx create --name contract-builder --use 
+fi
+
+if [[ ${branch} == "master" ]];then
+    docker buildx build --platform linux/amd64,linux/arm64 -t nearprotocol/"${image_name}:${branch}-${commit}" -t nearprotocol/${image_name}:latest --push .
 else 
-docker buildx build --platform linux/amd64,linux/arm64 -t nearprotocol/${image_name}:${branch}-${commit} -t nearprotocol/${image_name}:${branch} --push .
+    docker buildx build --platform linux/amd64,linux/arm64 -t nearprotocol/"${image_name}:${branch}-${commit}" --push .
 fi
