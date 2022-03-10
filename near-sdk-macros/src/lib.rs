@@ -184,3 +184,30 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
         impl near_sdk::BorshIntoStorageKey for #name {}
     })
 }
+
+/// `FunctionError` generates implementation for `near_sdk::FunctionError` trait.
+/// It allows contract runtime to panic with the type using its `ToString` implementation
+/// as the message.
+#[proc_macro_derive(FunctionError)]
+pub fn function_error(item: TokenStream) -> TokenStream {
+    let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        input.ident
+    } else if let Ok(input) = syn::parse::<ItemStruct>(item) {
+        input.ident
+    } else {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "FunctionError can only be used as a derive on enums or structs.",
+            )
+            .to_compile_error(),
+        );
+    };
+    TokenStream::from(quote! {
+        impl near_sdk::FunctionError for #name {
+            fn panic(&self) -> ! {
+                near_sdk::env::panic_str(&::std::string::ToString::to_string(&self))
+            }
+        }
+    })
+}
