@@ -7,14 +7,11 @@ extern crate quickcheck;
 
 pub use near_sdk_macros::{
     callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
-    serializer, BorshStorageKey, PanicOnDefault,
+    serializer, BorshStorageKey, FunctionError, PanicOnDefault,
 };
 
 #[cfg(feature = "unstable")]
 pub mod store;
-
-#[cfg(feature = "unstable")]
-pub use environment::hash as crypto_hash;
 
 pub mod collections;
 mod environment;

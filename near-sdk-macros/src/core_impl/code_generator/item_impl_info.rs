@@ -751,4 +751,63 @@ mod tests {
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
+
+    #[test]
+    fn return_result_json() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[return_result]
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                let result = contract.method();
+                match result {
+                    Ok(result) => {
+                        let result =
+                            near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                        near_sdk::env::value_return(&result);
+                    }
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn return_result_borsh() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[return_result]
+            #[result_serializer(borsh)]
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                let result = contract.method();
+                match result {
+                    Ok(result) => {
+                        let result =
+                            near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                        near_sdk::env::value_return(&result);
+                    }
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 }

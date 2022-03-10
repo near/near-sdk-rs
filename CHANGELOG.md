@@ -1,9 +1,17 @@
 # Changelog
 
 ## [unreleased]
-- Added event logs to `near-contract-standards`. Currently only NFT related events. [PR 627](https://github.com/near/near-sdk-rs/pull/627)
+### Features
+- Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
+- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
+- Added an optional way to handle contract errors with `Result`. [PR 745](https://github.com/near/near-sdk-rs/pull/745).
 
-## `4.0.0-pre.6` [01-21-2021]
+## `4.0.0-pre.7` [02-02-2022]
+
+### Features
+- Added FT and NFT event logs to `near-contract-standards`. [PR 627](https://github.com/near/near-sdk-rs/pull/627) and [PR 723](https://github.com/near/near-sdk-rs/pull/723)
+
+## `4.0.0-pre.6` [01-21-2022]
 
 ### Features
 - Added `env::random_seed_array` to return a fixed length array of the `random_seed` and optimizes the existing function. [PR 692](https://github.com/near/near-sdk-rs/pull/692)
