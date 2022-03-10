@@ -192,7 +192,7 @@ where
     /// 
     /// vec.set(0,"new_value".to_string());
     /// 
-    /// assert_eq!(vec.get(0),Some("new_value".to_string()));
+    /// assert_eq!(vec.get(0),Some(&"new_value".to_string()));
     /// ```
     pub fn set(&mut self, index: u32, value: T) {
         if index >= self.len() {
@@ -240,7 +240,7 @@ where
     /// let mut vec = Vector::new(b"v");
     /// vec.push("test".to_string());
     /// 
-    /// assert_eq!(Some("test".to_string()), vec.get(0));
+    /// assert_eq!(Some(&"test".to_string()), vec.get(0));
     /// assert_eq!(None, vec.get(3));
     /// ```
     pub fn get(&self, index: u32) -> Option<&T> {
@@ -302,7 +302,7 @@ where
     /// 
     /// vec.swap_remove(0);
     /// 
-    /// assert_eq!(vec.get(0), 3);
+    /// assert_eq!(vec.get(0), Some(&3));
     /// assert_eq!(vec.swap_remove(1), 2);
     /// ```
     pub fn swap_remove(&mut self, index: u32) -> T {
@@ -352,7 +352,7 @@ where
     /// 
     /// vec.replace(0,"replaced".to_string());
     /// 
-    /// assert_eq!(vec.get(0),Some("replaced".to_string()));
+    /// assert_eq!(vec.get(0), Some(&"replaced".to_string()));
     /// ```
     pub fn replace(&mut self, index: u32, element: T) -> T {
         if index >= self.len {
@@ -373,7 +373,7 @@ where
     /// let baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     /// vec.extend(baseline.clone());
     /// 
-    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), vec![0, 4, 5, 6, 7, 8, 9]);
+    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     /// ```
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
@@ -393,9 +393,9 @@ where
     /// 
     /// let mut iter = vec.iter_mut();
     /// 
-    /// assert_eq!(iter.next(), Some(&mut 3));
-    /// assert_eq!(iter.next(), Some(&mut 2));
     /// assert_eq!(iter.next(), Some(&mut 1));
+    /// assert_eq!(iter.next(), Some(&mut 2));
+    /// assert_eq!(iter.next(), Some(&mut 3));
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut::new(self)
@@ -419,14 +419,14 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// let baseline = vec![1, 2, 3];
+    /// let mut baseline = vec![1, 2, 3];
     /// vec.extend(baseline.clone());
     /// 
     /// assert!(Iterator::eq(vec.drain(..), baseline.drain(..)));
     ///
     /// // A full range clears the vector
     /// vec.drain(..);
-    /// assert_eq!(vec, &[])
+    /// assert_eq!(vec.len(), 0)
     /// ```
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where

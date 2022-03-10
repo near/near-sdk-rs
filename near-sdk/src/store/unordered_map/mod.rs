@@ -160,7 +160,7 @@ where
     /// ```
     /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"a");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -218,7 +218,7 @@ where
     /// use near_sdk::store::UnorderedMap;
     /// 
     /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
-    /// assert_eq!(map.is_empty());
+    /// assert!(map.is_empty());
     /// map.insert("a".to_string(), 1);
     /// assert!(!map.is_empty());
     /// ```

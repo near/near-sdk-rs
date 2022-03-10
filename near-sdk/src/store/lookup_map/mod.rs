@@ -303,7 +303,7 @@ where
     /// ```
     /// use near_sdk::store::LookupMap;
     ///
-    /// llet mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
     /// assert_eq!(map.insert(37, "a".to_string()), None);
     /// assert_eq!(map.contains_key(&37), true);
     /// 
