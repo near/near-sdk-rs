@@ -110,7 +110,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
-    /// let mut map: LookupMap<String, String> = LookupMap::new(b"c");
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// assert_eq!(map.contains_key(&"Toyota".into()), false);
     ///
     /// map.insert(&"Toyota".into(), &"Camry".into());
@@ -127,7 +127,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupMap;
     /// 
-    /// let mut map: LookupMap<String, String> = LookupMap::new(b"g");
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// assert_eq!(map.get(&"Toyota".into()), None);
     ///
     /// map.insert(&"Toyota".into(), &"Camry".into());
@@ -145,7 +145,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
-    /// let mut map: LookupMap<String, String> = LookupMap::new(b"r");
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// assert_eq!(map.remove(&"Toyota".into()), None);
     ///
     /// map.insert(&"Toyota".into(), &"Camry".into());
@@ -166,7 +166,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
-    /// let mut map: LookupMap<String, String> = LookupMap::new(b"i");
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// assert_eq!(map.insert(&"Toyota".into(), &"Camry".into()), None);
     /// assert_eq!(map.insert(&"Toyota".into(), &"Corolla".into()), Some("Camry".into()));
     /// ```
@@ -183,7 +183,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
-    /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"e");
+    /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"m");
     /// let mut source = vec![];
     /// 
     /// source.push(("Toyota".into(), "Camry".into()));

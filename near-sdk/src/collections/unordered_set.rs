@@ -23,7 +23,7 @@ impl<T> UnorderedSet<T> {
     /// ```
     /// use near_sdk::collections::UnorderedSet;
     ///
-    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"l");
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
     /// assert_eq!(set.len(), 0);
     /// set.insert(&1);
     /// set.insert(&2);
@@ -44,7 +44,7 @@ impl<T> UnorderedSet<T> {
     ///
     /// ```
     /// use near_sdk::collections::UnorderedSet;
-    /// let mut set: UnorderedSet<u32> = UnorderedSet::new(b"m");
+    /// let mut set: UnorderedSet<u32> = UnorderedSet::new(b"s");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
@@ -148,7 +148,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedSet;
     ///
-    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"c");
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
     /// assert_eq!(set.contains(&1), false);
     /// set.insert(&1);
     /// assert_eq!(set.contains(&1), true);
@@ -164,7 +164,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedSet;
     ///
-    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"r");
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
     /// assert_eq!(set.remove(&1), false);
     /// set.insert(&1);
     /// assert_eq!(set.remove(&1), true);
@@ -183,7 +183,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedSet;
     ///
-    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"i");
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
     /// assert_eq!(set.insert(&1), true);
     /// assert_eq!(set.insert(&1), false);
     /// assert_eq!(set.contains(&1), true);
@@ -199,7 +199,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedSet;
     ///
-    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"c");
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
     /// set.insert(&1);
     /// set.insert(&2);
     /// set.clear();

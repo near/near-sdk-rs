@@ -50,7 +50,6 @@ where
     ///
     /// ```
     /// use near_sdk::collections::TreeMap;
-    ///
     /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// ```
     pub fn new<S>(prefix: S) -> Self
@@ -222,7 +221,8 @@ where
     ///
     /// ```
     /// use near_sdk::collections::TreeMap;
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
     /// 
     /// for x in vec.iter() {
@@ -251,7 +251,8 @@ where
     ///
     /// ```
     /// use near_sdk::collections::TreeMap;
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
     /// for x in vec.iter() {
     ///     map.insert(x, &1);
@@ -284,7 +285,8 @@ where
     ///
     /// ```
     /// use near_sdk::collections::TreeMap;
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let one: Vec<u32> = vec![10, 20, 30, 40, 50,45, 35, 25, 15, 5];
     /// for x in &one {
     ///     map.insert(x, &42);
@@ -309,7 +311,8 @@ where
     ///
     /// ```
     /// use near_sdk::collections::TreeMap;
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let one: Vec<u32> = vec![10, 20, 30, 40, 50,45, 35, 25, 15, 5];
     /// for x in &one {
     ///     map.insert(x, &42);
@@ -335,7 +338,8 @@ where
     /// ```
     /// use near_sdk::collections::TreeMap;
     /// use std::ops::Bound;
-    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"m");
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let one: Vec<u32> = vec![10, 20, 30, 40, 50];
     /// let two: Vec<u32> = vec![45, 35, 25, 15]; 
     /// for x in &one {

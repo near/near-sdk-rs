@@ -144,7 +144,7 @@ where
     /// ```
     /// use near_sdk::collections::LazyOption;
     ///
-    /// let mut option: LazyOption<u32> = LazyOption::new(b"t", None);
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", None);
     /// assert_eq!(option.get(), None);
     /// option.set(&42);
     /// assert_eq!(option.get(), Some(42));
@@ -162,7 +162,7 @@ where
     /// ```
     /// use near_sdk::collections::LazyOption;
     ///
-    /// let mut option: LazyOption<u32> = LazyOption::new(b"t", None);
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", None);
     /// assert_eq!(option.set(&42), false);
     /// assert_eq!(option.set(&420), true);
     /// ```
@@ -177,7 +177,7 @@ where
     /// ```
     /// use near_sdk::collections::LazyOption;
     ///
-    /// let mut option: LazyOption<u32> = LazyOption::new(b"t", None);
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", None);
     /// assert_eq!(option.replace(&42), None);
     /// assert_eq!(option.replace(&420), Some(42));
     /// ```

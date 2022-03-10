@@ -25,7 +25,7 @@ impl<T> LookupSet<T> {
     ///
     /// ```
     /// use near_sdk::collections::LookupSet;
-    /// let mut set: LookupSet<u32> = LookupSet::new(b"m");
+    /// let mut set: LookupSet<u32> = LookupSet::new(b"s");
     /// ```
     pub fn new<S>(element_prefix: S) -> Self
     where
@@ -78,7 +78,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupSet;
     ///
-    /// let mut set: LookupSet<String> = LookupSet::new(b"c");
+    /// let mut set: LookupSet<String> = LookupSet::new(b"s");
     /// assert_eq!(set.contains(&"Element".into()), false);
     /// 
     /// set.insert(&"Element".into());
@@ -95,7 +95,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupSet;
     ///
-    /// let mut set: LookupSet<String> = LookupSet::new(b"r");
+    /// let mut set: LookupSet<String> = LookupSet::new(b"s");
     /// assert_eq!(set.remove(&"Element".into()), false);
     /// 
     /// set.insert(&"Element".into());
@@ -114,7 +114,7 @@ where
     /// ```
     /// use near_sdk::collections::LookupSet;
     ///
-    /// let mut set: LookupSet<String> = LookupSet::new(b"i");
+    /// let mut set: LookupSet<String> = LookupSet::new(b"s");
     /// assert_eq!(set.insert(&"Element".into()), true);
     /// assert_eq!(set.insert(&"Element".into()), false);
     /// ```

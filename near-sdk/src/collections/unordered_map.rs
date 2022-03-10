@@ -26,7 +26,7 @@ impl<K, V> UnorderedMap<K, V> {
     /// ```
     /// use near_sdk::collections::UnorderedMap;
     ///
-    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"l");
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
     /// assert_eq!(map.len(), 0);
     /// map.insert(&1, &1);
     /// map.insert(&2, &2);
@@ -58,8 +58,8 @@ impl<K, V> UnorderedMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::collections::LookupSet;
-    /// let mut set: LookupSet<u32> = LookupSet::new(b"m");
+    /// use near_sdk::collections::UnorderedMap;
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
     /// ```
     pub fn new<S>(prefix: S) -> Self
     where
@@ -197,7 +197,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedMap;
     ///
-    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"g");
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
     /// assert_eq!(map.get(&1), None);
     /// map.insert(&1, &10);
     /// assert_eq!(map.get(&1), Some(10));
@@ -214,7 +214,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedMap;
     ///
-    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"r");
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
     /// assert_eq!(map.remove(&1), None);
     /// map.insert(&1, &10);
     /// assert_eq!(map.remove(&1), Some(10));
@@ -235,7 +235,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedMap;
     ///
-    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"i");
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
     /// map.insert(&1, &10);
     /// assert_eq!(map.get(&1), Some(10));
     /// assert_eq!(map.len(), 1);
@@ -252,7 +252,7 @@ where
     /// ```
     /// use near_sdk::collections::UnorderedMap;
     ///
-    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"c");
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
     /// map.insert(&1, &10);
     /// map.insert(&2, &20);
     /// map.clear();
