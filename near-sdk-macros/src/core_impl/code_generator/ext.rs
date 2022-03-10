@@ -79,10 +79,8 @@ pub(crate) fn generate_ext_function_wrappers<'a>(
 
 fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let pat_type_list = attr_signature_info.pat_type_list();
-    let serialize = serializer::generate_serializer(
-        &attr_signature_info,
-        &attr_signature_info.input_serializer,
-    );
+    let serialize =
+        serializer::generate_serializer(attr_signature_info, &attr_signature_info.input_serializer);
 
     let AttrSigInfo { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
     let ident_str = ident.to_string();

@@ -17,5 +17,3 @@ pub fn generate_sim_proxy_struct(input: &ItemStruct) -> proc_macro2::TokenStream
 pub fn generate_ext_struct(input: &ItemStruct) -> proc_macro2::TokenStream {
     generate_ext_structs(&input.ident, Some(&input.generics))
 }
-
-

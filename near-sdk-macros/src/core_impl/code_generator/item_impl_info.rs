@@ -47,7 +47,7 @@ impl ItemImplInfo {
                     .filter(|m| m.is_public || self.is_trait_impl)
                     .map(|m| &m.attr_signature_info),
             ),
-            Err(e) => return syn::Error::new(self.ty.span(), e).to_compile_error(),
+            Err(e) => syn::Error::new(self.ty.span(), e).to_compile_error(),
         }
     }
 }

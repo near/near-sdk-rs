@@ -1,6 +1,7 @@
 use near_sdk::json_types::U128;
-use near_sdk::{AccountId, PromiseOrValue};
+use near_sdk::{ext_contract, AccountId, PromiseOrValue};
 
+#[ext_contract(ext_ft_receiver)]
 pub trait FungibleTokenReceiver {
     /// Called by fungible token contract after `ft_transfer_call` was initiated by
     /// `sender_id` of the given `amount` with the transfer message given in `msg` field.
