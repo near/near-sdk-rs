@@ -1,5 +1,5 @@
 use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::events::{FtTransfer, FtBurn};
+use crate::fungible_token::events::{FtBurn, FtTransfer};
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
@@ -255,8 +255,9 @@ impl FungibleToken {
                     FtBurn {
                         owner_id: &receiver_id,
                         amount: &U128(refund_amount),
-                        memo: Some("refund")
-                    }.emit();
+                        memo: Some("refund"),
+                    }
+                    .emit();
                     return (amount, refund_amount);
                 }
             }
