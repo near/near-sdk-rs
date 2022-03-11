@@ -242,7 +242,7 @@ impl FungibleToken {
                     self.accounts.insert(sender_id, &(sender_balance + refund_amount));
                     FtTransfer {
                         old_owner_id: &receiver_id,
-                        new_owner_id: &sender_id,
+                        new_owner_id: sender_id,
                         amount: &U128(refund_amount),
                         memo: Some("refund"),
                     }
