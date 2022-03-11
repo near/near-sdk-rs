@@ -1,6 +1,7 @@
 use crate::core_impl::info_extractor::{
     AttrSigInfo, ImplItemMethodInfo, InputStructType, MethodType, SerializerType,
 };
+use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{ReturnType, Signature};
@@ -53,6 +54,7 @@ impl ImplItemMethodInfo {
             method_type,
             is_payable,
             is_private,
+            is_returns_result,
             ..
         } = attr_signature_info;
         let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
@@ -136,6 +138,30 @@ impl ImplItemMethodInfo {
                     #method_invocation;
                     #contract_ser
                 },
+                ReturnType::Type(_, return_type)
+                    if utils::type_is_result(return_type) && *is_returns_result =>
+                {
+                    let value_ser = match result_serializer {
+                        SerializerType::JSON => quote! {
+                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                        },
+                        SerializerType::Borsh => quote! {
+                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                        },
+                    };
+                    quote! {
+                        #contract_deser
+                        let result = #method_invocation;
+                        match result {
+                            Ok(result) => {
+                                #value_ser
+                                near_sdk::env::value_return(&result);
+                                #contract_ser
+                            }
+                            Err(err) => near_sdk::FunctionError::panic(&err)
+                        }
+                    }
+                }
                 ReturnType::Type(_, _) => {
                     let value_ser = match result_serializer {
                         SerializerType::JSON => quote! {
@@ -146,11 +172,11 @@ impl ImplItemMethodInfo {
                         },
                     };
                     quote! {
-                    #contract_deser
-                    let result = #method_invocation;
-                    #value_ser
-                    near_sdk::env::value_return(&result);
-                    #contract_ser
+                        #contract_deser
+                        let result = #method_invocation;
+                        #value_ser
+                        near_sdk::env::value_return(&result);
+                        #contract_ser
                     }
                 }
             }
