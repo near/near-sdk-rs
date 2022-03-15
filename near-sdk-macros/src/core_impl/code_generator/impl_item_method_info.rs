@@ -80,32 +80,9 @@ impl ImplItemMethodInfo {
             quote! {}
         };
         let body = if matches!(method_type, &MethodType::Init) {
-            if matches!(returns, ReturnType::Default) {
-                return syn::Error::new(
-                    ident.span(),
-                    "Init methods must return the contract state",
-                )
-                .to_compile_error();
-            }
-            quote! {
-                if near_sdk::env::state_exists() {
-                    near_sdk::env::panic_str("The contract has already been initialized");
-                }
-                let contract = #struct_type::#ident(#arg_list);
-                near_sdk::env::state_write(&contract);
-            }
+            init_method_wrapper(&self, true)
         } else if matches!(method_type, &MethodType::InitIgnoreState) {
-            if matches!(returns, ReturnType::Default) {
-                return syn::Error::new(
-                    ident.span(),
-                    "Init methods must return the contract state",
-                )
-                .to_compile_error();
-            }
-            quote! {
-                let contract = #struct_type::#ident(#arg_list);
-                near_sdk::env::state_write(&contract);
-            }
+            init_method_wrapper(&self, false)
         } else {
             let contract_deser;
             let method_invocation;
@@ -161,6 +138,13 @@ impl ImplItemMethodInfo {
                             Err(err) => near_sdk::FunctionError::panic(&err)
                         }
                     }
+                }
+                ReturnType::Type(_, _) if *is_returns_result => {
+                    return syn::Error::new(
+                        ident.span(),
+                        "Method marked with #[return_result] should return Result<T, E>",
+                    )
+                    .to_compile_error();
                 }
                 ReturnType::Type(_, _) => {
                     let value_ser = match result_serializer {
@@ -258,6 +242,53 @@ impl ImplItemMethodInfo {
             pub fn #ident#generics(#params) #return_ident {
                 #serialize_args
                 near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), #ident_str, args, #is_view)
+            }
+        }
+    }
+}
+
+fn init_method_wrapper(method_info: &ImplItemMethodInfo, check_state: bool) -> TokenStream2 {
+    let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = method_info;
+    let arg_list = attr_signature_info.arg_list();
+    let AttrSigInfo { ident, returns, is_returns_result, .. } = attr_signature_info;
+    let state_check = if check_state {
+        quote! {
+            if near_sdk::env::state_exists() {
+                near_sdk::env::panic_str("The contract has already been initialized");
+            }
+        }
+    } else {
+        quote! {}
+    };
+    match returns {
+        ReturnType::Default => {
+            return syn::Error::new(ident.span(), "Init methods must return the contract state")
+                .to_compile_error();
+        }
+        ReturnType::Type(_, return_type)
+            if utils::type_is_result(return_type) && *is_returns_result =>
+        {
+            quote! {
+                #state_check
+                let result = #struct_type::#ident(#arg_list);
+                match result {
+                    Ok(contract) => near_sdk::env::state_write(&contract),
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        }
+        ReturnType::Type(_, _) if *is_returns_result => {
+            return syn::Error::new(
+                ident.span(),
+                "Method marked with #[return_result] should return Result<T, E>",
+            )
+            .to_compile_error();
+        }
+        ReturnType::Type(_, _) => {
+            quote! {
+                #state_check
+                let contract = #struct_type::#ident(#arg_list);
+                near_sdk::env::state_write(&contract);
             }
         }
     }
