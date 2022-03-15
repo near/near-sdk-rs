@@ -57,13 +57,15 @@ pub struct FunToken {
 #[near_bindgen]
 impl FunToken {
     #[init]
-    pub fn new(owner_id: AccountId, total_supply: String) -> Self {
-        let total_supply = u128::from_str(&total_supply).expect("Failed to parse total supply");
+    #[return_result]
+    pub fn new(owner_id: AccountId, total_supply: String) -> Result<Self, &'static str> {
+        let total_supply =
+            u128::from_str(&total_supply).map_err(|_| "Failed to parse total supply")?;
         let mut ft = Self { accounts: UnorderedMap::new(b"a"), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
         ft.accounts.insert(&owner_id, &account);
-        ft
+        Ok(ft)
     }
 
     /// Sets amount allowed to spent by `escrow_account_id` on behalf of the caller of the function
@@ -76,7 +78,7 @@ impl FunToken {
         escrow_account_id: AccountId,
         allowance: String,
     ) -> Result<(), &'static str> {
-        let allowance = u128::from_str(&allowance).expect("Failed to parse allowance");
+        let allowance = u128::from_str(&allowance).map_err(|_| "Failed to parse allowance")?;
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
             return Err("Can't set allowance for yourself");
@@ -100,7 +102,8 @@ impl FunToken {
     /// * The owner should have enough unlocked balance.
     #[return_result]
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) -> Result<(), &'static str> {
-        let lock_amount = u128::from_str(&lock_amount).expect("Failed to parse allow lock_amount");
+        let lock_amount =
+            u128::from_str(&lock_amount).map_err(|_| "Failed to parse allow lock_amount")?;
         if lock_amount == 0 {
             return Err("Can't lock 0 tokens");
         }
@@ -143,7 +146,7 @@ impl FunToken {
         unlock_amount: String,
     ) -> Result<(), &'static str> {
         let unlock_amount =
-            u128::from_str(&unlock_amount).expect("Failed to parse allow unlock_amount");
+            u128::from_str(&unlock_amount).map_err(|_| "Failed to parse allow unlock_amount")?;
         if unlock_amount == 0 {
             return Err("Can't unlock 0 tokens");
         }
@@ -187,7 +190,7 @@ impl FunToken {
         new_owner_id: AccountId,
         amount: String,
     ) -> Result<(), &'static str> {
-        let amount = u128::from_str(&amount).expect("Failed to parse allow amount");
+        let amount = u128::from_str(&amount).map_err(|_| "Failed to parse allow amount")?;
         if amount == 0 {
             return Err("Can't transfer 0 tokens");
         }
@@ -294,7 +297,7 @@ mod tests {
         let context = get_context(carol());
         testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
-        let contract = FunToken::new(bob(), total_supply.to_string());
+        let contract = FunToken::new(bob(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         assert_eq!(contract.get_unlocked_balance(bob()), total_supply.to_string());
         assert_eq!(contract.get_total_balance(bob()), total_supply.to_string());
@@ -305,7 +308,7 @@ mod tests {
         let context = get_context(carol());
         testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         let transfer_amount = total_supply / 3;
         contract.transfer(bob(), transfer_amount.to_string()).unwrap();
         assert_eq!(
@@ -320,7 +323,7 @@ mod tests {
         let context = get_context(carol());
         testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         let transfer_amount = total_supply / 3;
         contract.lock(bob(), transfer_amount.to_string()).unwrap_err();
     }
@@ -330,7 +333,7 @@ mod tests {
         let context = get_context(carol());
         testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         contract.set_allowance(carol(), format!("{}", total_supply / 2)).unwrap_err();
     }
 
@@ -339,7 +342,7 @@ mod tests {
         let context = get_context(carol());
         testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let lock_amount = total_supply / 3;
         contract.lock(carol(), lock_amount.to_string()).unwrap();
@@ -358,7 +361,7 @@ mod tests {
         let context = get_context(carol());
         testing_env!(context);
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let lock_amount = total_supply / 3;
         let transfer_amount = lock_amount / 3;
@@ -392,7 +395,7 @@ mod tests {
         // Acting as carol
         testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let allowance = total_supply / 3;
         let transfer_amount = allowance / 3;
@@ -417,7 +420,7 @@ mod tests {
         // Acting as carol
         testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let allowance = total_supply / 3;
         let transfer_amount = allowance / 3;
@@ -450,7 +453,7 @@ mod tests {
         // Acting as carol
         testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let allowance = total_supply / 3;
         let lock_amount = allowance / 2;
@@ -476,7 +479,7 @@ mod tests {
         // Acting as carol
         testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let allowance = 2 * total_supply / 3;
         let lock_amount = allowance / 2;
@@ -502,7 +505,7 @@ mod tests {
         // Acting as carol
         testing_env!(get_context(carol()));
         let total_supply = 1_000_000_000_000_000u128;
-        let mut contract = FunToken::new(carol(), total_supply.to_string());
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         let allowance = 2 * total_supply / 3;
         let lock_amount = allowance;
