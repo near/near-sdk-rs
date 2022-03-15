@@ -80,9 +80,9 @@ impl ImplItemMethodInfo {
             quote! {}
         };
         let body = if matches!(method_type, &MethodType::Init) {
-            init_method_wrapper(&self, true)
+            init_method_wrapper(self, true)
         } else if matches!(method_type, &MethodType::InitIgnoreState) {
-            init_method_wrapper(&self, false)
+            init_method_wrapper(self, false)
         } else {
             let contract_deser;
             let method_invocation;
@@ -262,8 +262,8 @@ fn init_method_wrapper(method_info: &ImplItemMethodInfo, check_state: bool) -> T
     };
     match returns {
         ReturnType::Default => {
-            return syn::Error::new(ident.span(), "Init methods must return the contract state")
-                .to_compile_error();
+            syn::Error::new(ident.span(), "Init methods must return the contract state")
+                .to_compile_error()
         }
         ReturnType::Type(_, return_type)
             if utils::type_is_result(return_type) && *is_returns_result =>
@@ -277,13 +277,11 @@ fn init_method_wrapper(method_info: &ImplItemMethodInfo, check_state: bool) -> T
                 }
             }
         }
-        ReturnType::Type(_, _) if *is_returns_result => {
-            return syn::Error::new(
-                ident.span(),
-                "Method marked with #[return_result] should return Result<T, E>",
-            )
-            .to_compile_error();
-        }
+        ReturnType::Type(_, _) if *is_returns_result => syn::Error::new(
+            ident.span(),
+            "Method marked with #[return_result] should return Result<T, E>",
+        )
+        .to_compile_error(),
         ReturnType::Type(_, _) => {
             quote! {
                 #state_check
