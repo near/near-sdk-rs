@@ -80,9 +80,15 @@ impl ImplItemMethodInfo {
             quote! {}
         };
         let body = if matches!(method_type, &MethodType::Init) {
-            init_method_wrapper(self, true)
+            match init_method_wrapper(self, true) {
+                Ok(wrapper) => wrapper,
+                Err(err) => return err.to_compile_error(),
+            }
         } else if matches!(method_type, &MethodType::InitIgnoreState) {
-            init_method_wrapper(self, false)
+            match init_method_wrapper(self, false) {
+                Ok(wrapper) => wrapper,
+                Err(err) => return err.to_compile_error(),
+            }
         } else {
             let contract_deser;
             let method_invocation;
@@ -247,7 +253,10 @@ impl ImplItemMethodInfo {
     }
 }
 
-fn init_method_wrapper(method_info: &ImplItemMethodInfo, check_state: bool) -> TokenStream2 {
+fn init_method_wrapper(
+    method_info: &ImplItemMethodInfo,
+    check_state: bool,
+) -> Result<TokenStream2, syn::Error> {
     let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = method_info;
     let arg_list = attr_signature_info.arg_list();
     let AttrSigInfo { ident, returns, is_returns_result, .. } = attr_signature_info;
@@ -262,33 +271,29 @@ fn init_method_wrapper(method_info: &ImplItemMethodInfo, check_state: bool) -> T
     };
     match returns {
         ReturnType::Default => {
-            syn::Error::new(ident.span(), "Init methods must return the contract state")
-                .to_compile_error()
+            Err(syn::Error::new(ident.span(), "Init methods must return the contract state"))
         }
         ReturnType::Type(_, return_type)
             if utils::type_is_result(return_type) && *is_returns_result =>
         {
-            quote! {
+            Ok(quote! {
                 #state_check
                 let result = #struct_type::#ident(#arg_list);
                 match result {
                     Ok(contract) => near_sdk::env::state_write(&contract),
                     Err(err) => near_sdk::FunctionError::panic(&err)
                 }
-            }
+            })
         }
-        ReturnType::Type(_, _) if *is_returns_result => syn::Error::new(
+        ReturnType::Type(_, _) if *is_returns_result => Err(syn::Error::new(
             ident.span(),
             "Method marked with #[return_result] should return Result<T, E>",
-        )
-        .to_compile_error(),
-        ReturnType::Type(_, _) => {
-            quote! {
-                #state_check
-                let contract = #struct_type::#ident(#arg_list);
-                near_sdk::env::state_write(&contract);
-            }
-        }
+        )),
+        ReturnType::Type(_, _) => Ok(quote! {
+            #state_check
+            let contract = #struct_type::#ident(#arg_list);
+            near_sdk::env::state_write(&contract);
+        }),
     }
 }
 
