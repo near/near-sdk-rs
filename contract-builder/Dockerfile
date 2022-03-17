@@ -10,5 +10,5 @@ RUN apt-get -y update && apt-get install -y \
     less \
     vim \
     llvm \
-    clang
-    # && rm -rf /var/lib/apt/lists/*
+    clang \
+    && rm -rf /var/lib/apt/lists/*
