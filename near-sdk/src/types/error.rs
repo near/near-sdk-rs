@@ -1,5 +1,5 @@
 /// Enables contract runtime to panic with the given type. Any error type used in conjunction
-/// with `#[return_result]` has to implement this trait.
+/// with `#[handle_result]` has to implement this trait.
 ///
 /// ```
 /// use near_sdk::FunctionError;
