@@ -57,7 +57,7 @@ pub struct FunToken {
 #[near_bindgen]
 impl FunToken {
     #[init]
-    #[return_result]
+    #[handle_result]
     pub fn new(owner_id: AccountId, total_supply: String) -> Result<Self, &'static str> {
         let total_supply =
             u128::from_str(&total_supply).map_err(|_| "Failed to parse total supply")?;
@@ -72,7 +72,7 @@ impl FunToken {
     /// (`predecessor_id`) who is considered the balance owner to the new `allowance`.
     /// If some amount of tokens is currently locked by the `escrow_account_id` the new allowance is
     /// decreased by the amount of locked tokens.
-    #[return_result]
+    #[handle_result]
     pub fn set_allowance(
         &mut self,
         escrow_account_id: AccountId,
@@ -100,7 +100,7 @@ impl FunToken {
     /// Requirements:
     /// * The (`predecessor_id`) should have enough allowance or be the owner.
     /// * The owner should have enough unlocked balance.
-    #[return_result]
+    #[handle_result]
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) -> Result<(), &'static str> {
         let lock_amount =
             u128::from_str(&lock_amount).map_err(|_| "Failed to parse allow lock_amount")?;
@@ -139,7 +139,7 @@ impl FunToken {
     /// If called not by the `owner_id` then the `unlock_amount` will be converted to the allowance.
     /// Requirements:
     /// * The (`predecessor_id`) should have at least `unlock_amount` locked tokens from `owner_id`.
-    #[return_result]
+    #[handle_result]
     pub fn unlock(
         &mut self,
         owner_id: AccountId,
@@ -183,7 +183,7 @@ impl FunToken {
     /// allowance tokens.
     /// * The balance owner should have at least `amount` of locked (by `predecessor_id`) plus
     /// unlocked tokens.
-    #[return_result]
+    #[handle_result]
     pub fn transfer_from(
         &mut self,
         owner_id: AccountId,
@@ -237,7 +237,7 @@ impl FunToken {
     }
 
     /// Same as `transfer_from` with `owner_id` `predecessor_id`.
-    #[return_result]
+    #[handle_result]
     pub fn transfer(
         &mut self,
         new_owner_id: AccountId,
