@@ -9,6 +9,6 @@ RUN apt-get -y update && apt-get install -y \
     git \
     less \
     vim \
-    # llvm \
-    clang \
-    && rm -rf /var/lib/apt/lists/*
+    llvm \
+    clang
+    # && rm -rf /var/lib/apt/lists/*
