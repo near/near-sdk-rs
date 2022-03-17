@@ -1,5 +1,5 @@
 use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::events::FtTransfer;
+use crate::fungible_token::events::{FtBurn, FtTransfer};
 use crate::fungible_token::resolver::FungibleTokenResolver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
@@ -240,12 +240,24 @@ impl FungibleToken {
 
                 if let Some(sender_balance) = self.accounts.get(sender_id) {
                     self.accounts.insert(sender_id, &(sender_balance + refund_amount));
-                    log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
+                    FtTransfer {
+                        old_owner_id: &receiver_id,
+                        new_owner_id: sender_id,
+                        amount: &U128(refund_amount),
+                        memo: Some("refund"),
+                    }
+                    .emit();
                     return (amount - refund_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
                     self.total_supply -= refund_amount;
                     log!("The account of the sender was deleted");
+                    FtBurn {
+                        owner_id: &receiver_id,
+                        amount: &U128(refund_amount),
+                        memo: Some("refund"),
+                    }
+                    .emit();
                     return (amount, refund_amount);
                 }
             }

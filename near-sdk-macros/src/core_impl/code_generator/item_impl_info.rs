@@ -753,10 +753,10 @@ mod tests {
     }
 
     #[test]
-    fn return_result_json() {
+    fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[return_result]
+            #[handle_result]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
@@ -782,10 +782,10 @@ mod tests {
     }
 
     #[test]
-    fn return_result_borsh() {
+    fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[return_result]
+            #[handle_result]
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
@@ -804,6 +804,65 @@ mod tests {
                             near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
                         near_sdk::env::value_return(&result);
                     }
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_init() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            #[handle_result]
+            pub fn new() -> Result<Self, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn new() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic_str("Method new doesn't accept deposit");
+                }
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic_str("The contract has already been initialized");
+                }
+                let result = Hello::new();
+                match result {
+                    Ok(contract) => near_sdk::env::state_write(&contract),
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_init_ignore_state() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init(ignore_state)]
+            #[handle_result]
+            pub fn new() -> Result<Self, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn new() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic_str("Method new doesn't accept deposit");
+                }
+                let result = Hello::new();
+                match result {
+                    Ok(contract) => near_sdk::env::state_write(&contract),
                     Err(err) => near_sdk::FunctionError::panic(&err)
                 }
             }
