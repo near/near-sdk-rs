@@ -19,7 +19,7 @@ pub struct AttrSigInfo {
     /// Whether method can accept calls from self (current account)
     pub is_private: bool,
     /// Whether method returns Result type where only Ok type is serialized
-    pub is_returns_result: bool,
+    pub is_handles_result: bool,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
     /// The serializer that we use for the return type.
@@ -63,7 +63,7 @@ impl AttrSigInfo {
         let mut method_type = MethodType::Regular;
         let mut is_payable = false;
         let mut is_private = false;
-        let mut is_returns_result = false;
+        let mut is_handles_result = false;
         // By the default we serialize the result with JSON.
         let mut result_serializer = SerializerType::JSON;
 
@@ -90,8 +90,8 @@ impl AttrSigInfo {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
                     result_serializer = serializer.serializer_type;
                 }
-                "return_result" => {
-                    is_returns_result = true;
+                "handle_result" => {
+                    is_handles_result = true;
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
@@ -142,7 +142,7 @@ impl AttrSigInfo {
             method_type,
             is_payable,
             is_private,
-            is_returns_result,
+            is_handles_result,
             result_serializer,
             receiver,
             returns,
