@@ -753,10 +753,10 @@ mod tests {
     }
 
     #[test]
-    fn return_result_json() {
+    fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[return_result]
+            #[handle_result]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
@@ -782,10 +782,10 @@ mod tests {
     }
 
     #[test]
-    fn return_result_borsh() {
+    fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[return_result]
+            #[handle_result]
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
@@ -812,11 +812,11 @@ mod tests {
     }
 
     #[test]
-    fn return_result_init() {
+    fn handle_result_init() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
             #[init]
-            #[return_result]
+            #[handle_result]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
@@ -843,11 +843,11 @@ mod tests {
     }
 
     #[test]
-    fn return_result_init_ignore_state() {
+    fn handle_result_init_ignore_state() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
             #[init(ignore_state)]
-            #[return_result]
+            #[handle_result]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();

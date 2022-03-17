@@ -54,7 +54,7 @@ impl ImplItemMethodInfo {
             method_type,
             is_payable,
             is_private,
-            is_returns_result,
+            is_handles_result,
             ..
         } = attr_signature_info;
         let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
@@ -122,7 +122,7 @@ impl ImplItemMethodInfo {
                     #contract_ser
                 },
                 ReturnType::Type(_, return_type)
-                    if utils::type_is_result(return_type) && *is_returns_result =>
+                    if utils::type_is_result(return_type) && *is_handles_result =>
                 {
                     let value_ser = match result_serializer {
                         SerializerType::JSON => quote! {
@@ -145,10 +145,10 @@ impl ImplItemMethodInfo {
                         }
                     }
                 }
-                ReturnType::Type(_, _) if *is_returns_result => {
+                ReturnType::Type(_, _) if *is_handles_result => {
                     return syn::Error::new(
                         ident.span(),
-                        "Method marked with #[return_result] should return Result<T, E>",
+                        "Method marked with #[handle_result] should return Result<T, E>",
                     )
                     .to_compile_error();
                 }
@@ -259,7 +259,7 @@ fn init_method_wrapper(
 ) -> Result<TokenStream2, syn::Error> {
     let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = method_info;
     let arg_list = attr_signature_info.arg_list();
-    let AttrSigInfo { ident, returns, is_returns_result, .. } = attr_signature_info;
+    let AttrSigInfo { ident, returns, is_handles_result, .. } = attr_signature_info;
     let state_check = if check_state {
         quote! {
             if near_sdk::env::state_exists() {
@@ -274,7 +274,7 @@ fn init_method_wrapper(
             Err(syn::Error::new(ident.span(), "Init methods must return the contract state"))
         }
         ReturnType::Type(_, return_type)
-            if utils::type_is_result(return_type) && *is_returns_result =>
+            if utils::type_is_result(return_type) && *is_handles_result =>
         {
             Ok(quote! {
                 #state_check
@@ -285,9 +285,9 @@ fn init_method_wrapper(
                 }
             })
         }
-        ReturnType::Type(_, _) if *is_returns_result => Err(syn::Error::new(
+        ReturnType::Type(_, _) if *is_handles_result => Err(syn::Error::new(
             ident.span(),
-            "Method marked with #[return_result] should return Result<T, E>",
+            "Method marked with #[handle_result] should return Result<T, E>",
         )),
         ReturnType::Type(_, _) => Ok(quote! {
             #state_check
