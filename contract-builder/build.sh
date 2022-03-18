@@ -1,6 +1,13 @@
 #!/bin/bash
 set -eox pipefail
 
+if [ $1 != "linux/amd64"] || [$1 != "linux/arm64"]; then 
+  echo " Please enter one of linux/amd64 or linux/arm64"
+  exit 1
+fi
+
+
+
 branch=${BUILDKITE_BRANCH//:/_}
 branch=${branch//\//_}
 commit=${BUILDKITE_COMMIT}
@@ -17,7 +24,9 @@ else
 fi
 
 if [[ ${branch} == "master" ]];then
-    docker buildx build --platform linux/amd64,linux/arm64 -t nearprotocol/"${image_name}:${branch}-${commit}" -t nearprotocol/${image_name}:latest --push .
+    docker buildx build --platform $1 -t nearprotocol/"$1-${image_name}:${branch}-${commit}" -t nearprotocol/${image_name}:latest-$1 --push .
+    docker buildx build --platform $1 -t nearprotocol/"$1-${image_name}:${branch}-${commit}" -t nearprotocol/${image_name}:latest-$1 --push .
 else 
-    docker buildx build --platform linux/amd64,linux/arm64 -t nearprotocol/"${image_name}:${branch}-${commit}" --push .
+    docker buildx build --platform $1 -t nearprotocol/"$1-${image_name}:${branch}-${commit}" --push .
+    docker buildx build --platform $1 -t nearprotocol/"$1-${image_name}:${branch}-${commit}" --push .
 fi
