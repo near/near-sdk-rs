@@ -148,7 +148,18 @@ impl ImplItemMethodInfo {
                 ReturnType::Type(_, _) if *is_handles_result => {
                     return syn::Error::new(
                         ident.span(),
-                        "Method marked with #[handle_result] should return Result<T, E>",
+                        "Method marked with #[handle_result] should return Result<T, E>.",
+                    )
+                    .to_compile_error();
+                }
+                ReturnType::Type(_, return_type) if utils::type_is_result(return_type) => {
+                    return syn::Error::new(
+                        ident.span(),
+                        "Serializing Result<T, E> has been deprecated. Consider marking your method \
+                        with #[handle_result] if the second generic represents a panicable error or \
+                        replacing Result with another two type sum enum otherwise. If you really want \
+                        to keep the legacy behavior, mark the method with #[handle_result] and make \
+                        it return Result<Result<T, E>, ()>.",
                     )
                     .to_compile_error();
                 }
