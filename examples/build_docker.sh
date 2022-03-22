@@ -9,19 +9,26 @@ NAME="$1"
 pushd $(dirname ${BASH_SOURCE[0]})
 cd ../
 
+# Pick the correct tag to pull from Docker Hub based on OS architecture
+if [[ $(uname -m) == 'arm64' ]]; then
+    TAG="latest-arm64"
+else
+    TAG="latest-amd64"
+fi
+
 if docker ps -a --format '{{.Names}}' | grep -Eq "^build_${NAME}\$"; then
     echo "Container exists"
 else
-docker create \
-     --mount type=bind,source=$(pwd),target=/host \
-     --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
-     --name=build_$NAME \
-     -w /host/examples/$NAME \
-     -e RUSTFLAGS='-C link-arg=-s' \
-	 -e CARGO_TARGET_DIR='/host/docker-target' \
-     -it nearprotocol/contract-builder \
-     /bin/bash
+    docker create \
+        --mount type=bind,source=$(pwd),target=/host \
+        --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+        --name=build_"$NAME" \
+        -w /host/examples/"$NAME" \
+        -e RUSTFLAGS='-C link-arg=-s' \
+        -e CARGO_TARGET_DIR='/host/docker-target' \
+        -it nearprotocol/contract-builder:"$TAG" \
+        /bin/bash
 fi
 
-docker start build_$NAME
-docker exec build_$NAME /bin/bash -c "./build.sh"
+docker start build_"$NAME"
+docker exec build_"$NAME" /bin/bash -c "./build.sh"
