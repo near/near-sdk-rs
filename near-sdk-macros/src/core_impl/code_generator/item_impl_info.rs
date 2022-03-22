@@ -897,7 +897,7 @@ mod tests {
         let actual = method_info.method_wrapper();
         let expected = quote!(
             compile_error! {
-                "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, ()>."
+                "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>."
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
