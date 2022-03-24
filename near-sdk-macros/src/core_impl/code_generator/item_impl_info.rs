@@ -869,4 +869,37 @@ mod tests {
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
+
+    #[test]
+    fn handle_result_incorrect_return_type() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            pub fn method(&self) -> &'static str { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            compile_error! {
+                "Method marked with #[handle_result] should return Result<T, E>."
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_without_marker() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            compile_error! {
+                "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>."
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 }

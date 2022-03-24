@@ -32,3 +32,35 @@ where
         crate::env::panic_str(self.as_ref())
     }
 }
+
+/// A simple type used in conjunction with [FunctionError] representing that the function should
+/// abort without a custom message.
+///
+/// ```
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+/// use near_sdk::{Abort, near_bindgen};
+///
+/// #[near_bindgen]
+/// #[derive(Default, BorshDeserialize, BorshSerialize)]
+/// pub struct Contract;
+///
+/// #[near_bindgen]
+/// impl Contract {
+///     #[handle_result]
+///     pub fn foo(&self, text: &str) -> Result<String, Abort> {
+///         if text == "success" {
+///             Ok("success".to_string())
+///         } else {
+///             Err(Abort)
+///         }
+///     }
+/// }
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct Abort;
+
+impl FunctionError for Abort {
+    fn panic(&self) -> ! {
+        crate::env::abort()
+    }
+}
