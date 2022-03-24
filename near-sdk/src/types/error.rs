@@ -47,11 +47,16 @@ where
 /// #[near_bindgen]
 /// impl Contract {
 ///     #[handle_result]
-///     pub fn foo(&self) -> Result<Result<String, &'static str>, Abort> {
-///         Ok(Ok("success".to_string()))
+///     pub fn foo(&self, text: &str) -> Result<String, Abort> {
+///         if text == "success" {
+///             Ok("success".to_string())
+///         } else {
+///             Err(Abort)
+///         }
 ///     }
 /// }
 /// ```
+#[derive(Debug, Clone, PartialEq)]
 pub struct Abort;
 
 impl FunctionError for Abort {
