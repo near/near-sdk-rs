@@ -4,6 +4,7 @@ use crate::core_impl::info_extractor::{
 use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
+use syn::spanned::Spanned;
 use syn::{ReturnType, Signature};
 
 impl ImplItemMethodInfo {
@@ -145,10 +146,21 @@ impl ImplItemMethodInfo {
                         }
                     }
                 }
-                ReturnType::Type(_, _) if *is_handles_result => {
+                ReturnType::Type(_, return_type) if *is_handles_result => {
                     return syn::Error::new(
-                        ident.span(),
-                        "Method marked with #[handle_result] should return Result<T, E>",
+                        return_type.span(),
+                        "Method marked with #[handle_result] should return Result<T, E>.",
+                    )
+                    .to_compile_error();
+                }
+                ReturnType::Type(_, return_type) if utils::type_is_result(return_type) => {
+                    return syn::Error::new(
+                        return_type.span(),
+                        "Serializing Result<T, E> has been deprecated. Consider marking your method \
+                        with #[handle_result] if the second generic represents a panicable error or \
+                        replacing Result with another two type sum enum otherwise. If you really want \
+                        to keep the legacy behavior, mark the method with #[handle_result] and make \
+                        it return Result<Result<T, E>, near_sdk::Abort>.",
                     )
                     .to_compile_error();
                 }
@@ -285,8 +297,8 @@ fn init_method_wrapper(
                 }
             })
         }
-        ReturnType::Type(_, _) if *is_handles_result => Err(syn::Error::new(
-            ident.span(),
+        ReturnType::Type(_, return_type) if *is_handles_result => Err(syn::Error::new(
+            return_type.span(),
             "Method marked with #[handle_result] should return Result<T, E>",
         )),
         ReturnType::Type(_, _) => Ok(quote! {
