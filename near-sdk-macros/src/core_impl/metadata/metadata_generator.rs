@@ -14,7 +14,7 @@ impl ImplItemMethodInfo {
     /// ```
     /// will produce this struct:
     /// ```ignore
-    /// near_sdk::MethodMetadata {
+    /// near_sdk::__private::MethodMetadata {
     ///     name: "f3".to_string(),
     ///     is_view: false,
     ///     is_init: false,
@@ -108,7 +108,7 @@ impl ImplItemMethodInfo {
         };
 
         quote! {
-             near_sdk::MethodMetadata {
+             near_sdk::__private::MethodMetadata {
                  name: #method_name_str.to_string(),
                  is_view: #is_view,
                  is_init: #is_init,

@@ -23,8 +23,10 @@ pub use near_sys as sys;
 mod promise;
 pub use promise::{Promise, PromiseOrValue};
 
-mod metadata;
-pub use metadata::{Metadata, MethodMetadata};
+// Private types just used within macro generation, not stable to be used.
+#[doc(hidden)]
+#[path = "private/mod.rs"]
+pub mod __private;
 
 pub mod json_types;
 
@@ -42,7 +44,7 @@ pub use near_vm_logic::VMConfig;
 pub use near_vm_logic::VMContext;
 
 pub mod utils;
-pub use crate::utils::storage_key_impl::*;
+pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
 #[cfg(not(target_arch = "wasm32"))]
