@@ -1,9 +1,20 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, ext_contract, json_types::U128, log, near_bindgen, AccountId, Promise};
+use near_sdk::PromiseError;
+use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId, Promise};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct FactoryContract {}
+
+// One can provide a name, e.g. `ext` to use for generated methods.
+#[ext_contract(ext)]
+pub trait ExtFactoryContract {
+    fn get_result(
+        &self,
+        account_id: AccountId,
+        #[callback_result] set_status_result: Result<(), PromiseError>,
+    ) -> Option<String>;
+}
 
 // If the `ext_contract` name is not provided explicitly, the namespace for generated methods is
 // derived by applying snake case to the trait name, e.g. ext_status_message.
@@ -34,14 +45,24 @@ impl FactoryContract {
         // 3) return that message as its own result.
         // Note, for a contract to simply call another contract (1) is sufficient.
         let prepaid_gas = env::prepaid_gas();
-        log!("complex_call");
-        ext_status_message::set_status(message, account_id.clone(), 0, prepaid_gas / 3).then(
-            ext_status_message::get_status(
+        ext_status_message::set_status(message, account_id.clone(), 0, prepaid_gas / 3)
+            .then(ext::get_result(account_id, env::current_account_id(), 0, prepaid_gas / 3))
+    }
+
+    pub fn get_result(
+        &self,
+        account_id: AccountId,
+        #[callback_result] set_status_result: Result<(), PromiseError>,
+    ) -> Promise {
+        let prepaid_gas = env::prepaid_gas();
+        match set_status_result {
+            Ok(_) => ext_status_message::get_status(
                 env::signer_account_id(),
                 account_id,
                 0,
-                prepaid_gas / 3,
+                prepaid_gas / 2,
             ),
-        )
+            Err(_) => env::panic_str("Failed to set status"),
+        }
     }
 }

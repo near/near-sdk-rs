@@ -7,16 +7,8 @@ use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
 const SINGLE_CALL_GAS: Gas = Gas(20_000_000_000_000);
 
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-pub struct FactoryContract {
-    checked_promise: bool,
-}
-
-impl Default for FactoryContract {
-    fn default() -> Self {
-        FactoryContract { checked_promise: false }
-    }
-}
+#[derive(Default, BorshDeserialize, BorshSerialize)]
+pub struct FactoryContract {}
 
 #[near_bindgen]
 impl FactoryContract {
@@ -58,33 +50,26 @@ impl FactoryContract {
         let promise1 = env::promise_then(
             promise0,
             env::current_account_id(),
-            "check_promise",
-            &serde_json::to_vec(&()).unwrap(),
+            "get_result",
+            &serde_json::to_vec(&(account_id,)).unwrap(),
             0,
-            SINGLE_CALL_GAS,
+            SINGLE_CALL_GAS * 2,
         );
-        let promise2 = env::promise_then(
-            promise1,
-            account_id,
-            "get_status",
-            &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
-            0,
-            SINGLE_CALL_GAS,
-        );
-        env::promise_return(promise2);
+        env::promise_return(promise1);
     }
 
-    pub fn check_promise(&mut self) {
+    pub fn get_result(&mut self, account_id: AccountId) {
         match env::promise_result(0) {
             PromiseResult::Successful(_) => {
-                env::log_str("Check_promise successful");
-                self.checked_promise = true;
+                env::promise_return(env::promise_create(
+                    account_id,
+                    "get_status",
+                    &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
+                    0,
+                    SINGLE_CALL_GAS,
+                ));
             }
-            _ => env::panic_str("Promise with index 0 failed"),
+            _ => env::panic_str("Failed to set status"),
         };
-    }
-
-    pub fn promise_checked(&self) -> bool {
-        self.checked_promise
     }
 }
