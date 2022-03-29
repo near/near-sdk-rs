@@ -6,6 +6,10 @@
 - Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
 - Added an optional way to handle contract errors with `Result`. [PR 745](https://github.com/near/near-sdk-rs/pull/745), [PR 754](https://github.com/near/near-sdk-rs/pull/754) and [PR 757](https://github.com/near/near-sdk-rs/pull/757).
 
+### Changed
+- Deprecate `callback`, `callback_vec`, `result_serializer`, `init` proc macro attributes and remove exports from `near-sdk`. [PR 770](https://github.com/near/near-sdk-rs/pull/770)
+  - They are not needed to be imported and are handled specifically within `#[near_bindgen]`
+
 ## `4.0.0-pre.7` [02-02-2022]
 
 ### Features
