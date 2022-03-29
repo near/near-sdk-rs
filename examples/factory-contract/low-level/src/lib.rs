@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::serde_json::json;
+use near_sdk::serde_json;
 use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
 
 // Prepaid gas for making a single simple call.
@@ -37,7 +37,7 @@ impl FactoryContract {
         env::promise_create(
             account_id,
             "set_status",
-            json!({ "message": message }).to_string().as_bytes(),
+            &serde_json::to_vec(&(message,)).unwrap(),
             0,
             SINGLE_CALL_GAS,
         );
@@ -51,7 +51,7 @@ impl FactoryContract {
         let promise0 = env::promise_create(
             account_id.clone(),
             "set_status",
-            json!({ "message": message }).to_string().as_bytes(),
+            &serde_json::to_vec(&(message,)).unwrap(),
             0,
             SINGLE_CALL_GAS,
         );
@@ -59,7 +59,7 @@ impl FactoryContract {
             promise0,
             env::current_account_id(),
             "check_promise",
-            json!({}).to_string().as_bytes(),
+            &serde_json::to_vec(&()).unwrap(),
             0,
             SINGLE_CALL_GAS,
         );
@@ -67,7 +67,7 @@ impl FactoryContract {
             promise1,
             account_id,
             "get_status",
-            json!({ "account_id": env::signer_account_id() }).to_string().as_bytes(),
+            &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
             0,
             SINGLE_CALL_GAS,
         );

@@ -16,18 +16,11 @@ pub struct CrossContract {}
 #[ext_contract(ext)]
 pub trait ExtCrossContract {
     fn factorial(&self, n: u32) -> PromiseOrValue<u32>;
-    fn factorial_mult(
-        &self,
-        n: u32,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        cur: u32,
-    ) -> u32;
+    fn factorial_mult(&self, n: u32, #[callback_unwrap] cur: u32) -> u32;
 }
 
 #[near_bindgen]
 impl CrossContract {
-    #[result_serializer(borsh)]
     pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
         if n <= 1 {
             return PromiseOrValue::Value(1);
@@ -42,15 +35,8 @@ impl CrossContract {
 
     /// Used for callbacks only. Multiplies current factorial result by the next value. Panics if
     /// it is not called by the contract itself.
-    #[result_serializer(borsh)]
     #[private]
-    pub fn factorial_mult(
-        &self,
-        n: u32,
-        #[callback_unwrap]
-        #[serializer(borsh)]
-        cur: u32,
-    ) -> u32 {
+    pub fn factorial_mult(&self, n: u32, #[callback_unwrap] cur: u32) -> u32 {
         log!("Received {:?} and {:?}", n, cur);
         let result = n * cur;
         log!("Multiplied {:?}", result.clone());

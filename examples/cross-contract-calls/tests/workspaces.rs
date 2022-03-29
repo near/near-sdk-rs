@@ -25,7 +25,7 @@ async fn test_factorial(contract_name: &str) -> anyhow::Result<()> {
         .transact()
         .await?;
     assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
-    assert_eq!(res.borsh::<u32>()?, (1..n + 1).product::<u32>());
+    assert_eq!(res.json::<u32>()?, (1..n + 1).product::<u32>());
 
     Ok(())
 }
