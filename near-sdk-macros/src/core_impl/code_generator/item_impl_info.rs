@@ -734,10 +734,16 @@ mod tests {
         let expected = quote!(
                 #[cfg(not(target_arch = "wasm32"))]
                 pub fn method(&self, k: String,) -> near_sdk::PendingContractTx {
-                  let args = near_sdk::serde_json::json!({ "k": k })
-                  .to_string()
-                  .into_bytes();
-                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "method", args, true)
+                    let __args = {#[derive(near_sdk :: serde :: Serialize)]
+                        #[serde(crate = "near_sdk::serde")]
+                        struct Input<'nearinput> {
+                            k: &'nearinput String,
+                        }
+                        let __args = Input { k: &k, };
+                        near_sdk::serde_json::to_vec(&__args)
+                            .expect("Failed to serialize the cross contract args using JSON.")
+                    };
+                    near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "method", __args, true)
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -754,14 +760,16 @@ mod tests {
         let expected = quote!(
                 #[cfg(not(target_arch = "wasm32"))]
                 pub fn borsh_test(&self, a: String,) -> near_sdk::PendingContractTx {
-                  #[derive(near_sdk :: borsh :: BorshSerialize)]
-                  struct Input<'nearinput> {
-                      a: &'nearinput String,
-                  }
-                  let args = Input { a: &a, };
-                  let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
-                      .expect("Failed to serialize the cross contract args using Borsh.");
-                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "borsh_test", args, false)
+                    let __args = {
+                        #[derive(near_sdk :: borsh :: BorshSerialize)]
+                        struct Input<'nearinput> {
+                            a: &'nearinput String,
+                        }
+                        let __args = Input { a: &a, };
+                        near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
+                            .expect("Failed to serialize the cross contract args using Borsh.")
+                    };
+                    near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "borsh_test", __args, false)
                 }
         );
         assert_eq!(expected.to_string(), actual.to_string());

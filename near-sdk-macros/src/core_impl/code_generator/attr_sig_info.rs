@@ -15,11 +15,9 @@ impl AttrSigInfo {
                 #[derive(near_sdk::serde::Serialize)]
                 #[serde(crate = "near_sdk::serde")]
             },
-            SerializerType::Borsh => {
-                quote! {
-                    #[derive(near_sdk::borsh::BorshSerialize)]
-                }
-            }
+            SerializerType::Borsh => quote! {
+                #[derive(near_sdk::borsh::BorshSerialize)]
+            },
         };
         let mut fields = TokenStream2::new();
         for arg in args {
@@ -35,9 +33,10 @@ impl AttrSigInfo {
             }
         }
     }
-    /// Create struct representing input arguments.
-    /// * input_struct_type represents whether the input structure will be used for serialization
-    ///     (e.g. for a promise input) or deserialization (e.g. for a method input).
+    /// Create struct representing input arguments to deserialize.
+    ///
+    /// Code generated is based on the serialization type of `Self::input_serializer`.
+    ///
     /// Each argument is getting converted to a field in a struct. Specifically argument:
     /// `ATTRIBUTES ref mut binding @ SUBPATTERN : TYPE` is getting converted to:
     /// `binding: SUBTYPE,` where `TYPE` is one of the following: `& SUBTYPE`, `&mut SUBTYPE`,
@@ -62,11 +61,9 @@ impl AttrSigInfo {
                 #[derive(near_sdk::serde::Deserialize)]
                 #[serde(crate = "near_sdk::serde")]
             },
-            SerializerType::Borsh => {
-                quote! {
-                    #[derive(near_sdk::borsh::BorshDeserialize)]
-                }
-            }
+            SerializerType::Borsh => quote! {
+                #[derive(near_sdk::borsh::BorshDeserialize)]
+            },
         };
         let mut fields = TokenStream2::new();
         for arg in args {

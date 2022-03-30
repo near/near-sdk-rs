@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::rc::Rc;
 
-use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
+use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
 
 enum PromiseAction {
     CreateAccount,
@@ -22,7 +22,7 @@ enum PromiseAction {
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
-        weight: u64,
+        weight: GasWeight,
     },
     Transfer {
         amount: Balance,
@@ -74,7 +74,7 @@ impl PromiseAction {
                     arguments,
                     *amount,
                     *gas,
-                    *weight,
+                    GasWeight(weight.0),
                 )
             }
             Transfer { amount } => {
@@ -279,8 +279,7 @@ impl Promise {
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
-        // TODO type
-        weight: u64,
+        weight: GasWeight,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCallWeight {
             function_name,

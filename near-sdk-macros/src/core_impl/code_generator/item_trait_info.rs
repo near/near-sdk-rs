@@ -61,7 +61,7 @@ mod tests {
                   pub(crate) account_id: near_sdk::AccountId,
                   pub(crate) amount: u128,
                   pub(crate) static_gas: near_sdk::Gas,
-                  pub(crate) gas_weight: u64,
+                  pub(crate) gas_weight: near_sdk::GasWeight,
                 }
                 impl ExternalCrossContractExt {
                   pub fn with_amount(mut self, amount: u128) -> Self {
@@ -73,7 +73,7 @@ mod tests {
                     self
                   }
                   pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                    self.gas_weight = gas_weight;
+                    self.gas_weight = near_sdk::GasWeight(gas_weight);
                     self
                   }
                 }
@@ -83,7 +83,7 @@ mod tests {
                         account_id,
                         amount: 0,
                         static_gas: near_sdk::Gas(0),
-                        gas_weight: 1,
+                        gas_weight: near_sdk::GasWeight::default(),
                     }
                 }
                 impl ExternalCrossContractExt {
@@ -91,29 +91,31 @@ mod tests {
                         self,
                         arr: Vec<u8>,
                     ) -> near_sdk::Promise {
-                        #[derive(near_sdk :: serde :: Serialize)]
-                        #[serde(crate = "near_sdk::serde")]
-                        struct Input<'nearinput> {
-                            arr: &'nearinput Vec<u8>,
-                        }
-                        let args = Input { arr: &arr, };
-                        let args = near_sdk::serde_json::to_vec(&args)
-                            .expect("Failed to serialize the cross contract args using JSON.");
+                        let __args = {
+                            #[derive(near_sdk :: serde :: Serialize)]
+                            #[serde(crate = "near_sdk::serde")]
+                            struct Input<'nearinput> {
+                                arr: &'nearinput Vec<u8>,
+                            }
+                            let __args = Input { arr: &arr, };
+                            near_sdk::serde_json::to_vec(&__args)
+                                .expect("Failed to serialize the cross contract args using JSON.")
+                        };
                         near_sdk::Promise::new(self.account_id)
                             .function_call_weight(
                                 "merge_sort".to_string(),
-                                args,
+                                __args,
                                 self.amount,
                                 self.static_gas,
                                 self.gas_weight,
                             )
                     }
                     pub fn merge(self,) -> near_sdk::Promise {
-                        let args = vec![];
+                        let __args = vec![];
                         near_sdk::Promise::new(self.account_id)
                             .function_call_weight(
                                 "merge".to_string(),
-                                args,
+                                __args,
                                 self.amount,
                                 self.static_gas,
                                 self.gas_weight,
@@ -146,7 +148,7 @@ mod tests {
               pub(crate) account_id: near_sdk::AccountId,
               pub(crate) amount: u128,
               pub(crate) static_gas: near_sdk::Gas,
-              pub(crate) gas_weight: u64,
+              pub(crate) gas_weight: near_sdk::GasWeight,
             }
             impl TestExt {
               pub fn with_amount(mut self, amount: u128) -> Self {
@@ -158,7 +160,7 @@ mod tests {
                 self
               }
               pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                self.gas_weight = gas_weight;
+                self.gas_weight = near_sdk::GasWeight(gas_weight);
                 self
               }
             }
@@ -168,7 +170,7 @@ mod tests {
                     account_id,
                     amount: 0,
                     static_gas: near_sdk::Gas(0),
-                    gas_weight: 1,
+                    gas_weight: near_sdk::GasWeight::default(),
                 }
             }
             impl TestExt {
@@ -176,17 +178,19 @@ mod tests {
                     self,
                     v: Vec<String>,
                 ) -> near_sdk::Promise {
-                    #[derive(near_sdk :: borsh :: BorshSerialize)]
-                    struct Input<'nearinput> {
-                        v: &'nearinput Vec<String>,
-                    }
-                    let args = Input { v: &v, };
-                    let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
-                        .expect("Failed to serialize the cross contract args using Borsh.");
+                    let __args = {
+                        #[derive(near_sdk :: borsh :: BorshSerialize)]
+                        struct Input<'nearinput> {
+                            v: &'nearinput Vec<String>,
+                        }
+                        let __args = Input { v: &v, };
+                        near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
+                            .expect("Failed to serialize the cross contract args using Borsh.")
+                    };
                     near_sdk::Promise::new(self.account_id)
                         .function_call_weight(
                             "test".to_string(),
-                            args,
+                            __args,
                             self.amount,
                             self.static_gas,
                             self.gas_weight,
