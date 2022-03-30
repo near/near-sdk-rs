@@ -49,20 +49,21 @@ impl FactoryContract {
             .then(ext::get_result(account_id, env::current_account_id(), 0, prepaid_gas / 3))
     }
 
+    #[handle_result]
     pub fn get_result(
         &self,
         account_id: AccountId,
         #[callback_result] set_status_result: Result<(), PromiseError>,
-    ) -> Promise {
+    ) -> Result<Promise, &'static str> {
         let prepaid_gas = env::prepaid_gas();
         match set_status_result {
-            Ok(_) => ext_status_message::get_status(
+            Ok(_) => Ok(ext_status_message::get_status(
                 env::signer_account_id(),
                 account_id,
                 0,
                 prepaid_gas / 2,
-            ),
-            Err(_) => env::panic_str("Failed to set status"),
+            )),
+            Err(_) => Err("Failed to set status"),
         }
     }
 }
