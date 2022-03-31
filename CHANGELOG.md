@@ -1,14 +1,17 @@
 # Changelog
 
 ## [unreleased]
-### Features
+### Added
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
 - Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
 - Added an optional way to handle contract errors with `Result`. [PR 745](https://github.com/near/near-sdk-rs/pull/745), [PR 754](https://github.com/near/near-sdk-rs/pull/754) and [PR 757](https://github.com/near/near-sdk-rs/pull/757).
+- Added support for using `#[callback_result]` with a function that doesn't have a return. [PR 738](https://github.com/near/near-sdk-rs/pull/738)
 
 ### Changed
 - Deprecate `callback`, `callback_vec`, `result_serializer`, `init` proc macro attributes and remove exports from `near-sdk`. [PR 770](https://github.com/near/near-sdk-rs/pull/770)
   - They are not needed to be imported and are handled specifically within `#[near_bindgen]`
+- Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
+- Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
 
 ## `4.0.0-pre.7` [02-02-2022]
 
@@ -245,3 +248,11 @@ impl StatusMessage {
 * Improving fungible token comments https://github.com/near/near-sdk-rs/pull/177
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
+
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...HEAD
+[4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/3.1.0...4.0.0-pre.7
+[3.1.0]: https://github.com/near/near-sdk-rs/compare/3.0.1...3.1.0
+[3.0.1]: https://github.com/near/near-sdk-rs/compare/v2.0.1...v3.0.1
+[2.0.1]: https://github.com/near/near-sdk-rs/compare/v1.0.0...v2.0.1
+[1.0.0]: https://github.com/near/near-sdk-rs/compare/v0.11.0...v1.0.0
+[0.11.0]: https://github.com/near/near-sdk-rs/releases/tag/v0.11.0
