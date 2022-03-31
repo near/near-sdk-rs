@@ -652,6 +652,16 @@ pub fn log(message: &[u8]) {
 // ###############
 /// Writes key-value into storage.
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(!storage_write("key".as_bytes(), "value".as_bytes()));
+/// assert!(storage_write("key".as_bytes(), "another_value".as_bytes()));
+/// assert_eq!(storage_read("key".as_bytes()).unwrap(), "another_value".as_bytes());
+/// ```
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         sys::storage_write(
@@ -668,6 +678,16 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     }
 }
 /// Reads the value stored under the given key.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(storage_read("key".as_bytes()).is_none());
+/// storage_write("key".as_bytes(), "value".as_bytes());
+/// assert_eq!(storage_read("key".as_bytes()).unwrap(), "value".as_bytes());
+/// ```
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
