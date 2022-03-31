@@ -259,6 +259,19 @@ pub fn random_seed_array() -> [u8; 32] {
 }
 
 /// Hashes the random sequence of bytes using sha256.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256;
+/// use hex;
+///
+/// let hashed = sha256("The phrase that will be hashed".as_bytes());
+/// assert_eq!(
+///     hashed,
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
+/// );
+/// ```
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     sha256_array(value).to_vec()
 }
