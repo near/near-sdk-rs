@@ -58,18 +58,19 @@ impl ImplItemMethodInfo {
             is_handles_result,
             ..
         } = attr_signature_info;
-        let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
-            // No check if the method is payable or a view method
-            quote! {}
-        } else {
-            // If method is not payable, do a check to make sure that it doesn't consume deposit
-            let error = format!("Method {} doesn't accept deposit", ident);
-            quote! {
-                if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic_str(#error);
+        let deposit_check =
+            if *is_payable || matches!(method_type, &MethodType::View) || receiver.is_none() {
+                // No check if the method is payable or doesn't mutate state
+                quote! {}
+            } else {
+                // If method is not payable, do a check to make sure that it doesn't consume deposit
+                let error = format!("Method {} doesn't accept deposit", ident);
+                quote! {
+                    if near_sdk::env::attached_deposit() != 0 {
+                        near_sdk::env::panic_str(#error);
+                    }
                 }
-            }
-        };
+            };
         let is_private_check = if *is_private {
             let error = format!("Method {} is private", ident);
             quote! {

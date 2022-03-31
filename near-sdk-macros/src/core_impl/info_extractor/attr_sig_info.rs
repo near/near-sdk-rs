@@ -120,7 +120,7 @@ impl AttrSigInfo {
                     "Init methods can't have `self` attribute",
                 ));
             }
-        };
+        }
 
         if let Some(payable_attr) = payable_attr {
             if matches!(method_type, MethodType::View) {
