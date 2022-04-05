@@ -266,9 +266,8 @@ pub fn random_seed_array() -> [u8; 32] {
 /// use near_sdk::env::sha256;
 /// use hex;
 ///
-/// let hashed = sha256("The phrase that will be hashed".as_bytes());
 /// assert_eq!(
-///     hashed,
+///     sha256("The phrase that will be hashed".as_bytes()),
 ///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
 /// );
 /// ```

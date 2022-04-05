@@ -11,6 +11,25 @@ use quote::quote;
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
+/// This macro is used on a struct and the function implementations 
+/// to generate the necessary code to be a valid NEAR contract and expose 
+/// the intended functions to be able to be called externally.
+///
+/// # Examples
+///
+/// ```ignore
+/// use near_sdk::near_bindgen;
+/// 
+/// #[near_bindgen]
+/// pub struct Contract {
+///    data: i8,
+/// }
+///
+/// #[near_bindgen]
+/// impl Contract {
+///     pub fn some_function(&self) {}
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
@@ -44,7 +63,19 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         )
     }
 }
-
+/// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
+/// Each of these static methods takes positional arguments defined by the Trait, 
+/// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
+///
+/// # Examples
+///
+/// ```ignore
+/// #[ext_contract(ext_calculator)]
+/// trait Calculator {
+///     fn mult(&self, a: u64, b: u64) -> u128;
+///     fn sum(&self, a: u128, b: u128) -> u128;
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(mut input) = syn::parse::<ItemTrait>(item) {
@@ -108,6 +139,27 @@ pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// `init` is a marker attribute it does not generate code by itself.
+///
+/// # Examples
+///
+/// ```ignore
+/// use near_sdk::near_bindgen;
+/// 
+/// #[near_bindgen]
+/// pub struct Contract {
+///    data: i8,
+/// }
+///
+/// #[near_bindgen]
+/// impl Contract {
+///     #[init]
+///     pub fn new(initial_data: i8) -> Self {
+///         Self {
+///             data: initial_data,
+///         }
+///     }
+/// }
+/// ```
 #[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 #[proc_macro_attribute]
 pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
