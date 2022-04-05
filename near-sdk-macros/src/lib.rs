@@ -11,15 +11,15 @@ use quote::quote;
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
-/// This macro is used on a struct and the function implementations 
-/// to generate the necessary code to be a valid NEAR contract and expose 
+/// This macro is used on a struct and the function implementations
+/// to generate the necessary code to be a valid NEAR contract and expose
 /// the intended functions to be able to be called externally.
 ///
 /// # Examples
 ///
 /// ```ignore
 /// use near_sdk::near_bindgen;
-/// 
+///
 /// #[near_bindgen]
 /// pub struct Contract {
 ///    data: i8,
@@ -63,8 +63,9 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         )
     }
 }
+
 /// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
-/// Each of these static methods takes positional arguments defined by the Trait, 
+/// Each of these static methods takes positional arguments defined by the Trait,
 /// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
 ///
 /// # Examples
@@ -144,7 +145,7 @@ pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// use near_sdk::near_bindgen;
-/// 
+///
 /// #[near_bindgen]
 /// pub struct Contract {
 ///    data: i8,
