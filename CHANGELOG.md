@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [Unreleased]
 ### Added
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
 - Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
@@ -13,12 +13,12 @@
 - Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
 - Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
 
-## `4.0.0-pre.7` [02-02-2022]
+## [4.0.0-pre.7] - 2022-02-02
 
 ### Features
 - Added FT and NFT event logs to `near-contract-standards`. [PR 627](https://github.com/near/near-sdk-rs/pull/627) and [PR 723](https://github.com/near/near-sdk-rs/pull/723)
 
-## `4.0.0-pre.6` [01-21-2022]
+## [4.0.0-pre.6] - 2022-01-21
 
 ### Features
 - Added `env::random_seed_array` to return a fixed length array of the `random_seed` and optimizes the existing function. [PR 692](https://github.com/near/near-sdk-rs/pull/692)
@@ -27,7 +27,7 @@
 ### Fixes
 - Improved macro spans for better errors with `#[near_bindgen]` macro. [PR 683](https://github.com/near/near-sdk-rs/pull/683)
 
-## `4.0.0-pre.5` [12-23-2021]
+## [4.0.0-pre.5] - 2021-12-23
 - fix(standards): Fix NFT impl macros to not import `HashMap` and `near_sdk::json_types::U128`. [PR 571](https://github.com/near/near-sdk-rs/pull/571).
 - Add drain iterator for `near_sdk::store::UnorderedMap`. [PR 613](https://github.com/near/near-sdk-rs/pull/613).
   - Will remove all values and iterate over owned values that were removed
@@ -51,10 +51,10 @@
 - Added `ecrecover` under `unstable` feature for recovering signer address by message hash and a corresponding signature. [PR 658](https://github.com/near/near-sdk-rs/pull/658).
 - standards: Add require statement to ensure minimum needed gas in FT and NFT transfers at start of method. [PR 678](https://github.com/near/near-sdk-rs/pull/678)
 
-## `4.0.0-pre.4` [10-15-2021]
+## [4.0.0-pre.4] - 2021-10-15
 - Unpin `syn` dependency in macros from `=1.0.57` to be more composable with other crates. [PR 605](https://github.com/near/near-sdk-rs/pull/605)
 
-## `4.0.0-pre.3` [10-12-2021]
+## [4.0.0-pre.3] - 2021-10-12
 - Introduce `#[callback_result]` annotation, which acts like `#[callback]` except that it returns `Result<T, PromiseError>` to allow error handling. [PR 554](https://github.com/near/near-sdk-rs/pull/554)
   - Adds `#[callback_unwrap]` to replace `callback`
 - mock: Update `method_names` field of `AddKeyWithFunctionCall` to a `Vec<String>` from `Vec<Vec<u8>>`. [PR 555](https://github.com/near/near-sdk-rs/pull/555)
@@ -69,7 +69,7 @@
   - Similar change to `LookupMap` update, and is an iterable version of that data structure.
   - Data structure has also changed internal storage format and cannot be swapped with `collections::UnorderedMap` without manual migration.
 
-## `4.0.0-pre.2` [08-19-2021]
+## [4.0.0-pre.2] - 2021-08-19
 - Update `panic` and `panic_utf8` syscall signatures to indicate they do not return. [PR 489](https://github.com/near/near-sdk-rs/pull/489)
 - Deprecate `env::panic` in favor of `env::panic_str`. [PR 492](https://github.com/near/near-sdk-rs/pull/492)
   - This method now takes a `&str` as the bytes are enforced to be utf8 in the runtime.
@@ -88,7 +88,7 @@
 - Fixes `receiver_id` in `mock::Receipt` to `AccountId` from string. This is a change to the type added in `4.0.0-pre.1`. [PR 529](https://github.com/near/near-sdk-rs/pull/529)
 - Moves runtime syscalls to `near-sys` crate and includes new functions available [PR 507](https://github.com/near/near-sdk-rs/pull/507)
 
-## `4.0.0-pre.1` [07-23-2021]
+## [4.0.0-pre.1] - 2021-07-23
 * Implements new `LazyOption` type under `unstable` feature. Similar to `Lazy` but is optional to set a value. [PR 444](https://github.com/near/near-sdk-rs/pull/444).
 * Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
 * Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
@@ -124,7 +124,7 @@
 * `PublicKey` now utilizes `Base58PublicKey` instead of `Vec<u8>` directly [PR 453](https://github.com/near/near-sdk-rs/pull/453). Usage of `Base58PublicKey` is deprecated
 * Expose `Receipt` and respective `VmAction`s in mocked contexts through replacing with a local interface and types. [PR 479](https://github.com/near/near-sdk-rs/pull/479)
 
-## `3.1.0` [04-06-2021]
+## [3.1.0] - 2021-04-06
 
 * Updated dependencies for `near-sdk`
 * Introduce trait `IntoStorageKey` and updating all persistent collections to take it instead of `Vec<u8>`.
@@ -158,7 +158,7 @@ impl StatusMessage {
 }
 ```
 
-## `3.0.1` [03-25-2021]
+## [3.0.1] - 2021-03-25
 
 * Introduced `#[private]` method decorator, that verifies `predecessor_account_id() == current_account_id()`.
   NOTE: Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
@@ -182,11 +182,11 @@ impl StatusMessage {
 * **BREAKING** `#[init]` now checks that the state is not initialized. This is expected behavior. To ignore state check you can call `#[init(ignore_state)]`
 * NOTE: `3.0.0` is not published, due to tag conflicts on the `near-sdk-rs` repo.
 
-## `2.0.1` [01-13-2021]
+## [2.0.1] - 2021-01-13
 
 * Pinned version of `syn` crate to `=1.0.57`, since `1.0.58` introduced a breaking API change.
 
-## `2.0.0` [08-25-2020]
+## [2.0.0] - 2020-08-25
 
 ### Contract changes
 
@@ -203,7 +203,7 @@ impl StatusMessage {
   Previous `TreeMap` implementation was renamed to `LegacyTreeMap` and was deprecated.
   It should only be used if the contract was already deployed and state has to be compatible with the previous implementation.
 
-## `1.0.1` [08-22-2020]
+## [1.0.1] - 2020-08-22
 
 ### Other changes
 
@@ -213,7 +213,7 @@ impl StatusMessage {
 
 * Bumped dependency version of `near-vm-logic` and `near-runtime-fees` to `2.0.0` that changed `VMLogic` interface.
 
-## `1.0.0` [07-13-2020]
+## [1.0.0] - 2020-07-13
 
 ### Other changes
 
@@ -228,7 +228,7 @@ impl StatusMessage {
 
 * Use re-exported crate dependencies through `near_sdk` crate.
 
-## `0.11.0` [06-08-2020]
+## [0.11.0] - 2020-06-08
 
 ### API breaking changes
 
@@ -250,7 +250,13 @@ impl StatusMessage {
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
 [Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...HEAD
-[4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/3.1.0...4.0.0-pre.7
+[4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.6...4.0.0-pre.7
+[4.0.0-pre.6]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.5...4.0.0-pre.6
+[4.0.0-pre.5]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.4...4.0.0-pre.5
+[4.0.0-pre.4]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.3...4.0.0-pre.4
+[4.0.0-pre.3]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.2...4.0.0-pre.3
+[4.0.0-pre.2]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.1...4.0.0-pre.2
+[4.0.0-pre.1]: https://github.com/near/near-sdk-rs/compare/3.1.0...4.0.0-pre.1
 [3.1.0]: https://github.com/near/near-sdk-rs/compare/3.0.1...3.1.0
 [3.0.1]: https://github.com/near/near-sdk-rs/compare/v2.0.1...v3.0.1
 [2.0.1]: https://github.com/near/near-sdk-rs/compare/v1.0.0...v2.0.1
