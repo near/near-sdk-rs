@@ -231,7 +231,7 @@ impl MultiToken {
 
     pub fn internal_transfer(
         &mut self,
-        sender_id: &AccountId,
+        original_sender_id: &AccountId,
         receiver_id: &AccountId,
         token_id: &TokenId,
         amount: Balance,
@@ -253,14 +253,14 @@ impl MultiToken {
                 Some(check_and_apply_approval(
                     &mut token_approvals,
                     account_id,
-                    sender_id,
+                    original_sender_id,
                     approval_id,
                     amount,
                 )),
             )
         } else {
             // No approval.
-            (sender_id, None)
+            (original_sender_id, None)
         };
 
         require!(sender_id != receiver_id, "Sender and receiver must differ");
@@ -268,7 +268,14 @@ impl MultiToken {
         self.internal_withdraw(token_id, sender_id, amount);
         self.internal_deposit(token_id, receiver_id, amount);
 
-        MultiToken::emit_transfer(sender_id, receiver_id, token_id, amount, Some(sender_id), None);
+        MtTransfer {
+            old_owner_id: sender_id,
+            new_owner_id: receiver_id,
+            token_ids: &[token_id],
+            amounts: &[&amount.to_string()],
+            authorized_id: Some(original_sender_id).filter(|id| *id == sender_id),
+            memo: None,
+        }.emit();
 
         (sender_id.to_owned(), old_approvals)
     }
@@ -288,7 +295,7 @@ impl MultiToken {
     ) -> Token {
         let token =
             self.internal_mint_with_refund(owner_id.clone(), owner_amount, metadata, refund_id);
-        MultiToken::emit_mint(&owner_id, &token.token_id, &token.supply, None);
+        MtMint{owner_id: &owner_id, token_ids: &[&token.token_id], amounts: &[&token.supply.to_string()], memo: None}.emit();
 
         token
     }
@@ -361,35 +368,6 @@ impl MultiToken {
         }
 
         Token { token_id, owner_id, supply: u128::MAX, metadata: token_metadata }
-    }
-
-    fn emit_transfer(
-        owner_id: &AccountId,
-        receiver_id: &AccountId,
-        token_id: &str,
-        amount: Balance,
-        sender_id: Option<&AccountId>,
-        memo: Option<String>,
-    ) {
-        MtTransfer {
-            old_owner_id: owner_id,
-            new_owner_id: receiver_id,
-            token_ids: &[token_id],
-            amounts: &[&amount.to_string()],
-            authorized_id: sender_id.filter(|sender_id| *sender_id == owner_id),
-            memo: memo.as_deref(),
-        }
-        .emit();
-    }
-
-    fn emit_mint(owner_id: &AccountId, token_id: &TokenId, amount: &Balance, memo: Option<String>) {
-        MtMint {
-            owner_id,
-            token_ids: &[token_id],
-            amounts: &[&amount.to_string()],
-            memo: memo.as_deref(),
-        }
-        .emit()
     }
 }
 
