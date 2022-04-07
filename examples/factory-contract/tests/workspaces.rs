@@ -1,4 +1,4 @@
-use near_primitives::views::FinalExecutionStatus;
+
 use near_sdk::json_types::U128;
 use near_units::parse_near;
 use test_case::test_case;
@@ -8,8 +8,8 @@ use workspaces::prelude::*;
 #[test_case("factory_contract_low_level")]
 #[tokio::test]
 async fn test_deploy_status_message(contract_name: &str) -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
-    let contract = worker.dev_deploy(std::fs::read(format!("res/{}.wasm", contract_name))?).await?;
+    let worker = workspaces::sandbox().await?;
+    let contract = worker.dev_deploy(&std::fs::read(format!("res/{}.wasm", contract_name))?).await?;
 
     let status_id: near_sdk::AccountId = "status".parse().unwrap();
     let status_amt = U128::from(parse_near!("35 N"));
@@ -20,7 +20,7 @@ async fn test_deploy_status_message(contract_name: &str) -> anyhow::Result<()> {
         .deposit(parse_near!("50 N"))
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let message = "hello world";
     let res = contract
@@ -29,7 +29,7 @@ async fn test_deploy_status_message(contract_name: &str) -> anyhow::Result<()> {
         .gas(300_000_000_000_000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
     let value = res.json::<String>()?;
     assert_eq!(message, value.trim_matches(|c| c == '"'));
 
