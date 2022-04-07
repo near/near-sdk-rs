@@ -353,7 +353,15 @@ impl Promise {
     /// ```
     pub fn then(self, mut other: Promise) -> Promise {
         match &mut other.subtype {
-            PromiseSubtype::Single(x) => *x.after.borrow_mut() = Some(self),
+            PromiseSubtype::Single(x) => {
+                let mut after = x.after.borrow_mut();
+                if after.is_some() {
+                    crate::env::panic_str(
+                        "Cannot callback promise which is already scheduled after another",
+                    );
+                }
+                *after = Some(self)
+            }
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
         other
