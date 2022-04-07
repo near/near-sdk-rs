@@ -1,11 +1,11 @@
-FROM rust:1.51.0
+FROM rust:1.56.0
 
 LABEL description="Container for builds"
 
-RUN rustup default 1.51.0
+RUN rustup default 1.56.0
 RUN rustup target add wasm32-unknown-unknown
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get -y update && apt-get install -y \
     git \
     less \
     vim \

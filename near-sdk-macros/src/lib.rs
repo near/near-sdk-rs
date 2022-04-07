@@ -81,29 +81,34 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// `callback` is a marker attribute it does not generate code by itself.
 #[proc_macro_attribute]
+#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 pub fn callback(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// `callback_args_vec` is a marker attribute it does not generate code by itself.
+#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 #[proc_macro_attribute]
 pub fn callback_vec(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// `serializer` is a marker attribute it does not generate code by itself.
+#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 #[proc_macro_attribute]
 pub fn serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// `result_serializer` is a marker attribute it does not generate code by itself.
+#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 #[proc_macro_attribute]
 pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
 /// `init` is a marker attribute it does not generate code by itself.
+#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 #[proc_macro_attribute]
 pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
@@ -182,5 +187,32 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     };
     TokenStream::from(quote! {
         impl near_sdk::BorshIntoStorageKey for #name {}
+    })
+}
+
+/// `FunctionError` generates implementation for `near_sdk::FunctionError` trait.
+/// It allows contract runtime to panic with the type using its `ToString` implementation
+/// as the message.
+#[proc_macro_derive(FunctionError)]
+pub fn function_error(item: TokenStream) -> TokenStream {
+    let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        input.ident
+    } else if let Ok(input) = syn::parse::<ItemStruct>(item) {
+        input.ident
+    } else {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "FunctionError can only be used as a derive on enums or structs.",
+            )
+            .to_compile_error(),
+        );
+    };
+    TokenStream::from(quote! {
+        impl near_sdk::FunctionError for #name {
+            fn panic(&self) -> ! {
+                near_sdk::env::panic_str(&::std::string::ToString::to_string(&self))
+            }
+        }
     })
 }
