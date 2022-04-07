@@ -39,6 +39,8 @@ pub type BlockHeightDelta = u64;
 
 pub type GCCount = u64;
 
+/// Promise that was created by merging several promises (using `promise_and`)
 pub type PromiseId = Vec<usize>;
 
+/// Genesis protocol version. Useful when there are protocol upgrades.
 pub type ProtocolVersion = u32;

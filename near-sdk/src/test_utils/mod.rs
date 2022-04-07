@@ -1,3 +1,5 @@
+//! Testing blockchain utilities. These can only be used inside tests and are not available for
+//! a wasm32 target.
 #[allow(dead_code)]
 pub mod test_env;
 
