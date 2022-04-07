@@ -183,7 +183,6 @@ impl PromiseJoint {
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
-#[derive(Clone)]
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
