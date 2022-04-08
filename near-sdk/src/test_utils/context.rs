@@ -85,10 +85,10 @@ impl VMContextBuilder {
     pub fn new() -> Self {
         Self {
             context: VMContext {
-                current_account_id: alice().try_into().unwrap(),
-                signer_account_id: bob().try_into().unwrap(),
+                current_account_id: alice(),
+                signer_account_id: bob(),
                 signer_account_pk: vec![0u8; 33].try_into().unwrap(),
-                predecessor_account_id: bob().try_into().unwrap(),
+                predecessor_account_id: bob(),
                 input: vec![],
                 block_index: 0,
                 block_timestamp: 0,
@@ -106,22 +106,22 @@ impl VMContextBuilder {
     }
 
     pub fn current_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.current_account_id = account_id.try_into().unwrap();
+        self.context.current_account_id = account_id;
         self
     }
 
     pub fn signer_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.signer_account_id = account_id.try_into().unwrap();
+        self.context.signer_account_id = account_id;
         self
     }
 
     pub fn signer_account_pk(&mut self, pk: PublicKey) -> &mut Self {
-        self.context.signer_account_pk = pk.into();
+        self.context.signer_account_pk = pk;
         self
     }
 
     pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
-        self.context.predecessor_account_id = account_id.try_into().unwrap();
+        self.context.predecessor_account_id = account_id;
         self
     }
 
