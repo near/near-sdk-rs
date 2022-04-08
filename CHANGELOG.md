@@ -18,6 +18,9 @@
 - Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
 - Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
 
+### Removed
+- Remove `Clone` implementation for `Promise` (error prone) https://github.com/near/near-sdk-rs/pull/783
+
 ## [4.0.0-pre.7] - 2022-02-02
 
 ### Features
