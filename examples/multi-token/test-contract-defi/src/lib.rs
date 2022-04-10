@@ -46,7 +46,7 @@ impl DeFi {
     #[init]
     pub fn new(multi_token_account_id: AccountId) -> Self {
         require!(!env::state_exists(), "Already initialized");
-        Self { multi_token_account_id: multi_token_account_id.into() }
+        Self { multi_token_account_id }
     }
 }
 
@@ -59,7 +59,7 @@ impl MultiTokenReceiver for DeFi {
     fn mt_on_transfer(
         &mut self,
         sender_id: AccountId,
-        _previous_owner_ids: Vec<AccountId>,
+        previous_owner_ids: Vec<AccountId>,
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
         msg: String,
@@ -71,10 +71,11 @@ impl MultiTokenReceiver for DeFi {
         );
 
         log!(
-            "received {} types of tokens from @{} mt_on_transfer, msg = {}",
+            "received {} types of tokens from @{} mt_on_transfer, msg = {}, previous_owner_ids = {:?}",
             token_ids.len(),
             sender_id.as_ref(),
-            msg
+            msg,
+            previous_owner_ids
         );
 
         for i in 0..token_ids.len() {

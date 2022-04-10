@@ -7,7 +7,7 @@ pub trait MultiTokenReceiver {
     /// Take some action after receiving a multi-token's
     ///
     /// ## Requirements:
-    /// * Contract MUST restrict calls to this function to a set of whitelisted NFT
+    /// * Contract MUST restrict calls to this function to a set of whitelisted MT
     ///   contracts
     /// * Contract MUST panic if `token_ids` length does not equal `amounts`
     ///   length

@@ -93,7 +93,6 @@ fn new_245_v1(event_kind: Nep245EventKind) -> NearEvent {
     new_245("1.0.0", event_kind)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,8 +121,13 @@ mod tests {
     #[test]
     fn mt_mints() {
         MtMint::emit_many(&[
-            MtMint{ owner_id: &alice(), token_ids: &["0", "1"], amounts: &["1000", "90000"], memo: None },
-            MtMint{ owner_id: &bob(),   token_ids: &["2"], amounts: &["1"], memo: Some("has memo") },
+            MtMint {
+                owner_id: &alice(),
+                token_ids: &["0", "1"],
+                amounts: &["1000", "90000"],
+                memo: None,
+            },
+            MtMint { owner_id: &bob(), token_ids: &["2"], amounts: &["1"], memo: Some("has memo") },
         ]);
         assert_eq!(
             test_utils::get_logs()[0],
@@ -135,9 +139,10 @@ mod tests {
     fn mt_burn() {
         let owner_id = &bob();
         let token_ids = &["0", "1"];
-        let amounts = &["20","40"];
+        let amounts = &["20", "40"];
         let authorized_id = &alice();
-        MtBurn { owner_id, token_ids, amounts, authorized_id: Some(authorized_id), memo: None }.emit();
+        MtBurn { owner_id, token_ids, amounts, authorized_id: Some(authorized_id), memo: None }
+            .emit();
         assert_eq!(
             test_utils::get_logs()[0],
             r#"EVENT_JSON:{"standard":"nep245","version":"1.0.0","event":"mt_burn","data":[{"owner_id":"bob","token_ids":["0","1"],"amounts":["20","40"],"authorized_id":"alice"}]}"#
@@ -147,8 +152,20 @@ mod tests {
     #[test]
     fn mt_burns() {
         MtBurn::emit_many(&[
-            MtBurn{ owner_id: &alice(), token_ids: &["0", "1"], amounts: &["1000", "90000"], authorized_id: None, memo: None },
-            MtBurn{ owner_id: &bob(),   token_ids: &["2"], amounts: &["1"], authorized_id: Some(&alice()), memo: Some("has memo") },
+            MtBurn {
+                owner_id: &alice(),
+                token_ids: &["0", "1"],
+                amounts: &["1000", "90000"],
+                authorized_id: None,
+                memo: None,
+            },
+            MtBurn {
+                owner_id: &bob(),
+                token_ids: &["2"],
+                amounts: &["1"],
+                authorized_id: Some(&alice()),
+                memo: Some("has memo"),
+            },
         ]);
         assert_eq!(
             test_utils::get_logs()[0],
@@ -162,8 +179,15 @@ mod tests {
         let new_owner_id = &alice();
         let token_ids = &["0", "1"];
         let amounts = &["48", "99"];
-        MtTransfer { old_owner_id, new_owner_id, token_ids, amounts, authorized_id: None, memo: None }
-            .emit();
+        MtTransfer {
+            old_owner_id,
+            new_owner_id,
+            token_ids,
+            amounts,
+            authorized_id: None,
+            memo: None,
+        }
+        .emit();
         assert_eq!(
             test_utils::get_logs()[0],
             r#"EVENT_JSON:{"standard":"nep245","version":"1.0.0","event":"mt_transfer","data":[{"old_owner_id":"bob","new_owner_id":"alice","token_ids":["0","1"],"amounts":["48","99"]}]}"#

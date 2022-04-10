@@ -13,8 +13,8 @@ use near_sdk::{
     CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 
-pub const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
-pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+pub const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(15_000_000_000_000);
+pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas(50_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
 const NO_DEPOSIT: Balance = 0;
 
@@ -128,7 +128,7 @@ impl MultiToken {
             owner_id,
             extra_storage_in_bytes_per_emission: 0,
             owner_by_id: TreeMap::new(StorageKey::OwnerById),
-            total_supply: LookupMap::new(StorageKey::TotalSupply { supply: u128::MAX }),
+            total_supply: LookupMap::new(StorageKey::TotalSupply { supply: 0 }),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
             balances_per_token: UnorderedMap::new(StorageKey::Balances),
@@ -275,7 +275,8 @@ impl MultiToken {
             amounts: &[&amount.to_string()],
             authorized_id: Some(original_sender_id).filter(|id| *id == sender_id),
             memo: None,
-        }.emit();
+        }
+        .emit();
 
         (sender_id.to_owned(), old_approvals)
     }
@@ -289,13 +290,18 @@ impl MultiToken {
     pub fn internal_mint(
         &mut self,
         owner_id: AccountId,
-        owner_amount: Option<Balance>,
+        supply: Option<Balance>,
         metadata: Option<TokenMetadata>,
         refund_id: Option<AccountId>,
     ) -> Token {
-        let token =
-            self.internal_mint_with_refund(owner_id.clone(), owner_amount, metadata, refund_id);
-        MtMint{owner_id: &owner_id, token_ids: &[&token.token_id], amounts: &[&token.supply.to_string()], memo: None}.emit();
+        let token = self.internal_mint_with_refund(owner_id.clone(), supply, metadata, refund_id);
+        MtMint {
+            owner_id: &owner_id,
+            token_ids: &[&token.token_id],
+            amounts: &[&token.supply.to_string()],
+            memo: None,
+        }
+        .emit();
 
         token
     }
@@ -310,7 +316,7 @@ impl MultiToken {
     pub fn internal_mint_with_refund(
         &mut self,
         token_owner_id: AccountId,
-        owner_amount: Option<Balance>,
+        supply: Option<Balance>,
         token_metadata: Option<TokenMetadata>,
         refund_id: Option<AccountId>,
     ) -> Token {
@@ -343,14 +349,16 @@ impl MultiToken {
             .and_then(|by_id| by_id.insert(&token_id, &token_metadata.clone().unwrap()));
 
         // Insert new supply
-        self.total_supply.insert(&token_id, &u128::MAX);
+        let supply = supply.unwrap_or(0);
+        self.total_supply.insert(&token_id, &supply);
 
         // Insert new balance
-        let mut new_set: LookupMap<AccountId, u128> = LookupMap::new(StorageKey::BalancesInner {
-            token_id: env::sha256(token_id.as_bytes()),
-        });
-        new_set.insert(&owner_id, &owner_amount.unwrap_or(0));
-        self.balances_per_token.insert(&token_id, &new_set);
+        let mut new_balances_per_account: LookupMap<AccountId, u128> =
+            LookupMap::new(StorageKey::BalancesInner {
+                token_id: env::sha256(token_id.as_bytes()),
+            });
+        new_balances_per_account.insert(&owner_id, &supply);
+        self.balances_per_token.insert(&token_id, &new_balances_per_account);
 
         // Updates enumeration if extension is used
         if let Some(per_owner) = &mut self.tokens_per_owner {
@@ -367,7 +375,7 @@ impl MultiToken {
             refund_deposit_to_account(env::storage_usage() - usage, id);
         }
 
-        Token { token_id, owner_id, supply: u128::MAX, metadata: token_metadata }
+        Token { token_id, owner_id, supply, metadata: token_metadata }
     }
 }
 
@@ -399,7 +407,6 @@ impl MultiTokenCore for MultiToken {
     ) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        env::log_str(format!("Predecessor {}", sender_id).as_str());
         require!(token_ids.len() == amounts.len());
         require!(!token_ids.is_empty());
 
@@ -419,9 +426,8 @@ impl MultiTokenCore for MultiToken {
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
         require!(
-            // GAS_FOR_MT_TRANSFER_CALL includes GAS_FOR_RESOLVE_TRANSFER, so why both?
             env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
-            "GAS!GAS!GAS! I gonna to step on the gas"
+            "Insufficient gas for transfer"
         );
         let sender_id = env::predecessor_account_id();
 
@@ -465,7 +471,7 @@ impl MultiTokenCore for MultiToken {
         assert_one_yocto();
         require!(
             env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
-            "GAS!GAS!GAS! I gonna to step on the gas"
+            "Insufficient gas for transfer"
         );
         let sender_id = env::predecessor_account_id();
 

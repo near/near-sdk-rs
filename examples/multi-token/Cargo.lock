@@ -1148,6 +1148,7 @@ dependencies = [
  "approval-receiver",
  "defi",
  "multi-token",
+ "near-contract-standards",
  "near-primitives 0.5.0",
  "near-sdk 4.0.0-pre.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "near-units",

@@ -25,7 +25,7 @@ pub type ApprovalContainer = LookupMap<TokenId, HashMap<AccountId, HashMap<Accou
 pub type ClearedApproval = (AccountId, u64, U128);
 
 /// Info on individual token
-#[derive(Debug, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, BorshDeserialize, BorshSerialize)]
 pub struct Token {
     pub token_id: String,
     pub owner_id: AccountId,

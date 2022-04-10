@@ -67,7 +67,7 @@ impl ExampleMTContract {
         &mut self,
         token_owner_id: AccountId,
         token_metadata: TokenMetadata,
-        amount: Balance,
+        supply: Balance,
     ) -> Token {
         // Only the owner of the MT contract can perform this operation
         assert_eq!(
@@ -77,7 +77,7 @@ impl ExampleMTContract {
             env::predecessor_account_id(),
             self.tokens.owner_id
         );
-        self.tokens.internal_mint(token_owner_id, Some(amount), Some(token_metadata), None)
+        self.tokens.internal_mint(token_owner_id, Some(supply), Some(token_metadata), None)
     }
 
     pub fn register(&mut self, token_id: TokenId, account_id: AccountId) {
@@ -292,6 +292,119 @@ mod tests {
             None,
             None,
         );
+    }
+
+    #[test]
+    fn test_simple_approvals() {
+        let mut context = VMContextBuilder::new();
+        let mut contract = ExampleMTContract::new_default_meta(accounts(0));
+        set_caller(&mut context, 0);
+
+        let (quote_token, base_token) = init_tokens(&mut contract);
+
+        contract.register(quote_token.token_id.clone(), accounts(1));
+        contract.register(base_token.token_id.clone(), accounts(1));
+
+        // Initially, Account 1 is not approved.
+        testing_env!(context.attached_deposit(1).build());
+        assert!(!contract.mt_is_approved(
+            vec![quote_token.token_id.clone()],
+            accounts(1),
+            vec![20],
+            None,
+        ));
+
+        // Create approval for account 1 to transfer 20 of quote token from account 0.
+        testing_env!(context.attached_deposit(150000000000000000000).build());
+        contract.mt_approve(
+            vec![quote_token.token_id.clone()],
+            vec![20],
+            accounts(1),
+            None,
+        );
+
+        // Account 1 is approved for 20 tokens.
+        testing_env!(context.attached_deposit(1).build());
+        assert!(contract.mt_is_approved(
+            vec![quote_token.token_id.clone()],
+            accounts(1),
+            vec![20],
+            None,
+        ));
+
+        // Account 1 is NOT approved for more than 20 tokens.
+        testing_env!(context.attached_deposit(1).build());
+        assert!(!contract.mt_is_approved(
+            vec![quote_token.token_id.clone()],
+            accounts(1),
+            vec![21],
+            None,
+        ));
+
+        // Account 1 is NOT approved for the other token.
+        testing_env!(context.attached_deposit(1).build());
+        assert!(!contract.mt_is_approved(
+            vec![base_token.token_id.clone()],
+            accounts(1),
+            vec![20],
+            None,
+        ));
+
+        // Revoke the approval
+        contract.mt_revoke(
+            vec![quote_token.token_id.clone()],
+            accounts(1),
+        );
+        assert!(!contract.mt_is_approved(
+            vec![quote_token.token_id.clone()],
+            accounts(1),
+            vec![20],
+            None,
+        ));
+
+        // Create 2 approvals for 2 tokens in one call.
+        testing_env!(context.attached_deposit(2 * 150000000000000000000).build());
+        contract.mt_approve(
+            vec![quote_token.token_id.clone(), base_token.token_id.clone()],
+            vec![10, 500],
+            accounts(1),
+            None,
+        );
+        assert!(contract.mt_is_approved(
+            vec![quote_token.token_id.clone(), base_token.token_id.clone()],
+            accounts(1),
+            vec![10, 500],
+            None,
+        ));
+
+        // Approve a different account
+        contract.mt_approve(
+            vec![quote_token.token_id.clone()],
+            vec![30],
+            accounts(2),
+            None,
+        );
+
+        // Revoke all approvals for the quote token
+        testing_env!(context.attached_deposit(1).build());
+        contract.mt_revoke_all(
+            vec![quote_token.token_id.clone()],
+        );
+
+        // Neither account is still approved
+        assert!(!contract.mt_is_approved(
+            vec![quote_token.token_id.clone(), base_token.token_id.clone()],
+            accounts(1),
+            vec![10, 500],
+            None,
+        ));
+        assert!(!contract.mt_is_approved(
+            vec![quote_token.token_id.clone()],
+            accounts(2),
+            vec![30],
+            None,
+        ));
+
     }
 
     fn init_tokens(contract: &mut ExampleMTContract) -> (Token, Token) {
