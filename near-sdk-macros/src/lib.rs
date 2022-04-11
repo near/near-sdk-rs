@@ -11,9 +11,21 @@ use quote::quote;
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
-/// This macro is used on a struct and the function implementations
-/// to generate the necessary code to be a valid NEAR contract and expose
-/// the intended functions to be able to be called externally.
+/// This attribute macro is used on a struct and its implementations
+/// to generate the necessary code to expose `pub` methods from the contract as well
+/// as generating the glue code to be a valid NEAR contract.
+/// 
+/// This macro will generate code to load and deserialize state if the `self` parameter is included
+/// as well as saving it back to state if `&mut self` is used.
+/// 
+/// For parameter serialization, this macro will generate a struct with all of the parameters as
+/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
+/// but can be overwritten by using `#[serializer(borsh)]`.
+/// 
+/// `#[near_bindgen]` will also handle serializing and setting the return value of the
+/// function execution based on what type is returned by the function. By default, this will be
+/// done through `serde` serialized as JSON, but this can be overwritten using
+/// `#[result_serializer(borsh)]`.
 ///
 /// # Examples
 ///
@@ -72,7 +84,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// use near_sdk::ext_contract;
-/// 
+///
 /// #[ext_contract(ext_calculator)]
 /// trait Calculator {
 ///     fn mult(&self, a: u64, b: u64) -> u128;

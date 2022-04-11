@@ -286,6 +286,20 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 }
 
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha256_array(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn sha256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
