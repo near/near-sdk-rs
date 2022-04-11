@@ -71,6 +71,8 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # Examples
 ///
 /// ```ignore
+/// use near_sdk::ext_contract;
+/// 
 /// #[ext_contract(ext_calculator)]
 /// trait Calculator {
 ///     fn mult(&self, a: u64, b: u64) -> u128;
@@ -140,27 +142,6 @@ pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// `init` is a marker attribute it does not generate code by itself.
-///
-/// # Examples
-///
-/// ```ignore
-/// use near_sdk::near_bindgen;
-///
-/// #[near_bindgen]
-/// pub struct Contract {
-///    data: i8,
-/// }
-///
-/// #[near_bindgen]
-/// impl Contract {
-///     #[init]
-///     pub fn new(initial_data: i8) -> Self {
-///         Self {
-///             data: initial_data,
-///         }
-///     }
-/// }
-/// ```
 #[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
 #[proc_macro_attribute]
 pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {

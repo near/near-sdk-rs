@@ -267,7 +267,7 @@ pub fn random_seed_array() -> [u8; 32] {
 /// use hex;
 ///
 /// assert_eq!(
-///     sha256("The phrase that will be hashed".as_bytes()),
+///     sha256(b"The phrase that will be hashed"),
 ///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
 /// );
 /// ```
@@ -657,9 +657,9 @@ pub fn log(message: &[u8]) {
 /// ```
 /// use near_sdk::env::{storage_write, storage_read};
 ///
-/// assert!(!storage_write("key".as_bytes(), "value".as_bytes()));
-/// assert!(storage_write("key".as_bytes(), "another_value".as_bytes()));
-/// assert_eq!(storage_read("key".as_bytes()).unwrap(), "another_value".as_bytes());
+/// assert!(!storage_write(b"key", b"value"));
+/// assert!(storage_write(b"key", b"another_value"));
+/// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
 /// ```
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
@@ -683,9 +683,9 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// ```
 /// use near_sdk::env::{storage_write, storage_read};
 ///
-/// assert!(storage_read("key".as_bytes()).is_none());
-/// storage_write("key".as_bytes(), "value".as_bytes());
-/// assert_eq!(storage_read("key".as_bytes()).unwrap(), "value".as_bytes());
+/// assert!(storage_read(b"key").is_none());
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_read(b"key").unwrap(), b"value");
 /// ```
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
