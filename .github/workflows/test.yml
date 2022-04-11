@@ -19,10 +19,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Add wasm32 target
-        run: rustup target add wasm32-unknown-unknown
       - name: Test
         run: cargo test --all --features unstable
   lint:
@@ -40,3 +37,16 @@ jobs:
       - name: Test Format
         run: cargo fmt -- --check
       - run: cargo clippy --features unstable --tests -- -Dclippy::all
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Setup Windows toolchain"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v1
+      - run: cargo check -p near-sdk --features unstable
+      - run: cargo check -p near-contract-standards

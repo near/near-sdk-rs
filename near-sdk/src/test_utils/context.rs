@@ -112,8 +112,8 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn random_seed(&mut self, seed: Vec<u8>) -> &mut Self {
-        self.context.random_seed = seed;
+    pub fn random_seed(&mut self, seed: [u8; 32]) -> &mut Self {
+        self.context.random_seed = seed.to_vec();
         self
     }
 
@@ -128,8 +128,8 @@ impl VMContextBuilder {
     }
 }
 
-// TODO: This probably shouldn't be necessary with the `testing_env` macro.
 /// Initializes the [`MockedBlockchain`] with a single promise result during execution.
+#[deprecated(since = "4.0.0", note = "Use `testing_env!` macro to initialize with promise results")]
 pub fn testing_env_with_promise_results(context: VMContext, promise_result: PromiseResult) {
     let storage = crate::mock::with_mocked_blockchain(|b| b.take_storage());
 
