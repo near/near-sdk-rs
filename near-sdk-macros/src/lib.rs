@@ -14,14 +14,14 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
-/// 
+///
 /// This macro will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
-/// 
+///
 /// For parameter serialization, this macro will generate a struct with all of the parameters as
 /// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
 /// but can be overwritten by using `#[serializer(borsh)]`.
-/// 
+///
 /// `#[near_bindgen]` will also handle serializing and setting the return value of the
 /// function execution based on what type is returned by the function. By default, this will be
 /// done through `serde` serialized as JSON, but this can be overwritten using
