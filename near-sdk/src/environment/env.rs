@@ -917,4 +917,16 @@ mod tests {
             assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
         }
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn signer_public_key() {
+        let key: PublicKey =
+            "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
+
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
+            .signer_account_pk(key.clone())
+            .build());
+        assert_eq!(super::signer_account_pk(), key);
+    }
 }
