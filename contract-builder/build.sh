@@ -1,8 +1,8 @@
 #!/bin/bash
 set -eox pipefail
 
-if [ "$1" != "linux/amd64" ] && [ "$1" != "linux/arm64" ]; then
-    echo " Please enter one of linux/amd64 or linux/arm64"
+if [ "$1" != "amd64" ] && [ "$1" != "arm64" ]; then
+    echo " Please enter one of amd64 or arm64"
     exit 1
 fi
 
