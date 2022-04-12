@@ -496,11 +496,9 @@ mod tests {
             2,
             signer.account_id.clone(),
             "caller".into(),
-            include_bytes!(
-                "../../examples/cross-contract-high-level/res/cross_contract_high_level.wasm"
-            )
-            .as_ref()
-            .into(),
+            include_bytes!("../../examples/factory-contract/res/factory_contract_high_level.wasm")
+                .as_ref()
+                .into(),
             to_yocto("35"),
             signer.public_key(),
             &signer,

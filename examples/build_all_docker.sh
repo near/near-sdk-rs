@@ -6,21 +6,20 @@ CHECK=0
 pushd $(dirname ${BASH_SOURCE[0]})
 
 # Loop through arguments and process them
-for arg in "$@"
-do
+for arg in "$@"; do
     case $arg in
-        -c|--check)
+    -c | --check)
         CHECK=1
-        shift 
+        shift
         ;;
     esac
 done
 
-for d in "status-message/"  $(ls -d */ | grep -v -e "status-message\/$"); do
-	(./build_docker.sh ${d%%/})
+for d in "status-message/" $(ls -d */ | grep -v -e "status-message\/$"); do
+    (./build_docker.sh ${d%%/})
 done
 
-if [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ] ; then
-	echo "Repository is dirty, please make sure you have committed all contract wasm files"
-	exit 1
+if [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ]; then
+    echo "Repository is dirty, please make sure you have committed all contract wasm files"
+    exit 1
 fi
