@@ -20,7 +20,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
       - name: Build status-message-collections
         env: 
           RUSTFLAGS: '-C link-arg=-s'

@@ -19,7 +19,6 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-      - uses: Swatinem/rust-cache@v1
       - name: Test
         run: cargo test --all --features unstable
   lint:
@@ -33,7 +32,6 @@ jobs:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v1
       - name: Test Format
         run: cargo fmt -- --check
       - run: cargo clippy --features unstable --tests -- -Dclippy::all
@@ -47,6 +45,5 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - uses: Swatinem/rust-cache@v1
       - run: cargo check -p near-sdk --features unstable
       - run: cargo check -p near-contract-standards
