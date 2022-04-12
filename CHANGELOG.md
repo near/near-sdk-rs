@@ -10,13 +10,15 @@
 
 ### Fixes
 - Disallow invalid `Promise::then` chains. Will now panic with `promise_1.then(promise_2.then(promise_3))` syntax. [PR 410](https://github.com/near/near-sdk-rs/pull/410)
-  - Current implementation will schedule these promises in the incorrect order. With this format, it's unclear where the result from `promise_1` will be used, so it will panic at runtime. 
+  - Current implementation will schedule these promises in the incorrect order. With this format, it's unclear where the result from `promise_1` will be used, so it will panic at runtime.
+- Fixed `signer_account_pk` from mocked implementation. [PR 785](https://github.com/near/near-sdk-rs/pull/785)
 
 ### Changed
 - Deprecate `callback`, `callback_vec`, `result_serializer`, `init` proc macro attributes and remove exports from `near-sdk`. [PR 770](https://github.com/near/near-sdk-rs/pull/770)
   - They are not needed to be imported and are handled specifically within `#[near_bindgen]`
 - Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
 - Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
+- Moved `VMContext` to a local type defined in SDK to avoid duplicate types. [PR 785](https://github.com/near/near-sdk-rs/pull/785)
 
 ### Removed
 - Remove `Clone` implementation for `Promise` (error prone) https://github.com/near/near-sdk-rs/pull/783
