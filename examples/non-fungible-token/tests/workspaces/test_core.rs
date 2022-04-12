@@ -223,7 +223,7 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
             Some("transfer & call"),
             "incorrect message",
         ))?
-        .gas(35_000_000_000_000)
+        .gas(30_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
