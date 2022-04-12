@@ -259,6 +259,18 @@ pub fn random_seed_array() -> [u8; 32] {
 }
 
 /// Hashes the random sequence of bytes using sha256.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256;
+/// use hex;
+///
+/// assert_eq!(
+///     sha256(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
+/// );
+/// ```
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     sha256_array(value).to_vec()
 }
@@ -274,6 +286,20 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 }
 
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha256_array(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn sha256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
@@ -639,6 +665,16 @@ pub fn log(message: &[u8]) {
 // ###############
 /// Writes key-value into storage.
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(!storage_write(b"key", b"value"));
+/// assert!(storage_write(b"key", b"another_value"));
+/// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
+/// ```
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         sys::storage_write(
@@ -655,6 +691,16 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     }
 }
 /// Reads the value stored under the given key.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(storage_read(b"key").is_none());
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_read(b"key").unwrap(), b"value");
+/// ```
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
