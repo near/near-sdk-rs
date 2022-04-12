@@ -6,8 +6,7 @@
 extern crate quickcheck;
 
 pub use near_sdk_macros::{
-    callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
-    serializer, BorshStorageKey, FunctionError, PanicOnDefault,
+    ext_contract, metadata, near_bindgen, BorshStorageKey, FunctionError, PanicOnDefault,
 };
 
 #[cfg(feature = "unstable")]
@@ -41,7 +40,7 @@ pub use environment::mock::MockedBlockchain;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMConfig;
 #[cfg(not(target_arch = "wasm32"))]
-pub use near_vm_logic::VMContext;
+pub use test_utils::context::VMContext;
 
 pub mod utils;
 pub use crate::utils::storage_key_impl::IntoStorageKey;
