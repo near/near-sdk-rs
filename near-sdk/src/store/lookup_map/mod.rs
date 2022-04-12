@@ -134,7 +134,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::LookupMap;
-    /// 
+    ///
     /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
     /// ```
     #[inline]
@@ -173,7 +173,7 @@ where
     /// Use [`LookupMap::insert`] if you need the previous value.
     ///
     /// Calling `set` with a `None` value will delete the entry from storage.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use near_sdk::store::LookupMap;
@@ -182,7 +182,7 @@ where
     ///
     /// map.set("test".to_string(), Some(7u8));
     /// assert!(map.contains_key("test"));
-    /// 
+    ///
     /// //Delete the entry from storage
     /// map.set("test".to_string(), None);
     /// assert!(!map.contains_key("test"));
@@ -223,7 +223,7 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use near_sdk::store::LookupMap;
@@ -306,7 +306,7 @@ where
     /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
     /// assert_eq!(map.insert(37, "a".to_string()), None);
     /// assert_eq!(map.contains_key(&37), true);
-    /// 
+    ///
     /// map.insert(37, "b".to_string());
     /// assert_eq!(map.insert(37, "c".to_string()), Some("b".to_string()));
     /// assert_eq!(map[&37], "c".to_string());
@@ -323,7 +323,7 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use near_sdk::store::LookupMap;
@@ -365,7 +365,7 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use near_sdk::store::LookupMap;

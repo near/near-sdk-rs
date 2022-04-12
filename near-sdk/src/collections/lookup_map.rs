@@ -106,7 +106,7 @@ where
     /// Returns true if the map contains a given key.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
@@ -123,10 +123,10 @@ where
     /// Returns the value corresponding to the key.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupMap;
-    /// 
+    ///
     /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
     /// assert_eq!(map.get(&"Toyota".into()), None);
     ///
@@ -141,7 +141,7 @@ where
     /// map.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
@@ -162,7 +162,7 @@ where
     /// the implementation.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupMap;
     ///
@@ -175,7 +175,7 @@ where
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
-    /// Inserts all new key-values from the iterator and replaces values with existing keys 
+    /// Inserts all new key-values from the iterator and replaces values with existing keys
     /// with new values returned from the iterator.
     ///
     /// # Examples
@@ -185,7 +185,7 @@ where
     ///
     /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"m");
     /// let mut source = vec![];
-    /// 
+    ///
     /// source.push(("Toyota".into(), "Camry".into()));
     /// source.push(("Nissan".into(), "Almera".into()));
     /// source.push(("Ford".into(), "Mustang".into()));

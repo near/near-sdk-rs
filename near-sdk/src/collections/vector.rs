@@ -40,7 +40,7 @@ impl<T> Vector<T> {
     }
 
     /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```

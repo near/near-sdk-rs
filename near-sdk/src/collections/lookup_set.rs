@@ -74,13 +74,13 @@ where
     /// Returns true if the set contains an element.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupSet;
     ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"s");
     /// assert_eq!(set.contains(&"Element".into()), false);
-    /// 
+    ///
     /// set.insert(&"Element".into());
     /// assert_eq!(set.contains(&"Element".into()), true);
     /// ```
@@ -91,13 +91,13 @@ where
     /// Removes a value from the set. Returns whether the value was present in the set.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupSet;
     ///
     /// let mut set: LookupSet<String> = LookupSet::new(b"s");
     /// assert_eq!(set.remove(&"Element".into()), false);
-    /// 
+    ///
     /// set.insert(&"Element".into());
     /// assert_eq!(set.remove(&"Element".into()), true);
     /// ```
@@ -110,7 +110,7 @@ where
     /// If the set did have this value present, `false` is returned.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use near_sdk::collections::LookupSet;
     ///

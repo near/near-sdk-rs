@@ -216,7 +216,7 @@ where
     }
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -224,11 +224,11 @@ where
     ///
     /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
-    /// 
+    ///
     /// for x in vec.iter() {
     ///     map.insert(x, &1);
     /// }
-    /// 
+    ///
     /// assert_eq!(map.ceil_key(&5), Some(10));
     /// assert_eq!(map.ceil_key(&10), Some(10));
     /// assert_eq!(map.ceil_key(&11), Some(20));
@@ -341,7 +341,7 @@ where
     ///
     /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
     /// let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-    /// let two: Vec<u32> = vec![45, 35, 25, 15]; 
+    /// let two: Vec<u32> = vec![45, 35, 25, 15];
     /// for x in &one {
     ///     map.insert(x, &0);
     /// }
