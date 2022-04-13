@@ -246,7 +246,7 @@ pub fn used_gas() -> Gas {
 ///
 /// ```
 /// use near_sdk::env;
-/// 
+///
 /// fn rand_range(from: i32, to: i32)->i32{
 ///     let seed=env::random_seed();
 ///     let x = 123456789 ^ u32::from(seed[0]);
