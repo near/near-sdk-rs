@@ -2,9 +2,10 @@ use super::{Receipt, SdkExternal};
 use crate::test_utils::VMContextBuilder;
 use crate::types::{Balance, PromiseResult};
 use crate::RuntimeFeesConfig;
+use crate::VMContext;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult as VmPromiseResult;
-use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic, VMOutcome};
+use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic, VMOutcome};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -54,6 +55,7 @@ impl MockedBlockchain {
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(SdkExternal::new());
+        let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
         ext.validators = validators;
         let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
@@ -96,6 +98,31 @@ impl MockedBlockchain {
 
     pub fn logs(&self) -> Vec<String> {
         self.logic.borrow().clone_outcome().logs
+    }
+}
+
+fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
+    near_vm_logic::VMContext {
+        current_account_id: context.current_account_id.as_str().parse().unwrap(),
+        signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
+        signer_account_pk: context.signer_account_pk.into_bytes(),
+        predecessor_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
+        input: context.input,
+        block_index: context.block_index,
+        block_timestamp: context.block_timestamp,
+        epoch_height: context.epoch_height,
+        account_balance: context.account_balance,
+        account_locked_balance: context.account_locked_balance,
+        storage_usage: context.storage_usage,
+        attached_deposit: context.attached_deposit,
+        prepaid_gas: context.prepaid_gas.0,
+        random_seed: context.random_seed.to_vec(),
+        view_config: context.view_config,
+        output_data_receivers: context
+            .output_data_receivers
+            .into_iter()
+            .map(|a| a.as_str().parse().unwrap())
+            .collect(),
     }
 }
 

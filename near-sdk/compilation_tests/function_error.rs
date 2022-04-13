@@ -25,7 +25,7 @@ impl fmt::Display for ErrorEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ErrorEnum::NotFound => write!(f, "not found"),
-            ErrorEnum::Banned { account_id } => write!(f, "account {} is banned", account_id)
+            ErrorEnum::Banned { account_id } => write!(f, "account {} is banned", account_id),
         }
     }
 }
@@ -36,12 +36,12 @@ struct Contract {}
 
 #[near_bindgen]
 impl Contract {
-    #[return_result]
+    #[handle_result]
     pub fn set(&self, value: String) -> Result<String, ErrorStruct> {
         Err(ErrorStruct { message: format!("Could not set to {}", value) })
     }
 
-    #[return_result]
+    #[handle_result]
     pub fn get(&self) -> Result<String, ErrorEnum> {
         Err(ErrorEnum::NotFound)
     }
