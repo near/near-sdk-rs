@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 pub mod test_env;
 
-mod context;
+pub(crate) mod context;
 use crate::mock::Receipt;
 #[allow(deprecated)]
 pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
