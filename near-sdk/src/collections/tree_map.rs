@@ -44,6 +44,14 @@ where
     K: Ord + Clone + BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
+    /// Makes a new, empty TreeMap
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -56,6 +64,18 @@ where
         }
     }
 
+    /// Returns the number of elements in the tree, also referred to as its size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// tree.insert(&1, &10);
+    /// tree.insert(&2, &20);
+    /// assert_eq!(tree.len(), 2);
+    /// ```
     pub fn len(&self) -> u64 {
         self.tree.len()
     }
@@ -64,6 +84,19 @@ where
         self.tree.is_empty()
     }
 
+    /// Clears the tree, removing all elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// tree.insert(&1, &10);
+    /// tree.insert(&2, &20);
+    /// tree.clear();
+    /// assert_eq!(tree.len(), 0);
+    /// ```
     pub fn clear(&mut self) {
         self.root = 0;
         for n in self.tree.iter() {
@@ -84,14 +117,53 @@ where
         }
     }
 
+    /// Returns true if the map contains a given key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.contains_key(&1), false);
+    /// tree.insert(&1, &10);
+    /// assert_eq!(tree.contains_key(&1), true);
+    /// ```
     pub fn contains_key(&self, key: &K) -> bool {
         self.val.get(key).is_some()
     }
 
+    /// Returns the value corresponding to the key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.get(&1), None);
+    /// tree.insert(&1, &10);
+    /// assert_eq!(tree.get(&1), Some(10));
+    /// ```
     pub fn get(&self, key: &K) -> Option<V> {
         self.val.get(key)
     }
 
+    /// Inserts a key-value pair into the tree.
+    /// If the tree did not have this key present, `None` is returned. Otherwise returns
+    /// a value. Note, the keys that have the same hash value are undistinguished by
+    /// the implementation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.insert(&1, &10), None);
+    /// assert_eq!(tree.insert(&1, &20), Some(10));
+    /// assert_eq!(tree.contains_key(&1), true);
+    /// ```
     pub fn insert(&mut self, key: &K, val: &V) -> Option<V> {
         if !self.contains_key(key) {
             self.root = self.insert_at(self.root, self.len(), key);
@@ -99,6 +171,20 @@ where
         self.val.insert(key, val)
     }
 
+    /// Removes a key from the tree, returning the value at the key if the key was previously in the
+    /// tree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut tree: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// assert_eq!(tree.remove(&1), None);
+    /// tree.insert(&1, &10);
+    /// assert_eq!(tree.remove(&1), Some(10));
+    /// assert_eq!(tree.contains_key(&1), false);
+    /// ```
     pub fn remove(&mut self, key: &K) -> Option<V> {
         if self.contains_key(key) {
             self.root = self.do_remove(key);
@@ -130,6 +216,27 @@ where
     }
 
     /// Returns the smallest key that is greater or equal to key given as the parameter
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+    ///
+    /// for x in vec.iter() {
+    ///     map.insert(x, &1);
+    /// }
+    ///
+    /// assert_eq!(map.ceil_key(&5), Some(10));
+    /// assert_eq!(map.ceil_key(&10), Some(10));
+    /// assert_eq!(map.ceil_key(&11), Some(20));
+    /// assert_eq!(map.ceil_key(&20), Some(20));
+    /// assert_eq!(map.ceil_key(&49), Some(50));
+    /// assert_eq!(map.ceil_key(&50), Some(50));
+    /// assert_eq!(map.ceil_key(&51), None);
+    /// ```
     pub fn ceil_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
             Some(key.clone())
@@ -139,6 +246,26 @@ where
     }
 
     /// Returns the largest key that is less or equal to key given as the parameter
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+    /// for x in vec.iter() {
+    ///     map.insert(x, &1);
+    /// }
+    ///
+    /// assert_eq!(map.floor_key(&5), None);
+    /// assert_eq!(map.floor_key(&10), Some(10));
+    /// assert_eq!(map.floor_key(&11), Some(10));
+    /// assert_eq!(map.floor_key(&20), Some(20));
+    /// assert_eq!(map.floor_key(&49), Some(40));
+    /// assert_eq!(map.floor_key(&50), Some(50));
+    /// assert_eq!(map.floor_key(&51), Some(50));
+    /// ```
     pub fn floor_key(&self, key: &K) -> Option<K> {
         if self.contains_key(key) {
             Some(key.clone())
@@ -153,6 +280,22 @@ where
     }
 
     /// Iterate entries in ascending order: given key (exclusive) to max (inclusive)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// let one: Vec<u32> = vec![10, 20, 30, 40, 50,45, 35, 25, 15, 5];
+    /// for x in &one {
+    ///     map.insert(x, &42);
+    /// }
+    /// assert_eq!(
+    ///     map.iter_from(29).collect::<Vec<(u32, u32)>>(),
+    ///     vec![(30, 42), (35, 42), (40, 42), (45, 42), (50, 42)]
+    /// )
+    /// ```
     pub fn iter_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
         Cursor::asc_from(self, key)
     }
@@ -163,6 +306,22 @@ where
     }
 
     /// Iterate entries in descending order: given key (exclusive) to min (inclusive)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// let one: Vec<u32> = vec![10, 20, 30, 40, 50,45, 35, 25, 15, 5];
+    /// for x in &one {
+    ///     map.insert(x, &42);
+    /// }
+    /// assert_eq!(
+    ///     map.iter_rev_from(45).collect::<Vec<(u32, u32)>>(),
+    ///     vec![(40, 42), (35, 42), (30, 42), (25, 42), (20, 42), (15, 42), (10, 42), (5, 42)]
+    /// );
+    /// ```
     pub fn iter_rev_from(&self, key: K) -> impl Iterator<Item = (K, V)> + '_ {
         Cursor::desc_from(self, key)
     }
@@ -173,6 +332,27 @@ where
     ///
     /// Panics if range start > end.
     /// Panics if range start == end and both bounds are Excluded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::TreeMap;
+    /// use std::ops::Bound;
+    ///
+    /// let mut map: TreeMap<u32, u32> = TreeMap::new(b"t");
+    /// let one: Vec<u32> = vec![10, 20, 30, 40, 50];
+    /// let two: Vec<u32> = vec![45, 35, 25, 15];
+    /// for x in &one {
+    ///     map.insert(x, &0);
+    /// }
+    /// for x in &two {
+    ///     map.insert(x, &0);
+    /// }
+    /// assert_eq!(
+    ///     map.range((Bound::Included(20), Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
+    ///     vec![(20, 0), (25, 0)]
+    /// );
+    /// ```
     pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a > b => env::panic_str("Invalid range."),

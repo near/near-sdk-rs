@@ -20,6 +20,13 @@ pub struct LookupSet<T> {
 
 impl<T> LookupSet<T> {
     /// Create a new map. Use `element_prefix` as a unique prefix for trie keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupSet;
+    /// let mut set: LookupSet<u32> = LookupSet::new(b"s");
+    /// ```
     pub fn new<S>(element_prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -65,11 +72,35 @@ where
     }
 
     /// Returns true if the set contains an element.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupSet;
+    ///
+    /// let mut set: LookupSet<String> = LookupSet::new(b"s");
+    /// assert_eq!(set.contains(&"Element".into()), false);
+    ///
+    /// set.insert(&"Element".into());
+    /// assert_eq!(set.contains(&"Element".into()), true);
+    /// ```
     pub fn contains(&self, element: &T) -> bool {
         self.contains_raw(&Self::serialize_element(element))
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupSet;
+    ///
+    /// let mut set: LookupSet<String> = LookupSet::new(b"s");
+    /// assert_eq!(set.remove(&"Element".into()), false);
+    ///
+    /// set.insert(&"Element".into());
+    /// assert_eq!(set.remove(&"Element".into()), true);
+    /// ```
     pub fn remove(&mut self, element: &T) -> bool {
         self.remove_raw(&Self::serialize_element(element))
     }
@@ -77,6 +108,16 @@ where
     /// Adds a value to the set.
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupSet;
+    ///
+    /// let mut set: LookupSet<String> = LookupSet::new(b"s");
+    /// assert_eq!(set.insert(&"Element".into()), true);
+    /// assert_eq!(set.insert(&"Element".into()), false);
+    /// ```
     pub fn insert(&mut self, element: &T) -> bool {
         self.insert_raw(&Self::serialize_element(element))
     }
