@@ -48,7 +48,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Defining cross-contract interface. This allows to create a new promise.
-/// 
+///
 /// One can provide a name, e.g. `ext` to use for generated methods.
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
