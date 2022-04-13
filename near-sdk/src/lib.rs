@@ -38,7 +38,7 @@ pub use environment::mock::MockedBlockchain;
 #[cfg(not(target_arch = "wasm32"))]
 pub use near_vm_logic::VMConfig;
 #[cfg(not(target_arch = "wasm32"))]
-pub use near_vm_logic::VMContext;
+pub use test_utils::context::VMContext;
 
 pub mod utils;
 pub use crate::utils::storage_key_impl::*;
