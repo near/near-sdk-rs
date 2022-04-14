@@ -232,7 +232,7 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
         );
     };
     TokenStream::from(quote! {
-        impl near_sdk::BorshIntoStorageKey for #name {}
+        impl near_sdk::__private::BorshIntoStorageKey for #name {}
     })
 }
 
