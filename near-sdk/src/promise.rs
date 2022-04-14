@@ -432,28 +432,20 @@ impl borsh::BorshSerialize for Promise {
 
 /// When the method can return either a promise or a value, it can be called with `PromiseOrValue::Promise`
 /// or `PromiseOrValue::Value` to specify which one should be returned.
-///   Example:
+/// # Example
 /// ```no_run
-/// # use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 /// # use near_sdk::{ext_contract, near_bindgen, Gas, PromiseOrValue};
 /// #[ext_contract]
-/// pub trait ContractB {
-///     fn b(&mut self);
+/// pub trait ContractA {
+///     fn a(&mut self);
 /// }
-/// #[near_bindgen]
-/// #[derive(Default, BorshDeserialize, BorshSerialize)]
-/// pub struct ContractA {}
 ///
-/// #[near_bindgen]
-/// impl ContractA {
-///     pub fn a(&self, value: Option<bool>) -> PromiseOrValue<bool> {
-///         if let Some(value) = value {
-///             PromiseOrValue::Value(value)
-///         } else {
-///             contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000)).into()
-///         }
-///     }
-/// }
+/// let value = Some(true);
+/// let val: PromiseOrValue<bool> = if let Some(value) = value {
+///     PromiseOrValue::Value(value)
+/// } else {
+///     contract_a::a("bob_near".parse().unwrap(), 0, Gas(1_000)).into()
+/// };
 /// ```
 #[derive(serde::Serialize)]
 #[serde(untagged)]
