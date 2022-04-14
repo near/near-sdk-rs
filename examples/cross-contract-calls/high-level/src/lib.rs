@@ -15,7 +15,7 @@ impl CrossContract {
         let account_id = env::current_account_id();
 
         Self::ext(account_id.clone())
-            .with_unused_gas_weight(2)
+            .with_unused_gas_weight(6)
             .factorial(n - 1)
             .then(Self::ext(account_id).factorial_mult(n))
             .into()
