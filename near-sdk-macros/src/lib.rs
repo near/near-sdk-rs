@@ -11,6 +11,37 @@ use quote::quote;
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
+/// This attribute macro is used on a struct and its implementations
+/// to generate the necessary code to expose `pub` methods from the contract as well
+/// as generating the glue code to be a valid NEAR contract.
+///
+/// This macro will generate code to load and deserialize state if the `self` parameter is included
+/// as well as saving it back to state if `&mut self` is used.
+///
+/// For parameter serialization, this macro will generate a struct with all of the parameters as
+/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
+/// but can be overwritten by using `#[serializer(borsh)]`.
+///
+/// `#[near_bindgen]` will also handle serializing and setting the return value of the
+/// function execution based on what type is returned by the function. By default, this will be
+/// done through `serde` serialized as JSON, but this can be overwritten using
+/// `#[result_serializer(borsh)]`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use near_sdk::near_bindgen;
+///
+/// #[near_bindgen]
+/// pub struct Contract {
+///    data: i8,
+/// }
+///
+/// #[near_bindgen]
+/// impl Contract {
+///     pub fn some_function(&self) {}
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
@@ -45,6 +76,21 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
+/// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
+/// Each of these static methods takes positional arguments defined by the Trait,
+/// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
+///
+/// # Examples
+///
+/// ```ignore
+/// use near_sdk::ext_contract;
+///
+/// #[ext_contract(ext_calculator)]
+/// trait Calculator {
+///     fn mult(&self, a: u64, b: u64) -> u128;
+///     fn sum(&self, a: u128, b: u128) -> u128;
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(mut input) = syn::parse::<ItemTrait>(item) {
