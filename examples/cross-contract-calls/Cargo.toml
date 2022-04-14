@@ -1,0 +1,32 @@
+[package]
+name = "cross-contract-wrapper"
+version = "0.1.0"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+edition = "2018"
+
+[dev-dependencies]
+anyhow = "1.0"
+near-primitives = "0.5.0"
+near-sdk = { path = "../../near-sdk" }
+near-units = "0.2.0"
+serde_json = "1.0"
+test-case = "2.0"
+tokio = { version = "1.14", features = ["full"] }
+workspaces = "0.1.1"
+
+cross-contract-high-level = { path = "./high-level" }
+cross-contract-low-level = { path = "./low-level" }
+
+[profile.release]
+codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+
+[workspace]
+members = [
+  "high-level",
+  "low-level",
+]

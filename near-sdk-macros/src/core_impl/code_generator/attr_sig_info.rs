@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 
 use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
+use crate::core_impl::utils;
 use quote::quote;
 
 impl AttrSigInfo {
@@ -204,10 +205,38 @@ impl AttrSigInfo {
                         }
                     }
                     BindgenArgType::CallbackResultArg => {
+                        let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
+                            ok_type
+                        } else {
+                            return syn::Error::new_spanned(ty, "Function parameters marked with \
+                                #[callback_result] should have type Result<T, PromiseError>").into_compile_error()
+                        };
                         let deserialize = deserialize_data(serializer_ty);
+                        let deserialization_branch = match ok_type {
+                            // The unit type in this context is a bit special because functions
+                            // without an explicit return type do not serialize their response.
+                            // But when someone tries to refer to their callback result with
+                            // `#[callback_result]` they specify the callback type as
+                            // `Result<(), PromiseError>` which cannot be correctly deserialized from
+                            // an empty byte array.
+                            //
+                            // So instead of going through serde, we consider deserialization to be
+                            // successful if the byte array is empty or try the normal
+                            // deserialization otherwise.
+                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
+                                quote! {
+                                    near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
+                                        Ok(()),
+                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                },
+                            _ =>
+                                quote! {
+                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                }
+                        };
                         let result = quote! {
                             match near_sdk::env::promise_result(#idx) {
-                                near_sdk::PromiseResult::Successful(data) => Ok(#deserialize),
+                                #deserialization_branch,
                                 near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
                                 near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
                             }

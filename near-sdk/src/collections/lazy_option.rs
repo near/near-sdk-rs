@@ -70,6 +70,15 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     /// Create a new lazy option with the given `storage_key` and the initial value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LazyOption;
+    ///
+    /// let option: LazyOption<u32> = LazyOption::new(b"l", Some(&42));
+    /// let another_option: LazyOption<u32> = LazyOption::new(b"l", None);
+    /// ```
     pub fn new<S>(storage_key: S, value: Option<&T>) -> Self
     where
         S: IntoStorageKey,
@@ -97,27 +106,81 @@ where
 
     /// Removes the value from storage without reading it.
     /// Returns whether the value was present.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LazyOption;
+    ///
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", Some(&42));
+    /// assert_eq!(option.remove(), true);
+    /// assert!(option.is_none());
+    /// assert_eq!(option.remove(), false);
+    /// ```
     pub fn remove(&mut self) -> bool {
         self.remove_raw()
     }
 
     /// Removes the value from storage and returns it as an option.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LazyOption;
+    ///
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", Some(&42));
+    /// assert_eq!(option.take(), Some(42));
+    /// assert!(option.is_none());
+    /// assert_eq!(option.take(), None);
+    /// ```
     pub fn take(&mut self) -> Option<T> {
         self.take_raw().map(|v| Self::deserialize_value(&v))
     }
 
     /// Gets the value from storage and returns it as an option.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LazyOption;
+    ///
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", None);
+    /// assert_eq!(option.get(), None);
+    /// option.set(&42);
+    /// assert_eq!(option.get(), Some(42));
+    /// assert!(option.is_some());
+    /// ```
     pub fn get(&self) -> Option<T> {
         self.get_raw().map(|v| Self::deserialize_value(&v))
     }
 
     /// Sets the value into the storage without reading the previous value and returns whether the
     /// previous value was present.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LazyOption;
+    ///
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", None);
+    /// assert_eq!(option.set(&42), false);
+    /// assert_eq!(option.set(&420), true);
+    /// ```
     pub fn set(&mut self, value: &T) -> bool {
         self.set_raw(&Self::serialize_value(value))
     }
 
     /// Replaces the value in the storage and returns the previous value as an option.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LazyOption;
+    ///
+    /// let mut option: LazyOption<u32> = LazyOption::new(b"l", None);
+    /// assert_eq!(option.replace(&42), None);
+    /// assert_eq!(option.replace(&420), Some(42));
+    /// ```
     pub fn replace(&mut self, value: &T) -> Option<T> {
         self.replace_raw(&Self::serialize_value(value)).map(|v| Self::deserialize_value(&v))
     }

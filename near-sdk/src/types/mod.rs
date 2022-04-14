@@ -13,6 +13,10 @@ pub use self::account_id::{AccountId, ParseAccountIdError};
 mod gas;
 pub use self::gas::Gas;
 
+mod error;
+pub use self::error::Abort;
+pub use self::error::FunctionError;
+
 /// Raw type for duration in nanoseconds
 pub type Duration = u64;
 
