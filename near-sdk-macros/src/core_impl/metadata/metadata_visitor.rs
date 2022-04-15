@@ -57,7 +57,7 @@ impl MetadataVisitor {
             pub extern "C" fn metadata() {
                 #panic_hook
                 use borsh::*;
-                let metadata = near_sdk::Metadata::new(vec![
+                let metadata = near_sdk::__private::Metadata::new(vec![
                     #(#methods),*
                 ]);
                 let data = near_sdk::borsh::BorshSerialize::try_to_vec(&metadata).expect("Failed to serialize the metadata using Borsh");
@@ -100,8 +100,8 @@ mod tests {
             pub extern "C" fn metadata() {
                 near_sdk::env::setup_panic_hook();
                 use borsh::*;
-                let metadata = near_sdk::Metadata::new(vec![
-                    near_sdk::MethodMetadata {
+                let metadata = near_sdk::__private::Metadata::new(vec![
+                    near_sdk::__private::MethodMetadata {
                         name: "f1".to_string(),
                         is_view: true,
                         is_init: false,
@@ -110,7 +110,7 @@ mod tests {
                         callbacks_vec: None,
                         result: None
                     },
-                    near_sdk::MethodMetadata {
+                    near_sdk::__private::MethodMetadata {
                         name: "f2".to_string(),
                         is_view: false,
                         is_init: false,
@@ -129,7 +129,7 @@ mod tests {
                         callbacks_vec: None,
                         result: None
                     },
-                    near_sdk::MethodMetadata {
+                    near_sdk::__private::MethodMetadata {
                         name: "f3".to_string(),
                         is_view: false,
                         is_init: false,

@@ -19,6 +19,7 @@
 - Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
 - Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
 - Moved `VMContext` to a local type defined in SDK to avoid duplicate types. [PR 785](https://github.com/near/near-sdk-rs/pull/785)
+- Moved `Metadata` and `MethodMetadata` to a pseudo-private module as these are just types used within macros and not stable. [PR 771](https://github.com/near/near-sdk-rs/pull/771)
 
 ### Removed
 - Remove `Clone` implementation for `Promise` (error prone) https://github.com/near/near-sdk-rs/pull/783
