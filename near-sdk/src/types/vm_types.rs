@@ -2,7 +2,9 @@
 pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 
 //* Types from near_vm_logic
+/// Promise index that is computed only once.
 pub type PromiseIndex = u64;
+/// An index of Receipt to append an action
 pub type ReceiptIndex = u64;
 pub type IteratorIndex = u64;
 

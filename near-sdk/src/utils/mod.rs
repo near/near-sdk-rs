@@ -1,3 +1,5 @@
+//! Helper methods that often used in smart contracts.
+
 pub(crate) mod storage_key_impl;
 
 #[cfg(feature = "unstable")]
