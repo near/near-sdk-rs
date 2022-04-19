@@ -2,11 +2,14 @@
 
 ## [Unreleased]
 
+## [4.0.0-pre.8] - 2022-04-19
+
 ### Added
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
 - Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
 - Added an optional way to handle contract errors with `Result`. [PR 745](https://github.com/near/near-sdk-rs/pull/745), [PR 754](https://github.com/near/near-sdk-rs/pull/754) and [PR 757](https://github.com/near/near-sdk-rs/pull/757).
 - Added support for using `#[callback_result]` with a function that doesn't have a return. [PR 738](https://github.com/near/near-sdk-rs/pull/738)
+- Support for multi-architecture docker builds and updated Rust version to 1.56 with latest [contract builder](https://hub.docker.com/r/nearprotocol/contract-builder). [PR 751](https://github.com/near/near-sdk-rs/pull/751)
 
 ### Fixes
 - Disallow invalid `Promise::then` chains. Will now panic with `promise_1.then(promise_2.then(promise_3))` syntax. [PR 410](https://github.com/near/near-sdk-rs/pull/410)
