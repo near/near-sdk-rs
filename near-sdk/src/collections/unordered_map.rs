@@ -20,6 +20,18 @@ pub struct UnorderedMap<K, V> {
 
 impl<K, V> UnorderedMap<K, V> {
     /// Returns the number of elements in the map, also referred to as its size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
+    /// assert_eq!(map.len(), 0);
+    /// map.insert(&1, &1);
+    /// map.insert(&2, &2);
+    /// assert_eq!(map.len(), 2);
+    /// ```
     pub fn len(&self) -> u64 {
         let keys_len = self.keys.len();
         let values_len = self.values.len();
@@ -42,6 +54,13 @@ impl<K, V> UnorderedMap<K, V> {
     }
 
     /// Create new map with zero elements. Use `prefix` as a unique identifier.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedMap;
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -172,12 +191,35 @@ where
     }
 
     /// Returns the value corresponding to the key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
+    /// assert_eq!(map.get(&1), None);
+    /// map.insert(&1, &10);
+    /// assert_eq!(map.get(&1), Some(10));
+    /// ```
     pub fn get(&self, key: &K) -> Option<V> {
         self.get_raw(&Self::serialize_key(key)).map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
     /// Removes a key from the map, returning the value at the key if the key was previously in the
     /// map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
+    /// assert_eq!(map.remove(&1), None);
+    /// map.insert(&1, &10);
+    /// assert_eq!(map.remove(&1), Some(10));
+    /// assert_eq!(map.len(), 0);
+    /// ```
     pub fn remove(&mut self, key: &K) -> Option<V> {
         self.remove_raw(&Self::serialize_key(key))
             .map(|value_raw| Self::deserialize_value(&value_raw))
@@ -187,12 +229,35 @@ where
     /// If the map did not have this key present, `None` is returned. Otherwise returns
     /// a value. Note, the keys that have the same hash value are undistinguished by
     /// the implementation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
+    /// map.insert(&1, &10);
+    /// assert_eq!(map.get(&1), Some(10));
+    /// assert_eq!(map.len(), 1);
+    /// ```
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
         self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
     /// Clears the map, removing all elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<u8, u8> = UnorderedMap::new(b"m");
+    /// map.insert(&1, &10);
+    /// map.insert(&2, &20);
+    /// map.clear();
+    /// assert_eq!(map.len(), 0);
+    /// ```
     pub fn clear(&mut self) {
         for raw_key in self.keys.iter_raw() {
             let index_lookup = self.raw_key_to_index_lookup(&raw_key);

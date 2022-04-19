@@ -183,7 +183,6 @@ impl PromiseJoint {
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
-#[derive(Clone)]
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
@@ -353,7 +352,15 @@ impl Promise {
     /// ```
     pub fn then(self, mut other: Promise) -> Promise {
         match &mut other.subtype {
-            PromiseSubtype::Single(x) => *x.after.borrow_mut() = Some(self),
+            PromiseSubtype::Single(x) => {
+                let mut after = x.after.borrow_mut();
+                if after.is_some() {
+                    crate::env::panic_str(
+                        "Cannot callback promise which is already scheduled after another",
+                    );
+                }
+                *after = Some(self)
+            }
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
         other
@@ -430,6 +437,23 @@ impl borsh::BorshSerialize for Promise {
     }
 }
 
+/// When the method can return either a promise or a value, it can be called with `PromiseOrValue::Promise`
+/// or `PromiseOrValue::Value` to specify which one should be returned.
+/// # Example
+/// ```no_run
+/// # use near_sdk::{ext_contract, near_bindgen, Gas, PromiseOrValue};
+/// #[ext_contract]
+/// pub trait ContractA {
+///     fn a(&mut self);
+/// }
+///
+/// let value = Some(true);
+/// let val: PromiseOrValue<bool> = if let Some(value) = value {
+///     PromiseOrValue::Value(value)
+/// } else {
+///     contract_a::a("bob_near".parse().unwrap(), 0, Gas(1_000)).into()
+/// };
+/// ```
 #[derive(serde::Serialize)]
 #[serde(untagged)]
 pub enum PromiseOrValue<T> {

@@ -1,7 +1,9 @@
+//! Testing blockchain utilities. These can only be used inside tests and are not available for
+//! a wasm32 target.
 #[allow(dead_code)]
 pub mod test_env;
 
-mod context;
+pub(crate) mod context;
 use crate::mock::Receipt;
 #[allow(deprecated)]
 pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
