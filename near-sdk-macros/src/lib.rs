@@ -75,7 +75,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "near_bindgen can only be used on type declarations, enums and impl sections.",
+                "near_bindgen can only be used on struct or enum definition and impl sections.",
             )
             .to_compile_error(),
         )
