@@ -1,4 +1,4 @@
-# Status Message
+# Status Message (Enum Variant)
 
 Records the status messages of the accounts that call this contract.
 
