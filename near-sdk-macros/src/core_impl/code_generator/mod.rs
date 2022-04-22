@@ -13,8 +13,5 @@ pub use trait_item_method_info::*;
 mod item_impl_info;
 pub use item_impl_info::*;
 
-mod item_struct_info;
-pub use item_struct_info::*;
-
-mod item_enum_info;
-pub use item_enum_info::*;
+mod sim_proxy;
+pub use sim_proxy::generate_sim_proxy_struct;

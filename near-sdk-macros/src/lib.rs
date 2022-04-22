@@ -45,13 +45,13 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let struct_proxy = generate_proxy_struct(&input);
+        let struct_proxy = generate_sim_proxy_struct(&input.ident);
         TokenStream::from(quote! {
             #input
             #struct_proxy
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        let enum_proxy = generate_proxy_enum(&input);
+        let enum_proxy = generate_sim_proxy_struct(&input.ident);
         TokenStream::from(quote! {
             #input
             #enum_proxy
