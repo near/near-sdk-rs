@@ -15,3 +15,6 @@ pub use item_impl_info::*;
 
 mod item_struct_info;
 pub use item_struct_info::*;
+
+mod item_enum_info;
+pub use item_enum_info::*;

@@ -50,6 +50,12 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #input
             #struct_proxy
         })
+    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        let enum_proxy = generate_proxy_enum(&input);
+        TokenStream::from(quote! {
+            #input
+            #enum_proxy
+        })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
@@ -69,7 +75,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "near_bindgen can only be used on type declarations and impl sections.",
+                "near_bindgen can only be used on struct or enum definition and impl sections.",
             )
             .to_compile_error(),
         )
