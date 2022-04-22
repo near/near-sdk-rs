@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixes
+- near-contract-standards: `nft_tokens` in enumeration standard no longer panics when there are no tokens [PR 798](https://github.com/near/near-sdk-rs/pull/798)
+
 ## [4.0.0-pre.8] - 2022-04-19
 
 ### Added
