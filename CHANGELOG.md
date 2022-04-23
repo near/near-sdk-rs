@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixes
+- Optimized `nth` operation for `UnorderedMap` iterator and implemented `IntoIterator` for it. [PR 801](https://github.com/near/near-sdk-rs/pull/801)
+  - This optimizes the `skip` operation, which is common with pagination
+
 ## [4.0.0-pre.8] - 2022-04-19
 
 ### Added
