@@ -21,7 +21,7 @@ pub struct DeFi {
 
 // Have to repeat the same trait for our own implementation.
 trait ValueReturnTrait {
-    fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128>;
+    fn value_please(&self, amount_to_return: String) -> U128;
 }
 
 #[near_bindgen]
@@ -66,9 +66,9 @@ impl FungibleTokenReceiver for DeFi {
 
 #[near_bindgen]
 impl ValueReturnTrait for DeFi {
-    fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128> {
+    fn value_please(&self, amount_to_return: String) -> U128 {
         log!("in value_please, amount_to_return = {}", amount_to_return);
         let amount: Balance = amount_to_return.parse().expect("Not an integer");
-        PromiseOrValue::Value(amount.into())
+        amount.into()
     }
 }

@@ -87,12 +87,20 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     for attribute in non_bindgen_attrs.iter() {
         attribute.to_tokens(&mut new_non_bindgen_attrs);
     }
-    let Signature { generics, .. } = original_sig;
+    let Signature { generics, output, .. } = original_sig;
+    let promise_generics = match output {
+        syn::ReturnType::Default => quote! {},
+        syn::ReturnType::Type(_, ty) => {
+            // Unwrap result type if using `handle_result`
+            let ty = crate::core_impl::utils::extract_ok_type(ty).unwrap_or(ty);
+            quote! {<#ty>}
+        }
+    };
     quote! {
         #new_non_bindgen_attrs
-        pub fn #ident #generics(self, #pat_type_list) -> near_sdk::Promise {
+        pub fn #ident#generics(self, #pat_type_list) -> near_sdk::Promise#promise_generics {
             let __args = #serialize;
-            near_sdk::Promise::new(self.account_id)
+            near_sdk::Promise::new_with_return(self.account_id)
             .function_call_weight(
                 #ident_str.to_string(),
                 __args,
@@ -212,7 +220,7 @@ mod tests {
                     near_sdk::serde_json::to_vec(&__args)
                         .expect("Failed to serialize the cross contract args using JSON.")
                 };
-                near_sdk::Promise::new(self.account_id).function_call_weight(
+                near_sdk::Promise::new_with_return(self.account_id).function_call_weight(
                     "method".to_string(),
                     __args,
                     self.deposit,
@@ -243,7 +251,7 @@ mod tests {
               near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
                   .expect("Failed to serialize the cross contract args using Borsh.")
             };
-              near_sdk::Promise::new(self.account_id)
+              near_sdk::Promise::new_with_return(self.account_id)
                   .function_call_weight(
                       "borsh_test".to_string(),
                       __args,

@@ -2,6 +2,7 @@ use borsh::BorshSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
@@ -113,7 +114,7 @@ impl PromiseAction {
 struct PromiseSingle {
     pub account_id: AccountId,
     pub actions: RefCell<Vec<PromiseAction>>,
-    pub after: RefCell<Option<Promise>>,
+    pub after: RefCell<Option<PromiseIndex>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -125,7 +126,7 @@ impl PromiseSingle {
             return *res;
         }
         let promise_index = if let Some(after) = self.after.borrow().as_ref() {
-            crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
+            crate::env::promise_batch_then(*after, &self.account_id)
         } else {
             crate::env::promise_batch_create(&self.account_id)
         };
@@ -139,8 +140,8 @@ impl PromiseSingle {
 }
 
 pub struct PromiseJoint {
-    pub promise_a: Promise,
-    pub promise_b: Promise,
+    pub promise_a: PromiseIndex,
+    pub promise_b: PromiseIndex,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -151,10 +152,7 @@ impl PromiseJoint {
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
-        let res = crate::env::promise_and(&[
-            self.promise_a.construct_recursively(),
-            self.promise_b.construct_recursively(),
-        ]);
+        let res = crate::env::promise_and(&[self.promise_a, self.promise_b]);
         *promise_lock = Some(res);
         res
     }
@@ -200,13 +198,14 @@ impl PromiseJoint {
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
-pub struct Promise {
+pub struct Promise<T = ()> {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
+    ty: PhantomData<T>,
 }
 
 /// Until we implement strongly typed promises we serialize them as unit struct.
-impl BorshSchema for Promise {
+impl<T> BorshSchema for Promise<T> {
     fn add_definitions_recursively(
         definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
     ) {
@@ -224,9 +223,16 @@ enum PromiseSubtype {
     Joint(Rc<PromiseJoint>),
 }
 
-impl Promise {
-    /// Create a promise that acts on the given account.
+impl Promise<()> {
     pub fn new(account_id: AccountId) -> Self {
+        Self::new_with_return(account_id)
+    }
+}
+
+impl<T> Promise<T> {
+    /// Create a promise that acts on the given account.
+    // TODO this is bad because it requires generic on a non-function call
+    pub fn new_with_return(account_id: AccountId) -> Self {
         Self {
             subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
                 account_id,
@@ -235,6 +241,7 @@ impl Promise {
                 promise_index: RefCell::new(None),
             })),
             should_return: RefCell::new(false),
+            ty: Default::default(),
         }
     }
 
@@ -259,6 +266,7 @@ impl Promise {
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
+    // TODO not really a way to specify generic on function call, which is how it should be
     pub fn function_call(
         self,
         function_name: String,
@@ -363,14 +371,15 @@ impl Promise {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
-    pub fn and(self, other: Promise) -> Promise {
+    pub fn and<O>(self, other: Promise<O>) -> Promise<()> {
         Promise {
             subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
-                promise_a: self,
-                promise_b: other,
+                promise_a: self.construct_recursively(),
+                promise_b: other.construct_recursively(),
                 promise_index: RefCell::new(None),
             })),
             should_return: RefCell::new(false),
+            ty: PhantomData::default(),
         }
     }
 
@@ -387,7 +396,7 @@ impl Promise {
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
-    pub fn then(self, mut other: Promise) -> Promise {
+    pub fn then<O>(self, mut other: Promise<O>) -> Promise<O> {
         match &mut other.subtype {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
@@ -396,7 +405,7 @@ impl Promise {
                         "Cannot callback promise which is already scheduled after another",
                     );
                 }
-                *after = Some(self)
+                *after = Some(self.construct_recursively())
             }
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
@@ -448,13 +457,13 @@ impl Promise {
     }
 }
 
-impl Drop for Promise {
+impl<T> Drop for Promise<T> {
     fn drop(&mut self) {
         self.construct_recursively();
     }
 }
 
-impl serde::Serialize for Promise {
+impl<T> serde::Serialize for Promise<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -464,7 +473,7 @@ impl serde::Serialize for Promise {
     }
 }
 
-impl borsh::BorshSerialize for Promise {
+impl<T> borsh::BorshSerialize for Promise<T> {
     fn serialize<W: Write>(&self, _writer: &mut W) -> Result<(), Error> {
         *self.should_return.borrow_mut() = true;
 
@@ -507,7 +516,7 @@ impl schemars::JsonSchema for Promise {
 #[derive(serde::Serialize)]
 #[serde(untagged)]
 pub enum PromiseOrValue<T> {
-    Promise(Promise),
+    Promise(Promise<T>),
     Value(T),
 }
 
@@ -526,8 +535,8 @@ where
     }
 }
 
-impl<T> From<Promise> for PromiseOrValue<T> {
-    fn from(promise: Promise) -> Self {
+impl<T> From<Promise<T>> for PromiseOrValue<T> {
+    fn from(promise: Promise<T>) -> Self {
         PromiseOrValue::Promise(promise)
     }
 }

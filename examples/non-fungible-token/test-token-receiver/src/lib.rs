@@ -20,7 +20,7 @@ pub struct TokenReceiver {
 
 // Have to repeat the same trait for our own implementation.
 trait ValueReturnTrait {
-    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
+    fn ok_go(&self, return_it: bool) -> bool;
 }
 
 #[near_bindgen]
@@ -85,8 +85,8 @@ impl NonFungibleTokenReceiver for TokenReceiver {
 
 #[near_bindgen]
 impl ValueReturnTrait for TokenReceiver {
-    fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
+    fn ok_go(&self, return_it: bool) -> bool {
         log!("in ok_go, return_it={}", return_it);
-        PromiseOrValue::Value(return_it)
+        return_it
     }
 }

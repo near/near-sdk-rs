@@ -90,7 +90,7 @@ mod tests {
                     pub fn merge_sort(
                         self,
                         arr: Vec<u8>,
-                    ) -> near_sdk::Promise {
+                    ) -> near_sdk::Promise<PromiseOrValue<Vec<u8> > > {
                         let __args = {
                             #[derive(near_sdk :: serde :: Serialize)]
                             #[serde(crate = "near_sdk::serde")]
@@ -101,7 +101,7 @@ mod tests {
                             near_sdk::serde_json::to_vec(&__args)
                                 .expect("Failed to serialize the cross contract args using JSON.")
                         };
-                        near_sdk::Promise::new(self.account_id)
+                        near_sdk::Promise::new_with_return(self.account_id)
                             .function_call_weight(
                                 "merge_sort".to_string(),
                                 __args,
@@ -110,9 +110,9 @@ mod tests {
                                 self.gas_weight,
                             )
                     }
-                    pub fn merge(self,) -> near_sdk::Promise {
+                    pub fn merge(self,) -> near_sdk::Promise<Vec<u8> > {
                         let __args = vec![];
-                        near_sdk::Promise::new(self.account_id)
+                        near_sdk::Promise::new_with_return(self.account_id)
                             .function_call_weight(
                                 "merge".to_string(),
                                 __args,
@@ -177,7 +177,7 @@ mod tests {
                 pub fn test(
                     self,
                     v: Vec<String>,
-                ) -> near_sdk::Promise {
+                ) -> near_sdk::Promise<Vec<String> > {
                     let __args = {
                         #[derive(near_sdk :: borsh :: BorshSerialize)]
                         struct Input<'nearinput> {
@@ -187,7 +187,7 @@ mod tests {
                         near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
                             .expect("Failed to serialize the cross contract args using Borsh.")
                     };
-                    near_sdk::Promise::new(self.account_id)
+                    near_sdk::Promise::new_with_return(self.account_id)
                         .function_call_weight(
                             "test".to_string(),
                             __args,

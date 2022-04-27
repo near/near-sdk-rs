@@ -57,10 +57,14 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         refund_deposit(storage_used);
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
-        msg.map(|msg| {
+        msg.and_then(|msg| {
             ext_nft_approval_receiver::ext(account_id)
                 .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_APPROVE)
                 .nft_on_approve(token_id, owner_id, approval_id, msg)
+                .as_return();
+            //* This potentially does have a return value, but the API is incorrect and we need
+            //* to express this as None for now. `as_return` above indicates the return value
+            None
         })
     }
 
