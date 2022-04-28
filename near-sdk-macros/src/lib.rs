@@ -3,6 +3,7 @@ extern crate proc_macro;
 
 mod core_impl;
 
+use core_impl::ext::generate_ext_structs;
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
@@ -45,12 +46,20 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let struct_proxy = generate_sim_proxy_struct(&input);
-        let ext_gen = generate_ext_struct(&input);
+        let struct_proxy = generate_sim_proxy_struct(&input.ident);
+        let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         TokenStream::from(quote! {
             #input
             #ext_gen
             #struct_proxy
+        })
+    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        let enum_proxy = generate_sim_proxy_struct(&input.ident);
+        let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
+        TokenStream::from(quote! {
+            #input
+            #ext_gen
+            #enum_proxy
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -75,7 +84,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "near_bindgen can only be used on type declarations and impl sections.",
+                "near_bindgen can only be used on struct or enum definition and impl sections.",
             )
             .to_compile_error(),
         )
