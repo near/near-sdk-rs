@@ -14,14 +14,10 @@ pub enum VersionedContract {
 
 impl VersionedContract {
     fn contract_mut(&mut self) -> &mut Contract {
-        if let Self::V1(contract) = self {
-            // Contract is up to date, return mutable reference to it.
-            return contract;
-        }
         let old_contract = match self {
             Self::V1(contract) => return contract,
             Self::V0(contract) => {
-                // Take current contract state.
+                // Contract state is old version, take old state to upgrade.
                 core::mem::take(contract)
             }
         };
