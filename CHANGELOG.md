@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixes
+- near-contract-standards: `nft_tokens` in enumeration standard no longer panics when there are no tokens [PR 798](https://github.com/near/near-sdk-rs/pull/798)
 - Optimized `nth` operation for `UnorderedMap` iterator and implemented `IntoIterator` for it. [PR 801](https://github.com/near/near-sdk-rs/pull/801)
   - This optimizes the `skip` operation, which is common with pagination
 
