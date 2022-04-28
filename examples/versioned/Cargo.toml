@@ -1,5 +1,5 @@
 [package]
-name = "enum-contract"
+name = "versioned"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk" }
+near-sdk = { path = "../../near-sdk", features = ["unstable"] }
 
 [profile.release]
 codegen-units = 1
