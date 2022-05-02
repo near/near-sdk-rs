@@ -107,7 +107,7 @@ impl StatusMessage {
     }
     ```
 Even if you have initialization method your smart contract is still expected to derive `Default` trait. If you don't
-want to disable default initialization then you can prohibit it like this:
+want to disable default initialization, then you can prohibit it like this:
 ```rust
 impl Default for StatusMessage {
     fn default() -> Self {
@@ -151,7 +151,7 @@ pub fn my_method(&mut self) {
 
 pub fn my_method(&mut self ) {
     if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-        near_sdk::env::panic_str("Method method is private");
+        near_sdk::env::panic_str("Method my_method is private");
     }
 ...
 }
@@ -194,7 +194,7 @@ The general workflow is the following:
 3. Define methods that NEAR will expose as smart contract methods:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
-    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) is happening
+    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) happens;
     * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
 
     Here is an example of smart contract methods:
