@@ -7,7 +7,7 @@ use crate::non_fungible_token::utils::{
     hash_account_id, refund_approved_account_ids, refund_deposit_to_account,
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
     assert_one_yocto, env, ext_contract, require, AccountId, Balance, BorshStorageKey, CryptoHash,
@@ -61,7 +61,7 @@ pub struct NonFungibleToken {
     pub extra_storage_in_bytes_per_token: StorageUsage,
 
     // always required
-    pub owner_by_id: TreeMap<TokenId, AccountId>,
+    pub owner_by_id: UnorderedMap<TokenId, AccountId>,
 
     // required by metadata extension
     pub token_metadata_by_id: Option<LookupMap<TokenId, TokenMetadata>>,
@@ -107,7 +107,7 @@ impl NonFungibleToken {
         let mut this = Self {
             owner_id,
             extra_storage_in_bytes_per_token: 0,
-            owner_by_id: TreeMap::new(owner_by_id_prefix),
+            owner_by_id: UnorderedMap::new(owner_by_id_prefix),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
             approvals_by_id,

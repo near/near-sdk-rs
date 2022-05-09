@@ -119,7 +119,7 @@ mod tests {
 
     use super::*;
 
-    const MINT_STORAGE_COST: u128 = 5870000000000000000000;
+    const MINT_STORAGE_COST: u128 = 6270000000000000000000;
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
