@@ -49,7 +49,7 @@ pub async fn init(
     worker: &Worker<impl DevNetwork>,
 ) -> anyhow::Result<(Contract, Account, Contract, Contract)> {
     let nft_contract =
-        worker.dev_deploy(include_bytes!("../../res/non_fungible_token.wasm").as_slice()).await?;
+        worker.dev_deploy(&include_bytes!("../../res/non_fungible_token.wasm").to_vec()).await?;
 
     let res = nft_contract
         .call(&worker, "new_default_meta")
@@ -92,7 +92,7 @@ pub async fn init(
     let alice = res.result;
 
     let token_receiver_contract =
-        worker.dev_deploy(include_bytes!("../../res/token_receiver.wasm").as_slice()).await?;
+        worker.dev_deploy(&include_bytes!("../../res/token_receiver.wasm").to_vec()).await?;
     let res = token_receiver_contract
         .call(&worker, "new")
         .args_json((nft_contract.id(),))?
@@ -102,7 +102,7 @@ pub async fn init(
     assert!(res.is_success());
 
     let approval_receiver_contract =
-        worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm").as_slice()).await?;
+        worker.dev_deploy(&include_bytes!("../../res/approval_receiver.wasm").to_vec()).await?;
     let res = approval_receiver_contract
         .call(&worker, "new")
         .args_json((nft_contract.id(),))?

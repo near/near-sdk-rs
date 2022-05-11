@@ -9,7 +9,7 @@ async fn init(
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account)> {
     let contract =
-        worker.dev_deploy(include_bytes!("../res/lockable_fungible_token.wasm").as_slice()).await?;
+        worker.dev_deploy(&include_bytes!("../res/lockable_fungible_token.wasm").to_vec()).await?;
 
     let res = contract
         .call(worker, "new")

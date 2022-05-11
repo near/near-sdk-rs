@@ -27,7 +27,7 @@ async fn init(
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let ft_contract =
-        worker.dev_deploy(include_bytes!("../res/fungible_token.wasm").as_slice()).await?;
+        worker.dev_deploy(&include_bytes!("../res/fungible_token.wasm").to_vec()).await?;
 
     let res = ft_contract
         .call(&worker, "new_default_meta")
@@ -37,7 +37,7 @@ async fn init(
         .await?;
     assert!(res.is_success());
 
-    let defi_contract = worker.dev_deploy(include_bytes!("../res/defi.wasm").as_slice()).await?;
+    let defi_contract = worker.dev_deploy(&include_bytes!("../res/defi.wasm").to_vec()).await?;
 
     let res = defi_contract
         .call(&worker, "new")
