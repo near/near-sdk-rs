@@ -27,7 +27,7 @@ async fn init(
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let ft_contract =
-        worker.dev_deploy(&include_bytes!("../res/fungible_token.wasm")).await?;
+        worker.dev_deploy(include_bytes!("../res/fungible_token.wasm").as_slice()).await?;
 
     let res = ft_contract
         .call(&worker, "new_default_meta")
@@ -37,7 +37,7 @@ async fn init(
         .await?;
     assert!(res.is_success());
 
-    let defi_contract = worker.dev_deploy(include_bytes!("../res/defi.wasm").to_vec()).await?;
+    let defi_contract = worker.dev_deploy(include_bytes!("../res/defi.wasm").as_slice()).await?;
 
     let res = defi_contract
         .call(&worker, "new")
@@ -121,7 +121,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
     let res = alice
-        .call(&worker, contract.id().clone(), "storage_unregister")
+        .call(&worker, contract.id(), "storage_unregister")
         .args_json((Option::<bool>::None,))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
@@ -144,8 +144,8 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure())
+        .await;
+    assert!(format!("{:?}", res)
         .contains("Can't unregister the account with the positive balance without force"));
 
     let res = contract
@@ -154,8 +154,8 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure())
+        .await;
+    assert!(format!("{:?}", res)
         .contains("Can't unregister the account with the positive balance without force"));
 
     Ok(())
@@ -290,8 +290,8 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(res.is_failure());
+        .await;
+    assert!(res.is_err());
 
     // balances remain unchanged
     let root_balance = contract

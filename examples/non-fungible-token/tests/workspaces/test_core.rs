@@ -226,8 +226,8 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
         .gas(30_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(res.is_failure());
+        .await;
+    assert!(res.is_err());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints no logs
@@ -256,8 +256,8 @@ async fn simulate_simple_transfer_no_logs_on_failure() -> anyhow::Result<()> {
         .gas(200_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(res.is_failure());
+        .await;
+    assert!(res.is_err());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints no logs

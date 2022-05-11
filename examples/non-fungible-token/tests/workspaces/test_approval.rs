@@ -148,7 +148,7 @@ async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
 
     // alice sends to self
     let res = alice
-        .call(&worker, nft_contract.id().clone(), "nft_transfer")
+        .call(&worker, nft_contract.id(), "nft_transfer")
         .args_json((alice.id(), TOKEN_ID, Some(1u64), Some("gotcha! bahahaha".to_string())))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)

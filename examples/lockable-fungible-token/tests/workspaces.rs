@@ -9,7 +9,7 @@ async fn init(
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account)> {
     let contract =
-        worker.dev_deploy(&include_bytes!("../res/lockable_fungible_token.wasm")).await?;
+        worker.dev_deploy(include_bytes!("../res/lockable_fungible_token.wasm").as_slice()).await?;
 
     let res = contract
         .call(worker, "new")
@@ -110,8 +110,8 @@ async fn test_fail_set_allowance_self() -> anyhow::Result<()> {
         .args_json((contract.id(), allowance_amount))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Can't set allowance for yourself"));
+        .await;
+    assert!(format!("{:?}", res).contains("Can't set allowance for yourself"));
 
     Ok(())
 }
@@ -163,24 +163,24 @@ async fn test_fail_lock() -> anyhow::Result<()> {
         .args_json((contract.id(), "0"))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Can't lock 0 tokens"));
+        .await;
+    assert!(format!("{:?}", res).contains("Can't lock 0 tokens"));
 
     let res = contract
         .call(&worker, "lock")
         .args_json((contract.id(), U128::from(parse_near!("10001 N"))))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Not enough unlocked balance"));
+        .await;
+    assert!(format!("{:?}", res).contains("Not enough unlocked balance"));
 
     let res = alice
-        .call(&worker, contract.id().clone(), "lock")
+        .call(&worker, contract.id(), "lock")
         .args_json((contract.id(), U128::from(parse_near!("10 N"))))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Not enough allowance"));
+        .await;
+    assert!(format!("{:?}", res).contains("Not enough allowance"));
 
     Ok(())
 }
@@ -240,16 +240,16 @@ async fn test_fail_unlock() -> anyhow::Result<()> {
         .args_json((contract.id(), "0"))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Can't unlock 0 tokens"));
+        .await;
+    assert!(format!("{:?}", res).contains("Can't unlock 0 tokens"));
 
     let res = contract
         .call(&worker, "unlock")
         .args_json((contract.id(), U128::from(parse_near!("1 N"))))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Not enough locked tokens"));
+        .await;
+    assert!(format!("{:?}", res).contains("Not enough locked tokens"));
 
     Ok(())
 }
@@ -298,16 +298,16 @@ async fn test_fail_transfer() -> anyhow::Result<()> {
         .args_json((alice.id(), "0"))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Can't transfer 0 tokens"));
+        .await;
+    assert!(format!("{:?}", res).contains("Can't transfer 0 tokens"));
 
     let res = contract
         .call(&worker, "transfer")
         .args_json((alice.id(), U128::from(parse_near!("10001 N"))))?
         .gas(300_000_000_000_000)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure()).contains("Not enough unlocked balance"));
+        .await;
+    assert!(format!("{:?}", res).contains("Not enough unlocked balance"));
 
     Ok(())
 }
