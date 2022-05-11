@@ -16,7 +16,7 @@ pub(crate) fn generate_ext_structs(
         pub fn ext(account_id: near_sdk::AccountId) -> #name {
             #name {
                 account_id,
-                amount: 0,
+                deposit: 0,
                 static_gas: near_sdk::Gas(0),
                 gas_weight: near_sdk::GasWeight::default(),
             }
@@ -34,25 +34,25 @@ pub(crate) fn generate_ext_structs(
     quote! {
       #[must_use]
       pub struct #name {
-        pub(crate) account_id: near_sdk::AccountId,
-        pub(crate) amount: u128,
-        pub(crate) static_gas: near_sdk::Gas,
-        pub(crate) gas_weight: near_sdk::GasWeight,
+          pub(crate) account_id: near_sdk::AccountId,
+          pub(crate) deposit: near_sdk::Balance,
+          pub(crate) static_gas: near_sdk::Gas,
+          pub(crate) gas_weight: near_sdk::GasWeight,
       }
 
       impl #name {
-        pub fn with_amount(mut self, amount: u128) -> Self {
-          self.amount = amount;
-          self
-        }
-        pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
-          self.static_gas = static_gas;
-          self
-        }
-        pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-          self.gas_weight = near_sdk::GasWeight(gas_weight);
-          self
-        }
+          pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+              self.deposit = amount;
+              self
+          }
+          pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+              self.static_gas = static_gas;
+              self
+          }
+          pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
+              self.gas_weight = near_sdk::GasWeight(gas_weight);
+              self
+          }
       }
 
       #ext_code
@@ -96,7 +96,7 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
             .function_call_weight(
                 #ident_str.to_string(),
                 __args,
-                self.amount,
+                self.deposit,
                 self.static_gas,
                 self.gas_weight,
             )
@@ -120,34 +120,34 @@ mod tests {
         let expected = quote!(
           #[must_use]
           pub struct TestExt {
-            pub(crate) account_id: near_sdk::AccountId,
-            pub(crate) amount: u128,
-            pub(crate) static_gas: near_sdk::Gas,
-            pub(crate) gas_weight: near_sdk::GasWeight,
+              pub(crate) account_id: near_sdk::AccountId,
+              pub(crate) deposit: near_sdk::Balance,
+              pub(crate) static_gas: near_sdk::Gas,
+              pub(crate) gas_weight: near_sdk::GasWeight,
           }
           impl TestExt {
-            pub fn with_amount(mut self, amount: u128) -> Self {
-              self.amount = amount;
-              self
-            }
-            pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
-              self.static_gas = static_gas;
-              self
-            }
-            pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-              self.gas_weight = near_sdk::GasWeight(gas_weight);
-              self
-            }
+              pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+                  self.deposit = amount;
+                  self
+              }
+              pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+                  self.static_gas = static_gas;
+                  self
+              }
+              pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
+                  self.gas_weight = near_sdk::GasWeight(gas_weight);
+                  self
+              }
           }
           impl Test {
             /// API for calling this contract's functions in a subsequent execution.
             pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
-              TestExt {
-                account_id,
-                amount: 0,
-                static_gas: near_sdk::Gas(0),
-                gas_weight: near_sdk::GasWeight::default(),
-              }
+                TestExt {
+                    account_id,
+                    deposit: 0,
+                    static_gas: near_sdk::Gas(0),
+                    gas_weight: near_sdk::GasWeight::default(),
+                }
             }
           }
         );
@@ -161,30 +161,30 @@ mod tests {
         let expected = quote!(
           #[must_use]
           pub struct TestExt {
-            pub(crate) account_id: near_sdk::AccountId,
-            pub(crate) amount: u128,
-            pub(crate) static_gas: near_sdk::Gas,
-            pub(crate) gas_weight: near_sdk::GasWeight,
+              pub(crate) account_id: near_sdk::AccountId,
+              pub(crate) deposit: near_sdk::Balance,
+              pub(crate) static_gas: near_sdk::Gas,
+              pub(crate) gas_weight: near_sdk::GasWeight,
           }
           impl TestExt {
-            pub fn with_amount(mut self, amount: u128) -> Self {
-              self.amount = amount;
-              self
-            }
-            pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
-              self.static_gas = static_gas;
-              self
-            }
-            pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-              self.gas_weight = near_sdk::GasWeight(gas_weight);
-              self
-            }
+              pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+                  self.deposit = amount;
+                  self
+              }
+              pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+                  self.static_gas = static_gas;
+                  self
+              }
+              pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
+                  self.gas_weight = near_sdk::GasWeight(gas_weight);
+                  self
+              }
           }
           /// API for calling this contract's functions in a subsequent execution.
           pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
               TestExt {
                   account_id,
-                  amount: 0,
+                  deposit: 0,
                   static_gas: near_sdk::Gas(0),
                   gas_weight: near_sdk::GasWeight::default(),
               }
@@ -215,7 +215,7 @@ mod tests {
                 near_sdk::Promise::new(self.account_id).function_call_weight(
                     "method".to_string(),
                     __args,
-                    self.amount,
+                    self.deposit,
                     self.static_gas,
                     self.gas_weight,
                 )
@@ -247,7 +247,7 @@ mod tests {
                   .function_call_weight(
                       "borsh_test".to_string(),
                       __args,
-                      self.amount,
+                      self.deposit,
                       self.static_gas,
                       self.gas_weight,
                   )

@@ -58,30 +58,30 @@ mod tests {
                 use super::*;
                 #[must_use]
                 pub struct ExternalCrossContractExt {
-                  pub(crate) account_id: near_sdk::AccountId,
-                  pub(crate) amount: u128,
-                  pub(crate) static_gas: near_sdk::Gas,
-                  pub(crate) gas_weight: near_sdk::GasWeight,
+                    pub(crate) account_id: near_sdk::AccountId,
+                    pub(crate) deposit: near_sdk::Balance,
+                    pub(crate) static_gas: near_sdk::Gas,
+                    pub(crate) gas_weight: near_sdk::GasWeight,
                 }
                 impl ExternalCrossContractExt {
-                  pub fn with_amount(mut self, amount: u128) -> Self {
-                    self.amount = amount;
-                    self
-                  }
-                  pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
-                    self.static_gas = static_gas;
-                    self
-                  }
-                  pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                    self.gas_weight = near_sdk::GasWeight(gas_weight);
-                    self
-                  }
+                    pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+                        self.deposit = amount;
+                        self
+                    }
+                    pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+                        self.static_gas = static_gas;
+                        self
+                    }
+                    pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
+                        self.gas_weight = near_sdk::GasWeight(gas_weight);
+                        self
+                    }
                 }
                 /// API for calling this contract's functions in a subsequent execution.
                 pub fn ext(account_id: near_sdk::AccountId) -> ExternalCrossContractExt {
                     ExternalCrossContractExt {
                         account_id,
-                        amount: 0,
+                        deposit: 0,
                         static_gas: near_sdk::Gas(0),
                         gas_weight: near_sdk::GasWeight::default(),
                     }
@@ -105,7 +105,7 @@ mod tests {
                             .function_call_weight(
                                 "merge_sort".to_string(),
                                 __args,
-                                self.amount,
+                                self.deposit,
                                 self.static_gas,
                                 self.gas_weight,
                             )
@@ -116,7 +116,7 @@ mod tests {
                             .function_call_weight(
                                 "merge".to_string(),
                                 __args,
-                                self.amount,
+                                self.deposit,
                                 self.static_gas,
                                 self.gas_weight,
                             )
@@ -145,30 +145,30 @@ mod tests {
             use super::*;
             #[must_use]
             pub struct TestExt {
-              pub(crate) account_id: near_sdk::AccountId,
-              pub(crate) amount: u128,
-              pub(crate) static_gas: near_sdk::Gas,
-              pub(crate) gas_weight: near_sdk::GasWeight,
+                pub(crate) account_id: near_sdk::AccountId,
+                pub(crate) deposit: near_sdk::Balance,
+                pub(crate) static_gas: near_sdk::Gas,
+                pub(crate) gas_weight: near_sdk::GasWeight,
             }
             impl TestExt {
-              pub fn with_amount(mut self, amount: u128) -> Self {
-                self.amount = amount;
-                self
-              }
-              pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
-                self.static_gas = static_gas;
-                self
-              }
-              pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                self.gas_weight = near_sdk::GasWeight(gas_weight);
-                self
-              }
+                pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+                    self.deposit = amount;
+                    self
+                }
+                pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+                    self.static_gas = static_gas;
+                    self
+                }
+                pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
+                    self.gas_weight = near_sdk::GasWeight(gas_weight);
+                    self
+                }
             }
             /// API for calling this contract's functions in a subsequent execution.
             pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
                 TestExt {
                     account_id,
-                    amount: 0,
+                    deposit: 0,
                     static_gas: near_sdk::Gas(0),
                     gas_weight: near_sdk::GasWeight::default(),
                 }
@@ -191,7 +191,7 @@ mod tests {
                         .function_call_weight(
                             "test".to_string(),
                             __args,
-                            self.amount,
+                            self.deposit,
                             self.static_gas,
                             self.gas_weight,
                         )
