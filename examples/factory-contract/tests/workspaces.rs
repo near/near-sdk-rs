@@ -11,7 +11,9 @@ async fn test_deploy_status_message(contract_name: &str) -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
     let contract = worker.dev_deploy(&std::fs::read(format!("res/{}.wasm", contract_name))?).await?;
 
-    let status_id: near_sdk::AccountId = "status".parse().unwrap();
+    // Needed because of 32 character minimum for TLA
+    // https://docs.near.org/docs/concepts/account#top-level-accounts
+    let status_id: near_sdk::AccountId = "status-top-level-account-long-name".parse().unwrap();
     let status_amt = U128::from(parse_near!("20 N"));
     let res = contract
         .call(&worker, "deploy_status_message")

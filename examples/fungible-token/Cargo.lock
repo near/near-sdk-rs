@@ -3127,9 +3127,9 @@ dependencies = [
 
 [[package]]
 name = "workspaces"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbf3750ed46c2da9ea420fe3c7fa71b6a85cf472a73b9c1985a6ea79ef164563"
+checksum = "58a9b9b6d29ca216ce56e738450ac32016466fe626e1a10732e0f01092ce2f66"
 dependencies = [
  "anyhow",
  "async-trait",
