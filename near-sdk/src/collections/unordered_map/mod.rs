@@ -1,5 +1,9 @@
 //! A map implemented on a trie. Unlike `std::collections::HashMap` the keys in this map are not
 //! hashed but are instead serialized.
+
+mod iter;
+pub use iter::Iter;
+
 use crate::collections::{append, append_slice, Vector};
 use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -283,8 +287,8 @@ where
     }
 
     /// Iterate over deserialized keys and values.
-    pub fn iter(&self) -> impl Iterator<Item = (K, V)> + '_ {
-        self.keys.iter().zip(self.values.iter())
+    pub fn iter(&self) -> Iter<K, V> {
+        Iter::new(self)
     }
 
     pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) {
@@ -324,10 +328,12 @@ where
 #[cfg(test)]
 mod tests {
     use crate::collections::UnorderedMap;
+    use borsh::{BorshDeserialize, BorshSerialize};
     use rand::seq::SliceRandom;
     use rand::{Rng, SeedableRng};
     use std::collections::{HashMap, HashSet};
     use std::iter::FromIterator;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     pub fn test_insert_one() {
@@ -494,6 +500,39 @@ mod tests {
         }
         let actual: HashMap<u64, u64> = map.iter().collect();
         assert_eq!(actual, key_to_value);
+    }
+
+    #[test]
+    pub fn test_iter_nth() {
+        static DES_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(BorshSerialize)]
+        struct DeserializeCounter(u64);
+
+        impl BorshDeserialize for DeserializeCounter {
+            fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+                DES_COUNT.fetch_add(1, Ordering::SeqCst);
+                u64::deserialize(buf).map(DeserializeCounter)
+            }
+        }
+
+        let mut map = UnorderedMap::new(b"m");
+
+        for i in 0..10 {
+            map.insert(&i, &DeserializeCounter(i));
+        }
+        assert_eq!(DES_COUNT.load(Ordering::SeqCst), 0);
+
+        let collected: Vec<u64> = map.iter().skip(5).take(4).map(|(_, v)| v.0).collect();
+        // 5 because skip is a bit inefficient in that it calls nth to skip.
+        assert_eq!(DES_COUNT.load(Ordering::SeqCst), 5);
+        assert_eq!(&collected, &[5, 6, 7, 8]);
+
+        DES_COUNT.store(0, Ordering::SeqCst);
+        let collected: Vec<u64> = map.values().skip(5).take(4).map(|v| v.0).collect();
+        // 5 because skip is a bit inefficient in that it calls nth to skip.
+        assert_eq!(DES_COUNT.load(Ordering::SeqCst), 5);
+        assert_eq!(&collected, &[5, 6, 7, 8]);
     }
 
     #[test]

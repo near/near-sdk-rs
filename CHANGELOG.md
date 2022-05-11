@@ -2,11 +2,19 @@
 
 ## [Unreleased]
 
+### Fixes
+- near-contract-standards: `nft_tokens` in enumeration standard no longer panics when there are no tokens [PR 798](https://github.com/near/near-sdk-rs/pull/798)
+- Optimized `nth` operation for `UnorderedMap` iterator and implemented `IntoIterator` for it. [PR 801](https://github.com/near/near-sdk-rs/pull/801)
+  - This optimizes the `skip` operation, which is common with pagination
+
+## [4.0.0-pre.8] - 2022-04-19
+
 ### Added
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
-- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
+- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/736)
 - Added an optional way to handle contract errors with `Result`. [PR 745](https://github.com/near/near-sdk-rs/pull/745), [PR 754](https://github.com/near/near-sdk-rs/pull/754) and [PR 757](https://github.com/near/near-sdk-rs/pull/757).
 - Added support for using `#[callback_result]` with a function that doesn't have a return. [PR 738](https://github.com/near/near-sdk-rs/pull/738)
+- Support for multi-architecture docker builds and updated Rust version to 1.56 with latest [contract builder](https://hub.docker.com/r/nearprotocol/contract-builder). [PR 751](https://github.com/near/near-sdk-rs/pull/751)
 
 ### Fixes
 - Disallow invalid `Promise::then` chains. Will now panic with `promise_1.then(promise_2.then(promise_3))` syntax. [PR 410](https://github.com/near/near-sdk-rs/pull/410)
@@ -19,6 +27,7 @@
 - Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
 - Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
 - Moved `VMContext` to a local type defined in SDK to avoid duplicate types. [PR 785](https://github.com/near/near-sdk-rs/pull/785)
+- Moved `Metadata` and `MethodMetadata` to a pseudo-private module as these are just types used within macros and not stable. [PR 771](https://github.com/near/near-sdk-rs/pull/771)
 
 ### Removed
 - Remove `Clone` implementation for `Promise` (error prone) https://github.com/near/near-sdk-rs/pull/783

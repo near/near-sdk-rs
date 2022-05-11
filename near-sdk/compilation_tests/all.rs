@@ -20,4 +20,5 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/payable_view.rs");
     t.pass("compilation_tests/borsh_storage_key.rs");
     t.pass("compilation_tests/function_error.rs");
+    t.pass("compilation_tests/enum_near_bindgen.rs");
 }

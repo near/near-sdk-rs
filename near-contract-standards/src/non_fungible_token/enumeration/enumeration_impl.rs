@@ -30,7 +30,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         // https://nomicon.io/Standards/NonFungibleToken/Enumeration.html#interface
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
         require!(
-            (self.owner_by_id.len() as u128) > start_index,
+            (self.owner_by_id.len() as u128) >= start_index,
             "Out of bounds, please use a smaller from_index."
         );
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);

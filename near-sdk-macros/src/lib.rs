@@ -45,10 +45,16 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let struct_proxy = generate_proxy_struct(&input);
+        let struct_proxy = generate_sim_proxy_struct(&input.ident);
         TokenStream::from(quote! {
             #input
             #struct_proxy
+        })
+    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        let enum_proxy = generate_sim_proxy_struct(&input.ident);
+        TokenStream::from(quote! {
+            #input
+            #enum_proxy
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -69,7 +75,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "near_bindgen can only be used on type declarations and impl sections.",
+                "near_bindgen can only be used on struct or enum definition and impl sections.",
             )
             .to_compile_error(),
         )
@@ -232,7 +238,7 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
         );
     };
     TokenStream::from(quote! {
-        impl near_sdk::BorshIntoStorageKey for #name {}
+        impl near_sdk::__private::BorshIntoStorageKey for #name {}
     })
 }
 
