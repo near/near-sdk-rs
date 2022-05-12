@@ -85,9 +85,9 @@ mod tests {
     async fn workspaces_test() -> anyhow::Result<()> {
         let wasm = fs::read("res/callback_results.wasm").await?;
 
-        let worker = workspaces::sandbox();
+        let worker = workspaces::sandbox().await?;
 
-        let contract = worker.dev_deploy(wasm).await?;
+        let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
         let res = contract.call(&worker, "a").transact().await?;

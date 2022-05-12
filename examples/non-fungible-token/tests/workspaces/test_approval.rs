@@ -1,6 +1,6 @@
 use crate::utils::init;
 use near_contract_standards::non_fungible_token::Token;
-use near_primitives::views::FinalExecutionStatus;
+
 use near_sdk::{AccountId, ONE_NEAR, ONE_YOCTO};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -9,7 +9,7 @@ pub const TOKEN_ID: &str = "0";
 
 #[tokio::test]
 async fn simulate_simple_approve() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, token_receiver_contract, _) = init(&worker).await?;
 
     // root approves alice
@@ -20,7 +20,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
         .deposit(510000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // check nft_is_approved, don't provide approval_id
     let alice_approved = nft_contract
@@ -68,7 +68,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
         .deposit(ONE_NEAR)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let alice_approval_id_is_2 = nft_contract
         .call(&worker, "nft_is_approved")
@@ -88,7 +88,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
         .deposit(450000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let token_receiver_approval_id_is_3 = nft_contract
         .call(&worker, "nft_is_approved")
@@ -103,7 +103,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_approval_with_call() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, _, approval_receiver_contract) = init(&worker).await?;
 
     let res = nft_contract
@@ -133,7 +133,7 @@ async fn simulate_approval_with_call() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
 
     // root approves alice
@@ -144,17 +144,17 @@ async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
         .deposit(510000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // alice sends to self
     let res = alice
-        .call(&worker, nft_contract.id().clone(), "nft_transfer")
+        .call(&worker, nft_contract.id(), "nft_transfer")
         .args_json((alice.id(), TOKEN_ID, Some(1u64), Some("gotcha! bahahaha".to_string())))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // token now owned by alice
     let token = nft_contract
@@ -170,7 +170,7 @@ async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_revoke() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, token_receiver_contract, _) = init(&worker).await?;
 
     // root approves alice
@@ -181,7 +181,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
         .deposit(510000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // root approves token_receiver
     let res = nft_contract
@@ -191,7 +191,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
         .deposit(450000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // root revokes alice
     let res = nft_contract
@@ -201,7 +201,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // alice is revoked...
     let alice_approved = nft_contract
@@ -229,7 +229,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // alice is still revoked...
     let alice_approved = nft_contract
@@ -254,7 +254,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_revoke_all() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, token_receiver_contract, _) = init(&worker).await?;
 
     // root approves alice
@@ -265,7 +265,7 @@ async fn simulate_revoke_all() -> anyhow::Result<()> {
         .deposit(510000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // root approves token_receiver
     let res = nft_contract
@@ -275,7 +275,7 @@ async fn simulate_revoke_all() -> anyhow::Result<()> {
         .deposit(450000000000000000000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // root revokes all
     let res = nft_contract
@@ -285,7 +285,7 @@ async fn simulate_revoke_all() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // alice is revoked...
     let alice_approved = nft_contract

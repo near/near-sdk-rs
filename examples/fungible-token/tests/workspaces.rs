@@ -1,4 +1,4 @@
-use near_primitives::views::FinalExecutionStatus;
+
 use near_sdk::json_types::U128;
 use near_sdk::ONE_YOCTO;
 use near_units::parse_near;
@@ -17,7 +17,7 @@ async fn register_user(
         .deposit(near_sdk::env::storage_byte_cost() * 125)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     Ok(())
 }
@@ -27,7 +27,7 @@ async fn init(
     initial_balance: U128,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let ft_contract =
-        worker.dev_deploy(include_bytes!("../res/fungible_token.wasm").to_vec()).await?;
+        worker.dev_deploy(&include_bytes!("../res/fungible_token.wasm").to_vec()).await?;
 
     let res = ft_contract
         .call(&worker, "new_default_meta")
@@ -35,9 +35,9 @@ async fn init(
         .gas(300_000_000_000_000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
-    let defi_contract = worker.dev_deploy(include_bytes!("../res/defi.wasm").to_vec()).await?;
+    let defi_contract = worker.dev_deploy(&include_bytes!("../res/defi.wasm").to_vec()).await?;
 
     let res = defi_contract
         .call(&worker, "new")
@@ -45,7 +45,7 @@ async fn init(
         .gas(300_000_000_000_000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let alice = ft_contract
         .as_account()
@@ -63,7 +63,7 @@ async fn init(
         .deposit(near_sdk::env::storage_byte_cost() * 125)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     return Ok((ft_contract, alice, defi_contract));
 }
@@ -71,7 +71,7 @@ async fn init(
 #[tokio::test]
 async fn test_total_supply() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract.call(&worker, "ft_total_supply").view().await?;
@@ -84,7 +84,7 @@ async fn test_total_supply() -> anyhow::Result<()> {
 async fn test_simple_transfer() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
     let res = contract
@@ -94,7 +94,7 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let root_balance = contract
         .call(&worker, "ft_balance_of")
@@ -117,11 +117,11 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_close_account_empty_balance() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
     let res = alice
-        .call(&worker, contract.id().clone(), "storage_unregister")
+        .call(&worker, contract.id(), "storage_unregister")
         .args_json((Option::<bool>::None,))?
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
@@ -135,7 +135,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract
@@ -144,8 +144,8 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure())
+        .await;
+    assert!(format!("{:?}", res)
         .contains("Can't unregister the account with the positive balance without force"));
 
     let res = contract
@@ -154,8 +154,8 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(format!("{:?}", res.status.as_failure())
+        .await;
+    assert!(format!("{:?}", res)
         .contains("Can't unregister the account with the positive balance without force"));
 
     Ok(())
@@ -164,7 +164,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
 #[tokio::test]
 async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract
@@ -174,7 +174,7 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let res = contract.call(&worker, "ft_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?.0, 0);
@@ -186,7 +186,7 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
 async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -201,7 +201,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
     let res = contract
         .call(&worker, "storage_unregister")
         .args_json((Some(true),))?
@@ -209,7 +209,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
     assert!(res.json::<bool>()?);
 
     // TODO: Check callbacks once workspaces starts exposing them
@@ -241,7 +241,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
 async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -255,7 +255,7 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let root_balance = contract
         .call(&worker, "ft_balance_of")
@@ -280,7 +280,7 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
 {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // call fails because DEFI contract is not registered as FT user
@@ -290,8 +290,8 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
         .gas(300_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::Failure(_)));
+        .await;
+    assert!(res.is_err());
 
     // balances remain unchanged
     let root_balance = contract
@@ -317,7 +317,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     let initial_balance = U128::from(parse_near!("10000 N"));
     let refund_amount = U128::from(parse_near!("50 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -335,7 +335,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let root_balance = contract
         .call(&worker, "ft_balance_of")
@@ -359,7 +359,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
 async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -378,7 +378,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // TODO: Check promise errors once workspaces starts exposing them
 

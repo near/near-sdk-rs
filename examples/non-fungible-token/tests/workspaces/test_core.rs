@@ -1,11 +1,11 @@
 use crate::utils::{init, TOKEN_ID};
 use near_contract_standards::non_fungible_token::Token;
-use near_primitives::views::FinalExecutionStatus;
+
 use near_sdk::ONE_YOCTO;
 
 #[tokio::test]
 async fn simulate_simple_transfer() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
 
     let token = nft_contract
@@ -28,7 +28,7 @@ async fn simulate_simple_transfer() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints no logs
@@ -47,7 +47,7 @@ async fn simulate_simple_transfer() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_transfer_call_fast_return_to_sender() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, token_receiver_contract, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -63,7 +63,7 @@ async fn simulate_transfer_call_fast_return_to_sender() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let token = nft_contract
         .call(&worker, "nft_token")
@@ -78,7 +78,7 @@ async fn simulate_transfer_call_fast_return_to_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_transfer_call_slow_return_to_sender() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, token_receiver_contract, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -94,7 +94,7 @@ async fn simulate_transfer_call_slow_return_to_sender() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let token = nft_contract
         .call(&worker, "nft_token")
@@ -109,7 +109,7 @@ async fn simulate_transfer_call_slow_return_to_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_transfer_call_fast_keep_with_sender() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, token_receiver_contract, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -125,7 +125,7 @@ async fn simulate_transfer_call_fast_keep_with_sender() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints no logs
@@ -144,7 +144,7 @@ async fn simulate_transfer_call_fast_keep_with_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_transfer_call_slow_keep_with_sender() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, token_receiver_contract, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -160,7 +160,7 @@ async fn simulate_transfer_call_slow_keep_with_sender() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let token = nft_contract
         .call(&worker, "nft_token")
@@ -175,7 +175,7 @@ async fn simulate_transfer_call_slow_keep_with_sender() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_transfer_call_receiver_panics() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, token_receiver_contract, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -191,7 +191,7 @@ async fn simulate_transfer_call_receiver_panics() -> anyhow::Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints final log
@@ -211,7 +211,7 @@ async fn simulate_transfer_call_receiver_panics() -> anyhow::Result<()> {
 #[tokio::test]
 async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produces_no_log_if_not_enough_gas(
 ) -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, token_receiver_contract, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -226,8 +226,8 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
         .gas(30_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::Failure(_)));
+        .await;
+    assert!(res.is_err());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints no logs
@@ -246,7 +246,7 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
 
 #[tokio::test]
 async fn simulate_simple_transfer_no_logs_on_failure() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, _, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -256,8 +256,8 @@ async fn simulate_simple_transfer_no_logs_on_failure() -> anyhow::Result<()> {
         .gas(200_000_000_000_000)
         .deposit(ONE_YOCTO)
         .transact()
-        .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::Failure(_)));
+        .await;
+    assert!(res.is_err());
 
     // TODO: Check the logs once workspaces starts exposing them
     // Prints no logs
