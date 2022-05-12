@@ -488,7 +488,7 @@ impl borsh::BorshSerialize for Promise {
 /// let val: PromiseOrValue<bool> = if let Some(value) = value {
 ///     PromiseOrValue::Value(value)
 /// } else {
-///     contract_a::a("bob_near".parse().unwrap(), 0, Gas(1_000)).into()
+///     contract_a::ext("bob_near".parse().unwrap()).a().into()
 /// };
 /// ```
 #[derive(serde::Serialize)]
