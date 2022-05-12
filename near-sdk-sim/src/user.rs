@@ -371,7 +371,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 ///
 ///  This example deploys and initializes the contract.
 ///
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
@@ -392,7 +392,7 @@ pub fn init_simulator(genesis_config: Option<GenesisConfig>) -> UserAccount {
 /// ```
 /// This example used the default values for the initial deposit to the new contract's account and gas for the contract call.
 /// So it is the same as:
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
@@ -457,7 +457,7 @@ macro_rules! deploy {
 ///
 /// # Examples:
 ///
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }
@@ -524,7 +524,7 @@ macro_rules! call {
 /// Calls a view method on the contract account.
 ///
 /// Example:
-/// ```
+/// ```no_run
 /// # lazy_static_include::lazy_static_include_bytes! {
 /// #    TOKEN_WASM_BYTES => "../examples/fungible-token/res/fungible_token.wasm",
 /// # }

@@ -359,6 +359,34 @@ mod mock_chain {
             )
         })
     }
+
+    #[no_mangle]
+    extern "C" fn promise_batch_action_function_call_weight(
+        promise_index: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        weight: u64,
+    ) {
+        // TODO call updated function once nearcore crates updated
+        // TODO https://github.com/near/near-sdk-rs/issues/813
+        let _ = weight;
+        with_mock_interface(|b| {
+            b.promise_batch_action_function_call(
+                promise_index,
+                function_name_len,
+                function_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+            )
+        })
+    }
+
     #[no_mangle]
     extern "C" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
         with_mock_interface(|b| b.promise_batch_action_transfer(promise_index, amount_ptr))

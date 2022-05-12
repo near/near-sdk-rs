@@ -1,3 +1,4 @@
+use crate::non_fungible_token::approval::ext_nft_approval_receiver;
 /// Common implementation of the [approval management standard](https://nomicon.io/Standards/NonFungibleToken/ApprovalManagement.html) for NFTs.
 /// on the contract/account that has just been approved. This is not required to implement.
 use crate::non_fungible_token::approval::NonFungibleTokenApproval;
@@ -7,10 +8,9 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::{assert_one_yocto, env, ext_contract, require, AccountId, Balance, Gas, Promise};
+use near_sdk::{assert_one_yocto, env, require, AccountId, Gas, Promise};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
-const NO_DEPOSIT: Balance = 0;
 
 fn expect_token_found<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| env::panic_str("Token not found"))
@@ -18,17 +18,6 @@ fn expect_token_found<T>(option: Option<T>) -> T {
 
 fn expect_approval<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| env::panic_str("next_approval_by_id must be set for approval ext"))
-}
-
-#[ext_contract(ext_approval_receiver)]
-pub trait NonFungibleTokenReceiver {
-    fn nft_on_approve(
-        &mut self,
-        token_id: TokenId,
-        owner_id: AccountId,
-        approval_id: u64,
-        msg: String,
-    );
 }
 
 impl NonFungibleTokenApproval for NonFungibleToken {
@@ -69,15 +58,9 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.map(|msg| {
-            ext_approval_receiver::nft_on_approve(
-                token_id,
-                owner_id,
-                approval_id,
-                msg,
-                account_id,
-                NO_DEPOSIT,
-                env::prepaid_gas() - GAS_FOR_NFT_APPROVE,
-            )
+            ext_nft_approval_receiver::ext(account_id)
+                .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_APPROVE)
+                .nft_on_approve(token_id, owner_id, approval_id, msg)
         })
     }
 

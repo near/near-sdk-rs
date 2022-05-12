@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::rc::Rc;
 
-use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
+use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
 
 enum PromiseAction {
     CreateAccount,
@@ -16,6 +16,13 @@ enum PromiseAction {
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
+    },
+    FunctionCallWeight {
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+        weight: GasWeight,
     },
     Transfer {
         amount: Balance,
@@ -58,6 +65,16 @@ impl PromiseAction {
                     arguments,
                     *amount,
                     *gas,
+                )
+            }
+            FunctionCallWeight { function_name, arguments, amount, gas, weight } => {
+                crate::env::promise_batch_action_function_call_weight(
+                    promise_index,
+                    function_name,
+                    arguments,
+                    *amount,
+                    *gas,
+                    GasWeight(weight.0),
                 )
             }
             Transfer { amount } => {
@@ -166,7 +183,7 @@ impl PromiseJoint {
 /// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
-///         contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
+///         contract_b::ext("bob_near".parse().unwrap()).b()
 ///     }
 /// }
 /// ```
@@ -250,6 +267,26 @@ impl Promise {
         gas: Gas,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
+    }
+
+    /// A low-level interface for making a function call to the account that this promise acts on.
+    /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
+    /// on this function call at the end of the scheduling method execution.
+    pub fn function_call_weight(
+        self,
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+        weight: GasWeight,
+    ) -> Self {
+        self.add_action(PromiseAction::FunctionCallWeight {
+            function_name,
+            arguments,
+            amount,
+            gas,
+            weight,
+        })
     }
 
     /// Transfer tokens to the account that this promise acts on.
@@ -385,11 +422,11 @@ impl Promise {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000)).as_return();
+    ///        contract_b::ext("bob_near".parse().unwrap()).b().as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
+    ///        contract_b::ext("bob_near".parse().unwrap()).b()
     ///     }
     /// }
     /// ```
@@ -451,7 +488,7 @@ impl borsh::BorshSerialize for Promise {
 /// let val: PromiseOrValue<bool> = if let Some(value) = value {
 ///     PromiseOrValue::Value(value)
 /// } else {
-///     contract_a::a("bob_near".parse().unwrap(), 0, Gas(1_000)).into()
+///     contract_a::ext("bob_near".parse().unwrap()).a().into()
 /// };
 /// ```
 #[derive(serde::Serialize)]
