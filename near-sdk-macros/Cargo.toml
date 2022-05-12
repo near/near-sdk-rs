@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk-macros"
-version = "4.0.0-pre.8"
+version = "4.0.0-pre.9"
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"

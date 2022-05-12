@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [4.0.0-pre.9] - 2022-05-12
+
 ### Fixes
 - near-contract-standards: `nft_tokens` in enumeration standard no longer panics when there are no tokens [PR 798](https://github.com/near/near-sdk-rs/pull/798)
 - Optimized `nth` operation for `UnorderedMap` iterator and implemented `IntoIterator` for it. [PR 801](https://github.com/near/near-sdk-rs/pull/801)
@@ -268,7 +270,9 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...HEAD
+[4.0.0-pre.9] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
+[4.0.0-pre.8] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8
 [4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.6...4.0.0-pre.7
 [4.0.0-pre.6]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.5...4.0.0-pre.6
 [4.0.0-pre.5]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.4...4.0.0-pre.5
