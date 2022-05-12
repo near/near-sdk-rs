@@ -1,8 +1,8 @@
+use crate::core_impl::utils;
 use crate::core_impl::{
     info_extractor::{AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType},
     serializer,
 };
-use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::spanned::Spanned;
