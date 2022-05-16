@@ -1,3 +1,57 @@
+//! A growable array type with values persisted to storage and lazily loaded.
+//!
+//! Values in the [`Vector`] are kept in an in-memory cache and are only persisted on [`Drop`].
+//!
+//! Vectors ensure they never allocate more than [`u32::MAX`] bytes. [`u32`] is used rather than
+//! [`usize`] as in [`Vec`] to ensure consistent behavior on different targets.
+//!
+//! # Examples
+//!
+//! You can explicitly create a [`Vector`] with [`Vector::new`]:
+//!
+//! ```
+//! use near_sdk::store::Vector;
+//!
+//! let v: Vector<i32> = Vector::new(b"a");
+//! ```
+//!
+//! You can [`push`](Vector::push) values onto the end of a vector (which will grow the vector
+//! as needed):
+//!
+//! ```
+//! use near_sdk::store::Vector;
+//!
+//! let mut v: Vector<i32> = Vector::new(b"a");
+//!
+//! v.push(3);
+//! ```
+//!
+//! Popping values works in much the same way:
+//!
+//! ```
+//! use near_sdk::store::Vector;
+//!
+//! let mut v: Vector<i32> = Vector::new(b"a");
+//! v.extend([1, 2]);
+//!
+//! let two = v.pop();
+//! ```
+//!
+//! Vectors also support indexing (through the [`Index`] and [`IndexMut`] traits):
+//!
+//! ```
+//! use near_sdk::store::Vector;
+//!
+//! let mut v: Vector<i32> = Vector::new(b"a");
+//! v.extend([1, 2, 3]);
+//!
+//! let three = v[2];
+//! v[1] = v[1] + 5;
+//! ```
+//!
+//! [`Index`]: std::ops::Index
+//! [`IndexMut`]: std::ops::IndexMut
+
 mod impls;
 mod iter;
 
@@ -93,6 +147,16 @@ where
     }
 }
 
+#[test]
+fn collections_vec_not_backwards_compatible() {
+    use crate::collections::Vector as Vec1;
+
+    let mut v1 = Vec1::new(b"m");
+    v1.extend([1u8, 2, 3, 4]);
+    // Old collections serializes length as `u64` when new serializes as `u32`.
+    assert!(Vector::<u8>::try_from_slice(&v1.try_to_vec().unwrap()).is_err());
+}
+
 impl<T> Vector<T>
 where
     T: BorshSerialize,
@@ -134,6 +198,8 @@ where
 
     /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
     ///
+    /// This prefix can be anything that implements [`IntoStorageKey`].
+    ///
     /// # Examples
     ///
     /// ```
@@ -171,6 +237,9 @@ where
     }
 
     /// Flushes the cache and writes all modified values to storage.
+    ///
+    /// This operation is performed on [`Drop`], but this method can be called to persist
+    /// intermediate writes in cases where [`Drop`] is not called or to identify storage changes.
     pub fn flush(&mut self) {
         self.values.flush();
     }
@@ -297,13 +366,13 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec: Vector<u8> = Vector::new(b"v");
-    /// let baseline = vec![1, 2, 3];
-    /// vec.extend(baseline.clone());
+    /// vec.extend([1, 2, 3, 4]);
     ///
-    /// vec.swap_remove(0);
-    ///
-    /// assert_eq!(vec.get(0), Some(&3));
     /// assert_eq!(vec.swap_remove(1), 2);
+    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), &[1, 4, 3]);
+    ///
+    /// assert_eq!(vec.swap_remove(0), 1);
+    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), &[3, 4]);
     /// ```
     pub fn swap_remove(&mut self, index: u32) -> T {
         if self.is_empty() {
@@ -314,7 +383,7 @@ where
         expect_consistent_state(self.pop())
     }
 
-    /// Removes the last element from a vector and returns it, or `None` if it is empty.
+    /// Removes the last element from a vector and returns it, or [`None`] if it is empty.
     ///
     /// # Examples
     ///
@@ -322,8 +391,7 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// let x = vec![1,2,3];
-    /// vec.extend(x);
+    /// vec.extend([1, 2, 3]);
     ///
     /// assert_eq!(vec.pop(), Some(3));
     /// assert_eq!(vec.pop(), Some(2));
@@ -340,7 +408,6 @@ where
     /// # Panics
     ///
     /// If `index` is out of bounds.
-    // TODO determine if this should be stabilized, included for backwards compat with old version
     ///
     /// # Examples
     ///
@@ -354,6 +421,8 @@ where
     ///
     /// assert_eq!(vec.get(0), Some(&"replaced".to_string()));
     /// ```
+    // TODO determine if this should be stabilized, included for backwards compat with old version
+    #[cfg(feature = "unstable")]
     pub fn replace(&mut self, index: u32, element: T) -> T {
         if index >= self.len {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
@@ -370,10 +439,13 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// let baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    /// vec.extend(baseline.clone());
+    /// vec.extend([1, 2, 4]);
+    /// let mut iterator = vec.iter();
     ///
-    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    /// assert_eq!(iterator.next(), Some(&1));
+    /// assert_eq!(iterator.next(), Some(&2));
+    /// assert_eq!(iterator.next(), Some(&4));
+    /// assert_eq!(iterator.next(), None);
     /// ```
     pub fn iter(&self) -> Iter<T> {
         Iter::new(self)
@@ -388,14 +460,12 @@ where
     /// use near_sdk::store::Vector;
     ///
     /// let mut vec = Vector::new(b"v");
-    /// let baseline = vec![1, 2, 3];
-    /// vec.extend(baseline.clone());
+    /// vec.extend([1u32, 2, 4]);
     ///
-    /// let mut iter = vec.iter_mut();
-    ///
-    /// assert_eq!(iter.next(), Some(&mut 1));
-    /// assert_eq!(iter.next(), Some(&mut 2));
-    /// assert_eq!(iter.next(), Some(&mut 3));
+    /// for elem in vec.iter_mut() {
+    ///     *elem += 2;
+    /// }
+    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), &[3u32, 4, 6]);
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut::new(self)
@@ -406,8 +476,8 @@ where
     ///
     /// When the iterator **is** dropped, all elements in the range are removed
     /// from the vector, even if the iterator was not fully consumed. If the
-    /// iterator **is not** dropped (with [`mem::forget`] for example), the collection will be left
-    /// in an inconsistent state.
+    /// iterator **is not** dropped (with [`mem::forget`](std::mem::forget) for example),
+    /// the collection will be left in an inconsistent state.
     ///
     /// This will not panic on invalid ranges (`end > length` or `end < start`) and instead the
     /// iterator will just be empty.
@@ -415,18 +485,18 @@ where
     /// # Examples
     ///
     /// ```
-    ///
     /// use near_sdk::store::Vector;
     ///
-    /// let mut vec = Vector::new(b"v");
-    /// let mut baseline = vec![1, 2, 3];
-    /// vec.extend(baseline.clone());
+    /// let mut vec: Vector<u32> = Vector::new(b"v");
+    /// vec.extend(vec![1, 2, 3]);
     ///
-    /// assert!(Iterator::eq(vec.drain(..), baseline.drain(..)));
+    /// let u: Vec<_> = vec.drain(1..).collect();
+    /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), &[1]);
+    /// assert_eq!(u, &[2, 3]);
     ///
-    /// // A full range clears the vector
+    /// // A full range clears the vector, like `clear()` does
     /// vec.drain(..);
-    /// assert_eq!(vec.len(), 0)
+    /// assert!(vec.is_empty());
     /// ```
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
     where
