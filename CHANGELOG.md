@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Deprecate and remove `near-sdk-sim`. Removes `sim` proxy struct from `#[near_bindgen]`. [PR 817](https://github.com/near/near-sdk-rs/pull/817)
+  - If `near-sdk-sim` tests can't be migrated to [workspaces-rs](https://github.com/near/workspaces-rs), `4.0.0-pre.9` version of `near-sdk-rs` and `near-sdk-sim` should be used
+
 ## [4.0.0-pre.9] - 2022-05-12
 
 ### Fixes
