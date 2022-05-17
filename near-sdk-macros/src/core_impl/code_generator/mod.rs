@@ -10,9 +10,6 @@ pub use item_trait_info::*;
 mod item_impl_info;
 pub use item_impl_info::*;
 
-mod sim_proxy;
-pub use sim_proxy::generate_sim_proxy_struct;
-
 pub(crate) mod ext;
 
 pub(crate) mod serializer;
