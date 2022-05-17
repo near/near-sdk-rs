@@ -95,7 +95,8 @@ pub fn assert_one_yocto() {
 /// Returns true if promise was successful.
 /// Fails if called outside a callback that received 1 promise result.
 pub fn is_promise_success() -> bool {
-    promise_result_as_success().is_some()
+    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
+    env::promise_result_internal(0).is_ok()
 }
 
 /// Returns the result of the promise if successful. Otherwise returns None.
