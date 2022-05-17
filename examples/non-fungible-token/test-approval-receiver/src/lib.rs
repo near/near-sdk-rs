@@ -1,5 +1,5 @@
 /*!
-A stub contract that implements nft_on_approve for simulation testing nft_approve.
+A stub contract that implements nft_on_approve for e2e testing nft_approve.
 */
 use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApprovalReceiver;
 use near_contract_standards::non_fungible_token::TokenId;

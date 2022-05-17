@@ -11,7 +11,7 @@ mod cache_entry;
 #[cfg(feature = "unstable")]
 pub(crate) use cache_entry::{CacheEntry, EntryState};
 
-use crate::{env, AccountId, PromiseResult};
+use crate::{env, PromiseResult};
 
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
@@ -105,40 +105,6 @@ pub fn promise_result_as_success() -> Option<Vec<u8>> {
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,
-    }
-}
-
-/// Used in the simulation code generator from near_sdk.
-#[derive(Debug)]
-pub struct PendingContractTx {
-    pub receiver_id: AccountId,
-    pub method: String,
-    pub args: Vec<u8>,
-    pub is_view: bool,
-}
-
-impl PendingContractTx {
-    pub fn new(
-        receiver_id: AccountId,
-        method: &str,
-        args: serde_json::Value,
-        is_view: bool,
-    ) -> Self {
-        PendingContractTx::new_from_bytes(
-            receiver_id,
-            method,
-            args.to_string().into_bytes(),
-            is_view,
-        )
-    }
-
-    pub fn new_from_bytes(
-        receiver_id: AccountId,
-        method: &str,
-        args: Vec<u8>,
-        is_view: bool,
-    ) -> Self {
-        Self { receiver_id, method: method.to_string(), args, is_view }
     }
 }
 
