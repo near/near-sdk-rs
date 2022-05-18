@@ -34,9 +34,10 @@ once_cell = { version = "1.8", optional = true, default-features = false }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # near-vm-logic = "0.10"
 # near-primitives-core = "0.10"
-near-vm-logic = { git = "https://github.com/near/nearcore", branch = "release-0.13.0" }
-near-primitives-core = { git = "https://github.com/near/nearcore", branch = "release-0.13.0" }
-near-primitives = { git = "https://github.com/near/nearcore", branch = "release-0.13.0" }
+near-vm-logic = { path = "../../nearcore/runtime/near-vm-logic" }
+near-primitives-core = { path = "../../nearcore/core/primitives-core" }
+near-primitives = { path = "../../nearcore/core/primitives" }
+near-crypto = { path = "../../nearcore/core/crypto" }
 
 [dev-dependencies]
 rand = "0.8.4"
