@@ -1,57 +1,17 @@
 use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::events::{FtBurn, FtTransfer};
-use crate::fungible_token::resolver::FungibleTokenResolver;
+use crate::fungible_token::receiver::ext_ft_receiver;
+use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, log, require, AccountId, Balance, Gas, IntoStorageKey, PromiseOrValue,
+    PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
-
-const NO_DEPOSIT: Balance = 0;
-
-#[ext_contract(ext_self)]
-trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
-
-#[ext_contract(ext_fungible_token_receiver)]
-pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-}
-
-#[ext_contract(ext_fungible_token)]
-pub trait FungibleTokenContract {
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
-
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-
-    /// Returns the total supply of the token in a decimal string representation.
-    fn ft_total_supply(&self) -> U128;
-
-    /// Returns the balance of the account. If the account doesn't exist, `"0"` must be returned.
-    fn ft_balance_of(&self, account_id: AccountId) -> U128;
-}
 
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
@@ -176,23 +136,15 @@ impl FungibleTokenCore for FungibleToken {
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         // Initiating receiver's call and the callback
-        ext_fungible_token_receiver::ft_on_transfer(
-            sender_id.clone(),
-            amount.into(),
-            msg,
-            receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
-        )
-        .then(ext_self::ft_resolve_transfer(
-            sender_id,
-            receiver_id,
-            amount.into(),
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+        ext_ft_receiver::ext(receiver_id.clone())
+            .with_static_gas(env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL)
+            .ft_on_transfer(sender_id.clone(), amount.into(), msg)
+            .then(
+                ext_ft_resolver::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
+            )
+            .into()
     }
 
     fn ft_total_supply(&self) -> U128 {

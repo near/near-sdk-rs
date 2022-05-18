@@ -474,6 +474,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "current nearcore crates versions do not include function call weight update"]
     fn test_cross_contract_call() {
         let (mut runtime, signer, _) = init_runtime(None);
 
@@ -524,6 +525,7 @@ mod tests {
         let (_, res) = res.unwrap();
         runtime.process_all().unwrap();
 
+        println!("{:?}", res);
         assert!(matches!(res, ExecutionOutcome { status: ExecutionStatus::SuccessValue(_), .. }));
         let res = runtime.view_method_call("status", "get_status", b"{\"account_id\": \"root\"}");
 

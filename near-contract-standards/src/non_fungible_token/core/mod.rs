@@ -5,8 +5,8 @@ mod resolver;
 
 pub use self::core_impl::*;
 
-pub use self::receiver::*;
-pub use self::resolver::*;
+pub use self::receiver::NonFungibleTokenReceiver;
+pub use self::resolver::NonFungibleTokenResolver;
 
 use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::AccountId;

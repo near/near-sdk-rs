@@ -1,41 +1,26 @@
 use near_sdk::require;
-use near_sdk::{env, ext_contract, near_bindgen, Promise, PromiseError};
+use near_sdk::{env, near_bindgen, Promise, PromiseError};
 
 const A_VALUE: u8 = 8;
 
 #[near_bindgen]
 pub struct Callback;
 
-// One can provide a name, e.g. `ext` to use for generated methods.
-#[ext_contract(ext)]
-pub trait ExtCrossContract {
-    fn a() -> Promise;
-    fn b(fail: bool) -> &'static str;
-    fn c(value: u8) -> u8;
-    fn d(value: u8);
-    fn handle_callbacks(
-        #[callback_unwrap] a: u8,
-        #[callback_result] b: Result<String, PromiseError>,
-        #[callback_result] c: Result<u8, PromiseError>,
-        #[callback_result] d: Result<(), PromiseError>,
-    ) -> (bool, bool, bool);
-}
-
 #[near_bindgen]
 impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
-        let gas_per_promise = env::prepaid_gas() / 7;
-        ext::a(env::current_account_id(), 0, gas_per_promise)
-            .and(ext::b(fail_b, env::current_account_id(), 0, gas_per_promise))
-            .and(ext::c(c_value, env::current_account_id(), 0, gas_per_promise))
-            .and(ext::d(d_value, env::current_account_id(), 0, gas_per_promise))
-            .then(ext::handle_callbacks(env::current_account_id(), 0, gas_per_promise))
+        Self::ext(env::current_account_id())
+            .a()
+            .and(Self::ext(env::current_account_id()).b(fail_b))
+            .and(Self::ext(env::current_account_id()).c(c_value))
+            .and(Self::ext(env::current_account_id()).d(d_value))
+            .then(Self::ext(env::current_account_id()).handle_callbacks())
     }
 
     /// Calls function c with a value that will always succeed
     pub fn a() -> Promise {
-        ext::c(A_VALUE, env::current_account_id(), 0, env::prepaid_gas() / 2)
+        Self::ext(env::current_account_id()).c(A_VALUE)
     }
 
     /// Returns a static string if fail is false, return
@@ -85,9 +70,9 @@ mod tests {
     async fn workspaces_test() -> anyhow::Result<()> {
         let wasm = fs::read("res/callback_results.wasm").await?;
 
-        let worker = workspaces::sandbox();
+        let worker = workspaces::sandbox().await?;
 
-        let contract = worker.dev_deploy(wasm).await?;
+        let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
         let res = contract.call(&worker, "a").transact().await?;

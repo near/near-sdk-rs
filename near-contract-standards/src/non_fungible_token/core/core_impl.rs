@@ -1,4 +1,6 @@
 use super::resolver::NonFungibleTokenResolver;
+use crate::non_fungible_token::core::receiver::ext_nft_receiver;
+use crate::non_fungible_token::core::resolver::ext_nft_resolver;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
@@ -10,38 +12,13 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, require, AccountId, Balance, BorshStorageKey, CryptoHash,
-    Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, require, AccountId, BorshStorageKey, CryptoHash, Gas, IntoStorageKey,
+    PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
-
-const NO_DEPOSIT: Balance = 0;
-
-#[ext_contract(ext_self)]
-trait NFTResolver {
-    fn nft_resolve_transfer(
-        &mut self,
-        previous_owner_id: AccountId,
-        receiver_id: AccountId,
-        token_id: TokenId,
-        approved_account_ids: Option<HashMap<AccountId, u64>>,
-    ) -> bool;
-}
-
-#[ext_contract(ext_receiver)]
-pub trait NonFungibleTokenReceiver {
-    /// Returns true if token should be returned to `sender_id`
-    fn nft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        previous_owner_id: AccountId,
-        token_id: TokenId,
-        msg: String,
-    ) -> PromiseOrValue<bool>;
-}
 
 /// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
@@ -431,25 +408,15 @@ impl NonFungibleTokenCore for NonFungibleToken {
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
-        ext_receiver::nft_on_transfer(
-            sender_id,
-            old_owner.clone(),
-            token_id.clone(),
-            msg,
-            receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_NFT_TRANSFER_CALL,
-        )
-        .then(ext_self::nft_resolve_transfer(
-            old_owner,
-            receiver_id,
-            token_id,
-            old_approvals,
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+        ext_nft_receiver::ext(receiver_id.clone())
+            .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_TRANSFER_CALL)
+            .nft_on_transfer(sender_id, old_owner.clone(), token_id.clone(), msg)
+            .then(
+                ext_nft_resolver::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .nft_resolve_transfer(old_owner, receiver_id, token_id, old_approvals),
+            )
+            .into()
     }
 
     fn nft_token(&self, token_id: TokenId) -> Option<Token> {

@@ -13,6 +13,7 @@ use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use crate::GasWeight;
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -494,6 +495,28 @@ pub fn promise_batch_action_function_call(
             arguments.as_ptr() as _,
             &amount as *const Balance as _,
             gas.0,
+        )
+    }
+}
+
+pub fn promise_batch_action_function_call_weight(
+    promise_index: PromiseIndex,
+    function_name: &str,
+    arguments: &[u8],
+    amount: Balance,
+    gas: Gas,
+    weight: GasWeight,
+) {
+    unsafe {
+        sys::promise_batch_action_function_call_weight(
+            promise_index,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas.0,
+            weight.0,
         )
     }
 }

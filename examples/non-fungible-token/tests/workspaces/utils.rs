@@ -1,6 +1,6 @@
 use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
-use near_primitives::views::FinalExecutionStatus;
+
 use near_units::parse_near;
 use workspaces::prelude::DevAccountDeployer;
 use workspaces::{Account, Contract, DevNetwork, Worker};
@@ -35,7 +35,7 @@ pub async fn helper_mint(
         .deposit(parse_near!("7 mN"))
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     Ok(())
 }
@@ -49,7 +49,7 @@ pub async fn init(
     worker: &Worker<impl DevNetwork>,
 ) -> anyhow::Result<(Contract, Account, Contract, Contract)> {
     let nft_contract =
-        worker.dev_deploy(include_bytes!("../../res/non_fungible_token.wasm").to_vec()).await?;
+        worker.dev_deploy(&include_bytes!("../../res/non_fungible_token.wasm").to_vec()).await?;
 
     let res = nft_contract
         .call(&worker, "new_default_meta")
@@ -57,7 +57,7 @@ pub async fn init(
         .gas(300_000_000_000_000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let token_metadata = TokenMetadata {
         title: Some("Olympus Mons".into()),
@@ -80,7 +80,7 @@ pub async fn init(
         .deposit(parse_near!("7 mN"))
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let res = nft_contract
         .as_account()
@@ -88,28 +88,28 @@ pub async fn init(
         .initial_balance(parse_near!("10 N"))
         .transact()
         .await?;
-    assert!(matches!(res.details.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
     let alice = res.result;
 
     let token_receiver_contract =
-        worker.dev_deploy(include_bytes!("../../res/token_receiver.wasm").to_vec()).await?;
+        worker.dev_deploy(&include_bytes!("../../res/token_receiver.wasm").to_vec()).await?;
     let res = token_receiver_contract
         .call(&worker, "new")
         .args_json((nft_contract.id(),))?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let approval_receiver_contract =
-        worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm").to_vec()).await?;
+        worker.dev_deploy(&include_bytes!("../../res/approval_receiver.wasm").to_vec()).await?;
     let res = approval_receiver_contract
         .call(&worker, "new")
         .args_json((nft_contract.id(),))?
         .gas(300_000_000_000_000)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     return Ok((nft_contract, alice, token_receiver_contract, approval_receiver_contract));
 }
