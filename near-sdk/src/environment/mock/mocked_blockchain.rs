@@ -57,7 +57,7 @@ impl MockedBlockchain {
         let mut ext = Box::new(SdkExternal::new());
         let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
-        ext.validators = validators;
+        ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
         let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
@@ -86,10 +86,12 @@ impl MockedBlockchain {
     }
 
     pub fn created_receipts(&self) -> &Vec<Receipt> {
-        &self.logic_fixture.ext.receipts
+        todo!()
+        // &self.logic.borrow().receipt_manager()
     }
     pub fn outcome(&self) -> VMOutcome {
-        self.logic.borrow().clone_outcome()
+        todo!();
+        // self.logic.borrow().clone_outcome()
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
@@ -97,7 +99,8 @@ impl MockedBlockchain {
     }
 
     pub fn logs(&self) -> Vec<String> {
-        self.logic.borrow().clone_outcome().logs
+        todo!()
+        // self.logic.borrow().clone_outcome().logs
     }
 }
 
@@ -371,11 +374,8 @@ mod mock_chain {
         gas: u64,
         weight: u64,
     ) {
-        // TODO call updated function once nearcore crates updated
-        // TODO https://github.com/near/near-sdk-rs/issues/813
-        let _ = weight;
         with_mock_interface(|b| {
-            b.promise_batch_action_function_call(
+            b.promise_batch_action_function_call_weight(
                 promise_index,
                 function_name_len,
                 function_name_ptr,
@@ -383,6 +383,7 @@ mod mock_chain {
                 arguments_ptr,
                 amount_ptr,
                 gas,
+                weight,
             )
         })
     }

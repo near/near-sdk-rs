@@ -1,6 +1,5 @@
 //! Testing blockchain utilities. These can only be used inside tests and are not available for
 //! a wasm32 target.
-#[allow(dead_code)]
 pub mod test_env;
 
 pub(crate) mod context;
@@ -89,7 +88,6 @@ macro_rules! testing_env {
     };
 }
 
-#[allow(dead_code)]
 /// Returns a copy of logs from VMLogic. Only available in unit tests.
 pub fn get_logs() -> Vec<String> {
     crate::mock::with_mocked_blockchain(|b| b.logs())
