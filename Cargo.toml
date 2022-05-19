@@ -2,7 +2,6 @@
 members = [
     "near-sdk",
     "near-sdk-macros",
-    "near-sdk-sim",
     "near-contract-standards",
     "sys",
 ]
