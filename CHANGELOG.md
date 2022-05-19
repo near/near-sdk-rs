@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+- Updated `nearcore` crates used for unit testing to version `0.13.0`. [PR 820](https://github.com/near/near-sdk-rs/pull/820)
+  - Removed `outcome` function from `MockedBlockchain` (incomplete and misleading data)
+  - Changed `created_receipts` to return owned `Vec` instead of reference to one
+  - `receipt_indices` field removed from `Receipt` type in testing utils
+
 ## [4.0.0-pre.9] - 2022-05-12
 
 ### Fixes
