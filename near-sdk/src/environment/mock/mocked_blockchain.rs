@@ -4,7 +4,6 @@ use crate::test_utils::VMContextBuilder;
 use crate::types::{Balance, PromiseResult};
 use crate::{Gas, RuntimeFeesConfig};
 use crate::{PublicKey, VMContext};
-use borsh::{BorshDeserialize, BorshSerialize};
 use near_crypto::PublicKey as VmPublicKey;
 use near_primitives::transaction::Action as PrimitivesAction;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
@@ -179,7 +178,7 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
 
 fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
     // Hack by serializing and deserializing the key. This format should be consistent.
-    PublicKey::try_from_slice(&key.try_to_vec().unwrap()).unwrap()
+    String::from(key).parse().unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
