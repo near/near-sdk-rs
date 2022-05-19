@@ -455,8 +455,9 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "near-account-id"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de83d74a9241be8cc4eb3055216966b58bf8c463e8e285c0dc553925acdd19fa"
 dependencies = [
  "borsh",
  "serde",
@@ -464,8 +465,9 @@ dependencies = [
 
 [[package]]
 name = "near-crypto"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8ecf0b8b31aa7f4e60f629f72213a2617ca4a5f45cd1ae9ed2cf7cecfebdbb7"
 dependencies = [
  "arrayref",
  "blake2",
@@ -490,8 +492,9 @@ dependencies = [
 
 [[package]]
 name = "near-primitives"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a2ba19282e79a4485a77736b679d276b09870bbf8042a18e0f0ae36347489c5"
 dependencies = [
  "borsh",
  "byteorder",
@@ -518,8 +521,9 @@ dependencies = [
 
 [[package]]
 name = "near-primitives-core"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb561feb392bb8c4f540256073446e6689af087bf6356e8dddcf75fc279f201f"
 dependencies = [
  "base64 0.11.0",
  "borsh",
@@ -534,8 +538,9 @@ dependencies = [
 
 [[package]]
 name = "near-rpc-error-core"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77fdd7ea8d8f786878651c37691515d5053f827ae60894aa40c16882b78f77c9"
 dependencies = [
  "quote",
  "serde",
@@ -544,8 +549,9 @@ dependencies = [
 
 [[package]]
 name = "near-rpc-error-macro"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e521842b6ae864dfe5391afbbe2df9e9d8427c26e9333b2e0b65cd42094f7607"
 dependencies = [
  "near-rpc-error-core",
  "serde",
@@ -587,8 +593,9 @@ version = "0.2.0"
 
 [[package]]
 name = "near-vm-errors"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e02faf2bc1f6ef82b965cfe44389808fb5594f7aca4b596766117f4ce74df20"
 dependencies = [
  "borsh",
  "near-account-id",
@@ -598,8 +605,9 @@ dependencies = [
 
 [[package]]
 name = "near-vm-logic"
-version = "0.0.0"
-source = "git+https://github.com/near/nearcore?branch=austin/expose_vm_logs_receipts#08702470a600dff2a34de5af1352b80461df322a"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f024d90451cd3c24d7a0a5cabf3636b192a60eb8e3ff0456f6c18b91152c346d"
 dependencies = [
  "base64 0.13.0",
  "borsh",
@@ -612,7 +620,7 @@ dependencies = [
  "near-vm-errors",
  "ripemd",
  "serde",
- "sha2 0.9.9",
+ "sha2 0.10.2",
  "sha3",
 ]
 

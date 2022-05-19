@@ -1,12 +1,11 @@
-use crate::core_impl::utils;
-use crate::core_impl::{
-    info_extractor::{AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType},
-    serializer,
+use crate::core_impl::info_extractor::{
+    AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType,
 };
+use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::{ReturnType, Signature};
+use syn::ReturnType;
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -203,55 +202,6 @@ impl ImplItemMethodInfo {
                 #callback_deser
                 #callback_vec_deser
                 #body
-            }
-        }
-    }
-
-    pub(crate) fn generate_sim_method_wrapper(&self) -> TokenStream2 {
-        let ImplItemMethodInfo { attr_signature_info, .. } = self;
-
-        let serialize = serializer::generate_serializer(
-            attr_signature_info,
-            &attr_signature_info.input_serializer,
-        );
-
-        let pat_type_list = attr_signature_info.pat_type_list();
-
-        let AttrSigInfo {
-            non_bindgen_attrs,
-            ident,
-            // receiver,
-            // returns,
-            // result_serializer,
-            // is_init,
-            method_type,
-            original_sig,
-            ..
-        } = attr_signature_info;
-        let return_ident = quote! { -> near_sdk::PendingContractTx };
-        let params = quote! {
-            &self, #pat_type_list
-        };
-        let ident_str = ident.to_string();
-        let is_view = if matches!(method_type, MethodType::View) {
-            quote! {true}
-        } else {
-            quote! {false}
-        };
-
-        let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
-            quote! {
-                #acc
-                #value
-            }
-        });
-        let Signature { generics, .. } = original_sig;
-        quote! {
-            #[cfg(not(target_arch = "wasm32"))]
-            #non_bindgen_attrs
-            pub fn #ident#generics(#params) #return_ident {
-                let __args = #serialize;
-                near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), #ident_str, __args, #is_view)
             }
         }
     }
