@@ -117,7 +117,7 @@ pub fn setup_panic_hook() {
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
     // Get register length and convert to a usize. The max register size in config is much less
     // than the u32 max so the abort should never be hit, but is there for safety because there
-    // would be undefined behaviour if the case would be hit.
+    // would be undefined behaviour during `read_register` if the buffer length is truncated.
     let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
 
     // Initialize buffer with capacity.
