@@ -3,6 +3,7 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
+use std::convert::TryInto;
 use std::mem::size_of;
 use std::panic as std_panic;
 use std::{convert::TryFrom, mem::MaybeUninit};
@@ -114,10 +115,24 @@ pub fn setup_panic_hook() {
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
-    let len = register_len(register_id)?;
-    let res = vec![0u8; len as usize];
-    unsafe { sys::read_register(register_id, res.as_ptr() as _) };
-    Some(res)
+    // Get register length and convert to a usize. The max register size in config is much less
+    // than the u32 max so the abort should never be hit, but is there for safety because there
+    // would be undefined behaviour during `read_register` if the buffer length is truncated.
+    let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
+
+    // Initialize buffer with capacity.
+    let mut buffer = Vec::with_capacity(len);
+
+    // Read register into buffer.
+    //* SAFETY: This is safe because the buffer is initialized with the exact capacity of the
+    //*         register that is being read from.
+    unsafe {
+        sys::read_register(register_id, buffer.as_mut_ptr() as u64);
+
+        // Set updated length after writing to buffer.
+        buffer.set_len(len);
+    }
+    Some(buffer)
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
