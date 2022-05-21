@@ -1,11 +1,8 @@
-use super::{Receipt, VmAction};
-use crate::{
-    types::{Balance, Gas},
-    PublicKey,
-};
-use near_vm_logic::types::AccountId as VmAccountId;
-use near_vm_logic::{External, HostError, ValuePtr};
-use std::{collections::HashMap, convert::TryFrom};
+use near_primitives::types::TrieNodesCount;
+use near_primitives_core::hash::{hash, CryptoHash};
+use near_primitives_core::types::{AccountId, Balance};
+use near_vm_logic::{External, ValuePtr};
+use std::collections::HashMap;
 
 type Result<T> = ::core::result::Result<T, near_vm_logic::VMLogicError>;
 
@@ -14,8 +11,8 @@ type Result<T> = ::core::result::Result<T, near_vm_logic::VMLogicError>;
 /// `MockedExternal` from `near_vm_logic`.
 pub(crate) struct SdkExternal {
     pub fake_trie: HashMap<Vec<u8>, Vec<u8>>,
-    pub receipts: Vec<Receipt>,
-    pub validators: HashMap<String, Balance>,
+    pub validators: HashMap<AccountId, Balance>,
+    data_count: u64,
 }
 
 pub struct MockedValuePtr {
@@ -65,156 +62,20 @@ impl External for SdkExternal {
         Ok(self.fake_trie.contains_key(key))
     }
 
-    fn create_receipt(
-        &mut self,
-        receipt_indices: Vec<u64>,
-        receiver_id: VmAccountId,
-    ) -> Result<u64> {
-        if let Some(index) = receipt_indices.iter().find(|&&el| el >= self.receipts.len() as u64) {
-            return Err(HostError::InvalidReceiptIndex { receipt_index: *index }.into());
-        }
-        let res = self.receipts.len() as u64;
-        self.receipts.push(Receipt {
-            receipt_indices,
-            receiver_id: receiver_id.into(),
-            actions: vec![],
-        });
-        Ok(res)
+    fn generate_data_id(&mut self) -> CryptoHash {
+        // Generates some hash for the data ID to receive data. This hash should not be functionally
+        // used in any mocked contexts.
+        let data_id = hash(&self.data_count.to_le_bytes());
+        self.data_count += 1;
+        data_id
     }
 
-    fn append_action_create_account(&mut self, receipt_index: u64) -> Result<()> {
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .unwrap()
-            .actions
-            .push(VmAction::CreateAccount);
-        Ok(())
+    fn get_trie_nodes_count(&self) -> TrieNodesCount {
+        TrieNodesCount { db_reads: 0, mem_reads: 0 }
     }
 
-    fn append_action_deploy_contract(&mut self, receipt_index: u64, code: Vec<u8>) -> Result<()> {
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .unwrap()
-            .actions
-            .push(VmAction::DeployContract { code });
-        Ok(())
-    }
-
-    fn append_action_function_call(
-        &mut self,
-        receipt_index: u64,
-        function_name: Vec<u8>,
-        arguments: Vec<u8>,
-        attached_deposit: u128,
-        prepaid_gas: u64,
-    ) -> Result<()> {
-        self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
-            VmAction::FunctionCall {
-                function_name: String::from_utf8(function_name)
-                    // * Unwrap here is fine because this is only used in mocks
-                    .expect("method name must be utf8 bytes"),
-                args: arguments,
-                deposit: attached_deposit,
-                gas: Gas(prepaid_gas),
-            },
-        );
-        Ok(())
-    }
-
-    fn append_action_transfer(&mut self, receipt_index: u64, amount: u128) -> Result<()> {
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .unwrap()
-            .actions
-            .push(VmAction::Transfer { deposit: amount });
-        Ok(())
-    }
-
-    fn append_action_stake(
-        &mut self,
-        receipt_index: u64,
-        stake: u128,
-        public_key: Vec<u8>,
-    ) -> Result<()> {
-        let public_key = PublicKey::try_from(public_key).unwrap();
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .unwrap()
-            .actions
-            .push(VmAction::Stake { stake, public_key });
-        Ok(())
-    }
-
-    fn append_action_add_key_with_full_access(
-        &mut self,
-        receipt_index: u64,
-        public_key: Vec<u8>,
-        nonce: u64,
-    ) -> Result<()> {
-        let public_key = PublicKey::try_from(public_key).unwrap();
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .unwrap()
-            .actions
-            .push(VmAction::AddKeyWithFullAccess { public_key, nonce });
-        Ok(())
-    }
-
-    fn append_action_add_key_with_function_call(
-        &mut self,
-        receipt_index: u64,
-        public_key: Vec<u8>,
-        nonce: u64,
-        allowance: Option<u128>,
-        receiver_id: VmAccountId,
-        function_names: Vec<Vec<u8>>,
-    ) -> Result<()> {
-        let public_key = PublicKey::try_from(public_key).unwrap();
-        let function_names =
-            function_names.into_iter().map(|s| String::from_utf8(s).unwrap()).collect();
-        self.receipts.get_mut(receipt_index as usize).unwrap().actions.push(
-            VmAction::AddKeyWithFunctionCall {
-                public_key,
-                nonce,
-                allowance,
-                receiver_id: receiver_id.into(),
-                function_names,
-            },
-        );
-        Ok(())
-    }
-
-    fn append_action_delete_key(&mut self, receipt_index: u64, public_key: Vec<u8>) -> Result<()> {
-        let public_key = PublicKey::try_from(public_key).unwrap();
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .unwrap()
-            .actions
-            .push(VmAction::DeleteKey { public_key });
-        Ok(())
-    }
-
-    fn append_action_delete_account(
-        &mut self,
-        receipt_index: u64,
-        beneficiary_id: VmAccountId,
-    ) -> Result<()> {
-        self.receipts
-            .get_mut(receipt_index as usize)
-            .ok_or(HostError::InvalidReceiptIndex { receipt_index })?
-            .actions
-            .push(VmAction::DeleteAccount { beneficiary_id: beneficiary_id.into() });
-        Ok(())
-    }
-
-    fn get_touched_nodes_count(&self) -> u64 {
-        0
-    }
-
-    fn reset_touched_nodes_counter(&mut self) {}
-
-    fn validator_stake(&self, account_id: &VmAccountId) -> Result<Option<Balance>> {
-        Ok(self.validators.get(account_id.as_ref()).cloned())
+    fn validator_stake(&self, account_id: &AccountId) -> Result<Option<Balance>> {
+        Ok(self.validators.get(account_id).cloned())
     }
 
     fn validator_total_stake(&self) -> Result<Balance> {
