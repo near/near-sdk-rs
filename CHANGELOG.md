@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+- Updated `nearcore` crates used for unit testing to version `0.13.0`. [PR 820](https://github.com/near/near-sdk-rs/pull/820)
+  - Removed `outcome` function from `MockedBlockchain` (incomplete and misleading data)
+  - Changed `created_receipts` to return owned `Vec` instead of reference to one
+  - `receipt_indices` field removed from `Receipt` type in testing utils
 - Deprecate and remove `near-sdk-sim`. Removes `sim` proxy struct from `#[near_bindgen]`. [PR 817](https://github.com/near/near-sdk-rs/pull/817)
   - If `near-sdk-sim` tests can't be migrated to [workspaces-rs](https://github.com/near/workspaces-rs), `4.0.0-pre.9` version of `near-sdk-rs` and `near-sdk-sim` should be used
 

@@ -1,8 +1,8 @@
 use crate::{AccountId, Balance, Gas, PublicKey};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Receipt {
-    pub receipt_indices: Vec<u64>,
     pub receiver_id: AccountId,
     pub actions: Vec<VmAction>,
 }

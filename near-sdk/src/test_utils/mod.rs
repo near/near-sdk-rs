@@ -1,6 +1,5 @@
 //! Testing blockchain utilities. These can only be used inside tests and are not available for
 //! a wasm32 target.
-#[allow(dead_code)]
 pub mod test_env;
 
 pub(crate) mod context;
@@ -89,24 +88,22 @@ macro_rules! testing_env {
     };
 }
 
-#[allow(dead_code)]
 /// Returns a copy of logs from VMLogic. Only available in unit tests.
 pub fn get_logs() -> Vec<String> {
     crate::mock::with_mocked_blockchain(|b| b.logs())
 }
 
 /// Accessing receipts created by the contract. Only available in unit tests.
-#[allow(dead_code)]
 pub fn get_created_receipts() -> Vec<Receipt> {
-    crate::mock::with_mocked_blockchain(|b| b.created_receipts().clone())
+    crate::mock::with_mocked_blockchain(|b| b.created_receipts())
 }
 
 /// Objects stored on the trie directly should have identifiers. If identifier is not provided
 /// explicitly than `Default` trait would use this index to generate an id.
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) static mut NEXT_TRIE_OBJECT_INDEX: u64 = 0;
 /// Get next id of the object stored on trie.
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) fn next_trie_id() -> Vec<u8> {
     unsafe {
         let id = NEXT_TRIE_OBJECT_INDEX;
