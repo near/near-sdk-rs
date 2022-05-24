@@ -40,6 +40,13 @@ impl<T> Vector<T> {
     }
 
     /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::Vector;
+    /// let mut set: Vector<u32> = Vector::new(b"m");
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,

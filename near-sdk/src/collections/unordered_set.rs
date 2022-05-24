@@ -17,6 +17,18 @@ pub struct UnorderedSet<T> {
 
 impl<T> UnorderedSet<T> {
     /// Returns the number of elements in the set, also referred to as its size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedSet;
+    ///
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
+    /// assert_eq!(set.len(), 0);
+    /// set.insert(&1);
+    /// set.insert(&2);
+    /// assert_eq!(set.len(), 2);
+    /// ```
     pub fn len(&self) -> u64 {
         self.elements.len()
     }
@@ -27,6 +39,13 @@ impl<T> UnorderedSet<T> {
     }
 
     /// Create new map with zero elements. Use `id` as a unique identifier.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedSet;
+    /// let mut set: UnorderedSet<u32> = UnorderedSet::new(b"s");
+    /// ```
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -123,11 +142,34 @@ where
     }
 
     /// Returns true if the set contains an element.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedSet;
+    ///
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
+    /// assert_eq!(set.contains(&1), false);
+    /// set.insert(&1);
+    /// assert_eq!(set.contains(&1), true);
+    /// ```
     pub fn contains(&self, element: &T) -> bool {
         self.contains_raw(&Self::serialize_element(element))
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedSet;
+    ///
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
+    /// assert_eq!(set.remove(&1), false);
+    /// set.insert(&1);
+    /// assert_eq!(set.remove(&1), true);
+    /// assert_eq!(set.contains(&1), false);
+    /// ```
     pub fn remove(&mut self, element: &T) -> bool {
         self.remove_raw(&Self::serialize_element(element))
     }
@@ -135,11 +177,34 @@ where
     /// Adds a value to the set.
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedSet;
+    ///
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
+    /// assert_eq!(set.insert(&1), true);
+    /// assert_eq!(set.insert(&1), false);
+    /// assert_eq!(set.contains(&1), true);
+    /// ```
     pub fn insert(&mut self, element: &T) -> bool {
         self.insert_raw(&Self::serialize_element(element))
     }
 
     /// Clears the map, removing all elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::UnorderedSet;
+    ///
+    /// let mut set: UnorderedSet<u8> = UnorderedSet::new(b"s");
+    /// set.insert(&1);
+    /// set.insert(&2);
+    /// set.clear();
+    /// assert_eq!(set.len(), 0);
+    /// ```
     pub fn clear(&mut self) {
         for raw_element in self.elements.iter_raw() {
             let index_lookup = self.raw_element_to_index_lookup(&raw_element);

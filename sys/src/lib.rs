@@ -94,6 +94,16 @@ extern "C" {
         amount_ptr: u64,
         gas: u64,
     );
+    pub fn promise_batch_action_function_call_weight(
+        promise_index: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        weight: u64,
+    );
     pub fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64);
     pub fn promise_batch_action_stake(
         promise_index: u64,

@@ -2,7 +2,9 @@
 pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 
 //* Types from near_vm_logic
+/// Promise index that is computed only once.
 pub type PromiseIndex = u64;
+/// An index of Receipt to append an action
 pub type ReceiptIndex = u64;
 pub type IteratorIndex = u64;
 
@@ -29,6 +31,7 @@ impl From<PromiseResult> for VmPromiseResult {
 
 /// All error variants which can occur with promise results.
 #[non_exhaustive]
+#[derive(Debug, PartialEq)]
 pub enum PromiseError {
     /// Promise result failed.
     Failed,

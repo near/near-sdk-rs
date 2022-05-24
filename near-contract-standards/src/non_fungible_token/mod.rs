@@ -22,3 +22,5 @@ pub use utils::*;
 
 pub use self::core::NonFungibleToken;
 pub use macros::*;
+
+pub mod events;

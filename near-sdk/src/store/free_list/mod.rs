@@ -10,7 +10,7 @@ use std::{fmt, mem};
 
 /// Index for value within a bucket.
 #[derive(BorshSerialize, BorshDeserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FreeListIndex(u32);
+pub struct FreeListIndex(pub(crate) u32);
 
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will

@@ -1,6 +1,8 @@
+use crate::core_impl::ext::generate_ext_function_wrappers;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::Ident;
+use quote::ToTokens;
+use syn::{spanned::Spanned, Ident};
 
 impl ItemImplInfo {
     /// Generate the code that wraps
@@ -14,25 +16,16 @@ impl ItemImplInfo {
         res
     }
 
-    pub fn marshall_code(&self) -> TokenStream2 {
-        use quote::{format_ident, quote, ToTokens};
-        let orig_name = self.ty.clone().into_token_stream();
-        let mut name = quote! {Contract};
-        if let Ok(input) = syn::parse::<Ident>(orig_name.into()) {
-            let new_name = format_ident!("{}Contract", input);
-            name = quote! {#new_name};
-        };
-        let mut res = TokenStream2::new();
-        for method in &self.methods {
-            if method.is_public || self.is_trait_impl {
-                res.extend(method.marshal_method());
-            }
-        }
-        quote! {
-         #[cfg(not(target_arch = "wasm32"))]
-         impl #name {
-           #res
-         }
+    pub fn generate_ext_wrapper_code(&self) -> TokenStream2 {
+        match syn::parse::<Ident>(self.ty.to_token_stream().into()) {
+            Ok(n) => generate_ext_function_wrappers(
+                &n,
+                self.methods
+                    .iter()
+                    .filter(|m| m.is_public || self.is_trait_impl)
+                    .map(|m| &m.attr_signature_info),
+            ),
+            Err(e) => syn::Error::new(self.ty.span(), e).to_compile_error(),
         }
     }
 }
@@ -711,43 +704,152 @@ mod tests {
     }
 
     #[test]
-    fn marshall_one_arg() {
+    fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: String) { }").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = method_info.marshal_method();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
-                #[cfg(not(target_arch = "wasm32"))]
-                pub fn method(&self, k: String,) -> near_sdk::PendingContractTx {
-                  let args = near_sdk::serde_json::json!({ "k": k })
-                  .to_string()
-                  .into_bytes();
-                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "method", args, true)
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                let result = contract.method();
+                match result {
+                    Ok(result) => {
+                        let result =
+                            near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                        near_sdk::env::value_return(&result);
+                    }
+                    Err(err) => near_sdk::FunctionError::panic(&err)
                 }
+            }
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
 
     #[test]
-    fn marshall_borsh() {
+    fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str(r#"
-          pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
-        "#).unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            #[result_serializer(borsh)]
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = method_info.marshal_method();
+        let actual = method_info.method_wrapper();
         let expected = quote!(
-                #[cfg(not(target_arch = "wasm32"))]
-                pub fn borsh_test(&self, a: String,) -> near_sdk::PendingContractTx {
-                  #[derive(near_sdk :: borsh :: BorshSerialize)]
-                  struct Input {
-                      a: String,
-                  }
-                  let args = Input { a, };
-                  let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
-                      .expect("Failed to serialize the cross contract args using Borsh.");
-                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "borsh_test", args, false)
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                let result = contract.method();
+                match result {
+                    Ok(result) => {
+                        let result =
+                            near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                        near_sdk::env::value_return(&result);
+                    }
+                    Err(err) => near_sdk::FunctionError::panic(&err)
                 }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_init() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            #[handle_result]
+            pub fn new() -> Result<Self, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn new() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic_str("Method new doesn't accept deposit");
+                }
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic_str("The contract has already been initialized");
+                }
+                let result = Hello::new();
+                match result {
+                    Ok(contract) => near_sdk::env::state_write(&contract),
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_init_ignore_state() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init(ignore_state)]
+            #[handle_result]
+            pub fn new() -> Result<Self, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn new() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic_str("Method new doesn't accept deposit");
+                }
+                let result = Hello::new();
+                match result {
+                    Ok(contract) => near_sdk::env::state_write(&contract),
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_incorrect_return_type() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            pub fn method(&self) -> &'static str { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            compile_error! {
+                "Method marked with #[handle_result] should return Result<T, E>."
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_without_marker() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            compile_error! {
+                "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>."
+            }
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }

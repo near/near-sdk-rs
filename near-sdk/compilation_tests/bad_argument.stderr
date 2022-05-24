@@ -1,7 +1,5 @@
 error: Unsupported argument type.
-  --> $DIR/bad_argument.rs:28:1
+  --> compilation_tests/bad_argument.rs:30:56
    |
-28 | #[near_bindgen]
-   | ^^^^^^^^^^^^^^^
-   |
-   = note: this error originates in the attribute macro `near_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)
+30 |     pub fn insert(&mut self, key: TypeA, value: TypeB, t: impl MyTrait) -> Option<TypeB> {
+   |                                                        ^
