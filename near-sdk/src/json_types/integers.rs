@@ -8,7 +8,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
-        #[derive(Debug, Clone, Copy, PartialEq, BorshDeserialize, BorshSerialize)]
+        #[derive(
+            Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
+        )]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {
@@ -80,6 +82,7 @@ mod tests {
         test_serde!(U128, u128, 10u128.pow(18));
         test_serde!(U128, u128, 2u128.pow(100));
         test_serde!(U128, u128, u128::max_value());
+        assert!(U128::from(u128::min_value()) < U128::from(u128::max_value()));
     }
 
     #[test]
@@ -93,6 +96,7 @@ mod tests {
         test_serde!(I128, i128, -(2i128.pow(100)));
         test_serde!(I128, i128, i128::max_value());
         test_serde!(I128, i128, i128::min_value());
+        assert!(I128::from(i128::min_value()) < I128::from(i128::max_value()));
     }
 
     #[test]
@@ -103,6 +107,7 @@ mod tests {
         test_serde!(U64, u64, 10u64.pow(18));
         test_serde!(U64, u64, 2u64.pow(60));
         test_serde!(U64, u64, u64::max_value());
+        assert!(U64::from(u64::min_value()) < U64::from(u64::max_value()));
     }
 
     #[test]
@@ -116,5 +121,6 @@ mod tests {
         test_serde!(I64, i64, -(2i64.pow(60)));
         test_serde!(I64, i64, i64::max_value());
         test_serde!(I64, i64, i64::min_value());
+        assert!(I64::from(i64::min_value()) < I64::from(i64::max_value()));
     }
 }

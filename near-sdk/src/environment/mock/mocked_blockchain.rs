@@ -1,11 +1,14 @@
 use super::{Receipt, SdkExternal};
+use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{Balance, PromiseResult};
-use crate::RuntimeFeesConfig;
-use crate::VMContext;
+use crate::{Gas, RuntimeFeesConfig};
+use crate::{PublicKey, VMContext};
+use near_crypto::PublicKey as VmPublicKey;
+use near_primitives::transaction::Action as PrimitivesAction;
 use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult as VmPromiseResult;
-use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic, VMOutcome};
+use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -57,7 +60,7 @@ impl MockedBlockchain {
         let mut ext = Box::new(SdkExternal::new());
         let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
-        ext.validators = validators;
+        ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
         let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
@@ -85,19 +88,26 @@ impl MockedBlockchain {
         std::mem::take(&mut self.logic_fixture.ext.fake_trie)
     }
 
-    pub fn created_receipts(&self) -> &Vec<Receipt> {
-        &self.logic_fixture.ext.receipts
-    }
-    pub fn outcome(&self) -> VMOutcome {
-        self.logic.borrow().clone_outcome()
+    /// Returns metadata about the receipts created
+    pub fn created_receipts(&self) -> Vec<Receipt> {
+        self.logic
+            .borrow()
+            .action_receipts()
+            .iter()
+            .map(|(receiver, receipt)| {
+                let actions = receipt.actions.iter().map(action_to_sdk_action).collect();
+                Receipt { receiver_id: receiver.as_str().parse().unwrap(), actions }
+            })
+            .collect()
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
         self.logic.borrow_mut().gas(gas_amount).unwrap()
     }
 
+    /// Returns logs created so far by the runtime.
     pub fn logs(&self) -> Vec<String> {
-        self.logic.borrow().clone_outcome().logs
+        self.logic.borrow().logs().to_vec()
     }
 }
 
@@ -124,6 +134,51 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
             .map(|a| a.as_str().parse().unwrap())
             .collect(),
     }
+}
+
+fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
+    match action {
+        PrimitivesAction::CreateAccount(_) => VmAction::CreateAccount,
+        PrimitivesAction::DeployContract(c) => VmAction::DeployContract { code: c.code.clone() },
+        PrimitivesAction::FunctionCall(f) => VmAction::FunctionCall {
+            function_name: f.method_name.clone(),
+            args: f.args.clone(),
+            gas: Gas(f.gas),
+            deposit: f.deposit,
+        },
+        PrimitivesAction::Transfer(t) => VmAction::Transfer { deposit: t.deposit },
+        PrimitivesAction::Stake(s) => {
+            VmAction::Stake { stake: s.stake, public_key: pub_key_conversion(&s.public_key) }
+        }
+        PrimitivesAction::AddKey(k) => match &k.access_key.permission {
+            near_primitives::account::AccessKeyPermission::FunctionCall(f) => {
+                VmAction::AddKeyWithFunctionCall {
+                    public_key: pub_key_conversion(&k.public_key),
+                    nonce: k.access_key.nonce,
+                    allowance: f.allowance,
+                    receiver_id: f.receiver_id.parse().unwrap(),
+                    function_names: f.method_names.clone(),
+                }
+            }
+            near_primitives::account::AccessKeyPermission::FullAccess => {
+                VmAction::AddKeyWithFullAccess {
+                    public_key: pub_key_conversion(&k.public_key),
+                    nonce: k.access_key.nonce,
+                }
+            }
+        },
+        PrimitivesAction::DeleteKey(k) => {
+            VmAction::DeleteKey { public_key: pub_key_conversion(&k.public_key) }
+        }
+        PrimitivesAction::DeleteAccount(a) => {
+            VmAction::DeleteAccount { beneficiary_id: a.beneficiary_id.parse().unwrap() }
+        }
+    }
+}
+
+fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
+    // Hack by serializing and deserializing the key. This format should be consistent.
+    String::from(key).parse().unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -371,11 +426,8 @@ mod mock_chain {
         gas: u64,
         weight: u64,
     ) {
-        // TODO call updated function once nearcore crates updated
-        // TODO https://github.com/near/near-sdk-rs/issues/813
-        let _ = weight;
         with_mock_interface(|b| {
-            b.promise_batch_action_function_call(
+            b.promise_batch_action_function_call_weight(
                 promise_index,
                 function_name_len,
                 function_name_ptr,
@@ -383,6 +435,7 @@ mod mock_chain {
                 arguments_ptr,
                 amount_ptr,
                 gas,
+                weight,
             )
         })
     }
