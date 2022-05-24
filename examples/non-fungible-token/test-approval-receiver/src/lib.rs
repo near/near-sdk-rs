@@ -1,11 +1,11 @@
 /*!
-A stub contract that implements nft_on_approve for simulation testing nft_approve.
+A stub contract that implements nft_on_approve for e2e testing nft_approve.
 */
 use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApprovalReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
+    env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault,
     PromiseOrValue,
 };
 
@@ -13,18 +13,10 @@ const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
 const GAS_FOR_NFT_ON_APPROVE: Gas = Gas(BASE_GAS + PROMISE_CALL);
 
-const NO_DEPOSIT: Balance = 0;
-
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct ApprovalReceiver {
     non_fungible_token_account_id: AccountId,
-}
-
-// Defining cross-contract interface. This allows to create a new promise.
-#[ext_contract(ext_self)]
-pub trait ValueReturnTrait {
-    fn ok_go(&self, msg: String) -> PromiseOrValue<String>;
 }
 
 // Have to repeat the same trait for our own implementation.
@@ -72,7 +64,9 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                ext_self::ok_go(msg, account_id, NO_DEPOSIT, prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
+                Self::ext(account_id)
+                    .with_static_gas(prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
+                    .ok_go(msg)
                     .into()
             }
         }

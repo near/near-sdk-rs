@@ -3,20 +3,44 @@
 ## [Unreleased]
 
 ### Added
+- Added `Eq`, `PartialOrd`, `Ord` to `json_types` integer types. [PR 823](https://github.com/near/near-sdk-rs/pull/823)
+
+### Changed
+- Updated `nearcore` crates used for unit testing to version `0.13.0`. [PR 820](https://github.com/near/near-sdk-rs/pull/820)
+  - Removed `outcome` function from `MockedBlockchain` (incomplete and misleading data)
+  - Changed `created_receipts` to return owned `Vec` instead of reference to one
+  - `receipt_indices` field removed from `Receipt` type in testing utils
+- Deprecate and remove `near-sdk-sim`. Removes `sim` proxy struct from `#[near_bindgen]`. [PR 817](https://github.com/near/near-sdk-rs/pull/817)
+  - If `near-sdk-sim` tests can't be migrated to [workspaces-rs](https://github.com/near/workspaces-rs), `4.0.0-pre.9` version of `near-sdk-rs` and `near-sdk-sim` should be used
+
+## [4.0.0-pre.9] - 2022-05-12
+
+### Fixes
+- near-contract-standards: `nft_tokens` in enumeration standard no longer panics when there are no tokens [PR 798](https://github.com/near/near-sdk-rs/pull/798)
+- Optimized `nth` operation for `UnorderedMap` iterator and implemented `IntoIterator` for it. [PR 801](https://github.com/near/near-sdk-rs/pull/801)
+  - This optimizes the `skip` operation, which is common with pagination
+
+## [4.0.0-pre.8] - 2022-04-19
+
+### Added
 - Added `Debug` and `PartialEq` implementations for `PromiseError`. [PR 728](https://github.com/near/near-sdk-rs/pull/728).
-- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/728)
+- Added convenience function `env::block_timestamp_ms` to return ms since 1970. [PR 736](https://github.com/near/near-sdk-rs/pull/736)
 - Added an optional way to handle contract errors with `Result`. [PR 745](https://github.com/near/near-sdk-rs/pull/745), [PR 754](https://github.com/near/near-sdk-rs/pull/754) and [PR 757](https://github.com/near/near-sdk-rs/pull/757).
 - Added support for using `#[callback_result]` with a function that doesn't have a return. [PR 738](https://github.com/near/near-sdk-rs/pull/738)
+- Support for multi-architecture docker builds and updated Rust version to 1.56 with latest [contract builder](https://hub.docker.com/r/nearprotocol/contract-builder). [PR 751](https://github.com/near/near-sdk-rs/pull/751)
 
 ### Fixes
 - Disallow invalid `Promise::then` chains. Will now panic with `promise_1.then(promise_2.then(promise_3))` syntax. [PR 410](https://github.com/near/near-sdk-rs/pull/410)
-  - Current implementation will schedule these promises in the incorrect order. With this format, it's unclear where the result from `promise_1` will be used, so it will panic at runtime. 
+  - Current implementation will schedule these promises in the incorrect order. With this format, it's unclear where the result from `promise_1` will be used, so it will panic at runtime.
+- Fixed `signer_account_pk` from mocked implementation. [PR 785](https://github.com/near/near-sdk-rs/pull/785)
 
 ### Changed
 - Deprecate `callback`, `callback_vec`, `result_serializer`, `init` proc macro attributes and remove exports from `near-sdk`. [PR 770](https://github.com/near/near-sdk-rs/pull/770)
   - They are not needed to be imported and are handled specifically within `#[near_bindgen]`
 - Fixed gas assertion in `*_transfer_call` implementations of FT and NFT standards to only require what's needed. [PR 760](https://github.com/near/near-sdk-rs/pull/760)
 - Fixed events being emitted in FT standard to include refund transfers and burn events. [PR 752](https://github.com/near/near-sdk-rs/pull/752)
+- Moved `VMContext` to a local type defined in SDK to avoid duplicate types. [PR 785](https://github.com/near/near-sdk-rs/pull/785)
+- Moved `Metadata` and `MethodMetadata` to a pseudo-private module as these are just types used within macros and not stable. [PR 771](https://github.com/near/near-sdk-rs/pull/771)
 
 ### Removed
 - Remove `Clone` implementation for `Promise` (error prone) https://github.com/near/near-sdk-rs/pull/783
@@ -257,7 +281,9 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...HEAD
+[4.0.0-pre.9] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
+[4.0.0-pre.8] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8
 [4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.6...4.0.0-pre.7
 [4.0.0-pre.6]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.5...4.0.0-pre.6
 [4.0.0-pre.5]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.4...4.0.0-pre.5

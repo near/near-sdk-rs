@@ -37,7 +37,7 @@ async fn mint_more(
 
 #[tokio::test]
 async fn simulate_enum_total_supply() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, _, _) = init(&worker).await?;
     mint_more(&nft_contract, &worker).await?;
 
@@ -49,7 +49,7 @@ async fn simulate_enum_total_supply() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, _, _, _) = init(&worker).await?;
     mint_more(&nft_contract, &worker).await?;
 
@@ -99,7 +99,7 @@ async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_enum_nft_supply_for_owner() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
 
     // Get number from account with no NFTs
@@ -134,7 +134,7 @@ async fn simulate_enum_nft_supply_for_owner() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox();
+    let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
     mint_more(&nft_contract, &worker).await?;
 

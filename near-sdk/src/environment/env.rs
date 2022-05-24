@@ -3,6 +3,7 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
+use std::convert::TryInto;
 use std::mem::size_of;
 use std::panic as std_panic;
 use std::{convert::TryFrom, mem::MaybeUninit};
@@ -12,6 +13,7 @@ use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use crate::{GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -113,10 +115,24 @@ pub fn setup_panic_hook() {
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
-    let len = register_len(register_id)?;
-    let res = vec![0u8; len as usize];
-    unsafe { sys::read_register(register_id, res.as_ptr() as _) };
-    Some(res)
+    // Get register length and convert to a usize. The max register size in config is much less
+    // than the u32 max so the abort should never be hit, but is there for safety because there
+    // would be undefined behaviour during `read_register` if the buffer length is truncated.
+    let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
+
+    // Initialize buffer with capacity.
+    let mut buffer = Vec::with_capacity(len);
+
+    // Read register into buffer.
+    //* SAFETY: This is safe because the buffer is initialized with the exact capacity of the
+    //*         register that is being read from.
+    unsafe {
+        sys::read_register(register_id, buffer.as_mut_ptr() as u64);
+
+        // Set updated length after writing to buffer.
+        buffer.set_len(len);
+    }
+    Some(buffer)
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
@@ -259,6 +275,18 @@ pub fn random_seed_array() -> [u8; 32] {
 }
 
 /// Hashes the random sequence of bytes using sha256.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256;
+/// use hex;
+///
+/// assert_eq!(
+///     sha256(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
+/// );
+/// ```
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     sha256_array(value).to_vec()
 }
@@ -274,6 +302,20 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 }
 
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha256_array(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn sha256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
@@ -457,6 +499,28 @@ pub fn promise_batch_action_function_call(
     }
 }
 
+pub fn promise_batch_action_function_call_weight(
+    promise_index: PromiseIndex,
+    function_name: &str,
+    arguments: &[u8],
+    amount: Balance,
+    gas: Gas,
+    weight: GasWeight,
+) {
+    unsafe {
+        sys::promise_batch_action_function_call_weight(
+            promise_index,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas.0,
+            weight.0,
+        )
+    }
+}
+
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
     unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
 }
@@ -545,13 +609,21 @@ pub fn promise_results_count() -> u64 {
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
-        0 => PromiseResult::NotReady,
-        1 => {
+    match promise_result_internal(result_idx) {
+        Err(PromiseError::NotReady) => PromiseResult::NotReady,
+        Ok(()) => {
             let data = expect_register(read_register(ATOMIC_OP_REGISTER));
             PromiseResult::Successful(data)
         }
-        2 => PromiseResult::Failed,
+        Err(PromiseError::Failed) => PromiseResult::Failed,
+    }
+}
+
+pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
+    match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
+        0 => Err(PromiseError::NotReady),
+        1 => Ok(()),
+        2 => Err(PromiseError::Failed),
         _ => abort(),
     }
 }
@@ -639,6 +711,16 @@ pub fn log(message: &[u8]) {
 // ###############
 /// Writes key-value into storage.
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(!storage_write(b"key", b"value"));
+/// assert!(storage_write(b"key", b"another_value"));
+/// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
+/// ```
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         sys::storage_write(
@@ -655,6 +737,16 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     }
 }
 /// Reads the value stored under the given key.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(storage_read(b"key").is_none());
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_read(b"key").unwrap(), b"value");
+/// ```
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
@@ -916,5 +1008,17 @@ mod tests {
         {
             assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
         }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn signer_public_key() {
+        let key: PublicKey =
+            "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
+
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
+            .signer_account_pk(key.clone())
+            .build());
+        assert_eq!(super::signer_account_pk(), key);
     }
 }

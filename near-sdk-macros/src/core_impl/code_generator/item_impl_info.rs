@@ -1,6 +1,8 @@
+use crate::core_impl::ext::generate_ext_function_wrappers;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::Ident;
+use quote::ToTokens;
+use syn::{spanned::Spanned, Ident};
 
 impl ItemImplInfo {
     /// Generate the code that wraps
@@ -14,25 +16,16 @@ impl ItemImplInfo {
         res
     }
 
-    pub fn marshall_code(&self) -> TokenStream2 {
-        use quote::{format_ident, quote, ToTokens};
-        let orig_name = self.ty.clone().into_token_stream();
-        let mut name = quote! {Contract};
-        if let Ok(input) = syn::parse::<Ident>(orig_name.into()) {
-            let new_name = format_ident!("{}Contract", input);
-            name = quote! {#new_name};
-        };
-        let mut res = TokenStream2::new();
-        for method in &self.methods {
-            if method.is_public || self.is_trait_impl {
-                res.extend(method.marshal_method());
-            }
-        }
-        quote! {
-         #[cfg(not(target_arch = "wasm32"))]
-         impl #name {
-           #res
-         }
+    pub fn generate_ext_wrapper_code(&self) -> TokenStream2 {
+        match syn::parse::<Ident>(self.ty.to_token_stream().into()) {
+            Ok(n) => generate_ext_function_wrappers(
+                &n,
+                self.methods
+                    .iter()
+                    .filter(|m| m.is_public || self.is_trait_impl)
+                    .map(|m| &m.attr_signature_info),
+            ),
+            Err(e) => syn::Error::new(self.ty.span(), e).to_compile_error(),
         }
     }
 }
@@ -706,48 +699,6 @@ mod tests {
                 contract.private_method();
                 near_sdk::env::state_write(&contract);
             }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
-    }
-
-    #[test]
-    fn marshall_one_arg() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: String) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = method_info.marshal_method();
-        let expected = quote!(
-                #[cfg(not(target_arch = "wasm32"))]
-                pub fn method(&self, k: String,) -> near_sdk::PendingContractTx {
-                  let args = near_sdk::serde_json::json!({ "k": k })
-                  .to_string()
-                  .into_bytes();
-                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "method", args, true)
-                }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
-    }
-
-    #[test]
-    fn marshall_borsh() {
-        let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str(r#"
-          pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
-        "#).unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = method_info.marshal_method();
-        let expected = quote!(
-                #[cfg(not(target_arch = "wasm32"))]
-                pub fn borsh_test(&self, a: String,) -> near_sdk::PendingContractTx {
-                  #[derive(near_sdk :: borsh :: BorshSerialize)]
-                  struct Input {
-                      a: String,
-                  }
-                  let args = Input { a, };
-                  let args = near_sdk::borsh::BorshSerialize::try_to_vec(&args)
-                      .expect("Failed to serialize the cross contract args using Borsh.");
-                  near_sdk::PendingContractTx::new_from_bytes(self.account_id.clone(), "borsh_test", args, false)
-                }
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }

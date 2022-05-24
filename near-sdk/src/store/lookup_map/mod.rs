@@ -128,6 +128,15 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
+    /// Create a new map. Use `key_prefix` as a unique prefix for keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where
@@ -164,6 +173,20 @@ where
     /// Use [`LookupMap::insert`] if you need the previous value.
     ///
     /// Calling `set` with a `None` value will delete the entry from storage.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map = LookupMap::new(b"m");
+    ///
+    /// map.set("test".to_string(), Some(7u8));
+    /// assert!(map.contains_key("test"));
+    ///
+    /// //Delete the entry from storage
+    /// map.set("test".to_string(), None);
+    /// assert!(!map.contains_key("test"));
+    /// ```
     pub fn set(&mut self, key: K, value: Option<V>) {
         let entry = self.cache.get_mut(key);
         match entry.value.get_mut() {
@@ -200,6 +223,17 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    ///
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.get(&1), Some(&"a".to_string()));
+    /// assert_eq!(map.get(&2), None);
+    /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -237,6 +271,18 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// if let Some(x) = map.get_mut(&1) {
+    ///     *x = "b".to_string();
+    ///     assert_eq!(map[&1], "b".to_string());
+    /// }
+    /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
@@ -252,6 +298,19 @@ where
     /// If the map did have this key present, the value is updated, and the old
     /// value is returned. The key is not updated, though; this matters for
     /// types that can be `==` without being identical.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.insert(37, "a".to_string()), None);
+    /// assert_eq!(map.contains_key(&37), true);
+    ///
+    /// map.insert(37, "b".to_string());
+    /// assert_eq!(map.insert(37, "c".to_string()), Some("b".to_string()));
+    /// assert_eq!(map[&37], "c".to_string());
+    /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
         K: Clone,
@@ -264,6 +323,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.contains_key(&1), true);
+    /// assert_eq!(map.contains_key(&2), false);
+    /// ```
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -296,6 +365,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.remove(&1), Some("a".to_string()));
+    /// assert_eq!(map.remove(&1), None);
+    /// ```
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q>,
