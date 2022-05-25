@@ -2,7 +2,7 @@
 name = "status-message-collections"
 version = "0.2.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]

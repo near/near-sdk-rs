@@ -2,7 +2,7 @@
 name = "near-sdk-macros"
 version = "4.0.0-pre.9"
 authors = ["Near Inc <max@nearprotocol.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 categories = ["wasm"]
 repository = "https://github.com/near/near-sdk-rs"

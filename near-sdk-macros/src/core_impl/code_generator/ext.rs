@@ -25,7 +25,7 @@ pub(crate) fn generate_ext_structs(
     if let Some(generics) = generic_details {
         // If ext generation is on struct, make ext function associated with struct not module
         ext_code = quote! {
-            impl#generics #ident#generics {
+            impl #generics #ident #generics {
                 #ext_code
             }
         };
@@ -90,7 +90,7 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let Signature { generics, .. } = original_sig;
     quote! {
         #new_non_bindgen_attrs
-        pub fn #ident#generics(self, #pat_type_list) -> near_sdk::Promise {
+        pub fn #ident #generics(self, #pat_type_list) -> near_sdk::Promise {
             let __args = #serialize;
             near_sdk::Promise::new(self.account_id)
             .function_call_weight(
