@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+
+## [4.0.0] - 2022-05-25
+
 ### Added
 - Added `Eq`, `PartialOrd`, `Ord` to `json_types` integer types. [PR 823](https://github.com/near/near-sdk-rs/pull/823)
 
@@ -12,6 +15,12 @@
   - `receipt_indices` field removed from `Receipt` type in testing utils
 - Deprecate and remove `near-sdk-sim`. Removes `sim` proxy struct from `#[near_bindgen]`. [PR 817](https://github.com/near/near-sdk-rs/pull/817)
   - If `near-sdk-sim` tests can't be migrated to [workspaces-rs](https://github.com/near/workspaces-rs), `4.0.0-pre.9` version of `near-sdk-rs` and `near-sdk-sim` should be used
+- Optimized read_register to read to non-zeroed buffer. [PR 804](https://github.com/near/near-sdk-rs/pull/804)
+- Switched Rust edition for libraries to `2021`. [PR 669](https://github.com/near/near-sdk-rs/pull/669)
+
+### Fixes
+- Avoid loading result bytes with `near_sdk::is_promise_success()`. [PR 816](https://github.com/near/near-sdk-rs/pull/816)
+
 
 ## [4.0.0-pre.9] - 2022-05-12
 
@@ -282,8 +291,9 @@ impl StatusMessage {
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
 [Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...HEAD
-[4.0.0-pre.9] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
-[4.0.0-pre.8] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8
+[4.0.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...4.0.0
+[4.0.0-pre.9]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
+[4.0.0-pre.8]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8
 [4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.6...4.0.0-pre.7
 [4.0.0-pre.6]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.5...4.0.0-pre.6
 [4.0.0-pre.5]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.4...4.0.0-pre.5
