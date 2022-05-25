@@ -9,6 +9,10 @@
 - Added `Eq`, `PartialOrd`, `Ord` to `json_types` integer types. [PR 823](https://github.com/near/near-sdk-rs/pull/823)
 
 ### Changed
+- Updated cross-contract, `ext` API for new [`NEP264`](https://github.com/near/NEPs/pull/264) functionality. [PR 742](https://github.com/near/near-sdk-rs/pull/742)
+  - More details on the API change can be found [here](https://github.com/near/near-sdk-rs/issues/740)
+  - This API uses a default weight of `1` with no static gas, but this weight, the static gas, and the attached deposit can all be modified on any external call
+  - `ext` methods are added to each `#[near_bindgen]` contract struct by default and for each method for convenience
 - Updated `nearcore` crates used for unit testing to version `0.13.0`. [PR 820](https://github.com/near/near-sdk-rs/pull/820)
   - Removed `outcome` function from `MockedBlockchain` (incomplete and misleading data)
   - Changed `created_receipts` to return owned `Vec` instead of reference to one
