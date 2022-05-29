@@ -135,9 +135,12 @@ impl FungibleTokenCore for FungibleToken {
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
+        let receiver_gas = env::prepaid_gas().0
+            .checked_sub(GAS_FOR_FT_TRANSFER_CALL.0)
+            .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
-            .with_static_gas(env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL)
+            .with_static_gas(receiver_gas.into())
             .ft_on_transfer(sender_id.clone(), amount.into(), msg)
             .then(
                 ext_ft_resolver::ext(env::current_account_id())
@@ -185,10 +188,19 @@ impl FungibleToken {
             let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(0);
             if receiver_balance > 0 {
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
-                self.accounts.insert(&receiver_id, &(receiver_balance - refund_amount));
+                if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
+                    self.accounts.insert(&receiver_id, &new_receiver_balance);
+                } else {
+                    env::panic_str("The receiver account doesn't have enough balance");
+                }
 
                 if let Some(sender_balance) = self.accounts.get(sender_id) {
-                    self.accounts.insert(sender_id, &(sender_balance + refund_amount));
+                    if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
+                        self.accounts.insert(sender_id, &new_sender_balance);
+                    } else {
+                        env::panic_str("Sender balance overflow");
+                    }
+
                     FtTransfer {
                         old_owner_id: &receiver_id,
                         new_owner_id: sender_id,
@@ -196,10 +208,15 @@ impl FungibleToken {
                         memo: Some("refund"),
                     }
                     .emit();
-                    return (amount - refund_amount, 0);
+                    let used_amount = amount
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                    return (used_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
-                    self.total_supply -= refund_amount;
+                    self.total_supply
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str("Total supply overflow"));
                     log!("The account of the sender was deleted");
                     FtBurn {
                         owner_id: &receiver_id,
