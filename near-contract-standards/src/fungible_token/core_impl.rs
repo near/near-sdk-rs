@@ -135,7 +135,8 @@ impl FungibleTokenCore for FungibleToken {
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
-        let receiver_gas = env::prepaid_gas().0
+        let receiver_gas = env::prepaid_gas()
+            .0
             .checked_sub(GAS_FOR_FT_TRANSFER_CALL.0)
             .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
         // Initiating receiver's call and the callback
