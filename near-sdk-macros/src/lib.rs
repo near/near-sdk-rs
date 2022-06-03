@@ -200,6 +200,32 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
+/// `near_abi` provides the contract with an ABI method that can later be used by `cargo-near` to
+/// generate an ABI file.
+#[proc_macro]
+pub fn near_abi(item: TokenStream) -> TokenStream {
+    if let Ok(input) = syn::parse::<File>(item) {
+        let mut visitor = AbiVisitor::new();
+        visitor.visit_file(&input);
+        let generated = match visitor.generate_abi_function() {
+            Ok(x) => x,
+            Err(err) => return TokenStream::from(err.to_compile_error()),
+        };
+        TokenStream::from(quote! {
+            #input
+            #generated
+        })
+    } else {
+        TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "Failed to parse code decorated with `near_abi!{}` macro. Only valid Rust is supported.",
+            )
+            .to_compile_error(),
+        )
+    }
+}
+
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
 /// message `The contract is not initialized` when `default()` is called.
 /// This is a helpful macro in case the contract is required to be initialized with either `init` or

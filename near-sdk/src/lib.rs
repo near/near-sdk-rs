@@ -6,7 +6,7 @@
 extern crate quickcheck;
 
 pub use near_sdk_macros::{
-    ext_contract, metadata, near_bindgen, BorshStorageKey, FunctionError, PanicOnDefault,
+    ext_contract, metadata, near_abi, near_bindgen, BorshStorageKey, FunctionError, PanicOnDefault,
 };
 
 #[cfg(feature = "unstable")]
