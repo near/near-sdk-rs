@@ -86,13 +86,11 @@ impl ImplItemMethodInfo {
             .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
             .collect::<Vec<_>>();
         if callback_vec.len() > 1 {
-            return TokenStream2::from(
-                syn::Error::new(
-                    Span::call_site(),
-                    "A function can only have one #[callback_vec] parameter.",
-                )
-                .to_compile_error(),
-            );
+            return syn::Error::new(
+                Span::call_site(),
+                "A function can only have one #[callback_vec] parameter.",
+            )
+            .to_compile_error();
         }
         let callback_vec = match callback_vec.last() {
             Some(arg) => {
