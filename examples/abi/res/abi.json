@@ -1,0 +1,119 @@
+{
+  "abi_schema_version": "0.1.0",
+  "metainfo": {
+    "name": "abi",
+    "version": "0.1.0",
+    "authors": [
+      "Near Inc <hello@nearprotocol.com>"
+    ]
+  },
+  "abi": {
+    "functions": [
+      {
+        "name": "add",
+        "is_view": true,
+        "is_init": false,
+        "params": [
+          {
+            "type_id": 0,
+            "serialization_type": "json"
+          },
+          {
+            "type_id": 0,
+            "serialization_type": "json"
+          }
+        ],
+        "result": {
+          "type_id": 0,
+          "serialization_type": "json"
+        }
+      },
+      {
+        "name": "add_callback",
+        "is_view": true,
+        "is_init": false,
+        "params": [],
+        "callbacks": [
+          {
+            "type_id": 1,
+            "serialization_type": "json"
+          },
+          {
+            "type_id": 1,
+            "serialization_type": "json"
+          }
+        ],
+        "callbacks_vec": {
+          "type_id": 2,
+          "serialization_type": "json"
+        },
+        "result": {
+          "type_id": 1,
+          "serialization_type": "json"
+        }
+      }
+    ],
+    "types": [
+      {
+        "id": 1,
+        "schema": {
+          "$ref": "#/definitions/DoublePair"
+        }
+      },
+      {
+        "id": 0,
+        "schema": {
+          "$ref": "#/definitions/Pair"
+        }
+      },
+      {
+        "id": 2,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DoublePair"
+          }
+        }
+      }
+    ],
+    "root_schema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "String",
+      "type": "string",
+      "definitions": {
+        "DoublePair": {
+          "type": "object",
+          "required": [
+            "first",
+            "second"
+          ],
+          "properties": {
+            "first": {
+              "$ref": "#/definitions/Pair"
+            },
+            "second": {
+              "$ref": "#/definitions/Pair"
+            }
+          }
+        },
+        "Pair": {
+          "type": "array",
+          "items": [
+            {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
+        }
+      }
+    }
+  }
+}
