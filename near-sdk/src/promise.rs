@@ -1,4 +1,5 @@
 use borsh::BorshSchema;
+use schemars::JsonSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
@@ -474,6 +475,18 @@ impl borsh::BorshSerialize for Promise {
     }
 }
 
+impl JsonSchema for Promise {
+    fn schema_name() -> String {
+        "Promise".to_string()
+    }
+
+    fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        // Since promises are untyped, for now we represent Promise results with the schema
+        // `true` which matches everything (i.e. always passes validation)
+        schemars::schema::Schema::Bool(true)
+    }
+}
+
 /// When the method can return either a promise or a value, it can be called with `PromiseOrValue::Promise`
 /// or `PromiseOrValue::Value` to specify which one should be returned.
 /// # Example
@@ -527,5 +540,15 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
             // The promise is dropped to cause env::promise calls.
             PromiseOrValue::Promise(p) => p.serialize(writer),
         }
+    }
+}
+
+impl<T: JsonSchema> JsonSchema for PromiseOrValue<T> {
+    fn schema_name() -> String {
+        format!("PromiseOrValue{}", T::schema_name())
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        T::json_schema(gen)
     }
 }

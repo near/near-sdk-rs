@@ -1,4 +1,5 @@
 use borsh::{maybestd::io, BorshDeserialize, BorshSchema, BorshSerialize};
+use schemars::JsonSchema;
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
@@ -34,7 +35,17 @@ use crate::env::is_valid_account_id;
 ///
 /// [`FromStr`]: std::str::FromStr
 #[derive(
-    Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash, BorshSchema,
+    Debug,
+    Clone,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Eq,
+    BorshSerialize,
+    Serialize,
+    Hash,
+    BorshSchema,
+    JsonSchema,
 )]
 pub struct AccountId(String);
 
