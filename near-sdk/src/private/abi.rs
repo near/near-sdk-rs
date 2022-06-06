@@ -70,6 +70,8 @@ pub struct AbiFunction {
     /// Whether function can be used to initialize the state.
     pub is_init: bool,
     /// Type identifiers of the function parameters.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub params: Vec<AbiParameter>,
     /// Type identifiers of the callbacks of the function.
     #[serde(skip_serializing_if = "Vec::is_empty")]
