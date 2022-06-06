@@ -1,5 +1,7 @@
 mod abi;
-pub use abi::{Abi, AbiFunction, AbiMetainfo, AbiParameter, AbiRoot, AbiSerializerType, AbiType};
+pub use abi::{
+    Abi, AbiFunction, AbiMetainfo, AbiParameter, AbiRoot, AbiSerializerType, AbiType, AbiTypeDef,
+};
 
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};

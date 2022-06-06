@@ -57,13 +57,11 @@ impl ImplItemMethodInfo {
                 let serialization_type = abi_serializer_type(&arg.serializer_ty);
                 let arg_name = arg.ident.to_string();
                 quote! {
-                    (
-                        #arg_name.to_string(),
-                        near_sdk::__private::AbiParameter {
-                            type_id: #type_id,
-                            serialization_type: #serialization_type,
-                        }
-                    )
+                    near_sdk::__private::AbiParameter {
+                        name: #arg_name.to_string(),
+                        type_id: #type_id,
+                        serialization_type: #serialization_type,
+                    }
                 }
             })
             .collect();
@@ -76,7 +74,7 @@ impl ImplItemMethodInfo {
                 let type_id = registry.register_type(Box::new(arg.ty.clone()));
                 let serialization_type = abi_serializer_type(&arg.serializer_ty);
                 quote! {
-                    near_sdk::__private::AbiParameter {
+                    near_sdk::__private::AbiType {
                         type_id: #type_id,
                         serialization_type: #serialization_type,
                     }
@@ -102,7 +100,7 @@ impl ImplItemMethodInfo {
                 let serialization_type = abi_serializer_type(&arg.serializer_ty);
                 quote! {
                     Some(
-                        near_sdk::__private::AbiParameter {
+                        near_sdk::__private::AbiType {
                             type_id: #type_id,
                             serialization_type: #serialization_type,
                         }
@@ -125,7 +123,7 @@ impl ImplItemMethodInfo {
                     abi_serializer_type(&self.attr_signature_info.result_serializer);
                 quote! {
                     Some(
-                        near_sdk::__private::AbiParameter {
+                        near_sdk::__private::AbiType {
                             type_id: #type_id,
                             serialization_type: #serialization_type,
                         }

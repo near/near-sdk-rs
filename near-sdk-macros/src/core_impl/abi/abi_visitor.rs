@@ -49,7 +49,7 @@ impl AbiVisitor {
             .iter()
             .map(|(t, id)| {
                 quote! {
-                    near_sdk::__private::AbiType { id: #id, schema: gen.subschema_for::<#t>() }
+                    near_sdk::__private::AbiTypeDef { id: #id, schema: gen.subschema_for::<#t>() }
                 }
             })
             .collect();

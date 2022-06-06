@@ -14,20 +14,16 @@
         "is_view": true,
         "is_init": false,
         "params": [
-          [
-            "a",
-            {
-              "type_id": 0,
-              "serialization_type": "json"
-            }
-          ],
-          [
-            "b",
-            {
-              "type_id": 0,
-              "serialization_type": "json"
-            }
-          ]
+          {
+            "name": "a",
+            "type_id": 0,
+            "serialization_type": "json"
+          },
+          {
+            "name": "b",
+            "type_id": 0,
+            "serialization_type": "json"
+          }
         ],
         "result": {
           "type_id": 0,
@@ -60,15 +56,6 @@
     ],
     "types": [
       {
-        "id": 2,
-        "schema": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DoublePair"
-          }
-        }
-      },
-      {
         "id": 1,
         "schema": {
           "$ref": "#/definitions/DoublePair"
@@ -78,6 +65,15 @@
         "id": 0,
         "schema": {
           "$ref": "#/definitions/Pair"
+        }
+      },
+      {
+        "id": 2,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DoublePair"
+          }
         }
       }
     ],

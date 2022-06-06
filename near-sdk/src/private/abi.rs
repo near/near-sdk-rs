@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 /// Current version of the ABI schema format.
 const ABI_SCHEMA_SEMVER: &str = "0.1.0";
 
+/// NEAR ABI does not use Rust types, instead it uses abstract type identifiers (represented by
+/// `TypeId`) that are then mapped to the corresponding JSON subschema.
 pub type TypeId = u32;
 
 /// Contract ABI.
@@ -56,12 +58,12 @@ pub struct Abi {
     /// ABIs of all contract's functions.
     pub functions: Vec<AbiFunction>,
     /// Type registry that maps type identifiers to JSON Schemas.
-    pub types: Vec<AbiType>,
+    pub types: Vec<AbiTypeDef>,
     /// Root JSON Schema containing all types referenced by the registry.
     pub root_schema: RootSchema,
 }
 
-/// Metadata of a single function.
+/// ABI of a single function.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct AbiFunction {
     pub name: String,
@@ -72,33 +74,50 @@ pub struct AbiFunction {
     /// Type identifiers of the function parameters.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
-    pub params: Vec<(String, AbiParameter)>,
+    pub params: Vec<AbiParameter>,
     /// Type identifiers of the callbacks of the function.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
-    pub callbacks: Vec<AbiParameter>,
+    pub callbacks: Vec<AbiType>,
     /// Type identifier of the vararg callbacks of the function.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub callbacks_vec: Option<AbiParameter>,
+    pub callbacks_vec: Option<AbiType>,
     /// Return type identifier.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub result: Option<AbiParameter>,
+    pub result: Option<AbiType>,
 }
 
+/// Mapping from [TypeId] to JSON subschema.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
-pub struct AbiType {
+pub struct AbiTypeDef {
     pub id: TypeId,
     pub schema: Schema,
 }
 
+/// Information about a single named function parameter.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct AbiParameter {
+    /// Parameter name (e.g. `p1` in `fn foo(p1: u32) {}`).
+    pub name: String,
+    /// Identifier representing the type of the parameter (see [TypeId]).
     pub type_id: TypeId,
+    /// How the parameter is serialized (either JSON or Borsh).
     pub serialization_type: AbiSerializerType,
 }
 
+/// Information about a single type (e.g. return type).
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub struct AbiType {
+    /// Identifier that represents this type (see [TypeId]).
+    pub type_id: TypeId,
+    /// How the type instance is serialized (either JSON or Borsh).
+    pub serialization_type: AbiSerializerType,
+}
+
+/// Represents how instances of a certain type are serialized in a certain context. Same type
+/// can have different serialization types associated with it depending on where they occur.
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum AbiSerializerType {
