@@ -3,7 +3,10 @@
 Showcases how to generate ABI from a NEAR contract.
 
 ## Generating ABI
-To test run:
+To generate the ABI file run:
+
 ```bash
-cargo near metadata
+cargo near abi
 ```
+
+This will generate a file located at `target/near/abi.json`.
