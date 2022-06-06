@@ -32,7 +32,6 @@
         "name": "add_callback",
         "is_view": true,
         "is_init": false,
-        "params": [],
         "callbacks": [
           {
             "type_id": 1,
@@ -55,9 +54,12 @@
     ],
     "types": [
       {
-        "id": 1,
+        "id": 2,
         "schema": {
-          "$ref": "#/definitions/DoublePair"
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DoublePair"
+          }
         }
       },
       {
@@ -67,12 +69,9 @@
         }
       },
       {
-        "id": 2,
+        "id": 1,
         "schema": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DoublePair"
-          }
+          "$ref": "#/definitions/DoublePair"
         }
       }
     ],
