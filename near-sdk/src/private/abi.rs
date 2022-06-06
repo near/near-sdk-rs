@@ -33,9 +33,11 @@ impl AbiRoot {
 pub struct AbiMetainfo {
     /// The name of the smart contract.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub name: Option<String>,
     /// The version of the smart contract.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub version: Option<String>,
     /// The authors of the smart contract.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -75,9 +77,11 @@ pub struct AbiFunction {
     pub callbacks: Vec<AbiParameter>,
     /// Type identifier of the vararg callbacks of the function.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub callbacks_vec: Option<AbiParameter>,
     /// Return type identifier.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub result: Option<AbiParameter>,
 }
 
