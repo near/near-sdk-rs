@@ -55,11 +55,15 @@ impl ImplItemMethodInfo {
             .map(|arg| {
                 let type_id = registry.register_type(Box::new(arg.ty.clone()));
                 let serialization_type = abi_serializer_type(&arg.serializer_ty);
+                let arg_name = arg.ident.to_string();
                 quote! {
-                    near_sdk::__private::AbiParameter {
-                        type_id: #type_id,
-                        serialization_type: #serialization_type,
-                    }
+                    (
+                        #arg_name.to_string(),
+                        near_sdk::__private::AbiParameter {
+                            type_id: #type_id,
+                            serialization_type: #serialization_type,
+                        }
+                    )
                 }
             })
             .collect();
