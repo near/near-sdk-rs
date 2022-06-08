@@ -206,7 +206,7 @@ pub fn near_abi(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let attrs = &input.attrs;
         let vis = &input.vis;
         let ident = &input.ident;
-        let content = &input.content.clone().map(|c| c.1).unwrap_or(vec![]);
+        let content = input.content.clone().map(|c| c.1).unwrap_or_default();
         let mut visitor = AbiVisitor::new();
         visitor.visit_item_mod(&input);
         let generated = match visitor.generate_abi_function() {
