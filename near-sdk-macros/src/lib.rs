@@ -10,7 +10,7 @@ use self::core_impl::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
-use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
+use syn::{File, ItemEnum, ItemImpl, ItemMod, ItemStruct, ItemTrait};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -200,28 +200,30 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
-/// `near_abi` provides the contract with an ABI method that can later be used by `cargo-near` to
-/// generate an ABI file.
-#[proc_macro]
-pub fn near_abi(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<File>(item) {
+#[proc_macro_attribute]
+pub fn near_abi(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    if let Ok(input) = syn::parse::<ItemMod>(item) {
+        let attrs = &input.attrs;
+        let vis = &input.vis;
+        let ident = &input.ident;
+        let content = &input.content.clone().map(|c| c.1).unwrap_or(vec![]);
         let mut visitor = AbiVisitor::new();
-        visitor.visit_file(&input);
+        visitor.visit_item_mod(&input);
         let generated = match visitor.generate_abi_function() {
             Ok(x) => x,
             Err(err) => return TokenStream::from(err.to_compile_error()),
         };
         TokenStream::from(quote! {
-            #input
-            #generated
+            #( #attrs )*
+            #vis mod #ident {
+                #( #content )*
+                #generated
+            }
         })
     } else {
         TokenStream::from(
-            syn::Error::new(
-                Span::call_site(),
-                "Failed to parse code decorated with `near_abi!{}` macro. Only valid Rust is supported.",
-            )
-            .to_compile_error(),
+            syn::Error::new(Span::call_site(), "near_abi can only be used on modules")
+                .to_compile_error(),
         )
     }
 }
