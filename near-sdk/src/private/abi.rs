@@ -15,8 +15,8 @@ pub type TypeId = u32;
 pub struct AbiRoot {
     /// Semver of the ABI schema format.
     pub abi_schema_version: String,
-    /// Meta information about the contract.
-    pub metainfo: AbiMetainfo,
+    /// Metadata information about the contract.
+    pub metadata: AbiMetadata,
     /// Core ABI information (functions and types).
     pub abi: Abi,
 }
@@ -25,14 +25,14 @@ impl AbiRoot {
     pub fn new(abi: Abi) -> Self {
         Self {
             abi_schema_version: ABI_SCHEMA_SEMVER.to_string(),
-            metainfo: Default::default(),
+            metadata: Default::default(),
             abi,
         }
     }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct AbiMetainfo {
+pub struct AbiMetadata {
     /// The name of the smart contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -45,7 +45,7 @@ pub struct AbiMetainfo {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     pub authors: Vec<String>,
-    /// Other arbitrary meta information.
+    /// Other arbitrary metadata.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     #[serde(flatten)]
