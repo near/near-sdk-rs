@@ -10,7 +10,7 @@ use self::core_impl::*;
 use proc_macro2::Span;
 use quote::quote;
 use syn::visit::Visit;
-use syn::{File, ItemEnum, ItemImpl, ItemMod, ItemStruct, ItemTrait};
+use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -200,9 +200,10 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
+#[cfg(feature = "unstable")]
 #[proc_macro_attribute]
 pub fn near_abi(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemMod>(item) {
+    if let Ok(input) = syn::parse::<syn::ItemMod>(item) {
         let attrs = &input.attrs;
         let vis = &input.vis;
         let ident = &input.ident;

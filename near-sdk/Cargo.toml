@@ -50,4 +50,4 @@ hex = { version = "0.4.3", features = ["serde"] }
 [features]
 default = ["wee_alloc"]
 expensive-debug = []
-unstable = ["once_cell"]
+unstable = ["once_cell", "near-sdk-macros/unstable"]
