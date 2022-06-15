@@ -13,6 +13,8 @@ use near_sdk::{
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
+const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
+
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
 /// There are next traits that any contract may implement:
@@ -66,10 +68,9 @@ impl FungibleToken {
         let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply = self
-                .total_supply
+            self.total_supply
                 .checked_add(amount)
-                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
         } else {
             env::panic_str("Balance overflow");
         }
@@ -82,7 +83,7 @@ impl FungibleToken {
             self.total_supply = self
                 .total_supply
                 .checked_sub(amount)
-                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
         } else {
             env::panic_str("The account doesn't have enough balance");
         }
@@ -211,13 +212,13 @@ impl FungibleToken {
                     .emit();
                     let used_amount = amount
                         .checked_sub(refund_amount)
-                        .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
                     return (used_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
-                    self.total_supply
+                    self.total_supply = self.total_supply
                         .checked_sub(refund_amount)
-                        .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
                     log!("The account of the sender was deleted");
                     FtBurn {
                         owner_id: &receiver_id,
