@@ -1,5 +1,4 @@
 use borsh::BorshSchema;
-use schemars::JsonSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
@@ -475,7 +474,8 @@ impl borsh::BorshSerialize for Promise {
     }
 }
 
-impl JsonSchema for Promise {
+#[cfg(feature = "unstable")]
+impl schemars::JsonSchema for Promise {
     fn schema_name() -> String {
         "Promise".to_string()
     }
@@ -543,7 +543,8 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
     }
 }
 
-impl<T: JsonSchema> JsonSchema for PromiseOrValue<T> {
+#[cfg(feature = "unstable")]
+impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
     fn schema_name() -> String {
         format!("PromiseOrValue{}", T::schema_name())
     }

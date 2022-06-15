@@ -74,5 +74,6 @@ pub use serde;
 #[doc(hidden)]
 pub use serde_json;
 
+#[cfg(feature = "unstable")]
 #[doc(hidden)]
 pub use schemars;
