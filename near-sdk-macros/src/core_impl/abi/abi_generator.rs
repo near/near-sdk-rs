@@ -69,7 +69,10 @@ impl ImplItemMethodInfo {
             .attr_signature_info
             .args
             .iter()
-            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArg))
+            .filter(|arg| {
+                matches!(arg.bindgen_ty, BindgenArgType::CallbackArg)
+                    || matches!(arg.bindgen_ty, BindgenArgType::CallbackResultArg)
+            })
             .map(|arg| {
                 let type_id = registry.register_type(Box::new(arg.ty.clone()));
                 let serialization_type = abi_serializer_type(&arg.serializer_ty);
