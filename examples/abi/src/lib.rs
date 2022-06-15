@@ -1,7 +1,7 @@
 use near_sdk::near_abi;
 
 #[near_abi]
-mod abi {
+pub mod abi {
     use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
     use near_sdk::near_bindgen;
     use near_sdk::schemars::JsonSchema;
@@ -32,7 +32,7 @@ mod abi {
             #[callback_unwrap] b: DoublePair,
             #[callback_vec] others: Vec<DoublePair>,
         ) -> DoublePair {
-            vec![b].iter().chain(others.iter()).fold(a, |acc, el| DoublePair {
+            Some(b).iter().chain(others.iter()).fold(a, |acc, el| DoublePair {
                 first: sum_pair(&acc.first, &el.first),
                 second: sum_pair(&acc.second, &el.second),
             })
