@@ -1,4 +1,4 @@
-use near_sdk::{env, require, AccountId, Balance, CryptoHash, Promise};
+use near_sdk::{env, require, AccountId, Balance, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -44,12 +44,6 @@ pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
 /// Assumes that the precedecessor will be refunded
 pub fn refund_deposit(storage_used: u64) {
     refund_deposit_to_account(storage_used, env::predecessor_account_id())
-}
-
-pub fn hash_account_id(account_id: &AccountId) -> CryptoHash {
-    let mut hash = CryptoHash::default();
-    hash.copy_from_slice(&env::sha256(account_id.as_bytes()));
-    hash
 }
 
 /// Assert that at least 1 yoctoNEAR was attached.

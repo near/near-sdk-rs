@@ -5,9 +5,7 @@ use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
-use crate::non_fungible_token::utils::{
-    hash_account_id, refund_approved_account_ids, refund_deposit_to_account,
-};
+use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
@@ -53,7 +51,7 @@ pub struct NonFungibleToken {
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
-    TokensPerOwner { account_hash: Vec<u8> },
+    TokensPerOwner { account_id_hash: CryptoHash },
     TokenPerOwnerInner { account_id_hash: CryptoHash },
 }
 
@@ -122,12 +120,14 @@ impl NonFungibleToken {
                 },
             );
         }
+        let mut u = UnorderedSet::new(
+            StorageKey::TokenPerOwnerInner {
+                account_id_hash: env::sha256_array(tmp_owner_id.as_bytes()),
+            }
+        );
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            let u = &mut UnorderedSet::new(StorageKey::TokensPerOwner {
-                account_hash: env::sha256(tmp_owner_id.as_bytes()),
-            });
             u.insert(&tmp_token_id);
-            tokens_per_owner.insert(&tmp_owner_id, u);
+            tokens_per_owner.insert(&tmp_owner_id, &u);
         }
         if let Some(approvals_by_id) = &mut self.approvals_by_id {
             let mut approvals = HashMap::new();
@@ -136,14 +136,6 @@ impl NonFungibleToken {
         }
         if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
             next_approval_id_by_id.insert(&tmp_token_id, &1u64);
-        }
-        let u = UnorderedSet::new(
-            StorageKey::TokenPerOwnerInner { account_id_hash: hash_account_id(&tmp_owner_id) }
-                .try_to_vec()
-                .unwrap(),
-        );
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            tokens_per_owner.insert(&tmp_owner_id, &u);
         }
 
         // 2. see how much space it took
@@ -158,12 +150,10 @@ impl NonFungibleToken {
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             tokens_per_owner.remove(&tmp_owner_id);
+            u.remove(&tmp_token_id);
         }
         if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.remove(&tmp_token_id);
-        }
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            tokens_per_owner.remove(&tmp_owner_id);
         }
         self.owner_by_id.remove(&tmp_token_id);
     }
@@ -195,7 +185,7 @@ impl NonFungibleToken {
 
             let mut receiver_tokens = tokens_per_owner.get(to).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKey::TokensPerOwner {
-                    account_hash: env::sha256(to.as_bytes()),
+                    account_id_hash: env::sha256_array(to.as_bytes()),
                 })
             });
             receiver_tokens.insert(token_id);
@@ -360,7 +350,7 @@ impl NonFungibleToken {
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
             let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKey::TokensPerOwner {
-                    account_hash: env::sha256(owner_id.as_bytes()),
+                    account_id_hash: env::sha256_array(owner_id.as_bytes()),
                 })
             });
             token_ids.insert(&token_id);
