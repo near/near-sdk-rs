@@ -4,23 +4,14 @@
 //! 64-bit and 128-bit integers.
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
         #[derive(
-            Debug,
-            Clone,
-            Copy,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            BorshDeserialize,
-            BorshSerialize,
-            JsonSchema,
+            Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
         )]
+        #[cfg_attr(feature = "unstable", derive(schemars::JsonSchema))]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {
