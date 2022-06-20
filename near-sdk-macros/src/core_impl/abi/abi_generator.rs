@@ -114,23 +114,30 @@ impl ImplItemMethodInfo {
                 quote! { None }
             }
         };
-        let result = match &self.attr_signature_info.returns {
-            ReturnType::Default => {
-                quote! {
-                    None
-                }
+        let result = if matches!(self.attr_signature_info.method_type, MethodType::Init) {
+            // Init methods must return the contract state, so the return type does not matter
+            quote! {
+                None
             }
-            ReturnType::Type(_, ty) => {
-                let type_id = registry.register_type(ty.clone());
-                let serialization_type =
-                    abi_serializer_type(&self.attr_signature_info.result_serializer);
-                quote! {
-                    Some(
-                        near_sdk::__private::AbiType {
-                            type_id: #type_id,
-                            serialization_type: #serialization_type,
-                        }
-                    )
+        } else {
+            match &self.attr_signature_info.returns {
+                ReturnType::Default => {
+                    quote! {
+                        None
+                    }
+                }
+                ReturnType::Type(_, ty) => {
+                    let type_id = registry.register_type(ty.clone());
+                    let serialization_type =
+                        abi_serializer_type(&self.attr_signature_info.result_serializer);
+                    quote! {
+                        Some(
+                            near_sdk::__private::AbiType {
+                                type_id: #type_id,
+                                serialization_type: #serialization_type,
+                            }
+                        )
+                    }
                 }
             }
         };
