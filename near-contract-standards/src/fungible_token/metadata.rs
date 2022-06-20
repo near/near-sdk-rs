@@ -2,10 +2,11 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::require;
 use near_sdk::serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
 pub struct FungibleTokenMetadata {
     pub spec: String,

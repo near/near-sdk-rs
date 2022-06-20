@@ -1,4 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
@@ -14,6 +15,16 @@ impl From<Vec<u8>> for Base64VecU8 {
 impl From<Base64VecU8> for Vec<u8> {
     fn from(v: Base64VecU8) -> Vec<u8> {
         v.0
+    }
+}
+
+impl JsonSchema for Base64VecU8 {
+    fn schema_name() -> String {
+        "Base64VecU8".to_string()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
     }
 }
 
