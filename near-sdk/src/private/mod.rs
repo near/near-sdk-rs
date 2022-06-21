@@ -3,7 +3,7 @@ mod abi;
 
 #[cfg(feature = "unstable")]
 pub use abi::{
-    Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiSerializerType, AbiType, AbiTypeDef,
+    Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiSerializationType, AbiType,
 };
 
 mod metadata;

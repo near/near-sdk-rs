@@ -7,8 +7,6 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::ReturnType;
 
-use super::TypeRegistry;
-
 impl ImplItemMethodInfo {
     /// Generates ABI struct for this function.
     ///
@@ -42,7 +40,7 @@ impl ImplItemMethodInfo {
     /// }
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
-    pub fn abi_struct(&self, registry: &mut TypeRegistry) -> TokenStream2 {
+    pub fn abi_struct(&self) -> TokenStream2 {
         let function_name_str = self.attr_signature_info.ident.to_string();
         let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
         let is_init = matches!(
@@ -53,13 +51,13 @@ impl ImplItemMethodInfo {
             .attr_signature_info
             .input_args()
             .map(|arg| {
-                let type_id = registry.register_type(Box::new(arg.ty.clone()));
-                let serialization_type = abi_serializer_type(&arg.serializer_ty);
+                let typ = &arg.ty;
+                let serialization_type = abi_serialization_type(&arg.serializer_ty);
                 let arg_name = arg.ident.to_string();
                 quote! {
                     near_sdk::__private::AbiParameter {
                         name: #arg_name.to_string(),
-                        type_id: #type_id,
+                        type_schema: gen.subschema_for::<#typ>(),
                         serialization_type: #serialization_type,
                     }
                 }
@@ -74,11 +72,11 @@ impl ImplItemMethodInfo {
                     || matches!(arg.bindgen_ty, BindgenArgType::CallbackResultArg)
             })
             .map(|arg| {
-                let type_id = registry.register_type(Box::new(arg.ty.clone()));
-                let serialization_type = abi_serializer_type(&arg.serializer_ty);
+                let typ = &arg.ty;
+                let serialization_type = abi_serialization_type(&arg.serializer_ty);
                 quote! {
                     near_sdk::__private::AbiType {
-                        type_id: #type_id,
+                        type_schema: gen.subschema_for::<#typ>(),
                         serialization_type: #serialization_type,
                     }
                 }
@@ -99,12 +97,12 @@ impl ImplItemMethodInfo {
         }
         let callback_vec = match callback_vec.last() {
             Some(arg) => {
-                let type_id = registry.register_type(Box::new(arg.ty.clone()));
-                let serialization_type = abi_serializer_type(&arg.serializer_ty);
+                let typ = &arg.ty;
+                let serialization_type = abi_serialization_type(&arg.serializer_ty);
                 quote! {
                     Some(
                         near_sdk::__private::AbiType {
-                            type_id: #type_id,
+                            type_schema: gen.subschema_for::<#typ>(),
                             serialization_type: #serialization_type,
                         }
                     )
@@ -127,13 +125,12 @@ impl ImplItemMethodInfo {
                     }
                 }
                 ReturnType::Type(_, ty) => {
-                    let type_id = registry.register_type(ty.clone());
                     let serialization_type =
-                        abi_serializer_type(&self.attr_signature_info.result_serializer);
+                        abi_serialization_type(&self.attr_signature_info.result_serializer);
                     quote! {
                         Some(
                             near_sdk::__private::AbiType {
-                                type_id: #type_id,
+                                type_schema: gen.subschema_for::<#ty>(),
                                 serialization_type: #serialization_type,
                             }
                         )
@@ -156,13 +153,13 @@ impl ImplItemMethodInfo {
     }
 }
 
-fn abi_serializer_type(serializer_type: &SerializerType) -> TokenStream2 {
+fn abi_serialization_type(serializer_type: &SerializerType) -> TokenStream2 {
     match serializer_type {
         SerializerType::JSON => quote! {
-            near_sdk::__private::AbiSerializerType::Json
+            near_sdk::__private::AbiSerializationType::Json
         },
         SerializerType::Borsh => quote! {
-            near_sdk::__private::AbiSerializerType::Borsh
+            near_sdk::__private::AbiSerializationType::Borsh
         },
     }
 }

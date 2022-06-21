@@ -1,4 +1,3 @@
-use super::TypeRegistry;
 use crate::core_impl::ImplItemMethodInfo;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
@@ -29,7 +28,6 @@ impl AbiVisitor {
     }
 
     pub fn generate_abi_function(&self) -> syn::Result<TokenStream2> {
-        let mut registry = TypeRegistry::new();
         if !self.errors.is_empty() {
             return Err(self.errors[0].clone());
         }
@@ -47,16 +45,7 @@ impl AbiVisitor {
         }
 
         let functions: Vec<TokenStream2> =
-            public_functions.iter().map(|m| m.abi_struct(&mut registry)).collect();
-        let types: Vec<TokenStream2> = registry
-            .types
-            .iter()
-            .map(|(t, id)| {
-                quote! {
-                    near_sdk::__private::AbiTypeDef { id: #id, schema: gen.subschema_for::<#t>() }
-                }
-            })
-            .collect();
+            public_functions.iter().map(|m| m.abi_struct()).collect();
         let first_function_name = &public_functions[0].attr_signature_info.ident;
         let near_abi_symbol = format_ident!("__near_abi_{}", &first_function_name);
         Ok(quote! {
@@ -66,11 +55,9 @@ impl AbiVisitor {
                 pub fn #near_abi_symbol() -> near_sdk::__private::AbiRoot {
                     use borsh::*;
                     let mut gen = schemars::gen::SchemaGenerator::default();
-                    let types = vec![#(#types),*];
                     near_sdk::__private::AbiRoot::new(
                         near_sdk::__private::Abi {
                             functions: vec![#(#functions),*],
-                            types: types,
                             root_schema: gen.into_root_schema_for::<String>(),
                         }
                     )
