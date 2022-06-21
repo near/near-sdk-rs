@@ -58,6 +58,18 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_gen
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+        #[cfg(not(feature = "abi"))]
+        let abi_generated = proc_macro2::TokenStream::new();
+        #[cfg(feature = "abi")]
+        let abi_generated = {
+            let mut visitor = AbiVisitor::new();
+            visitor.visit_item_impl(&input);
+            match visitor.generate_abi_function() {
+                Ok(x) => x,
+                Err(err) => return TokenStream::from(err.to_compile_error()),
+            }
+        };
+
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
@@ -72,6 +84,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_generated_code
             #input
             #generated_code
+            #abi_generated
         })
     } else {
         TokenStream::from(
@@ -196,35 +209,6 @@ pub fn metadata(item: TokenStream) -> TokenStream {
                 "Failed to parse code decorated with `metadata!{}` macro. Only valid Rust is supported.",
             )
             .to_compile_error(),
-        )
-    }
-}
-
-#[cfg(feature = "unstable")]
-#[proc_macro_attribute]
-pub fn near_abi(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<syn::ItemMod>(item) {
-        let attrs = &input.attrs;
-        let vis = &input.vis;
-        let ident = &input.ident;
-        let content = input.content.clone().map(|c| c.1).unwrap_or_default();
-        let mut visitor = AbiVisitor::new();
-        visitor.visit_item_mod(&input);
-        let generated = match visitor.generate_abi_function() {
-            Ok(x) => x,
-            Err(err) => return TokenStream::from(err.to_compile_error()),
-        };
-        TokenStream::from(quote! {
-            #( #attrs )*
-            #vis mod #ident {
-                #( #content )*
-                #generated
-            }
-        })
-    } else {
-        TokenStream::from(
-            syn::Error::new(Span::call_site(), "near_abi can only be used on modules")
-                .to_compile_error(),
         )
     }
 }

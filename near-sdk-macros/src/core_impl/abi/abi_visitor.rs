@@ -1,7 +1,8 @@
 use super::TypeRegistry;
+use crate::core_impl::ImplItemMethodInfo;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::visit::Visit;
 use syn::{Error, ItemImpl};
 
@@ -15,15 +16,9 @@ pub struct AbiVisitor {
 
 impl<'ast> Visit<'ast> for AbiVisitor {
     fn visit_item_impl(&mut self, i: &'ast ItemImpl) {
-        let has_near_sdk_attr = i
-            .attrs
-            .iter()
-            .any(|attr| attr.path.to_token_stream().to_string().as_str() == "near_bindgen");
-        if has_near_sdk_attr {
-            match ItemImplInfo::new(&mut i.clone()) {
-                Ok(info) => self.impl_item_infos.push(info),
-                Err(err) => self.errors.push(err),
-            }
+        match ItemImplInfo::new(&mut i.clone()) {
+            Ok(info) => self.impl_item_infos.push(info),
+            Err(err) => self.errors.push(err),
         }
         syn::visit::visit_item_impl(self, i);
     }
@@ -38,12 +33,21 @@ impl AbiVisitor {
         if !self.errors.is_empty() {
             return Err(self.errors[0].clone());
         }
-        let functions: Vec<TokenStream2> = self
+
+        let public_functions: Vec<&ImplItemMethodInfo> = self
             .impl_item_infos
             .iter()
-            .flat_map(|i| &i.methods)
-            .map(|m| m.abi_struct(&mut registry))
+            .flat_map(|i| {
+                i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect::<Vec<_>>()
+            })
             .collect();
+        if public_functions.is_empty() {
+            // Short-circuit if there are not public functions to export to ABI
+            return Ok(TokenStream2::new());
+        }
+
+        let functions: Vec<TokenStream2> =
+            public_functions.iter().map(|m| m.abi_struct(&mut registry)).collect();
         let types: Vec<TokenStream2> = registry
             .types
             .iter()
@@ -53,11 +57,13 @@ impl AbiVisitor {
                 }
             })
             .collect();
+        let first_function_name = &public_functions[0].attr_signature_info.ident;
+        let near_abi_symbol = format_ident!("__near_abi_{}", &first_function_name);
         Ok(quote! {
             const _: () = {
                 #[no_mangle]
                 #[cfg(not(target_arch = "wasm32"))]
-                pub fn __near_abi() -> near_sdk::__private::AbiRoot {
+                pub fn #near_abi_symbol() -> near_sdk::__private::AbiRoot {
                     use borsh::*;
                     let mut gen = schemars::gen::SchemaGenerator::default();
                     let types = vec![#(#types),*];

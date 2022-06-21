@@ -10,9 +10,6 @@ pub use near_sdk_macros::{
 };
 
 #[cfg(feature = "unstable")]
-pub use near_sdk_macros::near_abi;
-
-#[cfg(feature = "unstable")]
 pub mod store;
 
 pub mod collections;
