@@ -1,8 +1,6 @@
-use crate::{
-    core_impl::{BindgenArgType, SerializerType},
-    ImplItemMethodInfo, MethodType,
-};
-
+use crate::core_impl::utils;
+use crate::core_impl::{BindgenArgType, SerializerType};
+use crate::{ImplItemMethodInfo, MethodType};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::ReturnType;
@@ -47,71 +45,72 @@ impl ImplItemMethodInfo {
             &self.attr_signature_info.method_type,
             &MethodType::Init | &MethodType::InitIgnoreState
         );
-        let params: Vec<TokenStream2> = self
-            .attr_signature_info
-            .input_args()
-            .map(|arg| {
-                let typ = &arg.ty;
-                let serialization_type = abi_serialization_type(&arg.serializer_ty);
-                let arg_name = arg.ident.to_string();
-                quote! {
-                    near_sdk::__private::AbiParameter {
-                        name: #arg_name.to_string(),
-                        type_schema: gen.subschema_for::<#typ>(),
-                        serialization_type: #serialization_type,
-                    }
+
+        let mut params = Vec::<TokenStream2>::new();
+        let mut callbacks = Vec::<TokenStream2>::new();
+        let mut callback_vec: Option<TokenStream2> = None;
+        for arg in &self.attr_signature_info.args {
+            let typ = &arg.ty;
+            let serialization_type = abi_serialization_type(&arg.serializer_ty);
+            let arg_name = arg.ident.to_string();
+            match arg.bindgen_ty {
+                BindgenArgType::Regular => {
+                    params.push(quote! {
+                        near_sdk::__private::AbiParameter {
+                            name: #arg_name.to_string(),
+                            type_schema: gen.subschema_for::<#typ>(),
+                            serialization_type: #serialization_type,
+                        }
+                    });
                 }
-            })
-            .collect();
-        let callbacks: Vec<TokenStream2> = self
-            .attr_signature_info
-            .args
-            .iter()
-            .filter(|arg| {
-                matches!(arg.bindgen_ty, BindgenArgType::CallbackArg)
-                    || matches!(arg.bindgen_ty, BindgenArgType::CallbackResultArg)
-            })
-            .map(|arg| {
-                let typ = &arg.ty;
-                let serialization_type = abi_serialization_type(&arg.serializer_ty);
-                quote! {
-                    near_sdk::__private::AbiType {
-                        type_schema: gen.subschema_for::<#typ>(),
-                        serialization_type: #serialization_type,
-                    }
-                }
-            })
-            .collect();
-        let callback_vec = self
-            .attr_signature_info
-            .args
-            .iter()
-            .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
-            .collect::<Vec<_>>();
-        if callback_vec.len() > 1 {
-            return syn::Error::new(
-                Span::call_site(),
-                "A function can only have one #[callback_vec] parameter.",
-            )
-            .to_compile_error();
-        }
-        let callback_vec = match callback_vec.last() {
-            Some(arg) => {
-                let typ = &arg.ty;
-                let serialization_type = abi_serialization_type(&arg.serializer_ty);
-                quote! {
-                    Some(
+                BindgenArgType::CallbackArg => {
+                    callbacks.push(quote! {
                         near_sdk::__private::AbiType {
                             type_schema: gen.subschema_for::<#typ>(),
                             serialization_type: #serialization_type,
                         }
-                    )
+                    });
                 }
-            }
-            None => {
-                quote! { None }
-            }
-        };
+                BindgenArgType::CallbackResultArg => {
+                    let typ = if let Some(ok_type) = utils::extract_ok_type(typ) {
+                        ok_type
+                    } else {
+                        return syn::Error::new_spanned(
+                            &arg.ty,
+                            "Function parameters marked with \
+                                #[callback_result] should have type Result<T, PromiseError>",
+                        )
+                        .into_compile_error();
+                    };
+                    callbacks.push(quote! {
+                        near_sdk::__private::AbiType {
+                            type_schema: gen.subschema_for::<#typ>(),
+                            serialization_type: #serialization_type,
+                        }
+                    });
+                }
+                BindgenArgType::CallbackArgVec => {
+                    if callback_vec.is_none() {
+                        callback_vec = Some(quote! {
+                            Some(
+                                near_sdk::__private::AbiType {
+                                    type_schema: gen.subschema_for::<#typ>(),
+                                    serialization_type: #serialization_type,
+                                }
+                            )
+                        })
+                    } else {
+                        return syn::Error::new(
+                            Span::call_site(),
+                            "A function can only have one #[callback_vec] parameter.",
+                        )
+                        .to_compile_error();
+                    }
+                }
+            };
+        }
+        let callback_vec = callback_vec.unwrap_or(quote! { None });
+
         let result = if matches!(self.attr_signature_info.method_type, MethodType::Init) {
             // Init methods must return the contract state, so the return type does not matter
             quote! {

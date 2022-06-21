@@ -53,7 +53,6 @@ impl AbiVisitor {
                 #[no_mangle]
                 #[cfg(not(target_arch = "wasm32"))]
                 pub fn #near_abi_symbol() -> near_sdk::__private::AbiRoot {
-                    use borsh::*;
                     let mut gen = schemars::gen::SchemaGenerator::default();
                     near_sdk::__private::AbiRoot::new(
                         near_sdk::__private::Abi {
