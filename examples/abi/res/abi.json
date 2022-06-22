@@ -12,7 +12,6 @@
       {
         "name": "add",
         "is_view": true,
-        "is_init": false,
         "params": [
           {
             "name": "a",
@@ -39,7 +38,6 @@
       {
         "name": "add_callback",
         "is_view": true,
-        "is_init": false,
         "callbacks": [
           {
             "type_schema": {

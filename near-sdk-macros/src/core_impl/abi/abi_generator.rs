@@ -45,6 +45,8 @@ impl ImplItemMethodInfo {
             &self.attr_signature_info.method_type,
             &MethodType::Init | &MethodType::InitIgnoreState
         );
+        let is_payable = self.attr_signature_info.is_payable;
+        let is_private = self.attr_signature_info.is_private;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();
@@ -143,6 +145,8 @@ impl ImplItemMethodInfo {
                  name: #function_name_str.to_string(),
                  is_view: #is_view,
                  is_init: #is_init,
+                 is_payable: #is_payable,
+                 is_private: #is_private,
                  params: vec![#(#params),*],
                  callbacks: vec![#(#callbacks),*],
                  callbacks_vec: #callback_vec,

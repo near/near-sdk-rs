@@ -116,9 +116,21 @@ impl Abi {
 pub struct AbiFunction {
     pub name: String,
     /// Whether function does not modify the state.
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub is_view: bool,
     /// Whether function can be used to initialize the state.
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub is_init: bool,
+    /// Whether function is accepting $NEAR.
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
+    pub is_payable: bool,
+    /// Whether function can only accept calls from self (current account).
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
+    pub is_private: bool,
     /// Type identifiers of the function parameters.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
@@ -164,4 +176,8 @@ pub struct AbiType {
 pub enum AbiSerializationType {
     Json,
     Borsh,
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
