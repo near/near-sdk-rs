@@ -49,9 +49,9 @@ impl AbiVisitor {
         let first_function_name = &public_functions[0].attr_signature_info.ident;
         let near_abi_symbol = format_ident!("__near_abi_{}", &first_function_name);
         Ok(quote! {
+            #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[no_mangle]
-                #[cfg(not(target_arch = "wasm32"))]
                 pub fn #near_abi_symbol() -> near_sdk::__private::AbiRoot {
                     let mut gen = schemars::gen::SchemaGenerator::default();
                     near_sdk::__private::AbiRoot::new(

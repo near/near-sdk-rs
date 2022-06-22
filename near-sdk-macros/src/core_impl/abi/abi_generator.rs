@@ -113,13 +113,14 @@ impl ImplItemMethodInfo {
         }
         let callback_vec = callback_vec.unwrap_or(quote! { None });
 
-        let result = if matches!(self.attr_signature_info.method_type, MethodType::Init) {
-            // Init methods must return the contract state, so the return type does not matter
-            quote! {
-                None
+        let result = match self.attr_signature_info.method_type {
+            MethodType::Init | MethodType::InitIgnoreState => {
+                // Init methods must return the contract state, so the return type does not matter
+                quote! {
+                    None
+                }
             }
-        } else {
-            match &self.attr_signature_info.returns {
+            _ => match &self.attr_signature_info.returns {
                 ReturnType::Default => {
                     quote! {
                         None
@@ -137,7 +138,7 @@ impl ImplItemMethodInfo {
                         )
                     }
                 }
-            }
+            },
         };
 
         quote! {

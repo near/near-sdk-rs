@@ -64,21 +64,16 @@ impl AbiRoot {
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct AbiMetadata {
     /// The name of the smart contract.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// The version of the smart contract.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     /// The authors of the smart contract.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<String>,
     /// Other arbitrary metadata.
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    #[serde(default)]
-    #[serde(flatten)]
+    #[serde(default, flatten, skip_serializing_if = "HashMap::is_empty")]
     pub other: HashMap<String, String>,
 }
 
@@ -116,36 +111,28 @@ impl Abi {
 pub struct AbiFunction {
     pub name: String,
     /// Whether function does not modify the state.
-    #[serde(skip_serializing_if = "is_false")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub is_view: bool,
     /// Whether function can be used to initialize the state.
-    #[serde(skip_serializing_if = "is_false")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub is_init: bool,
     /// Whether function is accepting $NEAR.
-    #[serde(skip_serializing_if = "is_false")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub is_payable: bool,
     /// Whether function can only accept calls from self (current account).
-    #[serde(skip_serializing_if = "is_false")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub is_private: bool,
     /// Type identifiers of the function parameters.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<AbiParameter>,
     /// Type identifiers of the callbacks of the function.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub callbacks: Vec<AbiType>,
     /// Type identifier of the vararg callbacks of the function.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub callbacks_vec: Option<AbiType>,
     /// Return type identifier.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<AbiType>,
 }
 
