@@ -840,6 +840,7 @@ version = "1.1.0"
 dependencies = [
  "near-contract-standards",
  "near-sdk",
+ "schemars",
 ]
 
 [[package]]
@@ -1399,6 +1400,7 @@ name = "near-contract-standards"
 version = "4.0.0"
 dependencies = [
  "near-sdk",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -1789,6 +1791,7 @@ dependencies = [
  "near-sdk-macros",
  "near-sys",
  "near-vm-logic",
+ "once_cell",
  "schemars",
  "serde",
  "serde_json",

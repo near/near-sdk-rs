@@ -1,6 +1,6 @@
 {
   "abi_schema_version": "0.1.0",
-  "metainfo": {
+  "metadata": {
     "name": "abi",
     "version": "0.1.0",
     "authors": [
@@ -16,17 +16,23 @@
         "params": [
           {
             "name": "a",
-            "type_id": 0,
+            "type_schema": {
+              "$ref": "#/definitions/Pair"
+            },
             "serialization_type": "json"
           },
           {
             "name": "b",
-            "type_id": 0,
+            "type_schema": {
+              "$ref": "#/definitions/Pair"
+            },
             "serialization_type": "json"
           }
         ],
         "result": {
-          "type_id": 0,
+          "type_schema": {
+            "$ref": "#/definitions/Pair"
+          },
           "serialization_type": "json"
         }
       },
@@ -36,44 +42,32 @@
         "is_init": false,
         "callbacks": [
           {
-            "type_id": 1,
+            "type_schema": {
+              "$ref": "#/definitions/DoublePair"
+            },
             "serialization_type": "json"
           },
           {
-            "type_id": 1,
+            "type_schema": {
+              "$ref": "#/definitions/DoublePair"
+            },
             "serialization_type": "json"
           }
         ],
         "callbacks_vec": {
-          "type_id": 2,
+          "type_schema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DoublePair"
+            }
+          },
           "serialization_type": "json"
         },
         "result": {
-          "type_id": 1,
-          "serialization_type": "json"
-        }
-      }
-    ],
-    "types": [
-      {
-        "id": 1,
-        "schema": {
-          "$ref": "#/definitions/DoublePair"
-        }
-      },
-      {
-        "id": 0,
-        "schema": {
-          "$ref": "#/definitions/Pair"
-        }
-      },
-      {
-        "id": 2,
-        "schema": {
-          "type": "array",
-          "items": {
+          "type_schema": {
             "$ref": "#/definitions/DoublePair"
-          }
+          },
+          "serialization_type": "json"
         }
       }
     ],

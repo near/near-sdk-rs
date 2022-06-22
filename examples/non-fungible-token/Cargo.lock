@@ -1376,6 +1376,7 @@ name = "near-contract-standards"
 version = "4.0.0"
 dependencies = [
  "near-sdk",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -1766,7 +1767,6 @@ dependencies = [
  "near-sdk-macros",
  "near-sys",
  "near-vm-logic",
- "schemars",
  "serde",
  "serde_json",
  "wee_alloc",
