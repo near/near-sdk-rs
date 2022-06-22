@@ -621,6 +621,7 @@ version = "0.0.1"
 dependencies = [
  "near-contract-standards",
  "near-sdk",
+ "schemars",
 ]
 
 [[package]]
