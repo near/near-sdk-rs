@@ -17,7 +17,7 @@ impl From<Base64VecU8> for Vec<u8> {
     }
 }
 
-#[cfg(feature = "unstable")]
+#[cfg(feature = "abi")]
 impl schemars::JsonSchema for Base64VecU8 {
     fn schema_name() -> String {
         "Base64VecU8".to_string()

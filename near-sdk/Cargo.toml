@@ -50,4 +50,5 @@ hex = { version = "0.4.3", features = ["serde"] }
 [features]
 default = ["wee_alloc"]
 expensive-debug = []
-unstable = ["once_cell", "schemars", "near-sdk-macros/abi"]
+unstable = ["once_cell"]
+abi = ["schemars", "near-sdk-macros/abi"]

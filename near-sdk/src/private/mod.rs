@@ -1,7 +1,7 @@
-#[cfg(feature = "unstable")]
+#[cfg(feature = "abi")]
 mod abi;
 
-#[cfg(feature = "unstable")]
+#[cfg(feature = "abi")]
 pub use abi::{
     Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiSerializationType, AbiType,
 };

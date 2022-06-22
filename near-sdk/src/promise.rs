@@ -474,7 +474,7 @@ impl borsh::BorshSerialize for Promise {
     }
 }
 
-#[cfg(feature = "unstable")]
+#[cfg(feature = "abi")]
 impl schemars::JsonSchema for Promise {
     fn schema_name() -> String {
         "Promise".to_string()
@@ -543,7 +543,7 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
     }
 }
 
-#[cfg(feature = "unstable")]
+#[cfg(feature = "abi")]
 impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
     fn schema_name() -> String {
         format!("PromiseOrValue{}", T::schema_name())

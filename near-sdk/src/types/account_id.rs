@@ -36,7 +36,7 @@ use crate::env::is_valid_account_id;
 #[derive(
     Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash, BorshSchema,
 )]
-#[cfg_attr(feature = "unstable", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct AccountId(String);
 
 impl AccountId {
