@@ -70,7 +70,3 @@ pub use serde;
 
 #[doc(hidden)]
 pub use serde_json;
-
-#[cfg(feature = "abi")]
-#[doc(hidden)]
-pub use schemars;

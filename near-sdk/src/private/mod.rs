@@ -6,6 +6,9 @@ pub use abi::{
     Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiSerializationType, AbiType,
 };
 
+#[cfg(feature = "abi")]
+pub use schemars;
+
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
