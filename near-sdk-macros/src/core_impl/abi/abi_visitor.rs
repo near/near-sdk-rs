@@ -53,7 +53,7 @@ impl AbiVisitor {
             const _: () = {
                 #[no_mangle]
                 pub fn #near_abi_symbol() -> near_sdk::__private::AbiRoot {
-                    let mut gen = schemars::gen::SchemaGenerator::default();
+                    let mut gen = near_sdk::schemars::gen::SchemaGenerator::default();
                     near_sdk::__private::AbiRoot::new(
                         near_sdk::__private::Abi {
                             functions: vec![#(#functions),*],
