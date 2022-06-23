@@ -1,5 +1,15 @@
-mod metadata;
+#[cfg(feature = "abi")]
+mod abi;
 
+#[cfg(feature = "abi")]
+pub use abi::{
+    Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiSerializationType, AbiType,
+};
+
+#[cfg(feature = "abi")]
+pub use schemars;
+
+mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
 use crate::IntoStorageKey;
