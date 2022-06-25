@@ -1,12 +1,9 @@
 use syn::{GenericArgument, Path, PathArguments, Type};
 
-/// Checks whether the given path is literally "Result".
-/// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
-/// `type StringResult = Result<String, String>`.
+/// Checks whether the given path ends in "Result".
+/// Note that it won't match a type alias like `type StringResult = Result<String, String>`.
 pub(crate) fn path_is_result(path: &Path) -> bool {
-    path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments.iter().next().unwrap().ident == "Result"
+    path.segments.last().map_or_else(|| false, |last_segment| last_segment.ident == "Result")
 }
 
 /// Equivalent to `path_is_result` except that it works on `Type` values.
@@ -23,9 +20,9 @@ pub(crate) fn type_is_result(ty: &Type) -> bool {
 pub(crate) fn extract_ok_type(ty: &Type) -> Option<&Type> {
     match ty {
         Type::Path(type_path) if type_path.qself.is_none() && path_is_result(&type_path.path) => {
-            // Get the first segment of the path (there should be only one, in fact: "Result"):
-            let type_params = &type_path.path.segments.first()?.arguments;
-            // We are interested in the first angle-bracketed param responsible for Ok type ("<String, _>"):
+            // Get the last segment of the path ("Result"):
+            let type_params = &type_path.path.segments.last()?.arguments;
+            // We are interested in the first angle-bracketed param responsible for Ok type ("<OkType, ErrType>" or "<OkType>"):
             let generic_arg = match type_params {
                 PathArguments::AngleBracketed(params) => Some(params.args.first()?),
                 _ => None,
