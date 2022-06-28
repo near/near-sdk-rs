@@ -1,8 +1,9 @@
-use crate::core_impl::utils;
+use crate::core_impl::{utils, AttrSigInfo};
 use crate::core_impl::{BindgenArgType, SerializerType};
 use crate::{ImplItemMethodInfo, MethodType};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
+use syn::spanned::Spanned;
 use syn::ReturnType;
 
 impl ImplItemMethodInfo {
@@ -45,8 +46,8 @@ impl ImplItemMethodInfo {
             &self.attr_signature_info.method_type,
             &MethodType::Init | &MethodType::InitIgnoreState
         );
-        let is_payable = self.attr_signature_info.is_payable;
-        let is_private = self.attr_signature_info.is_private;
+        let AttrSigInfo { is_payable, is_private, is_handles_result, .. } =
+            self.attr_signature_info;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();
@@ -125,6 +126,34 @@ impl ImplItemMethodInfo {
                     quote! {
                         None
                     }
+                }
+                ReturnType::Type(_, ty) if utils::type_is_result(ty) && is_handles_result => {
+                    let ty = if let Some(ty) = utils::extract_ok_type(ty) {
+                        ty
+                    } else {
+                        return syn::Error::new_spanned(
+                            ty,
+                            "Function marked with #[handle_result] should have return type Result<T, PromiseError>",
+                        )
+                        .into_compile_error();
+                    };
+                    let serialization_type =
+                        abi_serialization_type(&self.attr_signature_info.result_serializer);
+                    quote! {
+                        Some(
+                            near_sdk::__private::AbiType {
+                                type_schema: gen.subschema_for::<#ty>(),
+                                serialization_type: #serialization_type,
+                            }
+                        )
+                    }
+                }
+                ReturnType::Type(_, ty) if is_handles_result => {
+                    return syn::Error::new(
+                        ty.span(),
+                        "Method marked with #[handle_result] should return Result<T, E>.",
+                    )
+                    .to_compile_error();
                 }
                 ReturnType::Type(_, ty) => {
                     let serialization_type =
