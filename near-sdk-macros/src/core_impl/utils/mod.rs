@@ -9,15 +9,6 @@ pub(crate) fn path_is_result(path: &Path) -> bool {
         && path.segments.iter().next().unwrap().ident == "Result"
 }
 
-/// Checks whether the given path is literally "Vec".
-/// Note that it won't match a fully qualified name `std::vec::Vec` or a type alias like
-/// `type MyVec = Vec<String>`.
-pub(crate) fn path_is_vec(path: &Path) -> bool {
-    path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments.iter().next().unwrap().ident == "Vec"
-}
-
 /// Equivalent to `path_is_result` except that it works on `Type` values.
 pub(crate) fn type_is_result(ty: &Type) -> bool {
     match ty {
@@ -49,9 +40,19 @@ pub(crate) fn extract_ok_type(ty: &Type) -> Option<&Type> {
     }
 }
 
+/// Checks whether the given path is literally "Vec".
+/// Note that it won't match a fully qualified name `std::vec::Vec` or a type alias like
+/// `type MyVec = Vec<String>`.
+fn path_is_vec(path: &Path) -> bool {
+    path.leading_colon.is_none()
+        && path.segments.len() == 1
+        && path.segments.iter().next().unwrap().ident == "Vec"
+}
+
 /// Extracts the inner generic type from a `Vec<_>` type.
 ///
 /// For example, given `Vec<String>` this function will return `String`.
+#[allow(dead_code)]
 pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
     match ty {
         Type::Path(type_path) if type_path.qself.is_none() && path_is_vec(&type_path.path) => {
