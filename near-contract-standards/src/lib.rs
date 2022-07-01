@@ -6,6 +6,10 @@ pub mod non_fungible_token;
 pub mod storage_management;
 /// This upgrade standard is a use case where a staging area exists for a WASM
 /// blob, allowing it to be stored for a period of time before deployed.
+#[deprecated(
+    since = "4.1.0",
+    note = "This was removed because there is no standard (NEP) for upgradable contracts."
+)]
 pub mod upgrade;
 
 pub(crate) mod event;

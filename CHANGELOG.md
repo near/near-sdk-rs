@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Removed
+- Deprecated `near_contract_standards::upgrade`. [PR 856](https://github.com/near/near-sdk-rs/pull/856)
+  - Implementation did not match any NEAR standard and was not correct
+
 
 ## [4.0.0] - 2022-05-25
 
