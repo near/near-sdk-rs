@@ -127,13 +127,13 @@ impl ImplItemMethodInfo {
                         None
                     }
                 }
-                ReturnType::Type(_, ty) if utils::type_is_result(ty) && is_handles_result => {
+                ReturnType::Type(_, ty) if is_handles_result && utils::type_is_result(ty) => {
                     let ty = if let Some(ty) = utils::extract_ok_type(ty) {
                         ty
                     } else {
                         return syn::Error::new_spanned(
                             ty,
-                            "Function marked with #[handle_result] should have return type Result<T, PromiseError>",
+                            "Function marked with #[handle_result] should have return type Result<T, E>",
                         )
                         .into_compile_error();
                     };
