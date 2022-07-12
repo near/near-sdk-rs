@@ -133,7 +133,7 @@ impl ImplItemMethodInfo {
                     } else {
                         return syn::Error::new_spanned(
                             ty,
-                            "Function marked with #[handle_result] should have return type Result<T, E>",
+                            "Function marked with #[handle_result] should have return type Result<T, E> (where E implements FunctionError).",
                         )
                         .into_compile_error();
                     };
@@ -151,7 +151,7 @@ impl ImplItemMethodInfo {
                 ReturnType::Type(_, ty) if is_handles_result => {
                     return syn::Error::new(
                         ty.span(),
-                        "Method marked with #[handle_result] should return Result<T, E>.",
+                        "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
                     )
                     .to_compile_error();
                 }
