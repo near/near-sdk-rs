@@ -93,6 +93,15 @@ impl ImplItemMethodInfo {
                 }
                 BindgenArgType::CallbackArgVec => {
                     if callback_vec.is_none() {
+                        let typ = if let Some(vec_type) = utils::extract_vec_type(typ) {
+                            vec_type
+                        } else {
+                            return syn::Error::new_spanned(
+                                &arg.ty,
+                                "Function parameters marked with  #[callback_vec] should have type Vec<T>",
+                            )
+                            .into_compile_error();
+                        };
                         callback_vec = Some(quote! {
                             Some(
                                 near_sdk::__private::AbiType {
