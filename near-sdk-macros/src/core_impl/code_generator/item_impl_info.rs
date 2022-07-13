@@ -832,7 +832,7 @@ mod tests {
         let actual = method_info.method_wrapper();
         let expected = quote!(
             compile_error! {
-                "Method marked with #[handle_result] should return Result<T, E>."
+                "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError)."
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
