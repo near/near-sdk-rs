@@ -1,4 +1,4 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "testing"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 
 //* Types from near_vm_logic
@@ -18,7 +18,7 @@ pub enum PromiseResult {
     Failed,
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "testing"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 impl From<PromiseResult> for VmPromiseResult {
     fn from(p: PromiseResult) -> Self {
         match p {

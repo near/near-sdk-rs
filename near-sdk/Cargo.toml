@@ -48,8 +48,8 @@ arbitrary = { version = "1.0", features = ["derive"] }
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
-default = ["wee_alloc", "testing"]
+default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = ["once_cell"]
 abi = ["schemars", "near-sdk-macros/abi"]
-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
