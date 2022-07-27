@@ -1,9 +1,9 @@
 use near_sdk::__private::schemars::JsonSchema;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSchema, BorshSerialize};
 use near_sdk::near_bindgen;
 use near_sdk::serde::{Deserialize, Serialize};
 
-#[derive(JsonSchema, Serialize, Deserialize)]
+#[derive(JsonSchema, Serialize, Deserialize, BorshDeserialize, BorshSerialize, BorshSchema)]
 pub struct Pair(u32, u32);
 
 #[derive(JsonSchema, Serialize, Deserialize)]
@@ -19,6 +19,11 @@ pub struct Adder {}
 #[near_bindgen]
 impl Adder {
     pub fn add(&self, a: Pair, b: Pair) -> Pair {
+        sum_pair(&a, &b)
+    }
+
+    #[result_serializer(borsh)]
+    pub fn add_borsh(&self, #[serializer(borsh)] a: Pair, #[serializer(borsh)] b: Pair) -> Pair {
         sum_pair(&a, &b)
     }
 

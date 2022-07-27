@@ -1,3 +1,6 @@
+use borsh::schema::{
+    BorshSchemaContainer, Declaration, Definition, FieldName, Fields, VariantName,
+};
 use schemars::schema::{RootSchema, Schema};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -141,28 +144,142 @@ pub struct AbiFunction {
 pub struct AbiParameter {
     /// Parameter name (e.g. `p1` in `fn foo(p1: u32) {}`).
     pub name: String,
-    /// JSON Subschema representing the type of the parameter.
-    pub type_schema: Schema,
-    /// How the parameter is serialized (either JSON or Borsh).
-    pub serialization_type: AbiSerializationType,
+    /// Parameter type along with its serialization type (e.g. `u32` and `borsh` in `fn foo(#[serializer(borsh)] p1: u32) {}`).
+    #[serde(flatten)]
+    pub typ: AbiType,
 }
 
 /// Information about a single type (e.g. return type).
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
-pub struct AbiType {
-    /// JSON Subschema that represents this type.
-    pub type_schema: Schema,
-    /// How the type instance is serialized (either JSON or Borsh).
-    pub serialization_type: AbiSerializationType,
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(tag = "serialization_type")]
+#[serde(rename_all = "lowercase")]
+pub enum AbiType {
+    Json {
+        /// JSON Subschema that represents this type (can be an inline primitive, a reference to the root schema and a few other corner-case things).
+        type_schema: Schema,
+    },
+    Borsh {
+        /// Inline Borsh schema that represents this type.
+        #[serde(with = "BorshSchemaContainerDef")]
+        type_schema: BorshSchemaContainer,
+    },
 }
 
-/// Represents how instances of a certain type are serialized in a certain context. Same type
-/// can have different serialization types associated with it depending on where they occur.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum AbiSerializationType {
-    Json,
-    Borsh,
+// TODO: Maybe implement `Clone` for `BorshSchemaContainer` in borsh upstream?
+impl Clone for AbiType {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Json { type_schema } => Self::Json { type_schema: type_schema.clone() },
+            Self::Borsh { type_schema } => {
+                let type_schema = BorshSchemaContainer {
+                    declaration: type_schema.declaration.clone(),
+                    definitions: type_schema
+                        .definitions
+                        .iter()
+                        .map(|(k, v)| (k.clone(), remote_serde_borsh::clone_definition(v)))
+                        .collect(),
+                };
+                Self::Borsh { type_schema }
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "BorshSchemaContainer")]
+struct BorshSchemaContainerDef {
+    declaration: Declaration,
+    #[serde(with = "remote_serde_borsh")]
+    definitions: HashMap<Declaration, Definition>,
+}
+
+/// This submodules follows https://serde.rs/remote-derive.html to derive Serialize/Deserialize for
+/// `BorshSchemaContainer` parameters. The top-level serialization type is `HashMap<Declaration, Definition>`
+/// for the sake of being easily plugged into `BorshSchemaContainerDef` (see its parameters).
+mod remote_serde_borsh {
+    use super::*;
+    use serde::ser::SerializeMap;
+    use serde::{Deserializer, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(remote = "Fields")]
+    enum FieldsDef {
+        NamedFields(Vec<(FieldName, Declaration)>),
+        /// The struct with unnamed fields, structurally identical to a tuple.
+        UnnamedFields(Vec<Declaration>),
+        /// The struct with no fields.
+        Empty,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(remote = "Definition")]
+    enum DefinitionDef {
+        Array {
+            length: u32,
+            elements: Declaration,
+        },
+        Sequence {
+            elements: Declaration,
+        },
+        Tuple {
+            elements: Vec<Declaration>,
+        },
+        Enum {
+            variants: Vec<(VariantName, Declaration)>,
+        },
+        Struct {
+            #[serde(with = "FieldsDef")]
+            fields: Fields,
+        },
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Helper(#[serde(with = "DefinitionDef")] Definition);
+
+    pub fn clone_definition(definition: &Definition) -> Definition {
+        match definition {
+            Definition::Array { length, elements } => {
+                Definition::Array { length: length.clone(), elements: elements.clone() }
+            }
+            Definition::Sequence { elements } => {
+                Definition::Sequence { elements: elements.clone() }
+            }
+            Definition::Tuple { elements } => Definition::Tuple { elements: elements.clone() },
+            Definition::Enum { variants } => Definition::Enum { variants: variants.clone() },
+            Definition::Struct { fields } => {
+                let fields = match fields {
+                    Fields::Empty => Fields::Empty,
+                    Fields::NamedFields(f) => Fields::NamedFields(f.clone()),
+                    Fields::UnnamedFields(f) => Fields::UnnamedFields(f.clone()),
+                };
+                Definition::Struct { fields }
+            }
+        }
+    }
+
+    pub fn serialize<S>(
+        map: &HashMap<Declaration, Definition>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map_ser = serializer.serialize_map(Some(map.len()))?;
+        for (k, v) in map {
+            map_ser.serialize_entry(k, &Helper(clone_definition(v)))?;
+        }
+        map_ser.end()
+    }
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<HashMap<Declaration, Definition>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map = HashMap::<Declaration, Helper>::deserialize(deserializer)?;
+        Ok(map.into_iter().map(|(k, Helper(v))| (k, v)).collect())
+    }
 }
 
 fn is_false(b: &bool) -> bool {
