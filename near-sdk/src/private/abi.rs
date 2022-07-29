@@ -1,6 +1,4 @@
-use borsh::schema::{
-    BorshSchemaContainer, Declaration, Definition, FieldName, Fields, VariantName,
-};
+use borsh::schema::{BorshSchemaContainer, Declaration, Definition, Fields, VariantName};
 use schemars::schema::{RootSchema, Schema};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -176,7 +174,7 @@ impl Clone for AbiType {
                     definitions: type_schema
                         .definitions
                         .iter()
-                        .map(|(k, v)| (k.clone(), remote_serde_borsh::clone_definition(v)))
+                        .map(|(k, v)| (k.clone(), borsh_clone::clone_definition(v)))
                         .collect(),
                 };
                 Self::Borsh { type_schema }
@@ -189,52 +187,21 @@ impl Clone for AbiType {
 #[serde(remote = "BorshSchemaContainer")]
 struct BorshSchemaContainerDef {
     declaration: Declaration,
-    #[serde(with = "remote_serde_borsh")]
+    #[serde(with = "borsh_serde")]
     definitions: HashMap<Declaration, Definition>,
 }
 
-/// This submodules follows https://serde.rs/remote-derive.html to derive Serialize/Deserialize for
-/// `BorshSchemaContainer` parameters. The top-level serialization type is `HashMap<Declaration, Definition>`
-/// for the sake of being easily plugged into `BorshSchemaContainerDef` (see its parameters).
-mod remote_serde_borsh {
-    use super::*;
-    use serde::ser::SerializeMap;
-    use serde::{Deserializer, Serializer};
+/// Cloning functions for borsh types.
+mod borsh_clone {
+    use borsh::schema::{Definition, Fields};
 
-    #[derive(Serialize, Deserialize)]
-    #[serde(remote = "Fields")]
-    enum FieldsDef {
-        NamedFields(Vec<(FieldName, Declaration)>),
-        /// The struct with unnamed fields, structurally identical to a tuple.
-        UnnamedFields(Vec<Declaration>),
-        /// The struct with no fields.
-        Empty,
+    pub fn clone_fields(fields: &Fields) -> Fields {
+        match fields {
+            Fields::Empty => Fields::Empty,
+            Fields::NamedFields(f) => Fields::NamedFields(f.clone()),
+            Fields::UnnamedFields(f) => Fields::UnnamedFields(f.clone()),
+        }
     }
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(remote = "Definition")]
-    enum DefinitionDef {
-        Array {
-            length: u32,
-            elements: Declaration,
-        },
-        Sequence {
-            elements: Declaration,
-        },
-        Tuple {
-            elements: Vec<Declaration>,
-        },
-        Enum {
-            variants: Vec<(VariantName, Declaration)>,
-        },
-        Struct {
-            #[serde(with = "FieldsDef")]
-            fields: Fields,
-        },
-    }
-
-    #[derive(Serialize, Deserialize)]
-    struct Helper(#[serde(with = "DefinitionDef")] Definition);
 
     pub fn clone_definition(definition: &Definition) -> Definition {
         match definition {
@@ -246,14 +213,100 @@ mod remote_serde_borsh {
             }
             Definition::Tuple { elements } => Definition::Tuple { elements: elements.clone() },
             Definition::Enum { variants } => Definition::Enum { variants: variants.clone() },
-            Definition::Struct { fields } => {
-                let fields = match fields {
-                    Fields::Empty => Fields::Empty,
-                    Fields::NamedFields(f) => Fields::NamedFields(f.clone()),
-                    Fields::UnnamedFields(f) => Fields::UnnamedFields(f.clone()),
-                };
-                Definition::Struct { fields }
-            }
+            Definition::Struct { fields } => Definition::Struct { fields: clone_fields(fields) },
+        }
+    }
+}
+
+/// This submodules follows https://serde.rs/remote-derive.html to derive Serialize/Deserialize for
+/// `BorshSchemaContainer` parameters. The top-level serialization type is `HashMap<Declaration, Definition>`
+/// for the sake of being easily plugged into `BorshSchemaContainerDef` (see its parameters).
+mod borsh_serde {
+    use super::*;
+    use serde::ser::SerializeMap;
+    use serde::{Deserializer, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(remote = "Definition")]
+    enum DefinitionDef {
+        Array {
+            length: u32,
+            elements: Declaration,
+        },
+        #[serde(with = "transparent")]
+        Sequence {
+            elements: Declaration,
+        },
+        #[serde(with = "transparent")]
+        Tuple {
+            elements: Vec<Declaration>,
+        },
+        #[serde(with = "transparent")]
+        Enum {
+            variants: Vec<(VariantName, Declaration)>,
+        },
+        #[serde(with = "transparent_fields")]
+        Struct {
+            fields: Fields,
+        },
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct HelperDefinition(#[serde(with = "DefinitionDef")] Definition);
+
+    /// #[serde(transparent)] does not support enum variants, so we have to use a custom ser/de impls for now.
+    /// See https://github.com/serde-rs/serde/issues/2092.
+    mod transparent {
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        pub fn serialize<T, S>(field: &T, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            T: Serialize,
+            S: Serializer,
+        {
+            serializer.serialize_some(&field)
+        }
+
+        pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+        where
+            T: Deserialize<'de>,
+            D: Deserializer<'de>,
+        {
+            T::deserialize(deserializer)
+        }
+    }
+
+    /// Since `Fields` itself does not implement `Serialization`/`Deserialization`, we can't use
+    /// `transparent` in combination with `#[serde(with = "...")]. Instead we have do it in this
+    /// roundabout way.
+    mod transparent_fields {
+        use super::borsh_clone;
+        use borsh::schema::{Declaration, FieldName, Fields};
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        #[derive(Serialize, Deserialize)]
+        #[serde(remote = "Fields", untagged)]
+        enum FieldsDef {
+            NamedFields(Vec<(FieldName, Declaration)>),
+            UnnamedFields(Vec<Declaration>),
+            Empty,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        struct HelperFields(#[serde(with = "FieldsDef")] Fields);
+
+        pub fn serialize<S>(fields: &Fields, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            HelperFields(borsh_clone::clone_fields(fields)).serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Fields, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            Ok(HelperFields::deserialize(deserializer)?.0)
         }
     }
 
@@ -266,7 +319,7 @@ mod remote_serde_borsh {
     {
         let mut map_ser = serializer.serialize_map(Some(map.len()))?;
         for (k, v) in map {
-            map_ser.serialize_entry(k, &Helper(clone_definition(v)))?;
+            map_ser.serialize_entry(k, &HelperDefinition(borsh_clone::clone_definition(v)))?;
         }
         map_ser.end()
     }
@@ -277,8 +330,8 @@ mod remote_serde_borsh {
     where
         D: Deserializer<'de>,
     {
-        let map = HashMap::<Declaration, Helper>::deserialize(deserializer)?;
-        Ok(map.into_iter().map(|(k, Helper(v))| (k, v)).collect())
+        let map = HashMap::<Declaration, HelperDefinition>::deserialize(deserializer)?;
+        Ok(map.into_iter().map(|(k, HelperDefinition(v))| (k, v)).collect())
     }
 }
 

@@ -46,14 +46,10 @@
               "declaration": "Pair",
               "definitions": {
                 "Pair": {
-                  "Struct": {
-                    "fields": {
-                      "UnnamedFields": [
-                        "u32",
-                        "u32"
-                      ]
-                    }
-                  }
+                  "Struct": [
+                    "u32",
+                    "u32"
+                  ]
                 }
               }
             }
@@ -65,14 +61,10 @@
               "declaration": "Pair",
               "definitions": {
                 "Pair": {
-                  "Struct": {
-                    "fields": {
-                      "UnnamedFields": [
-                        "u32",
-                        "u32"
-                      ]
-                    }
-                  }
+                  "Struct": [
+                    "u32",
+                    "u32"
+                  ]
                 }
               }
             }
@@ -84,14 +76,10 @@
             "declaration": "Pair",
             "definitions": {
               "Pair": {
-                "Struct": {
-                  "fields": {
-                    "UnnamedFields": [
-                      "u32",
-                      "u32"
-                    ]
-                  }
-                }
+                "Struct": [
+                  "u32",
+                  "u32"
+                ]
               }
             }
           }
