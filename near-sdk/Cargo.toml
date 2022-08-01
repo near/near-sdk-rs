@@ -53,3 +53,6 @@ expensive-debug = []
 unstable = ["once_cell"]
 abi = ["schemars", "near-sdk-macros/abi"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+
+[package.metadata.docs.rs]
+features = ["unstable"]
