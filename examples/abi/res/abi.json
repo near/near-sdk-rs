@@ -15,24 +15,74 @@
         "params": [
           {
             "name": "a",
+            "serialization_type": "json",
             "type_schema": {
               "$ref": "#/definitions/Pair"
-            },
-            "serialization_type": "json"
+            }
           },
           {
             "name": "b",
+            "serialization_type": "json",
             "type_schema": {
               "$ref": "#/definitions/Pair"
-            },
-            "serialization_type": "json"
+            }
           }
         ],
         "result": {
+          "serialization_type": "json",
           "type_schema": {
             "$ref": "#/definitions/Pair"
+          }
+        }
+      },
+      {
+        "name": "add_borsh",
+        "is_view": true,
+        "params": [
+          {
+            "name": "a",
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Pair",
+              "definitions": {
+                "Pair": {
+                  "Struct": [
+                    "u32",
+                    "u32"
+                  ]
+                }
+              }
+            }
           },
-          "serialization_type": "json"
+          {
+            "name": "b",
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Pair",
+              "definitions": {
+                "Pair": {
+                  "Struct": [
+                    "u32",
+                    "u32"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "result": {
+          "serialization_type": "borsh",
+          "type_schema": {
+            "declaration": "Pair",
+            "definitions": {
+              "Pair": {
+                "Struct": [
+                  "u32",
+                  "u32"
+                ]
+              }
+            }
+          }
         }
       },
       {
@@ -40,32 +90,29 @@
         "is_view": true,
         "callbacks": [
           {
+            "serialization_type": "json",
             "type_schema": {
-              "$ref": "#/definitions/DoublePair"
-            },
-            "serialization_type": "json"
-          },
-          {
-            "type_schema": {
-              "$ref": "#/definitions/DoublePair"
-            },
-            "serialization_type": "json"
-          }
-        ],
-        "callbacks_vec": {
-          "type_schema": {
-            "type": "array",
-            "items": {
               "$ref": "#/definitions/DoublePair"
             }
           },
-          "serialization_type": "json"
-        },
-        "result": {
+          {
+            "serialization_type": "json",
+            "type_schema": {
+              "$ref": "#/definitions/DoublePair"
+            }
+          }
+        ],
+        "callbacks_vec": {
+          "serialization_type": "json",
           "type_schema": {
             "$ref": "#/definitions/DoublePair"
-          },
-          "serialization_type": "json"
+          }
+        },
+        "result": {
+          "serialization_type": "json",
+          "type_schema": {
+            "$ref": "#/definitions/DoublePair"
+          }
         }
       }
     ],
