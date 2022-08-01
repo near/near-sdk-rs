@@ -338,3 +338,278 @@ mod borsh_serde {
 fn is_false(b: &bool) -> bool {
     !b
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use borsh::BorshSchema;
+    use serde_json::Value;
+
+    #[test]
+    fn test_serde_array() {
+        let abi_type = AbiType::Borsh { type_schema: <[u32; 2]>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Array<u32, 2>",
+              "definitions": {
+                "Array<u32, 2>": {
+                  "Array": {
+                    "length": 2,
+                    "elements": "u32"
+                  }
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Array<u32, 2>".to_string());
+            assert_eq!(type_schema.definitions.len(), 1);
+            assert_eq!(
+                type_schema.definitions.get("Array<u32, 2>").unwrap(),
+                &Definition::Array { length: 2, elements: "u32".to_string() }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+
+    #[test]
+    fn test_serde_sequence() {
+        let abi_type = AbiType::Borsh { type_schema: <Vec<u32>>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Vec<u32>",
+              "definitions": {
+                "Vec<u32>": {
+                  "Sequence": "u32"
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Vec<u32>".to_string());
+            assert_eq!(type_schema.definitions.len(), 1);
+            assert_eq!(
+                type_schema.definitions.get("Vec<u32>").unwrap(),
+                &Definition::Sequence { elements: "u32".to_string() }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+
+    #[test]
+    fn test_serde_tuple() {
+        let abi_type = AbiType::Borsh { type_schema: <(u32, u32)>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Tuple<u32, u32>",
+              "definitions": {
+                "Tuple<u32, u32>": {
+                  "Tuple": ["u32", "u32"]
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Tuple<u32, u32>".to_string());
+            assert_eq!(type_schema.definitions.len(), 1);
+            assert_eq!(
+                type_schema.definitions.get("Tuple<u32, u32>").unwrap(),
+                &Definition::Tuple { elements: vec!["u32".to_string(), "u32".to_string()] }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+
+    #[test]
+    fn test_deser_enum() {
+        #[derive(BorshSchema)]
+        enum Either {
+            _Left(u32),
+            _Right(u32),
+        }
+        let abi_type = AbiType::Borsh { type_schema: <Either>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Either",
+              "definitions": {
+                "Either": {
+                  "Enum": [
+                    ["_Left", "Either_Left"],
+                    ["_Right", "Either_Right"]
+                  ]
+                },
+                "Either_Left": {
+                  "Struct": ["u32"]
+                },
+                "Either_Right": {
+                  "Struct": ["u32"]
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Either".to_string());
+            assert_eq!(type_schema.definitions.len(), 3);
+            assert_eq!(
+                type_schema.definitions.get("Either").unwrap(),
+                &Definition::Enum {
+                    variants: vec![
+                        ("_Left".to_string(), "Either_Left".to_string()),
+                        ("_Right".to_string(), "Either_Right".to_string())
+                    ]
+                }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+
+    #[test]
+    fn test_deser_struct_named() {
+        #[derive(BorshSchema)]
+        struct Pair {
+            _first: u32,
+            _second: u32,
+        }
+        let abi_type = AbiType::Borsh { type_schema: <Pair>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Pair",
+              "definitions": {
+                "Pair": {
+                  "Struct": [
+                    ["_first", "u32"],
+                    ["_second", "u32"]
+                  ]
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Pair".to_string());
+            assert_eq!(type_schema.definitions.len(), 1);
+            assert_eq!(
+                type_schema.definitions.get("Pair").unwrap(),
+                &Definition::Struct {
+                    fields: Fields::NamedFields(vec![
+                        ("_first".to_string(), "u32".to_string()),
+                        ("_second".to_string(), "u32".to_string())
+                    ])
+                }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+
+    #[test]
+    fn test_deser_struct_unnamed() {
+        #[derive(BorshSchema)]
+        struct Pair(u32, u32);
+        let abi_type = AbiType::Borsh { type_schema: <Pair>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Pair",
+              "definitions": {
+                "Pair": {
+                  "Struct": [
+                    "u32",
+                    "u32"
+                  ]
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Pair".to_string());
+            assert_eq!(type_schema.definitions.len(), 1);
+            assert_eq!(
+                type_schema.definitions.get("Pair").unwrap(),
+                &Definition::Struct {
+                    fields: Fields::UnnamedFields(vec!["u32".to_string(), "u32".to_string()])
+                }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+
+    #[test]
+    fn test_deser_struct_empty() {
+        #[derive(BorshSchema)]
+        struct Unit;
+        let abi_type = AbiType::Borsh { type_schema: <Unit>::schema_container() };
+        let value = serde_json::to_value(&abi_type).unwrap();
+        let expected_json = r#"
+          {
+            "serialization_type": "borsh",
+            "type_schema": {
+              "declaration": "Unit",
+              "definitions": {
+                "Unit": {
+                  "Struct": null
+                }
+              }
+            }
+          }
+        "#;
+        let expected_value: Value = serde_json::from_str(expected_json).unwrap();
+        assert_eq!(value, expected_value);
+
+        if let AbiType::Borsh { type_schema } = serde_json::from_str(expected_json).unwrap() {
+            assert_eq!(type_schema.declaration, "Unit".to_string());
+            assert_eq!(type_schema.definitions.len(), 1);
+            assert_eq!(
+                type_schema.definitions.get("Unit").unwrap(),
+                &Definition::Struct { fields: Fields::Empty }
+            );
+        } else {
+            panic!("Unexpected serialization type")
+        }
+    }
+}
