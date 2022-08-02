@@ -31,21 +31,21 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use environment::mock;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 // Re-export to avoid breakages
 pub use environment::mock::MockedBlockchain;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use near_vm_logic::VMConfig;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use test_utils::context::VMContext;
 
 pub mod utils;
 pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub mod test_utils;
 
 // Set up global allocator by default if custom-allocator feature is not set in wasm32 architecture.

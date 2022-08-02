@@ -2,6 +2,51 @@
 
 ## [Unreleased]
 
+### Added
+
+## [4.1.0-pre.0] - 2022-07-29
+
+### Added
+- `abi` feature to expose metadata about contract and functions to be consumed by [cargo-near](https://github.com/near/cargo-near). [PR 831](https://github.com/near/near-sdk-rs/pull/831), [PR 863](https://github.com/near/near-sdk-rs/pull/863), [PR 858](https://github.com/near/near-sdk-rs/pull/858)
+- Exposed `ext_ft_metadata` to call `FungibleTokenMetadataProvider` trait from an external contract. [PR 836](https://github.com/near/near-sdk-rs/pull/836)
+
+### Fixed
+- Safe math fixes for fungible token standard. [PR 830](https://github.com/near/near-sdk-rs/pull/830)
+  - This just ensures that there is no overflow if `overflow-checks` is not enabled by cargo
+
+### Changed
+- Enabled const-generics feature by default on borsh. [PR 828](https://github.com/near/near-sdk-rs/pull/828)
+- License changed from GPL-3 to MIT or Apache. [PR 837](https://github.com/near/near-sdk-rs/pull/837)
+- Put unit-testing logic behind `unit-testing` flag, which is enabled by default. [PR 870](https://github.com/near/near-sdk-rs/pull/870)
+  - This pulls in `nearcore` dependencies to mock the VM, so can turn off default-features to compile faster
+
+### Removed
+- Deprecated `near_contract_standards::upgrade`. [PR 856](https://github.com/near/near-sdk-rs/pull/856)
+  - Implementation did not match any NEAR standard and was not correct
+
+## [4.0.0] - 2022-05-25
+
+### Added
+- Added `Eq`, `PartialOrd`, `Ord` to `json_types` integer types. [PR 823](https://github.com/near/near-sdk-rs/pull/823)
+
+### Changed
+- Updated cross-contract, `ext` API for new [`NEP264`](https://github.com/near/NEPs/pull/264) functionality. [PR 742](https://github.com/near/near-sdk-rs/pull/742)
+  - More details on the API change can be found [here](https://github.com/near/near-sdk-rs/issues/740)
+  - This API uses a default weight of `1` with no static gas, but this weight, the static gas, and the attached deposit can all be modified on any external call
+  - `ext` methods are added to each `#[near_bindgen]` contract struct by default and for each method for convenience
+- Updated `nearcore` crates used for unit testing to version `0.13.0`. [PR 820](https://github.com/near/near-sdk-rs/pull/820)
+  - Removed `outcome` function from `MockedBlockchain` (incomplete and misleading data)
+  - Changed `created_receipts` to return owned `Vec` instead of reference to one
+  - `receipt_indices` field removed from `Receipt` type in testing utils
+- Deprecate and remove `near-sdk-sim`. Removes `sim` proxy struct from `#[near_bindgen]`. [PR 817](https://github.com/near/near-sdk-rs/pull/817)
+  - If `near-sdk-sim` tests can't be migrated to [workspaces-rs](https://github.com/near/workspaces-rs), `4.0.0-pre.9` version of `near-sdk-rs` and `near-sdk-sim` should be used
+- Optimized read_register to read to non-zeroed buffer. [PR 804](https://github.com/near/near-sdk-rs/pull/804)
+- Switched Rust edition for libraries to `2021`. [PR 669](https://github.com/near/near-sdk-rs/pull/669)
+
+### Fixes
+- Avoid loading result bytes with `near_sdk::is_promise_success()`. [PR 816](https://github.com/near/near-sdk-rs/pull/816)
+
+
 ## [4.0.0-pre.9] - 2022-05-12
 
 ### Fixes
@@ -270,9 +315,11 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...HEAD
-[4.0.0-pre.9] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
-[4.0.0-pre.8] https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.0...HEAD
+[4.1.0-pre.0]: https://github.com/near/near-sdk-rs/compare/4.0.0...4.1.0-pre.0
+[4.0.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...4.0.0
+[4.0.0-pre.9]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
+[4.0.0-pre.8]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8
 [4.0.0-pre.7]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.6...4.0.0-pre.7
 [4.0.0-pre.6]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.5...4.0.0-pre.6
 [4.0.0-pre.5]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.4...4.0.0-pre.5

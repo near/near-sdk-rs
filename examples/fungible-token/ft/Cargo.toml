@@ -2,11 +2,12 @@
 name = "fungible-token"
 version = "1.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = { path = "../../../near-sdk" }
-near-contract-standards = { path = "../../../near-contract-standards" }
+near-sdk = { path = "../../../near-sdk", features = ["abi"] }
+near-contract-standards = { path = "../../../near-contract-standards", features = ["abi"] }
+schemars = "0.8"
