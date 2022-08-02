@@ -33,10 +33,10 @@ wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 once_cell = { version = "1.8", optional = true, default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-vm-logic = { version = "0.13", optional = true }
-near-primitives-core = { version = "0.13", optional = true }
-near-primitives = { version = "0.13", optional = true }
-near-crypto = { version = "0.13", optional = true }
+near-vm-logic = { version = "0.14", optional = true }
+near-primitives-core = { version = "0.14", optional = true }
+near-primitives = { version = "0.14", optional = true }
+near-crypto = { version = "0.14", optional = true }
 
 [dev-dependencies]
 rand = "0.8.4"

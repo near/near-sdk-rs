@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-### Added
+### Changed
+- Updated `nearcore` dependencies used for unit testing to `0.14`. [PR 875](https://github.com/near/near-sdk-rs/pull/875)
 
 ## [4.1.0-pre.0] - 2022-07-29
 
