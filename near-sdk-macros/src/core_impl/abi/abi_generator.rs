@@ -184,7 +184,7 @@ fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream
         },
         SerializerType::Borsh => quote! {
             near_sdk::__private::AbiType::Borsh {
-                type_schema: #ty::schema_container(),
+                type_schema: <#ty>::schema_container(),
             }
         },
     }
