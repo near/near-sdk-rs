@@ -111,6 +111,9 @@ impl Abi {
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct AbiFunction {
     pub name: String,
+    /// Human-readable documentation parsed from the source file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc: Option<String>,
     /// Whether function does not modify the state.
     #[serde(default, skip_serializing_if = "is_false")]
     pub is_view: bool,

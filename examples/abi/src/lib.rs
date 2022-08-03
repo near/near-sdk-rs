@@ -18,6 +18,7 @@ pub struct Adder {}
 
 #[near_bindgen]
 impl Adder {
+    /// Adds two pairs point-wise.
     pub fn add(&self, a: Pair, b: Pair) -> Pair {
         sum_pair(&a, &b)
     }

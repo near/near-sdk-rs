@@ -22,3 +22,4 @@ Inflector = { version = "0.11.4", default-features = false, features = [] }
 
 [features]
 abi = []
+abi-doc = ["abi"]

@@ -52,6 +52,7 @@ default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = ["once_cell"]
 abi = ["schemars", "near-sdk-macros/abi"]
+abi-doc = ["abi", "near-sdk-macros/abi-doc"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
 [package.metadata.docs.rs]
