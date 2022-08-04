@@ -8,8 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-# "abi-doc" is an optional feature that includes contract functions' rustdocs into the ABI file
-near-sdk = { path = "../../near-sdk", features = ["abi", "abi-doc"] }
+near-sdk = { path = "../../near-sdk", features = ["abi"] }
 serde = { version = "1", features = ["derive"] }
 schemars = "0.8"
 

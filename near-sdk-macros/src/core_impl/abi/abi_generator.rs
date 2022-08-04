@@ -41,14 +41,11 @@ impl ImplItemMethodInfo {
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
         let function_name_str = self.attr_signature_info.ident.to_string();
-        #[cfg(feature = "abi-doc")]
         let function_doc =
             match super::doc::parse_rustdoc(&self.attr_signature_info.non_bindgen_attrs) {
                 Some(doc) => quote! { Some(#doc.to_string()) },
                 None => quote! { None },
             };
-        #[cfg(not(feature = "abi-doc"))]
-        let function_doc = quote! { None };
         let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
         let is_init = matches!(
             &self.attr_signature_info.method_type,
