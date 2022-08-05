@@ -19,8 +19,8 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
+      - run: rustup target add wasm32-unknown-unknown
       - name: Test
         run: cargo test --all --features unstable
   lint:
