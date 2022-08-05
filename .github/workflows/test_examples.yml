@@ -12,7 +12,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
-        example: [cross-contract-calls, factory-contract, fungible-token]
+        example: [cross-contract-calls, fungible-token]
           
     steps:
       - uses: actions/checkout@v2
