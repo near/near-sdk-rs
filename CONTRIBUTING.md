@@ -21,8 +21,6 @@ Ensure the following are satisfied before opening a PR:
 - Run `clippy`
   - The exact command run by the CI is `cargo clippy --tests -- -Dclippy::all`
 - Run tests with `cargo test`
-- Rebuild examples with docker if any breaking changes with `./examples/build_all_docker.sh`
-  - We track changes in the example wasm blobs to make sure no unwanted code bloat is added with changes
 - Test all examples with `./examples/test_all.sh`
   - This must be done after the previous step
 - Ensure any new functionality is adequately tested
