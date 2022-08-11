@@ -2,8 +2,16 @@
 
 ## [Unreleased]
 
+## [4.1.0-pre.1] - 2022-08-05
+
+### Added
+- Exposed Rustdocs to exposed ABI type. [PR 876](https://github.com/near/near-sdk-rs/pull/876)
+
 ### Changed
 - Updated `nearcore` dependencies used for unit testing to `0.14`. [PR 875](https://github.com/near/near-sdk-rs/pull/875)
+
+### Fixed
+- Handling of certain types through ABI macros. [PR 877](https://github.com/near/near-sdk-rs/pull/877)
 
 ## [4.1.0-pre.0] - 2022-07-29
 
@@ -316,7 +324,8 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.0...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.1...HEAD
+[4.1.0-pre.1]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.0...4.1.0-pre.1
 [4.1.0-pre.0]: https://github.com/near/near-sdk-rs/compare/4.0.0...4.1.0-pre.0
 [4.0.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...4.0.0
 [4.0.0-pre.9]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
