@@ -8,7 +8,7 @@ use std::mem::size_of;
 use std::panic as std_panic;
 use std::{convert::TryFrom, mem::MaybeUninit};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
@@ -95,7 +95,7 @@ pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
 ///       );
 /// near_sdk::env::set_blockchain_interface(mocked_blockchain);
 /// ```
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
     crate::mock::with_mocked_blockchain(|b| {
         *b = blockchain_interface;

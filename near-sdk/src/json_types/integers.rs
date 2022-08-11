@@ -11,6 +11,7 @@ macro_rules! impl_str_type {
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
         )]
+        #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {

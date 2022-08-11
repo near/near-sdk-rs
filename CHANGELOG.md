@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [4.1.0-pre.1] - 2022-08-05
+
+### Added
+- Exposed Rustdocs to exposed ABI type. [PR 876](https://github.com/near/near-sdk-rs/pull/876)
+
+### Changed
+- Updated `nearcore` dependencies used for unit testing to `0.14`. [PR 875](https://github.com/near/near-sdk-rs/pull/875)
+
+### Fixed
+- Handling of certain types through ABI macros. [PR 877](https://github.com/near/near-sdk-rs/pull/877)
+
+## [4.1.0-pre.0] - 2022-07-29
+
+### Added
+- `abi` feature to expose metadata about contract and functions to be consumed by [cargo-near](https://github.com/near/cargo-near). [PR 831](https://github.com/near/near-sdk-rs/pull/831), [PR 863](https://github.com/near/near-sdk-rs/pull/863), [PR 858](https://github.com/near/near-sdk-rs/pull/858)
+- Exposed `ext_ft_metadata` to call `FungibleTokenMetadataProvider` trait from an external contract. [PR 836](https://github.com/near/near-sdk-rs/pull/836)
+
+### Fixed
+- Safe math fixes for fungible token standard. [PR 830](https://github.com/near/near-sdk-rs/pull/830)
+  - This just ensures that there is no overflow if `overflow-checks` is not enabled by cargo
+
+### Changed
+- Enabled const-generics feature by default on borsh. [PR 828](https://github.com/near/near-sdk-rs/pull/828)
+- License changed from GPL-3 to MIT or Apache. [PR 837](https://github.com/near/near-sdk-rs/pull/837)
+- Put unit-testing logic behind `unit-testing` flag, which is enabled by default. [PR 870](https://github.com/near/near-sdk-rs/pull/870)
+  - This pulls in `nearcore` dependencies to mock the VM, so can turn off default-features to compile faster
+
+### Removed
+- Deprecated `near_contract_standards::upgrade`. [PR 856](https://github.com/near/near-sdk-rs/pull/856)
+  - Implementation did not match any NEAR standard and was not correct
 
 ## [4.0.0] - 2022-05-25
 
@@ -294,7 +324,9 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.1...HEAD
+[4.1.0-pre.1]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.0...4.1.0-pre.1
+[4.1.0-pre.0]: https://github.com/near/near-sdk-rs/compare/4.0.0...4.1.0-pre.0
 [4.0.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...4.0.0
 [4.0.0-pre.9]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.8...4.0.0-pre.9
 [4.0.0-pre.8]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.7...4.0.0-pre.8

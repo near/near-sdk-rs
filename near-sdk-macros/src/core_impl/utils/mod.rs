@@ -39,3 +39,37 @@ pub(crate) fn extract_ok_type(ty: &Type) -> Option<&Type> {
         _ => None,
     }
 }
+
+/// Checks whether the given path is literally "Vec".
+/// Note that it won't match a fully qualified name `std::vec::Vec` or a type alias like
+/// `type MyVec = Vec<String>`.
+#[cfg(feature = "abi")]
+fn path_is_vec(path: &Path) -> bool {
+    path.leading_colon.is_none()
+        && path.segments.len() == 1
+        && path.segments.iter().next().unwrap().ident == "Vec"
+}
+
+/// Extracts the inner generic type from a `Vec<_>` type.
+///
+/// For example, given `Vec<String>` this function will return `String`.
+#[cfg(feature = "abi")]
+pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Path(type_path) if type_path.qself.is_none() && path_is_vec(&type_path.path) => {
+            let type_params = &type_path.path.segments.first()?.arguments;
+            let generic_arg = match type_params {
+                // We are interested in the first (and only) angle-bracketed param:
+                PathArguments::AngleBracketed(params) if params.args.len() == 1 => {
+                    Some(params.args.first()?)
+                }
+                _ => None,
+            }?;
+            match generic_arg {
+                GenericArgument::Type(ty) => Some(ty),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}

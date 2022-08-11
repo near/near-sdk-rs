@@ -29,11 +29,8 @@ else
     # Only testing it for one configuration to avoid running the same tests twice
     echo "Build wasm32 for all examples"
 
-    ./examples/build_all_docker.sh --check
+    ./examples/build_all_docker.sh
     echo "Testing all examples"
     ./examples/test_all.sh
-    # TODO re-enable when parsing unknown sections is fixed in twiggy 
-    #      https://github.com/rustwasm/twiggy/pull/576
-    # echo "Checking size of all example contracts"
-    # ./examples/size_all.sh
+    ./examples/size_all.sh
 fi
