@@ -152,9 +152,6 @@ impl NonFungibleToken {
         if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.remove(&tmp_token_id);
         }
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            tokens_per_owner.remove(&tmp_owner_id);
-        }
         self.owner_by_id.remove(&tmp_token_id);
     }
 

@@ -3,7 +3,6 @@ use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::U128;
 use near_sdk::{env, require, AccountId};
-use std::collections::HashMap;
 
 type TokenId = String;
 
@@ -11,12 +10,9 @@ impl NonFungibleToken {
     /// Helper function used by a enumerations methods
     /// Note: this method is not exposed publicly to end users
     fn enum_get_token(&self, owner_id: AccountId, token_id: TokenId) -> Token {
-        let metadata = self
-            .token_metadata_by_id
-            .as_ref()
-            .and_then(|token_metadata_by_id| token_metadata_by_id.get(&token_id));
-        let approved_account_ids = self.approvals_by_id.as_ref().and_then(|approvals_by_id| {
-            approvals_by_id.get(&token_id.to_string()).or_else(|| Some(HashMap::new()))
+        let metadata = self.token_metadata_by_id.as_ref().and_then(|m| m.get(&token_id));
+        let approved_account_ids = self.approvals_by_id.as_ref().map(|approvals_by_id| {
+            approvals_by_id.get(&token_id.to_string()).unwrap_or_default()
         });
 
         Token { token_id, owner_id, metadata, approved_account_ids }
