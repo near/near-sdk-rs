@@ -565,4 +565,16 @@ mod mock_chain {
     extern "C" fn validator_total_stake(stake_ptr: u64) {
         with_mock_interface(|b| b.validator_total_stake(stake_ptr))
     }
+    #[no_mangle]
+    extern "C" fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.alt_bn128_g1_multiexp(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C" fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.alt_bn128_g1_sum(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
+        with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
+    }
 }
