@@ -10,7 +10,7 @@ pub type IteratorIndex = u64;
 
 /// When there is a callback attached to one or more contract calls the execution results of these
 /// calls are available to the contract invoked through the callback.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PromiseResult {
     /// Current version of the protocol never returns `PromiseResult::NotReady`.
     NotReady,
@@ -31,7 +31,7 @@ impl From<PromiseResult> for VmPromiseResult {
 
 /// All error variants which can occur with promise results.
 #[non_exhaustive]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PromiseError {
     /// Promise result failed.
     Failed,
