@@ -62,7 +62,7 @@ impl AbiRoot {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Default)]
 pub struct AbiMetadata {
     /// The name of the smart contract.
     #[serde(default, skip_serializing_if = "Option::is_none")]
