@@ -56,7 +56,7 @@ where
 ///     }
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Abort;
 
 impl FunctionError for Abort {

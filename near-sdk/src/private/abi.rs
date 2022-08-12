@@ -7,7 +7,7 @@ use std::collections::HashMap;
 const ABI_SCHEMA_SEMVER: &str = "0.1.0";
 
 /// Contract ABI.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct AbiRoot {
     /// Semver of the ABI schema format.
     pub abi_schema_version: String,
@@ -62,7 +62,7 @@ impl AbiRoot {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Default)]
 pub struct AbiMetadata {
     /// The name of the smart contract.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -79,7 +79,7 @@ pub struct AbiMetadata {
 }
 
 /// Core ABI information.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Abi {
     /// ABIs of all contract's functions.
     pub functions: Vec<AbiFunction>,
@@ -108,7 +108,7 @@ impl Abi {
 }
 
 /// ABI of a single function.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct AbiFunction {
     pub name: String,
     /// Human-readable documentation parsed from the source file.
@@ -141,7 +141,7 @@ pub struct AbiFunction {
 }
 
 /// Information about a single named function parameter.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct AbiParameter {
     /// Parameter name (e.g. `p1` in `fn foo(p1: u32) {}`).
     pub name: String,
@@ -151,7 +151,7 @@ pub struct AbiParameter {
 }
 
 /// Information about a single type (e.g. return type).
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[serde(tag = "serialization_type")]
 #[serde(rename_all = "lowercase")]
 pub enum AbiType {
