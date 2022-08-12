@@ -21,7 +21,7 @@ where
     cache: StableMap<T, OnceCell<EntryState>>,
 
     #[borsh_skip]
-    hasher: PhantomData<H>,
+    hasher: PhantomData<fn() -> H>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
