@@ -71,7 +71,8 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(value))
-                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"));
+                // Cache is checked to not be filled in if statement above
+                .unwrap_or_else(|_| env::abort());
         }
     }
 

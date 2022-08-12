@@ -41,14 +41,10 @@
 //! place of a type [`Option<T>`](Option). Will only be loaded when interacted with and will
 //! persist on [`Drop`].
 
-#[cfg(feature = "unstable")]
 mod lazy;
-#[cfg(feature = "unstable")]
 pub use lazy::Lazy;
 
-#[cfg(feature = "unstable")]
 mod lazy_option;
-#[cfg(feature = "unstable")]
 pub use lazy_option::LazyOption;
 
 pub mod vec;
