@@ -25,7 +25,7 @@ pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
     #[borsh_skip]
-    el: PhantomData<T>,
+    el: PhantomData<fn() -> T>,
 }
 
 impl<T> Vector<T> {

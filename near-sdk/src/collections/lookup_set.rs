@@ -15,7 +15,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 pub struct LookupSet<T> {
     element_prefix: Vec<u8>,
     #[borsh_skip]
-    el: PhantomData<T>,
+    el: PhantomData<fn() -> T>,
 }
 
 impl<T> LookupSet<T> {

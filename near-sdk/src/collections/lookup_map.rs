@@ -17,7 +17,7 @@ const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 pub struct LookupMap<K, V> {
     key_prefix: Vec<u8>,
     #[borsh_skip]
-    el: PhantomData<(K, V)>,
+    el: PhantomData<fn() -> (K, V)>,
 }
 
 impl<K, V> LookupMap<K, V> {

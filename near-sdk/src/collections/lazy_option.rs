@@ -18,7 +18,7 @@ const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 pub struct LazyOption<T> {
     storage_key: Vec<u8>,
     #[borsh_skip]
-    el: PhantomData<T>,
+    el: PhantomData<fn() -> T>,
 }
 
 impl<T> LazyOption<T> {
