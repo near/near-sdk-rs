@@ -1923,7 +1923,7 @@ mod tests {
         let node = map.tree.node(root).unwrap();
         let balance = map.tree.get_balance(node);
 
-        (balance >= -1 && balance <= 1)
+        (-1..=1).contains(&balance)
             && node.lft.map(|id| is_balanced(map, id)).unwrap_or(true)
             && node.rgt.map(|id| is_balanced(map, id)).unwrap_or(true)
     }
