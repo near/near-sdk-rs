@@ -201,19 +201,22 @@ impl PromiseJoint {
 pub struct Promise<T = ()> {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
-    ty: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 /// Until we implement strongly typed promises we serialize them as unit struct.
-impl<T> BorshSchema for Promise<T> {
+impl<T> BorshSchema for Promise<T>
+where
+    T: BorshSchema,
+{
     fn add_definitions_recursively(
         definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
     ) {
-        <()>::add_definitions_recursively(definitions);
+        <T>::add_definitions_recursively(definitions);
     }
 
     fn declaration() -> borsh::schema::Declaration {
-        <()>::declaration()
+        <T>::declaration()
     }
 }
 
@@ -241,7 +244,7 @@ impl<T> Promise<T> {
                 promise_index: RefCell::new(None),
             })),
             should_return: RefCell::new(false),
-            ty: Default::default(),
+            _marker: Default::default(),
         }
     }
 
@@ -371,7 +374,7 @@ impl<T> Promise<T> {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
-    pub fn and<O>(self, other: Promise<O>) -> Promise<()> {
+    pub fn and<O>(self, other: Promise<O>) -> Promise<PromiseAnd<T, O>> {
         Promise {
             subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
                 promise_a: self.construct_recursively(),
@@ -379,7 +382,7 @@ impl<T> Promise<T> {
                 promise_index: RefCell::new(None),
             })),
             should_return: RefCell::new(false),
-            ty: PhantomData::default(),
+            _marker: PhantomData::default(),
         }
     }
 
@@ -560,5 +563,39 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
 
     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
         T::json_schema(gen)
+    }
+}
+
+/// Generic type to indicate merged promises that execute in parallel.
+///
+/// The ordering of return values is in the order of L (left) -> R (right)
+/// where the generics act as a binary tree.
+pub struct PromiseAnd<L, R> {
+    _marker: PhantomData<fn() -> (L, R)>,
+}
+
+impl<L, R> BorshSchema for PromiseAnd<L, R>
+where
+    L: BorshSchema,
+    R: BorshSchema,
+{
+    fn add_definitions_recursively(
+        definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
+    ) {
+        // TODO this might be able to recursively check the sub declarations, and if they are
+        // `PromiseAnd`, then the tuple elements are pulled and flattened into one definition.
+        // Currently, with nested `PromiseAnd`, the definition will look like (A, (B, (C, D)))
+        // which is usable, but not as clear as it could be.
+        Self::add_definition(
+            Self::declaration(),
+            borsh::schema::Definition::Tuple { elements: vec![L::declaration(), R::declaration()] },
+            definitions,
+        );
+        <L>::add_definitions_recursively(definitions);
+        <R>::add_definitions_recursively(definitions);
+    }
+
+    fn declaration() -> borsh::schema::Declaration {
+        format!("PromiseAnd<{}, {}>", L::declaration(), R::declaration())
     }
 }
