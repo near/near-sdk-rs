@@ -115,8 +115,8 @@ pub struct Vector<T>
 where
     T: BorshSerialize,
 {
-    len: u32,
-    values: IndexMap<T>,
+    pub(crate) len: u32,
+    pub(crate) values: IndexMap<T>,
 }
 
 //? Manual implementations needed only because borsh derive is leaking field types
