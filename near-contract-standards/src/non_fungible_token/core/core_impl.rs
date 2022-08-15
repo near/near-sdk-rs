@@ -5,14 +5,12 @@ use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
-use crate::non_fungible_token::utils::{
-    hash_account_id, refund_approved_account_ids, refund_deposit_to_account,
-};
+use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, require, AccountId, BorshStorageKey, CryptoHash, Gas, IntoStorageKey,
+    assert_one_yocto, env, require, AccountId, BorshStorageKey, Gas, IntoStorageKey,
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
@@ -54,7 +52,6 @@ pub struct NonFungibleToken {
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
     TokensPerOwner { account_hash: Vec<u8> },
-    TokenPerOwnerInner { account_id_hash: CryptoHash },
 }
 
 impl NonFungibleToken {
@@ -137,14 +134,6 @@ impl NonFungibleToken {
         if let Some(next_approval_id_by_id) = &mut self.next_approval_id_by_id {
             next_approval_id_by_id.insert(&tmp_token_id, &1u64);
         }
-        let u = UnorderedSet::new(
-            StorageKey::TokenPerOwnerInner { account_id_hash: hash_account_id(&tmp_owner_id) }
-                .try_to_vec()
-                .unwrap(),
-        );
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            tokens_per_owner.insert(&tmp_owner_id, &u);
-        }
 
         // 2. see how much space it took
         self.extra_storage_in_bytes_per_token = env::storage_usage() - initial_storage_usage;
@@ -157,13 +146,11 @@ impl NonFungibleToken {
             approvals_by_id.remove(&tmp_token_id);
         }
         if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            tokens_per_owner.remove(&tmp_owner_id);
+            let mut u = tokens_per_owner.remove(&tmp_owner_id).unwrap();
+            u.remove(&tmp_token_id);
         }
         if let Some(token_metadata_by_id) = &mut self.token_metadata_by_id {
             token_metadata_by_id.remove(&tmp_token_id);
-        }
-        if let Some(tokens_per_owner) = &mut self.tokens_per_owner {
-            tokens_per_owner.remove(&tmp_owner_id);
         }
         self.owner_by_id.remove(&tmp_token_id);
     }
