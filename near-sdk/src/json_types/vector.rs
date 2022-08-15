@@ -2,7 +2,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Base64VecU8(#[serde(with = "base64_bytes")] pub Vec<u8>);
 
 impl From<Vec<u8>> for Base64VecU8 {
