@@ -33,7 +33,8 @@ wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 once_cell = { version = "1.8", optional = true, default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-vm-logic = { version = "0.14", optional = true }
+# alt_bn128 feature will need to be removed on the next version update (now stabilized)
+near-vm-logic = { version = "0.14", optional = true, features = ["protocol_feature_alt_bn128"] }
 near-primitives-core = { version = "0.14", optional = true }
 near-primitives = { version = "0.14", optional = true }
 near-crypto = { version = "0.14", optional = true }
