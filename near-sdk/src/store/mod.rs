@@ -11,7 +11,7 @@
 //!
 //! Sequences:
 //!
-//! - [`Vector`]: Analygous to [`Vec`] but not contiguous and persisted to storage.
+//! - [`Vector`]: Analogous to [`Vec`] but not contiguous and persisted to storage.
 //!
 //! Maps:
 //!
@@ -29,7 +29,7 @@
 //!
 //! - [`LookupSet`] (`unstable`): Non-iterable storage version of [`std::collections::HashSet`].
 //!
-//! - [`UnorderedSet`] (`unstable`): Analygous to [`std::collections::HashSet`], and is an iterable
+//! - [`UnorderedSet`] (`unstable`): Analogous to [`std::collections::HashSet`], and is an iterable
 //! version of [`LookupSet`] and persisted to storage.
 //!
 //! Basic Types:
