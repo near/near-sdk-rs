@@ -56,10 +56,10 @@ impl<T> Vector<T> {
     }
 
     /// Helper utility to be able to easily migrate to the new [`Vector`] implementation.
-    /// 
+    ///
     /// This new [`Vector`]'s API matches the Rust [`Vec`] API more closely and has a caching
     /// layer to avoid reading/writing redundant times to storage.
-    /// 
+    ///
     /// [`Vector`]: crate::store::Vector
     #[cfg(feature = "unstable")]
     pub fn to_v2(&self) -> crate::store::Vector<T>
