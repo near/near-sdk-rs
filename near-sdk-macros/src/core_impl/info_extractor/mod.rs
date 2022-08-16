@@ -79,6 +79,8 @@ pub struct ViewMethod {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct InitMethod {
+    /// Whether method accepting $NEAR.
+    pub is_payable: bool,
     /// Whether init method ignores state
     pub ignores_state: bool,
     /// What this function returns.

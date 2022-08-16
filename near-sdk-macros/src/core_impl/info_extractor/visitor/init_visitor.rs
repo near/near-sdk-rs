@@ -5,6 +5,7 @@ use syn::{spanned::Spanned, Attribute, Error, Receiver, ReturnType};
 
 #[derive(Default)]
 pub struct InitVisitor {
+    is_payable: bool,
     ignores_state: bool,
     returns: Option<Returns>,
 }
@@ -15,8 +16,9 @@ impl BindgenVisitor for InitVisitor {
         Ok(())
     }
 
-    fn visit_payable_attr(&mut self, attr: &Attribute) -> syn::Result<()> {
-        Err(Error::new(attr.span(), "Init function can't be payable."))
+    fn visit_payable_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.is_payable = true;
+        Ok(())
     }
 
     fn visit_private_attr(&mut self, attr: &Attribute) -> syn::Result<()> {
@@ -53,6 +55,7 @@ impl BindgenVisitor for InitVisitor {
 
     fn build(&self) -> syn::Result<MethodKind> {
         Ok(MethodKind::Init(InitMethod {
+            is_payable: self.is_payable,
             ignores_state: self.ignores_state,
             returns: self
                 .returns

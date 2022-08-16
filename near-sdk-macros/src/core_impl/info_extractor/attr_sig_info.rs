@@ -99,7 +99,7 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
                 } else {
                     MethodType::Init
                 },
-                is_payable: false,
+                is_payable: init_method.is_payable,
                 is_private: false,
                 is_handles_result: matches!(
                     init_method.returns.kind,
