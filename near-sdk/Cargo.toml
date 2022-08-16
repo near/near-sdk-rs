@@ -32,6 +32,12 @@ wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.8", optional = true, default-features = false }
 
+[dependencies.near-abi]
+git = "https://github.com/near/near-abi-rs"
+branch = "miraclx/init"
+features = ["versioned-entries"]
+optional = true
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # alt_bn128 feature will need to be removed on the next version update (now stabilized)
 near-vm-logic = { version = "0.14", optional = true, features = ["protocol_feature_alt_bn128"] }
@@ -52,7 +58,7 @@ hex = { version = "0.4.3", features = ["serde"] }
 default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = ["once_cell"]
-abi = ["schemars", "near-sdk-macros/abi"]
+abi = ["schemars", "near-abi", "near-sdk-macros/abi"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
 [package.metadata.docs.rs]

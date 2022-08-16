@@ -1,11 +1,5 @@
 #[cfg(feature = "abi")]
-mod abi;
-
-#[cfg(feature = "abi")]
-pub use abi::{Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiType};
-
-#[cfg(feature = "abi")]
-pub use schemars;
+pub use near_abi::{AbiFunction, AbiParameter, AbiType, VersionedAbiEntry};
 
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
