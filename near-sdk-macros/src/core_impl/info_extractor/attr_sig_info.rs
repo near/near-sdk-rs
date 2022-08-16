@@ -1,8 +1,28 @@
-use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
+use super::visitor::{BindgenVisitor, CallVisitor, InitVisitor, ViewVisitor};
+use super::{
+    ArgInfo, BindgenArgType, InitAttr, MethodKind, MethodType, ReturnKind, SerializerAttr,
+    SerializerType,
+};
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
+
+/// Information extracted from method attributes and signature.
+pub struct AttrSigInfoV2 {
+    /// The name of the method.
+    pub ident: Ident,
+    /// Attributes not related to bindgen.
+    pub non_bindgen_attrs: Vec<Attribute>,
+    /// All arguments of the method.
+    pub args: Vec<ArgInfo>,
+    /// Describes the type of the method.
+    pub method_kind: MethodKind,
+    /// The serializer that we use for `env::input()`.
+    pub input_serializer: SerializerType,
+    /// The original method signature.
+    pub original_sig: Signature,
+}
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
@@ -32,8 +52,70 @@ pub struct AttrSigInfo {
     pub original_sig: Signature,
 }
 
+// FIXME: Remove once we switch over to AttrSigInfoV2
+impl From<AttrSigInfoV2> for AttrSigInfo {
+    fn from(info: AttrSigInfoV2) -> Self {
+        match info.method_kind {
+            MethodKind::Call(call_method) => AttrSigInfo {
+                ident: info.ident,
+                non_bindgen_attrs: info.non_bindgen_attrs,
+                args: info.args,
+                method_type: MethodType::Regular,
+                is_payable: call_method.is_payable,
+                is_private: call_method.is_private,
+                is_handles_result: matches!(
+                    call_method.returns.kind,
+                    ReturnKind::HandlesResult { .. }
+                ),
+                input_serializer: info.input_serializer,
+                result_serializer: call_method.result_serializer,
+                receiver: call_method.receiver,
+                returns: call_method.returns.original,
+                original_sig: info.original_sig,
+            },
+            MethodKind::View(view_method) => AttrSigInfo {
+                ident: info.ident,
+                non_bindgen_attrs: info.non_bindgen_attrs,
+                args: info.args,
+                method_type: MethodType::View,
+                is_payable: false,
+                is_private: view_method.is_private,
+                is_handles_result: matches!(
+                    view_method.returns.kind,
+                    ReturnKind::HandlesResult { .. }
+                ),
+                input_serializer: info.input_serializer,
+                result_serializer: view_method.result_serializer,
+                receiver: view_method.receiver,
+                returns: view_method.returns.original,
+                original_sig: info.original_sig,
+            },
+            MethodKind::Init(init_method) => AttrSigInfo {
+                ident: info.ident,
+                non_bindgen_attrs: info.non_bindgen_attrs,
+                args: info.args,
+                method_type: if init_method.ignores_state {
+                    MethodType::InitIgnoreState
+                } else {
+                    MethodType::Init
+                },
+                is_payable: false,
+                is_private: false,
+                is_handles_result: matches!(
+                    init_method.returns.kind,
+                    ReturnKind::HandlesResult { .. }
+                ),
+                input_serializer: info.input_serializer,
+                result_serializer: SerializerType::JSON,
+                receiver: None,
+                returns: init_method.returns.original,
+                original_sig: info.original_sig,
+            },
+        }
+    }
+}
+
 impl AttrSigInfo {
-    /// Process the method and extract information important for near-sdk.
     pub fn new(
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
@@ -57,41 +139,42 @@ impl AttrSigInfo {
             ));
         }
 
+        // Run early checks to determine the method type
+        let mut visitor: Box<dyn BindgenVisitor> = if original_attrs
+            .iter()
+            .any(|a| a.path.to_token_stream().to_string() == "init")
+        {
+            Box::new(InitVisitor::default())
+        } else if original_sig.inputs.iter().any(
+            |i| matches!(i, FnArg::Receiver(r) if r.reference.is_none() || r.mutability.is_none()),
+        ) {
+            Box::new(ViewVisitor::default())
+        } else {
+            Box::new(CallVisitor::default())
+        };
+
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
-        let mut args = vec![];
-        let mut method_type = MethodType::Regular;
-        let mut is_payable = false;
-        let mut is_private = false;
-        let mut is_handles_result = false;
-        // By the default we serialize the result with JSON.
-        let mut result_serializer = SerializerType::JSON;
-
-        let mut payable_attr = None;
+        let mut handles_result = false;
         for attr in original_attrs.iter() {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
                     let init_attr: InitAttr = syn::parse2(attr.tokens.clone())?;
-                    if init_attr.ignore_state {
-                        method_type = MethodType::InitIgnoreState;
-                    } else {
-                        method_type = MethodType::Init;
-                    }
+                    visitor.visit_init_attr(attr, &init_attr)?;
                 }
                 "payable" => {
-                    payable_attr = Some(attr);
-                    is_payable = true;
+                    visitor.visit_payable_attr(attr)?;
                 }
                 "private" => {
-                    is_private = true;
+                    visitor.visit_private_attr(attr)?;
                 }
                 "result_serializer" => {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
-                    result_serializer = serializer.serializer_type;
+                    visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {
-                    is_handles_result = true;
+                    handles_result = true;
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
@@ -99,55 +182,30 @@ impl AttrSigInfo {
             }
         }
 
-        let mut receiver = None;
+        let mut args = vec![];
         for fn_arg in &mut original_sig.inputs {
             match fn_arg {
-                FnArg::Receiver(r) => receiver = Some((*r).clone()),
+                FnArg::Receiver(r) => visitor.visit_receiver(r)?,
                 FnArg::Typed(pat_typed) => {
                     args.push(ArgInfo::new(pat_typed)?);
                 }
             }
         }
 
-        if let Some(ref receiver) = receiver {
-            if matches!(method_type, MethodType::Regular) {
-                if receiver.mutability.is_none() || receiver.reference.is_none() {
-                    method_type = MethodType::View;
-                }
-            } else {
-                return Err(Error::new(
-                    payable_attr.span(),
-                    "Init methods can't have `self` attribute",
-                ));
-            }
-        };
-
-        if let Some(payable_attr) = payable_attr {
-            if matches!(method_type, MethodType::View) {
-                return Err(Error::new(
-                    payable_attr.span(),
-                    "Payable method must be mutable (not view)",
-                ));
-            }
-        }
+        visitor.visit_result(handles_result, &original_sig.output)?;
+        let method_kind = visitor.build()?;
 
         *original_attrs = non_bindgen_attrs.clone();
-        let returns = original_sig.output.clone();
 
-        let mut result = Self {
+        let mut result: AttrSigInfo = AttrSigInfoV2 {
             ident,
             non_bindgen_attrs,
             args,
+            method_kind,
             input_serializer: SerializerType::JSON,
-            method_type,
-            is_payable,
-            is_private,
-            is_handles_result,
-            result_serializer,
-            receiver,
-            returns,
             original_sig: original_sig.clone(),
-        };
+        }
+        .into();
 
         let input_serializer =
             if result.input_args().all(|arg: &ArgInfo| arg.serializer_ty == SerializerType::JSON) {
