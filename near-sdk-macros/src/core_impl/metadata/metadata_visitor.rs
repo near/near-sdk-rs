@@ -84,7 +84,7 @@ mod tests {
 
             #[near_bindgen]
             impl SomeTrait for Hello {
-                fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
+                fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Either<IsOk, Error> { }
             }
         };
 
@@ -146,7 +146,7 @@ mod tests {
                         },
                         callbacks: vec![],
                         callbacks_vec: None,
-                        result: Some(Result < IsOk, Error > ::schema_container())
+                        result: Some(Either < IsOk, Error > ::schema_container())
                     }
                 ]);
                 let data = near_sdk::borsh::BorshSerialize::try_to_vec(&metadata)
