@@ -213,6 +213,42 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
+#[proc_macro_derive(NearAbi)]
+pub fn derive_near_abi(_input: TokenStream) -> TokenStream {
+    #[cfg(not(feature = "abi"))]
+    return TokenStream::new();
+    #[cfg(feature = "abi")]
+    {
+        let input = syn::parse_macro_input!(_input as syn::DeriveInput);
+        let input_ident = &input.ident;
+
+        let mut remote = input.clone();
+        remote.ident = syn::Ident::new(&format!("{}AbiRemote", input_ident), input_ident.span());
+        let remote_ident = &remote.ident;
+
+        TokenStream::from(quote! {
+            #[cfg(not(target_arch = "wasm32"))]
+            const _: () = {
+                use near_sdk::__private::schemars as schemars;
+
+                #[derive(schemars::JsonSchema)]
+                #remote
+
+                #[automatically_derived]
+                impl schemars::JsonSchema for #input_ident {
+                    fn schema_name() -> ::std::string::String {
+                        stringify!(#input_ident).to_string()
+                    }
+
+                    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+                        <#remote_ident as schemars::JsonSchema>::json_schema(gen)
+                    }
+                }
+            };
+        })
+    }
+}
+
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
 /// message `The contract is not initialized` when `default()` is called.
 /// This is a helpful macro in case the contract is required to be initialized with either `init` or
