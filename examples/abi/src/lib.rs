@@ -1,6 +1,6 @@
+use near_sdk::__private::schemars::JsonSchema;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSchema, BorshSerialize};
 use near_sdk::near_bindgen;
-use near_sdk::schemars::JsonSchema;
 use near_sdk::serde::{Deserialize, Serialize};
 
 #[derive(JsonSchema, Serialize, Deserialize, BorshDeserialize, BorshSerialize, BorshSchema)]
