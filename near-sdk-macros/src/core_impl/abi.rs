@@ -24,7 +24,7 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         const _: () = {
             #[no_mangle]
             pub fn #near_abi_symbol() -> near_sdk::__private::VersionedAbiEntry {
-                let mut gen = near_sdk::schemars::gen::SchemaGenerator::default();
+                let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
                 near_sdk::__private::VersionedAbiEntry::new(functions, gen.into_root_schema_for::<String>())
             }
