@@ -59,7 +59,7 @@ pub use lazy_option::LazyOption;
 mod tree_map;
 pub use tree_map::TreeMap;
 
-pub const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Have any collections been updated without updating themselves in state?";
+pub const ERR_INCONSISTENT_STATE: &str = "The collection is in an inconsistent state. Have any collections been updated without committing changes to contract state?";
 pub const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh.";
 pub const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element with Borsh.";
 
