@@ -2,7 +2,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSchema, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{near_bindgen, NearAbi};
 
-#[derive(NearAbi, Serialize, Deserialize, BorshDeserialize, BorshSerialize, BorshSchema)]
+#[derive(NearAbi, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Pair(u32, u32);
 
 #[derive(NearAbi, Serialize, Deserialize)]

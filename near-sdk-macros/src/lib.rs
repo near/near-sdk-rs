@@ -222,26 +222,42 @@ pub fn derive_near_abi(_input: TokenStream) -> TokenStream {
         let input = syn::parse_macro_input!(_input as syn::DeriveInput);
         let input_ident = &input.ident;
 
-        let mut remote = input.clone();
-        remote.ident = syn::Ident::new(&format!("{}AbiRemote", input_ident), input_ident.span());
-        let remote_ident = &remote.ident;
-
         TokenStream::from(quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
-                use near_sdk::__private::schemars as schemars;
+                mod __near_abi_private {
+                    use super::*;
+                    use near_sdk::borsh;
+                    use near_sdk::__private::schemars as schemars;
 
-                #[derive(schemars::JsonSchema)]
-                #remote
+                    #[derive(schemars::JsonSchema, borsh::BorshSchema)]
+                    #input
 
-                #[automatically_derived]
-                impl schemars::JsonSchema for #input_ident {
-                    fn schema_name() -> ::std::string::String {
-                        stringify!(#input_ident).to_string()
+                    #[automatically_derived]
+                    impl schemars::JsonSchema for super::#input_ident {
+                        fn schema_name() -> ::std::string::String {
+                            stringify!(#input_ident).to_string()
+                        }
+
+                        fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+                            <#input_ident as schemars::JsonSchema>::json_schema(gen)
+                        }
                     }
 
-                    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-                        <#remote_ident as schemars::JsonSchema>::json_schema(gen)
+                    #[automatically_derived]
+                    impl borsh::BorshSchema for super::#input_ident {
+                        fn declaration() -> ::std::string::String {
+                            stringify!(#input_ident).to_string()
+                        }
+
+                        fn add_definitions_recursively(
+                            definitions: &mut borsh::maybestd::collections::HashMap<
+                                borsh::schema::Declaration,
+                                borsh::schema::Definition,
+                            >,
+                        ) {
+                            <#input_ident as borsh::BorshSchema>::add_definitions_recursively(definitions);
+                        }
                     }
                 }
             };
