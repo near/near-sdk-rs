@@ -51,6 +51,7 @@ mod tests {
     use tokio::fs;
     use workspaces::prelude::*;
 
+    #[ignore]
     #[tokio::test]
     async fn embedded_abi_test() -> anyhow::Result<()> {
         let wasm = fs::read("res/abi.wasm").await?;
