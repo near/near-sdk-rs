@@ -1,3 +1,6 @@
+#[cfg(not(abi_embed))]
+use std::hash::{Hash, Hasher};
+
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::spanned::Spanned;
@@ -8,7 +11,24 @@ use crate::core_impl::{
     SerializerType,
 };
 
+#[cfg(abi_embed)]
+pub fn generate() -> TokenStream2 {
+    let abi_path = env!("CARGO_NEAR_ABI_PATH");
+    quote! {
+        pub const __CONTRACT_ABI: &'static [u8] = include_bytes!(#abi_path);
+        #[no_mangle]
+        pub extern "C" fn __contract_abi() {
+            near_sdk::env::value_return(__CONTRACT_ABI);
+        }
+    }
+}
+
+#[cfg(not(abi_embed))]
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
+    let mut hash_state = std::collections::hash_map::DefaultHasher::new();
+    env!("CARGO_MANIFEST_DIR").hash(&mut hash_state);
+    let dir_hash = hash_state.finish();
+
     let public_functions: Vec<&ImplItemMethodInfo> =
         i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect::<Vec<_>>();
     if public_functions.is_empty() {
@@ -18,15 +38,19 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
 
     let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
     let first_function_name = &public_functions[0].attr_signature_info.ident;
-    let near_abi_symbol = format_ident!("__near_abi_{}", &first_function_name);
+    let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
             #[no_mangle]
-            pub fn #near_abi_symbol() -> near_sdk::__private::VersionedAbiEntry {
+            pub fn #near_abi_symbol() -> near_sdk::__private::ChunkedAbiEntry {
                 let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
-                near_sdk::__private::VersionedAbiEntry::new(functions, gen.into_root_schema_for::<String>())
+                near_sdk::__private::ChunkedAbiEntry::new(
+                    #dir_hash,
+                    functions,
+                    gen.into_root_schema_for::<String>()
+                )
             }
         };
     }

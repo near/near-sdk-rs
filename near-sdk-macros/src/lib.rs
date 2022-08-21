@@ -47,15 +47,25 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
+        #[cfg(any(not(feature = "abi"), not(abi_embed)))]
+        let abi_embedded = quote! {};
+        #[cfg(all(feature = "abi", abi_embed))]
+        let abi_embedded = abi::generate();
         TokenStream::from(quote! {
             #input
             #ext_gen
+            #abi_embedded
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
+        #[cfg(any(not(feature = "abi"), not(abi_embed)))]
+        let abi_embedded = quote! {};
+        #[cfg(all(feature = "abi", abi_embed))]
+        let abi_embedded = abi::generate();
         TokenStream::from(quote! {
             #input
             #ext_gen
+            #abi_embedded
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -65,9 +75,9 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         };
 
-        #[cfg(not(feature = "abi"))]
-        let abi_generated = proc_macro2::TokenStream::new();
-        #[cfg(feature = "abi")]
+        #[cfg(any(not(feature = "abi"), abi_embed))]
+        let abi_generated = quote! {};
+        #[cfg(all(feature = "abi", not(abi_embed)))]
         let abi_generated = abi::generate(&item_impl_info);
 
         let generated_code = item_impl_info.wrapper_code();

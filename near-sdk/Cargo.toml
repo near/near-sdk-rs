@@ -34,8 +34,8 @@ once_cell = { version = "1.8", optional = true, default-features = false }
 
 [dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
-branch = "miraclx/init"
-features = ["versioned-entries"]
+branch = "miraclx/abi-embed"
+features = ["chunked-entries"]
 optional = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

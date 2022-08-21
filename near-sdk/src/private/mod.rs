@@ -1,5 +1,5 @@
 #[cfg(feature = "abi")]
-pub use near_abi::{AbiFunction, AbiParameter, AbiType, VersionedAbiEntry};
+pub use near_abi::{AbiFunction, AbiParameter, AbiType, ChunkedAbiEntry};
 
 #[cfg(feature = "abi")]
 pub use schemars;
