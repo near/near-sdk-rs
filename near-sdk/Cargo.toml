@@ -59,10 +59,11 @@ default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = ["once_cell"]
 abi = ["near-abi", "schemars"]
-abi-embed = ["near-sdk-macros/abi-embed"]
-abi-generate = ["abi", "near-sdk-macros/abi-generate"]
 
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+
+__abi-embed = ["near-sdk-macros/__abi-embed"]
+__abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 [package.metadata.docs.rs]
 features = ["unstable"]

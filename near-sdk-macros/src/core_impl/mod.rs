@@ -1,4 +1,4 @@
-#[cfg(any(feature = "abi-embed", feature = "abi-generate"))]
+#[cfg(any(feature = "__abi-embed", feature = "__abi-generate"))]
 pub mod abi;
 mod code_generator;
 mod info_extractor;
