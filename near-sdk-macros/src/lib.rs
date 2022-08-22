@@ -213,11 +213,10 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(NearAbi, attributes(abi, serde, borsh_skip, schemars, validate))]
-pub fn derive_near_abi(_input: TokenStream) -> TokenStream {
-    // todo! borsh & serde don't support unions
-    // todo! guess what? we don't either
-    let mut input = syn::parse_macro_input!(_input as syn::DeriveInput);
+#[cfg(feature = "abi")]
+#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
+pub fn derive_near_schema(input: TokenStream) -> TokenStream {
+    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
     let input_ident = &input.ident;
 
     let mut schema = 0b01;
