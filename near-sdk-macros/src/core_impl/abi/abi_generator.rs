@@ -10,9 +10,9 @@ use crate::core_impl::{
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
     let public_functions: Vec<&ImplItemMethodInfo> =
-        i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect::<Vec<_>>();
+        i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect();
     if public_functions.is_empty() {
-        // Short-circuit if there are not public functions to export to ABI
+        // Short-circuit if there are no public functions to export to ABI
         return TokenStream2::new();
     }
 
