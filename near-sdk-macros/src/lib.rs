@@ -217,7 +217,6 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
 pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let input_ident = &input.ident;
 
     let mut schema = 0b01;
     let mut type_attrs = vec![];
@@ -228,7 +227,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                 return TokenStream::from(
                     syn::Error::new_spanned(
                         meta.into_token_stream(),
-                        "abi attribute requires at least one argument",
+                        "attribute requires at least one argument",
                     )
                     .to_compile_error(),
                 );
@@ -240,7 +239,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                     return TokenStream::from(
                         syn::Error::new_spanned(
                             meta.into_token_stream(),
-                            "abi attribute requires at least one argument",
+                            "attribute requires at least one argument",
                         )
                         .to_compile_error(),
                     );
@@ -254,7 +253,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                             return TokenStream::from(
                                 syn::Error::new_spanned(
                                     meta.into_token_stream(),
-                                    format!("invalid abi argument, expected: `json` or `borsh`",),
+                                    format!("invalid argument, expected: `json` or `borsh`",),
                                 )
                                 .to_compile_error(),
                             );
@@ -273,52 +272,61 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     }
     input.attrs = type_attrs;
 
+    let input_ident = &input.ident;
+
     // todo! proxy field and variant attributes
     // todo! serde, validate, borsh_skip
 
-    let (borsh_derive, borsh_impl) = if schema & 0b10 != 0 {
-        (
-            quote! { borsh::BorshSchema },
-            quote! {
-                #[automatically_derived]
-                impl borsh::BorshSchema for super::#input_ident {
-                    fn declaration() -> ::std::string::String {
-                        stringify!(#input_ident).to_string()
-                    }
-
-                    fn add_definitions_recursively(
-                        definitions: &mut borsh::maybestd::collections::HashMap<
-                            borsh::schema::Declaration,
-                            borsh::schema::Definition,
-                        >,
-                    ) {
-                        <#input_ident as borsh::BorshSchema>::add_definitions_recursively(definitions);
-                    }
-                }
-            },
-        )
-    } else {
-        (quote! {}, quote! {})
+    let derive = match schema {
+        0b01 => quote! {
+            #[derive(schemars::JsonSchema)]
+        },
+        0b10 => quote! {
+            #[derive(borsh::BorshSchema)]
+        },
+        0b11 => quote! {
+            #[derive(schemars::JsonSchema, borsh::BorshSchema)]
+        },
+        _ => unreachable!(),
     };
 
-    let (json_derive, json_impl) = if schema & 0b01 != 0 {
-        (
-            quote! { schemars::JsonSchema },
-            quote! {
-                #[automatically_derived]
-                impl schemars::JsonSchema for super::#input_ident {
-                    fn schema_name() -> ::std::string::String {
-                        stringify!(#input_ident).to_string()
-                    }
-
-                    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-                        <#input_ident as schemars::JsonSchema>::json_schema(gen)
-                    }
+    let json_impl = if schema & 0b01 != 0 {
+        quote! {
+            #[automatically_derived]
+            impl schemars::JsonSchema for super::#input_ident {
+                fn schema_name() -> ::std::string::String {
+                    stringify!(#input_ident).to_string()
                 }
-            },
-        )
+
+                fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+                    <#input_ident as schemars::JsonSchema>::json_schema(gen)
+                }
+            }
+        }
     } else {
-        (quote! {}, quote! {})
+        quote! {}
+    };
+
+    let borsh_impl = if schema & 0b10 != 0 {
+        quote! {
+            #[automatically_derived]
+            impl borsh::BorshSchema for super::#input_ident {
+                fn declaration() -> ::std::string::String {
+                    stringify!(#input_ident).to_string()
+                }
+
+                fn add_definitions_recursively(
+                    definitions: &mut borsh::maybestd::collections::HashMap<
+                        borsh::schema::Declaration,
+                        borsh::schema::Definition,
+                    >,
+                ) {
+                    <#input_ident as borsh::BorshSchema>::add_definitions_recursively(definitions);
+                }
+            }
+        }
+    } else {
+        quote! {}
     };
 
     TokenStream::from(quote! {
@@ -329,7 +337,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                 use near_sdk::borsh;
                 use near_sdk::__private::schemars;
 
-                #[derive( #json_derive, #borsh_derive )]
+                #derive
                 #input
 
                 #json_impl
