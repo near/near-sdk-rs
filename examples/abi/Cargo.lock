@@ -1266,7 +1266,7 @@ dependencies = [
 [[package]]
 name = "near-abi"
 version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#9a8fdfa3af14bb275ac94d851c29f2ede14bdc8b"
+source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#d5a7bca3a490f5e367c5a539764eaad47dfcfbc8"
 dependencies = [
  "borsh",
  "schemars",
@@ -1522,7 +1522,6 @@ dependencies = [
  "near-sdk-macros",
  "near-sys",
  "near-vm-logic",
- "schemars",
  "serde",
  "serde_json",
  "wee_alloc",

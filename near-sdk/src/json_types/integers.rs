@@ -6,6 +6,9 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+#[cfg(feature = "abi")]
+use crate::__private::schemars;
+
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
         #[derive(
