@@ -1,5 +1,5 @@
 #[cfg(feature = "abi")]
-pub mod abi;
+pub(crate) mod abi;
 mod code_generator;
 mod info_extractor;
 mod metadata;
