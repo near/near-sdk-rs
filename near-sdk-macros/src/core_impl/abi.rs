@@ -23,10 +23,10 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
             #[no_mangle]
-            pub fn #near_abi_symbol() -> near_sdk::__private::VersionedAbiEntry {
+            pub fn #near_abi_symbol() -> near_sdk::__private::ChunkedAbiEntry {
                 let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
-                near_sdk::__private::VersionedAbiEntry::new(functions, gen.into_root_schema_for::<String>())
+                near_sdk::__private::ChunkedAbiEntry::new(functions, gen.into_root_schema_for::<String>())
             }
         };
     }
