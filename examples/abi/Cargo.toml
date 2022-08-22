@@ -20,7 +20,7 @@ anyhow = "1.0"
 
 [dev-dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
-branch = "miraclx/abi-embed"
+branch = "miraclx/init"
 features = ["chunked-entries"]
 
 [profile.release]

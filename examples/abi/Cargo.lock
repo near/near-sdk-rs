@@ -13,7 +13,7 @@ name = "abi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "near-abi 0.1.0 (git+https://github.com/near/near-abi-rs?branch=miraclx/abi-embed)",
+ "near-abi",
  "near-sdk",
  "schemars",
  "serde",
@@ -1266,16 +1266,7 @@ dependencies = [
 [[package]]
 name = "near-abi"
 version = "0.1.0"
-dependencies = [
- "borsh",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "near-abi"
-version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs?branch=miraclx/abi-embed#b0b1cda8999bf3833068e4f126dfa4a0a9018bb4"
+source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#1c1b00f694ee13f253d174fef0c7fec6c758f6b3"
 dependencies = [
  "borsh",
  "schemars",
@@ -1524,7 +1515,7 @@ dependencies = [
  "base64 0.13.0",
  "borsh",
  "bs58",
- "near-abi 0.1.0",
+ "near-abi",
  "near-crypto",
  "near-primitives",
  "near-primitives-core",
