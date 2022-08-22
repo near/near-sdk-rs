@@ -21,7 +21,6 @@ anyhow = "1.0"
 [dev-dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
 branch = "miraclx/init"
-features = ["__chunked-entries"]
 
 [profile.release]
 codegen-units = 1
