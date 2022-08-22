@@ -18,12 +18,14 @@ impl From<Base64VecU8> for Vec<u8> {
 }
 
 #[cfg(feature = "abi")]
-impl schemars::JsonSchema for Base64VecU8 {
+impl crate::__private::schemars::JsonSchema for Base64VecU8 {
     fn schema_name() -> String {
         "Base64VecU8".to_string()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(
+        gen: &mut crate::__private::schemars::gen::SchemaGenerator,
+    ) -> crate::__private::schemars::schema::Schema {
         String::json_schema(gen)
     }
 }

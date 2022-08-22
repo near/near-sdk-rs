@@ -475,15 +475,17 @@ impl borsh::BorshSerialize for Promise {
 }
 
 #[cfg(feature = "abi")]
-impl schemars::JsonSchema for Promise {
+impl crate::__private::schemars::JsonSchema for Promise {
     fn schema_name() -> String {
         "Promise".to_string()
     }
 
-    fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(
+        _gen: &mut crate::__private::schemars::gen::SchemaGenerator,
+    ) -> crate::__private::schemars::schema::Schema {
         // Since promises are untyped, for now we represent Promise results with the schema
         // `true` which matches everything (i.e. always passes validation)
-        schemars::schema::Schema::Bool(true)
+        crate::__private::schemars::schema::Schema::Bool(true)
     }
 }
 
@@ -544,12 +546,16 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
 }
 
 #[cfg(feature = "abi")]
-impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
+impl<T: crate::__private::schemars::JsonSchema> crate::__private::schemars::JsonSchema
+    for PromiseOrValue<T>
+{
     fn schema_name() -> String {
         format!("PromiseOrValue{}", T::schema_name())
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(
+        gen: &mut crate::__private::schemars::gen::SchemaGenerator,
+    ) -> crate::__private::schemars::schema::Schema {
         T::json_schema(gen)
     }
 }
