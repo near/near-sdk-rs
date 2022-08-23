@@ -1266,7 +1266,7 @@ dependencies = [
 [[package]]
 name = "near-abi"
 version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#0b402fb3c789f1cdc6c8d33bf85e8ff514f1d2de"
+source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#23834cefc9758a20cedbf2d1535533c35ad4bba4"
 dependencies = [
  "borsh",
  "schemars",
