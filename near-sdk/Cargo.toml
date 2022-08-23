@@ -25,6 +25,7 @@ near-sys = { path = "../sys", version = "0.2" }
 base64 = "0.13"
 borsh = { version = "0.9", features = ["const-generics"] }
 bs58 = "0.4"
+schemars = { version = "0.8.8", optional = true }
 # Export dependencies for contracts
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
@@ -57,7 +58,7 @@ hex = { version = "0.4.3", features = ["serde"] }
 default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = ["once_cell"]
-abi = ["near-abi", "near-sdk-macros/abi"]
+abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
 [package.metadata.docs.rs]

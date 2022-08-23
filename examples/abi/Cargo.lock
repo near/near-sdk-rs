@@ -473,7 +473,7 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 [[package]]
 name = "near-abi"
 version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#23834cefc9758a20cedbf2d1535533c35ad4bba4"
+source = "git+https://github.com/near/near-abi-rs?branch=miraclx/init#492f935f485b7f2b87efc4d2239145120a199679"
 dependencies = [
  "borsh",
  "schemars",
@@ -598,6 +598,7 @@ dependencies = [
  "near-sdk-macros",
  "near-sys",
  "near-vm-logic",
+ "schemars",
  "serde",
  "serde_json",
  "wee_alloc",

@@ -1,8 +1,11 @@
 #[cfg(feature = "abi")]
 pub use near_abi::{
     AbiFunction, AbiParameter, AbiType,
-    __private::{schemars, AbiCombineError, AbiCombineErrorKind, ChunkedAbiEntry},
+    __private::{AbiCombineError, AbiCombineErrorKind, ChunkedAbiEntry},
 };
+
+#[cfg(feature = "abi")]
+pub use schemars;
 
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
