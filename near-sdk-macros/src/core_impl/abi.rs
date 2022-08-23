@@ -43,7 +43,7 @@ impl ImplItemMethodInfo {
     /// ```
     /// will produce this struct:
     /// ```ignore
-    /// near_sdk::__private::AbiFunction {
+    /// near_abi::AbiFunction {
     ///     name: "f3".to_string(),
     ///     doc: Some(" I am a function.".to_string()),
     ///     is_view: false,
@@ -51,22 +51,22 @@ impl ImplItemMethodInfo {
     ///     is_payable: false,
     ///     is_private: false,
     ///     params: vec![
-    ///         near_sdk::__private::AbiParameter {
+    ///         near_abi::AbiParameter {
     ///             name: "arg0".to_string(),
-    ///             typ: near_sdk::__private::AbiType::Json {
+    ///             typ: near_abi::AbiType::Json {
     ///                 type_schema: gen.subschema_for::<FancyStruct>(),
     ///             },
     ///         },
-    ///         near_sdk::__private::AbiParameter {
+    ///         near_abi::AbiParameter {
     ///             name: "arg1".to_string(),
-    ///             typ: near_sdk::__private::AbiType::Json {
+    ///             typ: near_abi::AbiType::Json {
     ///                 type_schema: gen.subschema_for::<u64>(),
     ///             },
     ///         }
     ///     ],
     ///     callbacks: vec![],
     ///     callbacks_vec: None,
-    ///     result: near_sdk::__private::AbiType::Json {
+    ///     result: near_abi::AbiType::Json {
     ///         type_schema: gen.subschema_for::<IsOk>(),
     ///     }
     /// }
