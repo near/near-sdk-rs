@@ -61,7 +61,7 @@ mod tests {
         let res = contract.view(&worker, "__contract_abi", vec![]).await?;
         let abi_root = serde_json::from_slice::<AbiRoot>(&res.result).unwrap();
 
-        assert_eq!(abi_root.schema_version(), "0.1.0");
+        assert_eq!(abi_root.schema_version, "0.1.0");
         assert_eq!(abi_root.metadata.name, Some("abi".to_string()));
         assert_eq!(abi_root.metadata.version, Some("0.1.0".to_string()));
         assert_eq!(
