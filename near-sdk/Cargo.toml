@@ -34,7 +34,6 @@ once_cell = { version = "1.8", optional = true, default-features = false }
 
 [dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
-branch = "miraclx/init"
 features = ["__chunked-entries"]
 optional = true
 
