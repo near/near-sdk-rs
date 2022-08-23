@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Support newly stabilized `alt_bn128` host functions that were recently stabilized. [PR 885](https://github.com/near/near-sdk-rs/pull/885)
+
 ## [4.1.0-pre.1] - 2022-08-05
 
 ### Added
