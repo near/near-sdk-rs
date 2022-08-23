@@ -3,9 +3,6 @@ use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fmt;
 
-#[cfg(feature = "abi")]
-use crate::__private::schemars;
-
 use crate::env::is_valid_account_id;
 
 /// Account identifier. This is the human readable utf8 string which is used internally to index
