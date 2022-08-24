@@ -1266,7 +1266,7 @@ dependencies = [
 [[package]]
 name = "near-abi"
 version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs#4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
+source = "git+https://github.com/near/near-abi-rs?rev=4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f#4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
 dependencies = [
  "borsh",
  "schemars",
