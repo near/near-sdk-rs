@@ -1309,6 +1309,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-abi"
+version = "0.1.0"
+source = "git+https://github.com/near/near-abi-rs?rev=4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f#4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
+dependencies = [
+ "borsh",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "near-account-id"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1788,6 +1798,7 @@ dependencies = [
  "base64 0.13.0",
  "borsh",
  "bs58",
+ "near-abi",
  "near-crypto 0.14.0",
  "near-primitives 0.14.0",
  "near-primitives-core 0.14.0",
