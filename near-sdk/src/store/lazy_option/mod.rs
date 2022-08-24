@@ -167,14 +167,33 @@ mod tests {
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "None");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cached_value: Some(None) }"
+            );
         }
 
-        lazy_option.set(Some(1u64));
+        *lazy_option = Some(1u8);
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "Some(1)");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cached_value: Some(Some(1)) }"
+            );
+        }
+
+        // Serialize and deserialize to simulate storing and loading.
+        let serialized = borsh::to_vec(&lazy_option).unwrap();
+        drop(lazy_option);
+        let lazy_option = LazyOption::<u8>::try_from_slice(&serialized).unwrap();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "Some(1)");
+        } else {
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cached_value: None }"
+            );
         }
     }
 }

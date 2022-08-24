@@ -60,7 +60,7 @@ where
 /// *a = "new string".to_string();
 /// assert_eq!(a.get(), "new string");
 /// ```
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Lazy<T>
 where
     T: BorshSerialize,
@@ -177,5 +177,25 @@ mod tests {
         // A value that is not stored in storage yet and one that has not been loaded yet can
         // be checked for equality.
         assert_eq!(lazy_loaded, b);
+    }
+
+    #[test]
+    pub fn test_debug() {
+        let lazy = Lazy::new(b"m", 8u8);
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy), "8");
+        } else {
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cached_value: Some(8) }");
+        }
+
+        // Serialize and deserialize to simulate storing and loading.
+        let serialized = borsh::to_vec(&lazy).unwrap();
+        drop(lazy);
+        let lazy = Lazy::<u8>::try_from_slice(&serialized).unwrap();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy), "8");
+        } else {
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cached_value: None }");
+        }
     }
 }
