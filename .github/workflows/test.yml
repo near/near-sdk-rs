@@ -4,6 +4,8 @@ on:
     branches:
       - master
   pull_request:
+env:
+  RUSTFLAGS: -D warnings
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
