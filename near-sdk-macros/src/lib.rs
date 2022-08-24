@@ -58,24 +58,18 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_gen
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-        #[cfg(not(feature = "abi"))]
-        let abi_generated = proc_macro2::TokenStream::new();
-        #[cfg(feature = "abi")]
-        let abi_generated = {
-            let mut visitor = AbiVisitor::new();
-            visitor.visit_item_impl(&input);
-            match visitor.generate_abi_function() {
-                Ok(x) => x,
-                Err(err) => return TokenStream::from(err.to_compile_error()),
-            }
-        };
-
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
                 return err.to_compile_error().into();
             }
         };
+
+        #[cfg(not(feature = "abi"))]
+        let abi_generated = proc_macro2::TokenStream::new();
+        #[cfg(feature = "abi")]
+        let abi_generated = abi::generate(&item_impl_info);
+
         let generated_code = item_impl_info.wrapper_code();
 
         // Add wrapper methods for ext call API
