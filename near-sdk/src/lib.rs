@@ -10,7 +10,6 @@ pub use near_sdk_macros::{
     PanicOnDefault,
 };
 
-#[cfg(feature = "unstable")]
 pub mod store;
 
 pub mod collections;
