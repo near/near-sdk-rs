@@ -243,7 +243,7 @@ impl LookupMapAdapter {
     }
 
     fn hash_key(account: &AccountId) -> LookupMapKey {
-        if account.as_str().ends_with(".u.sweat") && account.as_str().len() < 32 {
+        if account.as_str().ends_with(".u.sweat.testnet") && account.as_str().len() < 32 {
             LookupMapKey::AccountId(account.to_string())
         } else {
             LookupMapKey::Hash(env::sha256_array(account.as_bytes()))
