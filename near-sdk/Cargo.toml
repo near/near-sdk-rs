@@ -34,6 +34,7 @@ once_cell = { version = "1.8", default-features = false }
 
 [dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
+rev = "4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
 features = ["__chunked-entries"]
 optional = true
 
