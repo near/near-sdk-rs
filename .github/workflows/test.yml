@@ -4,8 +4,6 @@ on:
     branches:
       - master
   pull_request:
-env:
-  RUSTFLAGS: -D warnings
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
@@ -24,7 +22,11 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - run: rustup target add wasm32-unknown-unknown
       - name: Test
-        run: cargo test --all --features unstable
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo test --workspace --exclude compilation_tests --features unstable
+      - name: Compilation Tests
+        run: cargo test --test compilation_tests --features unstable
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
@@ -32,7 +34,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
-        with: 
+        with:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
