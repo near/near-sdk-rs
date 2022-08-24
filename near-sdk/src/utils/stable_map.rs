@@ -1,3 +1,4 @@
+#[cfg(feature = "unstable")]
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -41,6 +42,7 @@ impl<K, V> StableMap<K, V> {
     pub(crate) fn inner(&mut self) -> &mut BTreeMap<K, Box<V>> {
         self.map.get_mut()
     }
+    #[cfg(feature = "unstable")]
     pub(crate) fn map_value_ref<Q: ?Sized, F, T>(&self, k: &Q, f: F) -> Option<T>
     where
         K: Borrow<Q> + Ord,

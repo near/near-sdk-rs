@@ -30,7 +30,7 @@ schemars = { version = "0.8.8", optional = true }
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 # Used for caching, might be worth porting only functionality needed.
-once_cell = { version = "1.8", optional = true, default-features = false }
+once_cell = { version = "1.8", default-features = false }
 
 [dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
@@ -56,7 +56,7 @@ hex = { version = "0.4.3", features = ["serde"] }
 [features]
 default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
-unstable = ["once_cell"]
+unstable = []
 abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
