@@ -117,6 +117,18 @@ impl<T> UnorderedSet<T, Sha256>
 where
     T: BorshSerialize + Ord,
 {
+    /// Create a new iterable set. Use `prefix` as a unique prefix for keys.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where
