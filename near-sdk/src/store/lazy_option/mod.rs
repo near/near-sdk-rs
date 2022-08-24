@@ -167,14 +167,14 @@ mod tests {
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "None");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { prefix: [109] }");
+            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
         }
 
         lazy_option.set(Some(1u64));
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "Some(1)");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { prefix: [109] }");
+            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
         }
     }
 }
