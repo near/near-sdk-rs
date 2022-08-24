@@ -218,7 +218,7 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let mut schema = 0b01;
+    let (mut json_schema, mut borsh_schema) = (false, false);
     let mut type_attrs = vec![];
     for attr in input.attrs {
         match attr.parse_meta() {
@@ -244,11 +244,13 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                         .to_compile_error(),
                     );
                 }
-                schema = 0b00;
+                json_schema = false;
                 for meta in meta.nested {
                     match meta {
-                        NestedMeta::Meta(m) if m.path().is_ident("json") => schema |= 0b01,
-                        NestedMeta::Meta(m) if m.path().is_ident("borsh") => schema |= 0b10,
+                        syn::NestedMeta::Meta(m) if m.path().is_ident("json") => json_schema = true,
+                        syn::NestedMeta::Meta(m) if m.path().is_ident("borsh") => {
+                            borsh_schema = true
+                        }
                         _ => {
                             return TokenStream::from(
                                 syn::Error::new_spanned(
@@ -277,20 +279,22 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     // todo! proxy field and variant attributes
     // todo! serde, validate, borsh_skip
 
-    let derive = match schema {
-        0b01 => quote! {
+    let derive = match (json_schema, borsh_schema) {
+        // <unspecified> or #[abi(json)]
+        (_, false) => quote! {
             #[derive(schemars::JsonSchema)]
         },
-        0b10 => quote! {
+        // #[abi(borsh)]
+        (false, true) => quote! {
             #[derive(borsh::BorshSchema)]
         },
-        0b11 => quote! {
+        // #[abi(json, borsh)]
+        (true, true) => quote! {
             #[derive(schemars::JsonSchema, borsh::BorshSchema)]
         },
-        _ => unreachable!(),
     };
 
-    let json_impl = if schema & 0b01 != 0 {
+    let json_impl = if json_schema {
         quote! {
             #[automatically_derived]
             impl schemars::JsonSchema for super::#input_ident {
@@ -307,7 +311,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let borsh_impl = if schema & 0b10 != 0 {
+    let borsh_impl = if borsh_schema {
         quote! {
             #[automatically_derived]
             impl borsh::BorshSchema for super::#input_ident {
