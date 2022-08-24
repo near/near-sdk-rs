@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 
 use self::core_impl::*;
 use proc_macro2::Span;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
@@ -79,6 +79,18 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_generated = quote! {};
         #[cfg(feature = "__abi-generate")]
         let abi_generated = abi::generate(&item_impl_info);
+
+        for method in &item_impl_info.methods {
+            if method.attr_signature_info.ident == "__contract_abi" {
+                return TokenStream::from(
+                    syn::Error::new_spanned(
+                        method.attr_signature_info.original_sig.ident.to_token_stream(),
+                        "use of reserved contract method",
+                    )
+                    .to_compile_error(),
+                );
+            }
+        }
 
         let generated_code = item_impl_info.wrapper_code();
 
