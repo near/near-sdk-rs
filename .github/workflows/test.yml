@@ -24,7 +24,7 @@ jobs:
       - name: Test
         env:
           RUSTFLAGS: -D warnings
-        run: cargo test --workspace --exclude compilation_tests --features unstable
+        run: cargo test --workspace --features unstable -- --skip compilation_tests
       - name: Compilation Tests
         run: cargo test --test compilation_tests --features unstable
   lint:
