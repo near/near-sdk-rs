@@ -13,7 +13,7 @@ name = "abi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "near-abi 0.1.0 (git+https://github.com/near/near-abi-rs?rev=4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f)",
+ "near-abi",
  "near-sdk",
  "schemars",
  "serde",
@@ -1266,16 +1266,6 @@ dependencies = [
 [[package]]
 name = "near-abi"
 version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs?rev=4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f#4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
-dependencies = [
- "borsh",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "near-abi"
-version = "0.1.0"
 source = "git+https://github.com/near/near-abi-rs?rev=983346e8ce2a8304645a92ba7735f9a6eacceda7#983346e8ce2a8304645a92ba7735f9a6eacceda7"
 dependencies = [
  "borsh",
@@ -1526,7 +1516,7 @@ dependencies = [
  "base64 0.13.0",
  "borsh",
  "bs58",
- "near-abi 0.1.0 (git+https://github.com/near/near-abi-rs?rev=983346e8ce2a8304645a92ba7735f9a6eacceda7)",
+ "near-abi",
  "near-crypto",
  "near-primitives",
  "near-primitives-core",

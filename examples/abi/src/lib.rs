@@ -68,9 +68,9 @@ mod tests {
             &abi_root.metadata.authors[..],
             &["Near Inc <hello@nearprotocol.com>".to_string()]
         );
-        assert_eq!(abi_root.abi.functions.len(), 3);
+        assert_eq!(abi_root.body.functions.len(), 3);
 
-        let add_function = &abi_root.abi.functions[0];
+        let add_function = &abi_root.body.functions[0];
 
         assert_eq!(add_function.name, "add".to_string());
         assert_eq!(add_function.doc, Some(" Adds two pairs point-wise.".to_string()));

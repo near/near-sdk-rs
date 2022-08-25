@@ -20,7 +20,7 @@ anyhow = "1.0"
 
 [dev-dependencies.near-abi]
 git = "https://github.com/near/near-abi-rs"
-rev = "4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
+rev = "983346e8ce2a8304645a92ba7735f9a6eacceda7"
 
 [profile.release]
 codegen-units = 1
