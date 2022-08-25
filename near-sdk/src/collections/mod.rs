@@ -1,6 +1,9 @@
 //! Collections that offer an alternative to standard containers from `std::collections::*` by
 //! utilizing the underlying blockchain trie storage more efficiently.
 //!
+//! The updated version of this module lives in [`near_sdk::store`](crate::store),
+//! where the data structures are more optimized and have a closer API to [`std::collections`].
+//!
 //! For example, the following smart contract does not work with state efficiently, because it will
 //! load the entire `HashMap` at the beginning of the contract call, and will save it entirely at
 //! the end, in cases when there is state modification. This is fine for small number of elements,
