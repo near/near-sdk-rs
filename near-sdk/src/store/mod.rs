@@ -10,7 +10,7 @@
 //! that accessing or modifying a single element would require reading the whole `Vec` from the
 //! storage.
 //!
-//! That's where `store` module helps. It's collections are backed by a key value store.
+//! That's where `store` module helps. Its collections are backed by a key value store.
 //! For example, a store::Vector is stored as several key-value pairs, where indices are the keys.
 //! So, accessing a single element would only load this specific element.
 //!
