@@ -169,7 +169,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", lazy_option),
-                "LazyOption { storage_key: [109], cached_value: Some(None) }"
+                "LazyOption { storage_key: [109], cache: Some(CacheEntry { value: None, state: Cached }) }"
             );
         }
 
@@ -179,7 +179,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", lazy_option),
-                "LazyOption { storage_key: [109], cached_value: Some(Some(1)) }"
+                "LazyOption { storage_key: [109], cache: Some(CacheEntry { value: Some(1), state: Modified }) }"
             );
         }
 
@@ -192,7 +192,7 @@ mod tests {
         } else {
             assert_eq!(
                 format!("{:?}", lazy_option),
-                "LazyOption { storage_key: [109], cached_value: None }"
+                "LazyOption { storage_key: [109], cache: None }"
             );
         }
     }

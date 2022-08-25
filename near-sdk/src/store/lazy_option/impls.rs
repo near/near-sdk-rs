@@ -41,7 +41,7 @@ where
         } else {
             f.debug_struct("LazyOption")
                 .field("storage_key", &self.storage_key)
-                .field("cached_value", &self.cache.get().map(|v| v.value()))
+                .field("cache", &self.cache.get())
                 .finish()
         }
     }

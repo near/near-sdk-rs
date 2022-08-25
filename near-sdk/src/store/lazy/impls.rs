@@ -100,7 +100,7 @@ where
         } else {
             f.debug_struct("Lazy")
                 .field("storage_key", &self.storage_key)
-                .field("cached_value", &self.cache.get().and_then(|v| v.value().as_ref()))
+                .field("cache", &self.cache.get())
                 .finish()
         }
     }

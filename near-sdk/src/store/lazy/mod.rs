@@ -181,11 +181,16 @@ mod tests {
 
     #[test]
     pub fn test_debug() {
-        let lazy = Lazy::new(b"m", 8u8);
+        let mut lazy = Lazy::new(b"m", 8u8);
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy), "8");
         } else {
-            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cached_value: Some(8) }");
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Modified }) }");
+        }
+
+        lazy.flush();
+        if !cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Cached }) }");
         }
 
         // Serialize and deserialize to simulate storing and loading.
@@ -195,7 +200,7 @@ mod tests {
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy), "8");
         } else {
-            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cached_value: None }");
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: None }");
         }
     }
 }
