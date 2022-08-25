@@ -1,5 +1,5 @@
 {
-  "abi_schema_version": "0.1.0",
+  "schema_version": "0.1.0",
   "metadata": {
     "name": "abi",
     "version": "0.1.0",
@@ -7,7 +7,7 @@
       "Near Inc <hello@nearprotocol.com>"
     ]
   },
-  "abi": {
+  "body": {
     "functions": [
       {
         "name": "add",

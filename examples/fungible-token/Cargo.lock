@@ -1310,11 +1310,13 @@ dependencies = [
 
 [[package]]
 name = "near-abi"
-version = "0.1.0"
-source = "git+https://github.com/near/near-abi-rs?rev=4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f#4844ef4ff3e5cf3c3a8aa6565c3195a2339a345f"
+version = "0.1.0-pre.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d5281adc3a63d798b0e35683dee66095cbb94e431960ec859d5a8397b093f39"
 dependencies = [
  "borsh",
  "schemars",
+ "semver",
  "serde",
 ]
 
@@ -1912,7 +1914,7 @@ dependencies = [
  "near-vm-errors 0.14.0",
  "ripemd",
  "serde",
- "sha2 0.9.9",
+ "sha2 0.10.2",
  "sha3",
  "zeropool-bn",
 ]
