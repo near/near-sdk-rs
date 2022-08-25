@@ -15,7 +15,7 @@
 //! So, accessing a single element would only load this specific element.
 //!
 //! It can be expensive to load all values into memory, and because of this, `serde`
-//! [`Serialize`](serde::Serialize) and  [`Deserialize`](serde::Deserialize) traits are
+//! [`Serialize`](serde::Serialize) and [`Deserialize`](serde::Deserialize) traits are
 //! intentionally not implemented. If you want to return all values from a storage collection from
 //! a function, consider using pagination with the collection iterators.
 //!
