@@ -32,11 +32,7 @@ wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.8", default-features = false }
 
-[dependencies.near-abi]
-git = "https://github.com/near/near-abi-rs"
-rev = "983346e8ce2a8304645a92ba7735f9a6eacceda7"
-features = ["__chunked-entries"]
-optional = true
+near-abi = { version = "0.1.0-pre.0", features = ["__chunked-entries"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # alt_bn128 feature will need to be removed on the next version update (now stabilized)
