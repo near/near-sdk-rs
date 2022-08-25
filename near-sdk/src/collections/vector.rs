@@ -7,7 +7,6 @@ use std::marker::PhantomData;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
-use crate::store::IndexMap;
 use crate::{env, IntoStorageKey};
 
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
@@ -69,7 +68,7 @@ impl<T> Vector<T> {
         crate::store::Vector {
             // Length cannot feasibly exceed u32::MAX, but checked conversion anyway.
             len: self.len.try_into().unwrap(),
-            values: IndexMap::new(self.prefix.as_slice()),
+            values: crate::store::IndexMap::new(self.prefix.as_slice()),
         }
     }
 
