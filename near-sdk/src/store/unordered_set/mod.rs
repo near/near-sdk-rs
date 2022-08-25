@@ -125,9 +125,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::UnorderedSet;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: UnorderedSet<String> = UnorderedSet::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
