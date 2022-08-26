@@ -1,11 +1,28 @@
 //! Collections and types used when interacting with storage.
 //!
-//! This module is the updated version of [`near_sdk::collections`](crate::collections) where the
-//! data structures are more optimized and have a closer API to [`std::collections`].
-//!
 //! These collections are more scalable versions of [`std::collections`] when used as contract
 //! state because it allows values to be lazily loaded and stored based on what is actually
 //! interacted with.
+//!
+//! Fundamentally, a contract's storage is a key/value store where both keys and values are just
+//! [`Vec<u8>`]. If you want to store some structured data, for example, [`Vec<Account>`], one way
+//! to achieve that would be to serialize the Vec to bytes and store that. This has a drawback in
+//! that accessing or modifying a single element would require reading the whole `Vec` from the
+//! storage.
+//!
+//! That's where `store` module helps. Its collections are backed by a key value store.
+//! For example, a store::Vector is stored as several key-value pairs, where indices are the keys.
+//! So, accessing a single element would only load this specific element.
+//!
+//! It can be expensive to load all values into memory, and because of this, `serde`
+//! [`Serialize`](serde::Serialize) and [`Deserialize`](serde::Deserialize) traits are
+//! intentionally not implemented. If you want to return all values from a storage collection from
+//! a function, consider using pagination with the collection iterators.
+//!
+//! All of the collections implement [`BorshSerialize`](borsh::BorshSerialize) and
+//! [`BorshDeserialize`](borsh::BorshDeserialize) to be able to store the metadata of the
+//! collections to be able to access all values. Because only metadata is serialized, these
+//! structures should not be used as a borsh return value from a function.
 //!
 //! The collections are as follows:
 //!

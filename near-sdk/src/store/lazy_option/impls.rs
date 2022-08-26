@@ -39,7 +39,7 @@ where
         if cfg!(feature = "expensive-debug") {
             self.get().fmt(f)
         } else {
-            f.debug_struct("LazyOption").field("storage_key", &self.storage_key).finish()
+            f.debug_struct("LazyOption").field("storage_key", &self.prefix).finish()
         }
     }
 }
