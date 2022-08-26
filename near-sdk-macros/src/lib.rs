@@ -10,7 +10,7 @@ use self::core_impl::*;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, Meta, NestedMeta};
+use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -217,7 +217,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     for attr in input.attrs {
         match attr.parse_meta() {
             // #[abi]
-            Ok(Meta::Path(meta)) if meta.is_ident("abi") => {
+            Ok(syn::Meta::Path(meta)) if meta.is_ident("abi") => {
                 return TokenStream::from(
                     syn::Error::new_spanned(
                         meta.into_token_stream(),
@@ -227,7 +227,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                 );
             }
             // #[abi(json, borsh)]
-            Ok(Meta::List(meta)) if meta.path.is_ident("abi") => {
+            Ok(syn::Meta::List(meta)) if meta.path.is_ident("abi") => {
                 // #[abi()]
                 if meta.nested.is_empty() {
                     return TokenStream::from(
@@ -258,7 +258,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                 }
             }
             // #[serde(..)], #[schemars(..)]
-            Ok(Meta::List(meta))
+            Ok(syn::Meta::List(meta))
                 if meta.path.is_ident("serde") || meta.path.is_ident("schemars") =>
             {
                 type_attrs.push(attr)
@@ -268,10 +268,38 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     }
     input.attrs = type_attrs;
 
-    let input_ident = &input.ident;
+    let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
+        attrs.retain(|attr| {
+            [
+                (json_schema, &["serde", "schemars", "validate"][..]),
+                (borsh_schema, &["borsh_skip"][..]),
+            ]
+            .iter()
+            .any(|&(case, paths)| case && paths.iter().any(|path| attr.path.is_ident(path)))
+        });
+    };
 
-    // todo! proxy field and variant attributes
-    // todo! serde, validate, borsh_skip
+    match &mut input.data {
+        syn::Data::Struct(data) => {
+            for field in &mut data.fields {
+                strip_unknown_attr(&mut field.attrs);
+            }
+        }
+        syn::Data::Enum(data) => {
+            for variant in &mut data.variants {
+                strip_unknown_attr(&mut variant.attrs);
+                for field in &mut variant.fields {
+                    strip_unknown_attr(&mut field.attrs);
+                }
+            }
+        }
+        syn::Data::Union(_) => {
+            return TokenStream::from(
+                syn::Error::new(Span::call_site(), "Near schema does not support unions yet.")
+                    .to_compile_error(),
+            );
+        }
+    }
 
     let derive = match (json_schema, borsh_schema) {
         // <unspecified> or #[abi(json)]
@@ -287,6 +315,8 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
             #[derive(schemars::JsonSchema, borsh::BorshSchema)]
         },
     };
+
+    let input_ident = &input.ident;
 
     let json_impl = if json_schema {
         quote! {
