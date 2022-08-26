@@ -8,7 +8,9 @@ use proc_macro::TokenStream;
 
 use self::core_impl::*;
 use proc_macro2::Span;
-use quote::{quote, ToTokens};
+use quote::quote;
+#[cfg(feature = "abi")]
+use quote::ToTokens;
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
