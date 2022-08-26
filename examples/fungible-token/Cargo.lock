@@ -1309,6 +1309,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-abi"
+version = "0.1.0-pre.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d5281adc3a63d798b0e35683dee66095cbb94e431960ec859d5a8397b093f39"
+dependencies = [
+ "borsh",
+ "schemars",
+ "semver",
+ "serde",
+]
+
+[[package]]
 name = "near-account-id"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1401,7 +1413,7 @@ dependencies = [
 
 [[package]]
 name = "near-contract-standards"
-version = "4.1.0-pre.1"
+version = "4.1.0-pre.2"
 dependencies = [
  "near-sdk",
  "schemars",
@@ -1783,11 +1795,12 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "4.1.0-pre.1"
+version = "4.1.0-pre.2"
 dependencies = [
  "base64 0.13.0",
  "borsh",
  "bs58",
+ "near-abi",
  "near-crypto 0.14.0",
  "near-primitives 0.14.0",
  "near-primitives-core 0.14.0",
@@ -1803,7 +1816,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "4.1.0-pre.1"
+version = "4.1.0-pre.2"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -1901,7 +1914,7 @@ dependencies = [
  "near-vm-errors 0.14.0",
  "ripemd",
  "serde",
- "sha2 0.9.9",
+ "sha2 0.10.2",
  "sha3",
  "zeropool-bn",
 ]

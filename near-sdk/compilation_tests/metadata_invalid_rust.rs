@@ -1,5 +1,7 @@
-use near_sdk::{near_bindgen, metadata};
+#![allow(unused_imports)]
+
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::{metadata, near_bindgen};
 metadata! {
 FOOBAR
 
