@@ -54,8 +54,11 @@ hex = { version = "0.4.3", features = ["serde"] }
 default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = []
-abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
+abi = ["near-abi", "schemars"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+
+__abi-embed = ["near-sdk-macros/__abi-embed"]
+__abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 [package.metadata.docs.rs]
 features = ["unstable"]
