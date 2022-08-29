@@ -128,7 +128,10 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
-    /// Create a new map. Use `key_prefix` as a unique prefix for keys.
+    /// Create a new [`LookupMap`] with the prefix provided.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     ///
     /// # Examples
     ///

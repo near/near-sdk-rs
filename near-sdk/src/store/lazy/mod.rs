@@ -76,6 +76,11 @@ impl<T> Lazy<T>
 where
     T: BorshSerialize,
 {
+    /// Initializes new lazily loaded value with a given storage prefix and the value to initialize
+    /// it with.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     pub fn new<S>(key: S, value: T) -> Self
     where
         S: IntoStorageKey,

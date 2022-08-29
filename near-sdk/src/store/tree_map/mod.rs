@@ -146,6 +146,10 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
+    /// Initialize new [`TreeMap`] with the prefix provided.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
