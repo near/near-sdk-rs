@@ -71,7 +71,8 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(value))
-                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"));
+                // Cache is checked to not be filled in if statement above
+                .unwrap_or_else(|_| env::abort());
         }
     }
 
@@ -167,14 +168,33 @@ mod tests {
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "None");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cache: Some(CacheEntry { value: None, state: Cached }) }"
+            );
         }
 
-        lazy_option.set(Some(1u64));
+        *lazy_option = Some(1u8);
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "Some(1)");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cache: Some(CacheEntry { value: Some(1), state: Modified }) }"
+            );
+        }
+
+        // Serialize and deserialize to simulate storing and loading.
+        let serialized = borsh::to_vec(&lazy_option).unwrap();
+        drop(lazy_option);
+        let lazy_option = LazyOption::<u8>::try_from_slice(&serialized).unwrap();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "Some(1)");
+        } else {
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cache: None }"
+            );
         }
     }
 }
