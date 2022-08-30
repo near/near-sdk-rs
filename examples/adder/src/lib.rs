@@ -54,15 +54,16 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn embedded_abi_test() -> anyhow::Result<()> {
-        let wasm = fs::read("res/abi.wasm").await?;
+        let wasm = fs::read("res/adder.wasm").await?;
         let worker = workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         let res = contract.view(&worker, "__contract_abi", vec![]).await?;
-        let abi_root = serde_json::from_slice::<AbiRoot>(&res.result).unwrap();
+
+        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();
 
         assert_eq!(abi_root.schema_version, "0.1.0");
-        assert_eq!(abi_root.metadata.name, Some("abi".to_string()));
+        assert_eq!(abi_root.metadata.name, Some("adder".to_string()));
         assert_eq!(abi_root.metadata.version, Some("0.1.0".to_string()));
         assert_eq!(
             &abi_root.metadata.authors[..],
