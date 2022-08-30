@@ -9,7 +9,7 @@ pub fn embed() -> TokenStream2 {
                 compile_error!(
                     "the `__abi-embed` feature flag is private and should not be activated manually\n\
                     \n\
-                    help\x1b[0m: consider installing https://github.com/near/cargo-near"
+                    help\x1b[0m: consider using https://github.com/near/cargo-near"
                 );
             };
         }
