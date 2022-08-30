@@ -40,7 +40,7 @@ where
             self.get().fmt(f)
         } else {
             f.debug_struct("LazyOption")
-                .field("storage_key", &self.storage_key)
+                .field("storage_key", &self.prefix)
                 .field("cache", &self.cache.get())
                 .finish()
         }
