@@ -1,9 +1,5 @@
 name: Test Core
-on:
-  push:
-    branches:
-      - master
-  pull_request:
+on: [ push ]
 env:
   RUSTFLAGS: -D warnings
 jobs:
