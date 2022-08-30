@@ -1,15 +1,17 @@
-use proc_macro2::{Span, TokenStream as TokenStream2};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
 pub fn embed() -> TokenStream2 {
     let abi_path = match option_env!("CARGO_NEAR_ABI_PATH") {
         Some(path) => path,
         None => {
-            return syn::Error::new(
-                Span::call_site(),
-                "CARGO_NEAR_ABI_PATH environment variable is not set",
-            )
-            .to_compile_error()
+            return quote! {
+                compile_error!(
+                    "the `__abi-embed` feature flag is private and should not be activated manually\n\
+                    \n\
+                    help\x1b[0m: consider installing https://github.com/near/cargo-near"
+                );
+            };
         }
     };
     quote! {
