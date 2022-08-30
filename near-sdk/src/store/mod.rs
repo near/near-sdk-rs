@@ -51,10 +51,10 @@
 //!
 //! Basic Types:
 //!
-//! - [`Lazy<T>`](Lazy) (`unstable`): Lazily loaded type that can be used in place of a type `T`.
+//! - [`Lazy<T>`](Lazy): Lazily loaded type that can be used in place of a type `T`.
 //! Will only be loaded when interacted with and will persist on [`Drop`].
 //!
-//! - [`LazyOption<T>`](LazyOption) (`unstable`): Lazily loaded, optional type that can be used in
+//! - [`LazyOption<T>`](LazyOption): Lazily loaded, optional type that can be used in
 //! place of a type [`Option<T>`](Option). Will only be loaded when interacted with and will
 //! persist on [`Drop`].
 

@@ -9,6 +9,7 @@ mod impls;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
+use crate::collections::ERR_INCONSISTENT_STATE;
 use crate::env;
 use crate::utils::{CacheEntry, EntryState};
 use crate::IntoStorageKey;
@@ -16,15 +17,13 @@ use crate::IntoStorageKey;
 const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 const ERR_NOT_FOUND: &str = "No value found for the given key";
-const ERR_DELETED: &str = "The Lazy cell's value has been deleted. Verify the key has not been\
-                            deleted manually.";
 
 fn expect_key_exists<T>(val: Option<T>) -> T {
     val.unwrap_or_else(|| env::panic_str(ERR_NOT_FOUND))
 }
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_str(ERR_DELETED))
+    val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
 }
 
 pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
