@@ -54,6 +54,24 @@ impl<T> Vector<T> {
         Self { len: 0, prefix: prefix.into_storage_key(), el: PhantomData }
     }
 
+    /// Helper utility to be able to easily migrate to the new [`Vector`] implementation.
+    ///
+    /// This new [`Vector`]'s API matches the Rust [`Vec`] API more closely and has a caching
+    /// layer to avoid reading/writing redundant times to storage.
+    ///
+    /// [`Vector`]: crate::store::Vector
+    #[cfg(feature = "unstable")]
+    pub fn to_v2(&self) -> crate::store::Vector<T>
+    where
+        T: BorshSerialize,
+    {
+        crate::store::Vector {
+            // Length cannot feasibly exceed u32::MAX, but checked conversion anyway.
+            len: self.len.try_into().unwrap(),
+            values: crate::store::IndexMap::new(self.prefix.as_slice()),
+        }
+    }
+
     fn index_to_lookup_key(&self, index: u64) -> Vec<u8> {
         append_slice(&self.prefix, &index.to_le_bytes()[..])
     }

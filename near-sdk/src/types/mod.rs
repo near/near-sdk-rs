@@ -36,7 +36,7 @@ pub type CryptoHash = [u8; 32];
 /// using up all remaining available gas.
 ///
 /// [`promise_batch_action_function_call_weight`]: `crate::env::promise_batch_action_function_call_weight`
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct GasWeight(pub u64);
 

@@ -115,8 +115,8 @@ pub struct Vector<T>
 where
     T: BorshSerialize,
 {
-    len: u32,
-    values: IndexMap<T>,
+    pub(crate) len: u32,
+    pub(crate) values: IndexMap<T>,
 }
 
 //? Manual implementations needed only because borsh derive is leaking field types
@@ -198,7 +198,8 @@ where
 
     /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
     ///
-    /// This prefix can be anything that implements [`IntoStorageKey`].
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     ///
     /// # Examples
     ///
@@ -246,6 +247,10 @@ where
 
     /// Sets a value at a given index to the value provided. This does not shift values after the
     /// index to the right.
+    ///
+    /// The reason to use this over modifying with [`Vector::get_mut`] or
+    /// [`IndexMut::index_mut`](core::ops::IndexMut::index_mut) is to avoid loading the existing
+    /// value from storage. This method will just write the new value.
     ///
     /// # Panics
     ///

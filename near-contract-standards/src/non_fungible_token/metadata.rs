@@ -7,7 +7,8 @@ use near_sdk::serde::{Deserialize, Serialize};
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
 /// Metadata for the NFT contract itself.
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct NFTContractMetadata {
     pub spec: String,              // required, essentially a version like "nft-1.0.0"
@@ -20,7 +21,8 @@ pub struct NFTContractMetadata {
 }
 
 /// Metadata on the individual token level.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, BorshDeserialize, BorshSerialize)]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
     pub title: Option<String>, // ex. "Arch Nemesis: Mail Carrier" or "Parcel #5055"

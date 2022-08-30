@@ -1,8 +1,7 @@
 #[cfg(feature = "abi")]
-mod abi;
-
+pub use near_abi::__private::ChunkedAbiEntry;
 #[cfg(feature = "abi")]
-pub use abi::{Abi, AbiFunction, AbiMetadata, AbiParameter, AbiRoot, AbiType};
+pub use near_abi::{AbiFunction, AbiParameter, AbiType};
 
 #[cfg(feature = "abi")]
 pub use schemars;

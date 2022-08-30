@@ -59,7 +59,7 @@ where
 /// *a = "new string".to_string();
 /// assert_eq!(a.get(), "new string");
 /// ```
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Lazy<T>
 where
     T: BorshSerialize,
@@ -75,6 +75,11 @@ impl<T> Lazy<T>
 where
     T: BorshSerialize,
 {
+    /// Initializes new lazily loaded value with a given storage prefix and the value to initialize
+    /// it with.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     pub fn new<S>(key: S, value: T) -> Self
     where
         S: IntoStorageKey,
@@ -176,5 +181,30 @@ mod tests {
         // A value that is not stored in storage yet and one that has not been loaded yet can
         // be checked for equality.
         assert_eq!(lazy_loaded, b);
+    }
+
+    #[test]
+    pub fn test_debug() {
+        let mut lazy = Lazy::new(b"m", 8u8);
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy), "8");
+        } else {
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Modified }) }");
+        }
+
+        lazy.flush();
+        if !cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: Some(CacheEntry { value: Some(8), state: Cached }) }");
+        }
+
+        // Serialize and deserialize to simulate storing and loading.
+        let serialized = borsh::to_vec(&lazy).unwrap();
+        drop(lazy);
+        let lazy = Lazy::<u8>::try_from_slice(&serialized).unwrap();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy), "8");
+        } else {
+            assert_eq!(format!("{:?}", lazy), "Lazy { storage_key: [109], cache: None }");
+        }
     }
 }

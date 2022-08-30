@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [4.1.0-pre.2] - 2022-08-26
+
+### Added
+- Support newly stabilized `alt_bn128` host functions that were recently stabilized. [PR 885](https://github.com/near/near-sdk-rs/pull/885)
+- Added `Eq` implementations for various types. [PR 887](https://github.com/near/near-sdk-rs/pull/887)
+- `alt_bn128` host functions supported in testing utils. [PR 885](https://github.com/near/near-sdk-rs/pull/885)
+
+### Fixes
+- Standards: NFT storage estimation bug fix and fix retrieval requiring enum and enumeration standard implementation. [PR 843](https://github.com/near/near-sdk-rs/pull/843)
+
+### Changed
+- `near_sdk::store::Vector` stabilized. [PR 815](https://github.com/near/near-sdk-rs/pull/815)
+- [ABI](https://github.com/near/abi) primitives moved into [near-abi-rs](https://github.com/near/near-abi-rs). [PR 889](https://github.com/near/near-sdk-rs/pull/889)
+
 ## [4.1.0-pre.1] - 2022-08-05
 
 ### Added
@@ -324,7 +338,8 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.1...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.2...HEAD
+[4.1.0-pre.2]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.1...4.1.0-pre.2
 [4.1.0-pre.1]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.0...4.1.0-pre.1
 [4.1.0-pre.0]: https://github.com/near/near-sdk-rs/compare/4.0.0...4.1.0-pre.0
 [4.0.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.9...4.0.0

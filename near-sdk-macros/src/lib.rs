@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 
 use self::core_impl::*;
 use proc_macro2::Span;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::visit::Visit;
 use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 
@@ -47,35 +47,51 @@ use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
+        #[cfg(feature = "__abi-embed")]
+        let abi_embedded = abi::embed();
+        #[cfg(not(feature = "__abi-embed"))]
+        let abi_embedded = quote! {};
         TokenStream::from(quote! {
             #input
             #ext_gen
+            #abi_embedded
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
+        #[cfg(feature = "__abi-embed")]
+        let abi_embedded = abi::embed();
+        #[cfg(not(feature = "__abi-embed"))]
+        let abi_embedded = quote! {};
         TokenStream::from(quote! {
             #input
             #ext_gen
+            #abi_embedded
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-        #[cfg(not(feature = "abi"))]
-        let abi_generated = proc_macro2::TokenStream::new();
-        #[cfg(feature = "abi")]
-        let abi_generated = {
-            let mut visitor = AbiVisitor::new();
-            visitor.visit_item_impl(&input);
-            match visitor.generate_abi_function() {
-                Ok(x) => x,
-                Err(err) => return TokenStream::from(err.to_compile_error()),
-            }
-        };
-
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
                 return err.to_compile_error().into();
             }
         };
+
+        #[cfg(not(feature = "__abi-generate"))]
+        let abi_generated = quote! {};
+        #[cfg(feature = "__abi-generate")]
+        let abi_generated = abi::generate(&item_impl_info);
+
+        for method in &item_impl_info.methods {
+            if method.attr_signature_info.ident == "__contract_abi" {
+                return TokenStream::from(
+                    syn::Error::new_spanned(
+                        method.attr_signature_info.original_sig.ident.to_token_stream(),
+                        "use of reserved contract method",
+                    )
+                    .to_compile_error(),
+                );
+            }
+        }
+
         let generated_code = item_impl_info.wrapper_code();
 
         // Add wrapper methods for ext call API

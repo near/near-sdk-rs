@@ -146,6 +146,10 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
+    /// Initialize new [`TreeMap`] with the prefix provided.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -1923,7 +1927,7 @@ mod tests {
         let node = map.tree.node(root).unwrap();
         let balance = map.tree.get_balance(node);
 
-        (balance >= -1 && balance <= 1)
+        (-1..=1).contains(&balance)
             && node.lft.map(|id| is_balanced(map, id)).unwrap_or(true)
             && node.rgt.map(|id| is_balanced(map, id)).unwrap_or(true)
     }

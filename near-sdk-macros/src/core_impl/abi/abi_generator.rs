@@ -1,10 +1,39 @@
-use crate::core_impl::{utils, AttrSigInfo};
-use crate::core_impl::{BindgenArgType, SerializerType};
-use crate::{ImplItemMethodInfo, MethodType};
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::spanned::Spanned;
-use syn::{ReturnType, Type};
+use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
+
+use crate::core_impl::{
+    utils, AttrSigInfo, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
+    SerializerType,
+};
+
+pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
+    let public_functions: Vec<&ImplItemMethodInfo> =
+        i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect();
+    if public_functions.is_empty() {
+        // Short-circuit if there are no public functions to export to ABI
+        return TokenStream2::new();
+    }
+
+    let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
+    let first_function_name = &public_functions[0].attr_signature_info.ident;
+    let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
+    quote! {
+        #[cfg(not(target_arch = "wasm32"))]
+        const _: () = {
+            #[no_mangle]
+            pub fn #near_abi_symbol() -> near_sdk::__private::ChunkedAbiEntry {
+                let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
+                let functions = vec![#(#functions),*];
+                near_sdk::__private::ChunkedAbiEntry::new(
+                    functions,
+                    gen.into_root_schema_for::<String>()
+                )
+            }
+        };
+    }
+}
 
 impl ImplItemMethodInfo {
     /// Generates ABI struct for this function.
@@ -12,40 +41,46 @@ impl ImplItemMethodInfo {
     /// # Example:
     /// The following function:
     /// ```ignore
-    /// fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
+    /// /// I am a function.
+    /// pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
     /// ```
     /// will produce this struct:
     /// ```ignore
-    /// near_sdk::__private::AbiFunction {
+    /// near_abi::AbiFunction {
     ///     name: "f3".to_string(),
+    ///     doc: Some(" I am a function.".to_string()),
     ///     is_view: false,
     ///     is_init: false,
+    ///     is_payable: false,
+    ///     is_private: false,
     ///     params: vec![
-    ///         near_sdk::__private::AbiParameter {
-    ///             type_id: 0,
-    ///             serialization_type: "json",
+    ///         near_abi::AbiParameter {
+    ///             name: "arg0".to_string(),
+    ///             typ: near_abi::AbiType::Json {
+    ///                 type_schema: gen.subschema_for::<FancyStruct>(),
+    ///             },
     ///         },
-    ///         near_sdk::__private::AbiParameter {
-    ///             type_id: 1,
-    ///             serialization_type: "json",
+    ///         near_abi::AbiParameter {
+    ///             name: "arg1".to_string(),
+    ///             typ: near_abi::AbiType::Json {
+    ///                 type_schema: gen.subschema_for::<u64>(),
+    ///             },
     ///         }
     ///     ],
     ///     callbacks: vec![],
     ///     callbacks_vec: None,
-    ///     result: near_sdk::__private::AbiParameter {
-    ///         type_id: 2,
-    ///         serialization_type: "json",
+    ///     result: near_abi::AbiType::Json {
+    ///         type_schema: gen.subschema_for::<IsOk>(),
     ///     }
     /// }
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
         let function_name_str = self.attr_signature_info.ident.to_string();
-        let function_doc =
-            match super::doc::parse_rustdoc(&self.attr_signature_info.non_bindgen_attrs) {
-                Some(doc) => quote! { Some(#doc.to_string()) },
-                None => quote! { None },
-            };
+        let function_doc = match parse_rustdoc(&self.attr_signature_info.non_bindgen_attrs) {
+            Some(doc) => quote! { Some(#doc.to_string()) },
+            None => quote! { None },
+        };
         let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
         let is_init = matches!(
             &self.attr_signature_info.method_type,
@@ -184,5 +219,29 @@ fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream
                 type_schema: <#ty>::schema_container(),
             }
         },
+    }
+}
+
+pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
+    let doc = attrs
+        .iter()
+        .filter_map(|attr| {
+            if attr.path.is_ident("doc") {
+                if let NameValue(MetaNameValue { lit: Str(s), .. }) = attr.parse_meta().ok()? {
+                    Some(s.value())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if doc.is_empty() {
+        None
+    } else {
+        Some(doc)
     }
 }
