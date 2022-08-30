@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [4.1.0-pre.3] - 2022-08-30
+
+### Added
+- Enabled ABI embedding in contract through `__abi-embed` feature and [cargo-near](https://github.com/near/cargo-near). [PR 893](https://github.com/near/near-sdk-rs/pull/893)
+- Added `schemars::JsonSchema` implementations for `NFT` contract standard types to enable ABI generation. [PR 904](https://github.com/near/near-sdk-rs/pull/904)
+
+### Changed
+- Stabilized `store::Lazy` and `store::LazyOption` types and updated their debug implementations. [PR 897](https://github.com/near/near-sdk-rs/pull/897) [PR 888](https://github.com/near/near-sdk-rs/pull/888)
+
 ## [4.1.0-pre.2] - 2022-08-26
 
 ### Added
@@ -338,7 +347,8 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.2...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.3...HEAD
+[4.1.0-pre.3]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.2...4.1.0-pre.3
 [4.1.0-pre.2]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.1...4.1.0-pre.2
 [4.1.0-pre.1]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.0...4.1.0-pre.1
 [4.1.0-pre.0]: https://github.com/near/near-sdk-rs/compare/4.0.0...4.1.0-pre.0
