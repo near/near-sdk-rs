@@ -9,21 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
-name = "abi"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "near-abi",
- "near-sdk",
- "schemars",
- "serde",
- "serde_json",
- "tokio",
- "workspaces",
- "zstd",
-]
-
-[[package]]
 name = "actix"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -66,6 +51,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "adder"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "near-abi",
+ "near-sdk",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+ "workspaces",
+ "zstd",
 ]
 
 [[package]]
