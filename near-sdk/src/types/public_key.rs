@@ -159,6 +159,17 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     }
 }
 
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for PublicKey {
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
+    }
+}
+
 impl From<&PublicKey> for String {
     fn from(str_public_key: &PublicKey) -> Self {
         match str_public_key.curve_type() {

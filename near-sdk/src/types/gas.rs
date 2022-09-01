@@ -55,6 +55,17 @@ impl<'de> Deserialize<'de> for Gas {
     }
 }
 
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for Gas {
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
+    }
+}
+
 impl From<u64> for Gas {
     fn from(amount: u64) -> Self {
         Self(amount)
