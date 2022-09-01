@@ -42,6 +42,10 @@ impl<'de> de::Deserialize<'de> for Base58CryptoHash {
 
 #[cfg(feature = "abi")]
 impl schemars::JsonSchema for Base58CryptoHash {
+    fn is_referenceable() -> bool {
+        false
+    }
+
     fn schema_name() -> String {
         String::schema_name()
     }

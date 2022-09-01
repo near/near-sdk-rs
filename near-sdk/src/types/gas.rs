@@ -57,6 +57,10 @@ impl<'de> Deserialize<'de> for Gas {
 
 #[cfg(feature = "abi")]
 impl schemars::JsonSchema for Gas {
+    fn is_referenceable() -> bool {
+        false
+    }
+
     fn schema_name() -> String {
         String::schema_name()
     }

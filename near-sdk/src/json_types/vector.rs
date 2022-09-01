@@ -19,6 +19,10 @@ impl From<Base64VecU8> for Vec<u8> {
 
 #[cfg(feature = "abi")]
 impl schemars::JsonSchema for Base64VecU8 {
+    fn is_referenceable() -> bool {
+        false
+    }
+
     fn schema_name() -> String {
         String::schema_name()
     }

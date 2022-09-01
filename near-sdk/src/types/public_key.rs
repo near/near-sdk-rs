@@ -161,6 +161,10 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
 
 #[cfg(feature = "abi")]
 impl schemars::JsonSchema for PublicKey {
+    fn is_referenceable() -> bool {
+        false
+    }
+
     fn schema_name() -> String {
         String::schema_name()
     }
