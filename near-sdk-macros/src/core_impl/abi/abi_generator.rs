@@ -18,7 +18,7 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
 
     let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
     let first_function_name = &public_functions[0].attr_signature_info.ident;
-    let near_abi_symbol = format_ident!("__near_abi_{}", &first_function_name);
+    let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
@@ -26,7 +26,10 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
             pub fn #near_abi_symbol() -> near_sdk::__private::ChunkedAbiEntry {
                 let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
-                near_sdk::__private::ChunkedAbiEntry::new(functions, gen.into_root_schema_for::<String>())
+                near_sdk::__private::ChunkedAbiEntry::new(
+                    functions,
+                    gen.into_root_schema_for::<String>()
+                )
             }
         };
     }

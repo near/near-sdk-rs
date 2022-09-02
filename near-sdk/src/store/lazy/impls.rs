@@ -89,3 +89,19 @@ where
         Self::get_mut(self)
     }
 }
+
+impl<T> std::fmt::Debug for Lazy<T>
+where
+    T: std::fmt::Debug + BorshSerialize + BorshDeserialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if cfg!(feature = "expensive-debug") {
+            self.get().fmt(f)
+        } else {
+            f.debug_struct("Lazy")
+                .field("storage_key", &self.storage_key)
+                .field("cache", &self.cache.get())
+                .finish()
+        }
+    }
+}
