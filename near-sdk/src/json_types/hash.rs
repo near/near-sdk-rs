@@ -40,6 +40,21 @@ impl<'de> de::Deserialize<'de> for Base58CryptoHash {
     }
 }
 
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for Base58CryptoHash {
+    fn is_referenceable() -> bool {
+        false
+    }
+
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
+    }
+}
+
 impl From<&Base58CryptoHash> for String {
     fn from(hash: &Base58CryptoHash) -> Self {
         bs58::encode(&hash.0).into_string()

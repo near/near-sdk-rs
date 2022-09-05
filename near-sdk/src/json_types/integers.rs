@@ -11,7 +11,6 @@ macro_rules! impl_str_type {
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
         )]
-        #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {
@@ -48,6 +47,21 @@ macro_rules! impl_str_type {
                     str::parse::<$ty>(&s)
                         .map_err(|err| serde::de::Error::custom(err.to_string()))?,
                 ))
+            }
+        }
+
+        #[cfg(feature = "abi")]
+        impl schemars::JsonSchema for $iden {
+            fn is_referenceable() -> bool {
+                false
+            }
+
+            fn schema_name() -> String {
+                String::schema_name()
+            }
+
+            fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+                String::json_schema(gen)
             }
         }
     };
