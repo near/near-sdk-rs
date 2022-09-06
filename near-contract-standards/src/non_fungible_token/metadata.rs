@@ -14,9 +14,13 @@ pub struct NFTContractMetadata {
     pub spec: String,              // required, essentially a version like "nft-1.0.0"
     pub name: String,              // required, ex. "Mosaics"
     pub symbol: String,            // required, ex. "MOSIAC"
+    #[serde(default)]
     pub icon: Option<String>,      // Data URL
+    #[serde(default)]
     pub base_uri: Option<String>, // Centralized gateway known to have reliable access to decentralized storage assets referenced by `reference` or `media` URLs
+    #[serde(default)]
     pub reference: Option<String>, // URL to a JSON file with more info
+    #[serde(default)]
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 }
 
@@ -25,17 +29,29 @@ pub struct NFTContractMetadata {
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
+    #[serde(default)]
     pub title: Option<String>, // ex. "Arch Nemesis: Mail Carrier" or "Parcel #5055"
+    #[serde(default)]
     pub description: Option<String>, // free-form description
+    #[serde(default)]
     pub media: Option<String>, // URL to associated media, preferably to decentralized, content-addressed storage
+    #[serde(default)]
     pub media_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of content referenced by the `media` field. Required if `media` is included.
+    #[serde(default)]
     pub copies: Option<u64>, // number of copies of this set of metadata in existence when token was minted.
+    #[serde(default)]
     pub issued_at: Option<String>, // ISO 8601 datetime when token was issued or minted
+    #[serde(default)]
     pub expires_at: Option<String>, // ISO 8601 datetime when token expires
+    #[serde(default)]
     pub starts_at: Option<String>, // ISO 8601 datetime when token starts being valid
+    #[serde(default)]
     pub updated_at: Option<String>, // ISO 8601 datetime when token was last updated
+    #[serde(default)]
     pub extra: Option<String>, // anything extra the NFT wants to store on-chain. Can be stringified JSON.
+    #[serde(default)]
     pub reference: Option<String>, // URL to an off-chain JSON file with more info.
+    #[serde(default)]
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 }
 

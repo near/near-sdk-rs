@@ -12,8 +12,11 @@ pub struct FungibleTokenMetadata {
     pub spec: String,
     pub name: String,
     pub symbol: String,
+    #[serde(default)]
     pub icon: Option<String>,
+    #[serde(default)]
     pub reference: Option<String>,
+    #[serde(default)]
     pub reference_hash: Option<Base64VecU8>,
     pub decimals: u8,
 }
