@@ -11,11 +11,11 @@ pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct NFTContractMetadata {
-    pub spec: String,              // required, essentially a version like "nft-1.0.0"
-    pub name: String,              // required, ex. "Mosaics"
-    pub symbol: String,            // required, ex. "MOSIAC"
+    pub spec: String,   // required, essentially a version like "nft-1.0.0"
+    pub name: String,   // required, ex. "Mosaics"
+    pub symbol: String, // required, ex. "MOSIAC"
     #[serde(default)]
-    pub icon: Option<String>,      // Data URL
+    pub icon: Option<String>, // Data URL
     #[serde(default)]
     pub base_uri: Option<String>, // Centralized gateway known to have reliable access to decentralized storage assets referenced by `reference` or `media` URLs
     #[serde(default)]
