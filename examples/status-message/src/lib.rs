@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, log, metadata, near_bindgen, AccountId};
+use near_sdk::{env, log, near_bindgen, AccountId};
 use std::collections::HashMap;
 
 #[near_bindgen]
