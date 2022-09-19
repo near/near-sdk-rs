@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Removed
+- Deleted `metadata` macro. Use https://github.com/near/abi instead. [PR 920](https://github.com/near/near-sdk-rs/pull/920)
+
 ## [4.1.0-pre.3] - 2022-08-30
 
 ### Added
