@@ -65,7 +65,7 @@ impl TryFrom<String> for Base58CryptoHash {
     type Error = ParseCryptoHashError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
+        value.parse()
     }
 }
 
@@ -73,7 +73,7 @@ impl TryFrom<&str> for Base58CryptoHash {
     type Error = ParseCryptoHashError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(value.parse()?)
+        value.parse()
     }
 }
 
