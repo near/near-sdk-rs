@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Removed
+- Deleted `metadata` macro. Use https://github.com/near/abi instead. [PR 920](https://github.com/near/near-sdk-rs/pull/920)
+
 ### Fixes
 - Updated the associated error type for `Base58CryptoHash` parsing through `TryFrom` to concrete type. [PR 919](https://github.com/near/near-sdk-rs/pull/919)
 

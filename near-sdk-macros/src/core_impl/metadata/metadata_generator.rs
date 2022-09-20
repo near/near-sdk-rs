@@ -33,7 +33,7 @@ impl ImplItemMethodInfo {
     /// }
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
-    pub fn metadata_struct(&self) -> TokenStream2 {
+    pub(crate) fn metadata_struct(&self) -> TokenStream2 {
         let method_name_str = self.attr_signature_info.ident.to_string();
         let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
         let is_init = matches!(
