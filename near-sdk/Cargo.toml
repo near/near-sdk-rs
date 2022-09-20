@@ -51,9 +51,10 @@ arbitrary = { version = ">=1.0, <1.1.4", features = ["derive"] }
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
-default = ["wee_alloc", "unit-testing"]
+default = ["wee_alloc", "unit-testing", "legacy"]
 expensive-debug = []
 unstable = []
+legacy = []
 abi = ["near-abi", "schemars"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
@@ -61,4 +62,4 @@ __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 [package.metadata.docs.rs]
-features = ["unstable"]
+features = ["unstable", "legacy"]
