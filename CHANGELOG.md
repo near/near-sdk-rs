@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Added new `legacy` feature flag and put `near_sdk::collections` under it. `near_sdk::store` will be replacing them. [PR 923](https://github.com/near/near-sdk-rs/pull/923).
+
 ### Removed
 - Deleted `metadata` macro. Use https://github.com/near/abi instead. [PR 920](https://github.com/near/near-sdk-rs/pull/920)
 
