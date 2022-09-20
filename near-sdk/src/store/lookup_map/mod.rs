@@ -32,7 +32,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// ```
 /// use near_sdk::store::LookupMap;
 ///
-/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Sha256>`
+/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Identity>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
 /// let mut map = LookupMap::new(b"a");
 ///
