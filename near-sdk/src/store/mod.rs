@@ -32,11 +32,11 @@
 //!
 //! Maps:
 //!
-//! - [`LookupMap`] (`unstable`): Wrapper around key-value storage interactions, similar to
+//! - [`LookupMap`]: Wrapper around key-value storage interactions, similar to
 //! [`UnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
 //! iterated over.
 //!
-//! - [`UnorderedMap`] (`unstable`): Storage version of [`std::collections::HashMap`]. No ordering
+//! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //! guarantees.
 //!
 //! - [`TreeMap`] (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
