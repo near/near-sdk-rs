@@ -116,6 +116,18 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
 }
 
 impl AttrSigInfo {
+    fn is_view(sig: &Signature) -> bool {
+        let receiver_opt = sig.inputs.iter().find_map(|arg| match arg {
+            FnArg::Receiver(r) => Some(r),
+            _ => None,
+        });
+
+        match receiver_opt {
+            Some(receiver) => receiver.reference.is_none() || receiver.mutability.is_none(),
+            None => true,
+        }
+    }
+
     pub fn new(
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
@@ -140,18 +152,14 @@ impl AttrSigInfo {
         }
 
         // Run early checks to determine the method type
-        let mut visitor: Box<dyn BindgenVisitor> = if original_attrs
-            .iter()
-            .any(|a| a.path.to_token_stream().to_string() == "init")
-        {
-            Box::new(InitVisitor::default())
-        } else if original_sig.inputs.iter().any(
-            |i| matches!(i, FnArg::Receiver(r) if r.reference.is_none() || r.mutability.is_none()),
-        ) {
-            Box::new(ViewVisitor::default())
-        } else {
-            Box::new(CallVisitor::default())
-        };
+        let mut visitor: Box<dyn BindgenVisitor> =
+            if original_attrs.iter().any(|a| a.path.to_token_stream().to_string() == "init") {
+                Box::new(InitVisitor::default())
+            } else if Self::is_view(original_sig) {
+                Box::new(ViewVisitor::default())
+            } else {
+                Box::new(CallVisitor::default())
+            };
 
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];

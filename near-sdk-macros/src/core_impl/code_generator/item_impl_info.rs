@@ -805,4 +805,21 @@ mod tests {
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
+
+    #[test]
+    fn handle_no_self() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = syn::parse_str("pub fn method() { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                Hello::method();
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 }
