@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixes
+- Updated the associated error type for `Base58CryptoHash` parsing through `TryFrom` to concrete type. [PR 919](https://github.com/near/near-sdk-rs/pull/919)
+
 ## [4.1.0-pre.3] - 2022-08-30
 
 ### Added
