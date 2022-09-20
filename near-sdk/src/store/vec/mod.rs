@@ -403,7 +403,7 @@ where
     /// ```
     pub fn pop(&mut self) -> Option<T> {
         let new_idx = self.len.checked_sub(1)?;
-        let prev = self.values.get_mut_inner(new_idx).replace(None);
+        let prev = self.values.remove(new_idx);
         self.len = new_idx;
         prev
     }
@@ -426,8 +426,6 @@ where
     ///
     /// assert_eq!(vec.get(0), Some(&"replaced".to_string()));
     /// ```
-    // TODO determine if this should be stabilized, included for backwards compat with old version
-    #[cfg(feature = "unstable")]
     pub fn replace(&mut self, index: u32, element: T) -> T {
         if index >= self.len {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
