@@ -1,6 +1,9 @@
 //! Collections that offer an alternative to standard containers from `std::collections::*` by
 //! utilizing the underlying blockchain trie storage more efficiently.
 //!
+//! The updated version of this module lives in [`near_sdk::store`](crate::store),
+//! where the data structures are more optimized and have a closer API to [`std::collections`].
+//!
 //! For example, the following smart contract does not work with state efficiently, because it will
 //! load the entire `HashMap` at the beginning of the contract call, and will save it entirely at
 //! the end, in cases when there is state modification. This is fine for small number of elements,
@@ -59,7 +62,7 @@ pub use lazy_option::LazyOption;
 mod tree_map;
 pub use tree_map::TreeMap;
 
-pub const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+pub const ERR_INCONSISTENT_STATE: &str = "The collection is in an inconsistent state. Have any collections been updated without committing changes to contract state?";
 pub const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh.";
 pub const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element with Borsh.";
 

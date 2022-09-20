@@ -60,6 +60,10 @@ impl<T> LookupSet<T, Identity>
 where
     T: BorshSerialize + Ord,
 {
+    /// Initialize new [`LookupSet`] with the prefix provided.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where

@@ -22,7 +22,7 @@ use std::fmt;
 /// [`BorshDeserialize`] trait.
 ///
 /// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
-/// element using the set's [`CryptoHasher`] implementation.
+/// element using the set's [`ToKey`] implementation.
 ///
 /// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
@@ -79,6 +79,7 @@ use std::fmt;
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
+/// [`LookupSet`]: crate::store::LookupSet
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct UnorderedSet<T, H = Sha256>
 where
@@ -116,6 +117,18 @@ impl<T> UnorderedSet<T, Sha256>
 where
     T: BorshSerialize + Ord,
 {
+    /// Create a new iterable set. Use `prefix` as a unique prefix for keys.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedSet;
+    ///
+    /// let mut map: UnorderedSet<String> = UnorderedSet::new(b"b");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where

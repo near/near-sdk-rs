@@ -561,7 +561,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "4.1.0-pre.1"
+version = "4.1.0-pre.3"
 dependencies = [
  "base64 0.13.0",
  "borsh",
@@ -572,6 +572,7 @@ dependencies = [
  "near-sdk-macros",
  "near-sys",
  "near-vm-logic",
+ "once_cell",
  "serde",
  "serde_json",
  "wee_alloc",
@@ -579,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "4.1.0-pre.1"
+version = "4.1.0-pre.3"
 dependencies = [
  "Inflector",
  "proc-macro2",
