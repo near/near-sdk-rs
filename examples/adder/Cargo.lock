@@ -58,7 +58,7 @@ name = "adder"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "near-abi",
+ "near-abi 0.1.0-pre.0",
  "near-sdk",
  "schemars",
  "serde",
@@ -1289,6 +1289,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-abi"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85f9816032a8688b52e2e0e51e1a5513e7e05310eb2eebe1d913fcf82be1e1d7"
+dependencies = [
+ "borsh",
+ "schemars",
+ "semver",
+ "serde",
+]
+
+[[package]]
 name = "near-account-id"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1530,7 +1542,7 @@ dependencies = [
  "base64 0.13.0",
  "borsh",
  "bs58",
- "near-abi",
+ "near-abi 0.2.0",
  "near-crypto",
  "near-primitives",
  "near-primitives-core",
