@@ -1,2 +1,2 @@
-pub mod metadata_generator;
-pub mod metadata_visitor;
+pub(crate) mod metadata_generator;
+pub(crate) mod metadata_visitor;
