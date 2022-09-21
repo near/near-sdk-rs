@@ -2,7 +2,9 @@
 use near_sdk::json_types::U128;
 use near_sdk::ONE_YOCTO;
 use near_units::parse_near;
-use workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
+use workspaces::{Account, AccountId, Contract,DevNetwork, Worker};
+use workspaces::operations::Function;
+use workspaces::result::ValueOrReceiptId;
 
 async fn register_user(
     contract: &Contract,
@@ -191,36 +193,41 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     register_user(&contract, defi_contract.id()).await?;
 
     // root invests in defi by calling `ft_transfer_call`
-    // TODO: Put two actions below into a batched transaction once workspaces supports them
     let res = contract
-        .call("ft_transfer_call")
-        .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))
-        .max_gas()
-        .deposit(ONE_YOCTO)
+        .batch()
+        .call(
+            Function::new("ft_transfer_call")
+                .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))
+                .deposit(ONE_YOCTO)
+                .gas(300_000_000_000_000 / 2)
+        )
+        .call(
+            Function::new("storage_unregister")
+                .args_json((Some(true),))
+                .deposit(ONE_YOCTO)
+                .gas(300_000_000_000_000 / 2)
+        )
         .transact()
         .await?;
     assert!(res.is_success());
-    let res = contract
-        .call("storage_unregister")
-        .args_json((Some(true),))
-        .max_gas()
-        .deposit(ONE_YOCTO)
-        .transact()
-        .await?;
-    assert!(res.is_success());
+
+    let logs = res.logs();
+    let expected = format!("Account @{} burned {}", contract.id(), 10);
+    assert!(logs.len() >= 2);
+    assert!(logs.contains(&"The account of the sender was deleted"));
+    assert!(logs.contains(&(expected.as_str())));
+
+    // TODO: replace the following manual value extraction when workspaces
+    // resolves https://github.com/near/workspaces-rs/issues/201
+    match res.receipt_outcomes()[5].clone().into_result()? {
+        ValueOrReceiptId::Value(val) => {
+            let bytes = base64::decode(&val)?;
+            let used_amount = serde_json::from_slice::<U128>(&bytes)?;
+            assert_eq!(used_amount, transfer_amount);
+        }
+        _ => panic!("Unexpected receipt id"),
+    }
     assert!(res.json::<bool>()?);
-
-    // TODO: Check callbacks once workspaces starts exposing them
-
-    // let callback_outcome = outcome.get_receipt_results().remove(1).unwrap();
-    //
-    // assert_eq!(callback_outcome.logs()[0], "The account of the sender was deleted");
-    // assert_eq!(callback_outcome.logs()[1], format!("Account @{} burned {}", root.account_id(), 10));
-    //
-    // let used_amount: U128 = callback_outcome.unwrap_json();
-    // // Sender deleted the account. Even though the returned amount was 10, it was not refunded back
-    // // to the sender, but was taken out of the receiver's balance and was burned.
-    // assert_eq!(used_amount.0, transfer_amount);
 
     let res = contract.call("ft_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?.0, transfer_amount.0 - 10);

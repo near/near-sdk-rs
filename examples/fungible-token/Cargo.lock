@@ -850,6 +850,7 @@ name = "fungible-token-wrapper"
 version = "0.0.2"
 dependencies = [
  "anyhow",
+ "base64 0.13.0",
  "defi",
  "fungible-token",
  "near-primitives 0.5.0",
