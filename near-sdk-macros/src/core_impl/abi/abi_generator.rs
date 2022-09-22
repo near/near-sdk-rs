@@ -97,13 +97,21 @@ impl ImplItemMethodInfo {
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
                 BindgenArgType::Regular => {
-                    let abi_type = generate_abi_type(typ, &arg.serializer_ty);
-                    params.push(quote! {
-                        near_sdk::__private::AbiParameter {
-                            name: #arg_name.to_string(),
-                            typ: #abi_type
-                        }
-                    });
+                    let schema = generate_schema(typ, &arg.serializer_ty);
+                    match arg.serializer_ty {
+                        SerializerType::JSON => params.push(quote! {
+                            near_sdk::__private::AbiJsonParameter {
+                                name: #arg_name.to_string(),
+                                type_schema: #schema,
+                            }
+                        }),
+                        SerializerType::Borsh => params.push(quote! {
+                            near_sdk::__private::AbiBorshParameter {
+                                name: #arg_name.to_string(),
+                                type_schema: #schema,
+                            }
+                        }),
+                    };
                 }
                 BindgenArgType::CallbackArg => {
                     callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
@@ -146,6 +154,18 @@ impl ImplItemMethodInfo {
                 }
             };
         }
+        let params = match self.attr_signature_info.input_serializer {
+            SerializerType::JSON => quote! {
+                near_sdk::__private::AbiParameters::Json {
+                    args: vec![#(#params),*]
+                }
+            },
+            SerializerType::Borsh => quote! {
+                near_sdk::__private::AbiParameters::Borsh {
+                    args: vec![#(#params),*]
+                }
+            },
+        };
         let callback_vec = callback_vec.unwrap_or(quote! { None });
 
         let result = match self.attr_signature_info.method_type {
@@ -198,7 +218,7 @@ impl ImplItemMethodInfo {
                  is_init: #is_init,
                  is_payable: #is_payable,
                  is_private: #is_private,
-                 params: vec![#(#params),*],
+                 params: #params,
                  callbacks: vec![#(#callbacks),*],
                  callbacks_vec: #callback_vec,
                  result: #result
@@ -207,16 +227,28 @@ impl ImplItemMethodInfo {
     }
 }
 
+fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
+    match serializer_type {
+        SerializerType::JSON => quote! {
+            gen.subschema_for::<#ty>()
+        },
+        SerializerType::Borsh => quote! {
+            <#ty>::schema_container()
+        },
+    }
+}
+
 fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
+    let schema = generate_schema(ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
             near_sdk::__private::AbiType::Json {
-                type_schema: gen.subschema_for::<#ty>(),
+                type_schema: #schema,
             }
         },
         SerializerType::Borsh => quote! {
             near_sdk::__private::AbiType::Borsh {
-                type_schema: <#ty>::schema_container(),
+                type_schema: #schema,
             }
         },
     }

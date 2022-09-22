@@ -205,6 +205,10 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
 // TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
 // to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
+#[deprecated(
+    since = "4.1.0",
+    note = "metadata macro is no longer used. Use https://github.com/near/abi to generate a contract schema"
+)]
 #[proc_macro]
 pub fn metadata(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<File>(item) {
