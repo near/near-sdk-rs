@@ -49,7 +49,6 @@ fn sum_pair(a: &Pair, b: &Pair) -> Pair {
 mod tests {
     use near_abi::*;
     use tokio::fs;
-    use workspaces::prelude::*;
 
     #[ignore]
     #[tokio::test]
@@ -58,9 +57,10 @@ mod tests {
         let worker = workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
-        let res = contract.view(&worker, "__contract_abi", vec![]).await?;
+        let res = contract.view("__contract_abi", vec![]).await?;
 
-        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();
+        let abi_root =
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();
 
         assert_eq!(abi_root.schema_version, "0.1.0");
         assert_eq!(abi_root.metadata.name, Some("adder".to_string()));
