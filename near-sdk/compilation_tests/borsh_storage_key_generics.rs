@@ -7,7 +7,7 @@ use near_sdk::{near_bindgen, BorshStorageKey};
 #[derive(BorshStorageKey, BorshSerialize)]
 struct StorageKeyStruct<'a, T>
 where
-    T: BorshSerialize,
+    T: BorshSerialize + ?Sized,
 {
     key: &'a T,
 }
@@ -15,7 +15,7 @@ where
 #[derive(BorshStorageKey, BorshSerialize)]
 enum StorageKeyEnum<'a, T>
 where
-    T: BorshSerialize,
+    T: BorshSerialize + ?Sized,
 {
     Accounts,
     SubAccounts { account_id: &'a T },
@@ -32,7 +32,7 @@ impl Default for Contract {
     fn default() -> Self {
         let a = "test".to_string();
         Self {
-            map1: LookupMap::new(StorageKeyStruct { key: &"bla" }),
+            map1: LookupMap::new(StorageKeyStruct { key: "bla" }),
             map2: LookupMap::new(StorageKeyEnum::SubAccounts { account_id: &a }),
         }
     }
