@@ -1,9 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, log, metadata, near_bindgen, AccountId};
-
+use near_sdk::{env, log, near_bindgen, AccountId};
 use std::collections::HashMap;
 
-metadata! {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct StatusMessage {
@@ -19,11 +17,10 @@ impl StatusMessage {
         self.records.insert(account_id, message);
     }
 
-    pub fn get_status(&self, account_id: AccountId) -> Option::<String> {
+    pub fn get_status(&self, account_id: AccountId) -> Option<String> {
         log!("get_status for account_id {}", account_id);
         self.records.get(&account_id).cloned()
     }
-}
 }
 
 #[cfg(not(target_arch = "wasm32"))]

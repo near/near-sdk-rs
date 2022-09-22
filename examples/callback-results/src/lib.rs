@@ -64,54 +64,39 @@ impl Callback {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use tokio::fs;
-    use workspaces::prelude::*;
 
     #[tokio::test]
     async fn workspaces_test() -> anyhow::Result<()> {
         let wasm = fs::read("res/callback_results.wasm").await?;
-
         let worker = workspaces::sandbox().await?;
-
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
-        let res = contract.call(&worker, "a").transact().await?;
+        let res = contract.call("a").transact().await?;
         assert_eq!(res.json::<u8>()?, 8);
 
         // Following tests the function call where the `call_all` function always succeeds and handles
         // the result of the async calls made from within the function with callbacks.
 
         // No failures
-        let res = contract
-            .call(&worker, "call_all")
-            .args_json((false, 1u8, 1u8))?
-            .gas(300_000_000_000_000)
-            .transact()
-            .await?;
+        let res =
+            contract.call("call_all").args_json((false, 1u8, 1u8)).max_gas().transact().await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, false));
 
         // Fail b
-        let res = contract
-            .call(&worker, "call_all")
-            .args_json((true, 1u8, 1u8))?
-            .gas(300_000_000_000_000)
-            .transact()
-            .await?;
+        let res =
+            contract.call("call_all").args_json((true, 1u8, 1u8)).max_gas().transact().await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (true, false, false));
 
         // Fail c
-        let res = contract
-            .call(&worker, "call_all")
-            .args_json((false, 0u8, 1u8))?
-            .gas(300_000_000_000_000)
-            .transact()
-            .await?;
+        let res =
+            contract.call("call_all").args_json((false, 0u8, 1u8)).max_gas().transact().await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (false, true, false));
 
         // Fail d
         let res = contract
-            .call(&worker, "call_all")
-            .args_json((false, 1u8, 0u8))?
+            .call("call_all")
+            .args_json((false, 1u8, 0u8))
             .gas(300_000_000_000_000)
             .transact()
             .await?;
@@ -119,8 +104,8 @@ mod tests {
 
         // Fail b and c
         let res = contract
-            .call(&worker, "call_all")
-            .args_json((true, 0u8, 1u8))?
+            .call("call_all")
+            .args_json((true, 0u8, 1u8))
             .gas(300_000_000_000_000)
             .transact()
             .await?;
@@ -128,8 +113,8 @@ mod tests {
 
         // Fail all
         let res = contract
-            .call(&worker, "call_all")
-            .args_json((true, 0u8, 0u8))?
+            .call("call_all")
+            .args_json((true, 0u8, 0u8))
             .gas(300_000_000_000_000)
             .transact()
             .await?;
