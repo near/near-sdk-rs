@@ -1310,9 +1310,9 @@ dependencies = [
 
 [[package]]
 name = "near-abi"
-version = "0.1.0-pre.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5281adc3a63d798b0e35683dee66095cbb94e431960ec859d5a8397b093f39"
+checksum = "85f9816032a8688b52e2e0e51e1a5513e7e05310eb2eebe1d913fcf82be1e1d7"
 dependencies = [
  "borsh",
  "schemars",
