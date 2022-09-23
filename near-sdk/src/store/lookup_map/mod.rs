@@ -20,7 +20,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`ToKey`] implementation.
+/// and transformed using the map's [`ToKey`] implementation.
 ///
 /// The default hash function for [`LookupMap`] is [`Identity`] which just prefixes the serialized
 /// key object and uses these bytes as the key. This is to be backwards-compatible with
