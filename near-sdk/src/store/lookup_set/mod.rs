@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 /// A non-iterable implementation of a set that stores its content directly on the storage trie.
 ///
 /// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
-/// value and transformed using the map's [`ToKey`] implementation.
+/// value and transformed using the set's [`ToKey`] implementation.
 ///
 /// The default hash function for [`LookupSet`] is [`Identity`] which just prefixes the serialized
 /// key object and uses these bytes as the key. This is to be backwards-compatible with
