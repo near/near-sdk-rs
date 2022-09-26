@@ -10,7 +10,7 @@ use self::core_impl::*;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
+use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -278,8 +278,15 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
         );
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let predicate = parse_quote!(#name #ty_generics: ::near_sdk::borsh::BorshSerialize);
+    let where_clause: WhereClause = if let Some(mut w) = where_clause.cloned() {
+        w.predicates.push(predicate);
+        parse_quote!(#w)
+    } else {
+        parse_quote!(where #predicate)
+    };
     TokenStream::from(quote! {
-        impl #impl_generics near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause #name #ty_generics: ::near_sdk::borsh::BorshSerialize  {}
+        impl #impl_generics near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause {}
     })
 }
 
