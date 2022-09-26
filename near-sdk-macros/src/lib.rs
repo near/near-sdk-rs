@@ -279,7 +279,7 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     TokenStream::from(quote! {
-        impl #impl_generics near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause {}
+        impl #impl_generics near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause #name #ty_generics: ::near_sdk::borsh::BorshSerialize  {}
     })
 }
 

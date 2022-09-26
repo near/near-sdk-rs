@@ -7,7 +7,7 @@ use near_sdk::{near_bindgen, BorshStorageKey};
 #[derive(BorshStorageKey, BorshSerialize)]
 struct StorageKeyStruct<'a, T>
 where
-    T: BorshSerialize + ?Sized,
+    T: ?Sized,
 {
     key: &'a T,
 }
@@ -15,7 +15,7 @@ where
 #[derive(BorshStorageKey, BorshSerialize)]
 enum StorageKeyEnum<'a, T>
 where
-    T: BorshSerialize + ?Sized,
+    T: ?Sized,
 {
     Accounts,
     SubAccounts { account_id: &'a T },
