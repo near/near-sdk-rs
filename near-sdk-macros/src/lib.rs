@@ -281,7 +281,7 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     let predicate = parse_quote!(#name #ty_generics: ::near_sdk::borsh::BorshSerialize);
     let where_clause: WhereClause = if let Some(mut w) = where_clause.cloned() {
         w.predicates.push(predicate);
-        parse_quote!(#w)
+        w
     } else {
         parse_quote!(where #predicate)
     };
