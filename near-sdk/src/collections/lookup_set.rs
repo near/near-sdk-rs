@@ -10,7 +10,10 @@ use crate::{env, IntoStorageKey};
 
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
-/// An non-iterable implementation of a set that stores its content directly on the trie.
+/// A non-iterable implementation of a set that stores its content directly on the storage trie.
+///
+/// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
+/// value.
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupSet<T> {
     element_prefix: Vec<u8>,
