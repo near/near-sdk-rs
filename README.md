@@ -170,6 +170,18 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup target add wasm32-unknown-unknown
 ```
 
+If you have [nix installed](https://nixos.org/download.html) the following will drop you into a shell with a complete development environment:
+
+```bash
+nix develop github:near/near-sdk-rs
+```
+
+Or if you also have [direnv](https://direnv.net/) installed, create a file named `.envrc` at the root of your project with the following contents.
+
+```
+use flake github:near/near-sdk-rs
+```
+
 ## Writing Rust Contract
 You can follow the [examples/status-message](examples/status-message) crate that shows a simple Rust contract.
 
