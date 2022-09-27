@@ -15,7 +15,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
+   return val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
 }
 
 /// An iterable implementation of vector that stores its content on the trie.
@@ -31,12 +31,12 @@ pub struct Vector<T> {
 impl<T> Vector<T> {
     /// Returns the number of elements in the vector, also referred to as its size.
     pub fn len(&self) -> u64 {
-        self.len
+        return self.len
     }
 
     /// Returns `true` if the vector contains no elements.
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+     return self.len == 0
     }
 
     /// Create new vector with zero elements. Use `id` as a unique identifier on the trie.
@@ -51,7 +51,7 @@ impl<T> Vector<T> {
     where
         S: IntoStorageKey,
     {
-        Self { len: 0, prefix: prefix.into_storage_key(), el: PhantomData }
+       return Self { len: 0, prefix: prefix.into_storage_key(), el: PhantomData };
     }
 
     /// Helper utility to be able to easily migrate to the new [`Vector`] implementation.
@@ -65,11 +65,11 @@ impl<T> Vector<T> {
     where
         T: BorshSerialize,
     {
-        crate::store::Vector {
+     return   crate::store::Vector {
             // Length cannot feasibly exceed u32::MAX, but checked conversion anyway.
             len: self.len.try_into().unwrap(),
             values: crate::store::IndexMap::new(self.prefix.as_slice()),
-        }
+        };
     }
 
     fn index_to_lookup_key(&self, index: u64) -> Vec<u8> {
@@ -82,7 +82,7 @@ impl<T> Vector<T> {
             return None;
         }
         let lookup_key = self.index_to_lookup_key(index);
-        Some(expect_consistent_state(env::storage_read(&lookup_key)))
+       return Some(expect_consistent_state(env::storage_read(&lookup_key)))
     }
 
     /// Removes an element from the vector and returns it in serialized form.
@@ -112,7 +112,7 @@ impl<T> Vector<T> {
     pub fn push_raw(&mut self, raw_element: &[u8]) {
         let lookup_key = self.index_to_lookup_key(self.len);
         self.len += 1;
-        env::storage_write(&lookup_key, raw_element);
+       return env::storage_write(&lookup_key, raw_element);
     }
 
     /// Removes the last element from a vector and returns it without deserializing, or `None` if it is empty.
