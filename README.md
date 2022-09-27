@@ -176,10 +176,14 @@ If you have [nix installed](https://nixos.org/download.html) the following will 
 nix develop github:near/near-sdk-rs
 ```
 
-Or if you also have [direnv](https://direnv.net/) installed, create a file named `.envrc` at the root of your project with the following contents.
+Or if you also have [direnv](https://direnv.net/) installed, create a file named `.envrc` at the root of your project with the following contents:
 
 ```
 use flake github:near/near-sdk-rs
+```
+and when prompted run:
+```bash
+direnv allow
 ```
 
 ## Writing Rust Contract
