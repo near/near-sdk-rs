@@ -1,4 +1,4 @@
-use syn::{GenericArgument, Path, PathArguments, Type};
+use syn::{GenericArgument, LitStr, Path, PathArguments, Type};
 
 /// Checks whether the given path is literally "Result".
 /// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
@@ -72,4 +72,25 @@ pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
         }
         _ => None,
     }
+}
+
+pub(crate) fn get_event_args(var: &syn::Variant) -> (Option<LitStr>, Option<LitStr>) {
+    let mut v: (Option<LitStr>, Option<LitStr>) = (None, None);
+    var.attrs.iter().for_each(|attr| {
+        let test = attr.parse_args_with(
+            syn::punctuated::Punctuated::<syn::MetaNameValue, syn::Token![,]>::parse_terminated,
+        );
+        if let Ok(item) = test {
+            item.iter().for_each(|kwargs| {
+                if let syn::MetaNameValue { path, lit: syn::Lit::Str(value), .. } = kwargs {
+                    if path.is_ident("standard") {
+                        v.0 = Some(value.clone());
+                    } else if path.is_ident("version") {
+                        v.1 = Some(value.clone());
+                    }
+                };
+            })
+        }
+    });
+    v
 }

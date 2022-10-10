@@ -689,40 +689,6 @@ pub fn abort() -> ! {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Event<'a> {
-    standard: &'a str,
-    version: &'a str,
-    event: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<&'a str>,
-}
-
-pub enum EventSerializationFormat {
-    JSON,
-}
-
-/// Logs an event according to NEP-297 (see https://github.com/near/NEPs/blob/master/neps/nep-0297.md). This message is stored on chain
-pub fn event(
-    standard: &str,
-    version: &str,
-    event: &str,
-    data: Option<&str>,
-    serialization_fmt: EventSerializationFormat,
-) {
-    let message = match serialization_fmt {
-        EventSerializationFormat::JSON => {
-            format!(
-                "EVENT_JSON:{}",
-                serde_json::to_string(&Event { standard, version, event, data })
-                    .unwrap_or_else(|_| String::from("Error deserializing event"))
-            )
-        }
-    };
-
-    log_str(&message);
-}
-
 /// Logs the string message message. This message is stored on chain.
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
@@ -954,6 +920,15 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_is_valid_account_id_binary() {
+        assert!(!is_valid_account_id(&[]));
+        assert!(!is_valid_account_id(&[0]));
+        assert!(!is_valid_account_id(&[0, 1]));
+        assert!(!is_valid_account_id(&[0, 1, 2]));
+        assert!(is_valid_account_id(b"near"));
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn hash_smoke_tests() {
@@ -1045,42 +1020,5 @@ mod tests {
             .signer_account_pk(key.clone())
             .build());
         assert_eq!(super::signer_account_pk(), key);
-    }
-
-    #[test]
-    fn event_tests() {
-        use crate::test_utils::get_logs;
-
-        // Event without data
-        event("nepXXX", "1.0.0", "event_name", None, EventSerializationFormat::JSON);
-
-        // Event with string data
-        let data = "Swapped 1 token_in.near for 2 token_out.near";
-        event("nepXXX", "1.0.0", "swap", Some(data), EventSerializationFormat::JSON);
-
-        // Event with json data
-        let mut data = std::collections::HashMap::new();
-        data.insert("vector", vec![1, 2, 3, 4]);
-        event(
-            "nepXXX",
-            "1.0.0",
-            "json_data_event",
-            Some(&(serde_json::to_string(&data).unwrap())),
-            EventSerializationFormat::JSON,
-        );
-
-        let logs = get_logs();
-
-        assert!(
-            logs[0] == r#"EVENT_JSON:{"standard":"nepXXX","version":"1.0.0","event":"event_name"}"#
-        );
-        assert!(
-            logs[1]
-                == r#"EVENT_JSON:{"standard":"nepXXX","version":"1.0.0","event":"swap","data":"Swapped 1 token_in.near for 2 token_out.near"}"#
-        );
-        assert!(
-            logs[2]
-                == r#"EVENT_JSON:{"standard":"nepXXX","version":"1.0.0","event":"json_data_event","data":"{\"vector\":[1,2,3,4]}"}"#
-        );
     }
 }
