@@ -1,15 +1,11 @@
 use crate::utils::{helper_mint, init};
 use near_contract_standards::non_fungible_token::Token;
 use near_sdk::json_types::U128;
-use workspaces::{Contract, DevNetwork, Worker};
+use workspaces::Contract;
 
-async fn mint_more(
-    nft_contract: &Contract,
-    worker: &Worker<impl DevNetwork>,
-) -> anyhow::Result<()> {
+async fn mint_more(nft_contract: &Contract) -> anyhow::Result<()> {
     helper_mint(
         nft_contract,
-        worker,
         "1".to_string(),
         "Black as the Night".to_string(),
         "In charcoal".to_string(),
@@ -17,7 +13,6 @@ async fn mint_more(
     .await?;
     helper_mint(
         nft_contract,
-        worker,
         "2".to_string(),
         "Hamakua".to_string(),
         "Vintage recording".to_string(),
@@ -25,7 +20,6 @@ async fn mint_more(
     .await?;
     helper_mint(
         nft_contract,
-        worker,
         "3".to_string(),
         "Aloha ke akua".to_string(),
         "Original with piano".to_string(),
@@ -39,9 +33,9 @@ async fn mint_more(
 async fn simulate_enum_total_supply() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
     let (nft_contract, _, _, _) = init(&worker).await?;
-    mint_more(&nft_contract, &worker).await?;
+    mint_more(&nft_contract).await?;
 
-    let total_supply: U128 = nft_contract.call(&worker, "nft_total_supply").view().await?.json()?;
+    let total_supply: U128 = nft_contract.call("nft_total_supply").view().await?.json()?;
     assert_eq!(total_supply, U128::from(4));
 
     Ok(())
@@ -51,20 +45,20 @@ async fn simulate_enum_total_supply() -> anyhow::Result<()> {
 async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
     let (nft_contract, _, _, _) = init(&worker).await?;
-    mint_more(&nft_contract, &worker).await?;
+    mint_more(&nft_contract).await?;
 
     // No optional args should return all
     let mut tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens")
-        .args_json((Option::<U128>::None, Option::<u64>::None))?
+        .call("nft_tokens")
+        .args_json((Option::<U128>::None, Option::<u64>::None))
         .view()
         .await?
         .json()?;
     assert_eq!(tokens.len(), 4);
     // Start at "1", with no limit arg
     tokens = nft_contract
-        .call(&worker, "nft_tokens")
-        .args_json((Some(U128::from(1)), Option::<u64>::None))?
+        .call("nft_tokens")
+        .args_json((Some(U128::from(1)), Option::<u64>::None))
         .view()
         .await?
         .json()?;
@@ -75,8 +69,8 @@ async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
 
     // Start at "2", with limit 1
     tokens = nft_contract
-        .call(&worker, "nft_tokens")
-        .args_json((Some(U128::from(2)), Some(1u64)))?
+        .call("nft_tokens")
+        .args_json((Some(U128::from(2)), Some(1u64)))
         .view()
         .await?
         .json()?;
@@ -85,8 +79,8 @@ async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
 
     // Don't specify from_index, but limit 2
     tokens = nft_contract
-        .call(&worker, "nft_tokens")
-        .args_json((Option::<U128>::None, Some(2u64)))?
+        .call("nft_tokens")
+        .args_json((Option::<U128>::None, Some(2u64)))
         .view()
         .await?
         .json()?;
@@ -104,26 +98,26 @@ async fn simulate_enum_nft_supply_for_owner() -> anyhow::Result<()> {
 
     // Get number from account with no NFTs
     let owner_num_tokens: U128 = nft_contract
-        .call(&worker, "nft_supply_for_owner")
-        .args_json((alice.id(),))?
+        .call("nft_supply_for_owner")
+        .args_json((alice.id(),))
         .view()
         .await?
         .json()?;
     assert_eq!(owner_num_tokens, U128::from(0));
 
     let owner_num_tokens: U128 = nft_contract
-        .call(&worker, "nft_supply_for_owner")
-        .args_json((nft_contract.id(),))?
+        .call("nft_supply_for_owner")
+        .args_json((nft_contract.id(),))
         .view()
         .await?
         .json()?;
     assert_eq!(owner_num_tokens, U128::from(1));
 
-    mint_more(&nft_contract, &worker).await?;
+    mint_more(&nft_contract).await?;
 
     let owner_num_tokens: U128 = nft_contract
-        .call(&worker, "nft_supply_for_owner")
-        .args_json((nft_contract.id(),))?
+        .call("nft_supply_for_owner")
+        .args_json((nft_contract.id(),))
         .view()
         .await?
         .json()?;
@@ -136,12 +130,12 @@ async fn simulate_enum_nft_supply_for_owner() -> anyhow::Result<()> {
 async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
-    mint_more(&nft_contract, &worker).await?;
+    mint_more(&nft_contract).await?;
 
     // Get tokens from account with no NFTs
     let owner_tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens_for_owner")
-        .args_json((alice.id(), Option::<U128>::None, Option::<u64>::None))?
+        .call("nft_tokens_for_owner")
+        .args_json((alice.id(), Option::<U128>::None, Option::<u64>::None))
         .view()
         .await?
         .json()?;
@@ -149,8 +143,8 @@ async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
 
     // Get tokens with no optional args
     let owner_tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens_for_owner")
-        .args_json((nft_contract.id(), Option::<U128>::None, Option::<u64>::None))?
+        .call("nft_tokens_for_owner")
+        .args_json((nft_contract.id(), Option::<U128>::None, Option::<u64>::None))
         .view()
         .await?
         .json()?;
@@ -158,8 +152,8 @@ async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
 
     // With from_index and no limit
     let owner_tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens_for_owner")
-        .args_json((nft_contract.id(), Some(U128::from(2)), Option::<u64>::None))?
+        .call("nft_tokens_for_owner")
+        .args_json((nft_contract.id(), Some(U128::from(2)), Option::<u64>::None))
         .view()
         .await?
         .json()?;
@@ -169,8 +163,8 @@ async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
 
     // With from_index and limit 1
     let owner_tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens_for_owner")
-        .args_json((nft_contract.id(), Some(U128::from(1)), Some(1u64)))?
+        .call("nft_tokens_for_owner")
+        .args_json((nft_contract.id(), Some(U128::from(1)), Some(1u64)))
         .view()
         .await?
         .json()?;
@@ -179,8 +173,8 @@ async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
 
     // No from_index but limit 3
     let owner_tokens: Vec<Token> = nft_contract
-        .call(&worker, "nft_tokens_for_owner")
-        .args_json((nft_contract.id(), Option::<U128>::None, Some(3u64)))?
+        .call("nft_tokens_for_owner")
+        .args_json((nft_contract.id(), Option::<U128>::None, Some(3u64)))
         .view()
         .await?
         .json()?;

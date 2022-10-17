@@ -2,14 +2,12 @@ use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_units::parse_near;
-use workspaces::prelude::DevAccountDeployer;
 use workspaces::{Account, Contract, DevNetwork, Worker};
 
 pub const TOKEN_ID: &str = "0";
 
 pub async fn helper_mint(
     nft_contract: &Contract,
-    worker: &Worker<impl DevNetwork>,
     token_id: TokenId,
     title: String,
     desc: String,
@@ -29,9 +27,9 @@ pub async fn helper_mint(
         reference_hash: None,
     };
     let res = nft_contract
-        .call(&worker, "nft_mint")
-        .args_json((token_id, nft_contract.id(), token_metadata))?
-        .gas(300_000_000_000_000)
+        .call("nft_mint")
+        .args_json((token_id, nft_contract.id(), token_metadata))
+        .max_gas()
         .deposit(parse_near!("7 mN"))
         .transact()
         .await?;
@@ -49,12 +47,12 @@ pub async fn init(
     worker: &Worker<impl DevNetwork>,
 ) -> anyhow::Result<(Contract, Account, Contract, Contract)> {
     let nft_contract =
-        worker.dev_deploy(&include_bytes!("../../res/non_fungible_token.wasm").to_vec()).await?;
+        worker.dev_deploy(include_bytes!("../../res/non_fungible_token.wasm")).await?;
 
     let res = nft_contract
-        .call(&worker, "new_default_meta")
-        .args_json((nft_contract.id(),))?
-        .gas(300_000_000_000_000)
+        .call("new_default_meta")
+        .args_json((nft_contract.id(),))
+        .max_gas()
         .transact()
         .await?;
     assert!(res.is_success());
@@ -74,9 +72,9 @@ pub async fn init(
         reference_hash: None,
     };
     let res = nft_contract
-        .call(&worker, "nft_mint")
-        .args_json((TOKEN_ID, nft_contract.id(), token_metadata))?
-        .gas(300_000_000_000_000)
+        .call("nft_mint")
+        .args_json((TOKEN_ID, nft_contract.id(), token_metadata))
+        .max_gas()
         .deposit(parse_near!("7 mN"))
         .transact()
         .await?;
@@ -84,7 +82,7 @@ pub async fn init(
 
     let res = nft_contract
         .as_account()
-        .create_subaccount(&worker, "alice")
+        .create_subaccount("alice")
         .initial_balance(parse_near!("10 N"))
         .transact()
         .await?;
@@ -92,21 +90,21 @@ pub async fn init(
     let alice = res.result;
 
     let token_receiver_contract =
-        worker.dev_deploy(&include_bytes!("../../res/token_receiver.wasm").to_vec()).await?;
+        worker.dev_deploy(include_bytes!("../../res/token_receiver.wasm")).await?;
     let res = token_receiver_contract
-        .call(&worker, "new")
-        .args_json((nft_contract.id(),))?
-        .gas(300_000_000_000_000)
+        .call("new")
+        .args_json((nft_contract.id(),))
+        .max_gas()
         .transact()
         .await?;
     assert!(res.is_success());
 
     let approval_receiver_contract =
-        worker.dev_deploy(&include_bytes!("../../res/approval_receiver.wasm").to_vec()).await?;
+        worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm")).await?;
     let res = approval_receiver_contract
-        .call(&worker, "new")
-        .args_json((nft_contract.id(),))?
-        .gas(300_000_000_000_000)
+        .call("new")
+        .args_json((nft_contract.id(),))
+        .max_gas()
         .transact()
         .await?;
     assert!(res.is_success());
