@@ -64,49 +64,48 @@ impl StatusMessage {
 
 ## Features
 
-### **Unit-testable.** 
+### Unit-testable
 Writing unit tests is easy with `near-sdk`:
 
-    ```rust
-    #[test]
-    fn set_get_message() {
-        let mut contract = StatusMessage::default();
-        contract.set_status("hello".to_string());
-        assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
-    }
-    ```
+```rust
+#[test]
+fn set_get_message() {
+    let mut contract = StatusMessage::default();
+    contract.set_status("hello".to_string());
+    assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
+}
+```
 
-    Run unit test the usual way:
-    ```bash
-    cargo test --package status-message
-    ```
+Run unit test the usual way:
+```bash
+cargo test --package status-message
+```
 
-### **Asynchronous cross-contract calls.**
-Asynchronous cross-contract calls allow parallel execution
-    of multiple contracts in parallel with subsequent aggregation on another contract.
-    `env` exposes the following methods:
-    * `promise_create` -- schedules an execution of a function on some contract;
-    * `promise_then` -- attaches the callback back to the current contract once the function is executed;
-    * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
-    * `promise_return` -- treats the result of execution of the promise as the result of the current function.
+### Asynchronous cross-contract calls
+Asynchronous cross-contract calls allow parallel execution of multiple contracts in parallel with subsequent aggregation on another contract. `env` exposes the following methods:
+* `promise_create` -- schedules an execution of a function on some contract;
+* `promise_then` -- attaches the callback back to the current contract once the function is executed;
+* `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
+* `promise_return` -- treats the result of execution of the promise as the result of the current function.
 
 Follow [examples/cross-contract-high-level](examples/cross-contract-calls/high-level)
 to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
-### **Initialization methods.** 
+### Initialization methods
 We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
 
-    ```rust
-    #[near_bindgen]
-    impl StatusMessage {
-      #[init]
-      pub fn new(user: String, status: String) -> Self {
-          let mut res = Self::default();
-          res.records.insert(user, status);
-          res
-      }
+```rust
+#[near_bindgen]
+impl StatusMessage {
+    #[init]
+    pub fn new(user: String, status: String) -> Self {
+        let mut res = Self::default();
+        res.records.insert(user, status);
+        res
     }
-    ```
+}
+```
+
 Even if you have initialization method your smart contract is still expected to derive `Default` trait. If you don't
 want to disable default initialization, then you can prohibit it like this:
 ```rust
@@ -125,7 +124,7 @@ pub struct StatusMessage {
 }
 ```
 
-### **Payable methods.** 
+### Payable methods
 We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
 
 To declare a payable method simply use `#[payable]` decorator:
@@ -137,7 +136,7 @@ pub fn my_method(&mut self) {
 }
 ```
 
-### **Private methods**
+### Private methods
 Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
 only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
 is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
@@ -204,12 +203,12 @@ The general workflow is the following:
     ```rust
     #[near_bindgen]
     impl MyContract {
-       pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
-           self.data.insert(key)
-       }
-       pub fn get_data(&self, key: u64) -> Option<u64> {
-           self.data.get(&key).cloned()
-       }
+        pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
+            self.data.insert(key)
+        }
+        pub fn get_data(&self, key: u64) -> Option<u64> {
+            self.data.get(&key).cloned()
+        }
     }
     ```
 
