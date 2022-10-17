@@ -143,13 +143,11 @@ where
     }
 
     /// Inserts a element at `index`, returns the evicted element.
-    #[cfg(feature = "unstable")]
     pub fn insert(&mut self, index: u32, element: T) -> Option<T> {
         self.get_mut_inner(index).replace(Some(element))
     }
 
     /// Removes value at index and returns existing value.
-    #[allow(dead_code)]
     pub fn remove(&mut self, index: u32) -> Option<T> {
         self.get_mut_inner(index).replace(None)
     }

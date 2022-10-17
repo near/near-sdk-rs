@@ -20,7 +20,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`ToKey`] implementation.
+/// and transformed using the map's [`ToKey`] implementation.
 ///
 /// The default hash function for [`LookupMap`] is [`Identity`] which just prefixes the serialized
 /// key object and uses these bytes as the key. This is to be backwards-compatible with
@@ -32,7 +32,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// ```
 /// use near_sdk::store::LookupMap;
 ///
-/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Sha256>`
+/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Identity>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
 /// let mut map = LookupMap::new(b"a");
 ///
