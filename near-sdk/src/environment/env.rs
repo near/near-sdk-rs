@@ -781,12 +781,15 @@ pub fn storage_has_key(key: &[u8]) -> bool {
 // ############################################
 /// Load the state of the given object.
 pub fn state_read<T: borsh::BorshDeserialize>() -> Option<T> {
-    storage_read(STATE_KEY)
-        .map(|data| T::try_from_slice(&data).expect("cannot deserialize the contract state"))
+    storage_read(STATE_KEY).map(|data| {
+        T::try_from_slice(&data)
+            .unwrap_or_else(|_| panic_str("cannot deserialize the contract state"))
+    })
 }
 
 pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
-    let data = state.try_to_vec().expect("cannot serialize the contract state");
+    let data =
+        state.try_to_vec().unwrap_or_else(|_| panic_str("cannot serialize the contract state"));
     storage_write(STATE_KEY, &data);
 }
 
