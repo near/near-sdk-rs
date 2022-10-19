@@ -100,5 +100,6 @@ pub mod key;
 pub(crate) const ERR_INCONSISTENT_STATE: &str =
     "The collection is an inconsistent state. Did previous smart \
         contract execution terminate unexpectedly?";
-
+pub(crate) const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
+pub(crate) const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 pub(crate) const ERR_NOT_EXIST: &str = "Key does not exist in map";

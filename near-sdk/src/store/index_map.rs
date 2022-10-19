@@ -3,11 +3,9 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
+use super::{ERR_ELEMENT_DESERIALIZATION, ERR_ELEMENT_SERIALIZATION};
 use crate::utils::StableMap;
 use crate::{env, CacheEntry, EntryState, IntoStorageKey};
-
-const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub(crate) struct IndexMap<T>

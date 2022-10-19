@@ -7,15 +7,12 @@ use std::fmt;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use super::ERR_NOT_EXIST;
+use super::{ERR_ELEMENT_DESERIALIZATION, ERR_ELEMENT_SERIALIZATION, ERR_NOT_EXIST};
 use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
-
-const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
-const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///

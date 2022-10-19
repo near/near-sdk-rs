@@ -9,13 +9,11 @@ mod impls;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::collections::ERR_INCONSISTENT_STATE;
+use super::{ERR_ELEMENT_DESERIALIZATION, ERR_ELEMENT_SERIALIZATION, ERR_INCONSISTENT_STATE};
 use crate::env;
 use crate::utils::{CacheEntry, EntryState};
 use crate::IntoStorageKey;
 
-const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
-const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 const ERR_NOT_FOUND: &str = "No value found for the given key";
 
 fn expect_key_exists<T>(val: Option<T>) -> T {
@@ -32,7 +30,7 @@ where
 {
     let bytes = expect_key_exists(env::storage_read(key));
     let val =
-        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION));
+        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION));
     CacheEntry::new_cached(Some(val))
 }
 
@@ -40,7 +38,8 @@ pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = value.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
+    let serialized =
+        value.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
     env::storage_write(key, &serialized);
 }
 
