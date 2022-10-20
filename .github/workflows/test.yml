@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - run: rustup target add wasm32-unknown-unknown
       - name: Test
-        run: cargo test --all --features unstable
+        run: cargo test --all --features unstable,legacy
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
@@ -39,7 +39,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Test Format
         run: cargo fmt -- --check
-      - run: cargo clippy --features unstable --tests -- -Dclippy::all
+      - run: cargo clippy --features unstable,legacy --tests -- -Dclippy::all
   windows:
     name: Windows
     runs-on: windows-latest
@@ -51,7 +51,7 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: Swatinem/rust-cache@v1
-      - run: cargo check -p near-sdk --features unstable
+      - run: cargo check -p near-sdk --features unstable,legacy
       - run: cargo check -p near-contract-standards
   audit:
     name: Audit
