@@ -23,7 +23,7 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
             #[no_mangle]
-            pub extern "C" fn #near_abi_symbol() -> (*const std::ffi::c_uchar, usize) {
+            pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
                 let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
                 let mut data = std::mem::ManuallyDrop::new(
