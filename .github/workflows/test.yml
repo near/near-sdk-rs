@@ -15,7 +15,7 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable, 1.56.0]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
@@ -29,7 +29,7 @@ jobs:
     name: Clippy and fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -44,7 +44,7 @@ jobs:
     name: Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: "Setup Windows toolchain"
         uses: actions-rs/toolchain@v1
         with:
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
