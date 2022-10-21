@@ -14,7 +14,7 @@ mod gas;
 pub use self::gas::Gas;
 
 mod event;
-pub use event::{Event, StandardEvent};
+pub use event::StandardEvent;
 
 mod error;
 pub use self::error::Abort;
