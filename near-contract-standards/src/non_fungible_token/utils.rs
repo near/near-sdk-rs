@@ -1,4 +1,4 @@
-use near_sdk::{env, require, AccountId, Balance, Promise};
+use near_sdk::{env, require, AccountId, Balance, Promise, PromiseIndex};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -9,24 +9,26 @@ pub fn bytes_for_approved_account_id(account_id: &AccountId) -> u64 {
 }
 
 pub fn refund_approved_account_ids_iter<'a, I>(
-    account_id: AccountId,
+    account_id: &AccountId,
     approved_account_ids: I,
-) -> Promise
+) -> PromiseIndex
 where
     I: Iterator<Item = &'a AccountId>,
 {
     let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
-    Promise::new(account_id).transfer(Balance::from(storage_released) * env::storage_byte_cost())
+    Promise::new(account_id)
+        .transfer(Balance::from(storage_released) * env::storage_byte_cost())
+        .schedule()
 }
 
 pub fn refund_approved_account_ids(
-    account_id: AccountId,
+    account_id: &AccountId,
     approved_account_ids: &HashMap<AccountId, u64>,
-) -> Promise {
+) -> PromiseIndex {
     refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
 }
 
-pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
+pub fn refund_deposit_to_account(storage_used: u64, account_id: &AccountId) {
     let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
     let attached_deposit = env::attached_deposit();
 
@@ -37,13 +39,13 @@ pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
 
     let refund = attached_deposit - required_cost;
     if refund > 1 {
-        Promise::new(account_id).transfer(refund);
+        Promise::new(account_id).transfer(refund).schedule();
     }
 }
 
 /// Assumes that the precedecessor will be refunded
 pub fn refund_deposit(storage_used: u64) {
-    refund_deposit_to_account(storage_used, env::predecessor_account_id())
+    refund_deposit_to_account(storage_used, &env::predecessor_account_id())
 }
 
 /// Assert that at least 1 yoctoNEAR was attached.

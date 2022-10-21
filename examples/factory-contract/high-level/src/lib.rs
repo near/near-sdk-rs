@@ -36,7 +36,7 @@ impl FactoryContract {
         // Note, for a contract to simply call another contract (1) is sufficient.
         ext_status_message::ext(account_id.clone())
             .set_status(message)
-            .then(Self::ext(env::current_account_id()).get_result(account_id))
+            .then(Self::ext(&env::current_account_id()).get_result(account_id))
     }
 
     #[handle_result]

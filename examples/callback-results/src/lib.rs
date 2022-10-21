@@ -10,17 +10,18 @@ pub struct Callback;
 impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise<(bool, bool, bool)> {
-        Self::ext(env::current_account_id())
+        let id = env::current_account_id();
+        Self::ext(id)
             .a()
-            .and(Self::ext(env::current_account_id()).b(fail_b))
-            .and(Self::ext(env::current_account_id()).c(c_value))
-            .and(Self::ext(env::current_account_id()).d(d_value))
-            .then(Self::ext(env::current_account_id()).handle_callbacks())
+            .and(Self::ext(id).b(fail_b))
+            .and(Self::ext(id).c(c_value))
+            .and(Self::ext(id).d(d_value))
+            .then(Self::ext(id).handle_callbacks())
     }
 
     /// Calls function c with a value that will always succeed
     pub fn a() -> Promise<u8> {
-        Self::ext(env::current_account_id()).c(A_VALUE)
+        Self::ext(&env::current_account_id()).c(A_VALUE)
     }
 
     /// Returns a static string if fail is false, return

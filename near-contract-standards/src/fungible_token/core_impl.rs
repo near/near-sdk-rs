@@ -142,11 +142,12 @@ impl FungibleTokenCore for FungibleToken {
             .checked_sub(GAS_FOR_FT_TRANSFER_CALL.0)
             .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
         // Initiating receiver's call and the callback
-        ext_ft_receiver::ext(receiver_id.clone())
+        // TODO find a way if to resolve removing this clone, shouldn't be needed
+        ext_ft_receiver::ext(&receiver_id.clone())
             .with_static_gas(receiver_gas.into())
             .ft_on_transfer(sender_id.clone(), amount.into(), msg)
             .then(
-                ext_ft_resolver::ext(env::current_account_id())
+                ext_ft_resolver::ext(&env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
                     .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
             )

@@ -57,13 +57,13 @@ mod tests {
             pub mod external_cross_contract {
                 use super::*;
                 #[must_use]
-                pub struct ExternalCrossContractExt {
-                    pub(crate) account_id: near_sdk::AccountId,
+                pub struct ExternalCrossContractExt<'__ext_a> {
+                    pub(crate) account_id: &'__ext_a near_sdk::AccountId,
                     pub(crate) deposit: near_sdk::Balance,
                     pub(crate) static_gas: near_sdk::Gas,
                     pub(crate) gas_weight: near_sdk::GasWeight,
                 }
-                impl ExternalCrossContractExt {
+                impl ExternalCrossContractExt<'_> {
                     pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
                         self.deposit = amount;
                         self
@@ -78,7 +78,7 @@ mod tests {
                     }
                 }
                 /// API for calling this contract's functions in a subsequent execution.
-                pub fn ext(account_id: near_sdk::AccountId) -> ExternalCrossContractExt {
+                pub fn ext<'__ext_a>(account_id: &'__ext_a near_sdk::AccountId) -> ExternalCrossContractExt<'__ext_a> {
                     ExternalCrossContractExt {
                         account_id,
                         deposit: 0,
@@ -86,11 +86,11 @@ mod tests {
                         gas_weight: near_sdk::GasWeight::default(),
                     }
                 }
-                impl ExternalCrossContractExt {
+                impl<'__ext_a> ExternalCrossContractExt<'__ext_a> {
                     pub fn merge_sort(
                         self,
                         arr: Vec<u8>,
-                    ) -> near_sdk::Promise<PromiseOrValue<Vec<u8> > > {
+                    ) -> near_sdk::Promise<'__ext_a, PromiseOrValue<Vec<u8> > > {
                         let __args = {
                             #[derive(near_sdk :: serde :: Serialize)]
                             #[serde(crate = "near_sdk::serde")]
@@ -101,24 +101,28 @@ mod tests {
                             near_sdk::serde_json::to_vec(&__args)
                                 .expect("Failed to serialize the cross contract args using JSON.")
                         };
-                        near_sdk::Promise::new_with_return(self.account_id)
-                            .function_call_weight(
-                                "merge_sort".to_string(),
+                        near_sdk::Promise::new(self.account_id)
+                            .function_call(
+                                "merge_sort",
                                 __args,
-                                self.deposit,
-                                self.static_gas,
-                                self.gas_weight,
+                                near_sdk::promise::FunctionCallOpts {
+                                    deposit: Some(self.deposit),
+                                    static_gas: Some(self.static_gas),
+                                    gas_weight: Some(self.gas_weight),
+                                }
                             )
                     }
-                    pub fn merge(self,) -> near_sdk::Promise<Vec<u8> > {
+                    pub fn merge(self,) -> near_sdk::Promise<'__ext_a, Vec<u8> > {
                         let __args = vec![];
-                        near_sdk::Promise::new_with_return(self.account_id)
-                            .function_call_weight(
-                                "merge".to_string(),
+                        near_sdk::Promise::new(self.account_id)
+                            .function_call(
+                                "merge",
                                 __args,
-                                self.deposit,
-                                self.static_gas,
-                                self.gas_weight,
+                                near_sdk::promise::FunctionCallOpts {
+                                    deposit: Some(self.deposit),
+                                    static_gas: Some(self.static_gas),
+                                    gas_weight: Some(self.gas_weight),
+                                }
                             )
                     }
                 }
@@ -144,13 +148,13 @@ mod tests {
           pub mod test {
             use super::*;
             #[must_use]
-            pub struct TestExt {
-                pub(crate) account_id: near_sdk::AccountId,
+            pub struct TestExt<'__ext_a> {
+                pub(crate) account_id: &'__ext_a near_sdk::AccountId,
                 pub(crate) deposit: near_sdk::Balance,
                 pub(crate) static_gas: near_sdk::Gas,
                 pub(crate) gas_weight: near_sdk::GasWeight,
             }
-            impl TestExt {
+            impl TestExt<'_> {
                 pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
                     self.deposit = amount;
                     self
@@ -165,7 +169,7 @@ mod tests {
                 }
             }
             /// API for calling this contract's functions in a subsequent execution.
-            pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
+            pub fn ext<'__ext_a>(account_id: &'__ext_a near_sdk::AccountId) -> TestExt<'__ext_a> {
                 TestExt {
                     account_id,
                     deposit: 0,
@@ -173,11 +177,11 @@ mod tests {
                     gas_weight: near_sdk::GasWeight::default(),
                 }
             }
-            impl TestExt {
+            impl<'__ext_a> TestExt<'__ext_a> {
                 pub fn test(
                     self,
                     v: Vec<String>,
-                ) -> near_sdk::Promise<Vec<String> > {
+                ) -> near_sdk::Promise<'__ext_a, Vec<String> > {
                     let __args = {
                         #[derive(near_sdk :: borsh :: BorshSerialize)]
                         struct Input<'nearinput> {
@@ -187,13 +191,15 @@ mod tests {
                         near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
                             .expect("Failed to serialize the cross contract args using Borsh.")
                     };
-                    near_sdk::Promise::new_with_return(self.account_id)
-                        .function_call_weight(
-                            "test".to_string(),
+                    near_sdk::Promise::new(self.account_id)
+                        .function_call(
+                            "test",
                             __args,
-                            self.deposit,
-                            self.static_gas,
-                            self.gas_weight,
+                            near_sdk::promise::FunctionCallOpts {
+                                deposit: Some(self.deposit),
+                                static_gas: Some(self.static_gas),
+                                gas_weight: Some(self.gas_weight),
+                            }
                         )
                 }
             }

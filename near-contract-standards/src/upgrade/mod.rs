@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
-use near_sdk::{env, require, AccountId, Duration, Promise, Timestamp};
+use near_sdk::{env, require, AccountId, Duration, Promise, Timestamp, ScheduledFn};
 
 type WrappedDuration = U64;
 
@@ -15,7 +15,7 @@ pub trait Ownable {
 pub trait Upgradable {
     fn get_staging_duration(&self) -> WrappedDuration;
     fn stage_code(&mut self, code: Vec<u8>, timestamp: Timestamp);
-    fn deploy_code(&mut self) -> Promise;
+    fn deploy_code(&mut self) -> ScheduledFn;
 
     /// Implement migration for the next version.
     /// Should be `unimplemented` for a new contract.
@@ -65,7 +65,7 @@ impl Upgradable for Upgrade {
         self.staging_timestamp = timestamp;
     }
 
-    fn deploy_code(&mut self) -> Promise {
+    fn deploy_code(&mut self) -> near_sdk::ScheduledFn {
         if self.staging_timestamp < env::block_timestamp() {
             env::panic_str(
                 format!(
@@ -78,6 +78,6 @@ impl Upgradable for Upgrade {
         let code = env::storage_read(b"upgrade")
             .unwrap_or_else(|| env::panic_str("No upgrade code available"));
         env::storage_remove(b"upgrade");
-        Promise::new(env::current_account_id()).deploy_contract(code)
+        Promise::new(&env::current_account_id()).deploy_contract(code).schedule_as_return()
     }
 }

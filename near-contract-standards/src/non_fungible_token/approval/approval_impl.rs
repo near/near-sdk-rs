@@ -58,10 +58,10 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.and_then(|msg| {
-            ext_nft_approval_receiver::ext(account_id)
+            ext_nft_approval_receiver::ext(&account_id)
                 .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_APPROVE)
                 .nft_on_approve(token_id, owner_id, approval_id, msg)
-                .as_return();
+                .schedule_as_return();
             //* This potentially does have a return value, but the API is incorrect and we need
             //* to express this as None for now. `as_return` above indicates the return value
             None
@@ -84,7 +84,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
             // if account_id was already not approved, do nothing
             if approved_account_ids.remove(&account_id).is_some() {
                 refund_approved_account_ids_iter(
-                    predecessor_account_id,
+                    &predecessor_account_id,
                     core::iter::once(&account_id),
                 );
                 // if this was the last approval, remove the whole HashMap to save space.
@@ -112,7 +112,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) = &mut approvals_by_id.get(&token_id) {
             // otherwise, refund owner for storage costs of all approvals...
-            refund_approved_account_ids(predecessor_account_id, approved_account_ids);
+            refund_approved_account_ids(&predecessor_account_id, approved_account_ids);
             // ...and remove whole HashMap of approvals
             approvals_by_id.remove(&token_id);
         }

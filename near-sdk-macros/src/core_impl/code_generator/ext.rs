@@ -13,7 +13,7 @@ pub(crate) fn generate_ext_structs(
     let name = format_ident!("{}Ext", ident);
     let mut ext_code = quote! {
         /// API for calling this contract's functions in a subsequent execution.
-        pub fn ext(account_id: near_sdk::AccountId) -> #name {
+        pub fn ext<'__ext_a>(account_id: &'__ext_a near_sdk::AccountId) -> #name <'__ext_a> {
             #name {
                 account_id,
                 deposit: 0,
@@ -23,9 +23,10 @@ pub(crate) fn generate_ext_structs(
         }
     };
     if let Some(generics) = generic_details {
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
         // If ext generation is on struct, make ext function associated with struct not module
         ext_code = quote! {
-            impl #generics #ident #generics {
+            impl #impl_generics #ident #ty_generics #where_clause {
                 #ext_code
             }
         };
@@ -33,14 +34,14 @@ pub(crate) fn generate_ext_structs(
 
     quote! {
       #[must_use]
-      pub struct #name {
-          pub(crate) account_id: near_sdk::AccountId,
+      pub struct #name <'__ext_a> {
+          pub(crate) account_id: &'__ext_a near_sdk::AccountId,
           pub(crate) deposit: near_sdk::Balance,
           pub(crate) static_gas: near_sdk::Gas,
           pub(crate) gas_weight: near_sdk::GasWeight,
       }
 
-      impl #name {
+      impl #name <'_> {
           pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
               self.deposit = amount;
               self
@@ -70,7 +71,7 @@ pub(crate) fn generate_ext_function_wrappers<'a>(
         res.extend(generate_ext_function(method));
     }
     quote! {
-        impl #ext_ident {
+        impl<'__ext_a> #ext_ident <'__ext_a> {
             #res
         }
     }
@@ -89,25 +90,27 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     }
     let Signature { generics, output, .. } = original_sig;
     let promise_generics = match output {
-        syn::ReturnType::Default => quote! {},
+        syn::ReturnType::Default => quote! {<'__ext_a, near_sdk::promise::NoReturn>},
         syn::ReturnType::Type(_, ty) => {
             // Unwrap result type if using `handle_result`
             let ty = crate::core_impl::utils::extract_ok_type(ty).unwrap_or(ty);
-            quote! {<#ty>}
+            quote! {<'__ext_a, #ty>}
         }
     };
     quote! {
         #new_non_bindgen_attrs
-        pub fn #ident#generics(self, #pat_type_list) -> near_sdk::Promise#promise_generics {
+        pub fn #ident #generics (self, #pat_type_list) -> near_sdk::Promise #promise_generics {
             let __args = #serialize;
-            near_sdk::Promise::new_with_return(self.account_id)
-            .function_call_weight(
-                #ident_str.to_string(),
-                __args,
-                self.deposit,
-                self.static_gas,
-                self.gas_weight,
-            )
+            near_sdk::Promise::new(self.account_id)
+                .function_call(
+                    #ident_str,
+                    __args,
+                    near_sdk::promise::FunctionCallOpts {
+                        deposit: Some(self.deposit),
+                        static_gas: Some(self.static_gas),
+                        gas_weight: Some(self.gas_weight),
+                    }
+                )
         }
     }
 }
@@ -127,13 +130,13 @@ mod tests {
         let actual = generate_ext_structs(&st.ident, Some(&st.generics));
         let expected = quote!(
           #[must_use]
-          pub struct TestExt {
-              pub(crate) account_id: near_sdk::AccountId,
+          pub struct TestExt <'__ext_a> {
+              pub(crate) account_id: &'__ext_a near_sdk::AccountId,
               pub(crate) deposit: near_sdk::Balance,
               pub(crate) static_gas: near_sdk::Gas,
               pub(crate) gas_weight: near_sdk::GasWeight,
           }
-          impl TestExt {
+          impl TestExt <'_> {
               pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
                   self.deposit = amount;
                   self
@@ -149,7 +152,7 @@ mod tests {
           }
           impl Test {
             /// API for calling this contract's functions in a subsequent execution.
-            pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
+            pub fn ext<'__ext_a>(account_id: &'__ext_a near_sdk::AccountId) -> TestExt <'__ext_a> {
                 TestExt {
                     account_id,
                     deposit: 0,
@@ -168,13 +171,13 @@ mod tests {
         let actual = generate_ext_structs(&ident, None);
         let expected = quote!(
           #[must_use]
-          pub struct TestExt {
-              pub(crate) account_id: near_sdk::AccountId,
+          pub struct TestExt <'__ext_a> {
+              pub(crate) account_id: &'__ext_a near_sdk::AccountId,
               pub(crate) deposit: near_sdk::Balance,
               pub(crate) static_gas: near_sdk::Gas,
               pub(crate) gas_weight: near_sdk::GasWeight,
           }
-          impl TestExt {
+          impl TestExt <'_> {
               pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
                   self.deposit = amount;
                   self
@@ -189,7 +192,7 @@ mod tests {
               }
           }
           /// API for calling this contract's functions in a subsequent execution.
-          pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
+          pub fn ext<'__ext_a>(account_id: &'__ext_a near_sdk::AccountId) -> TestExt <'__ext_a> {
               TestExt {
                   account_id,
                   deposit: 0,
@@ -210,7 +213,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
-            pub fn method(self, k: &String,) -> near_sdk::Promise {
+            pub fn method(self, k: &String,) -> near_sdk::Promise<'__ext_a, near_sdk::promise::NoReturn> {
                 let __args = {#[derive(near_sdk :: serde :: Serialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input<'nearinput> {
@@ -220,13 +223,16 @@ mod tests {
                     near_sdk::serde_json::to_vec(&__args)
                         .expect("Failed to serialize the cross contract args using JSON.")
                 };
-                near_sdk::Promise::new_with_return(self.account_id).function_call_weight(
-                    "method".to_string(),
-                    __args,
-                    self.deposit,
-                    self.static_gas,
-                    self.gas_weight,
-                )
+                near_sdk::Promise::new(self.account_id)
+                    .function_call(
+                        "method",
+                        __args,
+                        near_sdk::promise::FunctionCallOpts {
+                            deposit: Some(self.deposit),
+                            static_gas: Some(self.static_gas),
+                            gas_weight: Some(self.gas_weight),
+                        }
+                    )
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());
@@ -241,25 +247,27 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
-          pub fn borsh_test(self, a: String,) -> near_sdk::Promise {
+          pub fn borsh_test(self, a: String,) -> near_sdk::Promise<'__ext_a, near_sdk::promise::NoReturn> {
             let __args = {
-              #[derive(near_sdk :: borsh :: BorshSerialize)]
-              struct Input<'nearinput> {
-                  a: &'nearinput String,
-              }
-              let __args = Input { a: &a, };
-              near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
-                  .expect("Failed to serialize the cross contract args using Borsh.")
-            };
-              near_sdk::Promise::new_with_return(self.account_id)
-                  .function_call_weight(
-                      "borsh_test".to_string(),
-                      __args,
-                      self.deposit,
-                      self.static_gas,
-                      self.gas_weight,
-                  )
-          }
+                #[derive(near_sdk :: borsh :: BorshSerialize)]
+                struct Input<'nearinput> {
+                    a: &'nearinput String,
+                }
+                let __args = Input { a: &a, };
+                near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
+                    .expect("Failed to serialize the cross contract args using Borsh.")
+                };
+                near_sdk::Promise::new(self.account_id)
+                    .function_call(
+                        "borsh_test",
+                        __args,
+                        near_sdk::promise::FunctionCallOpts {
+                            deposit: Some(self.deposit),
+                            static_gas: Some(self.static_gas),
+                            gas_weight: Some(self.gas_weight),
+                        }
+                    )
+            }
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
