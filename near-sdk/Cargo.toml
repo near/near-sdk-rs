@@ -48,6 +48,7 @@ rustversion = "1.0"
 rand_xorshift = "0.3"
 quickcheck = "1.0"
 arbitrary = { version = ">=1.0, <1.1.4", features = ["derive"] }
+derive_arbitrary = ">=1.0, <=1.1.6"
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
