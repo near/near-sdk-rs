@@ -11,6 +11,7 @@ pub use near_sdk_macros::{
 
 pub mod store;
 
+#[cfg(feature = "legacy")]
 pub mod collections;
 mod environment;
 pub use environment::env;
