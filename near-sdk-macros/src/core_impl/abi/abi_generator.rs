@@ -23,18 +23,19 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
             #[no_mangle]
-            pub extern "C" fn #near_abi_symbol() -> *const std::ffi::c_char {
+            pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
                 let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
-                std::ffi::CString::new(
+                let mut data = std::mem::ManuallyDrop::new(
                     near_sdk::serde_json::to_vec(&near_sdk::__private::ChunkedAbiEntry::new(
                         functions,
                         gen.into_root_schema_for::<String>(),
                     ))
                     .unwrap(),
-                )
-                .unwrap()
-                .into_raw()
+                );
+                data.shrink_to_fit();
+                assert!(data.len() == data.capacity());
+                (data.as_ptr(), data.len())
             }
         };
     }
