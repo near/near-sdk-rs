@@ -62,7 +62,7 @@ fn get_standard_arg(args: &[syn::NestedMeta]) -> Option<LitStr> {
     let mut standard: Option<LitStr> = None;
     for arg in args.iter() {
         if let syn::NestedMeta::Meta(syn::Meta::List(syn::MetaList { path, nested, .. })) = arg {
-            if path.is_ident("events") {
+            if path.is_ident("event_json") {
                 for event_arg in nested.iter() {
                     if let syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {
                         path,

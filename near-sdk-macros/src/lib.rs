@@ -46,11 +46,11 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 ///
 /// Events Standard:
 ///
-/// By passing `events` as an argument `near_bindgen` will generate the relevant code to format events
+/// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
 /// according to NEP-297
 ///
-/// For parameter serialization, this macro will generate a wrapper to include the NEP-297 standard fields `standard` and `version
-/// as well as include serialization reformatting to include the `event` and `data` fields.
+/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version
+/// as well as include serialization reformatting to include the `event` and `data` fields automatically.
 /// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
 /// By default this will be JSON deserialized with `serde`
 ///
@@ -60,7 +60,7 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 /// ```ignore
 /// use near_sdk::near_bindgen;
 ///
-/// #[near_bindgen(events(standard = "nepXXX"))]
+/// #[near_bindgen(event_json(standard = "nepXXX"))]
 /// pub enum MyEvents {
 ///    #[event_version("1.0.0")]
 ///    Swap { token_in: AccountId, token_out: AccountId, amount_in: u128, amount_out: u128 },
@@ -84,7 +84,7 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 /// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    if _attr.to_string().contains("events") {
+    if _attr.to_string().contains("event_json") {
         return core_impl::near_events(_attr, item);
     }
 
@@ -427,7 +427,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                 event_data: &#event_lifetime #name #type_generics
             }
 
-            impl #impl_generics near_sdk::StandardEvent for #name #type_generics #where_clause {
+            impl #impl_generics near_sdk::EventJson for #name #type_generics #where_clause {
                 type EventString = String;
                 fn format(&self) -> Self::EventString {
                     let (standard, version): (String, String) = match self {

@@ -1,8 +1,8 @@
-pub trait StandardEvent {
-    type EventString: std::fmt::Display;
+pub trait EventJson {
+    type EventString: std::convert::AsRef<str>;
     fn format(&self) -> Self::EventString;
     fn emit(&self) {
-        crate::env::log_str(&format!("EVENT_JSON:{}", self.format()));
+        crate::env::log_str(&format!("EVENT_JSON:{}", self.format().as_ref()));
     }
 }
 
@@ -11,10 +11,10 @@ pub mod tests {
     use crate::test_utils::get_logs;
     use crate::{near_bindgen, AccountId};
 
-    use super::StandardEvent;
+    use super::EventJson;
     use crate as near_sdk;
 
-    #[near_bindgen(events(standard = "test_standard", random = "random"), other_random)]
+    #[near_bindgen(event_json(standard = "test_standard", random = "random"), other_random)]
     pub enum TestEvents<'a, 'b, T>
     where
         T: crate::serde::Serialize,
