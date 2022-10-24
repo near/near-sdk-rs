@@ -4,9 +4,7 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue,
-};
+use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
@@ -64,18 +62,20 @@ impl NonFungibleTokenReceiver for TokenReceiver {
             "return-it-later" => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                Self::ext(account_id)
+                Self::ext(&account_id)
                     .with_static_gas(prepaid_gas - GAS_FOR_NFT_ON_TRANSFER)
                     .ok_go(true)
+                    .schedule_as_return()
                     .into()
             }
             "keep-it-now" => PromiseOrValue::Value(false),
             "keep-it-later" => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                Self::ext(account_id)
+                Self::ext(&account_id)
                     .with_static_gas(prepaid_gas - GAS_FOR_NFT_ON_TRANSFER)
                     .ok_go(false)
+                    .schedule_as_return()
                     .into()
             }
             _ => env::panic_str("unsupported msg"),

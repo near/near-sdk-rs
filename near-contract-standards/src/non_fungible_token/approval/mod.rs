@@ -3,10 +3,10 @@ mod approval_receiver;
 
 pub use approval_impl::*;
 pub use approval_receiver::*;
+use near_sdk::ScheduledFn;
 
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::AccountId;
-use near_sdk::Promise;
 
 /// Trait used when it's desired to have a non-fungible token that has a
 /// traditional escrow or approval system. This allows Alice to allow Bob
@@ -45,7 +45,7 @@ pub trait NonFungibleTokenApproval {
         token_id: TokenId,
         account_id: AccountId,
         msg: Option<String>,
-    ) -> Option<Promise>;
+    ) -> Option<ScheduledFn<String>>;
 
     /// Revoke an approved account for a specific token.
     ///

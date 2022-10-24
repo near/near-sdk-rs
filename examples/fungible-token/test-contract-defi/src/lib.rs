@@ -5,8 +5,7 @@ use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
-    PromiseOrValue,
+    env, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault, PromiseOrValue,
 };
 
 const BASE_GAS: u64 = 5_000_000_000_000;
@@ -55,9 +54,10 @@ impl FungibleTokenReceiver for DeFi {
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                Self::ext(account_id)
+                Self::ext(&account_id)
                     .with_static_gas(prepaid_gas - GAS_FOR_FT_ON_TRANSFER)
                     .value_please(msg)
+                    .schedule_as_return()
                     .into()
             }
         }

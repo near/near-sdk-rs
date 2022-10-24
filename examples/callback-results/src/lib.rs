@@ -1,5 +1,5 @@
-use near_sdk::require;
-use near_sdk::{env, near_bindgen, Promise, PromiseError};
+use near_sdk::{env, near_bindgen, PromiseError};
+use near_sdk::{require, ScheduledFn};
 
 const A_VALUE: u8 = 8;
 
@@ -9,19 +9,20 @@ pub struct Callback;
 #[near_bindgen]
 impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
-    pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise<(bool, bool, bool)> {
+    pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> ScheduledFn<(bool, bool, bool)> {
         let id = env::current_account_id();
-        Self::ext(id)
+        Self::ext(&id)
             .a()
-            .and(Self::ext(id).b(fail_b))
-            .and(Self::ext(id).c(c_value))
-            .and(Self::ext(id).d(d_value))
-            .then(Self::ext(id).handle_callbacks())
+            .and(Self::ext(&id).b(fail_b))
+            .and(Self::ext(&id).c(c_value))
+            .and(Self::ext(&id).d(d_value))
+            .then(Self::ext(&id).handle_callbacks())
+            .schedule_as_return()
     }
 
     /// Calls function c with a value that will always succeed
-    pub fn a() -> Promise<u8> {
-        Self::ext(&env::current_account_id()).c(A_VALUE)
+    pub fn a() -> ScheduledFn<u8> {
+        Self::ext(&env::current_account_id()).c(A_VALUE).schedule_as_return()
     }
 
     /// Returns a static string if fail is false, return
@@ -68,13 +69,16 @@ mod tests {
 
     #[tokio::test]
     async fn workspaces_test() -> anyhow::Result<()> {
+        println!("HERE");
         let wasm = fs::read("res/callback_results.wasm").await?;
         let worker = workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
         let res = contract.call("a").transact().await?;
+        println!("Result: {:?}", res.logs());
         assert_eq!(res.json::<u8>()?, 8);
+        println!("POST A");
 
         // Following tests the function call where the `call_all` function always succeeds and handles
         // the result of the async calls made from within the function with callbacks.

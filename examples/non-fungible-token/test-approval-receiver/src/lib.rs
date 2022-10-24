@@ -4,10 +4,7 @@ A stub contract that implements nft_on_approve for e2e testing nft_approve.
 use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApprovalReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault,
-    PromiseOrValue,
-};
+use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
@@ -64,9 +61,10 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
-                Self::ext(account_id)
+                Self::ext(&account_id)
                     .with_static_gas(prepaid_gas - GAS_FOR_NFT_ON_APPROVE)
                     .ok_go(msg)
+                    .schedule_as_return()
                     .into()
             }
         }

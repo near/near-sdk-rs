@@ -15,12 +15,12 @@ mod private {
         fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>);
     }
 
-    impl<T> SchedulablePromise<T> for super::Promise<'_, T> {
+    impl<'a, T> SchedulablePromise<T> for super::Promise<'a, T> {
         fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>) {
             promises.push(self.schedule())
         }
     }
-    impl<T> SchedulablePromise<T> for super::PromiseThen<'_, T> {
+    impl<'a, T> SchedulablePromise<T> for super::PromiseThen<'a, T> {
         fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>) {
             promises.push(self.schedule())
         }
@@ -197,7 +197,7 @@ impl<'a, T> Promise<'a, T> {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
-    pub fn and<O>(self, other: impl private::SchedulablePromise<T>) -> PromiseAnd<T, O> {
+    pub fn and<O>(self, other: impl private::SchedulablePromise<O>) -> PromiseAnd<T, O> {
         let mut promises = vec![self.schedule()];
         other.append_to_promises(&mut promises);
         PromiseAnd { promises, _marker: Default::default() }
@@ -255,7 +255,7 @@ impl<'a, T> Promise<'a, T> {
 
     // TODO docs
     pub fn schedule(self) -> PromiseIndex {
-        let promise_index = crate::env::promise_batch_create(&self.account_id);
+        let promise_index = crate::env::promise_batch_create(self.account_id);
         for action in self.actions {
             action.add(promise_index);
         }
@@ -321,9 +321,26 @@ pub struct PromiseAnd<L, R> {
 }
 
 impl<L, R> PromiseAnd<L, R> {
+    pub fn and<O>(
+        mut self,
+        other: impl private::SchedulablePromise<O>,
+    ) -> PromiseAnd<PromiseAnd<L, R>, O> {
+        other.append_to_promises(&mut self.promises);
+        PromiseAnd { promises: self.promises, _marker: Default::default() }
+    }
+
+    pub fn then<O>(self, other: Promise<O>) -> PromiseThen<O> {
+        PromiseThen { after: self.schedule(), inner: other }
+    }
+
     pub fn schedule(self) -> PromiseIndex {
-        let promise_index = crate::env::promise_and(&self.promises);
-        promise_index
+        crate::env::promise_and(&self.promises)
+    }
+
+    pub fn schedule_as_return(self) -> ScheduledFn<PromiseAnd<L, R>> {
+        let index = self.schedule();
+        crate::env::promise_return(index);
+        ScheduledFn { index, _marker: Default::default() }
     }
 }
 
@@ -365,6 +382,7 @@ impl<T> serde::Serialize for ScheduledFn<T> {
     {
         // TODO not ideal that anything is serialized here. This is a workaround to allow this
         // type to be returned from #[near_bindgen] functions.
+        // FIXME: yeah, this is broken if not relying on drop semantics
         serializer.serialize_unit()
     }
 }
@@ -539,6 +557,39 @@ where
     }
 }
 
+impl<T> From<ScheduledFn<T>> for PromiseOrValue<T> {
+    fn from(s: ScheduledFn<T>) -> Self {
+        PromiseOrValue::Promise(s)
+    }
+}
+
+impl<T> From<PromiseOrValue<PromiseOrValue<T>>> for PromiseOrValue<T> {
+    fn from(s: PromiseOrValue<PromiseOrValue<T>>) -> Self {
+        match s {
+            PromiseOrValue::Promise(p) => {
+                // Transmute the return type to the inner return type to avoid nested types.
+                PromiseOrValue::Promise(ScheduledFn { index: p.index, _marker: Default::default() })
+            }
+            PromiseOrValue::Value(p @ PromiseOrValue::Promise(_)) => p,
+            PromiseOrValue::Value(v @ PromiseOrValue::Value(_)) => v,
+        }
+    }
+}
+
+impl<T> From<ScheduledFn<PromiseOrValue<T>>> for PromiseOrValue<T> {
+    fn from(s: ScheduledFn<PromiseOrValue<T>>) -> Self {
+        PromiseOrValue::Promise(ScheduledFn::from(s))
+    }
+}
+
+impl<T> From<ScheduledFn<PromiseOrValue<T>>> for ScheduledFn<T> {
+    fn from(s: ScheduledFn<PromiseOrValue<T>>) -> Self {
+        // Can ignore the fact that the result comes from a promise or direct return value.
+        ScheduledFn { index: s.index, _marker: Default::default() }
+    }
+}
+
+// TODO re-eval if we want this automatically
 impl<T> From<PromiseThen<'_, T>> for PromiseOrValue<T> {
     fn from(promise: PromiseThen<'_, T>) -> Self {
         PromiseOrValue::Promise(promise.schedule_as_return())

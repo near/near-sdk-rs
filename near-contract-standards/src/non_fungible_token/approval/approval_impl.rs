@@ -8,7 +8,8 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::{assert_one_yocto, env, require, AccountId, Gas, Promise};
+use near_sdk::ScheduledFn;
+use near_sdk::{assert_one_yocto, env, require, AccountId, Gas};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
 
@@ -26,7 +27,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         token_id: TokenId,
         account_id: AccountId,
         msg: Option<String>,
-    ) -> Option<Promise> {
+    ) -> Option<ScheduledFn<String>> {
         assert_at_least_one_yocto();
         let approvals_by_id = self
             .approvals_by_id
@@ -57,14 +58,12 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         refund_deposit(storage_used);
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
-        msg.and_then(|msg| {
+        msg.map(|msg| {
             ext_nft_approval_receiver::ext(&account_id)
                 .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_APPROVE)
                 .nft_on_approve(token_id, owner_id, approval_id, msg)
-                .schedule_as_return();
-            //* This potentially does have a return value, but the API is incorrect and we need
-            //* to express this as None for now. `as_return` above indicates the return value
-            None
+                .schedule_as_return()
+                .into()
         })
     }
 
