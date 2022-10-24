@@ -5,7 +5,7 @@ use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::ReturnType;
+use syn::{ReturnType, Type};
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -116,6 +116,7 @@ impl ImplItemMethodInfo {
                 };
                 contract_ser = TokenStream2::new();
             }
+
             match returns {
                 ReturnType::Default => quote! {
                     #contract_deser
@@ -125,21 +126,16 @@ impl ImplItemMethodInfo {
                 ReturnType::Type(_, return_type)
                     if utils::type_is_result(return_type) && *is_handles_result =>
                 {
-                    let value_ser = match result_serializer {
-                        SerializerType::JSON => quote! {
-                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-                        },
-                        SerializerType::Borsh => quote! {
-                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
-                        },
-                    };
+                    let value_ser = generate_serialization_code(
+                        utils::extract_ok_type(return_type).unwrap(),
+                        result_serializer,
+                    );
                     quote! {
                         #contract_deser
                         let result = #method_invocation;
                         match result {
                             Ok(result) => {
                                 #value_ser
-                                near_sdk::env::value_return(&result);
                                 #contract_ser
                             }
                             Err(err) => near_sdk::FunctionError::panic(&err)
@@ -164,20 +160,13 @@ impl ImplItemMethodInfo {
                     )
                     .to_compile_error();
                 }
-                ReturnType::Type(_, _) => {
-                    let value_ser = match result_serializer {
-                        SerializerType::JSON => quote! {
-                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-                        },
-                        SerializerType::Borsh => quote! {
-                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
-                        },
-                    };
+                ReturnType::Type(_, return_type) => {
+                    let value_ser = generate_serialization_code(return_type, result_serializer);
+
                     quote! {
                         #contract_deser
                         let result = #method_invocation;
                         #value_ser
-                        near_sdk::env::value_return(&result);
                         #contract_ser
                     }
                 }
@@ -248,5 +237,37 @@ fn init_method_wrapper(
             let contract = #struct_type::#ident(#arg_list);
             near_sdk::env::state_write(&contract);
         }),
+    }
+}
+
+fn generate_serialization_code(
+    return_type: &Type,
+    result_serializer: &SerializerType,
+) -> TokenStream2 {
+    let generate_result_serialization = || match result_serializer {
+        SerializerType::JSON => quote! {
+            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+            near_sdk::env::value_return(&result);
+        },
+        SerializerType::Borsh => quote! {
+            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+            near_sdk::env::value_return(&result);
+        },
+    };
+
+    match utils::function_return_variant(return_type) {
+        utils::PromiseVariant::Promise(_) => quote! {},
+        utils::PromiseVariant::PromiseOrValue(_) => {
+            let serialize_codegen = generate_result_serialization();
+            quote! {
+                match result {
+                    near_sdk::PromiseOrValue::Promise(_) => (),
+                    near_sdk::PromiseOrValue::Value(result) => {
+                        #serialize_codegen
+                    },
+                };
+            }
+        }
+        utils::PromiseVariant::Value(_) => generate_result_serialization(),
     }
 }

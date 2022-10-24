@@ -3,7 +3,7 @@ mod approval_receiver;
 
 pub use approval_impl::*;
 pub use approval_receiver::*;
-use near_sdk::ScheduledFn;
+use near_sdk::PromiseOrValue;
 
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::AccountId;
@@ -45,7 +45,7 @@ pub trait NonFungibleTokenApproval {
         token_id: TokenId,
         account_id: AccountId,
         msg: Option<String>,
-    ) -> Option<ScheduledFn<String>>;
+    ) -> PromiseOrValue<Option<String>>;
 
     /// Revoke an approved account for a specific token.
     ///

@@ -69,16 +69,13 @@ mod tests {
 
     #[tokio::test]
     async fn workspaces_test() -> anyhow::Result<()> {
-        println!("HERE");
         let wasm = fs::read("res/callback_results.wasm").await?;
         let worker = workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
         let res = contract.call("a").transact().await?;
-        println!("Result: {:?}", res.logs());
         assert_eq!(res.json::<u8>()?, 8);
-        println!("POST A");
 
         // Following tests the function call where the `call_all` function always succeeds and handles
         // the result of the async calls made from within the function with callbacks.

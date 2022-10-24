@@ -1,6 +1,5 @@
 use borsh::BorshSchema;
 use std::collections::HashMap;
-use std::io::{Error, Write};
 use std::marker::PhantomData;
 
 use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
@@ -375,26 +374,6 @@ pub struct ScheduledFn<T = NoReturn> {
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T> serde::Serialize for ScheduledFn<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // TODO not ideal that anything is serialized here. This is a workaround to allow this
-        // type to be returned from #[near_bindgen] functions.
-        // FIXME: yeah, this is broken if not relying on drop semantics
-        serializer.serialize_unit()
-    }
-}
-
-impl<T> borsh::BorshSerialize for ScheduledFn<T> {
-    fn serialize<W: Write>(&self, _writer: &mut W) -> Result<(), Error> {
-        // Intentionally no bytes written for the promise, the return value from the promise
-        // will be considered as the return value from the contract call.
-        Ok(())
-    }
-}
-
 #[derive(Debug)]
 enum PromiseAction<'a> {
     CreateAccount,
@@ -485,26 +464,6 @@ impl PromiseAction<'_> {
     }
 }
 
-// impl<T> serde::Serialize for Promise<T> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer,
-//     {
-//         *self.should_return.borrow_mut() = true;
-//         serializer.serialize_unit()
-//     }
-// }
-
-// impl<T> borsh::BorshSerialize for Promise<T> {
-//     fn serialize<W: Write>(&self, _writer: &mut W) -> Result<(), Error> {
-//         *self.should_return.borrow_mut() = true;
-
-//         // Intentionally no bytes written for the promise, the return value from the promise
-//         // will be considered as the return value from the contract call.
-//         Ok(())
-//     }
-// }
-
 // #[cfg(feature = "abi")]
 // impl schemars::JsonSchema for Promise {
 //     fn schema_name() -> String {
@@ -535,8 +494,8 @@ impl PromiseAction<'_> {
 ///     contract_a::ext("bob_near".parse().unwrap()).a().into()
 /// };
 /// ```
-#[derive(serde::Serialize)]
-#[serde(untagged)]
+// #[derive(serde::Serialize)]
+// #[serde(untagged)]
 pub enum PromiseOrValue<T> {
     Promise(ScheduledFn<T>),
     Value(T),
@@ -593,17 +552,6 @@ impl<T> From<ScheduledFn<PromiseOrValue<T>>> for ScheduledFn<T> {
 impl<T> From<PromiseThen<'_, T>> for PromiseOrValue<T> {
     fn from(promise: PromiseThen<'_, T>) -> Self {
         PromiseOrValue::Promise(promise.schedule_as_return())
-    }
-}
-
-impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
-    fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-        match self {
-            // Only actual value is serialized.
-            PromiseOrValue::Value(x) => x.serialize(writer),
-            // The promise is dropped to cause env::promise calls.
-            PromiseOrValue::Promise(p) => p.serialize(writer),
-        }
     }
 }
 

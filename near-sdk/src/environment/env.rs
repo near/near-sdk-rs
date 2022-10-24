@@ -13,7 +13,7 @@ use crate::mock::MockedBlockchain;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{log, GasWeight, PromiseError};
+use crate::{GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -455,9 +455,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id = account_id.as_ref();
-    let idx = unsafe { sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _) };
-    log!("creating promise {}", idx);
-    idx
+    unsafe { sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _) }
 }
 
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
@@ -632,7 +630,6 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// Consider the execution result of promise under `promise_idx` as execution result of this
 /// function.
 pub fn promise_return(promise_idx: PromiseIndex) {
-    log!("P return: {}", promise_idx);
     unsafe { sys::promise_return(promise_idx) }
 }
 
@@ -662,7 +659,6 @@ pub fn validator_total_stake() -> Balance {
 // #####################
 /// Sets the blob of data as the return value of the contract.
 pub fn value_return(value: &[u8]) {
-    log!("value return: {:?}", value);
     unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.

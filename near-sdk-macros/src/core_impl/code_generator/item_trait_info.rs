@@ -28,14 +28,14 @@ impl ItemTraitInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::ItemTrait;
+    use syn::{ItemTrait, parse_quote};
     use quote::quote;
     use crate::core_impl::info_extractor::ItemTraitInfo;
 
     #[test]
     fn ext_basic() {
-        let mut t: ItemTrait = syn::parse2(
-            quote!{
+        let mut t: ItemTrait = 
+            parse_quote!{
                 pub trait ExternalCrossContract {
                     fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
                     fn merge(
@@ -48,8 +48,7 @@ mod tests {
                         data1: Vec<u8>,
                     ) -> Vec<u8>;
                 }
-            }
-        ).unwrap();
+            };
         let info = ItemTraitInfo::new(&mut t, None).unwrap();
         let actual = info.wrap_trait_ext();
 
@@ -90,7 +89,7 @@ mod tests {
                     pub fn merge_sort(
                         self,
                         arr: Vec<u8>,
-                    ) -> near_sdk::Promise<'__ext_a, PromiseOrValue<Vec<u8> > > {
+                    ) -> near_sdk::Promise<'__ext_a, Vec<u8> > {
                         let __args = {
                             #[derive(near_sdk :: serde :: Serialize)]
                             #[serde(crate = "near_sdk::serde")]

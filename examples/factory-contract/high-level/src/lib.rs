@@ -34,7 +34,7 @@ impl FactoryContract {
         &mut self,
         account_id: AccountId,
         message: String,
-    ) -> ScheduledFn<ScheduledFn<Option<String>>> {
+    ) -> ScheduledFn<Option<String>> {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.

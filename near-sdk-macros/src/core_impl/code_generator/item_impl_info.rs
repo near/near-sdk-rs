@@ -34,7 +34,7 @@ impl ItemImplInfo {
 #[cfg(test)]
 mod tests {
     use syn::{Type, ImplItemMethod, parse_quote};
-    use quote::quote;
+    use quote::{quote, ToTokens};
     use crate::core_impl::info_extractor::ImplItemMethodInfo;
 
 
@@ -759,7 +759,7 @@ mod tests {
                 }
             }
         );
-        assert_eq!(expected.to_string(), actual.to_string());
+        assert_eq!(expected.into_token_stream().to_string(), actual.into_token_stream().to_string());
     }
 
     #[test]
@@ -849,6 +849,33 @@ mod tests {
         let expected = quote!(
             compile_error! {
                 "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>."
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_promise() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            pub fn method(
+                &self,
+            ) -> Result<ScheduledFn<Option<String>>, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                let result = contract.method();
+                match result {
+                    Ok(result) => {}
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());

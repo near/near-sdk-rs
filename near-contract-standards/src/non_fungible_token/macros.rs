@@ -72,7 +72,7 @@ macro_rules! impl_non_fungible_token_approval {
                 token_id: TokenId,
                 account_id: AccountId,
                 msg: Option<String>,
-            ) -> Option<near_sdk::ScheduledFn<String>> {
+            ) -> PromiseOrValue<Option<String>> {
                 self.$token.nft_approve(token_id, account_id, msg)
             }
 

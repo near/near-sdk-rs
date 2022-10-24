@@ -18,7 +18,7 @@ pub struct ApprovalReceiver {
 
 // Have to repeat the same trait for our own implementation.
 trait ValueReturnTrait {
-    fn ok_go(&self, msg: String) -> PromiseOrValue<String>;
+    fn ok_go(&self, msg: String) -> Option<String>;
 }
 
 #[near_bindgen]
@@ -43,7 +43,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
         owner_id: AccountId,
         approval_id: u64,
         msg: String,
-    ) -> PromiseOrValue<String> {
+    ) -> PromiseOrValue<Option<String>> {
         // Verifying that we were called by non-fungible token contract that we expect.
         require!(
             env::predecessor_account_id() == self.non_fungible_token_account_id,
@@ -57,7 +57,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
             msg
         );
         match msg.as_str() {
-            "return-now" => PromiseOrValue::Value("cool".to_string()),
+            "return-now" => PromiseOrValue::Value(Some("cool".to_string())),
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
@@ -73,8 +73,8 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
 
 #[near_bindgen]
 impl ValueReturnTrait for ApprovalReceiver {
-    fn ok_go(&self, msg: String) -> PromiseOrValue<String> {
+    fn ok_go(&self, msg: String) -> Option<String> {
         log!("in ok_go, msg={}", msg);
-        PromiseOrValue::Value(msg)
+        Some(msg)
     }
 }

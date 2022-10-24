@@ -93,7 +93,9 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
         syn::ReturnType::Default => quote! {<'__ext_a, near_sdk::promise::NoReturn>},
         syn::ReturnType::Type(_, ty) => {
             // Unwrap result type if using `handle_result`
+            // TODO double check this, seems like it's extracting regardless of attr
             let ty = crate::core_impl::utils::extract_ok_type(ty).unwrap_or(ty);
+            let ty = crate::core_impl::utils::remove_promise_types_recursively(ty);
             quote! {<'__ext_a, #ty>}
         }
     };
