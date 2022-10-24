@@ -18,7 +18,7 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         );
     }
-    
+
     if let Ok(mut input) = syn::parse::<ItemEnum>(item) {
         let name = &input.ident;
         let standard_name = format!("{}_event_standard", name);
