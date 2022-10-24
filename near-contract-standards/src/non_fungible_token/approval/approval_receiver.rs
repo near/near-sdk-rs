@@ -23,5 +23,5 @@ pub trait NonFungibleTokenApprovalReceiver {
         owner_id: AccountId,
         approval_id: u64,
         msg: String,
-    ) -> near_sdk::PromiseOrValue<Option<String> > ;
+    ) -> near_sdk::PromiseOrValue<Option<String>>;
 }
