@@ -14,7 +14,7 @@ mod private {
         fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>);
     }
 
-    impl<'a, T> SchedulablePromise<T> for super::Promise<'a, T> {
+    impl<'a, T> SchedulablePromise<T> for super::PromiseBuilder<'a, T> {
         fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>) {
             promises.push(self.schedule())
         }
@@ -40,7 +40,7 @@ mod private {
 ///   execution of method `ContractB::b` of `bob_near` account, and the return value of `ContractA::a`
 ///   will be what `ContractB::b` returned.
 /// ```no_run
-/// # use near_sdk::{ext_contract, near_bindgen, Promise, Gas, ScheduledFn};
+/// # use near_sdk::{ext_contract, near_bindgen, Promise, Gas};
 /// # use borsh::{BorshDeserialize, BorshSerialize};
 /// #[ext_contract]
 /// pub trait ContractB {
@@ -53,7 +53,7 @@ mod private {
 ///
 /// #[near_bindgen]
 /// impl ContractA {
-///     pub fn a(&self) -> ScheduledFn {
+///     pub fn a(&self) -> Promise {
 ///         contract_b::ext(&"bob_near".parse().unwrap()).b().schedule_as_return()
 ///     }
 /// }
@@ -74,20 +74,20 @@ mod private {
 /// ```
 #[must_use]
 #[derive(Debug)]
-pub struct Promise<'a, T = NoReturn> {
+pub struct PromiseBuilder<'a, T = NoReturn> {
     account_id: &'a AccountId,
     actions: Vec<PromiseAction<'a>>,
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<'a> Promise<'a, NoReturn> {
+impl<'a> PromiseBuilder<'a, NoReturn> {
     /// Create a promise that acts on the given account.
     pub fn new(account_id: &'a AccountId) -> Self {
         Self { account_id, actions: Vec::new(), _marker: Default::default() }
     }
 }
 
-impl<'a, T> Promise<'a, T> {
+impl<'a, T> PromiseBuilder<'a, T> {
     fn add_action(mut self, action: PromiseAction<'a>) -> Self {
         self.actions.push(action);
         self
@@ -110,7 +110,7 @@ impl<'a, T> Promise<'a, T> {
         // TODO should this be part of opts or have some convenience method for serialization
         arguments: Vec<u8>,
         opts: FunctionCallOpts,
-    ) -> Promise<'a, F> {
+    ) -> PromiseBuilder<'a, F> {
         let Self { account_id, actions, _marker: _ } =
             self.add_action(PromiseAction::FunctionCallWeight {
                 function_name,
@@ -119,7 +119,7 @@ impl<'a, T> Promise<'a, T> {
                 gas: opts.static_gas.unwrap_or_default(),
                 weight: opts.gas_weight.unwrap_or(GasWeight(1)),
             });
-        Promise { account_id, actions, _marker: Default::default() }
+        PromiseBuilder { account_id, actions, _marker: Default::default() }
     }
 
     /// Transfer tokens to the account that this promise acts on.
@@ -218,7 +218,7 @@ impl<'a, T> Promise<'a, T> {
     ///     .then(Promise::new(&eva).create_account())
     ///     .schedule();
     /// ```
-    pub fn then<O>(self, other: Promise<O>) -> PromiseThen<O> {
+    pub fn then<O>(self, other: PromiseBuilder<O>) -> PromiseThen<O> {
         PromiseThen { after: self.schedule(), inner: other }
     }
 
@@ -227,7 +227,7 @@ impl<'a, T> Promise<'a, T> {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, Gas, near_bindgen, Promise, ScheduledFn};
+    /// # use near_sdk::{ext_contract, Gas, near_bindgen, Promise};
     /// # use borsh::{BorshDeserialize, BorshSerialize};
     /// #[ext_contract]
     /// pub trait ContractB {
@@ -244,15 +244,15 @@ impl<'a, T> Promise<'a, T> {
     ///        contract_b::ext(&"bob_near".parse().unwrap()).b().schedule();
     ///     }
     ///
-    ///     pub fn a2(&self) -> ScheduledFn {
+    ///     pub fn a2(&self) -> Promise {
     ///        contract_b::ext(&"bob_near".parse().unwrap()).b().schedule_as_return()
     ///     }
     /// }
     /// ```
-    pub fn schedule_as_return(self) -> ScheduledFn<T> {
+    pub fn schedule_as_return(self) -> Promise<T> {
         let index = self.schedule();
         crate::env::promise_return(index);
-        ScheduledFn { index, _marker: Default::default() }
+        Promise { index, _marker: Default::default() }
     }
 
     // TODO docs
@@ -266,7 +266,7 @@ impl<'a, T> Promise<'a, T> {
 }
 
 /// Until we implement strongly typed promises we serialize them as unit struct.
-impl<T> BorshSchema for Promise<'_, T>
+impl<T> BorshSchema for PromiseBuilder<'_, T>
 where
     T: BorshSchema,
 {
@@ -294,12 +294,12 @@ pub struct FunctionCallOpts {
 #[derive(Debug)]
 pub struct PromiseThen<'a, T = NoReturn> {
     after: PromiseIndex,
-    inner: Promise<'a, T>,
+    inner: PromiseBuilder<'a, T>,
 }
 
 impl<T> PromiseThen<'_, T> {
     /// Schedules execution of another promise right after the current promise finish executing.
-    pub fn then<O>(self, other: Promise<O>) -> PromiseThen<O> {
+    pub fn then<O>(self, other: PromiseBuilder<O>) -> PromiseThen<O> {
         PromiseThen { after: self.schedule(), inner: other }
     }
 
@@ -319,10 +319,10 @@ impl<T> PromiseThen<'_, T> {
     }
 
     // TODO docs
-    pub fn schedule_as_return(self) -> ScheduledFn<T> {
+    pub fn schedule_as_return(self) -> Promise<T> {
         let index = self.schedule();
         crate::env::promise_return(index);
-        ScheduledFn { index, _marker: Default::default() }
+        Promise { index, _marker: Default::default() }
     }
 }
 
@@ -342,7 +342,7 @@ impl<L, R> PromiseAnd<L, R> {
         PromiseAnd { promises: self.promises, _marker: Default::default() }
     }
 
-    pub fn then<O>(self, other: Promise<O>) -> PromiseThen<O> {
+    pub fn then<O>(self, other: PromiseBuilder<O>) -> PromiseThen<O> {
         PromiseThen { after: self.schedule(), inner: other }
     }
 
@@ -350,10 +350,10 @@ impl<L, R> PromiseAnd<L, R> {
         crate::env::promise_and(&self.promises)
     }
 
-    pub fn schedule_as_return(self) -> ScheduledFn<PromiseAnd<L, R>> {
+    pub fn schedule_as_return(self) -> Promise<PromiseAnd<L, R>> {
         let index = self.schedule();
         crate::env::promise_return(index);
-        ScheduledFn { index, _marker: Default::default() }
+        Promise { index, _marker: Default::default() }
     }
 }
 
@@ -383,9 +383,31 @@ where
     }
 }
 
-pub struct ScheduledFn<T = NoReturn> {
+pub struct Promise<T = NoReturn> {
     pub index: PromiseIndex,
     _marker: PhantomData<fn() -> T>,
+}
+
+impl Promise<NoReturn> {
+    #[deprecated = "creating a promise directly is deprecated, use `PromiseBuilder::new` instead"]
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(account_id: &AccountId) -> PromiseBuilder<'_, NoReturn> {
+        PromiseBuilder::new(account_id)
+    }
+}
+
+#[cfg(feature = "abi")]
+impl<T> schemars::JsonSchema for Promise<T>
+where
+    T: schemars::JsonSchema,
+{
+    fn schema_name() -> String {
+        <T as schemars::JsonSchema>::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        <T as schemars::JsonSchema>::json_schema(gen)
+    }
 }
 
 #[derive(Debug)]
@@ -478,20 +500,6 @@ impl PromiseAction<'_> {
     }
 }
 
-#[cfg(feature = "abi")]
-impl<T> schemars::JsonSchema for ScheduledFn<T>
-where
-    T: schemars::JsonSchema,
-{
-    fn schema_name() -> String {
-        <T as schemars::JsonSchema>::schema_name()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        <T as schemars::JsonSchema>::json_schema(gen)
-    }
-}
-
 /// When the method can return either a promise or a value, it can be called with `PromiseOrValue::Promise`
 /// or `PromiseOrValue::Value` to specify which one should be returned.
 /// # Example
@@ -510,7 +518,7 @@ where
 /// };
 /// ```
 pub enum PromiseOrValue<T> {
-    Promise(ScheduledFn<T>),
+    Promise(Promise<T>),
     Value(T),
 }
 
@@ -529,8 +537,8 @@ where
     }
 }
 
-impl<T> From<ScheduledFn<T>> for PromiseOrValue<T> {
-    fn from(s: ScheduledFn<T>) -> Self {
+impl<T> From<Promise<T>> for PromiseOrValue<T> {
+    fn from(s: Promise<T>) -> Self {
         PromiseOrValue::Promise(s)
     }
 }
@@ -540,7 +548,7 @@ impl<T> From<PromiseOrValue<PromiseOrValue<T>>> for PromiseOrValue<T> {
         match s {
             PromiseOrValue::Promise(p) => {
                 // Transmute the return type to the inner return type to avoid nested types.
-                PromiseOrValue::Promise(ScheduledFn { index: p.index, _marker: Default::default() })
+                PromiseOrValue::Promise(Promise { index: p.index, _marker: Default::default() })
             }
             PromiseOrValue::Value(p @ PromiseOrValue::Promise(_)) => p,
             PromiseOrValue::Value(v @ PromiseOrValue::Value(_)) => v,
@@ -548,16 +556,16 @@ impl<T> From<PromiseOrValue<PromiseOrValue<T>>> for PromiseOrValue<T> {
     }
 }
 
-impl<T> From<ScheduledFn<PromiseOrValue<T>>> for PromiseOrValue<T> {
-    fn from(s: ScheduledFn<PromiseOrValue<T>>) -> Self {
-        PromiseOrValue::Promise(ScheduledFn::from(s))
+impl<T> From<Promise<PromiseOrValue<T>>> for PromiseOrValue<T> {
+    fn from(s: Promise<PromiseOrValue<T>>) -> Self {
+        PromiseOrValue::Promise(Promise::from(s))
     }
 }
 
-impl<T> From<ScheduledFn<PromiseOrValue<T>>> for ScheduledFn<T> {
-    fn from(s: ScheduledFn<PromiseOrValue<T>>) -> Self {
+impl<T> From<Promise<PromiseOrValue<T>>> for Promise<T> {
+    fn from(s: Promise<PromiseOrValue<T>>) -> Self {
         // Can ignore the fact that the result comes from a promise or direct return value.
-        ScheduledFn { index: s.index, _marker: Default::default() }
+        Promise { index: s.index, _marker: Default::default() }
     }
 }
 

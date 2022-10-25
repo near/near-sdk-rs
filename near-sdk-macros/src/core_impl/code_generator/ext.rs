@@ -101,9 +101,9 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     };
     quote! {
         #new_non_bindgen_attrs
-        pub fn #ident #generics (self, #pat_type_list) -> near_sdk::Promise #promise_generics {
+        pub fn #ident #generics (self, #pat_type_list) -> near_sdk::PromiseBuilder #promise_generics {
             let __args = #serialize;
-            near_sdk::Promise::new(self.account_id)
+            near_sdk::PromiseBuilder::new(self.account_id)
                 .function_call(
                     #ident_str,
                     __args,
@@ -215,7 +215,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
-            pub fn method(self, k: &String,) -> near_sdk::Promise<'__ext_a, near_sdk::promise::NoReturn> {
+            pub fn method(self, k: &String,) -> near_sdk::PromiseBuilder<'__ext_a, near_sdk::promise::NoReturn> {
                 let __args = {#[derive(near_sdk :: serde :: Serialize)]
                     #[serde(crate = "near_sdk::serde")]
                     struct Input<'nearinput> {
@@ -225,7 +225,7 @@ mod tests {
                     near_sdk::serde_json::to_vec(&__args)
                         .expect("Failed to serialize the cross contract args using JSON.")
                 };
-                near_sdk::Promise::new(self.account_id)
+                near_sdk::PromiseBuilder::new(self.account_id)
                     .function_call(
                         "method",
                         __args,
@@ -249,7 +249,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
-          pub fn borsh_test(self, a: String,) -> near_sdk::Promise<'__ext_a, near_sdk::promise::NoReturn> {
+          pub fn borsh_test(self, a: String,) -> near_sdk::PromiseBuilder<'__ext_a, near_sdk::promise::NoReturn> {
             let __args = {
                 #[derive(near_sdk :: borsh :: BorshSerialize)]
                 struct Input<'nearinput> {
@@ -259,7 +259,7 @@ mod tests {
                 near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
                     .expect("Failed to serialize the cross contract args using Borsh.")
                 };
-                near_sdk::Promise::new(self.account_id)
+                near_sdk::PromiseBuilder::new(self.account_id)
                     .function_call(
                         "borsh_test",
                         __args,

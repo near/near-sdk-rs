@@ -20,7 +20,7 @@ pub use environment::env;
 pub use near_sys as sys;
 
 pub mod promise;
-pub use promise::{Promise, PromiseOrValue, ScheduledFn};
+pub use promise::{Promise, PromiseBuilder, PromiseOrValue};
 
 // Private types just used within macro generation, not stable to be used.
 #[doc(hidden)]

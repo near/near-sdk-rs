@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId, Promise};
-use near_sdk::{PromiseError, ScheduledFn};
+use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId};
+use near_sdk::{Promise, PromiseBuilder, PromiseError};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -17,7 +17,7 @@ pub trait ExtStatusMessage {
 #[near_bindgen]
 impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
-        Promise::new(&account_id)
+        PromiseBuilder::new(&account_id)
             .create_account()
             .transfer(amount.0)
             .add_full_access_key(&env::signer_account_pk())
@@ -34,7 +34,7 @@ impl FactoryContract {
         &mut self,
         account_id: AccountId,
         message: String,
-    ) -> ScheduledFn<Option<String>> {
+    ) -> Promise<Option<String>> {
         // 1) call status_message to record a message from the signer.
         // 2) call status_message to retrieve the message of the signer.
         // 3) return that message as its own result.
@@ -50,7 +50,7 @@ impl FactoryContract {
         &self,
         account_id: &AccountId,
         #[callback_result] set_status_result: Result<(), PromiseError>,
-    ) -> Result<ScheduledFn<Option<String>>, &'static str> {
+    ) -> Result<Promise<Option<String>>, &'static str> {
         match set_status_result {
             Ok(_) => Ok(ext_status_message::ext(&account_id)
                 .get_status(&env::signer_account_id())

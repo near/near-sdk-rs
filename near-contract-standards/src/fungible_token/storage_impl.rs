@@ -1,7 +1,7 @@
 use crate::fungible_token::FungibleToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::json_types::U128;
-use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
+use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, PromiseBuilder};
 
 impl FungibleToken {
     /// Internal method that returns the Account ID and the balance in case the account was
@@ -17,7 +17,7 @@ impl FungibleToken {
             if balance == 0 || force {
                 self.accounts.remove(&account_id);
                 self.total_supply -= balance;
-                Promise::new(&account_id)
+                PromiseBuilder::new(&account_id)
                     .transfer(self.storage_balance_bounds().min.0 + 1)
                     .schedule();
                 Some((account_id, balance))
@@ -54,7 +54,7 @@ impl StorageManagement for FungibleToken {
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > 0 {
-                Promise::new(&env::predecessor_account_id()).transfer(amount).schedule();
+                PromiseBuilder::new(&env::predecessor_account_id()).transfer(amount).schedule();
             }
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
@@ -65,7 +65,7 @@ impl StorageManagement for FungibleToken {
             self.internal_register_account(&account_id);
             let refund = amount - min_balance;
             if refund > 0 {
-                Promise::new(&env::predecessor_account_id()).transfer(refund).schedule();
+                PromiseBuilder::new(&env::predecessor_account_id()).transfer(refund).schedule();
             }
         }
         self.internal_storage_balance_of(&account_id).unwrap()

@@ -10,7 +10,7 @@ pub(crate) fn function_return_variant(ty: &Type) -> ReturnVariant {
     if let Some(last) = last_type_segment(ty) {
         if last.ident == "PromiseOrValue" {
             return ReturnVariant::PromiseOrValue;
-        } else if last.ident == "ScheduledFn" {
+        } else if last.ident == "Promise" {
             return ReturnVariant::Promise;
         }
     }
@@ -39,7 +39,7 @@ pub(crate) fn remove_promise_types_recursively(mut ty: &Type) -> &Type {
     loop {
         if let Some(last) = last_type_segment(ty) {
             // TODO add others
-            if last.ident == "PromiseOrValue" || last.ident == "ScheduledFn" {
+            if last.ident == "PromiseOrValue" || last.ident == "Promise" {
                 if let Some(inner) = first_generic_type(last) {
                     ty = inner;
                     continue;
@@ -147,10 +147,10 @@ mod tests {
             String
         );
         assert_conversion!(remove_promise_types_recursively(Result<String>), Result<String>);
-        assert_conversion!(remove_promise_types_recursively(ScheduledFn<String>), String);
+        assert_conversion!(remove_promise_types_recursively(Promise<String>), String);
         assert_conversion!(remove_promise_types_recursively(u8), u8);
         assert_conversion!(
-            remove_promise_types_recursively(ScheduledFn<PromiseOrValue<String>>),
+            remove_promise_types_recursively(Promise<PromiseOrValue<String>>),
             String
         );
         // TODO do we want to skip over wrapper types?

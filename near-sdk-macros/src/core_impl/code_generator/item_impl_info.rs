@@ -861,7 +861,7 @@ mod tests {
             #[handle_result]
             pub fn method(
                 &self,
-            ) -> Result<ScheduledFn<Option<String>>, &'static str> { }
+            ) -> Result<Promise<Option<String>>, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
         let actual = method_info.method_wrapper();

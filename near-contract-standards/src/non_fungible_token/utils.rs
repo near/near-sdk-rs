@@ -1,4 +1,4 @@
-use near_sdk::{env, require, AccountId, Balance, Promise, PromiseIndex};
+use near_sdk::{env, require, AccountId, Balance, PromiseBuilder, PromiseIndex};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -16,7 +16,7 @@ where
     I: Iterator<Item = &'a AccountId>,
 {
     let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
-    Promise::new(account_id)
+    PromiseBuilder::new(account_id)
         .transfer(Balance::from(storage_released) * env::storage_byte_cost())
         .schedule()
 }
@@ -39,7 +39,7 @@ pub fn refund_deposit_to_account(storage_used: u64, account_id: &AccountId) {
 
     let refund = attached_deposit - required_cost;
     if refund > 1 {
-        Promise::new(account_id).transfer(refund).schedule();
+        PromiseBuilder::new(account_id).transfer(refund).schedule();
     }
 }
 

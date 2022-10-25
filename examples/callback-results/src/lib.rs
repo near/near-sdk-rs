@@ -1,5 +1,5 @@
 use near_sdk::{env, near_bindgen, PromiseError};
-use near_sdk::{require, ScheduledFn};
+use near_sdk::{require, Promise};
 
 const A_VALUE: u8 = 8;
 
@@ -9,7 +9,7 @@ pub struct Callback;
 #[near_bindgen]
 impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
-    pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> ScheduledFn<(bool, bool, bool)> {
+    pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise<(bool, bool, bool)> {
         let id = env::current_account_id();
         Self::ext(&id)
             .a()
@@ -21,7 +21,7 @@ impl Callback {
     }
 
     /// Calls function c with a value that will always succeed
-    pub fn a() -> ScheduledFn<u8> {
+    pub fn a() -> Promise<u8> {
         Self::ext(&env::current_account_id()).c(A_VALUE).schedule_as_return()
     }
 
