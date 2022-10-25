@@ -9,25 +9,32 @@ use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
 pub type NoReturn = ();
 
 mod private {
-    /// Seal `ToKey` implementations to limit usage to the builtin implementations
-    pub trait SchedulablePromise<T> {
-        fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>);
-    }
+    /// Types allowed to be used as a promise are sealed to ensure only Promise types can be used.
+    pub trait Sealed {}
 
-    impl<'a, T> SchedulablePromise<T> for super::PromiseBuilder<'a, T> {
-        fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>) {
-            promises.push(self.schedule())
-        }
+    impl<'a, T> Sealed for super::PromiseBuilder<'a, T> {}
+    impl<'a, T> Sealed for super::PromiseThen<'a, T> {}
+    impl<L, R> Sealed for super::PromiseAnd<L, R> {}
+}
+
+/// Types that can be scheduled through [`PromiseBuilder::and`] and other promise equivalents.
+pub trait SchedulablePromise<T>: private::Sealed {
+    fn append_to_promises(self, promises: &mut Vec<PromiseIndex>);
+}
+
+impl<'a, T> SchedulablePromise<T> for PromiseBuilder<'a, T> {
+    fn append_to_promises(self, promises: &mut Vec<PromiseIndex>) {
+        promises.push(self.schedule())
     }
-    impl<'a, T> SchedulablePromise<T> for super::PromiseThen<'a, T> {
-        fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>) {
-            promises.push(self.schedule())
-        }
+}
+impl<'a, T> SchedulablePromise<T> for PromiseThen<'a, T> {
+    fn append_to_promises(self, promises: &mut Vec<PromiseIndex>) {
+        promises.push(self.schedule())
     }
-    impl<L, R> SchedulablePromise<super::PromiseAnd<L, R>> for super::PromiseAnd<L, R> {
-        fn append_to_promises(self, promises: &mut Vec<super::PromiseIndex>) {
-            promises.extend(self.promises)
-        }
+}
+impl<L, R> SchedulablePromise<PromiseAnd<L, R>> for PromiseAnd<L, R> {
+    fn append_to_promises(self, promises: &mut Vec<PromiseIndex>) {
+        promises.extend(self.promises)
     }
 }
 
@@ -193,7 +200,7 @@ impl<'a, T> PromiseBuilder<'a, T> {
     /// let p3 = Promise::new(&bob).create_account().and(Promise::new(&carol).create_account());
     /// p3.schedule();
     /// ```
-    pub fn and<O>(self, other: impl private::SchedulablePromise<O>) -> PromiseAnd<T, O> {
+    pub fn and<O>(self, other: impl SchedulablePromise<O>) -> PromiseAnd<T, O> {
         let mut promises = vec![self.schedule()];
         other.append_to_promises(&mut promises);
         PromiseAnd { promises, _marker: Default::default() }
@@ -303,7 +310,7 @@ impl<T> PromiseThen<'_, T> {
         PromiseThen { after: self.schedule(), inner: other }
     }
 
-    pub fn and<O>(self, other: impl private::SchedulablePromise<O>) -> PromiseAnd<T, O> {
+    pub fn and<O>(self, other: impl SchedulablePromise<O>) -> PromiseAnd<T, O> {
         let mut promises = vec![self.schedule()];
         other.append_to_promises(&mut promises);
         PromiseAnd { promises, _marker: Default::default() }
@@ -334,10 +341,7 @@ pub struct PromiseAnd<L, R> {
 }
 
 impl<L, R> PromiseAnd<L, R> {
-    pub fn and<O>(
-        mut self,
-        other: impl private::SchedulablePromise<O>,
-    ) -> PromiseAnd<PromiseAnd<L, R>, O> {
+    pub fn and<O>(mut self, other: impl SchedulablePromise<O>) -> PromiseAnd<PromiseAnd<L, R>, O> {
         other.append_to_promises(&mut self.promises);
         PromiseAnd { promises: self.promises, _marker: Default::default() }
     }
@@ -579,10 +583,10 @@ impl<T> From<PromiseThen<'_, T>> for PromiseOrValue<T> {
 #[cfg(feature = "abi")]
 impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
     fn schema_name() -> String {
-        format!("PromiseOrValue{}", T::schema_name())
+        <T as schemars::JsonSchema>::schema_name()
     }
 
     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        T::json_schema(gen)
+        <T as schemars::JsonSchema>::json_schema(gen)
     }
 }
