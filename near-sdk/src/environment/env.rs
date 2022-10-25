@@ -404,7 +404,7 @@ pub fn promise_create(
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
-    unsafe {
+    PromiseIndex(unsafe {
         sys::promise_create(
             account_id.len() as _,
             account_id.as_ptr() as _,
@@ -415,7 +415,7 @@ pub fn promise_create(
             &amount as *const Balance as _,
             gas.0,
         )
-    }
+    })
 }
 
 /// Attaches the callback that is executed after promise pointed by `promise_idx` is complete.
@@ -428,9 +428,9 @@ pub fn promise_then(
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
-    unsafe {
+    PromiseIndex(unsafe {
         sys::promise_then(
-            promise_idx,
+            promise_idx.0,
             account_id.len() as _,
             account_id.as_ptr() as _,
             function_name.len() as _,
@@ -440,39 +440,41 @@ pub fn promise_then(
             &amount as *const Balance as _,
             gas.0,
         )
-    }
+    })
 }
 
 /// Creates a new promise which completes when time all promises passed as arguments complete.
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; promise_indices.len() * size_of::<PromiseIndex>()];
     for i in 0..promise_indices.len() {
-        data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
-            .copy_from_slice(&promise_indices[i].to_le_bytes());
+        data[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
+            .copy_from_slice(&promise_indices[i].0.to_le_bytes());
     }
-    unsafe { sys::promise_and(data.as_ptr() as _, promise_indices.len() as _) }
+    PromiseIndex(unsafe { sys::promise_and(data.as_ptr() as _, promise_indices.len() as _) })
 }
 
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id = account_id.as_ref();
-    unsafe { sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _) }
+    PromiseIndex(unsafe {
+        sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _)
+    })
 }
 
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
-    unsafe {
-        sys::promise_batch_then(promise_index, account_id.len() as _, account_id.as_ptr() as _)
-    }
+    PromiseIndex(unsafe {
+        sys::promise_batch_then(promise_index.0, account_id.len() as _, account_id.as_ptr() as _)
+    })
 }
 
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
-    unsafe { sys::promise_batch_action_create_account(promise_index) }
+    unsafe { sys::promise_batch_action_create_account(promise_index.0) }
 }
 
-pub fn promise_batch_action_deploy_contract(promise_index: u64, code: &[u8]) {
+pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
         sys::promise_batch_action_deploy_contract(
-            promise_index,
+            promise_index.0,
             code.len() as _,
             code.as_ptr() as _,
         )
@@ -488,7 +490,7 @@ pub fn promise_batch_action_function_call(
 ) {
     unsafe {
         sys::promise_batch_action_function_call(
-            promise_index,
+            promise_index.0,
             function_name.len() as _,
             function_name.as_ptr() as _,
             arguments.len() as _,
@@ -509,7 +511,7 @@ pub fn promise_batch_action_function_call_weight(
 ) {
     unsafe {
         sys::promise_batch_action_function_call_weight(
-            promise_index,
+            promise_index.0,
             function_name.len() as _,
             function_name.as_ptr() as _,
             arguments.len() as _,
@@ -522,7 +524,7 @@ pub fn promise_batch_action_function_call_weight(
 }
 
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
-    unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
+    unsafe { sys::promise_batch_action_transfer(promise_index.0, &amount as *const Balance as _) }
 }
 
 pub fn promise_batch_action_stake(
@@ -532,7 +534,7 @@ pub fn promise_batch_action_stake(
 ) {
     unsafe {
         sys::promise_batch_action_stake(
-            promise_index,
+            promise_index.0,
             &amount as *const Balance as _,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
@@ -546,7 +548,7 @@ pub fn promise_batch_action_add_key_with_full_access(
 ) {
     unsafe {
         sys::promise_batch_action_add_key_with_full_access(
-            promise_index,
+            promise_index.0,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
             nonce,
@@ -564,7 +566,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     let receiver_id: &str = receiver_id.as_ref();
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
-            promise_index,
+            promise_index.0,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
             nonce,
@@ -579,7 +581,7 @@ pub fn promise_batch_action_add_key_with_function_call(
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
-            promise_index,
+            promise_index.0,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
         )
@@ -593,7 +595,7 @@ pub fn promise_batch_action_delete_account(
     let beneficiary_id: &str = beneficiary_id.as_ref();
     unsafe {
         sys::promise_batch_action_delete_account(
-            promise_index,
+            promise_index.0,
             beneficiary_id.len() as _,
             beneficiary_id.as_ptr() as _,
         )
@@ -630,7 +632,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// Consider the execution result of promise under `promise_idx` as execution result of this
 /// function.
 pub fn promise_return(promise_idx: PromiseIndex) {
-    unsafe { sys::promise_return(promise_idx) }
+    unsafe { sys::promise_return(promise_idx.0) }
 }
 
 // ###############
