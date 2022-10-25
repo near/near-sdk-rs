@@ -256,8 +256,8 @@ fn generate_serialization_code(
     };
 
     match utils::function_return_variant(return_type) {
-        utils::PromiseVariant::Promise(_) => quote! {},
-        utils::PromiseVariant::PromiseOrValue(_) => {
+        utils::ReturnVariant::Promise => quote! {},
+        utils::ReturnVariant::PromiseOrValue => {
             let serialize_codegen = generate_result_serialization();
             quote! {
                 match result {
@@ -268,6 +268,6 @@ fn generate_serialization_code(
                 };
             }
         }
-        utils::PromiseVariant::Value(_) => generate_result_serialization(),
+        utils::ReturnVariant::Value => generate_result_serialization(),
     }
 }

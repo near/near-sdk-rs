@@ -54,7 +54,7 @@ mod private {
 /// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> ScheduledFn {
-///         contract_b::ext("bob_near".parse().unwrap()).b()
+///         contract_b::ext(&"bob_near".parse().unwrap()).b().schedule_as_return()
 ///     }
 /// }
 /// ```
@@ -69,7 +69,7 @@ mod private {
 /// Promise::new(&"bob_near".parse().unwrap())
 ///   .create_account()
 ///   .transfer(1000)
-///   .add_full_access_key(env::signer_account_pk())
+///   .add_full_access_key(&env::signer_account_pk())
 ///   .schedule();
 /// ```
 #[must_use]
@@ -186,15 +186,12 @@ impl<'a, T> Promise<'a, T> {
     /// Merge this promise with another promise, so that we can schedule execution of another
     /// smart contract right after all merged promises finish.
     ///
-    /// Note, once the promises are merged it is not possible to add actions to them, e.g. the
-    /// following code will panic during the execution of the smart contract:
-    ///
     /// ```no_run
     /// # use near_sdk::{Promise, testing_env};
-    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
-    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
-    /// let p3 = p1.and(p2);
-    /// // p3.create_account();
+    /// let bob = "bob.near".parse().unwrap();
+    /// let carol = "carol.near".parse().unwrap();
+    /// let p3 = Promise::new(&bob).create_account().and(Promise::new(&carol).create_account());
+    /// p3.schedule();
     /// ```
     pub fn and<O>(self, other: impl private::SchedulablePromise<O>) -> PromiseAnd<T, O> {
         let mut promises = vec![self.schedule()];
@@ -204,16 +201,22 @@ impl<'a, T> Promise<'a, T> {
 
     /// Schedules execution of another promise right after the current promise finish executing.
     ///
-    /// In the following code `bob_near` and `dave_near` will be created concurrently. `carol_near`
-    /// creation will wait for `bob_near` to be created, and `eva_near` will wait for both `carol_near`
-    /// and `dave_near` to be created first.
+    /// In the following code `bob.near` and `dave.near` will be created concurrently. `carol.near`
+    /// creation will wait for `bob.near` to be created, and `eva.near` will wait for both `carol.near`
+    /// and `dave.near` to be created first.
+    ///
     /// ```no_run
     /// # use near_sdk::{Promise, VMContext, testing_env};
-    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
-    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
-    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
-    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
-    /// p1.then(p2).and(p3).then(p4).schedule();
+    /// let bob = "bob.near".parse().unwrap();
+    /// let carol = "carol.near".parse().unwrap();
+    /// let dave = "dave.near".parse().unwrap();
+    /// let eva = "eva.near".parse().unwrap();
+    ///
+    /// Promise::new(&bob).create_account()
+    ///     .then(Promise::new(&carol).create_account())
+    ///     .and(Promise::new(&dave).create_account())
+    ///     .then(Promise::new(&eva).create_account())
+    ///     .schedule();
     /// ```
     pub fn then<O>(self, other: Promise<O>) -> PromiseThen<O> {
         PromiseThen { after: self.schedule(), inner: other }
@@ -224,7 +227,7 @@ impl<'a, T> Promise<'a, T> {
     ///
     /// In the below code `a1` and `a2` functions are equivalent.
     /// ```
-    /// # use near_sdk::{ext_contract, Gas, near_bindgen, Promise};
+    /// # use near_sdk::{ext_contract, Gas, near_bindgen, Promise, ScheduledFn};
     /// # use borsh::{BorshDeserialize, BorshSerialize};
     /// #[ext_contract]
     /// pub trait ContractB {
@@ -238,11 +241,11 @@ impl<'a, T> Promise<'a, T> {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::ext("bob_near".parse().unwrap()).b().as_return();
+    ///        contract_b::ext(&"bob_near".parse().unwrap()).b().schedule();
     ///     }
     ///
     ///     pub fn a2(&self) -> ScheduledFn {
-    ///        contract_b::ext("bob_near".parse().unwrap()).b().schedule_as_return()
+    ///        contract_b::ext(&"bob_near".parse().unwrap()).b().schedule_as_return()
     ///     }
     /// }
     /// ```
@@ -295,6 +298,17 @@ pub struct PromiseThen<'a, T = NoReturn> {
 }
 
 impl<T> PromiseThen<'_, T> {
+    /// Schedules execution of another promise right after the current promise finish executing.
+    pub fn then<O>(self, other: Promise<O>) -> PromiseThen<O> {
+        PromiseThen { after: self.schedule(), inner: other }
+    }
+
+    pub fn and<O>(self, other: impl private::SchedulablePromise<O>) -> PromiseAnd<T, O> {
+        let mut promises = vec![self.schedule()];
+        other.append_to_promises(&mut promises);
+        PromiseAnd { promises, _marker: Default::default() }
+    }
+
     // TODO docs
     pub fn schedule(self) -> PromiseIndex {
         let promise_index = crate::env::promise_batch_then(self.after, self.inner.account_id);
@@ -464,18 +478,19 @@ impl PromiseAction<'_> {
     }
 }
 
-// #[cfg(feature = "abi")]
-// impl schemars::JsonSchema for Promise {
-//     fn schema_name() -> String {
-//         "Promise".to_string()
-//     }
+#[cfg(feature = "abi")]
+impl<T> schemars::JsonSchema for ScheduledFn<T>
+where
+    T: schemars::JsonSchema,
+{
+    fn schema_name() -> String {
+        <T as schemars::JsonSchema>::schema_name()
+    }
 
-//     fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-//         // Since promises are untyped, for now we represent Promise results with the schema
-//         // `true` which matches everything (i.e. always passes validation)
-//         schemars::schema::Schema::Bool(true)
-//     }
-// }
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        <T as schemars::JsonSchema>::json_schema(gen)
+    }
+}
 
 /// When the method can return either a promise or a value, it can be called with `PromiseOrValue::Promise`
 /// or `PromiseOrValue::Value` to specify which one should be returned.
@@ -484,18 +499,16 @@ impl PromiseAction<'_> {
 /// # use near_sdk::{ext_contract, near_bindgen, Gas, PromiseOrValue};
 /// #[ext_contract]
 /// pub trait ContractA {
-///     fn a(&mut self);
+///     fn a(&mut self) -> bool;
 /// }
 ///
 /// let value = Some(true);
 /// let val: PromiseOrValue<bool> = if let Some(value) = value {
 ///     PromiseOrValue::Value(value)
 /// } else {
-///     contract_a::ext("bob_near".parse().unwrap()).a().into()
+///     contract_a::ext(&"bob_near".parse().unwrap()).a().schedule_as_return().into()
 /// };
 /// ```
-// #[derive(serde::Serialize)]
-// #[serde(untagged)]
 pub enum PromiseOrValue<T> {
     Promise(ScheduledFn<T>),
     Value(T),

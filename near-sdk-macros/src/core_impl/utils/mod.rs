@@ -1,25 +1,21 @@
 use syn::{GenericArgument, Path, PathArguments, PathSegment, Type};
 
-pub(crate) enum PromiseVariant<'a> {
-    PromiseOrValue(&'a Type),
-    Promise(&'a Type),
-    Value(&'a Type),
+pub(crate) enum ReturnVariant {
+    PromiseOrValue,
+    Promise,
+    Value,
 }
 
-pub(crate) fn function_return_variant(ty: &Type) -> PromiseVariant {
+pub(crate) fn function_return_variant(ty: &Type) -> ReturnVariant {
     if let Some(last) = last_type_segment(ty) {
         if last.ident == "PromiseOrValue" {
-            return PromiseVariant::PromiseOrValue(
-                first_generic_type(last).expect("PromiseOrValue expects a generic type"),
-            );
+            return ReturnVariant::PromiseOrValue;
         } else if last.ident == "ScheduledFn" {
-            return PromiseVariant::Promise(
-                first_generic_type(last).expect("ScheduledFn expects a generic type"),
-            );
+            return ReturnVariant::Promise;
         }
     }
 
-    PromiseVariant::Value(ty)
+    ReturnVariant::Value
 }
 
 fn first_generic_type(segment: &PathSegment) -> Option<&Type> {
