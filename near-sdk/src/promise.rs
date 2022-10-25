@@ -106,7 +106,7 @@ impl<'a, T> PromiseBuilder<'a, T> {
     }
 
     /// Deploy a smart contract to the account on which this promise acts.
-    pub fn deploy_contract(self, code: Vec<u8>) -> Self {
+    pub fn deploy_contract(self, code: &'a [u8]) -> Self {
         self.add_action(PromiseAction::DeployContract { code })
     }
 
@@ -418,7 +418,7 @@ where
 enum PromiseAction<'a> {
     CreateAccount,
     DeployContract {
-        code: Vec<u8>,
+        code: &'a [u8],
     },
     FunctionCallWeight {
         function_name: &'a str,

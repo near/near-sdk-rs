@@ -78,6 +78,6 @@ impl Upgradable for Upgrade {
         let code = env::storage_read(b"upgrade")
             .unwrap_or_else(|| env::panic_str("No upgrade code available"));
         env::storage_remove(b"upgrade");
-        PromiseBuilder::new(&env::current_account_id()).deploy_contract(code).schedule_as_return()
+        PromiseBuilder::new(&env::current_account_id()).deploy_contract(&code).schedule_as_return()
     }
 }
