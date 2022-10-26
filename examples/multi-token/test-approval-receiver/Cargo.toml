@@ -1,0 +1,12 @@
+[package]
+name = "approval-receiver"
+version = "0.1.0"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { path = "../../../near-sdk" }
+near-contract-standards = { path = "../../../near-contract-standards" }
