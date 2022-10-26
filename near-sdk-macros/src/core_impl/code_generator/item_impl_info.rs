@@ -1,5 +1,5 @@
 use crate::core_impl::ext::generate_ext_function_wrappers;
-use crate::ItemImplInfo;
+use crate::{ItemImplInfo, MacroConfig};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Ident};
@@ -16,7 +16,7 @@ impl ItemImplInfo {
         res
     }
 
-    pub fn generate_ext_wrapper_code(&self) -> TokenStream2 {
+    pub fn generate_ext_wrapper_code(&self, config: &MacroConfig) -> TokenStream2 {
         match syn::parse::<Ident>(self.ty.to_token_stream().into()) {
             Ok(n) => generate_ext_function_wrappers(
                 &n,
@@ -24,6 +24,7 @@ impl ItemImplInfo {
                     .iter()
                     .filter(|m| m.is_public || self.is_trait_impl)
                     .map(|m| &m.attr_signature_info),
+                config,
             ),
             Err(e) => syn::Error::new(self.ty.span(), e).to_compile_error(),
         }

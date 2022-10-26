@@ -4,13 +4,18 @@ extern crate proc_macro;
 mod core_impl;
 
 use core_impl::ext::generate_ext_structs;
+use core_impl::MacroConfig;
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
+use darling::FromMeta;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{
+    parse_macro_input, parse_quote, AttributeArgs, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait,
+    WhereClause,
+};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -44,7 +49,15 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn near_bindgen(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    let attr_args = parse_macro_input!(attrs as AttributeArgs);
+    let config = match MacroConfig::from_list(&attr_args) {
+        Ok(args) => args,
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
+        }
+    };
+
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed")]
@@ -95,7 +108,7 @@ pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let generated_code = item_impl_info.wrapper_code();
 
         // Add wrapper methods for ext call API
-        let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
+        let ext_generated_code = item_impl_info.generate_ext_wrapper_code(&config);
         TokenStream::from(quote! {
             #ext_generated_code
             #input
@@ -151,7 +164,8 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
             Ok(x) => x,
             Err(err) => return TokenStream::from(err.to_compile_error()),
         };
-        let ext_api = item_trait_info.wrap_trait_ext();
+
+        let ext_api = item_trait_info.wrap_trait_ext(&MacroConfig::default());
 
         TokenStream::from(quote! {
             #input

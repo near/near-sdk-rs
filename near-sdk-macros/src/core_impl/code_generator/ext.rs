@@ -1,7 +1,8 @@
+use crate::core_impl::config::MacroConfig;
 use crate::core_impl::{serializer, AttrSigInfo};
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Generics, Signature};
+use syn::{Attribute, Generics, Signature};
 
 /// Generates inner ext code for structs and modules. If intended for a struct, generic details
 /// for the struct should be passed in through `generic_details` and the `ext` method will be
@@ -63,11 +64,12 @@ pub(crate) fn generate_ext_structs(
 pub(crate) fn generate_ext_function_wrappers<'a>(
     ident: &Ident,
     methods: impl IntoIterator<Item = &'a AttrSigInfo>,
+    config: &MacroConfig,
 ) -> TokenStream2 {
     let ext_ident = format_ident!("{}Ext", ident);
     let mut res = TokenStream2::new();
     for method in methods {
-        res.extend(generate_ext_function(method));
+        res.extend(generate_ext_function(method, config));
     }
     quote! {
         impl #ext_ident {
@@ -76,13 +78,14 @@ pub(crate) fn generate_ext_function_wrappers<'a>(
     }
 }
 
-fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
+fn generate_ext_function(attr_signature_info: &AttrSigInfo, config: &MacroConfig) -> TokenStream2 {
     let pat_type_list = attr_signature_info.pat_type_list();
     let serialize =
         serializer::generate_serializer(attr_signature_info, &attr_signature_info.input_serializer);
 
     let AttrSigInfo { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
     let ident_str = ident.to_string();
+    let non_bindgen_attrs = filter_ext_function_non_bindgen_attrs(non_bindgen_attrs, config);
     let mut new_non_bindgen_attrs = TokenStream2::new();
     for attribute in non_bindgen_attrs.iter() {
         attribute.to_tokens(&mut new_non_bindgen_attrs);
@@ -102,6 +105,25 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
             )
         }
     }
+}
+
+/// Filters non-bindgen attributes to be passed on to an ext function.
+fn filter_ext_function_non_bindgen_attrs(
+    input_attrs: &Vec<Attribute>,
+    config: &MacroConfig,
+) -> Vec<Attribute> {
+    let mut filtered_attrs = vec![];
+    let blacklisted_attrs = match &config.blacklist_ext_fn_attrs {
+        Some(paths) => paths,
+        None => return input_attrs.clone(),
+    };
+    for attribute in input_attrs.iter() {
+        let is_blacklisted = blacklisted_attrs.iter().any(|bl_path| bl_path == &attribute.path);
+        if !is_blacklisted {
+            filtered_attrs.push(attribute.clone());
+        }
+    }
+    filtered_attrs
 }
 
 #[rustfmt::skip]
@@ -200,7 +222,7 @@ mod tests {
             pub fn method(&self, k: &String) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = generate_ext_function(&method_info.attr_signature_info);
+        let actual = generate_ext_function(&method_info.attr_signature_info, &Default::default());
         let expected = quote!(
             pub fn method(self, k: &String,) -> near_sdk::Promise {
                 let __args = {#[derive(near_sdk :: serde :: Serialize)]
@@ -231,7 +253,7 @@ mod tests {
           pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
         };
         let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
-        let actual = generate_ext_function(&method_info.attr_signature_info);
+        let actual = generate_ext_function(&method_info.attr_signature_info, &Default::default());
         let expected = quote!(
           pub fn borsh_test(self, a: String,) -> near_sdk::Promise {
             let __args = {
@@ -255,4 +277,6 @@ mod tests {
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
+
+    // TODO(blacklist) add a test here
 }

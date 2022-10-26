@@ -15,6 +15,7 @@ Main macro of the library for writing NEAR smart contracts.
 proc-macro = true
 
 [dependencies]
+darling = "0.14.1"
 proc-macro2 = "1.0"
 syn = {version = "1", features = ["full", "fold", "extra-traits", "visit"] }
 quote = "1.0"

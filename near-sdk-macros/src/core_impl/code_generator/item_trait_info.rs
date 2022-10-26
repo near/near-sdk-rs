@@ -1,17 +1,19 @@
 use crate::core_impl::ext::{generate_ext_function_wrappers, generate_ext_structs};
 use crate::core_impl::info_extractor::ItemTraitInfo;
+use crate::core_impl::MacroConfig;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
 impl ItemTraitInfo {
     /// Generate code that wrapps external calls.
-    pub fn wrap_trait_ext(&self) -> TokenStream2 {
+    pub fn wrap_trait_ext(&self, config: &MacroConfig) -> TokenStream2 {
         let mod_name = &self.mod_name;
         let ext_structs = generate_ext_structs(&self.original.ident, None);
 
         let ext_methods = generate_ext_function_wrappers(
             &self.original.ident,
             self.methods.iter().map(|m| &m.attr_sig_info),
+            config,
         );
 
         quote! {
@@ -51,7 +53,7 @@ mod tests {
             }
         ).unwrap();
         let info = ItemTraitInfo::new(&mut t, None).unwrap();
-        let actual = info.wrap_trait_ext();
+        let actual = info.wrap_trait_ext(&Default::default());
 
         let expected = quote! {
             pub mod external_cross_contract {
@@ -138,7 +140,7 @@ mod tests {
             }
         ).unwrap();
         let info = ItemTraitInfo::new(&mut t, None).unwrap();
-        let actual = info.wrap_trait_ext();
+        let actual = info.wrap_trait_ext(&Default::default());
 
         let expected = quote! {
           pub mod test {
