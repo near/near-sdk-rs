@@ -8,6 +8,7 @@ use serde::Serialize;
 pub(crate) enum NearEvent<'a> {
     Nep171(crate::non_fungible_token::events::Nep171Event<'a>),
     Nep141(crate::fungible_token::events::Nep141Event<'a>),
+    Nep245(crate::multi_token::events::Nep245Event<'a>),
 }
 
 impl<'a> NearEvent<'a> {
