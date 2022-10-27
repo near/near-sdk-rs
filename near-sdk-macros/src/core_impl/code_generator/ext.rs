@@ -109,13 +109,13 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo, config: &MacroConfig
 
 /// Filters non-bindgen attributes to be passed on to an ext function.
 fn filter_ext_function_non_bindgen_attrs(
-    input_attrs: &Vec<Attribute>,
+    input_attrs: &[Attribute],
     config: &MacroConfig,
 ) -> Vec<Attribute> {
     let mut filtered_attrs = vec![];
     let blacklisted_attrs = match &config.blacklist_ext_fn_attrs {
         Some(paths) => paths,
-        None => return input_attrs.clone(),
+        None => return input_attrs.to_vec(),
     };
     for attribute in input_attrs.iter() {
         let is_blacklisted = blacklisted_attrs.iter().any(|bl_path| bl_path == &attribute.path);
@@ -129,6 +129,7 @@ fn filter_ext_function_non_bindgen_attrs(
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
+    use crate::core_impl::config::MacroConfig;
     use crate::core_impl::ImplItemMethodInfo;
 
     use super::*;
@@ -278,5 +279,41 @@ mod tests {
         assert_eq!(expected.to_string(), actual.to_string());
     }
 
-    // TODO(blacklist) add a test here
+    /// Tests handling of MacroConfig.blacklist_ext_fn_attrs.
+    #[test]
+    fn blacklisted_ext_fn_attrs() {
+        let impl_type: Type = parse_quote! { Hello };
+        let mut method: ImplItemMethod = parse_quote! {
+            #[inline]
+            #[allow(missing_docs)]
+            #[warn(unused)]
+            #[warn(unused_must_use)]
+            pub fn method(&self) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+
+        let config = MacroConfig {
+            blacklist_ext_fn_attrs: Some(darling::util::PathList::new::<syn::Path>(vec![
+                parse_quote! { inline },
+                parse_quote! { warn },
+            ])),
+        };
+
+        let actual = generate_ext_function(&method_info.attr_signature_info, &config);
+        // Note: blacklisted attributes are not present.
+        let expected = quote! {
+            #[allow(missing_docs)]
+            pub fn method (self,) -> near_sdk::Promise {
+                let __args = vec![];
+                near_sdk::Promise::new(self.account_id).function_call_weight(
+                    "method".to_string(),
+                    __args,
+                    self.deposit,
+                    self.static_gas,
+                    self.gas_weight,
+                )
+            }
+        };
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 }
