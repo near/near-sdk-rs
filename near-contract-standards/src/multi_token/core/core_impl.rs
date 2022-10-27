@@ -229,19 +229,12 @@ impl MultiToken {
         // Safety checks
         require!(amount > 0, "Transferred amounts must be greater than 0");
 
-        let (sender_id, old_approvals) = if let Some((account_id, approval_id)) = approval {
-            // If an approval was provided, ensure it meets requirements.
-            let approvals = expect_approval(self.approvals_by_token_id.as_mut(), Entity::Contract);
-
-            let mut token_approvals = approvals
-                .get(token_id)
-                .unwrap_or_else(|| panic!("Approvals not supported for token {}", token_id));
-
+        let (sender_id, old_approvals) = if let Some((owner_id, approval_id)) = approval {
             (
-                account_id,
-                Some(check_and_apply_approval(
-                    &mut token_approvals,
-                    account_id,
+                owner_id,
+                Some(self.check_and_apply_approval(
+                    token_id,
+                    owner_id,
                     original_sender_id,
                     approval_id,
                     amount,
@@ -316,7 +309,6 @@ impl MultiToken {
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
             env::panic_str("MUST provide metadata");
         }
-
         // Increment next id of the token. Panic if it's overflowing u64::MAX
         self.next_token_id =
             self.next_token_id.checked_add(1).expect("u64 overflow, cannot mint any more tokens");
@@ -365,6 +357,60 @@ impl MultiToken {
         }
 
         Token { token_id, owner_id, supply, metadata: token_metadata }
+    }
+
+    // validate that an approval exists with matching approval_id and sufficient balance.
+    pub fn check_and_apply_approval(
+        &mut self,
+        token_id: &TokenId,
+        owner_id: &AccountId,
+        grantee_id: &AccountId,
+        approval_id: &u64,
+        amount: Balance,
+    ) -> Vec<(AccountId, u64, U128)> {
+        // If an approval was provided, ensure it meets requirements.
+        let approvals = expect_approval(self.approvals_by_token_id.as_mut(), Entity::Contract);
+
+        let mut by_owner = expect_approval_for_token(approvals.get(token_id), token_id);
+
+        let mut by_sender_id = by_owner
+            .get(owner_id)
+            .unwrap_or_else(|| panic!("No approvals for {}", owner_id))
+            .clone();
+
+        let stored_approval: Approval = by_sender_id.get(grantee_id)
+            .unwrap_or_else(|| panic!("No approval for {} from {}", grantee_id, owner_id))
+            .clone();
+
+        require!(
+            stored_approval.approval_id.eq(approval_id),
+            "Invalid approval_id"
+        );
+
+        let new_approval_amount = stored_approval.amount
+            .checked_sub(amount)
+            .expect("Not enough approval amount for transfer");
+
+        if new_approval_amount == 0 {
+            by_sender_id.remove(grantee_id);
+        } else {
+            by_sender_id.insert(grantee_id.clone(), Approval {
+                approval_id: approval_id.clone(),
+                amount: new_approval_amount,
+            });
+        }
+
+        by_owner.insert(owner_id.clone(), by_sender_id.clone());
+
+        approvals.insert(token_id, &by_owner);
+
+        // Given that we are consuming the approval, remove all other approvals granted to that account for that token.
+        // The user will need to generate fresh approvals as required.
+        // Return the now-deleted approvals, so that caller may restore them in case of revert.
+        by_sender_id
+            .into_iter()
+            .map(|(key, approval)| (key.clone(), approval.approval_id, U128(approval.amount)))
+            .collect()
     }
 }
 
