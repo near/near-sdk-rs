@@ -134,6 +134,7 @@ impl MultiTokenApproval for MultiToken {
 
     fn mt_is_approved(
         &self,
+        owner_id: AccountId,
         token_ids: Vec<TokenId>,
         approved_account_id: AccountId,
         amounts: Vec<Balance>,
@@ -145,7 +146,6 @@ impl MultiTokenApproval for MultiToken {
             "token_ids and approval_ids must have equal size"
         );
 
-        let owner_id = env::predecessor_account_id();
         let by_token = expect_approval(self.approvals_by_token_id.as_ref(), Entity::Contract);
 
         for i in 0..token_ids.len() {
