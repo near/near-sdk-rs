@@ -5,7 +5,9 @@ pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 /// Promise index that is computed only once.
 pub type PromiseIndex = u64;
 /// An index of Receipt to append an action
+#[deprecated(since = "4.1.0", note = "type not used within SDK, use u64 directly or another alias")]
 pub type ReceiptIndex = u64;
+#[deprecated(since = "4.1.0", note = "type not used within SDK, use u64 directly or another alias")]
 pub type IteratorIndex = u64;
 
 /// When there is a callback attached to one or more contract calls the execution results of these
