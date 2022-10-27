@@ -74,10 +74,11 @@ pub struct MultiToken {
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKey {
+    Accounts,
+    AccountTokens { account_id_hash: CryptoHash },
     PerOwner,
     TokensPerOwner { account_hash: Vec<u8> },
     TokenPerOwnerInner { account_id_hash: CryptoHash },
-    OwnerById,
     OwnerByIdInner { account_id_hash: CryptoHash },
     TokenMetadata,
     Approvals,
@@ -90,17 +91,17 @@ pub enum StorageKey {
 
 impl MultiToken {
     pub fn new<Q, R, S, T>(
-        _owner_by_id_prefix: Q,
+        owner_by_id_prefix: Q,
         owner_id: AccountId,
         token_metadata_prefix: Option<R>,
         enumeration_prefix: Option<S>,
         approval_prefix: Option<T>,
     ) -> Self
-    where
-        Q: IntoStorageKey,
-        R: IntoStorageKey,
-        S: IntoStorageKey,
-        T: IntoStorageKey,
+        where
+            Q: IntoStorageKey,
+            R: IntoStorageKey,
+            S: IntoStorageKey,
+            T: IntoStorageKey,
     {
         let (approvals_by_token_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix
         {
@@ -113,18 +114,55 @@ impl MultiToken {
             (None, None)
         };
 
-        Self {
+        let mut this = Self {
             owner_id,
             extra_storage_in_bytes_per_emission: 0,
-            owner_by_id: TreeMap::new(StorageKey::OwnerById),
+            owner_by_id: TreeMap::new(owner_by_id_prefix),
             total_supply: LookupMap::new(StorageKey::TotalSupply { supply: 0 }),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
+            accounts_storage: LookupMap::new(StorageKey::Accounts),
             balances_per_token: UnorderedMap::new(StorageKey::Balances),
             approvals_by_token_id,
             next_approval_id_by_id,
             next_token_id: 0,
-        }
+            account_storage_usage: 0,
+            storage_usage_per_token: 0,
+        };
+
+        this.measure_min_account_storage_cost();
+        this.measure_min_token_storage_cost();
+
+        this
+    }
+
+    fn measure_min_token_storage_cost(&mut self) {
+        let tmp_token_id = u64::MAX.to_string();
+        let mut user_token_balance = LookupMap::new(
+            StorageKey::BalancesInner { token_id: env::sha256(tmp_token_id.as_bytes()) }
+        );
+        let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
+
+        let initial_storage_usage = env::storage_usage();
+
+        user_token_balance.insert(&tmp_account_id, &u128::MAX);
+
+        self.balances_per_token.insert(&tmp_token_id, &user_token_balance);
+        self.storage_usage_per_token = env::storage_usage() - initial_storage_usage;
+
+        self.balances_per_token.remove(&tmp_token_id);
+    }
+
+    fn measure_min_account_storage_cost(&mut self) {
+        let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
+        let initial_storage_usage = env::storage_usage();
+
+        // storage in NEAR's per account
+        self.accounts_storage.insert(&tmp_account_id, &u128::MAX);
+
+        self.account_storage_usage = env::storage_usage() - initial_storage_usage;
+
+        self.accounts_storage.remove(&tmp_account_id);
     }
 
     /// Used to get balance of specified account in specified token
@@ -133,17 +171,12 @@ impl MultiToken {
         token_id: &TokenId,
         account_id: &AccountId,
     ) -> Balance {
-        match self
+        self
             .balances_per_token
             .get(token_id)
             .expect("This token does not exist")
             .get(account_id)
-        {
-            Some(balance) => balance,
-            None => {
-                env::panic_str(format!("The account {} is not registered", account_id).as_str())
-            }
-        }
+            .unwrap_or(0)
     }
 
     /// Add to balance of user specified amount
@@ -164,7 +197,7 @@ impl MultiToken {
                     .get(token_id)
                     .unwrap()
                     .checked_add(amount)
-                    .unwrap_or_else(|| env::panic_str("Total supply overflow")),
+                    .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW)),
             );
         } else {
             env::panic_str("Balance overflow");
@@ -189,7 +222,7 @@ impl MultiToken {
                     .get(token_id)
                     .unwrap()
                     .checked_sub(amount)
-                    .unwrap_or_else(|| env::panic_str("Total supply overflow")),
+                    .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW)),
             );
         } else {
             env::panic_str("The account doesn't have enough balance");
@@ -249,6 +282,7 @@ impl MultiToken {
 
         self.internal_withdraw(token_id, sender_id, amount);
         self.internal_deposit(token_id, receiver_id, amount);
+        self.assert_storage_usage(receiver_id);
 
         MtTransfer {
             old_owner_id: sender_id,
@@ -261,12 +295,6 @@ impl MultiToken {
             .emit();
 
         (sender_id.to_owned(), old_approvals)
-    }
-
-    pub fn internal_register_account(&mut self, token_id: &TokenId, account_id: &AccountId) {
-        if self.balances_per_token.get(token_id).unwrap().insert(account_id, &0).is_some() {
-            env::panic_str("The account is already registered");
-        }
     }
 
     pub fn internal_mint(
@@ -460,10 +488,7 @@ impl MultiTokenCore for MultiToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
-        require!(
-            env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
-            "Insufficient gas for transfer"
-        );
+        require!(env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL, ERR_MORE_GAS_REQUIRED);
         let sender_id = env::predecessor_account_id();
 
         let amount_to_send: Balance = amount.0;
@@ -508,10 +533,7 @@ impl MultiTokenCore for MultiToken {
         msg: String,
     ) -> PromiseOrValue<Vec<U128>> {
         assert_one_yocto();
-        require!(
-            env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
-            "Insufficient gas for transfer"
-        );
+        require!(env::prepaid_gas() > GAS_FOR_MT_TRANSFER_CALL, ERR_MORE_GAS_REQUIRED);
         let sender_id = env::predecessor_account_id();
 
         let amounts_to_send: Vec<Balance> = amounts.iter().map(|x| x.0).collect();

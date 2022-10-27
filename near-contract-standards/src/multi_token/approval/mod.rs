@@ -5,7 +5,7 @@ pub use approval_impl::*;
 pub use receiver::*;
 
 use crate::multi_token::token::TokenId;
-use near_sdk::{AccountId, Balance, Promise};
+use near_sdk::{AccountId, Promise, json_types::U128};
 
 /// Trait used in approval management
 /// Specs - https://github.com/shipsgold/NEPs/blob/master/specs/Standards/MultiToken/ApprovalManagement.md
@@ -14,7 +14,7 @@ pub trait MultiTokenApproval {
     fn mt_approve(
         &mut self,
         token_ids: Vec<TokenId>,
-        amounts: Vec<Balance>,
+        amounts: Vec<U128>,
         grantee_id: AccountId,
         msg: Option<String>,
     ) -> Option<Promise>;
@@ -31,7 +31,7 @@ pub trait MultiTokenApproval {
         owner_id: AccountId,
         token_ids: Vec<TokenId>,
         approved_account_id: AccountId,
-        amounts: Vec<Balance>,
+        amounts: Vec<U128>,
         approval_ids: Option<Vec<u64>>,
     ) -> bool;
 }
