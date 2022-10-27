@@ -1,9 +1,9 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LazyOption;
+use near_sdk::collections::{LazyOption};
 use near_sdk::json_types::U128;
-use near_sdk::Promise;
+use near_sdk::{Promise};
 use near_sdk::{
-    env, near_bindgen, require, AccountId, Balance, BorshStorageKey, PanicOnDefault, PromiseOrValue,
+    env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 use near_contract_standards::multi_token::metadata::MT_METADATA_SPEC;
 use near_contract_standards::multi_token::token::{Token, TokenId};
@@ -34,8 +34,8 @@ impl ExampleMTContract {
     pub fn new_default_meta(owner_id: AccountId) -> Self {
         let metadata = MtContractMetadata {
             spec: MT_METADATA_SPEC.to_string(),
-            name: "Test".to_string(),
-            symbol: "OMG".to_string(),
+            name: "Example NEAR multi token".to_string(),
+            symbol: "EXAMPLE".to_string(),
             icon: None,
             base_uri: None,
             reference: None,
@@ -101,7 +101,7 @@ mod tests {
             description: Some(description),
             media: None,
             media_hash: None,
-            issued_at: Some(String::from("123456")),
+            issued_at: None,
             expires_at: None,
             starts_at: None,
             updated_at: None,
@@ -185,7 +185,10 @@ mod tests {
         let (token, _) = init_tokens(&mut contract);
         contract.register(token.token_id.clone(), accounts(1));
         testing_env!(context.attached_deposit(1).build());
-
+        contract.tokens.accounts_storage.insert(
+            &accounts(1),
+            &contract.tokens.storage_balance_bounds().min.into(),
+        );
         // account(0) has only 2000 of token.
         contract.mt_transfer(accounts(1), token.token_id.clone(), U128(3000), None, None)
     }

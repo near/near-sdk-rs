@@ -6,7 +6,8 @@ use near_sdk::serde::{Deserialize, Serialize};
 pub const MT_METADATA_SPEC: &str = "mt-0.0.1";
 
 /// Metadata that will be permanently set at the contract init
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct MtContractMetadata {
     pub spec: String,
@@ -19,7 +20,8 @@ pub struct MtContractMetadata {
 }
 
 /// Metadata for each token
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, BorshDeserialize, BorshSerialize)]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
     pub title: Option<String>,

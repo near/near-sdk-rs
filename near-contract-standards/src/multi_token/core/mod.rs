@@ -7,8 +7,8 @@ mod receiver;
 mod resolver;
 
 pub use self::core_impl::*;
-pub use self::receiver::*;
-pub use self::resolver::*;
+pub use self::receiver::MultiTokenReceiver;
+pub use self::resolver::MultiTokenResolver;
 
 use crate::multi_token::token::TokenId;
 use near_sdk::json_types::U128;

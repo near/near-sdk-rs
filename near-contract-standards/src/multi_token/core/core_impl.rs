@@ -1,46 +1,27 @@
-use crate::multi_token::core::{MultiTokenCore, MultiTokenResolver};
-use crate::multi_token::events::{MtMint, MtTransfer};
-use crate::multi_token::metadata::TokenMetadata;
-use crate::multi_token::token::{ApprovalContainer, ClearedApproval, Token, TokenId};
-use crate::multi_token::utils::{
-    check_and_apply_approval, expect_approval, refund_deposit_to_account, Entity,
+use near_sdk::{
+    AccountId, assert_one_yocto, Balance, BorshStorageKey, CryptoHash, env, Gas,
+    IntoStorageKey, log, PromiseOrValue, PromiseResult, require, StorageUsage,
 };
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
-use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, BorshStorageKey,
-    CryptoHash, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+
+use crate::multi_token::core::MultiTokenCore;
+use crate::multi_token::core::receiver::ext_mt_receiver;
+use crate::multi_token::core::resolver::{ext_mt_resolver, MultiTokenResolver};
+use crate::multi_token::events::{MtMint, MtTransfer};
+use crate::multi_token::metadata::TokenMetadata;
+use crate::multi_token::token::{Approval, ApprovalContainer, ClearedApproval, Token, TokenId};
+use crate::multi_token::utils::{
+    Entity, expect_approval, expect_approval_for_token, refund_deposit_to_account,
 };
 
 pub const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(15_000_000_000_000);
 pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas(50_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
-const NO_DEPOSIT: Balance = 0;
-
-#[ext_contract(ext_self)]
-trait MultiTokenResolver {
-    fn mt_resolve_transfer(
-        &mut self,
-        previous_owner_ids: Vec<AccountId>,
-        receiver_id: AccountId,
-        token_ids: Vec<TokenId>,
-        amounts: Vec<U128>,
-        approvals: Option<Vec<Option<Vec<ClearedApproval>>>>,
-    ) -> Vec<U128>;
-}
-
-#[ext_contract(ext_multi_token_receiver)]
-pub trait MultiTokenReceiver {
-    fn mt_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        previous_owner_ids: Vec<AccountId>,
-        token_ids: Vec<TokenId>,
-        amounts: Vec<U128>,
-        msg: String,
-    ) -> PromiseOrValue<Vec<U128>>;
-}
+const ERR_MORE_GAS_REQUIRED: &str = "More gas is required";
+const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
+const ERR_PREPAID_GAS_OVERFLOW: &str = "Prepaid gas overflow";
 
 /// Implementation of the multi-token standard
 /// Allows to include NEP-245 compatible tokens to any contract.
@@ -53,6 +34,15 @@ pub trait MultiTokenReceiver {
 pub struct MultiToken {
     /// Owner of contract
     pub owner_id: AccountId,
+
+    /// AccountID -> Near balance for storage.
+    pub accounts_storage: LookupMap<AccountId, Balance>,
+
+    /// The storage size in bytes for one account.
+    pub account_storage_usage: StorageUsage,
+
+    /// The storage size in bytes for one token.
+    pub storage_usage_per_token: StorageUsage,
 
     /// How much storage takes every token
     pub extra_storage_in_bytes_per_emission: StorageUsage,
@@ -71,7 +61,6 @@ pub struct MultiToken {
 
     /// Balance of user for given token
     pub balances_per_token: UnorderedMap<TokenId, LookupMap<AccountId, u128>>,
-
     /// Approvals granted for a given token.
     /// Nested maps are structured as: token_id -> owner_id -> grantee_id -> (approval_id, amount)
     pub approvals_by_token_id: Option<ApprovalContainer>,
@@ -276,7 +265,7 @@ impl MultiToken {
             authorized_id: Some(original_sender_id).filter(|id| *id == sender_id),
             memo: None,
         }
-        .emit();
+            .emit();
 
         (sender_id.to_owned(), old_approvals)
     }
@@ -301,7 +290,7 @@ impl MultiToken {
             amounts: &[&token.supply.to_string()],
             memo: None,
         }
-        .emit();
+            .emit();
 
         token
     }
@@ -436,27 +425,31 @@ impl MultiTokenCore for MultiToken {
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, &receiver_id, &token_id, amount_to_send, &approval);
 
-        ext_multi_token_receiver::mt_on_transfer(
-            sender_id,
-            vec![old_owner.clone()],
-            vec![token_id.clone()],
-            vec![amount],
-            msg,
-            receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_MT_TRANSFER_CALL,
+        let receiver_gas = env::prepaid_gas()
+            .0
+            .checked_sub(GAS_FOR_MT_TRANSFER_CALL.0)
+            .unwrap_or_else(|| env::panic_str(ERR_PREPAID_GAS_OVERFLOW));
+
+        ext_mt_receiver::ext(receiver_id.clone())
+            .with_static_gas(receiver_gas.into())
+            .mt_on_transfer(
+                sender_id.clone(),
+                vec![old_owner.clone()],
+                vec![token_id.clone()],
+                vec![amount],
+                msg.clone(),
+            ).then(
+            ext_mt_resolver::ext(env::current_account_id())
+                .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                .mt_resolve_transfer(
+                    vec![old_owner],
+                    receiver_id,
+                    vec![token_id],
+                    vec![amount],
+                    Some(vec![old_approvals]),
+                )
         )
-        .then(ext_self::mt_resolve_transfer(
-            vec![old_owner],
-            receiver_id,
-            vec![token_id],
-            vec![amount],
-            Some(vec![old_approvals]),
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+            .into()
     }
 
     fn mt_batch_transfer_call(
@@ -485,27 +478,31 @@ impl MultiTokenCore for MultiToken {
             approvals,
         );
 
-        ext_multi_token_receiver::mt_on_transfer(
-            sender_id,
-            old_owners.clone(),
-            token_ids.clone(),
-            amounts.clone(),
-            msg,
-            receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_MT_TRANSFER_CALL,
+        let receiver_gas = env::prepaid_gas()
+            .0
+            .checked_sub(GAS_FOR_MT_TRANSFER_CALL.into())
+            .unwrap_or_else(|| env::panic_str(ERR_PREPAID_GAS_OVERFLOW));
+
+        ext_mt_receiver::ext(receiver_id.clone())
+            .with_static_gas(receiver_gas.into())
+            .mt_on_transfer(
+                sender_id,
+                old_owners.clone(),
+                token_ids.clone(),
+                amounts.clone(),
+                msg,
+            ).then(
+            ext_mt_resolver::ext(env::current_account_id())
+                .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                .mt_resolve_transfer(
+                    old_owners,
+                    receiver_id,
+                    token_ids,
+                    amounts,
+                    Some(old_approvals),
+                )
         )
-        .then(ext_self::mt_resolve_transfer(
-            old_owners,
-            receiver_id,
-            token_ids,
-            amounts,
-            Some(old_approvals),
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+            .into()
     }
 
     fn mt_token(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>> {
@@ -608,9 +605,9 @@ impl MultiToken {
         receiver: AccountId,
         token_id: TokenId,
         amount: u128,
-        to_refund: u128,
+        unused_amount: u128,
     ) -> Balance {
-        if to_refund > 0 {
+        if unused_amount > 0 {
             // Whatever was unused gets returned to the original owner.
             let mut balances = self.balances_per_token.get(&token_id).unwrap();
             let receiver_balance = balances.get(&receiver).unwrap_or(0);
@@ -618,18 +615,47 @@ impl MultiToken {
             if receiver_balance > 0 {
                 // If the receiver doesn't have enough funds to do the
                 // full refund, just refund all that we can.
-                let refund = std::cmp::min(receiver_balance, to_refund);
-                balances.insert(&receiver, &(receiver_balance - refund));
+                let refund_amount = std::cmp::min(receiver_balance, unused_amount);
+
+                if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
+                    balances.insert(&receiver, &new_receiver_balance);
+                } else {
+                    env::panic_str("The receiver account doesn't have enough balance");
+                }
 
                 // Try to give the refund back to sender now
                 return if let Some(sender_balance) = balances.get(sender_id) {
-                    balances.insert(sender_id, &(sender_balance + refund));
-                    log!("Refund {} from {} to {}", refund, receiver, sender_id);
-                    amount - refund
+                    if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
+                        balances.insert(sender_id, &new_sender_balance);
+                        log!("Refund {} from {} to {}", refund_amount, receiver, sender_id);
+                        MtTransfer {
+                            old_owner_id: sender_id,
+                            new_owner_id: &receiver,
+                            token_ids: &[&token_id],
+                            amounts: &[&amount.to_string()],
+                            authorized_id: None,
+                            memo: None,
+                        }
+                            .emit();
+                        amount
+                            .checked_sub(refund_amount)
+                            .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW))
+                    } else {
+                        env::panic_str("Sender balance overflow");
+                    }
                 } else {
-                    *self.total_supply.get(&token_id).as_mut().unwrap() -= refund;
+                    self
+                        .total_supply
+                        .get(&token_id)
+                        .as_mut()
+                        .unwrap()
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
+
                     log!("The account of the sender was deleted");
-                    amount - refund
+                    amount
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW))
                 };
             }
         }
@@ -653,8 +679,8 @@ impl MultiTokenResolver for MultiToken {
             amounts,
             approvals,
         )
-        .iter()
-        .map(|&x| x.into())
-        .collect()
+            .iter()
+            .map(|&x| x.into())
+            .collect()
     }
 }
