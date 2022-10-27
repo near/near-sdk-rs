@@ -18,7 +18,7 @@ impl MultiTokenApproval for MultiToken {
     fn mt_approve(
         &mut self,
         token_ids: Vec<TokenId>,
-        amounts: Vec<Balance>,
+        amounts: Vec<U128>,
         grantee_id: AccountId,
         msg: Option<String>,
     ) -> Option<Promise> {
@@ -42,12 +42,12 @@ impl MultiTokenApproval for MultiToken {
             // Get the balance to check if user has enough tokens
             let approver_balance =
                 self.balances_per_token.get(token_id).unwrap().get(&approver_id).unwrap_or(0);
-            require!(approver_balance >= amount, "Not enough balance to approve");
+            require!(approver_balance >= amount.0, "Not enough balance to approve");
 
             // Get the next approval id for the token
             let new_approval_id: u64 =
-                expect_approval(next_id_by_token.get(token_id), Entity::Token);
-            let new_approval = Approval { amount, approval_id: new_approval_id };
+                expect_approval_for_token(next_id_by_token.get(token_id), token_id);
+            let new_approval = Approval { amount: amount.into(), approval_id: new_approval_id };
             env::log_str(format!("New approval: {:?}", new_approval).as_str());
 
             // Get existing approvals for this token. If one exists for the grantee_id, overwrite it.
@@ -101,7 +101,7 @@ impl MultiTokenApproval for MultiToken {
 
         for token_id in token_ids.iter() {
             // Remove approval for user & also clean maps to save space it it's empty
-            let mut by_owner = expect_approval(by_token.get(token_id), Entity::Token);
+            let mut by_owner = expect_approval_for_token(by_token.get(token_id), token_id);
             let by_grantee = by_owner.get_mut(&owner_id);
 
             if let Some(grantee_to_approval) = by_grantee {
@@ -126,7 +126,7 @@ impl MultiTokenApproval for MultiToken {
         let by_token = expect_approval(self.approvals_by_token_id.as_mut(), Entity::Contract);
 
         for token_id in token_ids.iter() {
-            let mut by_owner = expect_approval(by_token.get(token_id), Entity::Token);
+            let mut by_owner = expect_approval_for_token(by_token.get(token_id), token_id);
             by_owner.remove(&owner_id);
             by_token.insert(token_id, &by_owner);
         }
@@ -137,7 +137,7 @@ impl MultiTokenApproval for MultiToken {
         owner_id: AccountId,
         token_ids: Vec<TokenId>,
         approved_account_id: AccountId,
-        amounts: Vec<Balance>,
+        amounts: Vec<U128>,
         approval_ids: Option<Vec<u64>>,
     ) -> bool {
         let approval_ids = approval_ids.unwrap_or_default();
@@ -163,7 +163,7 @@ impl MultiTokenApproval for MultiToken {
                 None => return false,
             };
 
-            if !approval.amount.eq(&amount) {
+            if !approval.amount.eq(&amount.into()) {
                 return false;
             }
 

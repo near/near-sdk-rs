@@ -14,4 +14,7 @@ pub mod events;
 
 pub mod macros;
 
+pub mod storage_impl;
+
 pub use macros::*;
+

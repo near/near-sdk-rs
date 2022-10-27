@@ -1,33 +1,38 @@
-use near_primitives::views::FinalExecutionStatus;
 use near_units::parse_near;
-use workspaces::prelude::*;
-use workspaces::{Account, AccountId, Contract, DevNetwork, Network, Worker};
+use workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
 use near_contract_standards::multi_token::{
     metadata::{TokenMetadata},
 };
-use near_contract_standards::multi_token::token::{Token, TokenId};
+use near_contract_standards::multi_token::token::{Token};
 use near_sdk::{Balance};
+use near_contract_standards::storage_management::StorageBalanceBounds;
+
+pub async fn get_storage_balance_bounds(contract: &Contract) -> anyhow::Result<StorageBalanceBounds> {
+    Ok(contract.view("storage_balance_bounds", vec![])
+        .await?
+        .json::<StorageBalanceBounds>()?)
+}
 
 pub async fn register_user_for_token(
-    worker: &Worker<impl Network>,
     contract: &Contract,
     account_id: &AccountId,
-    token_id: TokenId,
+    deposit: u128,
 ) -> anyhow::Result<()> {
-    let res = contract
-        .call(worker, "register")
-        .args_json((token_id.clone(), account_id))?
-        .gas(300_000_000_000_000)
+    let res = contract.call("storage_deposit")
+        .args_json((
+            account_id,
+            Some(false),
+        ))
+        .max_gas()
+        .deposit(deposit)
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
-
+    assert!(res.is_success());
     Ok(())
 }
 
 pub async fn helper_mint(
     mt_contract: &Contract,
-    worker: &Worker<impl DevNetwork>,
     owner_id: AccountId,
     amount: Balance,
     title: String,
@@ -48,13 +53,13 @@ pub async fn helper_mint(
     };
 
     let res = mt_contract
-        .call(worker, "mt_mint")
-        .args_json((owner_id, token_md, amount))?
-        .gas(300_000_000_000_000)
+        .call("mt_mint")
+        .args_json((owner_id, token_md, amount.to_string()))
+        .max_gas()
         .deposit(parse_near!("7 mN"))
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
     let token: Token = res.json()?;
 
     Ok(token)
@@ -65,47 +70,55 @@ pub async fn helper_mint(
 // for receiving cross-contract calls.
 pub async fn init(
     worker: &Worker<impl DevNetwork>,
-) -> anyhow::Result<(Contract, Account, Contract)> {
-    let mt_contract = worker.dev_deploy(include_bytes!("../../res/multi_token.wasm").to_vec()).await?;
+) -> anyhow::Result<(Contract, Account, Account, Contract)> {
+    let mt_contract = worker.dev_deploy(include_bytes!("../../res/multi_token.wasm")).await?;
 
     let res = mt_contract
-        .call(worker, "new_default_meta")
-        .args_json((mt_contract.id(),))?
-        .gas(300_000_000_000_000)
+        .call("new_default_meta")
+        .args_json((mt_contract.id(),))
+        .max_gas()
         .transact()
         .await?;
     
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
-    let defi_contract = worker.dev_deploy(include_bytes!("../../res/defi.wasm").to_vec()).await?;
+    let defi_contract = worker.dev_deploy(include_bytes!("../../res/defi.wasm")).await?;
 
     let res = defi_contract
-        .call(worker, "new")
-        .args_json((mt_contract.id(),))?
-        .gas(300_000_000_000_000)
+        .call("new")
+        .args_json((mt_contract.id(),))
+        .max_gas()
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     let alice = mt_contract
         .as_account()
-        .create_subaccount(worker, "alice")
+        .create_subaccount("alice")
         .initial_balance(parse_near!("10 N"))
         .transact()
         .await?
         .into_result()?;
 
-    Ok((mt_contract, alice, defi_contract))
+    let bob = mt_contract
+        .as_account()
+        .create_subaccount("bob")
+        .initial_balance(parse_near!("10 N"))
+        .transact()
+        .await?
+        .into_result()?;
+
+    Ok((mt_contract, alice, bob, defi_contract))
 }
 
 pub async fn init_approval_receiver_contract(worker: &Worker<impl DevNetwork>) -> anyhow::Result<Contract> {
-    let approval_receiver_contract = worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm").to_vec()).await?;
+    let approval_receiver_contract = worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm")).await?;
     let res = approval_receiver_contract
-        .call(worker, "new")
-        .gas(300_000_000_000_000)
+        .call("new")
+        .max_gas()
         .transact()
         .await?;
-    assert!(matches!(res.status, FinalExecutionStatus::SuccessValue(_)));
+    assert!(res.is_success());
 
     Ok(approval_receiver_contract)
 }
