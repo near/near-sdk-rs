@@ -28,6 +28,7 @@ pub trait MultiTokenApproval {
     /// Check if account have access to transfer tokens
     fn mt_is_approved(
         &self,
+        owner_id: AccountId,
         token_ids: Vec<TokenId>,
         approved_account_id: AccountId,
         amounts: Vec<Balance>,
