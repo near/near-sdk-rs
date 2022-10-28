@@ -9,7 +9,7 @@ struct Incrementer {
     value: u32,
 }
 
-#[near_bindgen(init => new)]
+#[near_bindgen]
 impl Incrementer {
     #[cfg(feature = "myfeature")]
     pub fn new() -> Self {
