@@ -83,9 +83,9 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    if _attr.to_string().contains("event_json") {
-        return core_impl::near_events(_attr, item);
+pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if attr.to_string().contains("event_json") {
+        return core_impl::near_events(attr, item);
     }
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
@@ -360,7 +360,7 @@ pub fn function_error(item: TokenStream) -> TokenStream {
     })
 }
 
-/// Adding the `events` argument for the `#[near_bindgen]` macro injects this derive macro and should be the used instead of this
+/// NOTE: This is an internal implementation for `#[near_bindgen(events(standard = ...))]` attribute.
 ///
 /// This derive macro is used to inject the necessary wrapper and logic to auto format
 /// standard event logs. The other appropriate attribute macros are not injected with this macro.
@@ -378,49 +378,47 @@ pub fn function_error(item: TokenStream) -> TokenStream {
 pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemEnum>(item) {
         let name = &input.ident;
+        // build wrapper name
+        let wrapper_name = format!("{}EventBuilder", name);
+        let wrapper_ident = syn::Ident::new(&wrapper_name, Span::call_site());
+        // get `standard` const injected from `near_events`
         let standard_name = format!("{}_event_standard", name);
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
         // version from each attribute macro
-        let mut attr_error: u8 = 0;
         let mut event_meta: Vec<proc_macro2::TokenStream> = vec![];
-        let _ = &input.variants.iter().for_each(|var| {
+        for var in &input.variants {
             if let Some(version) = core_impl::get_event_version(var) {
                 let var_ident = &var.ident;
                 event_meta.push(quote! {
                     #name::#var_ident { .. } => {(#standard_ident.to_string(), #version.to_string())}
                 })
             } else {
-                attr_error += 1;
+                return TokenStream::from(
+                    syn::Error::new(
+                        Span::call_site(),
+                        "Near events must have `event_version`. Must have a single string literal value.",
+                    )
+                    .to_compile_error(),
+                );
             }
-        });
+        }
 
         // handle lifetimes, generics, and where clauses
         let (impl_generics, type_generics, where_clause) = &input.generics.split_for_impl();
-        // add 'near_event lifetime for user defined events
+        // add `'near_event` lifetime for user defined events
         let mut generics = input.generics.clone();
         let event_lifetime = syn::Lifetime::new("'near_event", Span::call_site());
-        generics.params.insert(
-            generics.params.len(),
-            syn::GenericParam::Lifetime(syn::LifetimeDef::new(event_lifetime.clone())),
-        );
+        generics
+            .params
+            .insert(0, syn::GenericParam::Lifetime(syn::LifetimeDef::new(event_lifetime.clone())));
         let (custom_impl_generics, ..) = generics.split_for_impl();
-
-        if attr_error > 0 {
-            return TokenStream::from(
-                syn::Error::new(
-                    Span::call_site(),
-                    "Near events must have `event_version`. Must have a single string literal value.",
-                )
-                .to_compile_error(),
-            );
-        }
 
         TokenStream::from(quote! {
 
             #[derive(near_sdk::serde::Serialize)]
             #[serde(crate="near_sdk::serde")]
             #[serde(rename_all="snake_case")]
-            struct EventBuilder #custom_impl_generics #where_clause {
+            struct #wrapper_ident #custom_impl_generics #where_clause {
                 standard: String,
                 version: String,
                 #[serde(flatten)]
@@ -428,12 +426,12 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             }
 
             impl #impl_generics near_sdk::EventJson for #name #type_generics #where_clause {
-                type EventString = String;
-                fn format(&self) -> Self::EventString {
+                type EventMessage = String;
+                fn format(&self) -> Self::EventMessage {
                     let (standard, version): (String, String) = match self {
                         #(#event_meta),*
                     };
-                    let event = EventBuilder {standard, version, event_data: self };
+                    let event = #wrapper_ident {standard, version, event_data: self };
                     near_sdk::serde_json::to_string(&event)
                             .unwrap_or_else(|_| near_sdk::env::abort())
                 }

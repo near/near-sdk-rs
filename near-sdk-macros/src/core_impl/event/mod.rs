@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::{parse_quote, ItemEnum, LitStr};
 
-/// this function is used to inject Serialization Macros and the `near_sdk::EventMetadata` macro.
+/// this function is used to inject serialization macros and the `near_sdk::EventMetadata` macro.
 /// In addition, this function extracts the event's `standard` value and injects it as a constant to be used by
 /// the `near_sdk::EventMetadata` derive macro
 pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -13,7 +13,7 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
         return TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "Near events must have a `standard` value as an argument for `events` in the `near_bindgen` arguments. The value must be a string literal.",
+                "Near events must have a `standard` value as an argument for `event_json` in the `near_bindgen` arguments. The value must be a string literal.",
             )
             .to_compile_error(),
         );
@@ -39,7 +39,7 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "`#[near_bindgen(events(standard = \"nepXXX\"))]` can only be used as an attribute on enums.",
+                "`#[near_bindgen(event_json(standard = \"nepXXX\"))]` can only be used as an attribute on enums.",
             )
             .to_compile_error(),
         )
@@ -57,7 +57,7 @@ pub(crate) fn get_event_version(var: &syn::Variant) -> Option<LitStr> {
     None
 }
 
-/// this function returns the `standard` value from `#[near_bindgen(events(standard = "nepXXX"))]`
+/// this function returns the `standard` value from `#[near_bindgen(event_json(standard = "nepXXX"))]`
 fn get_standard_arg(args: &[syn::NestedMeta]) -> Option<LitStr> {
     let mut standard: Option<LitStr> = None;
     for arg in args.iter() {

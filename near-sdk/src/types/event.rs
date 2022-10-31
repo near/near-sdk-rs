@@ -1,6 +1,6 @@
 pub trait EventJson {
-    type EventString: std::convert::AsRef<str>;
-    fn format(&self) -> Self::EventString;
+    type EventMessage: std::convert::AsRef<str>;
+    fn format(&self) -> Self::EventMessage;
     fn emit(&self) {
         crate::env::log_str(&format!("EVENT_JSON:{}", self.format().as_ref()));
     }
@@ -41,6 +41,12 @@ pub mod tests {
         LifetimeTestB(&'b str),
     }
 
+    #[near_bindgen(event_json(standard = "another_standard"))]
+    pub enum AnotherEvent {
+        #[event_version("1.0.0")]
+        Test,
+    }
+
     #[test]
     fn test_json_emit() {
         let token_in: AccountId = "wrap.near".parse().unwrap();
@@ -58,27 +64,33 @@ pub mod tests {
 
         TestEvents::LifetimeTestB::<String>("lifetime_b").emit();
 
+        AnotherEvent::Test.emit();
+
         let logs = get_logs();
 
-        assert!(
-            logs[0]
-                == r#"EVENT_JSON:{"standard":"test_standard","version":"1.0.0","event":"swap","data":{"token_in":"wrap.near","token_out":"test.near","amount_in":100,"amount_out":200,"test":"tst"}}"#
+        assert_eq!(
+            logs[0],
+            r#"EVENT_JSON:{"standard":"test_standard","version":"1.0.0","event":"swap","data":{"token_in":"wrap.near","token_out":"test.near","amount_in":100,"amount_out":200,"test":"tst"}}"#
         );
-        assert!(
-            logs[1]
-                == r#"EVENT_JSON:{"standard":"test_standard","version":"2.0.0","event":"string_event","data":"string"}"#
+        assert_eq!(
+            logs[1],
+            r#"EVENT_JSON:{"standard":"test_standard","version":"2.0.0","event":"string_event","data":"string"}"#
         );
-        assert!(
-            logs[2]
-                == r#"EVENT_JSON:{"standard":"test_standard","version":"3.0.0","event":"empty_event"}"#
+        assert_eq!(
+            logs[2],
+            r#"EVENT_JSON:{"standard":"test_standard","version":"3.0.0","event":"empty_event"}"#
         );
-        assert!(
-            logs[3]
-                == r#"EVENT_JSON:{"standard":"test_standard","version":"4.0.0","event":"lifetime_test_a","data":"lifetime"}"#
+        assert_eq!(
+            logs[3],
+            r#"EVENT_JSON:{"standard":"test_standard","version":"4.0.0","event":"lifetime_test_a","data":"lifetime"}"#
         );
-        assert!(
-            logs[4]
-                == r#"EVENT_JSON:{"standard":"test_standard","version":"5.0.0","event":"lifetime_test_b","data":"lifetime_b"}"#
+        assert_eq!(
+            logs[4],
+            r#"EVENT_JSON:{"standard":"test_standard","version":"5.0.0","event":"lifetime_test_b","data":"lifetime_b"}"#
+        );
+        assert_eq!(
+            logs[5],
+            r#"EVENT_JSON:{"standard":"another_standard","version":"1.0.0","event":"test"}"#
         );
     }
 }
