@@ -411,9 +411,8 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         let (custom_impl_generics, ..) = generics.split_for_impl();
 
         TokenStream::from(quote! {
-            impl #impl_generics near_sdk::EventJson for #name #type_generics #where_clause {
-                type EventMessage = String;
-                fn format(&self) -> Self::EventMessage {
+            impl #impl_generics #name #type_generics #where_clause {
+                fn emit(&self) {
                     let (standard, version): (String, String) = match self {
                         #(#event_meta),*
                     };
@@ -428,8 +427,9 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                         event_data: &#event_lifetime #name #type_generics
                     }
                     let event = EventBuilder { standard, version, event_data: self };
-                    near_sdk::serde_json::to_string(&event)
-                            .unwrap_or_else(|_| near_sdk::env::abort())
+                    let json = near_sdk::serde_json::to_string(&event)
+                            .unwrap_or_else(|_| near_sdk::env::abort());
+                    near_sdk::env::log_str(&format!("EVENT_JSON:{}", json));
                 }
             }
         })

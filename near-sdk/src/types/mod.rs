@@ -13,8 +13,8 @@ pub use self::account_id::{AccountId, ParseAccountIdError};
 mod gas;
 pub use self::gas::Gas;
 
-mod event;
-pub use event::EventJson;
+#[cfg(test)]
+mod event_tests;
 
 mod error;
 pub use self::error::Abort;
