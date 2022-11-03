@@ -53,7 +53,7 @@ mod base64_bytes {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&base64::encode(&bytes))
+        serializer.serialize_str(&base64::encode(bytes))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
