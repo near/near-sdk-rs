@@ -378,9 +378,6 @@ pub fn function_error(item: TokenStream) -> TokenStream {
 pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemEnum>(item) {
         let name = &input.ident;
-        // build wrapper name
-        let wrapper_name = format!("{}EventBuilder", name);
-        let wrapper_ident = syn::Ident::new(&wrapper_name, Span::call_site());
         // get `standard` const injected from `near_events`
         let standard_name = format!("{}_event_standard", name);
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
@@ -414,24 +411,23 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         let (custom_impl_generics, ..) = generics.split_for_impl();
 
         TokenStream::from(quote! {
-
-            #[derive(near_sdk::serde::Serialize)]
-            #[serde(crate="near_sdk::serde")]
-            #[serde(rename_all="snake_case")]
-            struct #wrapper_ident #custom_impl_generics #where_clause {
-                standard: String,
-                version: String,
-                #[serde(flatten)]
-                event_data: &#event_lifetime #name #type_generics
-            }
-
             impl #impl_generics near_sdk::EventJson for #name #type_generics #where_clause {
                 type EventMessage = String;
                 fn format(&self) -> Self::EventMessage {
                     let (standard, version): (String, String) = match self {
                         #(#event_meta),*
                     };
-                    let event = #wrapper_ident {standard, version, event_data: self };
+
+                    #[derive(near_sdk::serde::Serialize)]
+                    #[serde(crate="near_sdk::serde")]
+                    #[serde(rename_all="snake_case")]
+                    struct EventBuilder #custom_impl_generics #where_clause {
+                        standard: String,
+                        version: String,
+                        #[serde(flatten)]
+                        event_data: &#event_lifetime #name #type_generics
+                    }
+                    let event = EventBuilder { standard, version, event_data: self };
                     near_sdk::serde_json::to_string(&event)
                             .unwrap_or_else(|_| near_sdk::env::abort())
                 }
