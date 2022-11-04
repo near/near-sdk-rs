@@ -8,7 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk", features = ["abi"] }
+near-sdk = { path = "../../near-sdk" }
 serde = { version = "1", features = ["derive"] }
 schemars = "0.8"
 
