@@ -52,7 +52,7 @@ derive_arbitrary = ">=1.0, <=1.1.6"
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
-default = ["wee_alloc", "unit-testing", "legacy"]
+default = ["wee_alloc", "unit-testing", "legacy", "abi"]
 expensive-debug = []
 unstable = []
 legacy = []
