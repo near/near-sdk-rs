@@ -87,13 +87,27 @@ impl ImplItemMethodInfo {
             Some(doc) => quote! { Some(#doc.to_string()) },
             None => quote! { None },
         };
-        let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
-        let is_init = matches!(
-            &self.attr_signature_info.method_type,
-            &MethodType::Init | &MethodType::InitIgnoreState
-        );
-        let AttrSigInfo { is_payable, is_private, is_handles_result, .. } =
-            self.attr_signature_info;
+        let mut modifiers = vec![];
+        let kind = match &self.attr_signature_info.method_type {
+            &MethodType::View => quote! { near_sdk::__private::AbiFunctionKind::View },
+            &MethodType::Regular => {
+                quote! { near_sdk::__private::AbiFunctionKind::Call }
+            }
+            &MethodType::Init | &MethodType::InitIgnoreState => {
+                modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Init });
+                quote! { near_sdk::__private::AbiFunctionKind::Call }
+            }
+        };
+        if self.attr_signature_info.is_payable {
+            modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Payable });
+        }
+        if self.attr_signature_info.is_private {
+            modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Private });
+        }
+        let modifiers = quote! {
+            vec![#(#modifiers),*]
+        };
+        let AttrSigInfo { is_handles_result, .. } = self.attr_signature_info;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();
@@ -220,10 +234,8 @@ impl ImplItemMethodInfo {
              near_sdk::__private::AbiFunction {
                  name: #function_name_str.to_string(),
                  doc: #function_doc,
-                 is_view: #is_view,
-                 is_init: #is_init,
-                 is_payable: #is_payable,
-                 is_private: #is_private,
+                 kind: #kind,
+                 modifiers: #modifiers,
                  params: #params,
                  callbacks: vec![#(#callbacks),*],
                  callbacks_vec: #callback_vec,
