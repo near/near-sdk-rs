@@ -296,12 +296,9 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
         attrs.retain(|attr| {
-            [
-                (json_schema, &["serde", "schemars", "validate"][..]),
-                (borsh_schema, &["borsh_skip"][..]),
-            ]
-            .iter()
-            .any(|&(case, paths)| case && paths.iter().any(|path| attr.path.is_ident(path)))
+            ["serde", "schemars", "validate", "borsh_skip"]
+                .iter()
+                .any(|&path| attr.path.is_ident(path))
         });
     };
 
