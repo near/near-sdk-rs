@@ -324,6 +324,8 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
     }
 
+    let json_schema = json_schema || !borsh_schema;
+
     let derive = match (json_schema, borsh_schema) {
         // <unspecified> or #[abi(json)]
         (_, false) => quote! {
