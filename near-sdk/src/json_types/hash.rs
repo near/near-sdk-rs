@@ -40,6 +40,21 @@ impl<'de> de::Deserialize<'de> for Base58CryptoHash {
     }
 }
 
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for Base58CryptoHash {
+    fn is_referenceable() -> bool {
+        false
+    }
+
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
+    }
+}
+
 impl From<&Base58CryptoHash> for String {
     fn from(hash: &Base58CryptoHash) -> Self {
         bs58::encode(&hash.0).into_string()
@@ -47,18 +62,18 @@ impl From<&Base58CryptoHash> for String {
 }
 
 impl TryFrom<String> for Base58CryptoHash {
-    type Error = Box<dyn std::error::Error>;
+    type Error = ParseCryptoHashError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
+        value.parse()
     }
 }
 
 impl TryFrom<&str> for Base58CryptoHash {
-    type Error = Box<dyn std::error::Error>;
+    type Error = ParseCryptoHashError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(value.parse()?)
+        value.parse()
     }
 }
 

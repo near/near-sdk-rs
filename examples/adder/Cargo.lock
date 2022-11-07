@@ -1278,9 +1278,9 @@ dependencies = [
 
 [[package]]
 name = "near-abi"
-version = "0.1.0-pre.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5281adc3a63d798b0e35683dee66095cbb94e431960ec859d5a8397b093f39"
+checksum = "885db39b08518fa700b73fa2214e8adbbfba316ba82dd510f50519173eadaf73"
 dependencies = [
  "borsh",
  "schemars",
@@ -1511,9 +1511,9 @@ dependencies = [
 
 [[package]]
 name = "near-sandbox-utils"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bafbc6e0f88ba3c4dd41d947d6ef86367dc2d9b5e0112bde1a5ae8251a71b4f7"
+checksum = "e4cf1e2b801709b9fe36806a3895ff63e85b37746b562bb8e4d266c7286b94d6"
 dependencies = [
  "anyhow",
  "async-process",
@@ -2134,9 +2134,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.8.10"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1847b767a3d62d95cbf3d8a9f0e421cf57a0d8aa4f411d4b16525afb0284d4ed"
+checksum = "2a5fb6c61f29e723026dc8e923d94c694313212abbecbbe5f55a7748eec5b307"
 dependencies = [
  "dyn-clone",
  "schemars_derive",
@@ -2146,9 +2146,9 @@ dependencies = [
 
 [[package]]
 name = "schemars_derive"
-version = "0.8.10"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af4d7e1b012cb3d9129567661a63755ea4b8a7386d339dc945ae187e403c6743"
+checksum = "f188d036977451159430f3b8dc82ec76364a42b7e289c2b18a9a18f4470058e9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2891,9 +2891,9 @@ dependencies = [
 
 [[package]]
 name = "workspaces"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8b8e4bc0367196fe6386e2c2325c13ee36066392682142d485237e355350e26"
+checksum = "a5b213a32d18d7bd6c1b2775ef365f0f7c41fefae1dc4afe3675b0a314cee806"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2914,6 +2914,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-retry",
  "tracing",

@@ -19,8 +19,12 @@ impl From<Base64VecU8> for Vec<u8> {
 
 #[cfg(feature = "abi")]
 impl schemars::JsonSchema for Base64VecU8 {
+    fn is_referenceable() -> bool {
+        false
+    }
+
     fn schema_name() -> String {
-        "Base64VecU8".to_string()
+        String::schema_name()
     }
 
     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
@@ -49,7 +53,7 @@ mod base64_bytes {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&base64::encode(&bytes))
+        serializer.serialize_str(&base64::encode(bytes))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>

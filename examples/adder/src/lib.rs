@@ -50,7 +50,6 @@ fn sum_pair(a: &Pair, b: &Pair) -> Pair {
 mod tests {
     use near_abi::*;
     use tokio::fs;
-    use workspaces::prelude::*;
 
     #[ignore]
     #[tokio::test]
@@ -59,11 +58,12 @@ mod tests {
         let worker = workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
-        let res = contract.view(&worker, "__contract_abi", vec![]).await?;
+        let res = contract.view("__contract_abi", vec![]).await?;
 
-        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();
+        let abi_root =
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();
 
-        assert_eq!(abi_root.schema_version, "0.1.0");
+        assert_eq!(abi_root.schema_version, "0.3.0");
         assert_eq!(abi_root.metadata.name, Some("adder".to_string()));
         assert_eq!(abi_root.metadata.version, Some("0.1.0".to_string()));
         assert_eq!(
@@ -76,13 +76,18 @@ mod tests {
 
         assert_eq!(add_function.name, "add".to_string());
         assert_eq!(add_function.doc, Some(" Adds two pairs point-wise.".to_string()));
-        assert!(add_function.is_view);
-        assert!(!add_function.is_init);
-        assert!(!add_function.is_payable);
-        assert!(!add_function.is_private);
-        assert_eq!(add_function.params.len(), 2);
-        assert_eq!(add_function.params[0].name, "a".to_string());
-        assert_eq!(add_function.params[1].name, "b".to_string());
+        assert_eq!(add_function.kind, AbiFunctionKind::View);
+        assert_eq!(add_function.modifiers, vec![]);
+        match &add_function.params {
+            AbiParameters::Json { args } => {
+                assert_eq!(args.len(), 2);
+                assert_eq!(args[0].name, "a".to_string());
+                assert_eq!(args[1].name, "b".to_string());
+            }
+            AbiParameters::Borsh { .. } => {
+                assert!(false);
+            }
+        }
 
         Ok(())
     }

@@ -6,8 +6,6 @@ fn compilation_tests() {
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");
     t.pass("compilation_tests/trait_impl.rs");
-    t.pass("compilation_tests/metadata.rs");
-    t.compile_fail("compilation_tests/metadata_invalid_rust.rs");
     t.compile_fail("compilation_tests/bad_argument.rs");
     t.pass("compilation_tests/complex.rs");
     t.compile_fail("compilation_tests/impl_generic.rs");
@@ -19,6 +17,7 @@ fn compilation_tests() {
     t.pass("compilation_tests/cond_compilation.rs");
     t.compile_fail("compilation_tests/payable_view.rs");
     t.pass("compilation_tests/borsh_storage_key.rs");
+    t.pass("compilation_tests/borsh_storage_key_generics.rs");
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
 }

@@ -10,7 +10,7 @@ use self::core_impl::*;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::visit::Visit;
-use syn::{File, ItemEnum, ItemImpl, ItemStruct, ItemTrait};
+use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -205,6 +205,10 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
 // TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
 // to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
+#[deprecated(
+    since = "4.1.0",
+    note = "metadata macro is no longer used. Use https://github.com/near/abi to generate a contract schema"
+)]
 #[proc_macro]
 pub fn metadata(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<File>(item) {
@@ -428,10 +432,10 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
 /// The type should also implement or derive `BorshSerialize` trait.
 #[proc_macro_derive(BorshStorageKey)]
 pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
-    let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        input.ident
+    let (name, generics) = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        (input.ident, input.generics)
     } else if let Ok(input) = syn::parse::<ItemStruct>(item) {
-        input.ident
+        (input.ident, input.generics)
     } else {
         return TokenStream::from(
             syn::Error::new(
@@ -441,8 +445,16 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
             .to_compile_error(),
         );
     };
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let predicate = parse_quote!(#name #ty_generics: ::near_sdk::borsh::BorshSerialize);
+    let where_clause: WhereClause = if let Some(mut w) = where_clause.cloned() {
+        w.predicates.push(predicate);
+        w
+    } else {
+        parse_quote!(where #predicate)
+    };
     TokenStream::from(quote! {
-        impl near_sdk::__private::BorshIntoStorageKey for #name {}
+        impl #impl_generics near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause {}
     })
 }
 

@@ -2,7 +2,7 @@
 fn check_example_size(example: &str) -> usize {
     let status = std::process::Command::new("cargo")
         .env("RUSTFLAGS", "-C link-arg=-s")
-        .args(&["build", "--release", "--target", "wasm32-unknown-unknown", "--manifest-path"])
+        .args(["build", "--release", "--target", "wasm32-unknown-unknown", "--manifest-path"])
         .arg(format!("../examples/{}/Cargo.toml", example))
         .status()
         .unwrap();
