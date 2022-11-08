@@ -13,7 +13,7 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
         return TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "Near events must have a `standard` value as an argument for `event_json` in the `near_bindgen` arguments. The value must be a string literal.",
+                "Near events must have a `standard` value as an argument for `event_json` in the `near_bindgen` arguments. The value must be a string literal, e.g. \"nep999\", \"mintbase-marketplace\".",
             )
             .to_compile_error(),
         );
