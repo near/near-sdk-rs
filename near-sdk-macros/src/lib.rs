@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 
 use self::core_impl::*;
 use proc_macro2::Span;
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::visit::Visit;
 use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
@@ -343,10 +343,12 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
     let input_ident = &input.ident;
 
+    let input_ident_proxy = format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
+
     let json_impl = if json_schema {
         quote! {
             #[automatically_derived]
-            impl schemars::JsonSchema for super::#input_ident {
+            impl schemars::JsonSchema for #input_ident_proxy {
                 fn schema_name() -> ::std::string::String {
                     stringify!(#input_ident).to_string()
                 }
@@ -363,7 +365,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let borsh_impl = if borsh_schema {
         quote! {
             #[automatically_derived]
-            impl borsh::BorshSchema for super::#input_ident {
+            impl borsh::BorshSchema for #input_ident_proxy {
                 fn declaration() -> ::std::string::String {
                     stringify!(#input_ident).to_string()
                 }
@@ -385,8 +387,9 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
-            mod __near_abi_private {
-                use super::*;
+            #[allow(non_camel_case_types)]
+            type #input_ident_proxy = #input_ident;
+            {
                 use near_sdk::borsh;
                 use near_sdk::__private::schemars;
 
@@ -395,7 +398,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
                 #json_impl
                 #borsh_impl
-            }
+            };
         };
     })
 }
