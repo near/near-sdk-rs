@@ -5,7 +5,7 @@
 #[cfg(test)]
 extern crate quickcheck;
 
-#[cfg(feature = "abi")]
+#[cfg(all(feature = "unstable", feature = "abi"))]
 pub use near_sdk_macros::NearSchema;
 pub use near_sdk_macros::{
     ext_contract, near_bindgen, BorshStorageKey, FunctionError, PanicOnDefault,
