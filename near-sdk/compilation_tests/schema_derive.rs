@@ -251,4 +251,15 @@ pub fn json_borsh_schema_spec() {
     const_assert_impls!(StructNoSchemaSpec: near_sdk::borsh::BorshSchema);
 }
 
+// fixme! this should fail, since A__NEAR_SCHEMA_PROXY does not derive NearSchema
+// fixme! hygeinic macro expansion is required to make this work
+// fixme! or just explicit checks, making sure that no ident is suffixed with
+// fixme! __NEAR_SCHEMA_PROXY
+
+#[allow(non_camel_case_types)]
+struct A__NEAR_SCHEMA_PROXY {}
+
+#[derive(NearSchema)]
+struct A(A__NEAR_SCHEMA_PROXY);
+
 fn main() {}
