@@ -75,9 +75,9 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 /// #[near_bindgen]
 /// impl Contract {
 ///     pub fn some_function(&self) {
-///            MyEvents::StringEvent(
-///                 String::from("some_string")
-///             ).emit();
+///         MyEvents::StringEvent(
+///             String::from("some_string")
+///         ).emit();
 ///     }
 ///
 /// }
