@@ -287,10 +287,6 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
     }
 
-    if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
-        return TokenStream::from(combined_errors.to_compile_error());
-    }
-
     input.attrs = type_attrs;
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
@@ -317,10 +313,17 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
         syn::Data::Union(_) => {
             return TokenStream::from(
-                syn::Error::new(Span::call_site(), "Near schema does not support unions yet.")
-                    .to_compile_error(),
-            );
+                syn::Error::new_spanned(
+                    input.to_token_stream(),
+                    "`NearSchema` does not support derive for unions",
+                )
+                .to_compile_error(),
+            )
         }
+    }
+
+    if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
+        return TokenStream::from(combined_errors.to_compile_error());
     }
 
     let json_schema = json_schema || !borsh_schema;

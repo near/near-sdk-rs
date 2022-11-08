@@ -40,6 +40,33 @@ error: invalid argument, expected: `json` or `borsh`
 29 | #[abi(json, serde = "?")]
    |             ^^^^^^^^^^^
 
+error: `NearSchema` does not support derive for unions
+  --> compilation_tests/schema_derive_invalids.rs:33:1
+   |
+33 | / union Unsupporteed {
+34 | |     a: u8,
+35 | |     b: u16,
+36 | | }
+   | |_^
+
+error: `NearSchema` does not support derive for unions
+  --> compilation_tests/schema_derive_invalids.rs:40:1
+   |
+40 | / union UnsupporteedWithoutArgs {
+41 | |     a: u8,
+42 | |     b: u16,
+43 | | }
+   | |_^
+
+error: `NearSchema` does not support derive for unions
+  --> compilation_tests/schema_derive_invalids.rs:47:1
+   |
+47 | / union UnsupporteedWithArgs {
+48 | |     a: u8,
+49 | |     b: u16,
+50 | | }
+   | |_^
+
 error[E0277]: the trait bound `Inner: JsonSchema` is not satisfied
  --> compilation_tests/schema_derive_invalids.rs:6:14
   |

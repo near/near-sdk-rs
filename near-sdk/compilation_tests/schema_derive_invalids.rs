@@ -29,4 +29,24 @@ struct TwoUnexpected;
 #[abi(json, serde = "?")]
 struct OneUnexpectedPath;
 
+#[derive(NearSchema)]
+union Unsupporteed {
+    a: u8,
+    b: u16,
+}
+
+#[derive(NearSchema)]
+#[abi()]
+union UnsupporteedWithoutArgs {
+    a: u8,
+    b: u16,
+}
+
+#[derive(NearSchema)]
+#[abi(json, schemars)]
+union UnsupporteedWithArgs {
+    a: u8,
+    b: u16,
+}
+
 fn main() {}
