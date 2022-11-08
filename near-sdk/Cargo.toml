@@ -15,6 +15,7 @@ Rust library for writing NEAR smart contracts.
 [[test]]
 name = "compilation_tests"
 path = "compilation_tests/all.rs"
+required-features = ["abi", "unstable"]
 
 [dependencies]
 # Provide near_bidgen macros.
@@ -56,7 +57,7 @@ default = ["wee_alloc", "unit-testing", "legacy", "abi"]
 expensive-debug = []
 unstable = []
 legacy = []
-abi = ["near-abi", "schemars"]
+abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]

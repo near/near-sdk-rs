@@ -276,6 +276,178 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
+#[cfg(feature = "abi")]
+#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
+pub fn derive_near_schema(input: TokenStream) -> TokenStream {
+    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+    let (mut json_schema, mut borsh_schema) = (false, false);
+    let mut type_attrs = vec![];
+    let mut errors = vec![];
+    for attr in input.attrs {
+        match attr.parse_meta() {
+            // #[abi]
+            Ok(syn::Meta::Path(meta)) if meta.is_ident("abi") => {
+                errors.push(syn::Error::new_spanned(
+                    meta.into_token_stream(),
+                    "attribute requires at least one argument",
+                ));
+            }
+            // #[abi(json, borsh)]
+            Ok(syn::Meta::List(meta)) if meta.path.is_ident("abi") => {
+                // #[abi()]
+                if meta.nested.is_empty() {
+                    errors.push(syn::Error::new_spanned(
+                        meta.into_token_stream(),
+                        "attribute requires at least one argument",
+                    ));
+                    continue;
+                }
+                for meta in meta.nested {
+                    match meta {
+                        // #[abi(.. json ..)]
+                        syn::NestedMeta::Meta(m) if m.path().is_ident("json") => json_schema = true,
+                        // #[abi(.. borsh ..)]
+                        syn::NestedMeta::Meta(m) if m.path().is_ident("borsh") => {
+                            borsh_schema = true
+                        }
+                        _ => {
+                            errors.push(syn::Error::new_spanned(
+                                meta.into_token_stream(),
+                                "invalid argument, expected: `json` or `borsh`",
+                            ));
+                        }
+                    }
+                }
+            }
+            // #[serde(..)], #[schemars(..)]
+            Ok(syn::Meta::List(meta))
+                if meta.path.is_ident("serde") || meta.path.is_ident("schemars") =>
+            {
+                type_attrs.push(attr)
+            }
+            _ => continue,
+        }
+    }
+
+    input.attrs = type_attrs;
+
+    let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
+        attrs.retain(|attr| {
+            ["serde", "schemars", "validate", "borsh_skip"]
+                .iter()
+                .any(|&path| attr.path.is_ident(path))
+        });
+    };
+
+    match &mut input.data {
+        syn::Data::Struct(data) => {
+            for field in &mut data.fields {
+                strip_unknown_attr(&mut field.attrs);
+            }
+        }
+        syn::Data::Enum(data) => {
+            for variant in &mut data.variants {
+                strip_unknown_attr(&mut variant.attrs);
+                for field in &mut variant.fields {
+                    strip_unknown_attr(&mut field.attrs);
+                }
+            }
+        }
+        syn::Data::Union(_) => {
+            return TokenStream::from(
+                syn::Error::new_spanned(
+                    input.to_token_stream(),
+                    "`NearSchema` does not support derive for unions",
+                )
+                .to_compile_error(),
+            )
+        }
+    }
+
+    if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
+        return TokenStream::from(combined_errors.to_compile_error());
+    }
+
+    let json_schema = json_schema || !borsh_schema;
+
+    let derive = match (json_schema, borsh_schema) {
+        // <unspecified> or #[abi(json)]
+        (_, false) => quote! {
+            #[derive(schemars::JsonSchema)]
+        },
+        // #[abi(borsh)]
+        (false, true) => quote! {
+            #[derive(borsh::BorshSchema)]
+        },
+        // #[abi(json, borsh)]
+        (true, true) => quote! {
+            #[derive(schemars::JsonSchema, borsh::BorshSchema)]
+        },
+    };
+
+    let input_ident = &input.ident;
+
+    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
+
+    let json_impl = if json_schema {
+        quote! {
+            #[automatically_derived]
+            impl schemars::JsonSchema for #input_ident_proxy {
+                fn schema_name() -> ::std::string::String {
+                    stringify!(#input_ident).to_string()
+                }
+
+                fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+                    <#input_ident as schemars::JsonSchema>::json_schema(gen)
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let borsh_impl = if borsh_schema {
+        quote! {
+            #[automatically_derived]
+            impl borsh::BorshSchema for #input_ident_proxy {
+                fn declaration() -> ::std::string::String {
+                    stringify!(#input_ident).to_string()
+                }
+
+                fn add_definitions_recursively(
+                    definitions: &mut borsh::maybestd::collections::HashMap<
+                        borsh::schema::Declaration,
+                        borsh::schema::Definition,
+                    >,
+                ) {
+                    <#input_ident as borsh::BorshSchema>::add_definitions_recursively(definitions);
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    TokenStream::from(quote! {
+        #[cfg(not(target_arch = "wasm32"))]
+        const _: () = {
+            #[allow(non_camel_case_types)]
+            type #input_ident_proxy = #input_ident;
+            {
+                use near_sdk::borsh;
+                use near_sdk::__private::schemars;
+
+                #derive
+                #input
+
+                #json_impl
+                #borsh_impl
+            };
+        };
+    })
+}
+
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
 /// message `The contract is not initialized` when `default()` is called.
 /// This is a helpful macro in case the contract is required to be initialized with either `init` or
