@@ -21,4 +21,5 @@ fn compilation_tests() {
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
     t.pass("compilation_tests/schema_derive.rs");
+    t.compile_fail("compilation_tests/schema_derive_invalids.rs");
 }
