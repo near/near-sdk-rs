@@ -271,7 +271,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                         _ => {
                             errors.push(syn::Error::new_spanned(
                                 meta.into_token_stream(),
-                                format!("invalid argument, expected: `json` or `borsh`"),
+                                "invalid argument, expected: `json` or `borsh`",
                             ));
                         }
                     }
