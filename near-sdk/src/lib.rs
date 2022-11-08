@@ -8,7 +8,7 @@ extern crate quickcheck;
 #[cfg(all(feature = "unstable", feature = "abi"))]
 pub use near_sdk_macros::NearSchema;
 pub use near_sdk_macros::{
-    ext_contract, near_bindgen, BorshStorageKey, FunctionError, PanicOnDefault,
+    ext_contract, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, PanicOnDefault,
 };
 
 pub mod store;
