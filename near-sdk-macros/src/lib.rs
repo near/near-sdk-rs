@@ -43,8 +43,51 @@ use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereCla
 ///     pub fn some_function(&self) {}
 /// }
 /// ```
+///
+/// Events Standard:
+///
+/// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
+/// according to NEP-297
+///
+/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version
+/// as well as include serialization reformatting to include the `event` and `data` fields automatically.
+/// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
+/// By default this will be JSON deserialized with `serde`
+///
+///
+/// # Examples
+///
+/// ```ignore
+/// use near_sdk::near_bindgen;
+///
+/// #[near_bindgen(event_json(standard = "nepXXX"))]
+/// pub enum MyEvents {
+///    #[event_version("1.0.0")]
+///    Swap { token_in: AccountId, token_out: AccountId, amount_in: u128, amount_out: u128 },
+///
+///    #[event_version("2.0.0")]
+///    StringEvent(String),
+///
+///    #[event_version("3.0.0")]
+///    EmptyEvent
+/// }
+///
+/// #[near_bindgen]
+/// impl Contract {
+///     pub fn some_function(&self) {
+///         MyEvents::StringEvent(
+///             String::from("some_string")
+///         ).emit();
+///     }
+///
+/// }
+/// ```
 #[proc_macro_attribute]
-pub fn near_bindgen(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if attr.to_string().contains("event_json") {
+        return core_impl::near_events(attr, item);
+    }
+
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed")]
@@ -315,4 +358,88 @@ pub fn function_error(item: TokenStream) -> TokenStream {
             }
         }
     })
+}
+
+/// NOTE: This is an internal implementation for `#[near_bindgen(events(standard = ...))]` attribute.
+///
+/// This derive macro is used to inject the necessary wrapper and logic to auto format
+/// standard event logs. The other appropriate attribute macros are not injected with this macro.
+/// Required attributes below:
+/// ```ignore
+/// #[derive(near_sdk::serde::Serialize, std::clone::Clone)]
+/// #[serde(crate="near_sdk::serde")]
+/// #[serde(tag = "event", content = "data")]
+/// #[serde(rename_all="snake_case")]
+/// pub enum MyEvent {
+///     Event
+/// }
+/// ```
+#[proc_macro_derive(EventMetadata, attributes(event_version))]
+pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
+    if let Ok(input) = syn::parse::<ItemEnum>(item) {
+        let name = &input.ident;
+        // get `standard` const injected from `near_events`
+        let standard_name = format!("{}_event_standard", name);
+        let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
+        // version from each attribute macro
+        let mut event_meta: Vec<proc_macro2::TokenStream> = vec![];
+        for var in &input.variants {
+            if let Some(version) = core_impl::get_event_version(var) {
+                let var_ident = &var.ident;
+                event_meta.push(quote! {
+                    #name::#var_ident { .. } => {(#standard_ident.to_string(), #version.to_string())}
+                })
+            } else {
+                return TokenStream::from(
+                    syn::Error::new(
+                        Span::call_site(),
+                        "Near events must have `event_version`. Must have a single string literal value.",
+                    )
+                    .to_compile_error(),
+                );
+            }
+        }
+
+        // handle lifetimes, generics, and where clauses
+        let (impl_generics, type_generics, where_clause) = &input.generics.split_for_impl();
+        // add `'near_event` lifetime for user defined events
+        let mut generics = input.generics.clone();
+        let event_lifetime = syn::Lifetime::new("'near_event", Span::call_site());
+        generics
+            .params
+            .insert(0, syn::GenericParam::Lifetime(syn::LifetimeDef::new(event_lifetime.clone())));
+        let (custom_impl_generics, ..) = generics.split_for_impl();
+
+        TokenStream::from(quote! {
+            impl #impl_generics #name #type_generics #where_clause {
+                fn emit(&self) {
+                    let (standard, version): (String, String) = match self {
+                        #(#event_meta),*
+                    };
+
+                    #[derive(near_sdk::serde::Serialize)]
+                    #[serde(crate="near_sdk::serde")]
+                    #[serde(rename_all="snake_case")]
+                    struct EventBuilder #custom_impl_generics #where_clause {
+                        standard: String,
+                        version: String,
+                        #[serde(flatten)]
+                        event_data: &#event_lifetime #name #type_generics
+                    }
+                    let event = EventBuilder { standard, version, event_data: self };
+                    let json = near_sdk::serde_json::to_string(&event)
+                            .unwrap_or_else(|_| near_sdk::env::abort());
+                    near_sdk::env::log_str(&format!("EVENT_JSON:{}", json));
+                }
+            }
+        })
+    } else {
+        TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "EventMetadata can only be used as a derive on enums.",
+            )
+            .to_compile_error(),
+        )
+    }
 }
