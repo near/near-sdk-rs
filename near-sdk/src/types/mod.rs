@@ -13,9 +13,6 @@ pub use self::account_id::{AccountId, ParseAccountIdError};
 mod gas;
 pub use self::gas::Gas;
 
-#[cfg(test)]
-mod event_tests;
-
 mod error;
 pub use self::error::Abort;
 pub use self::error::FunctionError;

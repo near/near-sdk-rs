@@ -1,12 +1,10 @@
-use crate::test_utils::get_logs;
-use crate::{near_bindgen, AccountId};
-
-use crate as near_sdk;
+use near_sdk::test_utils::get_logs;
+use near_sdk::{near_bindgen, AccountId};
 
 #[near_bindgen(event_json(standard = "test_standard", random = "random"), other_random)]
 pub enum TestEvents<'a, 'b, T>
 where
-    T: crate::serde::Serialize,
+    T: near_sdk::serde::Serialize,
 {
     #[event_version("1.0.0")]
     Swap { token_in: AccountId, token_out: AccountId, amount_in: u128, amount_out: u128, test: T },
