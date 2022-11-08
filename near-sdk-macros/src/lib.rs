@@ -8,7 +8,7 @@ use proc_macro::TokenStream;
 
 use self::core_impl::*;
 use proc_macro2::Span;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::visit::Visit;
 use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
@@ -342,7 +342,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
     let input_ident = &input.ident;
 
-    let input_ident_proxy = format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
+    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
 
     let json_impl = if json_schema {
         quote! {
