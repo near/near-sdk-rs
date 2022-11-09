@@ -524,14 +524,14 @@ mod tests {
         assert_eq!(DES_COUNT.load(Ordering::SeqCst), 0);
 
         let collected: Vec<u64> = map.iter().skip(5).take(4).map(|(_, v)| v.0).collect();
-        // 5 because skip is a bit inefficient in that it calls nth to skip.
-        assert_eq!(DES_COUNT.load(Ordering::SeqCst), 5);
+        // 4 or 5 is accepted because pre 1.65 Rust skip loaded an extra value.
+        assert!((4..=5).contains(&DES_COUNT.load(Ordering::SeqCst)));
         assert_eq!(&collected, &[5, 6, 7, 8]);
 
         DES_COUNT.store(0, Ordering::SeqCst);
         let collected: Vec<u64> = map.values().skip(5).take(4).map(|v| v.0).collect();
-        // 5 because skip is a bit inefficient in that it calls nth to skip.
-        assert_eq!(DES_COUNT.load(Ordering::SeqCst), 5);
+        // 4 or 5 is accepted because pre 1.65 Rust skip loaded an extra value.
+        assert!((4..=5).contains(&DES_COUNT.load(Ordering::SeqCst)));
         assert_eq!(&collected, &[5, 6, 7, 8]);
     }
 

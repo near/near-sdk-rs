@@ -2,8 +2,10 @@
 
 ## [Unreleased]
 
-### Changes
+### Changed
+- Added new `legacy` feature flag and put `near_sdk::collections` under it. `near_sdk::store` will be replacing them. [PR 923](https://github.com/near/near-sdk-rs/pull/923).
 - Stabilize `store::LookupMap` and `store::UnorderedMap` collections. [PR 922](https://github.com/near/near-sdk-rs/pull/922).
+- Stabilize `store::LookupSet` and `store::UnorderedSet` collections. [PR 924](https://github.com/near/near-sdk-rs/pull/924).
 
 ### Removed
 - Deleted `metadata` macro. Use https://github.com/near/abi instead. [PR 920](https://github.com/near/near-sdk-rs/pull/920)

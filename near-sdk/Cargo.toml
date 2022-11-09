@@ -15,6 +15,7 @@ Rust library for writing NEAR smart contracts.
 [[test]]
 name = "compilation_tests"
 path = "compilation_tests/all.rs"
+required-features = ["abi", "unstable"]
 
 [dependencies]
 # Provide near_bidgen macros.
@@ -32,7 +33,7 @@ wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.8", default-features = false }
 
-near-abi = { version = "0.2.0", features = ["__chunked-entries"], optional = true }
+near-abi = { version = "0.3.0", features = ["__chunked-entries"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # alt_bn128 feature will need to be removed on the next version update (now stabilized)
@@ -48,17 +49,19 @@ rustversion = "1.0"
 rand_xorshift = "0.3"
 quickcheck = "1.0"
 arbitrary = { version = ">=1.0, <1.1.4", features = ["derive"] }
+derive_arbitrary = ">=1.0, <=1.1.6"
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
-default = ["wee_alloc", "unit-testing"]
+default = ["wee_alloc", "unit-testing", "legacy", "abi"]
 expensive-debug = []
 unstable = []
-abi = ["near-abi", "schemars"]
+legacy = []
+abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
 unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
 [package.metadata.docs.rs]
-features = ["unstable"]
+features = ["unstable", "legacy"]

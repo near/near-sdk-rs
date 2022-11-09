@@ -44,9 +44,9 @@
 //!
 //! Sets:
 //!
-//! - [`LookupSet`] (`unstable`): Non-iterable storage version of [`std::collections::HashSet`].
+//! - [`LookupSet`]: Non-iterable storage version of [`std::collections::HashSet`].
 //!
-//! - [`UnorderedSet`] (`unstable`): Analogous to [`std::collections::HashSet`], and is an iterable
+//! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
 //! version of [`LookupSet`] and persisted to storage.
 //!
 //! Basic Types:
@@ -74,17 +74,13 @@ pub use vec::Vector;
 pub mod lookup_map;
 pub use self::lookup_map::LookupMap;
 
-#[cfg(feature = "unstable")]
 mod lookup_set;
-#[cfg(feature = "unstable")]
 pub use self::lookup_set::LookupSet;
 
 pub mod unordered_map;
 pub use self::unordered_map::UnorderedMap;
 
-#[cfg(feature = "unstable")]
 pub mod unordered_set;
-#[cfg(feature = "unstable")]
 pub use self::unordered_set::UnorderedSet;
 
 #[cfg(feature = "unstable")]

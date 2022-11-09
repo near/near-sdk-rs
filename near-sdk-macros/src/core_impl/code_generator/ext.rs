@@ -1,7 +1,7 @@
 use crate::core_impl::{serializer, AttrSigInfo};
-use proc_macro2::{Ident, TokenStream as TokenStream2};
+use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Generics, Signature};
+use syn::{parse_quote, Attribute, Generics, Path, Signature};
 
 /// Generates inner ext code for structs and modules. If intended for a struct, generic details
 /// for the struct should be passed in through `generic_details` and the `ext` method will be
@@ -59,6 +59,41 @@ pub(crate) fn generate_ext_structs(
     }
 }
 
+/// Non-bindgen attributes on contract methods should not be forwarded to the
+/// corresponding `_Ext` methods by default. It may lead to compilation errors
+/// or unexpected behavior. For a more detailed motivation, see [#959].
+///
+/// However, some attributes should be forwarded and they are defined here.
+///
+/// [#959]: https://github.com/near/near-sdk-rs/pull/959
+const FN_ATTRIBUTES_TO_FORWARD: [&str; 1] = [
+    // Allow some contract methods to be feature gated, for example:
+    //
+    // ```
+    // impl Contract {
+    //     #[cfg(integration_tests)]
+    //     pub fn test_method(&mut self) { /* ... */ }
+    // }
+    // ```
+    //
+    // In that scenario `ContractExt::test_method` should be included only if
+    // `integration_tests` is enabled.
+    "cfg",
+];
+
+/// Returns whether `attribute` should be forwarded to `_Ext` methods, see
+/// [`FN_ATTRIBUTES_TO_FORWARD`].
+fn is_fn_attribute_to_forward(attribute: &Attribute) -> bool {
+    for to_forward in FN_ATTRIBUTES_TO_FORWARD.iter() {
+        let to_forward_ident = Ident::new(to_forward, Span::mixed_site());
+        let to_forward_path: Path = parse_quote! { #to_forward_ident };
+        if to_forward_path == attribute.path {
+            return true;
+        }
+    }
+    false
+}
+
 /// Generate methods on <StructName>Ext to enable calling each method.
 pub(crate) fn generate_ext_function_wrappers<'a>(
     ident: &Ident,
@@ -85,7 +120,9 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let ident_str = ident.to_string();
     let mut new_non_bindgen_attrs = TokenStream2::new();
     for attribute in non_bindgen_attrs.iter() {
-        attribute.to_tokens(&mut new_non_bindgen_attrs);
+        if is_fn_attribute_to_forward(attribute) {
+            attribute.to_tokens(&mut new_non_bindgen_attrs);
+        }
     }
     let Signature { generics, .. } = original_sig;
     quote! {
@@ -190,6 +227,37 @@ mod tests {
               }
           }
         );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+
+    /// Verifies that only whitelisted attributes are forwarded to `_Ext`
+    /// methods.
+    #[test]
+    fn ext_fn_non_bindgen_attrs() {
+        let impl_type: Type = parse_quote! { Hello };
+        let mut method: ImplItemMethod = parse_quote! {
+            #[cfg(target_os = "linux")]
+            #[inline]
+            #[warn(unused)]
+            pub fn method(&self) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let actual = generate_ext_function(&method_info.attr_signature_info);
+
+        // Note: only whitelisted non-bindgen attributes are forwarded.
+        let expected = quote! {
+            #[cfg(target_os = "linux")]
+            pub fn method (self,) -> near_sdk::Promise {
+                let __args = vec![];
+                near_sdk::Promise::new(self.account_id).function_call_weight(
+                    "method".to_string(),
+                    __args,
+                    self.deposit,
+                    self.static_gas,
+                    self.gas_weight,
+                )
+            }
+        };
         assert_eq!(expected.to_string(), actual.to_string());
     }
 
