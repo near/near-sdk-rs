@@ -15,7 +15,7 @@
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg" alt="Reference Documentation" /></a>
     <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
-    <a href="https://buildkite.com/nearprotocol/near-sdk-rs"><img src="https://badge.buildkite.com/3bdfe06edbbfe67700833f865fe573b9ac6db517392bfc97dc.svg" alt="Buildkite Build" /></a>
+    <a href="https://github.com/near/near-sdk-rs/actions"><img src="https://github.com/near/near-sdk-rs/actions/workflows/test.yml/badge.svg" alt="GitHub Actions Build" /></a>
   </p>
 
    <h3>
@@ -64,48 +64,48 @@ impl StatusMessage {
 
 ## Features
 
-* **Unit-testable.** Writing unit tests is easy with `near-sdk`:
+### Unit-testable
+Writing unit tests is easy with `near-sdk`:
 
-    ```rust
-    #[test]
-    fn set_get_message() {
-        let context = get_context(vec![]);
-        testing_env!(context);
-        let mut contract = StatusMessage::default();
-        contract.set_status("hello".to_string());
-        assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
+```rust
+#[test]
+fn set_get_message() {
+    let mut contract = StatusMessage::default();
+    contract.set_status("hello".to_string());
+    assert_eq!("hello".to_string(), contract.get_status("bob_near".to_string()).unwrap());
+}
+```
+
+Run unit test the usual way:
+```bash
+cargo test --package status-message
+```
+
+### Asynchronous cross-contract calls
+Asynchronous cross-contract calls allow parallel execution of multiple contracts in parallel with subsequent aggregation on another contract. `env` exposes the following methods:
+* `promise_create` -- schedules an execution of a function on some contract;
+* `promise_then` -- attaches the callback back to the current contract once the function is executed;
+* `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
+* `promise_return` -- treats the result of execution of the promise as the result of the current function.
+
+Follow [examples/cross-contract-high-level](examples/cross-contract-calls/high-level)
+to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
+
+### Initialization methods
+We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
+
+```rust
+#[near_bindgen]
+impl StatusMessage {
+    #[init]
+    pub fn new(user: String, status: String) -> Self {
+        let mut res = Self::default();
+        res.records.insert(user, status);
+        res
     }
-    ```
+}
+```
 
-    Run unit test the usual way:
-    ```bash
-    cargo test --package status-message
-    ```
-
-* **Asynchronous cross-contract calls.** Asynchronous cross-contract calls allow parallel execution
-    of multiple contracts in parallel with subsequent aggregation on another contract.
-    `env` exposes the following methods:
-    * `promise_create` -- schedules an execution of a function on some contract;
-    * `promise_then` -- attaches the callback back to the current contract once the function is executed;
-    * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
-    * `promise_return` -- treats the result of execution of the promise as the result of the current function.
-
-    Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-high-level)
-    to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
-
-* **Initialization methods.** We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
-
-    ```rust
-    #[near_bindgen]
-    impl StatusMessage {
-      #[init]
-      pub fn new(user: String, status: String) -> Self {
-          let mut res = Self::default();
-          res.records.insert(user, status);
-          res
-      }
-    }
-    ```
 Even if you have initialization method your smart contract is still expected to derive `Default` trait. If you don't
 want to disable default initialization, then you can prohibit it like this:
 ```rust
@@ -124,7 +124,8 @@ pub struct StatusMessage {
 }
 ```
 
-* **Payable methods.** We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
+### Payable methods
+We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
 
 To declare a payable method simply use `#[payable]` decorator:
 ```rust
@@ -135,7 +136,8 @@ pub fn my_method(&mut self) {
 }
 ```
 
-* **Private methods** Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
+### Private methods
+Usually, when a contract has to have a callback for a remote cross-contract call, this callback method should
 only be called by the contract itself. It's to avoid someone else calling it and messing the state. Pretty common pattern
 is to have an assert that validates that the direct caller (predecessor account ID) matches to the contract's account (current account ID).
 Macro `#[private]` simplifies it, by making it a single line macro instead and improves readability.
@@ -201,17 +203,31 @@ The general workflow is the following:
     ```rust
     #[near_bindgen]
     impl MyContract {
-       pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
-           self.data.insert(key)
-       }
-       pub fn get_data(&self, key: u64) -> Option<u64> {
-           self.data.get(&key).cloned()
-       }
+        pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
+            self.data.insert(key)
+        }
+        pub fn get_data(&self, key: u64) -> Option<u64> {
+            self.data.get(&key).cloned()
+        }
     }
     ```
 
 ## Building Rust Contract
-We can build the contract using rustc:
+
+### [cargo-near](https://github.com/near/cargo-near)
+
+This can be used as an alternative, to allow building while also generating an [abi](https://github.com/near/abi)
+
+```bash
+# Install the near extension if you haven't already
+cargo install cargo-near
+
+# Builds the wasm contract and ABI into `target/near`
+cargo near build --release
+```
+
+### Using cargo build
+
 ```bash
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
@@ -223,6 +239,18 @@ different on different machines. To be able to compile the binary in a reproduci
 that allows to compile the binary.
 
 **Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contract-builder)**
+
+## Versioning
+
+### Semantic Versioning
+
+This crate follows [Cargo's semver guidelines](https://doc.rust-lang.org/cargo/reference/semver.html). 
+
+State breaking changes (low-level serialization format of any data type) will be avoided at all costs. If a change like this were to happen, it would come with a major version and come with a compiler error. If you encounter one that does not, [open an issue](https://github.com/near/near-sdk-rs/issues/new)!
+
+### MSRV
+
+The minimum supported Rust version is currently `1.56`. There are no guarantees that this will be upheld if a security patch release needs to come in that requires a Rust toolchain increase.
 
 ## Contributing
 
