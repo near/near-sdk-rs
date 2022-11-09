@@ -2,13 +2,22 @@
 
 ## [Unreleased]
 
+## [4.1.0] - 2022-11-09
+
+### Added
+- Added `near_sdk::NearSchema` derive macro for convenience in implementing schema types for `abi`. [PR 891](https://github.com/near/near-sdk-rs/pull/891).
+- Added support for custom events with `#[near_bindgen(event_json(standard = "___"))]` syntax. [PR 934](https://github.com/near/near-sdk-rs/pull/934)
+
 ### Changed
 - Added new `legacy` feature flag and put `near_sdk::collections` under it. `near_sdk::store` will be replacing them. [PR 923](https://github.com/near/near-sdk-rs/pull/923).
 - Stabilize `store::LookupMap` and `store::UnorderedMap` collections. [PR 922](https://github.com/near/near-sdk-rs/pull/922).
 - Stabilize `store::LookupSet` and `store::UnorderedSet` collections. [PR 924](https://github.com/near/near-sdk-rs/pull/924).
+- `abi` feature flag is now enabled by default. [PR 956](https://github.com/near/near-sdk-rs/pull/956).
+- Updated `near-abi` version to `0.3.0`. [PR 954](https://github.com/near/near-sdk-rs/pull/954).
 
 ### Removed
 - Deleted `metadata` macro. Use https://github.com/near/abi instead. [PR 920](https://github.com/near/near-sdk-rs/pull/920)
+- Deprecated `ReceiptIndex` and `IteratorIndex` vm types. [PR 949](https://github.com/near/near-sdk-rs/pull/949).
 
 ### Fixes
 - Updated the associated error type for `Base58CryptoHash` parsing through `TryFrom` to concrete type. [PR 919](https://github.com/near/near-sdk-rs/pull/919)
@@ -358,7 +367,8 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0-pre.3...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0...HEAD
+[4.1.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.3...4.1.0
 [4.1.0-pre.3]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.2...4.1.0-pre.3
 [4.1.0-pre.2]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.1...4.1.0-pre.2
 [4.1.0-pre.1]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.0...4.1.0-pre.1
