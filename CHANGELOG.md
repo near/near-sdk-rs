@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.1.1] - 2022-11-10
+
+### Fixed
+- Fixed invalid import from "legacy" feature flag from stabilized collection. [PR 960](https://github.com/near/near-sdk-rs/pull/960)
+
 ## [4.1.0] - 2022-11-09
 
 ### Added
