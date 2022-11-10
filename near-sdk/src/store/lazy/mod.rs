@@ -9,8 +9,8 @@ mod impls;
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::store::ERR_INCONSISTENT_STATE;
 use crate::env;
+use crate::store::ERR_INCONSISTENT_STATE;
 use crate::utils::{CacheEntry, EntryState};
 use crate::IntoStorageKey;
 
