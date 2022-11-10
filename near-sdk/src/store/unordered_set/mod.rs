@@ -4,7 +4,7 @@ mod iter;
 use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
 use crate::store::free_list::FreeListIndex;
 use crate::store::key::{Sha256, ToKey};
-use crate::store::unordered_set::iter::{
+pub use crate::store::unordered_set::iter::{
     Difference, Drain, Intersection, Iter, SymmetricDifference, Union,
 };
 use crate::{env, IntoStorageKey};
