@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.1.1] - 2022-11-10
+
+### Fixed
+- Fixed invalid import from "legacy" feature flag from stabilized collection. [PR 960](https://github.com/near/near-sdk-rs/pull/960)
+
 ## [4.1.0] - 2022-11-09
 
 ### Added
@@ -367,7 +372,8 @@ impl StatusMessage {
 * Add account check to `get_balance` in fungible token https://github.com/near/near-sdk-rs/pull/175
 * In fungible token remove account from storage if its balance is 0 https://github.com/near/near-sdk-rs/pull/179
 
-[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.0...HEAD
+[Unreleased]: https://github.com/near/near-sdk-rs/compare/4.1.1...HEAD
+[4.1.1]: https://github.com/near/near-sdk-rs/compare/4.1.0...4.1.1
 [4.1.0]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.3...4.1.0
 [4.1.0-pre.3]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.2...4.1.0-pre.3
 [4.1.0-pre.2]: https://github.com/near/near-sdk-rs/compare/4.0.0-pre.1...4.1.0-pre.2
