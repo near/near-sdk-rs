@@ -52,6 +52,7 @@ jobs:
           toolchain: stable
       - uses: Swatinem/rust-cache@v1
       - run: cargo check -p near-sdk --features unstable,legacy
+      - run: cargo check -p near-sdk --no-default-features
       - run: cargo check -p near-contract-standards
   audit:
     name: Audit
