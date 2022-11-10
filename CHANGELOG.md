@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Exposed missing iterator types used in `near_sdk::store::UnorderedSet`. [PR 961](https://github.com/near/near-sdk-rs/pull/961)
+
 ## [4.1.1] - 2022-11-10
 
 ### Fixed
