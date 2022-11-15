@@ -39,6 +39,7 @@
 //! that seemlessly integrated with the rest of the Rust standard library.
 
 mod legacy_tree_map;
+#[allow(deprecated)]
 pub use legacy_tree_map::LegacyTreeMap;
 
 mod lookup_map;

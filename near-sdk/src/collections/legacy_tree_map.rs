@@ -1,6 +1,8 @@
 //! Legacy `TreeMap` implementation that is using `UnorderedMap`.
 //! DEPRECATED. This implementation is deprecated and may be removed in the future.
 #![allow(clippy::all)]
+// This suppresses the depreciation warnings for uses of LegacyTreeMap in this module
+#![allow(deprecated)]
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;
@@ -18,6 +20,7 @@ use crate::IntoStorageKey;
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
 ///
+#[deprecated(since = "4.1.0", note = "Use tree_map::TreeMap instead")]
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LegacyTreeMap<K, V> {
     root: u64,
