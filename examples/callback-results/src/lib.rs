@@ -35,14 +35,14 @@ impl Callback {
     /// Panics if value is 0, returns the value passed in otherwise.
     #[private]
     pub fn c(value: u8) -> u8 {
-        require!(value > 0, "Value must be positive");
+        require!(value != 0, "Value should not be equal to 0");
         value
     }
 
     /// Panics if value is 0.
     #[private]
     pub fn d(value: u8) {
-        require!(value > 0, "Value must be positive");
+        require!(value != 0, "Value should not be equal to 0");
     }
 
     /// Receives the callbacks from the other promises called.

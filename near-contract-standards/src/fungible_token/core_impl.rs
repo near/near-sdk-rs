@@ -98,7 +98,7 @@ impl FungibleToken {
         memo: Option<String>,
     ) {
         require!(sender_id != receiver_id, "Sender and receiver should be different");
-        require!(amount > 0, "The amount should be a positive number");
+        require!(amount != 0, "The amount should not be equal to 0");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
         FtTransfer {
