@@ -1,15 +1,15 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption};
-use near_sdk::json_types::U128;
-use near_sdk::{Promise};
-use near_sdk::{
-    env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue,
-};
 use near_contract_standards::multi_token::metadata::MT_METADATA_SPEC;
-use near_contract_standards::multi_token::token::{Token, TokenId};
+use near_contract_standards::multi_token::token::{ClearedApproval, Token, TokenId};
 use near_contract_standards::multi_token::{
     core::MultiToken,
     metadata::{MtContractMetadata, TokenMetadata},
+};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::LazyOption;
+use near_sdk::json_types::U128;
+use near_sdk::Promise;
+use near_sdk::{
+    env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 
 #[near_bindgen]
@@ -130,10 +130,10 @@ mod tests {
         // Transfer some tokens
         testing_env!(context.attached_deposit(1).build());
         // emulate storage_deposit
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &contract.tokens.storage_balance_bounds().min.into(),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &contract.tokens.storage_balance_bounds().min.into());
 
         contract.mt_transfer(accounts(1), token.token_id.clone(), 4.into(), None, None);
 
@@ -174,10 +174,10 @@ mod tests {
         let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let (token, _) = init_tokens(&mut contract);
         testing_env!(context.attached_deposit(1).build());
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &contract.tokens.storage_balance_bounds().min.into(),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &contract.tokens.storage_balance_bounds().min.into());
         contract.mt_transfer(accounts(1), token.token_id.clone(), U128(0), None, None)
     }
 
@@ -188,10 +188,10 @@ mod tests {
         set_caller(&mut context, 0);
         let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let (token, _) = init_tokens(&mut contract);
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &contract.tokens.storage_balance_bounds().min.into(),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &contract.tokens.storage_balance_bounds().min.into());
 
         testing_env!(context.attached_deposit(1).build());
         contract.mt_transfer(
@@ -199,7 +199,7 @@ mod tests {
             token.token_id.clone(),
             U128(1),
             Some((accounts(0), 1)),
-            None
+            None,
         )
     }
 
@@ -211,10 +211,10 @@ mod tests {
         let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let (token, _) = init_tokens(&mut contract);
         testing_env!(context.attached_deposit(1).build());
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &contract.tokens.storage_balance_bounds().min.into(),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &contract.tokens.storage_balance_bounds().min.into());
         // account(0) has only 2000 of token.
         contract.mt_transfer(accounts(1), token.token_id.clone(), U128(3000), None, None)
     }
@@ -226,10 +226,10 @@ mod tests {
         set_caller(&mut context, 0);
         let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let (token, _) = init_tokens(&mut contract);
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &contract.tokens.storage_balance_bounds().min.into(),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &contract.tokens.storage_balance_bounds().min.into());
         contract.mt_transfer(accounts(1), token.token_id.clone(), U128(1000), None, None)
     }
 
@@ -265,10 +265,10 @@ mod tests {
 
         testing_env!(context.attached_deposit(1).build());
 
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &(contract.tokens.storage_balance_bounds().min.0 * 2),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &(contract.tokens.storage_balance_bounds().min.0 * 2));
         // Perform the transfers
         contract.mt_batch_transfer(
             accounts(1),
@@ -311,10 +311,10 @@ mod tests {
         let (quote_token, base_token) = init_tokens(&mut contract);
 
         testing_env!(context.attached_deposit(1).build());
-        contract.tokens.accounts_storage.insert(
-            &accounts(1),
-            &(contract.tokens.storage_balance_bounds().min.0 * 2),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(1), &(contract.tokens.storage_balance_bounds().min.0 * 2));
         contract.mt_batch_transfer(
             accounts(1),
             vec![quote_token.token_id.clone(), base_token.token_id.clone()],
@@ -346,12 +346,7 @@ mod tests {
 
         // Create approval for account 1 to transfer 20 of quote token from account 0.
         testing_env!(context.attached_deposit(150000000000000000000).build());
-        contract.mt_approve(
-            vec![quote_token.token_id.clone()],
-            vec![U128(20)],
-            accounts(1),
-            None,
-        );
+        contract.mt_approve(vec![quote_token.token_id.clone()], vec![U128(20)], accounts(1), None);
 
         // Account 1 is approved for 20 tokens.
         testing_env!(context.attached_deposit(1).build());
@@ -384,10 +379,7 @@ mod tests {
         ));
 
         // Revoke the approval
-        contract.mt_revoke(
-            vec![quote_token.token_id.clone()],
-            accounts(1),
-        );
+        contract.mt_revoke(vec![quote_token.token_id.clone()], accounts(1));
         assert!(!contract.mt_is_approved(
             owner_id.clone(),
             vec![quote_token.token_id.clone()],
@@ -413,18 +405,11 @@ mod tests {
         ));
 
         // Approve a different account
-        contract.mt_approve(
-            vec![quote_token.token_id.clone()],
-            vec![U128(30)],
-            accounts(2),
-            None,
-        );
+        contract.mt_approve(vec![quote_token.token_id.clone()], vec![U128(30)], accounts(2), None);
 
         // Revoke all approvals for the quote token
         testing_env!(context.attached_deposit(1).build());
-        contract.mt_revoke_all(
-            vec![quote_token.token_id.clone()],
-        );
+        contract.mt_revoke_all(vec![quote_token.token_id.clone()]);
 
         // Neither account is still approved
         assert!(!contract.mt_is_approved(
@@ -448,10 +433,10 @@ mod tests {
         let base_token_md = create_token_md("ABC".into(), "Alphabet token".into());
 
         // emulate storage_deposit
-        contract.tokens.accounts_storage.insert(
-            &accounts(0),
-            &(contract.tokens.storage_balance_bounds().min.0 * 2),
-        );
+        contract
+            .tokens
+            .accounts_storage
+            .insert(&accounts(0), &(contract.tokens.storage_balance_bounds().min.0 * 2));
 
         let quote_token = contract.mt_mint(accounts(0), quote_token_md.clone(), U128(1000));
         let base_token = contract.mt_mint(accounts(0), base_token_md.clone(), U128(2000));

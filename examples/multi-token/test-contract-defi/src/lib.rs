@@ -1,14 +1,13 @@
 /*!
 Some hypothetical DeFi contract that will do smart things with the transferred tokens
 */
+use near_contract_standards::multi_token::core::MultiTokenReceiver;
+use near_contract_standards::multi_token::token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
-    PromiseOrValue,
+    env, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault, PromiseOrValue,
 };
-use near_contract_standards::multi_token::core::MultiTokenReceiver;
-use near_contract_standards::multi_token::token::TokenId;
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
@@ -72,6 +71,7 @@ impl MultiTokenReceiver for DeFi {
 
         match msg.as_str() {
             "take-my-money" => PromiseOrValue::Value(vec![U128::from(0); token_ids.len()]),
+            "fail" => env::panic_str("simulating failure"),
             _ => {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();

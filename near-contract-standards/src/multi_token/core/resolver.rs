@@ -1,8 +1,8 @@
 use crate::multi_token::token::ClearedApproval;
 use crate::multi_token::token::TokenId;
+use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
-use near_sdk::ext_contract;
 
 /// `resolve_transfer` will be called after `on_transfer`
 #[ext_contract(ext_mt_resolver)]
@@ -43,6 +43,6 @@ pub trait MultiTokenResolver {
         receiver_id: AccountId,
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
-        approvals: Option<Vec<Option<Vec<ClearedApproval>>>>,
+        approvals: Option<Vec<Option<ClearedApproval>>>,
     ) -> Vec<U128>;
 }

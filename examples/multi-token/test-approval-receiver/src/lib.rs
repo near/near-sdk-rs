@@ -1,8 +1,8 @@
+use near_contract_standards::multi_token::{approval::MultiTokenApprovalReceiver, token::TokenId};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
     env, near_bindgen, AccountId, PanicOnDefault, PromiseOrValue,
 };
-use near_contract_standards::multi_token::{approval::MultiTokenApprovalReceiver, token::TokenId};
 
 pub const ON_MT_TOKEN_APPROVE_MSG: &str = "on_multi_token_approve";
 

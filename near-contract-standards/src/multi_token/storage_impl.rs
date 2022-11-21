@@ -1,7 +1,7 @@
 use crate::multi_token::core::MultiToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::json_types::U128;
-use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise, require};
+use near_sdk::{assert_one_yocto, env, log, require, AccountId, Balance, Promise};
 
 impl MultiToken {
     /// Internal method that returns the Account ID and the balance in case the account was
@@ -37,12 +37,14 @@ impl MultiToken {
     fn storage_cost(&self, account_id: &AccountId) -> Balance {
         if let Some(tokens) = &self.tokens_per_owner {
             if let Some(user_tokens) = tokens.get(account_id) {
-                return (user_tokens.len() * self.storage_usage_per_token + self.account_storage_usage)
-                    as Balance * env::storage_byte_cost();
+                return (user_tokens.len() * self.storage_usage_per_token
+                    + self.account_storage_usage) as Balance
+                    * env::storage_byte_cost();
             }
         }
 
-        (self.account_storage_usage + self.storage_usage_per_token) as Balance * env::storage_byte_cost()
+        (self.account_storage_usage + self.storage_usage_per_token) as Balance
+            * env::storage_byte_cost()
     }
 
     fn get_tokens_amount(&self, account_id: &AccountId) -> u64 {
@@ -60,8 +62,13 @@ impl MultiToken {
         let storage_balance = self.accounts_storage.get(account_id);
         if let Some(balance) = storage_balance {
             if balance < storage_cost {
-                env::panic_str(format!("The account doesn't have enough storage balance. Balance {}, required {}",
-                                       balance, storage_cost).as_str());
+                env::panic_str(
+                    format!(
+                        "The account doesn't have enough storage balance. Balance {}, required {}",
+                        balance, storage_cost
+                    )
+                    .as_str(),
+                );
             }
         } else {
             env::panic_str("The account is not registered");
@@ -79,9 +86,10 @@ impl MultiToken {
         let amount = amount.unwrap_or(balance);
         require!(amount > 0, "Zero withdraw");
 
-        let new_storage_balance = balance.checked_sub(amount)
+        let new_storage_balance = balance
+            .checked_sub(amount)
             .unwrap_or_else(|| env::panic_str("Not enough balance to withdraw"));
-        self.accounts_storage.insert(&account_id, &new_storage_balance);
+        self.accounts_storage.insert(account_id, &new_storage_balance);
         new_storage_balance
     }
 }
@@ -115,7 +123,8 @@ impl StorageManagement for MultiToken {
     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
         assert_one_yocto();
         let predecessor_account_id = env::predecessor_account_id();
-        let to_withdraw = self.internal_withdraw_near(&predecessor_account_id, amount.map(|a| a.into()));
+        let to_withdraw =
+            self.internal_withdraw_near(&predecessor_account_id, amount.map(|a| a.into()));
         Promise::new(predecessor_account_id.clone()).transfer(to_withdraw);
         self.storage_balance_of(predecessor_account_id).unwrap()
     }
@@ -125,9 +134,9 @@ impl StorageManagement for MultiToken {
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
-        let required_storage_balance =
-            Balance::from(self.account_storage_usage) * env::storage_byte_cost()
-                + Balance::from(self.storage_usage_per_token) * env::storage_byte_cost();
+        let required_storage_balance = Balance::from(self.account_storage_usage)
+            * env::storage_byte_cost()
+            + Balance::from(self.storage_usage_per_token) * env::storage_byte_cost();
         StorageBalanceBounds {
             min: required_storage_balance.into(),
             // The max amount of storage is unlimited, because we don't know the amount of tokens
@@ -136,11 +145,9 @@ impl StorageManagement for MultiToken {
     }
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
-        self.accounts_storage.get(&account_id).map(|account_balance| {
-            StorageBalance {
-                total: account_balance.into(),
-                available: account_balance.saturating_sub(self.storage_cost(&account_id)).into(),
-            }
+        self.accounts_storage.get(&account_id).map(|account_balance| StorageBalance {
+            total: account_balance.into(),
+            available: account_balance.saturating_sub(self.storage_cost(&account_id)).into(),
         })
     }
 }

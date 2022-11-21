@@ -1,7 +1,6 @@
-use std::{fmt::Display, mem::size_of};
-
-use near_sdk::{env, require, AccountId, Balance, Promise};
 use crate::multi_token::token::TokenId;
+use near_sdk::{env, require, AccountId, Balance, Promise};
+use std::{fmt::Display, mem::size_of};
 
 pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
     let required_cost = env::storage_byte_cost() * Balance::from(storage_used);

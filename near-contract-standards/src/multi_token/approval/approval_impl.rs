@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
-use near_sdk::{AccountId, assert_one_yocto, env, Gas, Promise, require, json_types::U128};
+use near_sdk::{assert_one_yocto, env, json_types::U128, require, AccountId, Gas, Promise};
 
+use crate::multi_token::approval::receiver::ext_approval_receiver;
 use crate::multi_token::{
-    core::{MultiToken},
+    core::MultiToken,
     token::{Approval, TokenId},
-    utils::{bytes_for_approved_account_id, Entity, expect_approval, expect_approval_for_token, refund_deposit},
+    utils::{
+        bytes_for_approved_account_id, expect_approval, expect_approval_for_token, refund_deposit,
+        Entity,
+    },
 };
-use crate::multi_token::approval::receiver::{ext_approval_receiver};
 
 use super::MultiTokenApproval;
 
@@ -81,14 +84,12 @@ impl MultiTokenApproval for MultiToken {
             .into();
 
         msg.map(|msg| {
-            ext_approval_receiver::ext(grantee_id)
-                .with_static_gas(receiver_gas)
-                .mt_on_approve(
-                    token_ids,
-                    approver_id,
-                    new_approval_ids,
-                    msg,
-                )
+            ext_approval_receiver::ext(grantee_id).with_static_gas(receiver_gas).mt_on_approve(
+                token_ids,
+                approver_id,
+                new_approval_ids,
+                msg,
+            )
         })
     }
 

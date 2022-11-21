@@ -5,7 +5,7 @@ pub use approval_impl::*;
 pub use receiver::*;
 
 use crate::multi_token::token::TokenId;
-use near_sdk::{AccountId, Promise, json_types::U128};
+use near_sdk::{json_types::U128, AccountId, Promise};
 
 /// Trait used in approval management
 /// Specs - https://github.com/shipsgold/NEPs/blob/master/specs/Standards/MultiToken/ApprovalManagement.md
