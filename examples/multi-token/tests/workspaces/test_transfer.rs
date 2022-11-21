@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use near_sdk::json_types::U128;
     use near_contract_standards::multi_token::token::Token;
+    use near_sdk::json_types::U128;
     use near_sdk::ONE_YOCTO;
     use near_units::parse_near;
     use workspaces::AccountId;
@@ -21,16 +21,19 @@ mod tests {
             .await?
             .into_result()?;
 
-        let token: Token = helper_mint(&mt, alice.id().clone(), 1000u128, "title1".to_string(), "desc1".to_string()).await?;
+        let token: Token = helper_mint(
+            &mt,
+            alice.id().clone(),
+            1000u128,
+            "title1".to_string(),
+            "desc1".to_string(),
+        )
+        .await?;
 
         // Grant bob an approval to take 50 of alice's tokens.
-        let _ = alice.call(mt.id(), "mt_approve")
-            .args_json((
-                [token.token_id.clone()],
-                [U128(50)],
-                bob.id(),
-                Option::<String>::None,
-            ))
+        let _ = alice
+            .call(mt.id(), "mt_approve")
+            .args_json(([token.token_id.clone()], [U128(50)], bob.id(), Option::<String>::None))
             .max_gas()
             .deposit(490000000000000000000)
             .transact()
@@ -40,7 +43,8 @@ mod tests {
             &mt,
             charlie.id(),
             get_storage_balance_bounds(&mt).await?.min.into(),
-        ).await?;
+        )
+        .await?;
 
         // Bob tries to transfer 50 tokens to charlie
         let res = bob
@@ -79,7 +83,6 @@ mod tests {
         Ok(())
     }
 
-
     #[tokio::test]
     async fn simulate_mt_transfer_wrong_approval() -> anyhow::Result<()> {
         let worker = workspaces::sandbox().await?;
@@ -93,27 +96,28 @@ mod tests {
             .await?
             .into_result()?;
 
-        let token: Token = helper_mint(&mt, alice.id().clone(), 1000u128, "title1".to_string(), "desc1".to_string()).await?;
+        let token: Token = helper_mint(
+            &mt,
+            alice.id().clone(),
+            1000u128,
+            "title1".to_string(),
+            "desc1".to_string(),
+        )
+        .await?;
 
         // Grant bob an approval to take 50 of alice's tokens.
-        let _ = alice.call(mt.id(), "mt_approve")
-            .args_json((
-                [token.token_id.clone()],
-                [U128(50)],
-                bob.id(),
-                Option::<String>::None,
-            ))
+        let _ = alice
+            .call(mt.id(), "mt_approve")
+            .args_json(([token.token_id.clone()], [U128(50)], bob.id(), Option::<String>::None))
             .max_gas()
             .deposit(490000000000000000000)
             .transact()
             .await?;
 
         // register charlie
-        let _ = charlie.call(mt.id(), "register")
-            .args_json((
-                token.token_id.clone(),
-                charlie.id(),
-            ))
+        let _ = charlie
+            .call(mt.id(), "register")
+            .args_json((token.token_id.clone(), charlie.id()))
             .max_gas()
             .transact()
             .await?;
@@ -139,7 +143,6 @@ mod tests {
         Ok(())
     }
 
-
     #[tokio::test]
     async fn simulate_mt_transfer_and_call() -> anyhow::Result<()> {
         // Setup MT contract, user, and DeFi contract.
@@ -153,22 +156,20 @@ mod tests {
             1000u128,
             "title1".to_string(),
             "desc1".to_string(),
-        ).await?;
+        )
+        .await?;
         let token_2: Token = helper_mint(
             &mt,
             alice.id().clone(),
             20_000u128,
             "title2".to_string(),
             "desc2".to_string(),
-        ).await?;
-
+        )
+        .await?;
 
         // Register defi account; alice (the token owner) was already registered during the mint.
-        register_user_for_token(
-            &mt,
-            defi.id(),
-            get_storage_balance_bounds(&mt).await?.min.into(),
-        ).await?;
+        register_user_for_token(&mt, defi.id(), get_storage_balance_bounds(&mt).await?.min.into())
+            .await?;
 
         // Transfer some tokens using transfer_and_call to hit DeFi contract with XCC.
         let res = alice
@@ -189,20 +190,21 @@ mod tests {
         let amounts_kept: Vec<U128> = res.json()?;
         assert_eq!(amounts_kept, vec![U128(70)]);
 
-        let alice_balance: Vec<U128> = mt.call("mt_batch_balance_of")
-            .args_json((alice.id(), vec![token_1.token_id.clone()], ))
+        let alice_balance: Vec<U128> = mt
+            .call("mt_batch_balance_of")
+            .args_json((alice.id(), vec![token_1.token_id.clone()]))
             .view()
             .await?
             .json()?;
         assert_eq!(alice_balance, vec![U128(930)]);
 
-        let defi_balance: Vec<U128> = mt.call("mt_batch_balance_of")
-            .args_json((defi.id(), vec![token_1.token_id.clone()], ))
+        let defi_balance: Vec<U128> = mt
+            .call("mt_batch_balance_of")
+            .args_json((defi.id(), vec![token_1.token_id.clone()]))
             .view()
             .await?
             .json()?;
         assert_eq!(defi_balance, vec![U128(70)]);
-
 
         // Next, do a batch transfer call, and use special msg 'take-my-money' so DeFi contract refunds nothing.
         let res = alice
@@ -220,7 +222,6 @@ mod tests {
             .transact()
             .await?;
         assert!(res.is_success());
-
 
         // Attempt a transfer where DeFi contract will panic. Token transfer should be reverted in the callback.
         let res = alice
@@ -242,8 +243,9 @@ mod tests {
         assert_eq!(amounts_kept_by_receiver, vec![U128(0), U128(0)]);
 
         // Balance hasn't changed.
-        let alice_balance: Vec<U128> = mt.call("mt_batch_balance_of")
-            .args_json((alice.id(), vec![token_1.token_id.clone(), token_2.token_id.clone()], ))
+        let alice_balance: Vec<U128> = mt
+            .call("mt_batch_balance_of")
+            .args_json((alice.id(), vec![token_1.token_id.clone(), token_2.token_id.clone()]))
             .view()
             .await?
             .json()?;

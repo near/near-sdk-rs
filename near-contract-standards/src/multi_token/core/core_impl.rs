@@ -1,19 +1,19 @@
-use near_sdk::{
-    AccountId, assert_one_yocto, Balance, BorshStorageKey, CryptoHash, env, Gas,
-    IntoStorageKey, log, PromiseOrValue, PromiseResult, require, StorageUsage,
-};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
+use near_sdk::{
+    assert_one_yocto, env, log, require, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
+    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+};
 
-use crate::multi_token::core::MultiTokenCore;
 use crate::multi_token::core::receiver::ext_mt_receiver;
 use crate::multi_token::core::resolver::{ext_mt_resolver, MultiTokenResolver};
+use crate::multi_token::core::MultiTokenCore;
 use crate::multi_token::events::{MtMint, MtTransfer};
 use crate::multi_token::metadata::TokenMetadata;
 use crate::multi_token::token::{Approval, ApprovalContainer, ClearedApproval, Token, TokenId};
 use crate::multi_token::utils::{
-    Entity, expect_approval, expect_approval_for_token, refund_deposit_to_account,
+    expect_approval, expect_approval_for_token, refund_deposit_to_account, Entity,
 };
 
 pub const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(15_000_000_000_000);
@@ -97,11 +97,11 @@ impl MultiToken {
         enumeration_prefix: Option<S>,
         approval_prefix: Option<T>,
     ) -> Self
-        where
-            Q: IntoStorageKey,
-            R: IntoStorageKey,
-            S: IntoStorageKey,
-            T: IntoStorageKey,
+    where
+        Q: IntoStorageKey,
+        R: IntoStorageKey,
+        S: IntoStorageKey,
+        T: IntoStorageKey,
     {
         let (approvals_by_token_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix
         {
@@ -138,9 +138,9 @@ impl MultiToken {
 
     fn measure_min_token_storage_cost(&mut self) {
         let tmp_token_id = u64::MAX.to_string();
-        let mut user_token_balance = LookupMap::new(
-            StorageKey::BalancesInner { token_id: env::sha256(tmp_token_id.as_bytes()) }
-        );
+        let mut user_token_balance = LookupMap::new(StorageKey::BalancesInner {
+            token_id: env::sha256(tmp_token_id.as_bytes()),
+        });
         let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
 
         let initial_storage_usage = env::storage_usage();
@@ -171,8 +171,7 @@ impl MultiToken {
         token_id: &TokenId,
         account_id: &AccountId,
     ) -> Balance {
-        self
-            .balances_per_token
+        self.balances_per_token
             .get(token_id)
             .expect("This token does not exist")
             .get(account_id)
@@ -236,7 +235,7 @@ impl MultiToken {
         token_ids: &[TokenId],
         amounts: &[Balance],
         approvals: Option<Vec<Option<(AccountId, u64)>>>,
-    ) -> (Vec<AccountId>, Vec<Option<Vec<ClearedApproval>>>) {
+    ) -> (Vec<AccountId>, Vec<Option<(AccountId, Approval)>>) {
         let approvals = approvals.unwrap_or_else(|| vec![None; token_ids.len()]);
         (0..token_ids.len())
             .map(|i| {
@@ -258,7 +257,7 @@ impl MultiToken {
         token_id: &TokenId,
         amount: Balance,
         approval: &Option<(AccountId, u64)>,
-    ) -> (AccountId, Option<Vec<ClearedApproval>>) {
+    ) -> (AccountId, Option<(AccountId, Approval)>) {
         // Safety checks
         require!(amount > 0, "Transferred amounts must be greater than 0");
 
@@ -292,7 +291,7 @@ impl MultiToken {
             authorized_id: Some(original_sender_id).filter(|id| *id == sender_id),
             memo: None,
         }
-            .emit();
+        .emit();
 
         (sender_id.to_owned(), old_approvals)
     }
@@ -311,7 +310,7 @@ impl MultiToken {
             amounts: &[&token.supply.to_string()],
             memo: None,
         }
-            .emit();
+        .emit();
 
         token
     }
@@ -395,7 +394,7 @@ impl MultiToken {
         grantee_id: &AccountId,
         approval_id: &u64,
         amount: Balance,
-    ) -> Vec<(AccountId, u64, U128)> {
+    ) -> (AccountId, Approval) {
         // If an approval was provided, ensure it meets requirements.
         let approvals = expect_approval(self.approvals_by_token_id.as_mut(), Entity::Contract);
 
@@ -406,39 +405,33 @@ impl MultiToken {
             .unwrap_or_else(|| panic!("No approvals for {}", owner_id))
             .clone();
 
-        let stored_approval: Approval = by_sender_id.get(grantee_id)
+        let stored_approval: Approval = by_sender_id
+            .get(grantee_id)
             .unwrap_or_else(|| panic!("No approval for {} from {}", grantee_id, owner_id))
             .clone();
 
-        require!(
-            stored_approval.approval_id.eq(approval_id),
-            "Invalid approval_id"
-        );
+        require!(stored_approval.approval_id.eq(approval_id), "Invalid approval_id");
 
-        let new_approval_amount = stored_approval.amount
+        let new_approval_amount = stored_approval
+            .amount
             .checked_sub(amount)
             .expect("Not enough approval amount for transfer");
 
         if new_approval_amount == 0 {
             by_sender_id.remove(grantee_id);
         } else {
-            by_sender_id.insert(grantee_id.clone(), Approval {
-                approval_id: approval_id.clone(),
-                amount: new_approval_amount,
-            });
+            by_sender_id.insert(
+                grantee_id.clone(),
+                Approval { approval_id: *approval_id, amount: new_approval_amount },
+            );
         }
-
         by_owner.insert(owner_id.clone(), by_sender_id.clone());
 
         approvals.insert(token_id, &by_owner);
 
-        // Given that we are consuming the approval, remove all other approvals granted to that account for that token.
-        // The user will need to generate fresh approvals as required.
+        // Given that we are consuming the approval or the part of it
         // Return the now-deleted approvals, so that caller may restore them in case of revert.
-        by_sender_id
-            .into_iter()
-            .map(|(key, approval)| (key.clone(), approval.approval_id, U128(approval.amount)))
-            .collect()
+        (grantee_id.clone(), stored_approval)
     }
 }
 
@@ -508,18 +501,19 @@ impl MultiTokenCore for MultiToken {
                 vec![old_owner.clone()],
                 vec![token_id.clone()],
                 vec![amount],
-                msg.clone(),
-            ).then(
-            ext_mt_resolver::ext(env::current_account_id())
-                .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                .mt_resolve_transfer(
-                    vec![old_owner],
-                    receiver_id,
-                    vec![token_id],
-                    vec![amount],
-                    Some(vec![old_approvals]),
-                )
-        )
+                msg,
+            )
+            .then(
+                ext_mt_resolver::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .mt_resolve_transfer(
+                        vec![old_owner],
+                        receiver_id,
+                        vec![token_id],
+                        vec![amount],
+                        Some(vec![old_approvals]),
+                    ),
+            )
             .into()
     }
 
@@ -553,27 +547,26 @@ impl MultiTokenCore for MultiToken {
 
         ext_mt_receiver::ext(receiver_id.clone())
             .with_static_gas(receiver_gas.into())
-            .mt_on_transfer(
-                sender_id,
-                old_owners.clone(),
-                token_ids.clone(),
-                amounts.clone(),
-                msg,
-            ).then(
-            ext_mt_resolver::ext(env::current_account_id())
-                .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                .mt_resolve_transfer(
-                    old_owners,
-                    receiver_id,
-                    token_ids,
-                    amounts,
-                    Some(old_approvals),
-                )
-        )
+            .mt_on_transfer(sender_id, old_owners.clone(), token_ids.clone(), amounts.clone(), msg)
+            .then(
+                ext_mt_resolver::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .mt_resolve_transfer(
+                        old_owners,
+                        receiver_id,
+                        token_ids,
+                        amounts,
+                        Some(old_approvals),
+                    ),
+            )
             .into()
     }
 
-    fn mt_token(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>> {
+    fn mt_token(&self, token_id: TokenId) -> Option<Token> {
+        self.internal_get_token_metadata(&token_id)
+    }
+
+    fn mt_token_list(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>> {
         token_ids.iter().map(|token_id| self.internal_get_token_metadata(token_id)).collect()
     }
 
@@ -623,7 +616,7 @@ impl MultiToken {
         receiver: AccountId,
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
-        _approvals: Option<Vec<Option<Vec<ClearedApproval>>>>,
+        approvals: Option<Vec<Option<ClearedApproval>>>,
     ) -> Vec<Balance> {
         // promise result contains what amounts were refunded by the receiver contract.
         let (amounts_to_refund, revert_approvals): (Vec<U128>, bool) = match env::promise_result(0)
@@ -660,8 +653,25 @@ impl MultiToken {
             .collect();
 
         if revert_approvals {
-            // Upstream call failed and transfers have been reverted.
-            // TODO: Re-grant approvals so client may try again.
+            env::log_str("Reverting approvals");
+
+            if let Some(by_token) = self.approvals_by_token_id.as_mut() {
+                if let Some(approvals) = approvals {
+                    for (i, approval) in approvals.iter().enumerate() {
+                        if let Some(cleared_approval) = approval {
+                            let token_id = &token_ids[i];
+                            let previous_owner = &previous_owner_ids[i];
+                            let mut by_owner = by_token.get(token_id).expect("Token not found");
+                            let by_grantee =
+                                by_owner.get_mut(previous_owner).expect("Previous owner not found");
+                            let (grantee_id, apprioval) = cleared_approval;
+                            env::log_str(&format!("Restored approval for token {:?} for owner {:?} and grantee {:?} with allowance {:?}", &token_id, &previous_owner, &grantee_id, &apprioval.amount));
+                            by_grantee.insert(grantee_id.clone(), apprioval.clone());
+                            by_token.insert(token_id, &by_owner);
+                        }
+                    }
+                }
+            }
         }
 
         amounts_kept_by_receiver
@@ -704,7 +714,7 @@ impl MultiToken {
                             authorized_id: None,
                             memo: None,
                         }
-                            .emit();
+                        .emit();
                         amount
                             .checked_sub(refund_amount)
                             .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW))
@@ -712,8 +722,7 @@ impl MultiToken {
                         env::panic_str("Sender balance overflow");
                     }
                 } else {
-                    self
-                        .total_supply
+                    self.total_supply
                         .get(&token_id)
                         .as_mut()
                         .unwrap()
@@ -738,7 +747,7 @@ impl MultiTokenResolver for MultiToken {
         receiver_id: AccountId,
         token_ids: Vec<TokenId>,
         amounts: Vec<U128>,
-        approvals: Option<Vec<Option<Vec<ClearedApproval>>>>,
+        approvals: Option<Vec<Option<ClearedApproval>>>,
     ) -> Vec<U128> {
         self.internal_resolve_transfers(
             &previous_owner_ids,
@@ -747,8 +756,8 @@ impl MultiTokenResolver for MultiToken {
             amounts,
             approvals,
         )
-            .iter()
-            .map(|&x| x.into())
-            .collect()
+        .iter()
+        .map(|&x| x.into())
+        .collect()
     }
 }

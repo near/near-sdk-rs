@@ -86,7 +86,9 @@ pub trait MultiTokenCore {
     ) -> PromiseOrValue<Vec<U128>>;
 
     // View Methods
-    fn mt_token(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>>;
+    fn mt_token(&self, token_id: TokenId) -> Option<Token>;
+
+    fn mt_token_list(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>>;
 
     fn mt_balance_of(&self, account_id: AccountId, token_id: TokenId) -> U128;
 

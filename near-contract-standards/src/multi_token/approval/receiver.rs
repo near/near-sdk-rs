@@ -1,4 +1,4 @@
-use near_sdk::{AccountId, ext_contract};
+use near_sdk::{ext_contract, AccountId};
 
 use crate::multi_token::token::TokenId;
 

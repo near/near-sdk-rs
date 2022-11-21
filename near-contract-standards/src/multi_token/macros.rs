@@ -65,8 +65,12 @@ macro_rules! impl_multi_token_core {
                 )
             }
 
-            fn mt_token(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>> {
-                self.$token.mt_token(token_ids)
+            fn mt_token(&self, token_id: TokenId) -> Option<Token> {
+                self.$token.mt_token(token_id)
+            }
+
+            fn mt_token_list(&self, token_ids: Vec<TokenId>) -> Vec<Option<Token>> {
+                self.$token.mt_token_list(token_ids)
             }
 
             fn mt_balance_of(&self, account_id: AccountId, token_id: TokenId) -> U128 {
@@ -99,7 +103,7 @@ macro_rules! impl_multi_token_core {
                 receiver_id: AccountId,
                 token_ids: Vec<TokenId>,
                 amounts: Vec<U128>,
-                approvals: Option<Vec<Option<Vec<(AccountId, u64, U128)>>>>,
+                approvals: Option<Vec<Option<ClearedApproval>>>,
             ) -> Vec<U128> {
                 self.$token.mt_resolve_transfer(
                     previous_owner_ids,
@@ -151,7 +155,13 @@ macro_rules! impl_multi_token_approval {
                 amounts: Vec<U128>,
                 approval_ids: Option<Vec<u64>>,
             ) -> bool {
-                self.$token.mt_is_approved(owner_id, token_ids, approved_account_id, amounts, approval_ids)
+                self.$token.mt_is_approved(
+                    owner_id,
+                    token_ids,
+                    approved_account_id,
+                    amounts,
+                    approval_ids,
+                )
             }
         }
     };

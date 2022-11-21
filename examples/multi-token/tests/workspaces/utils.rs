@@ -1,16 +1,14 @@
+use near_contract_standards::multi_token::metadata::TokenMetadata;
+use near_contract_standards::multi_token::token::Token;
+use near_contract_standards::storage_management::StorageBalanceBounds;
+use near_sdk::Balance;
 use near_units::parse_near;
 use workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
-use near_contract_standards::multi_token::{
-    metadata::{TokenMetadata},
-};
-use near_contract_standards::multi_token::token::{Token};
-use near_sdk::{Balance};
-use near_contract_standards::storage_management::StorageBalanceBounds;
 
-pub async fn get_storage_balance_bounds(contract: &Contract) -> anyhow::Result<StorageBalanceBounds> {
-    Ok(contract.view("storage_balance_bounds", vec![])
-        .await?
-        .json::<StorageBalanceBounds>()?)
+pub async fn get_storage_balance_bounds(
+    contract: &Contract,
+) -> anyhow::Result<StorageBalanceBounds> {
+    Ok(contract.view("storage_balance_bounds", vec![]).await?.json::<StorageBalanceBounds>()?)
 }
 
 pub async fn register_user_for_token(
@@ -18,11 +16,9 @@ pub async fn register_user_for_token(
     account_id: &AccountId,
     deposit: u128,
 ) -> anyhow::Result<()> {
-    let res = contract.call("storage_deposit")
-        .args_json((
-            account_id,
-            Some(false),
-        ))
+    let res = contract
+        .call("storage_deposit")
+        .args_json((account_id, Some(false)))
         .max_gas()
         .deposit(deposit)
         .transact()
@@ -65,7 +61,6 @@ pub async fn helper_mint(
     Ok(token)
 }
 
-
 // Returns Multi-token contract, a non-owner user Alice, and a DeFi contract
 // for receiving cross-contract calls.
 pub async fn init(
@@ -79,17 +74,12 @@ pub async fn init(
         .max_gas()
         .transact()
         .await?;
-    
+
     assert!(res.is_success());
 
     let defi_contract = worker.dev_deploy(include_bytes!("../../res/defi.wasm")).await?;
 
-    let res = defi_contract
-        .call("new")
-        .args_json((mt_contract.id(),))
-        .max_gas()
-        .transact()
-        .await?;
+    let res = defi_contract.call("new").args_json((mt_contract.id(),)).max_gas().transact().await?;
     assert!(res.is_success());
 
     let alice = mt_contract
@@ -111,13 +101,12 @@ pub async fn init(
     Ok((mt_contract, alice, bob, defi_contract))
 }
 
-pub async fn init_approval_receiver_contract(worker: &Worker<impl DevNetwork>) -> anyhow::Result<Contract> {
-    let approval_receiver_contract = worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm")).await?;
-    let res = approval_receiver_contract
-        .call("new")
-        .max_gas()
-        .transact()
-        .await?;
+pub async fn init_approval_receiver_contract(
+    worker: &Worker<impl DevNetwork>,
+) -> anyhow::Result<Contract> {
+    let approval_receiver_contract =
+        worker.dev_deploy(include_bytes!("../../res/approval_receiver.wasm")).await?;
+    let res = approval_receiver_contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
 
     Ok(approval_receiver_contract)
