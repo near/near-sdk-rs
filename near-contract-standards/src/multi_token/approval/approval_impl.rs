@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use near_sdk::{assert_one_yocto, env, json_types::U128, require, AccountId, Gas, Promise};
+use near_sdk::{assert_one_yocto, env, json_types::U128, log, require, AccountId, Gas, Promise};
 
 use crate::multi_token::approval::receiver::ext_approval_receiver;
 use crate::multi_token::{
@@ -38,20 +38,20 @@ impl MultiTokenApproval for MultiToken {
 
         let mut used_storage = 0;
 
-        for i in 0..token_ids.len() {
-            let token_id = &token_ids[i];
-            let amount = amounts[i];
-
+        for (token_id, amount) in token_ids.iter().zip(amounts) {
             // Get the balance to check if user has enough tokens
-            let approver_balance =
-                self.balances_per_token.get(token_id).unwrap().get(&approver_id).unwrap_or(0);
+            let approver_balance = self
+                .balances_per_token
+                .get(token_id)
+                .and_then(|balances_per_account| balances_per_account.get(&approver_id))
+                .unwrap_or(0);
             require!(approver_balance >= amount.0, "Not enough balance to approve");
 
             // Get the next approval id for the token
             let new_approval_id: u64 =
                 expect_approval_for_token(next_id_by_token.get(token_id), token_id);
             let new_approval = Approval { amount: amount.into(), approval_id: new_approval_id };
-            env::log_str(format!("New approval: {:?}", new_approval).as_str());
+            log!("New approval: {:?}", new_approval);
 
             // Get existing approvals for this token. If one exists for the grantee_id, overwrite it.
             let mut by_owner = by_token.get(token_id).unwrap_or_default();
@@ -66,7 +66,7 @@ impl MultiTokenApproval for MultiToken {
 
             new_approval_ids.push(new_approval_id);
 
-            env::log_str(format!("Updated approvals by id: {:?}", old_approval_id).as_str());
+            log!("Updated approvals by id: {:?}", old_approval_id);
             used_storage += if old_approval_id.is_none() {
                 bytes_for_approved_account_id(&grantee_id)
             } else {
@@ -149,9 +149,7 @@ impl MultiTokenApproval for MultiToken {
 
         let by_token = expect_approval(self.approvals_by_token_id.as_ref(), Entity::Contract);
 
-        for i in 0..token_ids.len() {
-            let token_id = &token_ids[i];
-            let amount = amounts[i];
+        for (idx, (token_id, amount)) in token_ids.iter().zip(amounts).enumerate() {
             let by_owner = by_token.get(token_id).unwrap_or_default();
 
             let grantee_to_approval = match by_owner.get(&owner_id) {
@@ -168,7 +166,7 @@ impl MultiTokenApproval for MultiToken {
                 return false;
             }
 
-            if let Some(given_approval) = approval_ids.get(i) {
+            if let Some(given_approval) = approval_ids.get(idx) {
                 if !approval.approval_id.eq(given_approval) {
                     return false;
                 }

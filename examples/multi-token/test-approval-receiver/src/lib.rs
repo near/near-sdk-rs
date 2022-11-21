@@ -1,7 +1,7 @@
 use near_contract_standards::multi_token::{approval::MultiTokenApprovalReceiver, token::TokenId};
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
-    env, near_bindgen, AccountId, PanicOnDefault, PromiseOrValue,
+    log, near_bindgen, AccountId, PanicOnDefault, PromiseOrValue,
 };
 
 pub const ON_MT_TOKEN_APPROVE_MSG: &str = "on_multi_token_approve";
@@ -12,11 +12,6 @@ pub struct Contract {}
 
 #[near_bindgen]
 impl Contract {
-    /*
-        initialization function (can only be called once).
-        this initializes the contract with default data and the owner ID
-        that's passed in
-    */
     #[init]
     pub fn new() -> Self {
         Self {}
@@ -32,11 +27,8 @@ impl MultiTokenApprovalReceiver for Contract {
         approval_ids: Vec<u64>,
         msg: String,
     ) -> PromiseOrValue<String> {
-        env::log_str(
-            format!("Tokens: {:?} Owner: {}, approval_ids: {:?}", tokens, owner_id, approval_ids)
-                .as_str(),
-        );
-        env::log_str(&msg);
+        log!("Tokens: {:?} Owner: {}, approval_ids: {:?}", tokens, owner_id, approval_ids);
+        log!(&msg);
 
         PromiseOrValue::Value(ON_MT_TOKEN_APPROVE_MSG.to_string())
     }

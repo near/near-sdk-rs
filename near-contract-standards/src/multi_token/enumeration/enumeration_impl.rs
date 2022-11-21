@@ -11,7 +11,7 @@ use super::MultiTokenEnumeration;
 impl MultiToken {
     fn enum_get_token(&self, owner_id: AccountId, token_id: TokenId) -> Token {
         let metadata = self.token_metadata_by_id.as_ref().and_then(|m| m.get(&token_id));
-        let supply = self.total_supply.get(&token_id).unwrap();
+        let supply = self.total_supply.get(&token_id).expect("Total supply not found by token id");
 
         Token { token_id, owner_id, metadata, supply }
     }

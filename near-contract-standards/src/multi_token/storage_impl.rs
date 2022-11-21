@@ -13,24 +13,20 @@ impl MultiToken {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();
         let force = force.unwrap_or(false);
-
-        let tokens_amount = self.get_tokens_amount(&account_id);
-
-        let storage_balance = self.accounts_storage.get(&account_id);
-        if storage_balance.is_none() {
-            log!("The account {} is not registered", &account_id);
-            return None;
-        }
-
-        if tokens_amount == 0 || force {
-            self.accounts_storage.remove(&account_id);
-            let balance = storage_balance.unwrap();
-            Promise::new(account_id.clone()).transfer(balance);
-            Some((account_id, balance))
+        if let Some(balance) = self.accounts_storage.get(&account_id) {
+            let tokens_amount = self.get_tokens_amount(&account_id);
+            if tokens_amount == 0 || force {
+                self.accounts_storage.remove(&account_id);
+                Promise::new(account_id.clone()).transfer(balance);
+                Some((account_id, balance))
+            } else {
+                env::panic_str(
+                    "Can't unregister the account with the positive amount of tokens without force",
+                )
+            }
         } else {
-            env::panic_str(
-                "Can't unregister the account with the positive amount of tokens without force",
-            )
+            log!("The account {} is not registered", &account_id);
+            None
         }
     }
 

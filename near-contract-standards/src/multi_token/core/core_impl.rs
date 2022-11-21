@@ -22,6 +22,7 @@ pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas(50_000_000_000_000 + GAS_FOR_RESOL
 const ERR_MORE_GAS_REQUIRED: &str = "More gas is required";
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 const ERR_PREPAID_GAS_OVERFLOW: &str = "Prepaid gas overflow";
+const ERR_TOTAL_SUPPLY_NOT_FOUND_BY_TOKEN_ID: &str = "Total supply not found by token id";
 
 /// Implementation of the multi-token standard
 /// Allows to include NEP-245 compatible tokens to any contract.
@@ -187,14 +188,14 @@ impl MultiToken {
     ) {
         let balance = self.internal_unwrap_balance_of(token_id, account_id);
         if let Some(new) = balance.checked_add(amount) {
-            let mut balances = self.balances_per_token.get(token_id).unwrap();
+            let mut balances = self.balances_per_token.get(token_id).expect("Token not found");
             balances.insert(account_id, &new);
             self.total_supply.insert(
                 token_id,
                 &self
                     .total_supply
                     .get(token_id)
-                    .unwrap()
+                    .expect(ERR_TOTAL_SUPPLY_NOT_FOUND_BY_TOKEN_ID)
                     .checked_add(amount)
                     .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW)),
             );
@@ -212,14 +213,14 @@ impl MultiToken {
     ) {
         let balance = self.internal_unwrap_balance_of(token_id, account_id);
         if let Some(new) = balance.checked_sub(amount) {
-            let mut balances = self.balances_per_token.get(token_id).unwrap();
+            let mut balances = self.balances_per_token.get(token_id).expect("Token not found");
             balances.insert(account_id, &new);
             self.total_supply.insert(
                 token_id,
                 &self
                     .total_supply
                     .get(token_id)
-                    .unwrap()
+                    .expect(ERR_TOTAL_SUPPLY_NOT_FOUND_BY_TOKEN_ID)
                     .checked_sub(amount)
                     .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW)),
             );
@@ -352,9 +353,9 @@ impl MultiToken {
         self.owner_by_id.insert(&token_id, &owner_id);
 
         // Insert new metadata
-        self.token_metadata_by_id
-            .as_mut()
-            .and_then(|by_id| by_id.insert(&token_id, &token_metadata.clone().unwrap()));
+        if let Some(metadata) = &token_metadata {
+            self.token_metadata_by_id.as_mut().and_then(|by_id| by_id.insert(&token_id, metadata));
+        }
 
         // Insert new supply
         let supply = supply.unwrap_or(0);
@@ -653,7 +654,7 @@ impl MultiToken {
             .collect();
 
         if revert_approvals {
-            env::log_str("Reverting approvals");
+            log!("Reverting approvals");
 
             if let Some(by_token) = self.approvals_by_token_id.as_mut() {
                 if let Some(approvals) = approvals {
@@ -665,7 +666,7 @@ impl MultiToken {
                             let by_grantee =
                                 by_owner.get_mut(previous_owner).expect("Previous owner not found");
                             let (grantee_id, apprioval) = cleared_approval;
-                            env::log_str(&format!("Restored approval for token {:?} for owner {:?} and grantee {:?} with allowance {:?}", &token_id, &previous_owner, &grantee_id, &apprioval.amount));
+                            log!("Restored approval for token {:?} for owner {:?} and grantee {:?} with allowance {:?}", &token_id, &previous_owner, &grantee_id, &apprioval.amount);
                             by_grantee.insert(grantee_id.clone(), apprioval.clone());
                             by_token.insert(token_id, &by_owner);
                         }
@@ -687,7 +688,7 @@ impl MultiToken {
     ) -> Balance {
         if unused_amount > 0 {
             // Whatever was unused gets returned to the original owner.
-            let mut balances = self.balances_per_token.get(&token_id).unwrap();
+            let mut balances = self.balances_per_token.get(&token_id).expect("Token not found");
             let receiver_balance = balances.get(&receiver).unwrap_or(0);
 
             if receiver_balance > 0 {
@@ -725,7 +726,7 @@ impl MultiToken {
                     self.total_supply
                         .get(&token_id)
                         .as_mut()
-                        .unwrap()
+                        .expect(ERR_TOTAL_SUPPLY_NOT_FOUND_BY_TOKEN_ID)
                         .checked_sub(refund_amount)
                         .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
 

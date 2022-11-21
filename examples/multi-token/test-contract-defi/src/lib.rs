@@ -32,7 +32,6 @@ trait ValueReturnTrait {
 impl DeFi {
     #[init]
     pub fn new(multi_token_account_id: AccountId) -> Self {
-        require!(!env::state_exists(), "Already initialized");
         Self { multi_token_account_id }
     }
 }
@@ -65,8 +64,8 @@ impl MultiTokenReceiver for DeFi {
             previous_owner_ids
         );
 
-        for i in 0..token_ids.len() {
-            log!("-> {} of token {}", token_ids[i], amounts[i].0)
+        for (token_id, amount) in token_ids.iter().zip(amounts) {
+            log!("-> {} of token {}", token_id, amount.0);
         }
 
         match msg.as_str() {
