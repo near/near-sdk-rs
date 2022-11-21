@@ -14,10 +14,14 @@ pub struct MtMint<'a> {
 }
 
 impl MtMint<'_> {
+    /// Logs the event to the host. This is required to ensure that the event is triggered
+    /// and to consume the event.
     pub fn emit(self) {
         Self::emit_many(&[self])
     }
 
+    /// Emits an mt mint event, through [`env::log_str`](near_sdk::env::log_str),
+    /// where each [`MtMint`] represents the data of each mint.
     pub fn emit_many(data: &[MtMint<'_>]) {
         new_245_v1(Nep245EventKind::MtMint(data)).emit()
     }
@@ -37,10 +41,14 @@ pub struct MtTransfer<'a> {
 }
 
 impl MtTransfer<'_> {
+    /// Logs the event to the host. This is required to ensure that the event is triggered
+    /// and to consume the event.
     pub fn emit(self) {
         Self::emit_many(&[self])
     }
 
+    /// Emits an mt transfer event, through [`env::log_str`](near_sdk::env::log_str),
+    /// where each [`MtTransfer`] represents the data of each transfer.
     pub fn emit_many(data: &[MtTransfer<'_>]) {
         new_245_v1(Nep245EventKind::MtTransfer(data)).emit()
     }
@@ -59,10 +67,14 @@ pub struct MtBurn<'a> {
 }
 
 impl MtBurn<'_> {
+    /// Logs the event to the host. This is required to ensure that the event is triggered
+    /// and to consume the event.
     pub fn emit(self) {
         Self::emit_many(&[self])
     }
 
+    /// Emits an mt burn event, through [`env::log_str`](near_sdk::env::log_str),
+    /// where each [`MtBurn`] represents the data of each burn.
     pub fn emit_many(data: &[MtBurn<'_>]) {
         new_245_v1(Nep245EventKind::MtBurn(data)).emit()
     }
