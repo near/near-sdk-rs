@@ -136,6 +136,7 @@ impl NonFungibleToken {
         }
 
         // 2. see how much space it took
+        // Note: This should not overflow because no storage items were removed above.
         self.extra_storage_in_bytes_per_token = env::storage_usage() - initial_storage_usage;
 
         // 3. roll it all back
@@ -359,7 +360,7 @@ impl NonFungibleToken {
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
         if let Some((id, storage_usage)) = initial_storage_usage {
-            refund_deposit_to_account(env::storage_usage() - storage_usage, id)
+            refund_deposit_to_account(env::storage_usage().saturating_sub(storage_usage), id)
         }
 
         // Return any extra attached deposit not used for storage

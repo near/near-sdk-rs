@@ -1,5 +1,6 @@
 use crate::fungible_token::FungibleToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
+use crate::ERR_ARITHMETIC_OVERFLOW;
 use near_sdk::json_types::U128;
 use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
 
@@ -17,7 +18,13 @@ impl FungibleToken {
             if balance == 0 || force {
                 self.accounts.remove(&account_id);
                 self.total_supply -= balance;
-                Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
+                Promise::new(account_id.clone()).transfer(
+                    self.storage_balance_bounds()
+                        .min
+                        .0
+                        .checked_add(1)
+                        .expect(ERR_ARITHMETIC_OVERFLOW),
+                );
                 Some((account_id, balance))
             } else {
                 env::panic_str(
@@ -61,6 +68,7 @@ impl StorageManagement for FungibleToken {
             }
 
             self.internal_register_account(&account_id);
+            // This cannot underflow, amount >= min_balance checked above.
             let refund = amount - min_balance;
             if refund > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
@@ -97,8 +105,9 @@ impl StorageManagement for FungibleToken {
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
-        let required_storage_balance =
-            Balance::from(self.account_storage_usage) * env::storage_byte_cost();
+        let required_storage_balance = Balance::from(self.account_storage_usage)
+            .checked_mul(env::storage_byte_cost())
+            .expect(ERR_ARITHMETIC_OVERFLOW);
         StorageBalanceBounds {
             min: required_storage_balance.into(),
             max: Some(required_storage_balance.into()),

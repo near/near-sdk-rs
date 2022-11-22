@@ -13,3 +13,5 @@ pub mod storage_management;
 pub mod upgrade;
 
 pub(crate) mod event;
+
+pub(crate) const ERR_ARITHMETIC_OVERFLOW: &str = "arithmetic overflow in contract standards";

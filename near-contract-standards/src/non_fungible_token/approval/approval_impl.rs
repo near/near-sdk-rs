@@ -8,6 +8,7 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
+use crate::ERR_ARITHMETIC_OVERFLOW;
 use near_sdk::{assert_one_yocto, env, require, AccountId, Gas, Promise};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas(10_000_000_000_000);
@@ -47,7 +48,8 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         approvals_by_id.insert(&token_id, approved_account_ids);
 
         // increment next_approval_id for this token
-        next_approval_id_by_id.insert(&token_id, &(approval_id + 1));
+        next_approval_id_by_id
+            .insert(&token_id, &(approval_id.checked_add(1).expect(ERR_ARITHMETIC_OVERFLOW)));
 
         // If this approval replaced existing for same account, no storage was used.
         // Otherwise, require that enough deposit was attached to pay for storage, and refund
@@ -59,7 +61,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.map(|msg| {
             ext_nft_approval_receiver::ext(account_id)
-                .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_APPROVE)
+                .with_static_gas(Gas(env::prepaid_gas().0.saturating_sub(GAS_FOR_NFT_APPROVE.0)))
                 .nft_on_approve(token_id, owner_id, approval_id, msg)
         })
     }

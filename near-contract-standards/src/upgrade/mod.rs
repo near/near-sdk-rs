@@ -57,7 +57,7 @@ impl Upgradable for Upgrade {
     fn stage_code(&mut self, code: Vec<u8>, timestamp: Timestamp) {
         self.assert_owner();
         require!(
-            env::block_timestamp() + self.staging_duration < timestamp,
+            env::block_timestamp().saturating_add(self.staging_duration) < timestamp,
             "Timestamp must be later than staging duration"
         );
         // Writes directly into storage to avoid serialization penalty by using default struct.
@@ -68,11 +68,8 @@ impl Upgradable for Upgrade {
     fn deploy_code(&mut self) -> Promise {
         if self.staging_timestamp < env::block_timestamp() {
             env::panic_str(
-                format!(
-                    "Deploy code too early: staging ends on {}",
-                    self.staging_timestamp + self.staging_duration
-                )
-                .as_str(),
+                format!("Deploy code too early: staging ends on {}", self.staging_timestamp)
+                    .as_str(),
             );
         }
         let code = env::storage_read(b"upgrade")
