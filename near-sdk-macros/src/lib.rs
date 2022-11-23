@@ -90,9 +90,9 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
-        #[cfg(feature = "__abi-embed")]
+        #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed"))]
+        #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
         TokenStream::from(quote! {
             #input
@@ -101,9 +101,9 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
-        #[cfg(feature = "__abi-embed")]
+        #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed"))]
+        #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
         TokenStream::from(quote! {
             #input
