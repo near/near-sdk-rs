@@ -600,8 +600,7 @@ where
         //If the last returned key does not have right node then return the
         //last value in the stack.
         if seen.is_none() && !self.stack_asc.is_empty() {
-            let len = self.stack_asc.len();
-            if let Some(result_idx) = self.stack_asc.get(len - 1) {
+            if let Some(result_idx) = self.stack_asc.last() {
                 seen = self.tree.node(*result_idx).map(|f| &f.key);
             }
         }
@@ -643,8 +642,7 @@ where
         //If the last returned key does not have left node then return the
         //last value in the stack.
         if seen.is_none() && !self.stack_desc.is_empty() {
-            let len = self.stack_desc.len();
-            if let Some(result_idx) = self.stack_desc.get(len - 1) {
+            if let Some(result_idx) = self.stack_desc.last() {
                 seen = self.tree.node(*result_idx).map(|f| &f.key);
             }
         }
