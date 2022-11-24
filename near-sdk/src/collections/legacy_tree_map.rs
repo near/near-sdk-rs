@@ -20,7 +20,7 @@ use crate::IntoStorageKey;
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
 ///
-#[deprecated(since = "4.1.0", note = "Use tree_map::TreeMap instead")]
+#[deprecated(since = "4.1.0", note = "Use near_sdk::collections::TreeMap, if you have an existing LegacyTreeMap use LegacyTreeMap::to_tree_map to migrate")]
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LegacyTreeMap<K, V> {
     root: u64,
@@ -585,6 +585,16 @@ where
         self.save(&n);
         self.tree.pop();
     }
+
+    pub fn to_tree_map<S: IntoStorageKey>(self, prefix: S) -> super::TreeMap<K, V> {
+        // We read this into the heap first so one can use the same prefix without getting into trouble
+        let elements: Vec<(K, V)> = self.into_iter().collect();
+        let mut tm = super::TreeMap::new(prefix);
+        for (k,v) in elements.iter() {
+            tm.insert(k, v);
+        }
+        tm
+    }
 }
 
 impl<'a, K, V> IntoIterator for &'a LegacyTreeMap<K, V>
@@ -682,6 +692,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collections::TreeMap;
     use crate::test_utils::{next_trie_id, test_env};
 
     extern crate rand;
@@ -1707,5 +1718,26 @@ mod tests {
         }
 
         QuickCheck::new().tests(300).quickcheck(prop as Prop);
+    }
+
+    #[test]
+    fn prop_to_tree_map() {
+        fn dedup(v: &mut Vec<(u32, u32)>) {
+            let mut uniques = HashSet::new();
+            v.retain(|(k,_)| uniques.insert(*k));
+        }
+
+        fn prop(mut insert: Vec<(u32, u32)>) -> bool {
+            // Duplicates are lost when we put them in the hash map, so input won't equal output
+            dedup(&mut insert);
+            println!("{}", insert.len());
+            let mut legacy_map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
+            for (key ,val) in insert.iter() {
+                legacy_map.insert(&key, &val);
+            }
+            let new_map = legacy_map.to_tree_map(next_trie_id());
+            new_map.into_iter().eq(insert.into_iter())
+        }
+        QuickCheck::new().max_tests(300).quickcheck(prop as fn(Vec<(u32, u32)>) -> bool);
     }
 }
