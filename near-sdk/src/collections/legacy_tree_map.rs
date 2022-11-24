@@ -1730,7 +1730,6 @@ mod tests {
         fn prop(mut insert: Vec<(u32, u32)>) -> bool {
             // Duplicates are lost when we put them in the hash map, so input won't equal output
             dedup(&mut insert);
-            println!("{}", insert.len());
             let mut legacy_map: LegacyTreeMap<u32, u32> = LegacyTreeMap::new(next_trie_id());
             for (key ,val) in insert.iter() {
                 legacy_map.insert(&key, &val);
