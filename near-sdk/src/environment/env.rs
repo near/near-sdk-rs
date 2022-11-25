@@ -10,6 +10,7 @@ use std::{convert::TryFrom, mem::MaybeUninit};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
+use crate::promise::Allowance;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
@@ -557,11 +558,15 @@ pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
     nonce: u64,
-    allowance: Balance,
+    allowance: Allowance,
     receiver_id: &AccountId,
     function_names: &str,
 ) {
     let receiver_id: &str = receiver_id.as_ref();
+    let allowance = match allowance {
+        Allowance::Limited(x) => x.get(),
+        Allowance::Unlimited => 0,
+    };
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
             promise_index,

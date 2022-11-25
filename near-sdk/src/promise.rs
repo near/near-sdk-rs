@@ -2,9 +2,29 @@ use borsh::BorshSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
+use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
+
+/// Allow an access key to spend either an unlimited or limited amount of gas
+// This wrapper prevents incorrect construction
+#[derive(Clone, Copy)]
+pub enum Allowance {
+    Unlimited,
+    Limited(NonZeroU128),
+}
+
+impl Allowance {
+    pub fn unlimited() -> Allowance {
+        Allowance::Unlimited
+    }
+
+    /// This will return an None if you try to pass a zero value balance
+    pub fn limited(balance: Balance) -> Option<Allowance> {
+        NonZeroU128::new(balance).map(Allowance::Limited)
+    }
+}
 
 enum PromiseAction {
     CreateAccount,
@@ -37,7 +57,7 @@ enum PromiseAction {
     },
     AddAccessKey {
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: Allowance,
         receiver_id: AccountId,
         function_names: String,
         nonce: u64,
@@ -315,7 +335,7 @@ impl Promise {
     pub fn add_access_key(
         self,
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: Allowance,
         receiver_id: AccountId,
         function_names: String,
     ) -> Self {
@@ -326,7 +346,7 @@ impl Promise {
     pub fn add_access_key_with_nonce(
         self,
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: Allowance,
         receiver_id: AccountId,
         function_names: String,
         nonce: u64,
