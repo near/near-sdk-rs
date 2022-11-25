@@ -37,6 +37,4 @@ impl From<PromiseResult> for VmPromiseResult {
 pub enum PromiseError {
     /// Promise result failed.
     Failed,
-    /// Current version of the protocol never returns this variant.
-    NotReady,
 }
