@@ -38,6 +38,12 @@ impl AttrSigInfo {
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
     ) -> syn::Result<Self> {
+        if original_sig.generics.params.len() > 0 {
+            return Err(Error::new(
+                original_sig.generics.span(),
+                "Contract API is not allowed to have generics.",
+            ));
+        }
         if original_sig.asyncness.is_some() {
             return Err(Error::new(
                 original_sig.span(),
