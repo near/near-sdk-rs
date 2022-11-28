@@ -5,6 +5,7 @@ use std::io::{Error, Write};
 use std::num::NonZeroU128;
 use std::rc::Rc;
 
+use crate::env::migrate_to_allowance;
 use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
@@ -111,7 +112,7 @@ impl PromiseAction {
                 )
             }
             AddAccessKey { public_key, allowance, receiver_id, function_names, nonce } => {
-                crate::env::promise_batch_action_add_key_with_function_call(
+                crate::env::promise_batch_action_add_key_allowance_with_function_call(
                     promise_index,
                     public_key,
                     *nonce,
@@ -332,18 +333,36 @@ impl Promise {
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
     /// e.g. `"method_a,method_b".to_string()`.
-    pub fn add_access_key(
+    pub fn add_access_key_allowance(
         self,
         public_key: PublicKey,
         allowance: Allowance,
         receiver_id: AccountId,
         function_names: String,
     ) -> Self {
-        self.add_access_key_with_nonce(public_key, allowance, receiver_id, function_names, 0)
+        self.add_access_key_allowance_with_nonce(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            0,
+        )
+    }
+
+    #[deprecated(since = "4.1.1", note = "Use add_access_key_allowance instead")]
+    pub fn add_access_key(
+        self,
+        public_key: PublicKey,
+        allowance: Balance,
+        receiver_id: AccountId,
+        function_names: String,
+    ) -> Self {
+        let allowance = migrate_to_allowance(allowance);
+        self.add_access_key_allowance(public_key, allowance, receiver_id, function_names)
     }
 
     /// Add an access key with a provided nonce.
-    pub fn add_access_key_with_nonce(
+    pub fn add_access_key_allowance_with_nonce(
         self,
         public_key: PublicKey,
         allowance: Allowance,
@@ -358,6 +377,25 @@ impl Promise {
             function_names,
             nonce,
         })
+    }
+
+    #[deprecated(since = "4.1.1", note = "Use add_access_key_allowance_with_nonce instead")]
+    pub fn add_access_key_with_nonce(
+        self,
+        public_key: PublicKey,
+        allowance: Balance,
+        receiver_id: AccountId,
+        function_names: String,
+        nonce: u64,
+    ) -> Self {
+        let allowance = migrate_to_allowance(allowance);
+        self.add_access_key_allowance_with_nonce(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            nonce,
+        )
     }
 
     /// Delete access key from the given account.

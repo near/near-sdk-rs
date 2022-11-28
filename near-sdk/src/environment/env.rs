@@ -554,7 +554,36 @@ pub fn promise_batch_action_add_key_with_full_access(
         )
     }
 }
+
+/// This is a short lived function while we migrate between the Balance and the allowance type
+pub(crate) fn migrate_to_allowance(allowance: Balance) -> Allowance {
+    match allowance {
+        0 => Allowance::Unlimited,
+        x => Allowance::limited(x).expect("This must be non zero"),
+    }
+}
+
+#[deprecated(since = "4.1.1", note = "Use add_access_key_allowance instead")]
 pub fn promise_batch_action_add_key_with_function_call(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    nonce: u64,
+    allowance: Balance,
+    receiver_id: &AccountId,
+    function_names: &str,
+) {
+    let allowance = migrate_to_allowance(allowance);
+    promise_batch_action_add_key_allowance_with_function_call(
+        promise_index,
+        public_key,
+        nonce,
+        allowance,
+        receiver_id,
+        function_names,
+    )
+}
+
+pub fn promise_batch_action_add_key_allowance_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
     nonce: u64,
