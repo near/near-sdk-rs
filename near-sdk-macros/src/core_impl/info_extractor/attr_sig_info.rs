@@ -2,7 +2,7 @@ use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, Seria
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
+use syn::{Attribute, Error, FnArg, GenericParam, Ident, Receiver, ReturnType, Signature};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
@@ -38,31 +38,12 @@ impl AttrSigInfo {
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
     ) -> syn::Result<Self> {
-        if !original_sig.generics.params.is_empty() {
+        if original_sig.generics.params.iter().any(|g| matches!(g, GenericParam::Type(_))) {
             return Err(Error::new(
                 original_sig.generics.span(),
                 "Contract API is not allowed to have generics.",
             ));
         }
-        if original_sig.asyncness.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to be async.",
-            ));
-        }
-        if original_sig.abi.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have binary interface.",
-            ));
-        }
-        if original_sig.variadic.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have variadic arguments.",
-            ));
-        }
-
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
         let mut args = vec![];
