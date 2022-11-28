@@ -10,7 +10,7 @@ use syn::ReturnType;
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
     pub fn method_wrapper(&self) -> TokenStream2 {
-        let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
+        let ImplItemMethodInfo { attr_signature_info, .. } = self;
         // Args provided by `env::input()`.
         let has_input_args = attr_signature_info.input_args().next().is_some();
 
@@ -45,19 +45,8 @@ impl ImplItemMethodInfo {
         let callback_deser = attr_signature_info.callback_deserialization();
         let callback_vec_deser = attr_signature_info.callback_vec_deserialization();
 
-        let arg_list = attr_signature_info.arg_list();
-        let AttrSigInfo {
-            non_bindgen_attrs,
-            ident,
-            receiver,
-            returns,
-            result_serializer,
-            method_type,
-            is_payable,
-            is_private,
-            is_handles_result,
-            ..
-        } = attr_signature_info;
+        let AttrSigInfo { non_bindgen_attrs, ident, method_type, is_payable, is_private, .. } =
+            attr_signature_info;
         let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
             // No check if the method is payable or a view method
             quote! {}
@@ -80,108 +69,9 @@ impl ImplItemMethodInfo {
         } else {
             quote! {}
         };
-        let body = if matches!(method_type, &MethodType::Init) {
-            match init_method_wrapper(self, true) {
-                Ok(wrapper) => wrapper,
-                Err(err) => return err.to_compile_error(),
-            }
-        } else if matches!(method_type, &MethodType::InitIgnoreState) {
-            match init_method_wrapper(self, false) {
-                Ok(wrapper) => wrapper,
-                Err(err) => return err.to_compile_error(),
-            }
-        } else {
-            let contract_deser;
-            let method_invocation;
-            let contract_ser;
-            if let Some(receiver) = receiver {
-                let mutability = &receiver.mutability;
-                contract_deser = quote! {
-                    let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
-                };
-                method_invocation = quote! {
-                    contract.#ident(#arg_list)
-                };
-                if matches!(method_type, &MethodType::Regular) {
-                    contract_ser = quote! {
-                        near_sdk::env::state_write(&contract);
-                    };
-                } else {
-                    contract_ser = TokenStream2::new();
-                }
-            } else {
-                contract_deser = TokenStream2::new();
-                method_invocation = quote! {
-                    #struct_type::#ident(#arg_list)
-                };
-                contract_ser = TokenStream2::new();
-            }
-            match returns {
-                ReturnType::Default => quote! {
-                    #contract_deser
-                    #method_invocation;
-                    #contract_ser
-                },
-                ReturnType::Type(_, return_type)
-                    if utils::type_is_result(return_type) && *is_handles_result =>
-                {
-                    let value_ser = match result_serializer {
-                        SerializerType::JSON => quote! {
-                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-                        },
-                        SerializerType::Borsh => quote! {
-                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
-                        },
-                    };
-                    quote! {
-                        #contract_deser
-                        let result = #method_invocation;
-                        match result {
-                            Ok(result) => {
-                                #value_ser
-                                near_sdk::env::value_return(&result);
-                                #contract_ser
-                            }
-                            Err(err) => near_sdk::FunctionError::panic(&err)
-                        }
-                    }
-                }
-                ReturnType::Type(_, return_type) if *is_handles_result => {
-                    return syn::Error::new(
-                        return_type.span(),
-                        "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
-                    )
-                    .to_compile_error();
-                }
-                ReturnType::Type(_, return_type) if utils::type_is_result(return_type) => {
-                    return syn::Error::new(
-                        return_type.span(),
-                        "Serializing Result<T, E> has been deprecated. Consider marking your method \
-                        with #[handle_result] if the second generic represents a panicable error or \
-                        replacing Result with another two type sum enum otherwise. If you really want \
-                        to keep the legacy behavior, mark the method with #[handle_result] and make \
-                        it return Result<Result<T, E>, near_sdk::Abort>.",
-                    )
-                    .to_compile_error();
-                }
-                ReturnType::Type(_, _) => {
-                    let value_ser = match result_serializer {
-                        SerializerType::JSON => quote! {
-                            let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-                        },
-                        SerializerType::Borsh => quote! {
-                            let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
-                        },
-                    };
-                    quote! {
-                        #contract_deser
-                        let result = #method_invocation;
-                        #value_ser
-                        near_sdk::env::value_return(&result);
-                        #contract_ser
-                    }
-                }
-            }
+        let body = match self.method_body() {
+            Ok(wrapper) => wrapper,
+            Err(err) => return err.to_compile_error(),
         };
         let non_bindgen_attrs = non_bindgen_attrs.iter().fold(TokenStream2::new(), |acc, value| {
             quote! {
@@ -205,48 +95,146 @@ impl ImplItemMethodInfo {
             }
         }
     }
-}
 
-fn init_method_wrapper(
-    method_info: &ImplItemMethodInfo,
-    check_state: bool,
-) -> Result<TokenStream2, syn::Error> {
-    let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = method_info;
-    let arg_list = attr_signature_info.arg_list();
-    let AttrSigInfo { ident, returns, is_handles_result, .. } = attr_signature_info;
-    let state_check = if check_state {
-        quote! {
-            if near_sdk::env::state_exists() {
-                near_sdk::env::panic_str("The contract has already been initialized");
+    fn method_body(&self) -> Result<TokenStream2, syn::Error> {
+        let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
+        let AttrSigInfo { ident, receiver, returns, method_type, is_handles_result, .. } =
+            attr_signature_info;
+        match method_type {
+            MethodType::InitIgnoreState | MethodType::Init => return self.init_method_wrapper(),
+            _ => (),
+        };
+        let arg_list = attr_signature_info.arg_list();
+        let contract_deser;
+        let method_invocation;
+        let contract_ser;
+        if let Some(receiver) = receiver {
+            let mutability = &receiver.mutability;
+            contract_deser = quote! {
+                let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
+            };
+            method_invocation = quote! {
+                contract.#ident(#arg_list)
+            };
+            if matches!(method_type, &MethodType::Regular) {
+                contract_ser = quote! {
+                    near_sdk::env::state_write(&contract);
+                };
+            } else {
+                contract_ser = TokenStream2::new();
             }
+        } else {
+            contract_deser = TokenStream2::new();
+            method_invocation = quote! {
+                #struct_type::#ident(#arg_list)
+            };
+            contract_ser = TokenStream2::new();
         }
-    } else {
-        quote! {}
-    };
-    match returns {
-        ReturnType::Default => {
-            Err(syn::Error::new(ident.span(), "Init methods must return the contract state"))
-        }
-        ReturnType::Type(_, return_type)
-            if utils::type_is_result(return_type) && *is_handles_result =>
-        {
-            Ok(quote! {
-                #state_check
-                let result = #struct_type::#ident(#arg_list);
-                match result {
-                    Ok(contract) => near_sdk::env::state_write(&contract),
-                    Err(err) => near_sdk::FunctionError::panic(&err)
+        let res = match returns {
+            ReturnType::Default => quote! {
+                #contract_deser
+                #method_invocation;
+                #contract_ser
+            },
+            ReturnType::Type(_, return_type)
+                if utils::type_is_result(return_type) && *is_handles_result =>
+            {
+                let value_ser = self.result_serializer();
+                quote! {
+                    #contract_deser
+                    let result = #method_invocation;
+                    match result {
+                        Ok(result) => {
+                            #value_ser
+                            near_sdk::env::value_return(&result);
+                            #contract_ser
+                        }
+                        Err(err) => near_sdk::FunctionError::panic(&err)
+                    }
                 }
-            })
+            }
+            ReturnType::Type(_, return_type) if *is_handles_result => {
+                return Err(syn::Error::new(
+                        return_type.span(),
+                        "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
+                    ));
+            }
+            ReturnType::Type(_, return_type) if utils::type_is_result(return_type) => {
+                return Err(syn::Error::new(
+                        return_type.span(),
+                        "Serializing Result<T, E> has been deprecated. Consider marking your method \
+                        with #[handle_result] if the second generic represents a panicable error or \
+                        replacing Result with another two type sum enum otherwise. If you really want \
+                        to keep the legacy behavior, mark the method with #[handle_result] and make \
+                        it return Result<Result<T, E>, near_sdk::Abort>.",
+                    ));
+            }
+            ReturnType::Type(_, _) => {
+                let value_ser = self.result_serializer();
+                quote! {
+                    #contract_deser
+                    let result = #method_invocation;
+                    #value_ser
+                    near_sdk::env::value_return(&result);
+                    #contract_ser
+                }
+            }
+        };
+        Ok(res)
+    }
+
+    fn init_method_wrapper(&self) -> Result<TokenStream2, syn::Error> {
+        let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
+        let arg_list = attr_signature_info.arg_list();
+        let AttrSigInfo { ident, returns, is_handles_result, .. } = attr_signature_info;
+        let state_check = if matches!(&attr_signature_info.method_type, &MethodType::Init) {
+            quote! {
+                if near_sdk::env::state_exists() {
+                    near_sdk::env::panic_str("The contract has already been initialized");
+                }
+            }
+        } else {
+            quote! {}
+        };
+        match returns {
+            ReturnType::Default => {
+                Err(syn::Error::new(ident.span(), "Init methods must return the contract state"))
+            }
+            ReturnType::Type(_, return_type)
+                if utils::type_is_result(return_type) && *is_handles_result =>
+            {
+                Ok(quote! {
+                    #state_check
+                    let result = #struct_type::#ident(#arg_list);
+                    match result {
+                        Ok(contract) => near_sdk::env::state_write(&contract),
+                        Err(err) => near_sdk::FunctionError::panic(&err)
+                    }
+                })
+            }
+            ReturnType::Type(_, return_type) if *is_handles_result => Err(syn::Error::new(
+                return_type.span(),
+                "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
+            )),
+            ReturnType::Type(_, _) => Ok(quote! {
+                #state_check
+                let contract = #struct_type::#ident(#arg_list);
+                near_sdk::env::state_write(&contract);
+            }),
         }
-        ReturnType::Type(_, return_type) if *is_handles_result => Err(syn::Error::new(
-            return_type.span(),
-            "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
-        )),
-        ReturnType::Type(_, _) => Ok(quote! {
-            #state_check
-            let contract = #struct_type::#ident(#arg_list);
-            near_sdk::env::state_write(&contract);
-        }),
+    }
+
+    fn result_serializer(&self) -> TokenStream2 {
+        let serialize = match self.attr_signature_info.result_serializer {
+            SerializerType::JSON => quote! {
+                near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.")
+            },
+            SerializerType::Borsh => quote! {
+                near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.")
+            },
+        };
+        quote! {
+            let result = #serialize;
+        }
     }
 }
