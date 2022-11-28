@@ -37,7 +37,7 @@ impl ImplItemMethodInfo {
         struct_type: Type,
     ) -> syn::Result<Option<Self>> {
         let ImplItemMethod { attrs, sig, .. } = original;
-        Self::check_sig_modifiers(&sig)?;
+        Self::check_sig_modifiers(sig)?;
         if is_trait_impl || matches!(original.vis, Visibility::Public(_)) {
             let attr_signature_info = AttrSigInfo::new(attrs, sig)?;
             Ok(Some(Self { attr_signature_info, struct_type }))
