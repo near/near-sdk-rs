@@ -557,10 +557,7 @@ pub fn promise_batch_action_add_key_with_full_access(
 
 /// This is a short lived function while we migrate between the Balance and the allowance type
 pub(crate) fn migrate_to_allowance(allowance: Balance) -> Allowance {
-    match allowance {
-        0 => Allowance::Unlimited,
-        x => Allowance::limited(x).expect("This must be non zero"),
-    }
+    Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
 }
 
 #[deprecated(since = "4.1.1", note = "Use add_access_key_allowance instead")]
