@@ -76,7 +76,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             return vec![];
         };
 
-        if token_set.len() == 0 {
+        if token_set.is_empty() {
             return vec![];
         }
 
