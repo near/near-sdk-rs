@@ -21,7 +21,9 @@ pub struct NFTContractMetadata {
 }
 
 /// Metadata on the individual token level.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, BorshDeserialize, BorshSerialize)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, BorshDeserialize, BorshSerialize, Default,
+)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenMetadata {
