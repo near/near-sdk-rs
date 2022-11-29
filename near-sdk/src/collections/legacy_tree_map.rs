@@ -20,10 +20,7 @@ use crate::IntoStorageKey;
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
 ///
-#[deprecated(
-    since = "4.1.0",
-    note = "Use near_sdk::collections::TreeMap, if you have an existing LegacyTreeMap use LegacyTreeMap::to_tree_map to migrate"
-)]
+#[deprecated(since = "4.1.0", note = "Use near_sdk::collections::TreeMap")]
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LegacyTreeMap<K, V> {
     root: u64,
