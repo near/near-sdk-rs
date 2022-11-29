@@ -1,6 +1,6 @@
 use crate::ImplItemMethodInfo;
 use syn::spanned::Spanned;
-use syn::{Error, ImplItem, ItemImpl, Type};
+use syn::{Error, ImplItem, ItemImpl, NestedMeta, Type};
 
 /// Information extracted from `impl` section.
 pub struct ItemImplInfo {
@@ -13,7 +13,7 @@ pub struct ItemImplInfo {
 }
 
 impl ItemImplInfo {
-    pub fn new(original: &mut ItemImpl) -> syn::Result<Self> {
+    pub fn new(original: &mut ItemImpl, attrs: &[NestedMeta]) -> syn::Result<Self> {
         if !original.generics.params.is_empty() {
             return Err(Error::new(
                 original.generics.params.span(),
@@ -26,7 +26,7 @@ impl ItemImplInfo {
         let mut methods = vec![];
         for subitem in &mut original.items {
             if let ImplItem::Method(m) = subitem {
-                let method_info = ImplItemMethodInfo::new(m, ty.clone())?;
+                let method_info = ImplItemMethodInfo::new_with_impl_attrs(m, ty.clone(), attrs)?;
                 methods.push(method_info);
             }
         }

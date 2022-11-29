@@ -5,7 +5,7 @@ use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::spanned::Spanned;
-use syn::ReturnType;
+use syn::{Meta, Path, ReturnType};
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -105,21 +105,37 @@ impl ImplItemMethodInfo {
             _ => (),
         };
         let arg_list = attr_signature_info.arg_list();
+        let is_riff = self.is_riff();
         let contract_deser;
         let method_invocation;
         let contract_ser;
         if let Some(receiver) = receiver {
             let mutability = &receiver.mutability;
+            let load = if is_riff {
+                quote! {
+                    #struct_type::get_lazy()
+                }
+            } else {
+                quote! {
+                    near_sdk::env::state_read()
+                }
+            };
             contract_deser = quote! {
-                let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
+                let #mutability contract: #struct_type = #load.unwrap_or_default();
             };
             method_invocation = quote! {
                 contract.#ident(#arg_list)
             };
             if matches!(method_type, &MethodType::Regular) {
-                contract_ser = quote! {
-                    near_sdk::env::state_write(&contract);
-                };
+                contract_ser = if is_riff {
+                    quote! {
+                      #struct_type::set_lazy(contract);
+                    }
+                } else {
+                    quote! {
+                      near_sdk::env::state_write(&contract);
+                    }
+                }
             } else {
                 contract_ser = TokenStream2::new();
             }
@@ -187,6 +203,7 @@ impl ImplItemMethodInfo {
         let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = self;
         let arg_list = attr_signature_info.arg_list();
         let AttrSigInfo { ident, returns, is_handles_result, .. } = attr_signature_info;
+        let is_riff = self.is_riff();
         let state_check = if matches!(&attr_signature_info.method_type, &MethodType::Init) {
             quote! {
                 if near_sdk::env::state_exists() {
@@ -195,6 +212,15 @@ impl ImplItemMethodInfo {
             }
         } else {
             quote! {}
+        };
+        let state_write = if is_riff {
+            quote! {
+                #struct_type::set_lazy(contract)
+            }
+        } else {
+            quote! {
+                near_sdk::env::state_write(&contract)
+            }
         };
         match returns {
             ReturnType::Default => {
@@ -207,7 +233,7 @@ impl ImplItemMethodInfo {
                     #state_check
                     let result = #struct_type::#ident(#arg_list);
                     match result {
-                        Ok(contract) => near_sdk::env::state_write(&contract),
+                        Ok(contract) => #state_write,
                         Err(err) => near_sdk::FunctionError::panic(&err)
                     }
                 })
@@ -219,7 +245,7 @@ impl ImplItemMethodInfo {
             ReturnType::Type(_, _) => Ok(quote! {
                 #state_check
                 let contract = #struct_type::#ident(#arg_list);
-                near_sdk::env::state_write(&contract);
+                #state_write;
             }),
         }
     }
@@ -236,5 +262,14 @@ impl ImplItemMethodInfo {
         quote! {
             let result = #serialize;
         }
+    }
+
+    fn is_riff(&self) -> bool {
+        self.impl_attrs.iter().any(|attr| match attr {
+            syn::NestedMeta::Meta(Meta::Path(Path { segments, .. })) => {
+                segments.iter().any(|path_segment| path_segment.ident == "riff")
+            }
+            _ => false,
+        })
     }
 }

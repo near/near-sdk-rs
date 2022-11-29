@@ -111,7 +111,8 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #abi_embedded
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-        let item_impl_info = match ItemImplInfo::new(&mut input) {
+        let attrs = syn::parse_macro_input!(attr as syn::AttributeArgs);
+        let item_impl_info = match ItemImplInfo::new(&mut input, &attrs) {
             Ok(x) => x,
             Err(err) => {
                 return err.to_compile_error().into();

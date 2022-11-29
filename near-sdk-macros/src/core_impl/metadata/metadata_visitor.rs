@@ -24,7 +24,7 @@ impl<'ast> Visit<'ast> for MetadataVisitor {
             .iter()
             .any(|attr| attr.path.to_token_stream().to_string().as_str() == "near_bindgen");
         if has_near_sdk_attr {
-            match ItemImplInfo::new(&mut i.clone()) {
+            match ItemImplInfo::new(&mut i.clone(), &[]) {
                 Ok(info) => self.impl_item_infos.push(info),
                 Err(err) => self.errors.push(err),
             }
