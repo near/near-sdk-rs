@@ -1,4 +1,5 @@
 use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
+use crate::core_impl::utils;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -132,7 +133,13 @@ impl AttrSigInfo {
         }
 
         *original_attrs = non_bindgen_attrs.clone();
-        let returns = original_sig.output.clone();
+        let returns = match &original_sig.output {
+            ReturnType::Default => ReturnType::Default,
+            ReturnType::Type(arrow, ty) => {
+                let (_, _, ty) = utils::extract_ref_mut(&ty)?;
+                ReturnType::Type(arrow.clone(), ty.into())
+            }
+        };
 
         let mut result = Self {
             ident,

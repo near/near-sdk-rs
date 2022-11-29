@@ -1,5 +1,5 @@
-use crate::core_impl::info_extractor::serializer_attr::SerializerAttr;
 use crate::core_impl::info_extractor::SerializerType;
+use crate::core_impl::{info_extractor::serializer_attr::SerializerAttr, utils};
 use quote::ToTokens;
 use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
 
@@ -58,13 +58,7 @@ impl ArgInfo {
                 ));
             }
         };
-        let (reference, mutability, ty) = match original.ty.as_ref() {
-            x @ Type::Array(_) | x @ Type::Path(_) | x @ Type::Tuple(_) => {
-                (None, None, (*x).clone())
-            }
-            Type::Reference(r) => (Some(r.and_token), r.mutability, (*r.elem.as_ref()).clone()),
-            _ => return Err(Error::new(original.span(), "Unsupported argument type.")),
-        };
+        let (reference, mutability, ty) = utils::extract_ref_mut(original.ty.as_ref())?;
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
