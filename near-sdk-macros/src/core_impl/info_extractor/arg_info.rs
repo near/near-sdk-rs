@@ -58,7 +58,8 @@ impl ArgInfo {
                 ));
             }
         };
-        let (reference, mutability, ty) = utils::extract_ref_mut(original.ty.as_ref())?;
+        let (reference, mutability, ty) =
+            utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.

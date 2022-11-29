@@ -136,7 +136,7 @@ impl AttrSigInfo {
         let returns = match &original_sig.output {
             ReturnType::Default => ReturnType::Default,
             ReturnType::Type(arrow, ty) => {
-                let (_, _, ty) = utils::extract_ref_mut(ty)?;
+                let (_, _, ty) = utils::extract_ref_mut(ty, ty.span())?;
                 ReturnType::Type(*arrow, ty.into())
             }
         };
