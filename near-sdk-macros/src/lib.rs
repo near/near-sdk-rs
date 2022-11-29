@@ -584,7 +584,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
 
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
-                fn emit(&self) {
+                pub fn emit(&self) {
                     let (standard, version): (String, String) = match self {
                         #(#event_meta),*
                     };
