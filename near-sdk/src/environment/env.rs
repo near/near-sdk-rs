@@ -10,6 +10,7 @@ use std::{convert::TryFrom, mem::MaybeUninit};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
+use crate::promise::Allowance;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
@@ -553,6 +554,13 @@ pub fn promise_batch_action_add_key_with_full_access(
         )
     }
 }
+
+/// This is a short lived function while we migrate between the Balance and the allowance type
+pub(crate) fn migrate_to_allowance(allowance: Balance) -> Allowance {
+    Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
+}
+
+#[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
 pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -561,7 +569,30 @@ pub fn promise_batch_action_add_key_with_function_call(
     receiver_id: &AccountId,
     function_names: &str,
 ) {
+    let allowance = migrate_to_allowance(allowance);
+    promise_batch_action_add_key_allowance_with_function_call(
+        promise_index,
+        public_key,
+        nonce,
+        allowance,
+        receiver_id,
+        function_names,
+    )
+}
+
+pub fn promise_batch_action_add_key_allowance_with_function_call(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    nonce: u64,
+    allowance: Allowance,
+    receiver_id: &AccountId,
+    function_names: &str,
+) {
     let receiver_id: &str = receiver_id.as_ref();
+    let allowance = match allowance {
+        Allowance::Limited(x) => x.get(),
+        Allowance::Unlimited => 0,
+    };
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
             promise_index,
