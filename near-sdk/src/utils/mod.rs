@@ -9,6 +9,16 @@ pub(crate) use cache_entry::{CacheEntry, EntryState};
 
 use crate::{env, PromiseResult};
 
+/// Allows getting a lazy option of the riff state and setting it back to storage.
+pub trait Lazy: Sized {
+    /// Get the singleton of the type
+    fn get_lazy() -> Option<Self>;
+
+    /// Write the singleton
+    fn set_lazy(value: Self);
+}
+
+
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///
