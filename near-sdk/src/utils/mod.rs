@@ -18,7 +18,6 @@ pub trait Lazy: Sized {
     fn set_lazy(value: Self);
 }
 
-
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
 ///

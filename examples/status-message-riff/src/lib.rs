@@ -1,7 +1,7 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::utils::Lazy;
 use near_sdk::{env, log, near_bindgen, AccountId};
 use std::collections::HashMap;
-use near_sdk::utils::Lazy;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]

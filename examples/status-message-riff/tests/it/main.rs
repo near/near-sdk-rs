@@ -1,7 +1,6 @@
 use serde_json::json;
 
-const STATUS_MSG_WASM_FILEPATH: &str =
-    "../../target/res/status_message_riff.wasm";
+const STATUS_MSG_WASM_FILEPATH: &str = "../../target/res/status_message_riff.wasm";
 
 #[tokio::test]
 async fn set_and_get_status() {
@@ -34,7 +33,7 @@ async fn set_and_get_status() {
         .unwrap()
         .json()
         .unwrap();
-    
+
     assert_eq!(result, "hello_world");
 
     println!("status: {:?}", result);
