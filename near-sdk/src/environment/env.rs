@@ -641,7 +641,6 @@ pub fn promise_results_count() -> u64 {
 /// promises that caused the callback.
 pub fn promise_result(result_idx: u64) -> PromiseResult {
     match promise_result_internal(result_idx) {
-        Err(PromiseError::NotReady) => PromiseResult::NotReady,
         Ok(()) => {
             let data = expect_register(read_register(ATOMIC_OP_REGISTER));
             PromiseResult::Successful(data)
@@ -652,7 +651,6 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
 
 pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
     match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
-        0 => Err(PromiseError::NotReady),
         1 => Ok(()),
         2 => Err(PromiseError::Failed),
         _ => abort(),

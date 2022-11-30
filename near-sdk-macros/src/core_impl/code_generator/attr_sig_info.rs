@@ -237,7 +237,6 @@ impl AttrSigInfo {
                         let result = quote! {
                             match near_sdk::env::promise_result(#idx) {
                                 #deserialization_branch,
-                                near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
                                 near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
                             }
                         };
