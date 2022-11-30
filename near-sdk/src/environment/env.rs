@@ -560,7 +560,7 @@ pub(crate) fn migrate_to_allowance(allowance: Balance) -> Allowance {
     Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
 }
 
-#[deprecated(since = "5.0", note = "Use add_access_key_allowance instead")]
+#[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
 pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
