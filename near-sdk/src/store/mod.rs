@@ -88,7 +88,14 @@ pub mod tree_map;
 #[cfg(feature = "unstable")]
 pub use self::tree_map::TreeMap;
 
+#[cfg(feature = "unstable")]
+pub mod index_map;
+#[cfg(feature = "unstable")]
+pub use self::index_map::IndexMap;
+
+#[cfg(not(feature = "unstable"))]
 mod index_map;
+#[cfg(not(feature = "unstable"))]
 pub(crate) use self::index_map::IndexMap;
 
 pub(crate) mod free_list;

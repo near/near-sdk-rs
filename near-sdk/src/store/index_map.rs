@@ -10,7 +10,7 @@ const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub(crate) struct IndexMap<T>
+pub struct IndexMap<T>
 where
     T: BorshSerialize,
 {
@@ -131,7 +131,7 @@ where
         entry.value_mut().as_mut()
     }
 
-    pub fn swap(&mut self, a: u32, b: u32) {
+    pub(crate) fn swap(&mut self, a: u32, b: u32) {
         if a == b {
             // Short circuit if indices are the same, also guarantees uniqueness below
             return;
