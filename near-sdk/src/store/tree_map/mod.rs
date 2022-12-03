@@ -316,18 +316,6 @@ where
         self.nodes.get(id)
     }
 
-    /// Returns the smallest stored key from the tree
-    fn min(&self) -> Option<&K> {
-        let root = self.root?;
-        self.min_at(root).map(|((_, n), _)| &n.key)
-    }
-
-    /// Returns the largest stored key from the tree
-    fn max(&self) -> Option<&K> {
-        let root = self.root?;
-        self.max_at(root).map(|((_, n), _)| &n.key)
-    }
-
     /// Returns the smallest key that is strictly greater than key given as the parameter
     fn higher<Q>(&self, key: &Q) -> Option<&K>
     where
@@ -1072,8 +1060,6 @@ mod tests {
         assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
         assert!(!map.contains_key(&42));
-        assert_eq!(map.tree.min(), None);
-        assert_eq!(map.tree.max(), None);
         assert_eq!(map.tree.lower(&42), None);
         assert_eq!(map.tree.higher(&42), None);
     }
@@ -1233,7 +1219,9 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.tree.max().unwrap(), vec.iter().max().unwrap());
+        let tree_max = map.tree.max_at(map.tree.root.unwrap()).map(|((_, n), _)| &n.key);
+
+        assert_eq!(tree_max.unwrap(), vec.iter().max().unwrap());
         map.clear();
     }
 

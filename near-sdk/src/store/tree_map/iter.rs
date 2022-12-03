@@ -1,9 +1,11 @@
 use std::ops::Bound;
+use std::vec::Vec;
 use std::{borrow::Borrow, iter::FusedIterator};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{expect, LookupMap, Tree, TreeMap};
+use crate::store::free_list::FreeListIndex;
 use crate::store::key::ToKey;
 
 impl<'a, K, V, H> IntoIterator for &'a TreeMap<K, V, H>
@@ -274,25 +276,27 @@ where
     Some((min, max))
 }
 
-fn next_asc<'a, K>(tree: &'a Tree<K>, bound: Bound<&'a K>) -> Option<&'a K>
+//Returns true if key is out of bounds to min value
+fn key_lt_bound<K>(key: &K, min: Bound<&K>) -> bool
 where
     K: BorshSerialize + Ord + BorshDeserialize,
 {
-    match bound {
-        Bound::Unbounded => tree.min(),
-        Bound::Included(bound) => tree.ceil_key(bound),
-        Bound::Excluded(bound) => tree.higher(bound),
+    match min {
+        Bound::Unbounded => false,
+        Bound::Excluded(a) => key <= a,
+        Bound::Included(a) => key < a,
     }
 }
 
-fn next_desc<'a, K>(tree: &'a Tree<K>, bound: Bound<&'a K>) -> Option<&'a K>
+//Returns true if key is out of bounds to max value
+fn key_gt_bound<K>(key: &K, max: Bound<&K>) -> bool
 where
     K: BorshSerialize + Ord + BorshDeserialize,
 {
-    match bound {
-        Bound::Unbounded => tree.max(),
-        Bound::Included(bound) => tree.floor_key(bound),
-        Bound::Excluded(bound) => tree.lower(bound),
+    match max {
+        Bound::Unbounded => false,
+        Bound::Excluded(a) => key >= a,
+        Bound::Included(a) => key > a,
     }
 }
 
@@ -305,8 +309,11 @@ where
 {
     tree: &'a Tree<K>,
     length: u32,
-    min: Bound<&'a K>,
-    max: Bound<&'a K>,
+    min: Find<&'a K>,
+    max: Find<&'a K>,
+    //The last element in the stack is the latest value returned by the iterator
+    stack_asc: Vec<FreeListIndex>,
+    stack_desc: Vec<FreeListIndex>,
 }
 
 impl<'a, K> KeysRange<'a, K>
@@ -319,9 +326,23 @@ where
         Q: ?Sized + Ord,
     {
         if let Some((min, max)) = get_range_bounds(tree, bounds) {
-            Self { tree, length: tree.nodes.len(), min, max }
+            Self {
+                tree,
+                length: tree.nodes.len(),
+                min: Find::First { bound: min },
+                max: Find::First { bound: max },
+                stack_asc: Vec::new(),
+                stack_desc: Vec::new(),
+            }
         } else {
-            Self { tree, length: 0, min: Bound::Unbounded, max: Bound::Unbounded }
+            Self {
+                tree,
+                length: 0,
+                min: Find::First { bound: Bound::Unbounded },
+                max: Find::First { bound: Bound::Unbounded },
+                stack_asc: Vec::new(),
+                stack_desc: Vec::new(),
+            }
         }
     }
 }
@@ -338,10 +359,14 @@ where
             return None;
         }
 
-        let next = next_asc(self.tree, self.min);
+        let next = match self.min {
+            Find::First { bound: min } => self.find_min(self.tree.root.as_ref(), min),
+            Find::Next { bound: _ } => self.find_next_asc(),
+        };
+
         if let Some(next) = next {
             // Check to make sure next key isn't past opposite bound.
-            match self.max {
+            match self.max.into_value() {
                 Bound::Included(bound) => {
                     if next.gt(bound) {
                         self.length = 0;
@@ -358,7 +383,7 @@ where
             }
 
             // Update minimum bound.
-            self.min = Bound::Excluded(next);
+            self.min = Find::Next { bound: Bound::Excluded(next) };
 
             // Decrease count of potential elements
             self.length -= 1;
@@ -393,10 +418,14 @@ where
             return None;
         }
 
-        let next = next_desc(self.tree, self.max);
+        let next = match self.max {
+            Find::First { bound: max } => self.find_max(self.tree.root.as_ref(), max),
+            Find::Next { bound: _ } => self.find_next_desc(),
+        };
+
         if let Some(next) = next {
             // Check to make sure next key isn't past opposite bound
-            match self.min {
+            match self.min.into_value() {
                 Bound::Included(bound) => {
                     if next.lt(bound) {
                         self.length = 0;
@@ -413,7 +442,7 @@ where
             }
 
             // Update maximum bound.
-            self.max = Bound::Excluded(next);
+            self.max = Find::Next { bound: Bound::Excluded(next) };
 
             // Decrease count of potential elements
             self.length -= 1;
@@ -424,6 +453,98 @@ where
         }
 
         next
+    }
+}
+
+impl<'a, K> KeysRange<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize + Ord,
+{
+    fn find_min(&mut self, root: Option<&FreeListIndex>, min: Bound<&'a K>) -> Option<&'a K> {
+        let mut curr = root;
+        let mut seen: Option<&K> = None;
+
+        while let Some(curr_idx) = curr {
+            if let Some(node) = self.tree.node(*curr_idx) {
+                if key_lt_bound(&node.key, min) {
+                    curr = node.rgt.as_ref();
+                } else {
+                    seen = Some(&node.key);
+                    self.stack_asc.push(*curr_idx);
+                    curr = node.lft.as_ref();
+                }
+            } else {
+                curr = None
+            }
+        }
+        seen
+    }
+
+    //The last element in the stack is the last returned key.
+    //Find the next key to the last item in the stack
+    fn find_next_asc(&mut self) -> Option<&'a K> {
+        let last_key_idx = self.stack_asc.pop();
+        let mut seen: Option<&K> = None;
+        if let Some(last_idx) = last_key_idx {
+            if let Some(node) = self.tree.node(last_idx) {
+                //If the last returned key has right node then return minimum key from the
+                //tree where the right node is the root.
+                seen = match node.rgt {
+                    Some(rgt) => self.find_min(Some(&rgt), Bound::Unbounded),
+                    None => None,
+                }
+            }
+        }
+        //If the last returned key does not have right node then return the
+        //last value in the stack.
+        if seen.is_none() && !self.stack_asc.is_empty() {
+            if let Some(result_idx) = self.stack_asc.last() {
+                seen = self.tree.node(*result_idx).map(|f| &f.key);
+            }
+        }
+        seen
+    }
+    fn find_max(&mut self, root: Option<&FreeListIndex>, max: Bound<&'a K>) -> Option<&'a K> {
+        let mut curr = root;
+        let mut seen: Option<&K> = None;
+
+        while let Some(curr_idx) = curr {
+            if let Some(node) = self.tree.node(*curr_idx) {
+                if key_gt_bound(&node.key, max) {
+                    curr = node.lft.as_ref();
+                } else {
+                    seen = Some(&node.key);
+                    self.stack_desc.push(*curr_idx);
+                    curr = node.rgt.as_ref();
+                }
+            } else {
+                curr = None
+            }
+        }
+        seen
+    }
+
+    fn find_next_desc(&mut self) -> Option<&'a K> {
+        let last_key_idx = self.stack_desc.pop();
+        let mut seen: Option<&K> = None;
+        if let Some(last_idx) = last_key_idx {
+            if let Some(node) = self.tree.node(last_idx) {
+                //If the last returned key has left node then return maximum key from the
+                //tree where the left node is the root.
+                seen = match node.lft {
+                    Some(lft) => self.find_max(Some(&lft), Bound::Unbounded),
+                    None => None,
+                }
+            }
+        }
+        //If the last returned key does not have left node then return the
+        //last value in the stack.
+        if seen.is_none() && !self.stack_desc.is_empty() {
+            if let Some(result_idx) = self.stack_desc.last() {
+                seen = self.tree.node(*result_idx).map(|f| &f.key);
+            }
+        }
+        seen
     }
 }
 
@@ -734,4 +855,29 @@ where
         let key = self.keys.nth_back(n)?;
         Some(get_entry_mut(self.values, key))
     }
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Debug, Copy, Clone)]
+enum Find<K> {
+    /// Find the first element based on bound.
+    First { bound: Bound<K> },
+    /// Find the next element from current pos
+    Next { bound: Bound<K> },
+}
+
+impl<K> Find<K> {
+    fn into_value(self) -> Bound<K> {
+        match self {
+            Find::First { bound } => bound,
+            Find::Next { bound } => bound,
+        }
+    }
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Debug, Copy, Clone)]
+enum FindUnbounded {
+    /// Find the first element in the given root
+    First,
+    /// Find the next element from current pos
+    Next,
 }
