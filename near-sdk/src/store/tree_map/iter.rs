@@ -43,7 +43,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    keys: Keys<'a, K>,
+    keys: KeysRange<'a, K>,
     values: &'a LookupMap<K, V, H>,
 }
 
@@ -54,7 +54,10 @@ where
     H: ToKey,
 {
     pub(super) fn new(map: &'a TreeMap<K, V, H>) -> Self {
-        Self { keys: Keys::new(&map.tree), values: &map.values }
+        Self {
+            keys: KeysRange::new(&map.tree, (Bound::Unbounded, Bound::Unbounded)),
+            values: &map.values,
+        }
     }
 }
 
@@ -146,7 +149,7 @@ where
     H: ToKey,
 {
     /// Values iterator which contains empty and filled cells.
-    keys: Keys<'a, K>,
+    keys: KeysRange<'a, K>,
     /// Exclusive reference to underlying map to lookup values with `keys`.
     values: &'a mut LookupMap<K, V, H>,
 }
@@ -158,7 +161,10 @@ where
     H: ToKey,
 {
     pub(super) fn new(map: &'a mut TreeMap<K, V, H>) -> Self {
-        Self { keys: Keys::new(&map.tree), values: &mut map.values }
+        Self {
+            keys: KeysRange::new(&map.tree, (Bound::Unbounded, Bound::Unbounded)),
+            values: &mut map.values,
+        }
     }
 }
 
@@ -293,96 +299,6 @@ where
 /// An iterator over the keys of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `keys` method on [`TreeMap`].
-pub struct Keys<'a, K: 'a>
-where
-    K: BorshSerialize + BorshDeserialize + Ord,
-{
-    tree: &'a Tree<K>,
-    length: u32,
-    min: Bound<&'a K>,
-    max: Bound<&'a K>,
-}
-
-impl<'a, K> Keys<'a, K>
-where
-    K: BorshSerialize + BorshDeserialize + Ord,
-{
-    pub(super) fn new(tree: &'a Tree<K>) -> Self {
-        Self { tree, length: tree.nodes.len(), min: Bound::Unbounded, max: Bound::Unbounded }
-    }
-}
-
-impl<'a, K> Iterator for Keys<'a, K>
-where
-    K: BorshSerialize + BorshDeserialize + Ord,
-{
-    type Item = &'a K;
-
-    fn next(&mut self) -> Option<&'a K> {
-        if self.length == 0 {
-            // Short circuit if all elements have been iterated.
-            return None;
-        }
-
-        let next = next_asc(self.tree, self.min);
-        if let Some(next) = next {
-            // Update minimum bound.
-            self.min = Bound::Excluded(next);
-
-            // Decrease count of potential elements
-            self.length -= 1;
-        } else {
-            // No more elements to iterate, set length to 0 to avoid duplicate lookups.
-            // Bounds can never be updated manually once initialized, so this can be done.
-            self.length = 0;
-        }
-
-        next
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.length as usize;
-        (len, Some(len))
-    }
-
-    fn count(self) -> usize {
-        self.length as usize
-    }
-}
-
-impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize + Ord {}
-impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize + Ord {}
-
-impl<'a, K> DoubleEndedIterator for Keys<'a, K>
-where
-    K: BorshSerialize + Ord + BorshDeserialize,
-{
-    fn next_back(&mut self) -> Option<&'a K> {
-        if self.length == 0 {
-            // Short circuit if all elements have been iterated.
-            return None;
-        }
-
-        let next = next_desc(self.tree, self.max);
-        if let Some(next) = next {
-            // Update maximum bound.
-            self.max = Bound::Excluded(next);
-
-            // Decrease count of potential elements
-            self.length -= 1;
-        } else {
-            // No more elements to iterate, set length to 0 to avoid duplicate lookups.
-            // Bounds can never be updated manually once initialized, so this can be done.
-            self.length = 0;
-        }
-
-        next
-    }
-}
-
-/// An iterator over the keys of a [`TreeMap`], in sorted order.
-///
-/// This `struct` is created by the `keys` method on [`TreeMap`].
 pub struct KeysRange<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize + Ord,
@@ -457,7 +373,11 @@ where
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.length as usize;
-        (0, Some(len))
+        (len, Some(len))
+    }
+
+    fn count(self) -> usize {
+        self.length as usize
     }
 }
 

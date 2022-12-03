@@ -9,10 +9,10 @@ use crate::store::LookupMap;
 use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 pub use entry::Entry;
-pub use iter::{Iter, IterMut, Keys, Range, RangeMut, Values, ValuesMut};
+pub use iter::{Iter, IterMut, KeysRange, Range, RangeMut, Values, ValuesMut};
 use std::borrow::Borrow;
 use std::fmt;
-use std::ops::RangeBounds;
+use std::ops::{Bound, RangeBounds};
 
 type NodeAndIndex<'a, K> = (FreeListIndex, &'a Node<K>);
 
@@ -837,11 +837,11 @@ where
 
     /// An iterator visiting all keys in arbitrary order.
     /// The iterator element type is `&'a K`.
-    pub fn keys(&self) -> Keys<K>
+    pub fn keys(&self) -> KeysRange<K>
     where
         K: BorshDeserialize,
     {
-        Keys::new(&self.tree)
+        KeysRange::new(&self.tree, (Bound::Unbounded, Bound::Unbounded))
     }
 
     /// An iterator visiting all values in arbitrary order.
