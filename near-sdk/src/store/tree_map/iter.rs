@@ -294,6 +294,116 @@ where
     }
 }
 
+fn find_min<'a, K>(
+    tree: &'a Tree<K>,
+    root: Option<&FreeListIndex>,
+    stack_asc: &mut Vec<FreeListIndex>,
+    min: Bound<&'a K>,
+) -> Option<&'a K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    let mut curr = root;
+    let mut seen: Option<&K> = None;
+
+    while let Some(curr_idx) = curr {
+        if let Some(node) = tree.node(*curr_idx) {
+            if key_lt_bound(&node.key, min) {
+                curr = node.rgt.as_ref();
+            } else {
+                seen = Some(&node.key);
+                stack_asc.push(*curr_idx);
+                curr = node.lft.as_ref();
+            }
+        } else {
+            curr = None
+        }
+    }
+    seen
+}
+
+fn find_max<'a, K>(
+    tree: &'a Tree<K>,
+    root: Option<&FreeListIndex>,
+    stack_desc: &mut Vec<FreeListIndex>,
+    max: Bound<&'a K>,
+) -> Option<&'a K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    let mut curr = root;
+    let mut seen: Option<&K> = None;
+
+    while let Some(curr_idx) = curr {
+        if let Some(node) = tree.node(*curr_idx) {
+            if key_gt_bound(&node.key, max) {
+                curr = node.lft.as_ref();
+            } else {
+                seen = Some(&node.key);
+                stack_desc.push(*curr_idx);
+                curr = node.rgt.as_ref();
+            }
+        } else {
+            curr = None
+        }
+    }
+    seen
+}
+
+//The last element in the stack is the last returned key.
+//Find the next key to the last item in the stack
+fn find_next_asc<'a, K>(tree: &'a Tree<K>, stack_asc: &mut Vec<FreeListIndex>) -> Option<&'a K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    let last_key_idx = stack_asc.pop();
+    let mut seen: Option<&K> = None;
+    if let Some(last_idx) = last_key_idx {
+        if let Some(node) = tree.node(last_idx) {
+            //If the last returned key has right node then return minimum key from the
+            //tree where the right node is the root.
+            seen = match node.rgt {
+                Some(rgt) => find_min(tree, Some(&rgt), stack_asc, Bound::Unbounded),
+                None => None,
+            }
+        }
+    }
+    //If the last returned key does not have right node then return the
+    //last value in the stack.
+    if seen.is_none() && !stack_asc.is_empty() {
+        if let Some(result_idx) = stack_asc.last() {
+            seen = tree.node(*result_idx).map(|f| &f.key);
+        }
+    }
+    seen
+}
+
+fn find_next_desc<'a, K>(tree: &'a Tree<K>, stack_desc: &mut Vec<FreeListIndex>) -> Option<&'a K>
+where
+    K: BorshSerialize + Ord + BorshDeserialize,
+{
+    let last_key_idx = stack_desc.pop();
+    let mut seen: Option<&K> = None;
+    if let Some(last_idx) = last_key_idx {
+        if let Some(node) = tree.node(last_idx) {
+            //If the last returned key has left node then return maximum key from the
+            //tree where the left node is the root.
+            seen = match node.lft {
+                Some(lft) => find_max(tree, Some(&lft), stack_desc, Bound::Unbounded),
+                None => None,
+            }
+        }
+    }
+    //If the last returned key does not have left node then return the
+    //last value in the stack.
+    if seen.is_none() && !stack_desc.is_empty() {
+        if let Some(result_idx) = stack_desc.last() {
+            seen = tree.node(*result_idx).map(|f| &f.key);
+        }
+    }
+    seen
+}
+
 /// An iterator over the keys of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `keys` method on [`TreeMap`].
@@ -339,8 +449,10 @@ where
         }
 
         let next = match self.min {
-            FindUnbounded::First => self.find_min(self.tree.root.as_ref()),
-            FindUnbounded::Next => self.find_next_asc(),
+            FindUnbounded::First => {
+                find_min(self.tree, self.tree.root.as_ref(), &mut self.stack_asc, Bound::Unbounded)
+            }
+            FindUnbounded::Next => find_next_asc(self.tree, &mut self.stack_asc),
         };
 
         if next.is_some() {
@@ -382,8 +494,10 @@ where
         }
 
         let next = match self.max {
-            FindUnbounded::First => self.find_max(self.tree.root.as_ref()),
-            FindUnbounded::Next => self.find_next_desc(),
+            FindUnbounded::First => {
+                find_max(self.tree, self.tree.root.as_ref(), &mut self.stack_desc, Bound::Unbounded)
+            }
+            FindUnbounded::Next => find_next_desc(self.tree, &mut self.stack_desc),
         };
 
         if next.is_some() {
@@ -399,90 +513,6 @@ where
         }
 
         next
-    }
-}
-
-impl<'a, K> Keys<'a, K>
-where
-    K: BorshSerialize + BorshDeserialize + Ord,
-{
-    fn find_min(&mut self, root: Option<&FreeListIndex>) -> Option<&'a K> {
-        let mut curr = root;
-        let mut seen: Option<&K> = None;
-
-        while let Some(curr_idx) = curr {
-            if let Some(node) = self.tree.node(*curr_idx) {
-                seen = Some(&node.key);
-                self.stack_asc.push(*curr_idx);
-                curr = node.lft.as_ref();
-            } else {
-                curr = None
-            }
-        }
-        seen
-    }
-
-    //The last element in the stack is the last returned key.
-    //Find the next key to the last item in the stack
-    fn find_next_asc(&mut self) -> Option<&'a K> {
-        let last_key_idx = self.stack_asc.pop();
-        let mut seen: Option<&K> = None;
-        if let Some(last_idx) = last_key_idx {
-            if let Some(node) = self.tree.node(last_idx) {
-                //If the last returned key has right node then return minimum key from the
-                //tree where the right node is the root.
-                seen = match node.rgt {
-                    Some(rgt) => self.find_min(Some(&rgt)),
-                    None => None,
-                }
-            }
-        }
-        //If the last returned key does not have right node then return the
-        //last value in the stack.
-        if seen.is_none() && !self.stack_asc.is_empty() {
-            if let Some(result_idx) = self.stack_asc.last() {
-                seen = self.tree.node(*result_idx).map(|f| &f.key);
-            }
-        }
-        seen
-    }
-    fn find_max(&mut self, root: Option<&FreeListIndex>) -> Option<&'a K> {
-        let mut curr = root;
-        let mut seen: Option<&K> = None;
-
-        while let Some(curr_idx) = curr {
-            if let Some(node) = self.tree.node(*curr_idx) {
-                seen = Some(&node.key);
-                self.stack_desc.push(*curr_idx);
-                curr = node.rgt.as_ref();
-            } else {
-                curr = None
-            }
-        }
-        seen
-    }
-
-    fn find_next_desc(&mut self) -> Option<&'a K> {
-        let last_key_idx = self.stack_desc.pop();
-        let mut seen: Option<&K> = None;
-        if let Some(last_idx) = last_key_idx {
-            if let Some(node) = self.tree.node(last_idx) {
-                //If the last returned key has left node then return maximum key from the
-                //tree where the left node is the root.
-                seen = match node.lft {
-                    Some(lft) => self.find_max(Some(&lft)),
-                    None => None,
-                }
-            }
-        }
-        //If the last returned key does not have left node then return the
-        //last value in the stack.
-        if seen.is_none() && !self.stack_desc.is_empty() {
-            if let Some(result_idx) = self.stack_desc.last() {
-                seen = self.tree.node(*result_idx).map(|f| &f.key);
-            }
-        }
-        seen
     }
 }
 
@@ -546,8 +576,10 @@ where
         }
 
         let next = match self.min {
-            Find::First { bound: min } => self.find_min(self.tree.root.as_ref(), min),
-            Find::Next { bound: _ } => self.find_next_asc(),
+            Find::First { bound: min } => {
+                find_min(self.tree, self.tree.root.as_ref(), &mut self.stack_asc, min)
+            }
+            Find::Next { bound: _ } => find_next_asc(self.tree, &mut self.stack_asc),
         };
 
         if let Some(next) = next {
@@ -601,8 +633,10 @@ where
         }
 
         let next = match self.max {
-            Find::First { bound: max } => self.find_max(self.tree.root.as_ref(), max),
-            Find::Next { bound: _ } => self.find_next_desc(),
+            Find::First { bound: max } => {
+                find_max(self.tree, self.tree.root.as_ref(), &mut self.stack_desc, max)
+            }
+            Find::Next { bound: _ } => find_next_desc(self.tree, &mut self.stack_desc),
         };
 
         if let Some(next) = next {
@@ -635,98 +669,6 @@ where
         }
 
         next
-    }
-}
-
-impl<'a, K> KeysRange<'a, K>
-where
-    K: BorshSerialize + BorshDeserialize + Ord,
-{
-    fn find_min(&mut self, root: Option<&FreeListIndex>, min: Bound<&'a K>) -> Option<&'a K> {
-        let mut curr = root;
-        let mut seen: Option<&K> = None;
-
-        while let Some(curr_idx) = curr {
-            if let Some(node) = self.tree.node(*curr_idx) {
-                if key_lt_bound(&node.key, min) {
-                    curr = node.rgt.as_ref();
-                } else {
-                    seen = Some(&node.key);
-                    self.stack_asc.push(*curr_idx);
-                    curr = node.lft.as_ref();
-                }
-            } else {
-                curr = None
-            }
-        }
-        seen
-    }
-
-    //The last element in the stack is the last returned key.
-    //Find the next key to the last item in the stack
-    fn find_next_asc(&mut self) -> Option<&'a K> {
-        let last_key_idx = self.stack_asc.pop();
-        let mut seen: Option<&K> = None;
-        if let Some(last_idx) = last_key_idx {
-            if let Some(node) = self.tree.node(last_idx) {
-                //If the last returned key has right node then return minimum key from the
-                //tree where the right node is the root.
-                seen = match node.rgt {
-                    Some(rgt) => self.find_min(Some(&rgt), Bound::Unbounded),
-                    None => None,
-                }
-            }
-        }
-        //If the last returned key does not have right node then return the
-        //last value in the stack.
-        if seen.is_none() && !self.stack_asc.is_empty() {
-            if let Some(result_idx) = self.stack_asc.last() {
-                seen = self.tree.node(*result_idx).map(|f| &f.key);
-            }
-        }
-        seen
-    }
-    fn find_max(&mut self, root: Option<&FreeListIndex>, max: Bound<&'a K>) -> Option<&'a K> {
-        let mut curr = root;
-        let mut seen: Option<&K> = None;
-
-        while let Some(curr_idx) = curr {
-            if let Some(node) = self.tree.node(*curr_idx) {
-                if key_gt_bound(&node.key, max) {
-                    curr = node.lft.as_ref();
-                } else {
-                    seen = Some(&node.key);
-                    self.stack_desc.push(*curr_idx);
-                    curr = node.rgt.as_ref();
-                }
-            } else {
-                curr = None
-            }
-        }
-        seen
-    }
-
-    fn find_next_desc(&mut self) -> Option<&'a K> {
-        let last_key_idx = self.stack_desc.pop();
-        let mut seen: Option<&K> = None;
-        if let Some(last_idx) = last_key_idx {
-            if let Some(node) = self.tree.node(last_idx) {
-                //If the last returned key has left node then return maximum key from the
-                //tree where the left node is the root.
-                seen = match node.lft {
-                    Some(lft) => self.find_max(Some(&lft), Bound::Unbounded),
-                    None => None,
-                }
-            }
-        }
-        //If the last returned key does not have left node then return the
-        //last value in the stack.
-        if seen.is_none() && !self.stack_desc.is_empty() {
-            if let Some(result_idx) = self.stack_desc.last() {
-                seen = self.tree.node(*result_idx).map(|f| &f.key);
-            }
-        }
-        seen
     }
 }
 
