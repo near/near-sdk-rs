@@ -582,6 +582,11 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             .insert(0, syn::GenericParam::Lifetime(syn::LifetimeDef::new(event_lifetime.clone())));
         let (custom_impl_generics, ..) = generics.split_for_impl();
 
+        #[cfg(not(feature = "__abi-generate"))]
+        let abi_generated = quote! {};
+        #[cfg(feature = "__abi-generate")]
+        let abi_generated = abi::generate_event(&input);
+
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
                 pub fn emit(&self) {
@@ -604,6 +609,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                     near_sdk::env::log_str(&format!("EVENT_JSON:{}", json));
                 }
             }
+            #abi_generated
         })
     } else {
         TokenStream::from(

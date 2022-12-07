@@ -2,8 +2,8 @@
 pub use near_abi::__private::ChunkedAbiEntry;
 #[cfg(feature = "abi")]
 pub use near_abi::{
-    AbiBorshParameter, AbiFunction, AbiFunctionKind, AbiFunctionModifier, AbiJsonParameter,
-    AbiParameters, AbiType,
+    AbiBorshParameter, AbiEvent, AbiFunction, AbiFunctionKind, AbiFunctionModifier,
+    AbiJsonParameter, AbiParameters, AbiType,
 };
 
 #[cfg(feature = "abi")]

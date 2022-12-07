@@ -1,12 +1,12 @@
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote};
-use syn::spanned::Spanned;
-use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
-
 use crate::core_impl::{
     utils, AttrSigInfo, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
     SerializerType,
 };
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::{format_ident, quote};
+use syn::spanned::Spanned;
+use syn::ItemEnum;
+use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
     let public_functions: Vec<&ImplItemMethodInfo> =
@@ -29,6 +29,56 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
                 let mut data = std::mem::ManuallyDrop::new(
                     near_sdk::serde_json::to_vec(&near_sdk::__private::ChunkedAbiEntry::new(
                         functions,
+                        vec![],
+                        gen.into_root_schema_for::<String>(),
+                    ))
+                    .unwrap(),
+                );
+                data.shrink_to_fit();
+                assert!(data.len() == data.capacity());
+                (data.as_ptr(), data.len())
+            }
+        };
+    }
+}
+
+pub fn generate_event(item_event: &ItemEnum) -> TokenStream2 {
+    let name_ident = &item_event.ident;
+    let name = name_ident.to_string();
+    let doc = match parse_rustdoc(&item_event.attrs) {
+        Some(doc) => quote! { Some(#doc.to_string()) },
+        None => quote! { None },
+    };
+    let event_data_ident = format_ident!("{}EventData", name);
+    let event = quote! {
+        near_sdk::__private::AbiEvent {
+            name: #name.to_string(),
+            doc: #doc,
+            data: gen.subschema_for::<#event_data_ident>()
+        }
+    };
+
+    let near_abi_symbol = format_ident!("__near_abi_event_{}", name);
+    quote! {
+        #[cfg(not(target_arch = "wasm32"))]
+        const _: () = {
+            #[no_mangle]
+            pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
+                use near_sdk::__private::schemars;
+
+                #[derive(schemars::JsonSchema)]
+                struct #event_data_ident {
+                    standard: String,
+                    version: String,
+                    #[serde(flatten)]
+                    event_data: #name_ident
+                }
+
+                let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
+                let mut data = std::mem::ManuallyDrop::new(
+                    near_sdk::serde_json::to_vec(&near_sdk::__private::ChunkedAbiEntry::new(
+                        vec![],
+                        vec![#event],
                         gen.into_root_schema_for::<String>(),
                     ))
                     .unwrap(),
