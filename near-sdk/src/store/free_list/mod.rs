@@ -6,7 +6,7 @@ use crate::{env, IntoStorageKey};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use std::{collections::HashMap, fmt, mem};
+use std::{fmt, mem};
 
 /// Index for value within a bucket.
 #[derive(BorshSerialize, BorshDeserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -224,79 +224,53 @@ where
     /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
     /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
     /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
-    pub fn defrag(&mut self) -> HashMap<u32, u32> {
+    pub fn defrag(&mut self) {
         let elements_size = self.elements.len();
-        let mut forward_ix = 0;
-        let mut backward_ix = elements_size - 1;
-        let mut swaps: HashMap<u32, u32> = HashMap::default();
-        while forward_ix < backward_ix {
-            //increment forward index until empty slot is found
-            let mut forward_element = self.elements.get(forward_ix);
-            while let (true, Some(Slot::Occupied(_))) = (forward_ix < backward_ix, forward_element)
-            {
-                forward_ix += 1;
-                forward_element = self.elements.get(forward_ix);
-            }
-            if forward_ix >= backward_ix {
-                continue;
-            }
-            //decrement backward index until occupied slot is found
-            let mut backward_element = self.elements.get(backward_ix);
-            while let (true, Some(Slot::Empty { next_free: _ })) =
-                (backward_ix > forward_ix, backward_element)
-            {
-                backward_ix -= 1;
-                backward_element = self.elements.get(backward_ix);
-            }
-            if forward_ix >= backward_ix {
-                continue;
-            }
+        let mut backward_index = Some(elements_size - 1);
+        let mut prev_free_index: Option<FreeListIndex> = None;
+        let mut curr_free: Option<FreeListIndex> = self.first_free;
 
-            //If matching indexes found, add to swapping indexes
-            if let (Some(Slot::Occupied(_)), Some(Slot::Empty { next_free: _ })) =
-                (backward_element, forward_element)
-            {
-                //forward_ix is the old empty slot, backward_ix is the new empty slot
-                swaps.insert(forward_ix, backward_ix);
-                self.elements.swap(forward_ix, backward_ix)
-            }
-        }
+        while let (Some(_), Some(mut curr_free_index)) = (backward_index, curr_free) {
+            if curr_free_index.0 < self.occupied_count {
+                //Get `Slot::Occupied` index from back
+                backward_index = self.get_prev_occupied(backward_index);
+                if let Some(backward_ix) = backward_index {
+                    self.elements.swap(curr_free_index.0, backward_ix);
 
-        //update `first_free` if its swapped during defrag
-        if let Some(free_list_index) = self.first_free {
-            if let Some(to_index) = swaps.get(&free_list_index.0) {
-                self.first_free = Some(FreeListIndex(*to_index))
-            }
-        }
-
-        //Follow the free indexes chain and update for swapped indexes
-        let mut curr_free = self.first_free;
-        while let Some(free_index) = curr_free {
-            let next_free_slot = self.elements.get(free_index.0);
-            if let Some(Slot::Empty { next_free: next_index }) = next_free_slot {
-                if let Some(free_next_index) = next_index {
-                    //Check if the next index is swapped during defrag.
-                    //If the next index is swapped then update the empty slot to point to new next index
-                    if let Some(new_next_index) = swaps.get(&free_next_index.0) {
-                        //The next index is swapped during defrag and is in index new_next_index
-                        let new_next_slot =
-                            Slot::Empty { next_free: Some(FreeListIndex(*new_next_index)) };
-                        self.elements.replace(free_index.0, new_next_slot);
-                        curr_free = Some(FreeListIndex(*new_next_index));
-                    } else {
-                        //The next index is not swapped during defrag
-                        curr_free = *next_index;
+                    //replace the next_free in previous free index with swapped index
+                    if let Some(prev_free_ix) = prev_free_index {
+                        if let Some(Slot::Empty { next_free: _ }) =
+                            self.elements.get(prev_free_ix.0)
+                        {
+                            self.elements.replace(
+                                prev_free_ix.0,
+                                Slot::Empty { next_free: Some(FreeListIndex(backward_ix)) },
+                            );
+                        }
                     }
-                } else {
-                    //End of free indexes chain
-                    curr_free = None;
+                    //TODO: call callback function
+                    curr_free_index = FreeListIndex(backward_ix);
                 }
-            } else {
-                //Should not happen. The free indexes chain should all be `Slot::Empty`
-                curr_free = None;
+            }
+
+            let curr_slot = self.elements.get(curr_free_index.0);
+            prev_free_index = Some(curr_free_index);
+            curr_free = match curr_slot {
+                Some(Slot::Occupied(_)) => None,
+                Some(Slot::Empty { next_free }) => *next_free,
+                None => None,
             }
         }
-        swaps
+    }
+
+    fn get_prev_occupied(&self, mut index: Option<u32>) -> Option<u32> {
+        while let Some(ix) = index {
+            if let Some(Slot::Occupied(_)) = self.elements.get(ix) {
+                return Some(ix);
+            }
+            index = ix.checked_sub(ix)
+        }
+        None
     }
 }
 
