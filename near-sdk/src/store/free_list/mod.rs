@@ -221,21 +221,26 @@ where
         Drain::new(self)
     }
 
-    pub fn defrag(&mut self) {
+    /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
+    /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
+    /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
+    pub fn defrag(&mut self) -> HashMap<u32, u32> {
         let elements_size = self.elements.len();
         let mut forward_ix = 0;
         let mut backward_ix = elements_size - 1;
         let mut swaps: HashMap<u32, u32> = HashMap::default();
         while forward_ix < backward_ix {
+            //increment forward index until empty slot is found
             let mut forward_element = self.elements.get(forward_ix);
             while let (true, Some(Slot::Occupied(_))) = (forward_ix < backward_ix, forward_element)
             {
                 forward_ix += 1;
                 forward_element = self.elements.get(forward_ix);
             }
-            if forward_element.is_none() || forward_ix >= backward_ix {
+            if forward_ix >= backward_ix {
                 continue;
             }
+            //decrement backward index until occupied slot is found
             let mut backward_element = self.elements.get(backward_ix);
             while let (true, Some(Slot::Empty { next_free: _ })) =
                 (backward_ix > forward_ix, backward_element)
@@ -246,19 +251,52 @@ where
             if forward_ix >= backward_ix {
                 continue;
             }
+
+            //If matching indexes found, add to swapping indexes
             if let (Some(Slot::Occupied(_)), Some(Slot::Empty { next_free: _ })) =
-                (forward_element, backward_element)
+                (backward_element, forward_element)
             {
+                //forward_ix is the old empty slot, backward_ix is the new empty slot
                 swaps.insert(forward_ix, backward_ix);
-                self.elements.swap(forward_ix, backward_ix);
+                self.elements.swap(forward_ix, backward_ix)
             }
         }
 
+        //update `first_free` if its swapped during defrag
         if let Some(free_list_index) = self.first_free {
             if let Some(to_index) = swaps.get(&free_list_index.0) {
                 self.first_free = Some(FreeListIndex(*to_index))
             }
         }
+
+        //Follow the free indexes chain and update for swapped indexes
+        let mut curr_free = self.first_free;
+        while let Some(free_index) = curr_free {
+            let next_free_slot = self.elements.get(free_index.0);
+            if let Some(Slot::Empty { next_free: next_index }) = next_free_slot {
+                if let Some(free_next_index) = next_index {
+                    //Check if the next index is swapped during defrag.
+                    //If the next index is swapped then update the empty slot to point to new next index
+                    if let Some(new_next_index) = swaps.get(&free_next_index.0) {
+                        //The next index is swapped during defrag and is in index new_next_index
+                        let new_next_slot =
+                            Slot::Empty { next_free: Some(FreeListIndex(*new_next_index)) };
+                        self.elements.replace(free_index.0, new_next_slot);
+                        curr_free = Some(FreeListIndex(*new_next_index));
+                    } else {
+                        //The next index is not swapped during defrag
+                        curr_free = *next_index;
+                    }
+                } else {
+                    //End of free indexes chain
+                    curr_free = None;
+                }
+            } else {
+                //Should not happen. The free indexes chain should all be `Slot::Empty`
+                curr_free = None;
+            }
+        }
+        swaps
     }
 }
 
