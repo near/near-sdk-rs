@@ -6,7 +6,7 @@ use crate::{env, IntoStorageKey};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use std::{fmt, mem};
+use std::{collections::HashMap, fmt, mem};
 
 /// Index for value within a bucket.
 #[derive(BorshSerialize, BorshDeserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -219,6 +219,46 @@ where
     /// in an inconsistent state.
     pub fn drain(&mut self) -> Drain<T> {
         Drain::new(self)
+    }
+
+    pub fn defrag(&mut self) {
+        let elements_size = self.elements.len();
+        let mut forward_ix = 0;
+        let mut backward_ix = elements_size - 1;
+        let mut swaps: HashMap<u32, u32> = HashMap::default();
+        while forward_ix < backward_ix {
+            let mut forward_element = self.elements.get(forward_ix);
+            while let (true, Some(Slot::Occupied(_))) = (forward_ix < backward_ix, forward_element)
+            {
+                forward_ix += 1;
+                forward_element = self.elements.get(forward_ix);
+            }
+            if forward_element.is_none() || forward_ix >= backward_ix {
+                continue;
+            }
+            let mut backward_element = self.elements.get(backward_ix);
+            while let (true, Some(Slot::Empty { next_free: _ })) =
+                (backward_ix > forward_ix, backward_element)
+            {
+                backward_ix -= 1;
+                backward_element = self.elements.get(backward_ix);
+            }
+            if forward_ix >= backward_ix {
+                continue;
+            }
+            if let (Some(Slot::Occupied(_)), Some(Slot::Empty { next_free: _ })) =
+                (forward_element, backward_element)
+            {
+                swaps.insert(forward_ix, backward_ix);
+                self.elements.swap(forward_ix, backward_ix);
+            }
+        }
+
+        if let Some(free_list_index) = self.first_free {
+            if let Some(to_index) = swaps.get(&free_list_index.0) {
+                self.first_free = Some(FreeListIndex(*to_index))
+            }
+        }
     }
 }
 
