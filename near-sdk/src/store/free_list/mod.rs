@@ -224,7 +224,10 @@ where
     /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
     /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
     /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
-    pub fn defrag(&mut self) {
+    pub fn defrag<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&T, u32),
+    {
         let elements_size = self.elements.len();
         let mut backward_index = elements_size.checked_sub(1);
         let mut prev_free_index: Option<FreeListIndex> = None;
@@ -233,8 +236,12 @@ where
         while let (Some(_), Some(mut curr_free_index)) = (backward_index, curr_free) {
             if curr_free_index.0 < self.occupied_count {
                 //Get first `Slot::Occupied` index from back
-                backward_index = self.get_prev_occupied(backward_index);
-                if let Some(backward_ix) = backward_index {
+                let value: Option<&T>;
+                (backward_index, value) = self.get_prev_occupied(backward_index);
+                if let (Some(backward_ix), Some(value)) = (backward_index, value) {
+                    //call callback function.
+                    callback(value, curr_free_index.0);
+
                     self.elements.swap(curr_free_index.0, backward_ix);
 
                     //replace the next_free in previous free index with swapped index
@@ -253,7 +260,6 @@ where
                             env::panic_str(ERR_INCONSISTENT_STATE)
                         }
                     }
-                    //TODO: call callback function
                     curr_free_index = FreeListIndex(backward_ix);
                 }
             }
@@ -268,14 +274,14 @@ where
         }
     }
 
-    fn get_prev_occupied(&self, mut index: Option<u32>) -> Option<u32> {
+    fn get_prev_occupied(&self, mut index: Option<u32>) -> (Option<u32>, Option<&T>) {
         while let Some(ix) = index {
-            if let Some(Slot::Occupied(_)) = self.elements.get(ix) {
-                return Some(ix);
+            if let Some(Slot::Occupied(value)) = self.elements.get(ix) {
+                return (Some(ix), Some(value));
             }
             index = ix.checked_sub(1)
         }
-        None
+        (None, None)
     }
 }
 
@@ -332,7 +338,7 @@ mod tests {
         let free_items = navigate_empty_slots(&bucket);
         assert_eq!(free_items, 6);
         //6 should move to index 0, 5 should move to index 1
-        bucket.defrag();
+        bucket.defrag(|_, _| {});
 
         //Check the free slots chain is complete after defrag
         let free_items_defrag = navigate_empty_slots(&bucket);

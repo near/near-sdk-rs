@@ -630,6 +630,23 @@ where
     }
 }
 
+impl<K, V, H> UnorderedMap<K, V, H>
+where
+    K: BorshSerialize + BorshDeserialize + Ord + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: ToKey,
+{
+    pub fn defrag(&mut self) {
+        self.keys.defrag(|key, new_index| {
+            // Check if value is in map to replace first
+            let entry = self.values.get_mut_inner(key);
+            if let Some(existing) = entry.value_mut() {
+                _ = mem::replace(&mut existing.key_index, FreeListIndex(new_index));
+            }
+        });
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
@@ -755,5 +772,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn defrag() {
+        let mut map = UnorderedMap::new(b"b");
+        map.insert(0u8, 0u8);
+        map.insert(1, 1);
+        map.insert(2, 2);
+        map.insert(3, 3);
+        map.insert(4, 4);
+        map.insert(5, 5);
+        map.insert(6, 6);
+        map.insert(7, 7);
+        map.insert(8, 8);
+
+        for id in 1..4u8 {
+            map.remove(&(id * 2));
+        }
+
+        map.defrag();
+
+        assert!(map.get(&2u8).is_none());
+        assert!(map.get(&4u8).is_none());
+        assert!(map.get(&6u8).is_none());
+        assert_eq!(*map.get(&1u8).unwrap(), 1u8);
+        assert_eq!(*map.get(&3u8).unwrap(), 3u8);
+        assert_eq!(*map.get(&5u8).unwrap(), 5u8);
+        assert_eq!(*map.get(&7u8).unwrap(), 7u8);
+        assert_eq!(*map.get(&8u8).unwrap(), 8u8);
+
+        //Check the elements moved during defragmentation
+        assert_eq!(map.remove_entry(&7u8).unwrap(), (7, 7));
+        assert_eq!(map.remove_entry(&8u8).unwrap(), (8, 8));
     }
 }
