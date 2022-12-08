@@ -230,7 +230,6 @@ where
     {
         let elements_size = self.elements.len();
         let mut backward_index = elements_size.checked_sub(1);
-        let mut prev_free_index: Option<FreeListIndex> = None;
         let mut curr_free: Option<FreeListIndex> = self.first_free;
 
         while let (Some(_), Some(mut curr_free_index)) = (backward_index, curr_free) {
@@ -244,34 +243,31 @@ where
 
                     self.elements.swap(curr_free_index.0, backward_ix);
 
-                    //replace the next_free in previous free index with swapped index
-                    if let Some(prev_free_ix) = prev_free_index {
-                        let prev_entry = self.elements.replace(
-                            prev_free_ix.0,
-                            Slot::Empty { next_free: Some(FreeListIndex(backward_ix)) },
-                        );
-                        if let Slot::Empty { next_free } = prev_entry {
-                            //The next_free variable of previous free index should have been pointing to curr_free
-                            if next_free != curr_free {
-                                env::panic_str(ERR_INCONSISTENT_STATE)
-                            }
-                        } else {
-                            //If the prev entry is `Some` then it should be `Slot::Empty`
-                            env::panic_str(ERR_INCONSISTENT_STATE)
-                        }
-                    }
                     curr_free_index = FreeListIndex(backward_ix);
                 }
             }
 
             let curr_slot = self.elements.get(curr_free_index.0);
-            prev_free_index = Some(curr_free_index);
             curr_free = match curr_slot {
                 Some(Slot::Occupied(_)) => None,
                 Some(Slot::Empty { next_free }) => *next_free,
                 None => None,
             }
         }
+        while self.elements.len > self.occupied_count {
+            match self.elements.pop() {
+                Some(Slot::Occupied(_)) => {
+                    //Something is wrong, all `Slot::Occupied` should be within self.occupied_count
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
+                Some(Slot::Empty { next_free: _ }) => {}
+                None => {
+                    //Something is wrong, the value removed should be `Slot::Empty`
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
+            }
+        }
+        self.first_free = None;
     }
 
     fn get_prev_occupied(&self, mut index: Option<u32>) -> (Option<u32>, Option<&T>) {
@@ -335,14 +331,11 @@ mod tests {
         bucket.remove(i8);
         assert_eq!(bucket.occupied_count, 2);
 
-        let free_items = navigate_empty_slots(&bucket);
-        assert_eq!(free_items, 6);
         //6 should move to index 0, 5 should move to index 1
         bucket.defrag(|_, _| {});
 
         //Check the free slots chain is complete after defrag
-        let free_items_defrag = navigate_empty_slots(&bucket);
-        assert_eq!(free_items_defrag, 6);
+        assert_eq!(bucket.occupied_count, bucket.len());
 
         assert_eq!(*bucket.get(i1).unwrap(), 6u8);
         assert_eq!(*bucket.get(i2).unwrap(), 5u8);
@@ -507,20 +500,5 @@ mod tests {
                 }
             }
         }
-    }
-
-    fn navigate_empty_slots<T>(bucket: &FreeList<T>) -> u32
-    where
-        T: BorshSerialize + BorshDeserialize,
-    {
-        let mut free_items: u32 = 0;
-        let mut curr_free = bucket.first_free;
-        while let Some(free_index) = curr_free {
-            if let Some(Slot::Empty { next_free }) = bucket.elements.get(free_index.0) {
-                free_items += 1;
-                curr_free = *next_free;
-            }
-        }
-        free_items
     }
 }

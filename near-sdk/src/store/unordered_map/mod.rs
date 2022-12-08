@@ -805,5 +805,7 @@ mod tests {
         //Check the elements moved during defragmentation
         assert_eq!(map.remove_entry(&7u8).unwrap(), (7, 7));
         assert_eq!(map.remove_entry(&8u8).unwrap(), (8, 8));
+        assert_eq!(map.remove_entry(&1u8).unwrap(), (1, 1));
+        assert_eq!(map.remove_entry(&3u8).unwrap(), (3, 3));
     }
 }
