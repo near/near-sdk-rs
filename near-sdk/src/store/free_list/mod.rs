@@ -226,26 +226,31 @@ where
     /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
     pub fn defrag(&mut self) {
         let elements_size = self.elements.len();
-        let mut backward_index = Some(elements_size - 1);
+        let mut backward_index = elements_size.checked_sub(1);
         let mut prev_free_index: Option<FreeListIndex> = None;
         let mut curr_free: Option<FreeListIndex> = self.first_free;
 
         while let (Some(_), Some(mut curr_free_index)) = (backward_index, curr_free) {
             if curr_free_index.0 < self.occupied_count {
-                //Get `Slot::Occupied` index from back
+                //Get first `Slot::Occupied` index from back
                 backward_index = self.get_prev_occupied(backward_index);
                 if let Some(backward_ix) = backward_index {
                     self.elements.swap(curr_free_index.0, backward_ix);
 
                     //replace the next_free in previous free index with swapped index
                     if let Some(prev_free_ix) = prev_free_index {
-                        if let Some(Slot::Empty { next_free: _ }) =
-                            self.elements.get(prev_free_ix.0)
-                        {
-                            self.elements.replace(
-                                prev_free_ix.0,
-                                Slot::Empty { next_free: Some(FreeListIndex(backward_ix)) },
-                            );
+                        let prev_entry = self.elements.replace(
+                            prev_free_ix.0,
+                            Slot::Empty { next_free: Some(FreeListIndex(backward_ix)) },
+                        );
+                        if let Slot::Empty { next_free } = prev_entry {
+                            //The next_free variable of previous free index should have been pointing to curr_free
+                            if next_free != curr_free {
+                                env::panic_str(ERR_INCONSISTENT_STATE)
+                            }
+                        } else {
+                            //If the prev entry is `Some` then it should be `Slot::Empty`
+                            env::panic_str(ERR_INCONSISTENT_STATE)
                         }
                     }
                     //TODO: call callback function
@@ -268,7 +273,7 @@ where
             if let Some(Slot::Occupied(_)) = self.elements.get(ix) {
                 return Some(ix);
             }
-            index = ix.checked_sub(ix)
+            index = ix.checked_sub(1)
         }
         None
     }
@@ -299,6 +304,44 @@ mod tests {
 
         *bucket.get_mut(i3).unwrap() = 4;
         assert_eq!(bucket.get(i3), Some(&4));
+    }
+
+    #[test]
+    fn defrag() {
+        let mut bucket = FreeList::new(b"b");
+        assert!(bucket.is_empty());
+        let i1 = bucket.insert(1u8);
+        let i2 = bucket.insert(2u8);
+        let i3 = bucket.insert(3u8);
+        let i4 = bucket.insert(4u8);
+        let i5 = bucket.insert(5u8);
+        let i6 = bucket.insert(6u8);
+        let i7 = bucket.insert(7u8);
+        let i8 = bucket.insert(8u8);
+        assert_eq!(bucket.occupied_count, 8);
+
+        //Empty, Empty, Empty, Empty, Occupied, Occupied, Empty, Empty
+        bucket.remove(i2);
+        bucket.remove(i4);
+        bucket.remove(i1);
+        bucket.remove(i7);
+        bucket.remove(i3);
+        bucket.remove(i8);
+        assert_eq!(bucket.occupied_count, 2);
+
+        let free_items = navigate_empty_slots(&bucket);
+        assert_eq!(free_items, 6);
+        //6 should move to index 0, 5 should move to index 1
+        bucket.defrag();
+
+        //Check the free slots chain is complete after defrag
+        let free_items_defrag = navigate_empty_slots(&bucket);
+        assert_eq!(free_items_defrag, 6);
+
+        assert_eq!(*bucket.get(i1).unwrap(), 6u8);
+        assert_eq!(*bucket.get(i2).unwrap(), 5u8);
+        assert!(bucket.get(i5).is_none());
+        assert!(bucket.get(i6).is_none());
     }
 
     #[test]
@@ -458,5 +501,20 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn navigate_empty_slots<T>(bucket: &FreeList<T>) -> u32
+    where
+        T: BorshSerialize + BorshDeserialize,
+    {
+        let mut free_items: u32 = 0;
+        let mut curr_free = bucket.first_free;
+        while let Some(free_index) = curr_free {
+            if let Some(Slot::Empty { next_free }) = bucket.elements.get(free_index.0) {
+                free_items += 1;
+                curr_free = *next_free;
+            }
+        }
+        free_items
     }
 }
