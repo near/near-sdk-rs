@@ -228,56 +228,37 @@ where
     where
         F: FnMut(&T, u32),
     {
-        let elements_size = self.elements.len();
-        let mut backward_index = elements_size.checked_sub(1);
+        let mut occupied_index = self.occupied_count;
         let mut curr_free: Option<FreeListIndex> = self.first_free;
 
-        while let (Some(_), Some(mut curr_free_index)) = (backward_index, curr_free) {
+        //Navigate free slots chain
+        while let Some(curr_free_index) = curr_free {
+            //Replace the free slot with `None`
+            let curr_free_slot = self.elements.values.remove(curr_free_index.0);
+
             if curr_free_index.0 < self.occupied_count {
-                //Get first `Slot::Occupied` index from back
-                let value: Option<&T>;
-                (backward_index, value) = self.get_prev_occupied(backward_index);
-                if let (Some(backward_ix), Some(value)) = (backward_index, value) {
-                    //call callback function.
-                    callback(value, curr_free_index.0);
-
-                    self.elements.swap(curr_free_index.0, backward_ix);
-
-                    curr_free_index = FreeListIndex(backward_ix);
+                //Find occupied entry to populate the free slot
+                while occupied_index < self.elements.len {
+                    if let Some(Slot::Occupied(value)) = self.elements.get(occupied_index) {
+                        callback(value, curr_free_index.0);
+                    } else {
+                        occupied_index += 1;
+                        continue;
+                    }
+                    //`curr_free_index.0` should have `None` by now. Swapping will move to `occupied_index`.
+                    self.elements.swap(curr_free_index.0, occupied_index);
+                    break;
                 }
-            }
-
-            let curr_slot = self.elements.get(curr_free_index.0);
-            curr_free = match curr_slot {
-                Some(Slot::Occupied(_)) => None,
-                Some(Slot::Empty { next_free }) => *next_free,
-                None => None,
-            }
-        }
-        while self.elements.len > self.occupied_count {
-            match self.elements.pop() {
-                Some(Slot::Occupied(_)) => {
-                    //Something is wrong, all `Slot::Occupied` should be within self.occupied_count
-                    env::panic_str(ERR_INCONSISTENT_STATE)
-                }
-                Some(Slot::Empty { next_free: _ }) => {}
-                None => {
-                    //Something is wrong, the value removed should be `Slot::Empty`
+                if occupied_index == self.elements.len {
+                    //Could not find an occupied slot to fill the free slot
                     env::panic_str(ERR_INCONSISTENT_STATE)
                 }
             }
+            curr_free =
+                if let Some(Slot::Empty { next_free }) = curr_free_slot { next_free } else { None };
         }
+        self.elements.len = self.occupied_count;
         self.first_free = None;
-    }
-
-    fn get_prev_occupied(&self, mut index: Option<u32>) -> (Option<u32>, Option<&T>) {
-        while let Some(ix) = index {
-            if let Some(Slot::Occupied(value)) = self.elements.get(ix) {
-                return (Some(ix), Some(value));
-            }
-            index = ix.checked_sub(1)
-        }
-        (None, None)
     }
 }
 
@@ -326,21 +307,21 @@ mod tests {
         bucket.remove(i2);
         bucket.remove(i4);
         bucket.remove(i1);
-        bucket.remove(i7);
+        bucket.remove(i6);
         bucket.remove(i3);
         bucket.remove(i8);
         assert_eq!(bucket.occupied_count, 2);
 
-        //6 should move to index 0, 5 should move to index 1
+        //5 should move to index 0, 7 should move to index 1
         bucket.defrag(|_, _| {});
 
         //Check the free slots chain is complete after defrag
         assert_eq!(bucket.occupied_count, bucket.len());
 
-        assert_eq!(*bucket.get(i1).unwrap(), 6u8);
-        assert_eq!(*bucket.get(i2).unwrap(), 5u8);
+        assert_eq!(*bucket.get(i1).unwrap(), 5u8);
+        assert_eq!(*bucket.get(i2).unwrap(), 7u8);
         assert!(bucket.get(i5).is_none());
-        assert!(bucket.get(i6).is_none());
+        assert!(bucket.get(i7).is_none());
     }
 
     #[test]
