@@ -224,41 +224,77 @@ where
     /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
     /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
     /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
-    pub fn defrag<F>(&mut self, mut callback: F)
+    pub fn defrag<F>(&mut self, callback: F)
     where
         F: FnMut(&T, u32),
     {
-        let mut occupied_index = self.occupied_count;
-        let mut curr_free: Option<FreeListIndex> = self.first_free;
+        Defrag::new(self).defrag(callback);
+        self.first_free = None;
+    }
+}
 
-        //Navigate free slots chain
-        while let Some(curr_free_index) = curr_free {
-            //Replace the free slot with `None`
-            let curr_free_slot = self.elements.values.remove(curr_free_index.0);
+struct Defrag<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    elements: &'a mut Vector<Slot<T>>,
+    occupied_count: u32,
+    curr_free_slot: Option<FreeListIndex>,
+    defrag_index: u32,
+}
 
-            if curr_free_index.0 < self.occupied_count {
-                //Find occupied entry to populate the free slot
-                while occupied_index < self.elements.len {
-                    if let Some(Slot::Occupied(value)) = self.elements.get(occupied_index) {
-                        callback(value, curr_free_index.0);
-                    } else {
-                        occupied_index += 1;
-                        continue;
-                    }
-                    //`curr_free_index.0` should have `None` by now. Swapping will move to `occupied_index`.
-                    self.elements.swap(curr_free_index.0, occupied_index);
-                    break;
-                }
-                if occupied_index == self.elements.len {
-                    //Could not find an occupied slot to fill the free slot
-                    env::panic_str(ERR_INCONSISTENT_STATE)
-                }
+impl<'a, T> Defrag<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Creates a new iterator for the given storage vector.
+    fn new(list: &'a mut FreeList<T>) -> Self {
+        Self {
+            elements: &mut list.elements,
+            occupied_count: list.occupied_count,
+            defrag_index: list.occupied_count,
+            curr_free_slot: list.first_free,
+        }
+    }
+
+    fn defrag<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&T, u32),
+    {
+        while let Some(curr_free_index) = self.next_free_slot() {
+            if let Some((value, occupied_index)) = self.next_occupied() {
+                callback(value, curr_free_index.0);
+                self.elements.swap(curr_free_index.0, occupied_index);
+            } else {
+                //Could not find an occupied slot to fill the free slot
+                env::panic_str(ERR_INCONSISTENT_STATE)
             }
-            curr_free =
-                if let Some(Slot::Empty { next_free }) = curr_free_slot { next_free } else { None };
         }
         self.elements.len = self.occupied_count;
-        self.first_free = None;
+    }
+
+    fn next_free_slot(&mut self) -> Option<FreeListIndex> {
+        while let Some(curr_free_index) = self.curr_free_slot {
+            let curr_slot = self.elements.values.remove(curr_free_index.0);
+            self.curr_free_slot = match curr_slot {
+                Some(Slot::Empty { next_free }) => next_free,
+                _ => None,
+            };
+            if curr_free_index.0 < self.occupied_count {
+                return Some(curr_free_index);
+            }
+        }
+        None
+    }
+
+    fn next_occupied(&mut self) -> Option<(&T, u32)> {
+        while self.defrag_index < self.elements.len {
+            if let Some(Slot::Occupied(value)) = self.elements.get(self.defrag_index) {
+                return Some((value, self.defrag_index));
+            }
+            self.defrag_index += 1;
+        }
+        None
     }
 }
 
