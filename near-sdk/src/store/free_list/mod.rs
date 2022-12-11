@@ -233,7 +233,7 @@ where
     }
 }
 
-///Defrag struct has helper functions to perform defragmentation of `FreeList`. See the 
+///Defrag struct has helper functions to perform defragmentation of `FreeList`. See the
 /// documentation of function `FreeList->defrag` for more details.
 struct Defrag<'a, T>
 where
