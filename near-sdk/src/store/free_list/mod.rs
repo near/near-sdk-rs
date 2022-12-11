@@ -343,7 +343,7 @@ mod tests {
         let i8 = bucket.insert(8u8);
         assert_eq!(bucket.occupied_count, 8);
 
-        //Empty, Empty, Empty, Empty, Occupied, Occupied, Empty, Empty
+        //Empty, Empty, Empty, Empty, Occupied, Empty, Occupied, Empty
         bucket.remove(i2);
         bucket.remove(i4);
         bucket.remove(i1);
