@@ -233,6 +233,8 @@ where
     }
 }
 
+///Defrag struct has helper functions to perform defragmentation of `FreeList`. See the 
+/// documentation of function `FreeList->defrag` for more details.
 struct Defrag<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
@@ -247,7 +249,7 @@ impl<'a, T> Defrag<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
-    /// Creates a new iterator for the given storage vector.
+    /// Create a new struct for defragmenting `FreeList`.
     fn new(list: &'a mut FreeList<T>) -> Self {
         Self {
             elements: &mut list.elements,
@@ -264,6 +266,8 @@ where
         while let Some(curr_free_index) = self.next_free_slot() {
             if let Some((value, occupied_index)) = self.next_occupied() {
                 callback(value, curr_free_index.0);
+                //The entry at curr_free_index.0 should have `None` by now.
+                //Moving it to `occupied_index` will make that entry empty.
                 self.elements.swap(curr_free_index.0, occupied_index);
             } else {
                 //Could not find an occupied slot to fill the free slot
