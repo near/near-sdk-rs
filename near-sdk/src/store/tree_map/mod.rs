@@ -2056,6 +2056,8 @@ mod tests {
         Flush,
         Restore,
         Get(u8),
+        EntryInsert(u8, u8),
+        EntryRemove(u8),
     }
 
     #[test]
@@ -2097,6 +2099,23 @@ mod tests {
                             let r2 = hm.get(&k);
                             assert_eq!(r1, r2)
                         }
+                        Op::EntryInsert(k, v) => {
+                            let r1 = um.entry(k).or_insert(v);
+                            let r2 = hm.entry(k).or_insert(v);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::EntryRemove(k) => match (um.entry(k), hm.entry(k)) {
+                            (
+                                Entry::Occupied(o1),
+                                std::collections::btree_map::Entry::Occupied(o2),
+                            ) => {
+                                let r1 = o1.remove();
+                                let r2 = o2.remove();
+                                assert_eq!(r1, r2)
+                            }
+                            (Entry::Vacant(_), std::collections::btree_map::Entry::Vacant(_)) => {}
+                            _ => panic!("inconsistent entry states"),
+                        },
                     }
                 }
             }
