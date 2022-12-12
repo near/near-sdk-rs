@@ -2121,9 +2121,12 @@ mod tests {
 
         let mut map = TreeMap::new(b"m");
         swap_set(&mut map, 1);
+        assert_eq!(map.tree.root, Some(FreeListIndex(0)));
         swap_set(&mut map, 1);
+        assert_eq!(map.tree.root, None);
         // This line previously panicked because the entry was removed without updating the tree
         // root.
         swap_set(&mut map, 1);
+        assert_eq!(map.tree.root, Some(FreeListIndex(0)));
     }
 }
