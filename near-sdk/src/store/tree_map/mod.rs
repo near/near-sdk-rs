@@ -2124,28 +2124,28 @@ mod tests {
 
     #[test]
     fn issue993() {
-        fn swap_set<H>(map: &mut TreeMap<u8, bool, H>, key: u8)
+        fn swap_set<H>(map: &mut TreeMap<(), (), H>)
         where
             H: ToKey,
         {
-            match map.entry(key) {
+            match map.entry(()) {
                 Entry::Occupied(o) => {
                     o.remove();
                 }
                 Entry::Vacant(o) => {
-                    o.insert(true);
+                    o.insert(());
                 }
             };
         }
 
         let mut map = TreeMap::new(b"m");
-        swap_set(&mut map, 1);
+        swap_set(&mut map);
         assert_eq!(map.tree.root, Some(FreeListIndex(0)));
-        swap_set(&mut map, 1);
+        swap_set(&mut map);
         assert_eq!(map.tree.root, None);
         // This line previously panicked because the entry was removed without updating the tree
         // root.
-        swap_set(&mut map, 1);
+        swap_set(&mut map);
         assert_eq!(map.tree.root, Some(FreeListIndex(0)));
     }
 }
