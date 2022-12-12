@@ -5,6 +5,9 @@ use near_sdk::PromiseOrValue;
 
 #[ext_contract(ext_ft_core)]
 pub trait FungibleTokenCore {
+    /// Sets `amount` as the allowance of `spender` over the caller's tokens.
+    fn ft_approve(&mut self, spender_id: AccountId, amount: U128, memo: Option<String>);
+
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id`.
     /// Both accounts must be registered with the contract for transfer to succeed. (See [NEP-145](https://github.com/near/NEPs/discussions/145))
     /// This method must to be able to accept attached deposits, and must not panic on attached deposit.
@@ -48,9 +51,22 @@ pub trait FungibleTokenCore {
         msg: String,
     ) -> PromiseOrValue<U128>;
 
+    /// Moves `amount` tokens from `from` to `to` using the allowance mechanism.
+    /// `amount` is then deducted from the caller's allowance.
+    fn ft_transfer_from(
+        &mut self,
+        owner_id: AccountId,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    );
+
     /// Returns the total supply of the token in a decimal string representation.
     fn ft_total_supply(&self) -> U128;
 
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
+
+    /// Returns the remaining number of tokens that `spender` will be allowed to spend on behalf of `owner` through {ft_transfer_from}.
+    fn ft_allowance(&self, owner_id: AccountId, spender_id: AccountId) -> U128;
 }

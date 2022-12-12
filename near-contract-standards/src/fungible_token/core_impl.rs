@@ -1,5 +1,5 @@
 use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::events::{FtBurn, FtTransfer};
+use crate::fungible_token::events::{FtApprove, FtBurn, FtTransfer};
 use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -34,15 +34,22 @@ pub struct FungibleToken {
 
     /// The storage size in bytes for one account.
     pub account_storage_usage: StorageUsage,
+
+    // OwnerID+SpenderID -> Allowed amount.
+    pub allowances: LookupMap<String, Balance>,
 }
 
 impl FungibleToken {
-    pub fn new<S>(prefix: S) -> Self
+    pub fn new<S>(prefix: S, prefix_allowance: S) -> Self
     where
         S: IntoStorageKey,
     {
-        let mut this =
-            Self { accounts: LookupMap::new(prefix), total_supply: 0, account_storage_usage: 0 };
+        let mut this = Self {
+            accounts: LookupMap::new(prefix),
+            total_supply: 0,
+            account_storage_usage: 0,
+            allowances: LookupMap::new(prefix_allowance),
+        };
         this.measure_account_storage_usage();
         this
     }
@@ -55,12 +62,50 @@ impl FungibleToken {
         self.accounts.remove(&tmp_account_id);
     }
 
+    fn get_allowance_key(owner_id: &AccountId, spender_id: &AccountId) -> String {
+        format!("{}/{}", owner_id.as_str(), spender_id.as_str())
+    }
+
     pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
         match self.accounts.get(account_id) {
             Some(balance) => balance,
             None => {
                 env::panic_str(format!("The account {} is not registered", &account_id).as_str())
             }
+        }
+    }
+
+    pub fn internal_approve(
+        &mut self,
+        owner_id: &AccountId,
+        spender_id: &AccountId,
+        amount: Balance,
+        memo: Option<String>,
+    ) {
+        let allowance_key = Self::get_allowance_key(&owner_id, &spender_id);
+        self.allowances.insert(&allowance_key, &amount.into());
+        FtApprove {
+            owner_id,
+            spender_id,
+            amount: &U128(amount),
+            memo: memo.as_deref(), //
+        }
+        .emit();
+    }
+
+    pub fn internal_spend_allowance(
+        &mut self,
+        owner_id: &AccountId,
+        spender_id: &AccountId,
+        amount: Balance,
+    ) {
+        let allowance_key = Self::get_allowance_key(&owner_id, &spender_id);
+        if let Some(new_allowance) =
+            self.allowances.get(&allowance_key).and_then(|allowance| allowance.checked_sub(amount))
+        {
+            self.allowances.insert(&allowance_key, &new_allowance);
+        } else {
+            env::panic_str("Insufficient allowance");
         }
     }
 
@@ -110,6 +155,28 @@ impl FungibleToken {
         .emit();
     }
 
+    pub fn internal_transfer_from(
+        &mut self,
+        owner_id: &AccountId,
+        spender_id: &AccountId,
+        receiver_id: &AccountId,
+        amount: Balance,
+        memo: Option<String>,
+    ) {
+        require!(owner_id != receiver_id, "Sender and receiver should be different");
+        require!(amount > 0, "The amount should be a positive number");
+        self.internal_spend_allowance(owner_id, spender_id, amount);
+        self.internal_withdraw(owner_id, amount);
+        self.internal_deposit(receiver_id, amount);
+        FtTransfer {
+            old_owner_id: owner_id,
+            new_owner_id: receiver_id,
+            amount: &U128(amount),
+            memo: memo.as_deref(),
+        }
+        .emit();
+    }
+
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
         if self.accounts.insert(account_id, &0).is_some() {
             env::panic_str("The account is already registered");
@@ -118,6 +185,13 @@ impl FungibleToken {
 }
 
 impl FungibleTokenCore for FungibleToken {
+    fn ft_approve(&mut self, spender_id: AccountId, amount: U128, memo: Option<String>) {
+        assert_one_yocto();
+        let owner_id = env::predecessor_account_id();
+        let amount: Balance = amount.into();
+        self.internal_approve(&owner_id, &spender_id, amount, memo);
+    }
+
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
@@ -153,12 +227,30 @@ impl FungibleTokenCore for FungibleToken {
             .into()
     }
 
+    fn ft_transfer_from(
+        &mut self,
+        owner_id: AccountId,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    ) {
+        assert_one_yocto();
+        let spender_id = env::predecessor_account_id();
+        let amount: Balance = amount.into();
+        self.internal_transfer_from(&owner_id, &spender_id, &receiver_id, amount, memo);
+    }
+
     fn ft_total_supply(&self) -> U128 {
         self.total_supply.into()
     }
 
     fn ft_balance_of(&self, account_id: AccountId) -> U128 {
         self.accounts.get(&account_id).unwrap_or(0).into()
+    }
+
+    fn ft_allowance(&self, owner_id: AccountId, spender_id: AccountId) -> U128 {
+        let allowance_key = Self::get_allowance_key(&owner_id, &spender_id);
+        self.allowances.get(&allowance_key).unwrap_or(0).into()
     }
 }
 

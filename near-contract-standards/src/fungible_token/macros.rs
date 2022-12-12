@@ -9,6 +9,16 @@ macro_rules! impl_fungible_token_core {
         #[near_bindgen]
         impl FungibleTokenCore for $contract {
             #[payable]
+            fn ft_approve(
+                &mut self,
+                spender_id: AccountId,
+                amount: U128,
+                memo: Option<String>,
+            ) {
+                self.$token.ft_approve(spender_id, amount, memo)
+            }
+
+            #[payable]
             fn ft_transfer(
                 &mut self,
                 receiver_id: AccountId,
@@ -29,12 +39,27 @@ macro_rules! impl_fungible_token_core {
                 self.$token.ft_transfer_call(receiver_id, amount, memo, msg)
             }
 
+            #[payable]
+            fn ft_transfer_from(
+                &mut self,
+                owner_id: AccountId,
+                receiver_id: AccountId,
+                amount: U128,
+                memo: Option<String>,
+            ) {
+                self.$token.ft_transfer_from(owner_id, receiver_id, amount, memo);
+            }
+
             fn ft_total_supply(&self) -> U128 {
                 self.$token.ft_total_supply()
             }
 
             fn ft_balance_of(&self, account_id: AccountId) -> U128 {
                 self.$token.ft_balance_of(account_id)
+            }
+
+            fn ft_allowance(&self, owner_id: AccountId, spender_id: AccountId) -> U128 {
+                self.$token.ft_allowance(owner_id, spender_id)
             }
         }
 

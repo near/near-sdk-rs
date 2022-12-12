@@ -42,6 +42,32 @@ impl FtMint<'_> {
     }
 }
 
+/// Data to log for an FT approve event. To log this event,
+/// call [`.emit()`](FtApprove::emit).
+#[must_use]
+#[derive(Serialize, Debug, Clone)]
+pub struct FtApprove<'a> {
+    pub owner_id: &'a AccountId,
+    pub spender_id: &'a AccountId,
+    pub amount: &'a U128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memo: Option<&'a str>,
+}
+
+impl FtApprove<'_> {
+    /// Logs the event to the host. This is required to ensure that the event is triggered
+    /// and to consume the event.
+    pub fn emit(self) {
+        Self::emit_many(&[self])
+    }
+
+    /// Emits an FT approve event, through [`env::log_str`](near_sdk::env::log_str),
+    /// where each [`FtApprove`] represents the data of each approve.
+    pub fn emit_many(data: &[FtApprove<'_>]) {
+        new_141_v1(Nep141EventKind::FtApprove(data)).emit()
+    }
+}
+
 /// Data to log for an FT transfer event. To log this event,
 /// call [`.emit()`](FtTransfer::emit).
 #[must_use]
@@ -105,6 +131,7 @@ pub(crate) struct Nep141Event<'a> {
 #[allow(clippy::enum_variant_names)]
 enum Nep141EventKind<'a> {
     FtMint(&'a [FtMint<'a>]),
+    FtApprove(&'a [FtApprove<'a>]),
     FtTransfer(&'a [FtTransfer<'a>]),
     FtBurn(&'a [FtBurn<'a>]),
 }
