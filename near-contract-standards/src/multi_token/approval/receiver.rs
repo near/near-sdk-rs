@@ -1,4 +1,4 @@
-use near_sdk::{ext_contract, AccountId};
+use near_sdk::{ext_contract, json_types::U128, AccountId};
 
 use crate::multi_token::token::TokenId;
 
@@ -9,6 +9,7 @@ pub trait MultiTokenApprovalReceiver {
     fn mt_on_approve(
         &mut self,
         tokens: Vec<TokenId>,
+        amounts: Vec<U128>,
         owner_id: AccountId,
         approval_ids: Vec<u64>,
         msg: String,

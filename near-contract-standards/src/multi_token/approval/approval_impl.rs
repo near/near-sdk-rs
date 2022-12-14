@@ -38,7 +38,7 @@ impl MultiTokenApproval for MultiToken {
 
         let mut used_storage = 0;
 
-        for (token_id, amount) in token_ids.iter().zip(amounts) {
+        for (token_id, amount) in token_ids.iter().zip(&amounts) {
             // Get the balance to check if user has enough tokens
             let approver_balance = self
                 .balances_per_token
@@ -50,7 +50,7 @@ impl MultiTokenApproval for MultiToken {
             // Get the next approval id for the token
             let new_approval_id: u64 =
                 expect_approval_for_token(next_id_by_token.get(token_id), token_id);
-            let new_approval = Approval { amount: amount.into(), approval_id: new_approval_id };
+            let new_approval = Approval { amount: amount.0, approval_id: new_approval_id };
             log!("New approval: {:?}", new_approval);
 
             // Get existing approvals for this token. If one exists for the grantee_id, overwrite it.
@@ -86,6 +86,7 @@ impl MultiTokenApproval for MultiToken {
         msg.map(|msg| {
             ext_approval_receiver::ext(grantee_id).with_static_gas(receiver_gas).mt_on_approve(
                 token_ids,
+                amounts,
                 approver_id,
                 new_approval_ids,
                 msg,
