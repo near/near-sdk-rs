@@ -2,6 +2,9 @@ use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
+/// This map is used as an append-only cache of keys to values. Insertions in the map can be done
+/// with only an immutable reference because the values are boxed and any insertion will not create
+/// dangling pointers for existing references.
 pub(crate) struct StableMap<K, V> {
     map: RefCell<BTreeMap<K, Box<V>>>,
 }
