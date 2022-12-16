@@ -15,7 +15,7 @@ pub struct FreeListIndex(pub(crate) u32);
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
-pub struct FreeList<T>
+pub(crate) struct FreeList<T>
 where
     T: BorshSerialize,
 {
@@ -122,7 +122,8 @@ where
     }
 
     /// Clears the bucket, removing all values (including removed entries).
-    pub fn clear(&mut self) {
+    #[cfg(test)]
+    fn clear(&mut self) {
         self.elements.clear();
         self.first_free = None;
         self.occupied_count = 0;
