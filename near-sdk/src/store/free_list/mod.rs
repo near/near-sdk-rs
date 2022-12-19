@@ -136,6 +136,7 @@ where
 {
     /// Returns a reference to filled cell, if the value at the given index is valid. If the index
     /// is out of range or has been removed, returns `None`.
+    #[allow(dead_code)]
     pub fn get(&self, index: FreeListIndex) -> Option<&T> {
         if let Slot::Occupied(value) = self.elements.get(index.0)? {
             Some(value)
@@ -145,6 +146,7 @@ where
     }
     /// Returns a mutable reference to filled cell, if the value at the given index is valid. If
     /// the index is out of range or has been removed, returns `None`.
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, index: FreeListIndex) -> Option<&mut T> {
         if let Slot::Occupied(value) = self.elements.get_mut(index.0)? {
             Some(value)
