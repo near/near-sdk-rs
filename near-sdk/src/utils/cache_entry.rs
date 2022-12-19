@@ -1,3 +1,10 @@
+/// This type acts as a guard pattern for a lazily loaded element.
+///
+/// The value type is represented as an [`Option`] where [`None`] represents the element not being
+/// present in storage.
+///
+/// This entry is marked as modified when the inner value is accessed mutably or replaced, which
+/// indicates if there needs to be state modified for that entry.
 #[derive(Clone, Debug)]
 pub(crate) struct CacheEntry<T> {
     value: Option<T>,
@@ -26,11 +33,6 @@ impl<T> CacheEntry<T> {
         &mut self.value
     }
 
-    #[allow(dead_code)]
-    pub fn into_value(self) -> Option<T> {
-        self.value
-    }
-
     /// Replaces the current value with a new one. This changes the state of the cell to mutated
     /// if either the old or new value is [`Some<T>`].
     pub fn replace(&mut self, value: Option<T>) -> Option<T> {
@@ -52,12 +54,6 @@ impl<T> CacheEntry<T> {
     /// Returns true if the entry has been modified
     pub fn is_modified(&self) -> bool {
         matches!(self.state, EntryState::Modified)
-    }
-
-    #[allow(dead_code)]
-    /// Returns true if the entry state has not been changed.
-    pub fn is_cached(&self) -> bool {
-        !self.is_modified()
     }
 }
 
