@@ -233,8 +233,8 @@ where
     }
 }
 
-///Defrag struct has helper functions to perform defragmentation of `FreeList`. See the
-/// documentation of function `FreeList->defrag` for more details.
+/// Defrag struct has helper functions to perform defragmentation of `FreeList`. See the
+/// documentation of function [`FreeList::defrag`] for more details.
 struct Defrag<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
@@ -282,6 +282,10 @@ where
             let curr_slot = self.elements.values.remove(curr_free_index.0);
             self.curr_free_slot = match curr_slot {
                 Some(Slot::Empty { next_free }) => next_free,
+                Some(Slot::Occupied(_)) => {
+                    //The free list chain should not have an occupied slot
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
                 _ => None,
             };
             if curr_free_index.0 < self.occupied_count {

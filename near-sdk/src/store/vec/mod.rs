@@ -349,7 +349,7 @@ where
         self.values.get_mut(index)
     }
 
-    pub fn swap(&mut self, a: u32, b: u32) {
+    pub(crate) fn swap(&mut self, a: u32, b: u32) {
         if a >= self.len() || b >= self.len() {
             env::panic_str(ERR_INDEX_OUT_OF_BOUNDS);
         }
