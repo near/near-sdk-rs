@@ -641,7 +641,7 @@ where
             // Check if value is in map to replace first
             let entry = self.values.get_mut_inner(key);
             if let Some(existing) = entry.value_mut() {
-                _ = mem::replace(&mut existing.key_index, FreeListIndex(new_index));
+                existing.key_index = FreeListIndex(new_index);
             }
         });
     }
