@@ -16,4 +16,6 @@ pub mod macros;
 
 pub mod storage_impl;
 
+pub mod token_holders;
+
 pub use macros::*;
