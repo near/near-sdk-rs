@@ -71,6 +71,9 @@ pub struct MultiToken {
 
     /// Next id for token
     pub next_token_id: u64,
+
+    /// Token holders with positive balance per token
+    pub holders_per_token: Option<UnorderedMap<TokenId, UnorderedSet<AccountId>>>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -88,21 +91,24 @@ pub enum StorageKey {
     TotalSupply { supply: u128 },
     Balances,
     BalancesInner { token_id: Vec<u8> },
+    TokenHoldersInner { token_id: TokenId },
 }
 
 impl MultiToken {
-    pub fn new<Q, R, S, T>(
+    pub fn new<Q, R, S, T, U>(
         owner_by_id_prefix: Q,
         owner_id: AccountId,
         token_metadata_prefix: Option<R>,
         enumeration_prefix: Option<S>,
         approval_prefix: Option<T>,
+        token_holders_prefix: Option<U>,
     ) -> Self
     where
         Q: IntoStorageKey,
         R: IntoStorageKey,
         S: IntoStorageKey,
         T: IntoStorageKey,
+        U: IntoStorageKey,
     {
         let (approvals_by_token_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix
         {
@@ -129,6 +135,7 @@ impl MultiToken {
             next_token_id: 0,
             account_storage_usage: 0,
             storage_usage_per_token: 0,
+            holders_per_token: token_holders_prefix.map(UnorderedMap::new),
         };
 
         this.measure_min_account_storage_cost();
@@ -149,6 +156,12 @@ impl MultiToken {
         user_token_balance.insert(&tmp_account_id, &u128::MAX);
 
         self.balances_per_token.insert(&tmp_token_id, &user_token_balance);
+        if let Some(holders) = &mut self.holders_per_token {
+            let mut holders_set =
+                UnorderedSet::new(StorageKey::TokenHoldersInner { token_id: tmp_token_id.clone() });
+            holders_set.insert(&tmp_account_id);
+            holders.insert(&tmp_token_id, &holders_set);
+        }
         self.storage_usage_per_token = env::storage_usage() - initial_storage_usage;
 
         self.balances_per_token.remove(&tmp_token_id);
@@ -283,6 +296,8 @@ impl MultiToken {
         self.internal_withdraw(token_id, sender_id, amount);
         self.internal_deposit(token_id, receiver_id, amount);
         self.assert_storage_usage(receiver_id);
+        self.internal_update_token_holders(token_id, receiver_id);
+        self.internal_update_token_holders(token_id, sender_id);
 
         MtTransfer {
             old_owner_id: sender_id,
@@ -369,6 +384,8 @@ impl MultiToken {
         new_balances_per_account.insert(&owner_id, &supply);
         self.balances_per_token.insert(&token_id, &new_balances_per_account);
 
+        self.internal_update_token_holders(&token_id, &owner_id);
+
         // Updates enumeration if extension is used
         if let Some(per_owner) = &mut self.tokens_per_owner {
             let mut token_ids = per_owner.get(&owner_id).unwrap_or_else(|| {
@@ -433,6 +450,28 @@ impl MultiToken {
         // Given that we are consuming the approval or the part of it
         // Return the now-deleted approvals, so that caller may restore them in case of revert.
         (grantee_id.clone(), stored_approval)
+    }
+
+    /// Used to update the set of current holders of a token.
+    pub fn internal_update_token_holders(&mut self, token_id: &TokenId, account_id: &AccountId) {
+        if let Some(token_holders_by_token) = self.holders_per_token.as_mut() {
+            let mut holders = token_holders_by_token.get(token_id).unwrap_or_else(|| {
+                UnorderedSet::new(StorageKey::TokenHoldersInner { token_id: token_id.clone() })
+            });
+            let balances = self.balances_per_token.get(token_id).expect("Token not found");
+
+            let account_balance = balances.get(account_id).expect("Account not found");
+
+            if account_balance == 0 {
+                holders.remove(account_id);
+            } else if !holders.contains(account_id) {
+                holders.insert(account_id);
+            } else {
+                return;
+            }
+
+            token_holders_by_token.insert(token_id, &holders);
+        }
     }
 }
 

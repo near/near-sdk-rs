@@ -26,6 +26,7 @@ enum StorageKey {
     TokenMetadata,
     Enumeration,
     Approval,
+    TokenHolders,
 }
 
 #[near_bindgen]
@@ -57,6 +58,7 @@ impl ExampleMTContract {
                 Some(StorageKey::TokenMetadata),
                 Some(StorageKey::Enumeration),
                 Some(StorageKey::Approval),
+                Some(StorageKey::TokenHolders),
             ),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
@@ -85,6 +87,7 @@ near_contract_standards::impl_multi_token_core!(ExampleMTContract, tokens);
 near_contract_standards::impl_multi_token_approval!(ExampleMTContract, tokens);
 near_contract_standards::impl_multi_token_enumeration!(ExampleMTContract, tokens);
 near_contract_standards::impl_multi_token_storage!(ExampleMTContract, tokens);
+near_contract_standards::impl_multi_token_holders!(ExampleMTContract, tokens);
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
@@ -114,6 +117,11 @@ mod tests {
         set_caller(&mut context, 0);
         let mut contract = ExampleMTContract::new_default_meta(accounts(0));
         let (token, _) = init_tokens(&mut contract);
+
+        // check that the token is held by the owner
+        assert!(contract
+            .mt_token_holders(token.token_id.clone(), None, None)
+            .contains(&accounts(0)));
 
         // Initial balances are what we expect.
         assert_eq!(
@@ -164,6 +172,22 @@ mod tests {
             1,
             "Wrong balance"
         );
+
+        // check that account(1) now is holder of the token
+        let holders = contract.mt_token_holders(token.token_id.clone(), None, None);
+        assert!(holders.contains(&accounts(0)));
+        assert!(holders.contains(&accounts(1)));
+
+        set_caller(&mut context, 1);
+        contract.mt_transfer(accounts(0), token.token_id.clone(), 1.into(), None, None);
+
+        // check that account(1) is no longer holder of the token
+        assert!(contract
+            .mt_token_holders(token.token_id.clone(), None, None)
+            .contains(&accounts(0)));
+        assert!(!contract
+            .mt_token_holders(token.token_id.clone(), None, None)
+            .contains(&accounts(1)));
     }
 
     #[test]

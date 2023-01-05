@@ -241,3 +241,24 @@ macro_rules! impl_multi_token_storage {
         }
     };
 }
+
+/// Multi-token token holders adds the extension standard offering a
+/// view-only methodd to get current token holders with positive balance by token_id
+#[macro_export]
+macro_rules! impl_multi_token_holders {
+    ($contract: ident, $token: ident) => {
+        use $crate::multi_token::token_holders::MultiTokenHolders;
+
+        #[near_bindgen]
+        impl MultiTokenHolders for $contract {
+            fn mt_token_holders(
+                &self,
+                token_id: TokenId,
+                from_index: Option<U128>,
+                limit: Option<u64>,
+            ) -> Vec<AccountId> {
+                self.$token.mt_token_holders(token_id, from_index, limit)
+            }
+        }
+    };
+}
