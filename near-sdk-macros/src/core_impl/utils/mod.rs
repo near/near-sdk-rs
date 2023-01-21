@@ -103,3 +103,34 @@ pub fn sanitize_self(typ: &Type, replace_with: &TokenStream2) -> syn::Result<Typ
         syn::Error::new(original.span(), "Self sanitization failed. Please report this as a bug.")
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_self_works() {
+        let typ: Type = syn::parse_str("Self").unwrap();
+        let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
+        let sanitized = sanitize_self(&typ, &replace_with).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "MyType");
+
+        let typ: Type = syn::parse_str("Vec<Self>").unwrap();
+        let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
+        let sanitized = sanitize_self(&typ, &replace_with).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "Vec < MyType >");
+
+        let typ: Type = syn::parse_str("Vec<Vec<Self>>").unwrap();
+        let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
+        let sanitized = sanitize_self(&typ, &replace_with).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "Vec < Vec < MyType > >");
+
+        let typ: Type = syn::parse_str("Option<[(Self, Result<Self, ()>); 2]>").unwrap();
+        let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
+        let sanitized = sanitize_self(&typ, &replace_with).unwrap();
+        assert_eq!(
+            quote! { #sanitized }.to_string(),
+            "Option < [(MyType , Result < MyType , () >) ; 2] >"
+        );
+    }
+}
