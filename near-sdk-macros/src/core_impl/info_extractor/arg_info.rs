@@ -58,7 +58,7 @@ impl ArgInfo {
                 ));
             }
         };
-        *original.ty.as_mut() = utils::sanitize_self(&*original.ty, &source_type)?;
+        *original.ty.as_mut() = utils::sanitize_self(&original.ty, source_type)?;
         let (reference, mutability, ty) = match original.ty.as_ref() {
             x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
                 (None, None, (*x).clone())

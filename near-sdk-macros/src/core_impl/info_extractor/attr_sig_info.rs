@@ -137,7 +137,7 @@ impl AttrSigInfo {
         let mut returns = original_sig.output.clone();
 
         if let ReturnType::Type(_, ref mut ty) = returns {
-            *ty.as_mut() = utils::sanitize_self(&*ty, &source_type)?;
+            *ty.as_mut() = utils::sanitize_self(&*ty, source_type)?;
         }
 
         let mut result = Self {

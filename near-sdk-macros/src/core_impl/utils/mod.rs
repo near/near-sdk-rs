@@ -90,7 +90,7 @@ fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> TokenStream
             TokenTree::Group(Group::new(Delimiter::None, replace_with))
         }
         TokenTree::Group(group) => {
-            let stream = _sanitize_self(group.stream(), &replace_with);
+            let stream = _sanitize_self(group.stream(), replace_with);
             TokenTree::Group(Group::new(group.delimiter(), stream))
         }
         rest => rest,
@@ -99,7 +99,7 @@ fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> TokenStream
 }
 
 pub fn sanitize_self(typ: &Type, replace_with: &TokenStream2) -> syn::Result<Type> {
-    syn::parse2(_sanitize_self(quote! { #typ }, &replace_with)).map_err(|original| {
+    syn::parse2(_sanitize_self(quote! { #typ }, replace_with)).map_err(|original| {
         syn::Error::new(original.span(), "Self sanitization failed. Please report this as a bug.")
     })
 }
