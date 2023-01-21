@@ -1,6 +1,5 @@
 //! Method signature uses Self.
 
-use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
 use serde::{Deserialize, Serialize};
 
@@ -12,28 +11,34 @@ pub struct Ident {
 
 #[near_bindgen]
 impl Ident {
-    pub fn plain_arg(a: Self) {}
+    pub fn plain_arg(_a: Self) {
+        unimplemented!()
+    }
     pub fn plain_ret() -> Self {
-        todo!()
+        unimplemented!()
     }
     pub fn plain_arg_ret(a: Self) -> Self {
-        todo!()
+        a
     }
-    pub fn nested_arg(a: Vec<Self>) {}
+    pub fn nested_arg(_a: Vec<Self>) {
+        unimplemented!()
+    }
     pub fn nested_ret() -> Vec<Self> {
-        todo!()
+        unimplemented!()
     }
     pub fn nested_arg_ret(a: Vec<Self>) -> Vec<Self> {
-        todo!()
+        a
     }
-    pub fn deeply_nested_arg(a: Option<[(Self, Result<Self, ()>); 2]>) {}
+    pub fn deeply_nested_arg(_a: Option<[(Self, Result<Self, ()>); 2]>) {
+        unimplemented!()
+    }
     pub fn deeply_nested_ret() -> Option<[(Self, Result<Self, ()>); 2]> {
-        todo!()
+        unimplemented!()
     }
     pub fn deeply_nested_arg_ret(
         a: Option<[(Self, Result<Self, ()>); 2]>,
     ) -> Option<[(Self, Result<Self, ()>); 2]> {
-        todo!()
+        a
     }
 }
 
