@@ -1,5 +1,6 @@
 use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
-use proc_macro2::Span;
+use crate::core_impl::utils;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
@@ -37,6 +38,7 @@ impl AttrSigInfo {
     pub fn new(
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
+        source_type: &TokenStream2,
     ) -> syn::Result<Self> {
         if original_sig.asyncness.is_some() {
             return Err(Error::new(
@@ -104,7 +106,7 @@ impl AttrSigInfo {
             match fn_arg {
                 FnArg::Receiver(r) => receiver = Some((*r).clone()),
                 FnArg::Typed(pat_typed) => {
-                    args.push(ArgInfo::new(pat_typed)?);
+                    args.push(ArgInfo::new(pat_typed, source_type)?);
                 }
             }
         }
@@ -132,7 +134,11 @@ impl AttrSigInfo {
         }
 
         *original_attrs = non_bindgen_attrs.clone();
-        let returns = original_sig.output.clone();
+        let mut returns = original_sig.output.clone();
+
+        if let ReturnType::Type(_, ref mut ty) = returns {
+            *ty.as_mut() = utils::sanitize_self(&*ty, &source_type)?;
+        }
 
         let mut result = Self {
             ident,

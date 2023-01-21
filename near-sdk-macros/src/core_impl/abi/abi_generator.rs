@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::spanned::Spanned;
 use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
 
@@ -16,7 +16,7 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         return TokenStream2::new();
     }
 
-    let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct(i)).collect();
+    let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
     let first_function_name = &public_functions[0].attr_signature_info.ident;
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
@@ -81,7 +81,7 @@ impl ImplItemMethodInfo {
     /// }
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
-    pub fn abi_struct(&self, i: &ItemImplInfo) -> TokenStream2 {
+    pub fn abi_struct(&self) -> TokenStream2 {
         let function_name_str = self.attr_signature_info.ident.to_string();
         let function_doc = match parse_rustdoc(&self.attr_signature_info.non_bindgen_attrs) {
             Some(doc) => quote! { Some(#doc.to_string()) },
@@ -117,8 +117,7 @@ impl ImplItemMethodInfo {
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
                 BindgenArgType::Regular => {
-                    let typ = if typ.to_token_stream().to_string() == "Self" { &i.ty } else { typ };
-                    let schema = generate_schema(typ, &arg.serializer_ty);
+                    let schema = generate_schema(&typ, &arg.serializer_ty);
                     match arg.serializer_ty {
                         SerializerType::JSON => params.push(quote! {
                             near_sdk::__private::AbiJsonParameter {
@@ -135,7 +134,7 @@ impl ImplItemMethodInfo {
                     };
                 }
                 BindgenArgType::CallbackArg => {
-                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty, &i.ty));
+                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
                 }
                 BindgenArgType::CallbackResultArg => {
                     let typ = if let Some(ok_type) = utils::extract_ok_type(typ) {
@@ -148,7 +147,7 @@ impl ImplItemMethodInfo {
                         )
                         .into_compile_error();
                     };
-                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty, &i.ty));
+                    callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
                 }
                 BindgenArgType::CallbackArgVec => {
                     if callback_vec.is_none() {
@@ -157,16 +156,13 @@ impl ImplItemMethodInfo {
                         } else {
                             return syn::Error::new_spanned(
                                 &arg.ty,
-                                "Function parameters marked with  #[callback_vec] should have type Vec<T>",
+                                "Function parameters marked with #[callback_vec] should have type Vec<T>",
                             )
                             .into_compile_error();
                         };
 
-                        let abi_type = generate_abi_type(
-                            typ,
-                            &self.attr_signature_info.result_serializer,
-                            &i.ty,
-                        );
+                        let abi_type =
+                            generate_abi_type(typ, &self.attr_signature_info.result_serializer);
                         callback_vec = Some(quote! { Some(#abi_type) })
                     } else {
                         return syn::Error::new(
@@ -216,7 +212,7 @@ impl ImplItemMethodInfo {
                         .into_compile_error();
                     };
                     let abi_type =
-                        generate_abi_type(ty, &self.attr_signature_info.result_serializer, &i.ty);
+                        generate_abi_type(ty, &self.attr_signature_info.result_serializer);
                     quote! { Some(#abi_type) }
                 }
                 ReturnType::Type(_, ty) if is_handles_result => {
@@ -228,7 +224,7 @@ impl ImplItemMethodInfo {
                 }
                 ReturnType::Type(_, ty) => {
                     let abi_type =
-                        generate_abi_type(ty, &self.attr_signature_info.result_serializer, &i.ty);
+                        generate_abi_type(ty, &self.attr_signature_info.result_serializer);
                     quote! { Some(#abi_type) }
                 }
             },
@@ -260,9 +256,8 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
     }
 }
 
-fn generate_abi_type(ty: &Type, serializer_type: &SerializerType, impl_ty: &Type) -> TokenStream2 {
-    let ty = if ty.to_token_stream().to_string() == "Self" { &impl_ty } else { ty };
-    let schema = generate_schema(ty, serializer_type);
+fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
+    let schema = generate_schema(&ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
             near_sdk::__private::AbiType::Json {
