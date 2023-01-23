@@ -1,4 +1,4 @@
-#[cfg(any(feature = "__abi-embed", feature = "__abi-generate"))]
+#[cfg(feature = "abi")]
 pub(crate) mod abi;
 mod code_generator;
 mod event;
