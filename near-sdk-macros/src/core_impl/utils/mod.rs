@@ -1,4 +1,4 @@
-use proc_macro2::{Delimiter, Group, TokenStream as TokenStream2, TokenTree};
+use proc_macro2::{Group, TokenStream as TokenStream2, TokenTree};
 use quote::quote;
 use syn::{GenericArgument, Path, PathArguments, Type};
 
@@ -78,22 +78,19 @@ pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
 
 fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> TokenStream2 {
     let trees = typ.into_iter().map(|t| match t {
-        TokenTree::Ident(ident) if ident == "Self" => {
-            let replace_with = replace_with
-                .clone()
-                .into_iter()
-                .map(|mut t| {
-                    t.set_span(ident.span());
-                    t
-                })
-                .collect();
-            TokenTree::Group(Group::new(Delimiter::None, replace_with))
-        }
+        TokenTree::Ident(ident) if ident == "Self" => replace_with
+            .clone()
+            .into_iter()
+            .map(|mut t| {
+                t.set_span(ident.span());
+                t
+            })
+            .collect::<TokenStream2>(),
         TokenTree::Group(group) => {
             let stream = _sanitize_self(group.stream(), replace_with);
-            TokenTree::Group(Group::new(group.delimiter(), stream))
+            TokenTree::Group(Group::new(group.delimiter(), stream)).into()
         }
-        rest => rest,
+        rest => rest.into(),
     });
     trees.collect()
 }
