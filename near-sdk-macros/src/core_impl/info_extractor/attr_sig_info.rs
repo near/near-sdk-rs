@@ -38,16 +38,27 @@ impl AttrSigInfo {
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
     ) -> syn::Result<Self> {
-        if original_sig
-            .generics
-            .params
-            .iter()
-            .any(|g| matches!(g, GenericParam::Type(_) | GenericParam::Const(_)))
-        {
-            return Err(Error::new(
-                original_sig.generics.span(),
-                "Contract API is not allowed to have generics.",
-            ));
+        let mut errors = vec![];
+        for generic in &original_sig.generics.params {
+            match generic {
+                GenericParam::Type(type_generic) => {
+                    errors.push(Error::new(
+                        type_generic.span(),
+                        "Contract API is not allowed to have generics.",
+                    ));
+                }
+                GenericParam::Const(const_generic) => {
+                    // `generic.span()` points to the `const` part of const generics, so we use `ident` explicitly.
+                    errors.push(Error::new(
+                        const_generic.ident.span(),
+                        "Contract API is not allowed to have generics.",
+                    ));
+                }
+                _ => {}
+            }
+        }
+        if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
+            return Err(combined_errors);
         }
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
