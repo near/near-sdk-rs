@@ -1,4 +1,5 @@
 use crate::core_impl::info_extractor::AttrSigInfo;
+use quote::ToTokens;
 use syn::{ImplItemMethod, Type, Visibility};
 
 /// Information extracted from `ImplItemMethod`.
@@ -15,7 +16,7 @@ impl ImplItemMethodInfo {
     /// Process the method and extract information important for near-sdk.
     pub fn new(original: &mut ImplItemMethod, struct_type: Type) -> syn::Result<Self> {
         let ImplItemMethod { attrs, sig, .. } = original;
-        let attr_signature_info = AttrSigInfo::new(attrs, sig)?;
+        let attr_signature_info = AttrSigInfo::new(attrs, sig, &struct_type.to_token_stream())?;
         let is_public = matches!(original.vis, Visibility::Public(_));
         Ok(Self { attr_signature_info, is_public, struct_type })
     }

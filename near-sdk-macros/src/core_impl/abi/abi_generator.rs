@@ -156,7 +156,7 @@ impl ImplItemMethodInfo {
                         } else {
                             return syn::Error::new_spanned(
                                 &arg.ty,
-                                "Function parameters marked with  #[callback_vec] should have type Vec<T>",
+                                "Function parameters marked with #[callback_vec] should have type Vec<T>",
                             )
                             .into_compile_error();
                         };
@@ -251,13 +251,13 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
             gen.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            <#ty>::schema_container()
+            <#ty as near_sdk::borsh::BorshSchema>::schema_container()
         },
     }
 }
 
 fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
-    let schema = generate_schema(ty, serializer_type);
+    let schema = generate_schema(&ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
             near_sdk::__private::AbiType::Json {
