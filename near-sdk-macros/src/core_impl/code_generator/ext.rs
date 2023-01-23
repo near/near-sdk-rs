@@ -241,7 +241,7 @@ mod tests {
             #[warn(unused)]
             pub fn method(&self) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false,impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
 
         // Note: only whitelisted non-bindgen attributes are forwarded.

@@ -1,4 +1,5 @@
-use syn::{GenericArgument, Path, PathArguments, Type};
+use syn::spanned::Spanned;
+use syn::{GenericArgument, Path, PathArguments, Signature, Type};
 
 /// Checks whether the given path is literally "Result".
 /// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
@@ -72,4 +73,25 @@ pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
         }
         _ => None,
     }
+}
+
+/// Checks that the method signature is supported in the NEAR Contract API.
+pub(crate) fn sig_is_supported(sig: &Signature) -> syn::Result<()> {
+    if sig.asyncness.is_some() {
+        return Err(syn::Error::new(sig.span(), "Contract API is not allowed to be async."));
+    }
+    if sig.abi.is_some() {
+        return Err(syn::Error::new(
+            sig.span(),
+            "Contract API is not allowed to have binary interface.",
+        ));
+    }
+    if sig.variadic.is_some() {
+        return Err(syn::Error::new(
+            sig.span(),
+            "Contract API is not allowed to have variadic arguments.",
+        ));
+    }
+
+    Ok(())
 }

@@ -1,4 +1,5 @@
 use super::AttrSigInfo;
+use crate::core_impl::utils;
 use syn::spanned::Spanned;
 use syn::{Error, LitStr, TraitItemMethod};
 
@@ -25,6 +26,7 @@ impl TraitItemMethodInfo {
 
         let TraitItemMethod { attrs, sig, .. } = original;
 
+        utils::sig_is_supported(sig)?;
         let attr_sig_info = AttrSigInfo::new(attrs, sig)?;
 
         let ident_byte_str =

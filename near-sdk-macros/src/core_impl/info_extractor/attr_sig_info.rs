@@ -38,7 +38,12 @@ impl AttrSigInfo {
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
     ) -> syn::Result<Self> {
-        if original_sig.generics.params.iter().any(|g| matches!(g, GenericParam::Type(_))) {
+        if original_sig
+            .generics
+            .params
+            .iter()
+            .any(|g| matches!(g, GenericParam::Type(_) | GenericParam::Const(_)))
+        {
             return Err(Error::new(
                 original_sig.generics.span(),
                 "Contract API is not allowed to have generics.",

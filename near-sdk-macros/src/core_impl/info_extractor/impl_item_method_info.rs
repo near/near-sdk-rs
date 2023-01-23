@@ -1,5 +1,6 @@
 use crate::core_impl::info_extractor::AttrSigInfo;
-use syn::{spanned::Spanned, Error, ImplItemMethod, Signature, Type, Visibility};
+use crate::core_impl::utils;
+use syn::{ImplItemMethod, Type, Visibility};
 
 /// Information extracted from `ImplItemMethod`.
 pub struct ImplItemMethodInfo {
@@ -10,26 +11,6 @@ pub struct ImplItemMethodInfo {
 }
 
 impl ImplItemMethodInfo {
-    fn check_sig_modifiers(sig: &Signature) -> syn::Result<()> {
-        if sig.asyncness.is_some() {
-            return Err(Error::new(sig.span(), "Contract API is not allowed to be async."));
-        }
-        if sig.abi.is_some() {
-            return Err(Error::new(
-                sig.span(),
-                "Contract API is not allowed to have binary interface.",
-            ));
-        }
-        if sig.variadic.is_some() {
-            return Err(Error::new(
-                sig.span(),
-                "Contract API is not allowed to have variadic arguments.",
-            ));
-        }
-
-        Ok(())
-    }
-
     /// Process the method and extract information important for near-sdk.
     pub fn new(
         original: &mut ImplItemMethod,
@@ -37,7 +18,7 @@ impl ImplItemMethodInfo {
         struct_type: Type,
     ) -> syn::Result<Option<Self>> {
         let ImplItemMethod { attrs, sig, .. } = original;
-        Self::check_sig_modifiers(sig)?;
+        utils::sig_is_supported(sig)?;
         if is_trait_impl || matches!(original.vis, Visibility::Public(_)) {
             let attr_signature_info = AttrSigInfo::new(attrs, sig)?;
             Ok(Some(Self { attr_signature_info, struct_type }))
