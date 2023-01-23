@@ -117,7 +117,7 @@ impl ImplItemMethodInfo {
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
                 BindgenArgType::Regular => {
-                    let schema = generate_schema(&typ, &arg.serializer_ty);
+                    let schema = generate_schema(typ, &arg.serializer_ty);
                     match arg.serializer_ty {
                         SerializerType::JSON => params.push(quote! {
                             near_sdk::__private::AbiJsonParameter {
