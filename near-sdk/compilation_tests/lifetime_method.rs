@@ -1,7 +1,8 @@
 //! Method signature uses lifetime.
+use std::borrow::Cow;
 
-use near_sdk::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near_bindgen;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -17,6 +18,9 @@ impl Ident {
         } else {
             None
         }
+    }
+    pub fn nested_lifetime<'a, 'b, 'c>(&self) -> Option<&'a Cow<'b, [&'c u8; 32]>> {
+        None
     }
 }
 

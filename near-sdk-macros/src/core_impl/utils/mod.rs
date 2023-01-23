@@ -97,7 +97,54 @@ fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> TokenStream
 
 pub fn sanitize_self(typ: &Type, replace_with: &TokenStream2) -> syn::Result<Type> {
     syn::parse2(_sanitize_self(quote! { #typ }, replace_with)).map_err(|original| {
-        syn::Error::new(original.span(), "Self sanitization failed. Please report this as a bug.")
+        let typ = quote! { #typ };
+        syn::Error::new(
+            original.span(),
+            format!("Self sanitization of `{typ}` failed. Please report this as a bug."),
+        )
+    })
+}
+
+fn _sanitize_lifetime(typ: TokenStream2) -> TokenStream2 {
+    let mut lt_quote = None;
+    let x = typ
+        .into_iter()
+        .flat_map(|tree| match tree {
+            TokenTree::Punct(punct) if lt_quote.is_none() && punct.as_char() == '\'' => {
+                lt_quote = Some(Some(TokenTree::Punct(punct)));
+                None.into_iter().chain(None.into_iter())
+            }
+            TokenTree::Ident(_) if matches!(lt_quote, Some(Some(_))) => {
+                lt_quote = Some(None);
+                None.into_iter().chain(None.into_iter())
+            }
+            TokenTree::Punct(punct) if matches!(lt_quote, Some(None)) && punct.as_char() == ',' => {
+                lt_quote.take();
+                None.into_iter().chain(None.into_iter())
+            }
+            tree => lt_quote.take().flatten().into_iter().chain(match tree {
+                TokenTree::Group(group) => {
+                    lt_quote = None;
+                    Some(TokenTree::Group(Group::new(
+                        group.delimiter(),
+                        _sanitize_lifetime(group.stream()),
+                    )))
+                    .into_iter()
+                }
+                _ => Some(tree).into_iter(),
+            }),
+        })
+        .collect::<Vec<_>>();
+    x.into_iter().collect()
+}
+
+pub fn sanitize_lifetime(typ: &Type) -> syn::Result<Type> {
+    syn::parse2(_sanitize_lifetime(quote! { #typ })).map_err(|original| {
+        let typ = quote! { #typ };
+        syn::Error::new(
+            original.span(),
+            format!("Lifetime sanitization of `{typ}` failed. Please report this as a bug."),
+        )
     })
 }
 
@@ -129,5 +176,24 @@ mod tests {
             quote! { #sanitized }.to_string(),
             "Option < [(MyType , Result < MyType , () >) ; 2] >"
         );
+    }
+
+    #[test]
+    fn sanitize_lifetime_works() {
+        let typ: Type = syn::parse_str("&'a str").unwrap();
+        let sanitized = sanitize_lifetime(&typ).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "& str");
+
+        let typ: Type = syn::parse_str("Vec<&'a str>").unwrap();
+        let sanitized = sanitize_lifetime(&typ).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "Vec < & str >");
+
+        let typ: Type = syn::parse_str("Cow<'a, [u8; 32]>").unwrap();
+        let sanitized = sanitize_lifetime(&typ).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "Cow < [u8 ; 32] >");
+
+        let typ: Type = syn::parse_str("MultiLifetime<'a, 'b, [&'c u8; 32]>").unwrap();
+        let sanitized = sanitize_lifetime(&typ).unwrap();
+        assert_eq!(quote! { #sanitized }.to_string(), "MultiLifetime < [& u8 ; 32] >");
     }
 }
