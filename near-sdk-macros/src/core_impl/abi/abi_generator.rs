@@ -251,7 +251,7 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
             gen.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            <#ty>::schema_container()
+            <#ty as near_sdk::borsh::BorshSchema>::schema_container()
         },
     }
 }
