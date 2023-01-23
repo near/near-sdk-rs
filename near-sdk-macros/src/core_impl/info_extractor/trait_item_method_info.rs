@@ -1,5 +1,6 @@
 use super::AttrSigInfo;
 use crate::core_impl::utils;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::spanned::Spanned;
 use syn::{Error, LitStr, TraitItemMethod};
 
@@ -14,7 +15,7 @@ pub struct TraitItemMethodInfo {
 }
 
 impl TraitItemMethodInfo {
-    pub fn new(original: &mut TraitItemMethod) -> syn::Result<Self> {
+    pub fn new(original: &mut TraitItemMethod, trait_name: &TokenStream2) -> syn::Result<Self> {
         if original.default.is_some() {
             return Err(Error::new(
                 original.span(),
@@ -27,7 +28,7 @@ impl TraitItemMethodInfo {
         let TraitItemMethod { attrs, sig, .. } = original;
 
         utils::sig_is_supported(sig)?;
-        let attr_sig_info = AttrSigInfo::new(attrs, sig)?;
+        let attr_sig_info = AttrSigInfo::new(attrs, sig, trait_name)?;
 
         let ident_byte_str =
             LitStr::new(&attr_sig_info.ident.to_string(), attr_sig_info.ident.span());

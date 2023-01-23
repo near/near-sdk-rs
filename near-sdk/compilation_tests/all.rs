@@ -24,4 +24,5 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     t.compile_fail("compilation_tests/generic_function.rs");
     t.compile_fail("compilation_tests/generic_const_function.rs");
+    t.pass("compilation_tests/self_support.rs");
 }
