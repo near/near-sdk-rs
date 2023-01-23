@@ -3,7 +3,7 @@ use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
+use syn::{Attribute, Error, FnArg, GenericParam, Ident, Receiver, ReturnType, Signature};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
@@ -40,25 +40,28 @@ impl AttrSigInfo {
         original_sig: &mut Signature,
         source_type: &TokenStream2,
     ) -> syn::Result<Self> {
-        if original_sig.asyncness.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to be async.",
-            ));
+        let mut errors = vec![];
+        for generic in &original_sig.generics.params {
+            match generic {
+                GenericParam::Type(type_generic) => {
+                    errors.push(Error::new(
+                        type_generic.span(),
+                        "Contract API is not allowed to have generics.",
+                    ));
+                }
+                GenericParam::Const(const_generic) => {
+                    // `generic.span()` points to the `const` part of const generics, so we use `ident` explicitly.
+                    errors.push(Error::new(
+                        const_generic.ident.span(),
+                        "Contract API is not allowed to have generics.",
+                    ));
+                }
+                _ => {}
+            }
         }
-        if original_sig.abi.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have binary interface.",
-            ));
+        if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
+            return Err(combined_errors);
         }
-        if original_sig.variadic.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have variadic arguments.",
-            ));
-        }
-
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
         let mut args = vec![];

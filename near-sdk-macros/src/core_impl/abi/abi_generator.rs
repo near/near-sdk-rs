@@ -9,15 +9,13 @@ use crate::core_impl::{
 };
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
-    let public_functions: Vec<&ImplItemMethodInfo> =
-        i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect();
-    if public_functions.is_empty() {
+    if i.methods.is_empty() {
         // Short-circuit if there are no public functions to export to ABI
         return TokenStream2::new();
     }
 
-    let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
-    let first_function_name = &public_functions[0].attr_signature_info.ident;
+    let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
+    let first_function_name = &i.methods[0].attr_signature_info.ident;
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]

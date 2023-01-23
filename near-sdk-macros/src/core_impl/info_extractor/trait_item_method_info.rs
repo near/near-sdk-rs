@@ -1,4 +1,5 @@
 use super::AttrSigInfo;
+use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::spanned::Spanned;
 use syn::{Error, LitStr, TraitItemMethod};
@@ -26,6 +27,7 @@ impl TraitItemMethodInfo {
 
         let TraitItemMethod { attrs, sig, .. } = original;
 
+        utils::sig_is_supported(sig)?;
         let attr_sig_info = AttrSigInfo::new(attrs, sig, trait_name)?;
 
         let ident_byte_str =
