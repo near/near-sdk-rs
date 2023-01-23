@@ -14,8 +14,6 @@ pub type IteratorIndex = u64;
 /// calls are available to the contract invoked through the callback.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PromiseResult {
-    /// Current version of the protocol never returns `PromiseResult::NotReady`.
-    NotReady,
     Successful(Vec<u8>),
     Failed,
 }
@@ -24,7 +22,6 @@ pub enum PromiseResult {
 impl From<PromiseResult> for VmPromiseResult {
     fn from(p: PromiseResult) -> Self {
         match p {
-            PromiseResult::NotReady => Self::NotReady,
             PromiseResult::Successful(v) => Self::Successful(v),
             PromiseResult::Failed => Self::Failed,
         }
@@ -37,6 +34,4 @@ impl From<PromiseResult> for VmPromiseResult {
 pub enum PromiseError {
     /// Promise result failed.
     Failed,
-    /// Current version of the protocol never returns this variant.
-    NotReady,
 }

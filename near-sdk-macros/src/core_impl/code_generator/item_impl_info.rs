@@ -399,12 +399,10 @@ mod tests {
                 }
                 let mut x: Result<u64, PromiseError> = match near_sdk::env::promise_result(0u64) {
                     near_sdk::PromiseResult::Successful(data) => Ok(near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")),
-                    near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
                     near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
                 };
                 let y: Result<String, PromiseError> = match near_sdk::env::promise_result(1u64) {
                     near_sdk::PromiseResult::Successful(data) => Ok(near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")),
-                    near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
                     near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
                 };
                 let contract: Hello = near_sdk::env::state_read().unwrap_or_default();
