@@ -59,13 +59,8 @@ impl ArgInfo {
             }
         };
         *original.ty.as_mut() = utils::sanitize_self(&original.ty, source_type)?;
-        let (reference, mutability, ty) = match original.ty.as_ref() {
-            x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
-                (None, None, (*x).clone())
-            }
-            Type::Reference(r) => (Some(r.and_token), r.mutability, (*r.elem.as_ref()).clone()),
-            _ => return Err(Error::new(original.span(), "Unsupported argument type.")),
-        };
+        let (reference, mutability, ty) =
+            utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.

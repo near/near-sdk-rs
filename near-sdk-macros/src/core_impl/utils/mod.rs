@@ -1,6 +1,7 @@
-use proc_macro2::{Group, TokenStream as TokenStream2, TokenTree};
+use proc_macro2::{Group, Span, TokenStream as TokenStream2, TokenTree};
 use quote::quote;
 use syn::spanned::Spanned;
+use syn::token::{And, Mut};
 use syn::{GenericArgument, Path, PathArguments, Signature, Type};
 
 /// Checks whether the given path is literally "Result".
@@ -74,6 +75,20 @@ pub(crate) fn extract_vec_type(ty: &Type) -> Option<&Type> {
             }
         }
         _ => None,
+    }
+}
+
+/// Extracts reference and mutability tokens from a `Type` object. Also, strips top-level lifetime binding if present.
+pub(crate) fn extract_ref_mut(
+    ty: &Type,
+    span: Span,
+) -> syn::Result<(Option<And>, Option<Mut>, Type)> {
+    match ty {
+        x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
+            Ok((None, None, (*x).clone()))
+        }
+        Type::Reference(r) => Ok((Some(r.and_token), r.mutability, (*r.elem.as_ref()).clone())),
+        _ => Err(syn::Error::new(span, "Unsupported contract API type.")),
     }
 }
 

@@ -137,11 +137,13 @@ impl AttrSigInfo {
         }
 
         *original_attrs = non_bindgen_attrs.clone();
-        let mut returns = original_sig.output.clone();
-
-        if let ReturnType::Type(_, ref mut ty) = returns {
-            *ty.as_mut() = utils::sanitize_self(&*ty, source_type)?;
-        }
+        let returns = match &original_sig.output {
+            ReturnType::Default => ReturnType::Default,
+            ReturnType::Type(arrow, ty) => {
+                let (_, _, ty) = utils::extract_ref_mut(ty, ty.span())?;
+                ReturnType::Type(*arrow, utils::sanitize_self(&ty, source_type)?.into())
+            }
+        };
 
         let mut result = Self {
             ident,
