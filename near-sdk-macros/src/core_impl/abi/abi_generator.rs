@@ -9,15 +9,13 @@ use crate::core_impl::{
 };
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
-    let public_functions: Vec<&ImplItemMethodInfo> =
-        i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect();
-    if public_functions.is_empty() {
+    if i.methods.is_empty() {
         // Short-circuit if there are no public functions to export to ABI
         return TokenStream2::new();
     }
 
-    let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
-    let first_function_name = &public_functions[0].attr_signature_info.ident;
+    let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
+    let first_function_name = &i.methods[0].attr_signature_info.ident;
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]
@@ -156,7 +154,7 @@ impl ImplItemMethodInfo {
                         } else {
                             return syn::Error::new_spanned(
                                 &arg.ty,
-                                "Function parameters marked with  #[callback_vec] should have type Vec<T>",
+                                "Function parameters marked with #[callback_vec] should have type Vec<T>",
                             )
                             .into_compile_error();
                         };
@@ -251,13 +249,13 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
             gen.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            <#ty>::schema_container()
+            <#ty as near_sdk::borsh::BorshSchema>::schema_container()
         },
     }
 }
 
 fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
-    let schema = generate_schema(ty, serializer_type);
+    let schema = generate_schema(&ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
             near_sdk::__private::AbiType::Json {
