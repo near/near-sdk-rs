@@ -56,7 +56,7 @@ mod tests {
             #[handle_result]
             pub fn method(k: &mut u64) -> Result<Self, Error> { }
         };
-        let method = ImplItemMethodInfo::new(&mut method, false, impl_type.clone()).unwrap().unwrap();
+        let method = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method.attr_signature_info.returns;
         let expected: Type = syn::parse_str("Result<Hello, Error>").unwrap();
         assert!(matches!(actual, ReturnType::Type(_, ty) if ty.as_ref() == &expected));

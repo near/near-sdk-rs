@@ -135,7 +135,7 @@ impl AttrSigInfo {
             ReturnType::Type(_, ref mut ty) => {
                 match ty.as_mut() {
                     x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
-                        *ty = utils::sanitize_self(&x, source_type)?.into();
+                        *ty = utils::sanitize_self(x, source_type)?.into();
                     }
                     Type::Reference(ref mut r) => {
                         r.elem = utils::sanitize_self(&r.elem, source_type)?.into();
