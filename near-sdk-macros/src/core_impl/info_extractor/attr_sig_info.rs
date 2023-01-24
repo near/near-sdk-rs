@@ -7,7 +7,7 @@ use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, GenericParam, Ident, Receiver, ReturnType, Signature};
+use syn::{Attribute, Error, FnArg, GenericParam, Ident, Receiver, ReturnType, Signature, Type};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfoV2 {
@@ -130,11 +130,18 @@ impl AttrSigInfo {
     }
 
     fn sanitize_self(original_sig: &mut Signature, source_type: &TokenStream2) -> syn::Result<()> {
-        original_sig.output = match &original_sig.output {
-            ReturnType::Default => ReturnType::Default,
-            ReturnType::Type(arrow, ty) => {
-                let (_, _, ty) = utils::extract_ref_mut(ty, ty.span())?;
-                ReturnType::Type(*arrow, utils::sanitize_self(&ty, source_type)?.into())
+        match original_sig.output {
+            ReturnType::Default => {}
+            ReturnType::Type(_, ref mut ty) => {
+                match ty.as_mut() {
+                    x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
+                        *ty = utils::sanitize_self(&x, source_type)?.into();
+                    }
+                    Type::Reference(ref mut r) => {
+                        r.elem = utils::sanitize_self(&r.elem, source_type)?.into();
+                    }
+                    _ => return Err(syn::Error::new(ty.span(), "Unsupported contract API type.")),
+                };
             }
         };
         Ok(())
@@ -173,11 +180,11 @@ impl AttrSigInfo {
         // Run early checks to determine the method type
         let mut visitor: Box<dyn BindgenVisitor> =
             if original_attrs.iter().any(|a| a.path.to_token_stream().to_string() == "init") {
-                Box::new(InitVisitor::default())
+                Box::<InitVisitor>::default()
             } else if Self::is_view(original_sig) {
-                Box::new(ViewVisitor::default())
+                Box::<ViewVisitor>::default()
             } else {
-                Box::new(CallVisitor::default())
+                Box::<CallVisitor>::default()
             };
 
         let ident = original_sig.ident.clone();
