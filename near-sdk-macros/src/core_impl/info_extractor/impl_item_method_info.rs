@@ -33,7 +33,7 @@ impl ImplItemMethodInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{parse_quote, Type, ImplItemMethod};
+    use syn::{parse_quote, Type, ImplItemMethod, ReturnType};
     use crate::core_impl::ImplItemMethodInfo;
 
     #[test]
@@ -46,6 +46,20 @@ mod tests {
         let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
         let expected = "Init function must return the contract state.";
         assert_eq!(expected, actual.to_string());
+    }
+
+    #[test]
+    fn init_result_return() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            #[handle_result]
+            pub fn method(k: &mut u64) -> Result<Self, Error> { }
+        };
+        let method = ImplItemMethodInfo::new(&mut method, false, impl_type.clone()).unwrap().unwrap();
+        let actual = method.attr_signature_info.returns;
+        let expected: Type = syn::parse_str("Result<Hello, Error>").unwrap();
+        assert!(matches!(actual, ReturnType::Type(_, ty) if ty.as_ref() == &expected));
     }
 
     #[test]
