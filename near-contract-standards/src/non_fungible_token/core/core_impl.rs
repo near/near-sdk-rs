@@ -428,7 +428,6 @@ impl NonFungibleTokenResolver for NonFungibleToken {
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
-            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
                     yes_or_no

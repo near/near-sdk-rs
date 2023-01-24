@@ -11,7 +11,7 @@ use syn::{Error, ItemImpl};
 
 /// Information relevant to metadata extracted from the `impl` section decorated with `#[near_bindgen]`.
 #[derive(Default)]
-pub struct MetadataVisitor {
+pub(crate) struct MetadataVisitor {
     impl_item_infos: Vec<ItemImplInfo>,
     /// Errors that occured while extracting the data.
     errors: Vec<Error>,

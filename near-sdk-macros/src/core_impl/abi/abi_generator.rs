@@ -9,27 +9,31 @@ use crate::core_impl::{
 };
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
-    let public_functions: Vec<&ImplItemMethodInfo> =
-        i.methods.iter().filter(|m| m.is_public || i.is_trait_impl).collect();
-    if public_functions.is_empty() {
+    if i.methods.is_empty() {
         // Short-circuit if there are no public functions to export to ABI
         return TokenStream2::new();
     }
 
-    let functions: Vec<TokenStream2> = public_functions.iter().map(|m| m.abi_struct()).collect();
-    let first_function_name = &public_functions[0].attr_signature_info.ident;
+    let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
+    let first_function_name = &i.methods[0].attr_signature_info.ident;
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]
         const _: () = {
             #[no_mangle]
-            pub fn #near_abi_symbol() -> near_sdk::__private::ChunkedAbiEntry {
+            pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
                 let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
-                near_sdk::__private::ChunkedAbiEntry::new(
-                    functions,
-                    gen.into_root_schema_for::<String>()
-                )
+                let mut data = std::mem::ManuallyDrop::new(
+                    near_sdk::serde_json::to_vec(&near_sdk::__private::ChunkedAbiEntry::new(
+                        functions,
+                        gen.into_root_schema_for::<String>(),
+                    ))
+                    .unwrap(),
+                );
+                data.shrink_to_fit();
+                assert!(data.len() == data.capacity());
+                (data.as_ptr(), data.len())
             }
         };
     }
@@ -81,13 +85,27 @@ impl ImplItemMethodInfo {
             Some(doc) => quote! { Some(#doc.to_string()) },
             None => quote! { None },
         };
-        let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
-        let is_init = matches!(
-            &self.attr_signature_info.method_type,
-            &MethodType::Init | &MethodType::InitIgnoreState
-        );
-        let AttrSigInfo { is_payable, is_private, is_handles_result, .. } =
-            self.attr_signature_info;
+        let mut modifiers = vec![];
+        let kind = match &self.attr_signature_info.method_type {
+            &MethodType::View => quote! { near_sdk::__private::AbiFunctionKind::View },
+            &MethodType::Regular => {
+                quote! { near_sdk::__private::AbiFunctionKind::Call }
+            }
+            &MethodType::Init | &MethodType::InitIgnoreState => {
+                modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Init });
+                quote! { near_sdk::__private::AbiFunctionKind::Call }
+            }
+        };
+        if self.attr_signature_info.is_payable {
+            modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Payable });
+        }
+        if self.attr_signature_info.is_private {
+            modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Private });
+        }
+        let modifiers = quote! {
+            vec![#(#modifiers),*]
+        };
+        let AttrSigInfo { is_handles_result, .. } = self.attr_signature_info;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();
@@ -97,13 +115,21 @@ impl ImplItemMethodInfo {
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
                 BindgenArgType::Regular => {
-                    let abi_type = generate_abi_type(typ, &arg.serializer_ty);
-                    params.push(quote! {
-                        near_sdk::__private::AbiParameter {
-                            name: #arg_name.to_string(),
-                            typ: #abi_type
-                        }
-                    });
+                    let schema = generate_schema(typ, &arg.serializer_ty);
+                    match arg.serializer_ty {
+                        SerializerType::JSON => params.push(quote! {
+                            near_sdk::__private::AbiJsonParameter {
+                                name: #arg_name.to_string(),
+                                type_schema: #schema,
+                            }
+                        }),
+                        SerializerType::Borsh => params.push(quote! {
+                            near_sdk::__private::AbiBorshParameter {
+                                name: #arg_name.to_string(),
+                                type_schema: #schema,
+                            }
+                        }),
+                    };
                 }
                 BindgenArgType::CallbackArg => {
                     callbacks.push(generate_abi_type(typ, &arg.serializer_ty));
@@ -128,7 +154,7 @@ impl ImplItemMethodInfo {
                         } else {
                             return syn::Error::new_spanned(
                                 &arg.ty,
-                                "Function parameters marked with  #[callback_vec] should have type Vec<T>",
+                                "Function parameters marked with #[callback_vec] should have type Vec<T>",
                             )
                             .into_compile_error();
                         };
@@ -146,6 +172,18 @@ impl ImplItemMethodInfo {
                 }
             };
         }
+        let params = match self.attr_signature_info.input_serializer {
+            SerializerType::JSON => quote! {
+                near_sdk::__private::AbiParameters::Json {
+                    args: vec![#(#params),*]
+                }
+            },
+            SerializerType::Borsh => quote! {
+                near_sdk::__private::AbiParameters::Borsh {
+                    args: vec![#(#params),*]
+                }
+            },
+        };
         let callback_vec = callback_vec.unwrap_or(quote! { None });
 
         let result = match self.attr_signature_info.method_type {
@@ -194,11 +232,9 @@ impl ImplItemMethodInfo {
              near_sdk::__private::AbiFunction {
                  name: #function_name_str.to_string(),
                  doc: #function_doc,
-                 is_view: #is_view,
-                 is_init: #is_init,
-                 is_payable: #is_payable,
-                 is_private: #is_private,
-                 params: vec![#(#params),*],
+                 kind: #kind,
+                 modifiers: #modifiers,
+                 params: #params,
                  callbacks: vec![#(#callbacks),*],
                  callbacks_vec: #callback_vec,
                  result: #result
@@ -207,16 +243,28 @@ impl ImplItemMethodInfo {
     }
 }
 
+fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
+    match serializer_type {
+        SerializerType::JSON => quote! {
+            gen.subschema_for::<#ty>()
+        },
+        SerializerType::Borsh => quote! {
+            <#ty as near_sdk::borsh::BorshSchema>::schema_container()
+        },
+    }
+}
+
 fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
+    let schema = generate_schema(&ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
             near_sdk::__private::AbiType::Json {
-                type_schema: gen.subschema_for::<#ty>(),
+                type_schema: #schema,
             }
         },
         SerializerType::Borsh => quote! {
             near_sdk::__private::AbiType::Borsh {
-                type_schema: <#ty>::schema_container(),
+                type_schema: #schema,
             }
         },
     }

@@ -1,18 +1,19 @@
-use near_sdk::{near_bindgen, metadata};
+//! Functions can't use generics.
+
 use borsh::{BorshDeserialize, BorshSerialize};
-metadata! {
+use near_sdk::near_bindgen;
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
-struct Incrementer {
+struct Ident {
     value: u32,
 }
 
 #[near_bindgen]
-impl Incrementer {
-    pub fn inc(&mut self, by: u32) {
-        self.value += by;
+impl Ident {
+    pub fn is_ident<T>(&self, val: T) -> T {
+        val
     }
-}
 }
 
 fn main() {}

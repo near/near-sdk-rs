@@ -5,12 +5,15 @@
 #[cfg(test)]
 extern crate quickcheck;
 
+#[cfg(all(feature = "unstable", feature = "abi"))]
+pub use near_sdk_macros::NearSchema;
 pub use near_sdk_macros::{
-    ext_contract, metadata, near_bindgen, BorshStorageKey, FunctionError, PanicOnDefault,
+    ext_contract, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, PanicOnDefault,
 };
 
 pub mod store;
 
+#[cfg(feature = "legacy")]
 pub mod collections;
 mod environment;
 pub use environment::env;
@@ -19,7 +22,7 @@ pub use environment::env;
 pub use near_sys as sys;
 
 mod promise;
-pub use promise::{Promise, PromiseOrValue};
+pub use promise::{Allowance, Promise, PromiseOrValue};
 
 // Private types just used within macro generation, not stable to be used.
 #[doc(hidden)]
