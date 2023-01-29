@@ -223,6 +223,90 @@ where
     pub fn drain(&mut self) -> Drain<T> {
         Drain::new(self)
     }
+
+    /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
+    /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
+    /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
+    pub fn defrag<F>(&mut self, callback: F)
+    where
+        F: FnMut(&T, u32),
+    {
+        Defrag::new(self).defrag(callback);
+        self.first_free = None;
+    }
+}
+
+/// Defrag struct has helper functions to perform defragmentation of `FreeList`. See the
+/// documentation of function [`FreeList::defrag`] for more details.
+struct Defrag<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    elements: &'a mut Vector<Slot<T>>,
+    occupied_count: u32,
+    curr_free_slot: Option<FreeListIndex>,
+    defrag_index: u32,
+}
+
+impl<'a, T> Defrag<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Create a new struct for defragmenting `FreeList`.
+    fn new(list: &'a mut FreeList<T>) -> Self {
+        Self {
+            elements: &mut list.elements,
+            occupied_count: list.occupied_count,
+            defrag_index: list.occupied_count,
+            curr_free_slot: list.first_free,
+        }
+    }
+
+    fn defrag<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&T, u32),
+    {
+        while let Some(curr_free_index) = self.next_free_slot() {
+            if let Some((value, occupied_index)) = self.next_occupied() {
+                callback(value, curr_free_index.0);
+                //The entry at curr_free_index.0 should have `None` by now.
+                //Moving it to `occupied_index` will make that entry empty.
+                self.elements.swap(curr_free_index.0, occupied_index);
+            } else {
+                //Could not find an occupied slot to fill the free slot
+                env::panic_str(ERR_INCONSISTENT_STATE)
+            }
+        }
+        self.elements.len = self.occupied_count;
+    }
+
+    fn next_free_slot(&mut self) -> Option<FreeListIndex> {
+        while let Some(curr_free_index) = self.curr_free_slot {
+            let curr_slot = self.elements.values.remove(curr_free_index.0);
+            self.curr_free_slot = match curr_slot {
+                Some(Slot::Empty { next_free }) => next_free,
+                Some(Slot::Occupied(_)) => {
+                    //The free list chain should not have an occupied slot
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
+                _ => None,
+            };
+            if curr_free_index.0 < self.occupied_count {
+                return Some(curr_free_index);
+            }
+        }
+        None
+    }
+
+    fn next_occupied(&mut self) -> Option<(&T, u32)> {
+        while self.defrag_index < self.elements.len {
+            if let Some(Slot::Occupied(value)) = self.elements.get(self.defrag_index) {
+                return Some((value, self.defrag_index));
+            }
+            self.defrag_index += 1;
+        }
+        None
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -250,6 +334,41 @@ mod tests {
 
         *bucket.get_mut(i3).unwrap() = 4;
         assert_eq!(bucket.get(i3), Some(&4));
+    }
+
+    #[test]
+    fn defrag() {
+        let mut bucket = FreeList::new(b"b");
+        assert!(bucket.is_empty());
+        let i1 = bucket.insert(1u8);
+        let i2 = bucket.insert(2u8);
+        let i3 = bucket.insert(3u8);
+        let i4 = bucket.insert(4u8);
+        let i5 = bucket.insert(5u8);
+        let i6 = bucket.insert(6u8);
+        let i7 = bucket.insert(7u8);
+        let i8 = bucket.insert(8u8);
+        assert_eq!(bucket.occupied_count, 8);
+
+        //Empty, Empty, Empty, Empty, Occupied, Empty, Occupied, Empty
+        bucket.remove(i2);
+        bucket.remove(i4);
+        bucket.remove(i1);
+        bucket.remove(i6);
+        bucket.remove(i3);
+        bucket.remove(i8);
+        assert_eq!(bucket.occupied_count, 2);
+
+        //5 should move to index 0, 7 should move to index 1
+        bucket.defrag(|_, _| {});
+
+        //Check the free slots chain is complete after defrag
+        assert_eq!(bucket.occupied_count, bucket.len());
+
+        assert_eq!(*bucket.get(i1).unwrap(), 5u8);
+        assert_eq!(*bucket.get(i2).unwrap(), 7u8);
+        assert!(bucket.get(i5).is_none());
+        assert!(bucket.get(i7).is_none());
     }
 
     #[test]
