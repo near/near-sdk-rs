@@ -37,10 +37,10 @@ near-abi = { version = "0.3.0", features = ["__chunked-entries"], optional = tru
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # alt_bn128 feature will need to be removed on the next version update (now stabilized)
-near-vm-logic = { version = "0.14", optional = true, features = ["protocol_feature_alt_bn128"] }
-near-primitives-core = { version = "0.14", optional = true }
-near-primitives = { version = "0.14", optional = true }
-near-crypto = { version = "0.14", optional = true }
+near-vm-logic = { git = "https://github.com/near/nearcore.git", rev = "6e08a41084c632010b1d4c42132ad58ecf1398a2", optional = true, features = [] }
+near-primitives-core = { git = "https://github.com/near/nearcore.git", rev = "6e08a41084c632010b1d4c42132ad58ecf1398a2", optional = true }
+near-primitives = { git = "https://github.com/near/nearcore.git", rev = "6e08a41084c632010b1d4c42132ad58ecf1398a2", optional = true }
+near-crypto = { git = "https://github.com/near/nearcore.git", rev = "6e08a41084c632010b1d4c42132ad58ecf1398a2", optional = true }
 
 [dev-dependencies]
 rand = "0.8.4"
@@ -48,8 +48,8 @@ trybuild = "1.0"
 rustversion = "1.0"
 rand_xorshift = "0.3"
 quickcheck = "1.0"
-arbitrary = { version = ">=1.0, <1.1.4", features = ["derive"] }
-derive_arbitrary = ">=1.0, <=1.1.6"
+arbitrary = { version = "1.2.3", features = ["derive"] }
+derive_arbitrary = "1.2.3"
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]

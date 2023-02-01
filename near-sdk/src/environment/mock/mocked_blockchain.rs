@@ -61,7 +61,7 @@ impl MockedBlockchain {
         let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
         ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
-        let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
+        let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory::default())); // TODO: find a better way to del with MockedMemory
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
@@ -118,7 +118,7 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
         signer_account_pk: context.signer_account_pk.into_bytes(),
         predecessor_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
         input: context.input,
-        block_index: context.block_index,
+        block_height: context.block_index,
         block_timestamp: context.block_timestamp,
         epoch_height: context.epoch_height,
         account_balance: context.account_balance,
@@ -178,7 +178,13 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
 
 fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
     // Hack by serializing and deserializing the key. This format should be consistent.
-    String::from(key).parse().unwrap()
+    // String::from(key).parse().unwrap()
+    let key_type = if key.key_type() as u8 == 0 { 0u8 } else { 1u8 };
+
+    let mut pubkey_bytes = vec![key_type];
+    pubkey_bytes.extend(key.key_data());
+
+    PublicKey::try_from(pubkey_bytes).unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -576,5 +582,25 @@ mod mock_chain {
     #[no_mangle]
     extern "C" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
         with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
+    }
+    #[no_mangle]
+    extern "C" fn ed25519_verify(
+        signature_len: u64,
+        signature_ptr: u64,
+        message_len: u64,
+        message_ptr: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.ed25519_verify(
+                signature_len,
+                signature_ptr,
+                message_len,
+                message_ptr,
+                public_key_len,
+                public_key_ptr,
+            )
+        })
     }
 }
