@@ -569,6 +569,15 @@ pub enum PromiseOrValue<T> {
     Value(T),
 }
 
+impl<T> Default for PromiseOrValue<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        PromiseOrValue::Value(T::default())
+    }
+}
+
 impl<T> BorshSchema for PromiseOrValue<T>
 where
     T: BorshSchema,
