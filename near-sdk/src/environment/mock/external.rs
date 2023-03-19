@@ -1,7 +1,7 @@
 use near_primitives::types::TrieNodesCount;
 use near_primitives_core::hash::{hash, CryptoHash};
 use near_primitives_core::types::{AccountId, Balance};
-use near_vm_logic::{External, ValuePtr};
+use near_vm_logic::{External, StorageGetMode, ValuePtr};
 use std::collections::HashMap;
 
 type Result<T> = ::core::result::Result<T, near_vm_logic::VMLogicError>;
@@ -41,7 +41,11 @@ impl External for SdkExternal {
         Ok(())
     }
 
-    fn storage_get(&self, key: &[u8]) -> Result<Option<Box<dyn ValuePtr>>> {
+    fn storage_get(
+        &self,
+        key: &[u8],
+        _storage_get_mode: StorageGetMode,
+    ) -> Result<Option<Box<dyn ValuePtr>>> {
         Ok(self
             .fake_trie
             .get(key)

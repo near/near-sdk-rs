@@ -45,7 +45,7 @@ pub struct VMContext {
     /// Encoded as base64 string to be able to pass input in borsh binary format.
     pub input: Vec<u8>,
     /// The current block height.
-    pub block_index: BlockHeight,
+    pub block_height: BlockHeight,
     /// The current block timestamp (number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC).
     pub block_timestamp: u64,
     /// The current epoch height.
@@ -90,7 +90,7 @@ impl VMContextBuilder {
                 signer_account_pk: vec![0u8; 33].try_into().unwrap(),
                 predecessor_account_id: bob(),
                 input: vec![],
-                block_index: 0,
+                block_height: 0,
                 block_timestamp: 0,
                 epoch_height: 0,
                 account_balance: 10u128.pow(26),
@@ -125,8 +125,8 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn block_index(&mut self, block_index: BlockHeight) -> &mut Self {
-        self.context.block_index = block_index;
+    pub fn block_height(&mut self, block_height: BlockHeight) -> &mut Self {
+        self.context.block_height = block_height;
         self
     }
 
