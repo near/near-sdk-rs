@@ -240,11 +240,18 @@ that allows to compile the binary.
 
 **Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contract-builder)**
 
+## NEAR contract standards
+
+This [cargo](!https://github.com/near/near-sdk-rs/tree/master/near-contract-standards) provides a set of interfaces and implementations for NEAR's contract standards:
+ - Upgradability
+ - Fungible Token (NEP-141). See [example usage](examples/fungible-token)
+
+
 ## Versioning
 
 ### Semantic Versioning
 
-This crate follows [Cargo's semver guidelines](https://doc.rust-lang.org/cargo/reference/semver.html). 
+This crate follows [Cargo's semver guidelines](https://doc.rust-lang.org/cargo/reference/semver.html).
 
 State breaking changes (low-level serialization format of any data type) will be avoided at all costs. If a change like this were to happen, it would come with a major version and come with a compiler error. If you encounter one that does not, [open an issue](https://github.com/near/near-sdk-rs/issues/new)!
 
