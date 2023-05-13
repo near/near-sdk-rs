@@ -206,8 +206,10 @@ impl NonFungibleToken {
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
-        let approved_account_ids =
-            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
+        let approved_account_ids = self
+            .approvals_by_id
+            .as_mut()
+            .and_then(|by_id| by_id.remove(token_id).or_else(|| Some(HashMap::new())));
 
         // check if authorized
         let sender_id = if sender_id != &owner_id {
