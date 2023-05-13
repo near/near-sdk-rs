@@ -466,7 +466,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         // 1. revert any approvals receiver already set, refunding storage costs
         // 2. reset approvals to what previous owner had set before call to nft_transfer_call
         if let Some(by_id) = &mut self.approvals_by_id {
-            if let Some(receiver_approvals) = by_id.get(&token_id) {
+            if let Some(receiver_approvals) = by_id.remove(&token_id) {
                 refund_approved_account_ids(receiver_id.clone(), &receiver_approvals);
             }
             if let Some(previous_owner_approvals) = approved_account_ids {
