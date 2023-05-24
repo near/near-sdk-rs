@@ -206,16 +206,15 @@ impl NonFungibleToken {
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
-        let approved_account_ids = self
-            .approvals_by_id
-            .as_mut()
-            .map(|by_id| by_id.remove(token_id).unwrap_or_default());
+        let approved_account_ids = 
+            self.approvals_by_id.as_mut().map(|by_id| by_id.remove(token_id).unwrap_or_default());
 
         // check if authorized
         let sender_id = if sender_id != &owner_id {
             // Panic if approval extension is NOT being used
-            let app_acc_ids =
-                approved_account_ids.as_ref().unwrap_or_else(|| env::panic_str("Approval extension is disabled"));
+            let app_acc_ids = approved_account_ids
+                .as_ref()
+                .unwrap_or_else(|| env::panic_str("Approval extension is disabled"));
 
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = app_acc_ids.get(sender_id);
