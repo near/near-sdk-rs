@@ -1,0 +1,5 @@
+error: Contract API is not allowed to have generics.
+  --> compilation_tests/generic_const_function.rs:14:33
+   |
+14 |     pub fn is_ident_const<const N: usize>(&self, val: [u32; N]) -> [u32; N] {
+   |                                 ^

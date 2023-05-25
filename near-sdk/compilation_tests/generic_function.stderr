@@ -1,0 +1,5 @@
+error: Contract API is not allowed to have generics.
+  --> compilation_tests/generic_function.rs:14:21
+   |
+14 |     pub fn is_ident<T>(&self, val: T) -> T {
+   |                     ^
