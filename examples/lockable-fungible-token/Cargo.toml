@@ -12,12 +12,12 @@ near-sdk = { path = "../../near-sdk" }
 
 [dev-dependencies]
 anyhow = "1.0"
-near-primitives = "0.5.0"
+near-primitives = "0.17"
 near-sdk = { path = "../../near-sdk" }
 near-units = "0.2.0"
 serde_json = "1.0"
 tokio = { version = "1.14", features = ["full"] }
-workspaces = "0.5.0"
+workspaces = "0.7.0"
 
 [profile.release]
 codegen-units = 1
