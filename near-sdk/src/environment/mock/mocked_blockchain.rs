@@ -103,7 +103,7 @@ impl MockedBlockchain {
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
-        self.logic.borrow_mut().gas(gas_amount).unwrap()
+        self.logic.borrow_mut().gas(gas_amount as u64).unwrap()
     }
 
     /// Returns logs created so far by the runtime.

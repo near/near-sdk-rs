@@ -36,10 +36,10 @@ once_cell = { version = "1.17", default-features = false }
 near-abi = { version = "0.3.0", features = ["__chunked-entries"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-near-vm-logic = { version = "0.16", optional = true }
-near-primitives-core = { version = "0.16", optional = true }
-near-primitives = { version = "0.16", optional = true }
-near-crypto = { version = "0.16", optional = true }
+near-vm-logic = { version = "0.17", optional = true }
+near-primitives-core = { version = "0.17", optional = true }
+near-primitives = { version = "0.17", optional = true }
+near-crypto = { version = "0.17", optional = true }
 
 [dev-dependencies]
 rand = "0.8.4"

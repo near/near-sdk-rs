@@ -62,7 +62,7 @@ impl External for SdkExternal {
         Ok(())
     }
 
-    fn storage_has_key(&mut self, key: &[u8]) -> Result<bool> {
+    fn storage_has_key(&mut self, key: &[u8], _mode: StorageGetMode) -> Result<bool> {
         Ok(self.fake_trie.contains_key(key))
     }
 
