@@ -207,13 +207,14 @@ impl NonFungibleToken {
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
         let approved_account_ids =
-            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
+            self.approvals_by_id.as_mut().map(|by_id| by_id.remove(token_id).unwrap_or_default());
 
         // check if authorized
         let sender_id = if sender_id != &owner_id {
-            // if approval extension is NOT being used, or if token has no approved accounts
-            let app_acc_ids =
-                approved_account_ids.as_ref().unwrap_or_else(|| env::panic_str("Unauthorized"));
+            // Panic if approval extension is NOT being used
+            let app_acc_ids = approved_account_ids
+                .as_ref()
+                .unwrap_or_else(|| env::panic_str("Approval extension is disabled"));
 
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = app_acc_ids.get(sender_id);
@@ -466,7 +467,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         // 1. revert any approvals receiver already set, refunding storage costs
         // 2. reset approvals to what previous owner had set before call to nft_transfer_call
         if let Some(by_id) = &mut self.approvals_by_id {
-            if let Some(receiver_approvals) = by_id.get(&token_id) {
+            if let Some(receiver_approvals) = by_id.remove(&token_id) {
                 refund_approved_account_ids(receiver_id.clone(), &receiver_approvals);
             }
             if let Some(previous_owner_approvals) = approved_account_ids {
