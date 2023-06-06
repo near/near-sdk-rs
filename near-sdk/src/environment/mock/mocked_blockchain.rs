@@ -1,5 +1,5 @@
 use super::{Receipt, SdkExternal};
-// TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.16
+// TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
 use crate::mock::mocked_memory::MockedMemory;
 use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;

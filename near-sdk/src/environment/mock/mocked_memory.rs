@@ -1,4 +1,4 @@
-//!This file is to be removed once near-vm-logic is updated from version 0.16
+//!This file is to be removed once near-vm-logic is updated from version 0.17 and MockedMemory size can be customized
 use near_vm_logic::{MemSlice, MemoryLike};
 
 #[derive(Default)]
