@@ -4,7 +4,7 @@
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
 use std::convert::TryInto;
-use std::mem::size_of;
+use std::mem::{size_of, size_of_val};
 use std::panic as std_panic;
 use std::{convert::TryFrom, mem::MaybeUninit};
 
@@ -460,7 +460,7 @@ pub fn promise_then(
 
 /// Creates a new promise which completes when time all promises passed as arguments complete.
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
-    let mut data = vec![0u8; promise_indices.len() * size_of::<PromiseIndex>()];
+    let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
         data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
             .copy_from_slice(&promise_indices[i].to_le_bytes());
