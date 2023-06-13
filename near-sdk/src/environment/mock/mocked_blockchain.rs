@@ -4,7 +4,7 @@ use crate::mock::mocked_memory::MockedMemory;
 use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{Balance, PromiseResult};
-use crate::{Gas, RuntimeFeesConfig};
+use crate::{CurveType, Gas, RuntimeFeesConfig};
 use crate::{PublicKey, VMContext};
 use near_crypto::PublicKey as VmPublicKey;
 use near_primitives::transaction::Action as PrimitivesAction;
@@ -182,8 +182,11 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
 
 fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
     // Hack by serializing and deserializing the key. This format should be consistent.
-    let key_bytes = [&[key.key_type() as u8], key.key_data()].concat();
-    PublicKey::try_from(key_bytes).unwrap()
+    let curve_type = match key.key_type() {
+        near_crypto::KeyType::ED25519 => CurveType::ED25519,
+        near_crypto::KeyType::SECP256K1 => CurveType::SECP256K1,
+    };
+    PublicKey::from_parts(curve_type, key.key_data().to_vec()).unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
