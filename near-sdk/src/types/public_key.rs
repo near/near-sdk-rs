@@ -76,7 +76,7 @@ impl PublicKey {
         }
     }
 
-    fn from_parts(curve: CurveType, data: Vec<u8>) -> Result<Self, ParsePublicKeyError> {
+    pub fn from_parts(curve: CurveType, data: Vec<u8>) -> Result<Self, ParsePublicKeyError> {
         let expected_length = curve.data_len();
         if data.len() != expected_length {
             return Err(ParsePublicKeyError {

@@ -125,8 +125,14 @@ impl VMContextBuilder {
         self
     }
 
+    #[deprecated(since = "4.1.2", note = "Use `block_height` method instead")]
     pub fn block_index(&mut self, block_index: BlockHeight) -> &mut Self {
         self.context.block_index = block_index;
+        self
+    }
+
+    pub fn block_height(&mut self, block_height: BlockHeight) -> &mut Self {
+        self.context.block_index = block_height;
         self
     }
 
