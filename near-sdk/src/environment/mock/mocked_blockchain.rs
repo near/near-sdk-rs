@@ -181,7 +181,6 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
 }
 
 fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
-    // Hack by serializing and deserializing the key. This format should be consistent.
     let curve_type = match key.key_type() {
         near_crypto::KeyType::ED25519 => CurveType::ED25519,
         near_crypto::KeyType::SECP256K1 => CurveType::SECP256K1,
