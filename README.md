@@ -242,9 +242,11 @@ that allows to compile the binary.
 
 ## NEAR contract standards
 
-This [cargo](!https://github.com/near/near-sdk-rs/tree/master/near-contract-standards) provides a set of interfaces and implementations for NEAR's contract standards:
- - Upgradability
- - Fungible Token (NEP-141). See [example usage](examples/fungible-token)
+[`near-contract-standards` crate](https://github.com/near/near-sdk-rs/tree/master/near-contract-standards) provides a set of interfaces and implementations for NEAR's contract standards:
+
+- Upgradability
+- Fungible Token (NEP-141). See [example usage](examples/fungible-token)
+- Non-Fungible Token (NEP-171). See [example usage](examples/non-fungible-token)
 
 
 ## Versioning
