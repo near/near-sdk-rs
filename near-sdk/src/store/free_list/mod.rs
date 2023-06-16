@@ -323,6 +323,25 @@ mod tests {
     use crate::test_utils::test_env::setup_free;
 
     #[test]
+    fn new_bucket_is_empty() {
+        let bucket: FreeList<u8> = FreeList::new(b"b");
+        assert!(bucket.is_empty());
+    }
+
+    #[test]
+    fn occupied_count_gets_updated() {
+        let mut bucket = FreeList::new(b"b");
+        let indices: Vec<_> = (0..5).map(|i| bucket.insert(i)).collect();
+
+        assert_eq!(bucket.occupied_count, 5);
+
+        bucket.remove(indices[1]);
+        bucket.remove(indices[3]);
+
+        assert_eq!(bucket.occupied_count, 3);
+    }
+
+    #[test]
     fn basic_functionality() {
         let mut bucket = FreeList::new(b"b");
         assert!(bucket.is_empty());
@@ -341,36 +360,27 @@ mod tests {
     #[test]
     fn defrag() {
         let mut bucket = FreeList::new(b"b");
-        assert!(bucket.is_empty());
-        let i1 = bucket.insert(1u8);
-        let i2 = bucket.insert(2u8);
-        let i3 = bucket.insert(3u8);
-        let i4 = bucket.insert(4u8);
-        let i5 = bucket.insert(5u8);
-        let i6 = bucket.insert(6u8);
-        let i7 = bucket.insert(7u8);
-        let i8 = bucket.insert(8u8);
-        assert_eq!(bucket.occupied_count, 8);
+        let indices: Vec<_> = (0..8).map(|i| bucket.insert(i)).collect();
 
         //Empty, Empty, Empty, Empty, Occupied, Empty, Occupied, Empty
-        bucket.remove(i2);
-        bucket.remove(i4);
-        bucket.remove(i1);
-        bucket.remove(i6);
-        bucket.remove(i3);
-        bucket.remove(i8);
-        assert_eq!(bucket.occupied_count, 2);
+        bucket.remove(indices[1]);
+        bucket.remove(indices[3]);
+        bucket.remove(indices[0]);
+        bucket.remove(indices[5]);
+        bucket.remove(indices[2]);
+        bucket.remove(indices[7]);
 
-        //5 should move to index 0, 7 should move to index 1
+        //4 should move to index 0, 6 should move to index 1
         bucket.defrag(|_, _| {});
 
         //Check the free slots chain is complete after defrag
         assert_eq!(bucket.occupied_count, bucket.len());
 
-        assert_eq!(*bucket.get(i1).unwrap(), 5u8);
-        assert_eq!(*bucket.get(i2).unwrap(), 7u8);
-        assert!(bucket.get(i5).is_none());
-        assert!(bucket.get(i7).is_none());
+        assert_eq!(*bucket.get(indices[0]).unwrap(), 4u8);
+        assert_eq!(*bucket.get(indices[1]).unwrap(), 6u8);
+        for i in indices[2..].iter() {
+            assert_eq!(bucket.get(*i), None);
+        }
     }
 
     #[test]
