@@ -777,35 +777,33 @@ mod tests {
     #[test]
     fn defrag() {
         let mut map = UnorderedMap::new(b"b");
-        map.insert(0u8, 0u8);
-        map.insert(1, 1);
-        map.insert(2, 2);
-        map.insert(3, 3);
-        map.insert(4, 4);
-        map.insert(5, 5);
-        map.insert(6, 6);
-        map.insert(7, 7);
-        map.insert(8, 8);
 
-        for id in 1..4u8 {
-            map.remove(&(id * 2));
+        let all_indices = 0..=8;
+
+        for i in all_indices {
+            map.insert(i, i);
+        }
+
+        let removed = [2, 4, 6];
+        let existing = [0, 1, 3, 5, 7, 8];
+
+        for id in removed {
+            map.remove(&id);
         }
 
         map.defrag();
 
-        assert!(map.get(&2u8).is_none());
-        assert!(map.get(&4u8).is_none());
-        assert!(map.get(&6u8).is_none());
-        assert_eq!(*map.get(&1u8).unwrap(), 1u8);
-        assert_eq!(*map.get(&3u8).unwrap(), 3u8);
-        assert_eq!(*map.get(&5u8).unwrap(), 5u8);
-        assert_eq!(*map.get(&7u8).unwrap(), 7u8);
-        assert_eq!(*map.get(&8u8).unwrap(), 8u8);
+        for i in removed {
+            assert_eq!(map.get(&i), None);
+        }
+        for i in existing {
+            assert_eq!(map.get(&i), Some(&i));
+        }
 
         //Check the elements moved during defragmentation
-        assert_eq!(map.remove_entry(&7u8).unwrap(), (7, 7));
-        assert_eq!(map.remove_entry(&8u8).unwrap(), (8, 8));
-        assert_eq!(map.remove_entry(&1u8).unwrap(), (1, 1));
-        assert_eq!(map.remove_entry(&3u8).unwrap(), (3, 3));
+        assert_eq!(map.remove_entry(&7).unwrap(), (7, 7));
+        assert_eq!(map.remove_entry(&8).unwrap(), (8, 8));
+        assert_eq!(map.remove_entry(&1).unwrap(), (1, 1));
+        assert_eq!(map.remove_entry(&3).unwrap(), (3, 3));
     }
 }
