@@ -408,6 +408,23 @@ where
         prev
     }
 
+    /// Removes the last n elements from a vector. Returns `true` on success.
+    /// If the vector is shorter than n, returns `false` without committing any changes.
+    pub(crate) fn remove_tail(&mut self, n: u32) -> bool {
+        let new_idx = match self.len.checked_sub(n) {
+            Some(new_idx) => new_idx,
+            None => return false,
+        };
+
+        for ix in new_idx..self.len {
+            self.values.remove(ix);
+        }
+
+        self.len = new_idx;
+
+        true
+    }
+
     /// Inserts a element at `index`, returns an evicted element.
     ///
     /// # Panics
@@ -567,6 +584,23 @@ mod tests {
         for _ in 0..501 {
             assert_eq!(baseline.pop(), vec.pop());
         }
+    }
+
+    #[test]
+    fn test_remove_tail() {
+        let mut vec = Vector::new(b"v".to_vec());
+
+        vec.push(5);
+        vec.push(2);
+        vec.push(3);
+        vec.remove_tail(2);
+
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(0), Some(&5));
+        assert_eq!(vec.get(1), None);
+        assert_eq!(vec.values.get(1), None);
+        assert_eq!(vec.get(2), None);
+        assert_eq!(vec.values.get(2), None);
     }
 
     #[test]

@@ -277,14 +277,16 @@ where
                 env::panic_str(ERR_INCONSISTENT_STATE)
             }
         }
-        self.elements.len = self.occupied_count;
+
+        // After defragmenting, these should all be `Slot::Empty`.
+        self.elements.remove_tail(self.elements.len() - self.occupied_count);
     }
 
     fn next_free_slot(&mut self) -> Option<FreeListIndex> {
         while let Some(curr_free_index) = self.curr_free_slot {
-            let curr_slot = self.elements.values.remove(curr_free_index.0);
+            let curr_slot = self.elements.get(curr_free_index.0);
             self.curr_free_slot = match curr_slot {
-                Some(Slot::Empty { next_free }) => next_free,
+                Some(Slot::Empty { next_free }) => *next_free,
                 Some(Slot::Occupied(_)) => {
                     //The free list chain should not have an occupied slot
                     env::panic_str(ERR_INCONSISTENT_STATE)
