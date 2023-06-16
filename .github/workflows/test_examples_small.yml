@@ -13,7 +13,8 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
+        # after fix of https://github.com/near/nearcore/pull/9140#issuecomment-1576655073, it should be [stable]
+        toolchain: [1.69.0]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"

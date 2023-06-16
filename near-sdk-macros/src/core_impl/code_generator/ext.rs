@@ -241,7 +241,7 @@ mod tests {
             #[warn(unused)]
             pub fn method(&self) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
 
         // Note: only whitelisted non-bindgen attributes are forwarded.
@@ -267,7 +267,7 @@ mod tests {
         let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self, k: &String) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
             pub fn method(self, k: &String,) -> near_sdk::Promise {
@@ -298,7 +298,7 @@ mod tests {
         let mut method: ImplItemMethod = parse_quote! {
           pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, impl_type).unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
           pub fn borsh_test(self, a: String,) -> near_sdk::Promise {
