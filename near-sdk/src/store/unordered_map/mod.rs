@@ -636,6 +636,32 @@ where
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
 {
+    /// Remove empty placeholders leftover from calling [`remove`](Self::remove).
+    ///
+    /// When elements are removed using [`remove`](Self::remove), the underlying vector isn't
+    /// rearranged; instead, the removed element is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
+    /// to remedy that by removing all empty slots from the underlying vector and compacting it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b");
+    ///
+    /// for i in 0..4 {
+    ///     map.insert(i, i);
+    /// }
+    ///
+    /// map.remove(&1);
+    /// map.remove(&3);
+    ///
+    /// map.defrag();
+    /// ```
     pub fn defrag(&mut self) {
         self.keys.defrag(|key, new_index| {
             // Check if value is in map to replace first
