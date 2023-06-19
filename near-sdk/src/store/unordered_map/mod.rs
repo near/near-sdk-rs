@@ -664,9 +664,7 @@ where
     /// ```
     pub fn defrag(&mut self) {
         self.keys.defrag(|key, new_index| {
-            // Check if value is in map to replace first
-            let entry = self.values.get_mut_inner(key);
-            if let Some(existing) = entry.value_mut() {
+            if let Some(existing) = self.values.get_mut(key) {
                 existing.key_index = FreeListIndex(new_index);
             }
         });
