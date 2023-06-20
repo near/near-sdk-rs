@@ -535,6 +535,16 @@ where
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
     ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of keys isn't
+    /// rearranged; instead, the removed key is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
+    ///
     /// # Examples
     ///
     /// ```
@@ -562,6 +572,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of keys isn't
+    /// rearranged; instead, the removed key is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
     ///
     /// # Examples
     ///
