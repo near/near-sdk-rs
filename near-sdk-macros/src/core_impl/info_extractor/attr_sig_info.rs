@@ -165,7 +165,6 @@ impl AttrSigInfo {
             return Err(combined_errors);
         }
 
-        // Run early checks to determine the method type
         let mut visitor = Visitor::new(original_attrs, original_sig);
 
         let ident = original_sig.ident.clone();

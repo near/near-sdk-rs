@@ -26,6 +26,7 @@ impl Visitor {
     pub fn new(original_attrs: &[Attribute], original_sig: &Signature) -> Self {
         use VisitorKind::*;
 
+        // Run early checks to determine the method type
         let kind = if is_init(original_attrs) {
             Init
         } else if is_view(original_sig) {
