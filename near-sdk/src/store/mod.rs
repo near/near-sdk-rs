@@ -39,7 +39,7 @@
 //! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //! guarantees.
 //!
-//! - [`TreeMap`] (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
+//! - [`TreeMap`](TreeMap) (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
 //! which comes at the cost of more expensive lookups and iteration.
 //!
 //! Sets:
