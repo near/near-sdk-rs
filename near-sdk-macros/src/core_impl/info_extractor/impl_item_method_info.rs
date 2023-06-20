@@ -97,4 +97,16 @@ mod tests {
         assert_eq!(expected, actual.to_string());
     }
 
+
+    #[test]
+    fn payable_self_by_value_fails() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[payable]
+            pub fn method(self) -> Self { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let expected = "View function can't be payable.";
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 }
