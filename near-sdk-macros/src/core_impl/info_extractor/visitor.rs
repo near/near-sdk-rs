@@ -6,6 +6,7 @@ use syn::{spanned::Spanned, Attribute, Error, FnArg, Receiver, ReturnType, Signa
 /// Traversal abstraction to walk a method declaration and build it's respective [MethodKind].
 pub struct Visitor {
     kind: VisitorKind,
+    handles_result: bool,
     is_payable: bool,
     is_private: bool,
     ignores_state: bool,
@@ -35,6 +36,7 @@ impl Visitor {
 
         Self {
             kind,
+            handles_result: Default::default(),
             is_payable: Default::default(),
             is_private: Default::default(),
             ignores_state: Default::default(),
@@ -124,11 +126,11 @@ impl Visitor {
         }
     }
 
-    pub fn visit_return_type(
-        &mut self,
-        handle_result: bool,
-        return_type: &ReturnType,
-    ) -> syn::Result<()> {
+    pub fn visit_handles_result(&mut self) {
+        self.handles_result = true
+    }
+
+    pub fn visit_return_type(&mut self, return_type: &ReturnType) -> syn::Result<()> {
         use VisitorKind::*;
 
         self.returns = match return_type {
@@ -143,7 +145,7 @@ impl Visitor {
             },
             ReturnType::Type(_, typ) => Some(Returns {
                 original: return_type.clone(),
-                kind: parse_return_kind(typ, handle_result)?,
+                kind: parse_return_kind(typ, self.handles_result)?,
             }),
         };
         Ok(())
@@ -160,6 +162,7 @@ impl Visitor {
             result_serializer,
             returns,
             receiver,
+            ..
         } = self;
 
         let returns = returns.expect("Expected `visit_result` to be called at least once.");

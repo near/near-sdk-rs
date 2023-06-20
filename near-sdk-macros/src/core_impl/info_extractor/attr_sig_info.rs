@@ -170,7 +170,6 @@ impl AttrSigInfo {
 
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
-        let mut handles_result = false;
 
         // Visit attributes
         for attr in original_attrs.iter() {
@@ -191,7 +190,7 @@ impl AttrSigInfo {
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {
-                    handles_result = true;
+                    visitor.visit_handles_result();
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
@@ -211,7 +210,7 @@ impl AttrSigInfo {
         }
 
         // Visit return type
-        visitor.visit_return_type(handles_result, &original_sig.output)?;
+        visitor.visit_return_type(&original_sig.output)?;
         let method_kind = visitor.build();
 
         *original_attrs = non_bindgen_attrs.clone();
