@@ -1424,6 +1424,8 @@ dependencies = [
  "Inflector",
  "proc-macro2",
  "quote",
+ "strum",
+ "strum_macros",
  "syn 1.0.109",
 ]
 
