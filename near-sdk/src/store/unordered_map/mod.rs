@@ -535,6 +535,16 @@ where
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
     ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of keys isn't
+    /// rearranged; instead, the removed key is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
+    ///
     /// # Examples
     ///
     /// ```
@@ -562,6 +572,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of keys isn't
+    /// rearranged; instead, the removed key is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
     ///
     /// # Examples
     ///
@@ -627,6 +647,47 @@ where
     pub fn flush(&mut self) {
         self.keys.flush();
         self.values.flush();
+    }
+}
+
+impl<K, V, H> UnorderedMap<K, V, H>
+where
+    K: BorshSerialize + BorshDeserialize + Ord + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: ToKey,
+{
+    /// Remove empty placeholders leftover from calling [`remove`](Self::remove).
+    ///
+    /// When elements are removed using [`remove`](Self::remove), the underlying vector isn't
+    /// rearranged; instead, the removed element is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
+    /// to remedy that by removing all empty slots from the underlying vector and compacting it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b");
+    ///
+    /// for i in 0..4 {
+    ///     map.insert(i, i);
+    /// }
+    ///
+    /// map.remove(&1);
+    /// map.remove(&3);
+    ///
+    /// map.defrag();
+    /// ```
+    pub fn defrag(&mut self) {
+        self.keys.defrag(|key, new_index| {
+            if let Some(existing) = self.values.get_mut(key) {
+                existing.key_index = FreeListIndex(new_index);
+            }
+        });
     }
 }
 
@@ -755,5 +816,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn defrag() {
+        let mut map = UnorderedMap::new(b"b");
+
+        let all_indices = 0..=8;
+
+        for i in all_indices {
+            map.insert(i, i);
+        }
+
+        let removed = [2, 4, 6];
+        let existing = [0, 1, 3, 5, 7, 8];
+
+        for id in removed {
+            map.remove(&id);
+        }
+
+        map.defrag();
+
+        for i in removed {
+            assert_eq!(map.get(&i), None);
+        }
+        for i in existing {
+            assert_eq!(map.get(&i), Some(&i));
+        }
+
+        //Check the elements moved during defragmentation
+        assert_eq!(map.remove_entry(&7).unwrap(), (7, 7));
+        assert_eq!(map.remove_entry(&8).unwrap(), (8, 8));
+        assert_eq!(map.remove_entry(&1).unwrap(), (1, 1));
+        assert_eq!(map.remove_entry(&3).unwrap(), (3, 3));
     }
 }
