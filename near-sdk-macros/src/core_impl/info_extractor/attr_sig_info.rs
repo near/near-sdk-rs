@@ -128,7 +128,7 @@ impl AttrSigInfo {
                     Type::Reference(ref mut r) => {
                         r.elem = utils::sanitize_self(&r.elem, source_type)?.into();
                     }
-                    _ => return Err(syn::Error::new(ty.span(), "Unsupported contract API type.")),
+                    _ => return Err(Error::new(ty.span(), "Unsupported contract API type.")),
                 };
             }
         };
