@@ -1,12 +1,13 @@
 use super::{Receipt, SdkExternal};
+// TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
+use crate::mock::mocked_memory::MockedMemory;
 use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{Balance, PromiseResult};
-use crate::{Gas, RuntimeFeesConfig};
+use crate::{CurveType, Gas, RuntimeFeesConfig};
 use crate::{PublicKey, VMContext};
 use near_crypto::PublicKey as VmPublicKey;
 use near_primitives::transaction::Action as PrimitivesAction;
-use near_vm_logic::mocks::mock_memory::MockedMemory;
 use near_vm_logic::types::PromiseResult as VmPromiseResult;
 use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic};
 use std::cell::RefCell;
@@ -61,7 +62,7 @@ impl MockedBlockchain {
         let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
         ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
-        let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
+        let memory = memory_opt.unwrap_or_else(|| Box::<MockedMemory>::default());
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
@@ -102,7 +103,7 @@ impl MockedBlockchain {
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
-        self.logic.borrow_mut().gas(gas_amount).unwrap()
+        self.logic.borrow_mut().gas(gas_amount.into()).unwrap()
     }
 
     /// Returns logs created so far by the runtime.
@@ -118,7 +119,7 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
         signer_account_pk: context.signer_account_pk.into_bytes(),
         predecessor_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
         input: context.input,
-        block_index: context.block_index,
+        block_height: context.block_index,
         block_timestamp: context.block_timestamp,
         epoch_height: context.epoch_height,
         account_balance: context.account_balance,
@@ -173,12 +174,18 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
         PrimitivesAction::DeleteAccount(a) => {
             VmAction::DeleteAccount { beneficiary_id: a.beneficiary_id.parse().unwrap() }
         }
+        PrimitivesAction::Delegate(_d) => {
+            panic!("Unimplemented")
+        }
     }
 }
 
 fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
-    // Hack by serializing and deserializing the key. This format should be consistent.
-    String::from(key).parse().unwrap()
+    let curve_type = match key.key_type() {
+        near_crypto::KeyType::ED25519 => CurveType::ED25519,
+        near_crypto::KeyType::SECP256K1 => CurveType::SECP256K1,
+    };
+    PublicKey::from_parts(curve_type, key.key_data().to_vec()).unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -288,6 +295,26 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| {
             b.ecrecover(hash_len, hash_ptr, sig_len, sig_ptr, v, malleability_flag, register_id)
+        })
+    }
+    #[no_mangle]
+    extern "C" fn ed25519_verify(
+        signature_len: u64,
+        signature_ptr: u64,
+        message_len: u64,
+        message_ptr: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.ed25519_verify(
+                signature_len,
+                signature_ptr,
+                message_len,
+                message_ptr,
+                public_key_len,
+                public_key_ptr,
+            )
         })
     }
     #[no_mangle]
