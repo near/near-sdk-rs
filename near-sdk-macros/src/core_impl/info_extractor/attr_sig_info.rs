@@ -1,4 +1,4 @@
-use super::visitor::{BindgenVisitor, CallVisitor, InitVisitor, ViewVisitor};
+use super::visitor::Visitor;
 use super::{
     ArgInfo, BindgenArgType, InitAttr, MethodKind, MethodType, ReturnKind, SerializerAttr,
     SerializerType,
@@ -117,18 +117,6 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
 }
 
 impl AttrSigInfo {
-    fn is_view(sig: &Signature) -> bool {
-        let receiver_opt = sig.inputs.iter().find_map(|arg| match arg {
-            FnArg::Receiver(r) => Some(r),
-            _ => None,
-        });
-
-        match receiver_opt {
-            Some(receiver) => receiver.reference.is_none() || receiver.mutability.is_none(),
-            None => true,
-        }
-    }
-
     fn sanitize_self(original_sig: &mut Signature, source_type: &TokenStream2) -> syn::Result<()> {
         match original_sig.output {
             ReturnType::Default => {}
@@ -178,18 +166,13 @@ impl AttrSigInfo {
         }
 
         // Run early checks to determine the method type
-        let mut visitor: Box<dyn BindgenVisitor> =
-            if original_attrs.iter().any(|a| a.path.to_token_stream().to_string() == "init") {
-                Box::<InitVisitor>::default()
-            } else if Self::is_view(original_sig) {
-                Box::<ViewVisitor>::default()
-            } else {
-                Box::<CallVisitor>::default()
-            };
+        let mut visitor = Visitor::new(original_attrs, original_sig);
 
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
         let mut handles_result = false;
+
+        // Visit attributes
         for attr in original_attrs.iter() {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
@@ -216,6 +199,7 @@ impl AttrSigInfo {
             }
         }
 
+        // Visit arguments
         let mut args = vec![];
         for fn_arg in &mut original_sig.inputs {
             match fn_arg {
@@ -226,8 +210,9 @@ impl AttrSigInfo {
             }
         }
 
+        // Visit return type
         visitor.visit_result(handles_result, &original_sig.output)?;
-        let method_kind = visitor.build()?;
+        let method_kind = visitor.build();
 
         *original_attrs = non_bindgen_attrs.clone();
 
