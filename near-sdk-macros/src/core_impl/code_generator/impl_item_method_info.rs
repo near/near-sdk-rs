@@ -154,15 +154,8 @@ impl ImplItemMethodInfo {
                     .to_compile_error();
                 }
                 ReturnType::Type(_, return_type) if utils::type_is_result(return_type) => {
-                    return syn::Error::new(
-                        return_type.span(),
-                        "Serializing Result<T, E> has been deprecated. Consider marking your method \
-                        with #[handle_result] if the second generic represents a panicable error or \
-                        replacing Result with another two type sum enum otherwise. If you really want \
-                        to keep the legacy behavior, mark the method with #[handle_result] and make \
-                        it return Result<Result<T, E>, near_sdk::Abort>.",
-                    )
-                    .to_compile_error();
+                    return syn::Error::new(return_type.span(), RESULT_DEPRECATED_MESSAGE)
+                        .to_compile_error();
                 }
                 ReturnType::Type(_, _) => {
                     let value_ser = match result_serializer {
@@ -243,6 +236,12 @@ fn init_method_wrapper(
             return_type.span(),
             "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
         )),
+        ReturnType::Type(_, return_type) if utils::type_is_result(return_type) => {
+            Err(syn::Error::new(
+                return_type.span(),
+                RESULT_DEPRECATED_MESSAGE
+            ))
+        }
         ReturnType::Type(_, _) => Ok(quote! {
             #state_check
             let contract = #struct_type::#ident(#arg_list);
@@ -250,3 +249,10 @@ fn init_method_wrapper(
         }),
     }
 }
+
+static RESULT_DEPRECATED_MESSAGE: &str = "\
+Serializing Result<T, E> has been deprecated. Consider marking your method \
+with #[handle_result] if the second generic represents a panicable error or \
+replacing Result with another two type sum enum otherwise. If you really want \
+to keep the legacy behavior, mark the method with #[handle_result] and make \
+it return Result<Result<T, E>, near_sdk::Abort>.";
