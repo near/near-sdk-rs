@@ -6,13 +6,30 @@ use syn::{spanned::Spanned, Attribute, Error, FnArg, Receiver, ReturnType, Signa
 /// Traversal abstraction to walk a method declaration and build it's respective [MethodKind].
 pub struct Visitor {
     kind: VisitorKind,
+    return_type: ReturnType,
+    parsed_data: ParsedData,
+}
+
+struct ParsedData {
     handles_result: bool,
     is_payable: bool,
     is_private: bool,
     ignores_state: bool,
     result_serializer: SerializerType,
-    return_type: ReturnType,
     receiver: Option<Receiver>,
+}
+
+impl Default for ParsedData {
+    fn default() -> Self {
+        Self {
+            handles_result: Default::default(),
+            is_payable: Default::default(),
+            is_private: Default::default(),
+            ignores_state: Default::default(),
+            result_serializer: SerializerType::JSON,
+            receiver: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, strum_macros::Display)]
@@ -35,16 +52,7 @@ impl Visitor {
             Call
         };
 
-        Self {
-            kind,
-            handles_result: Default::default(),
-            is_payable: Default::default(),
-            is_private: Default::default(),
-            ignores_state: Default::default(),
-            result_serializer: SerializerType::JSON,
-            return_type: original_sig.output.clone(),
-            receiver: Default::default(),
-        }
+        Self { kind, return_type: original_sig.output.clone(), parsed_data: Default::default() }
     }
 
     pub fn visit_init_attr(&mut self, attr: &Attribute, init_attr: &InitAttr) -> syn::Result<()> {
@@ -52,7 +60,7 @@ impl Visitor {
 
         match self.kind {
             Init => {
-                self.ignores_state = init_attr.ignore_state;
+                self.parsed_data.ignores_state = init_attr.ignore_state;
                 Ok(())
             }
             Call | View => {
@@ -68,7 +76,7 @@ impl Visitor {
 
         match self.kind {
             Call | Init => {
-                self.is_payable = true;
+                self.parsed_data.is_payable = true;
                 Ok(())
             }
             View => {
@@ -83,7 +91,7 @@ impl Visitor {
 
         match self.kind {
             Call | View => {
-                self.is_private = true;
+                self.parsed_data.is_private = true;
                 Ok(())
             }
             Init => {
@@ -102,7 +110,7 @@ impl Visitor {
 
         match self.kind {
             Call | View => {
-                self.result_serializer = result_serializer_attr.serializer_type.clone();
+                self.parsed_data.result_serializer = result_serializer_attr.serializer_type.clone();
                 Ok(())
             }
             Init => {
@@ -117,7 +125,7 @@ impl Visitor {
 
         match self.kind {
             Call | View => {
-                self.receiver = Some(receiver.clone());
+                self.parsed_data.receiver = Some(receiver.clone());
                 Ok(())
             }
             Init => {
@@ -128,7 +136,7 @@ impl Visitor {
     }
 
     pub fn visit_handles_result(&mut self) {
-        self.handles_result = true
+        self.parsed_data.handles_result = true
     }
 
     /// Extract the return type of the function. Must be called last as it depends on the value of
@@ -148,7 +156,7 @@ impl Visitor {
             },
             ReturnType::Type(_, typ) => Ok(Returns {
                 original: self.return_type.clone(),
-                kind: parse_return_kind(typ, self.handles_result)?,
+                kind: parse_return_kind(typ, self.parsed_data.handles_result)?,
             }),
         }
     }
@@ -160,15 +168,11 @@ impl Visitor {
         // Must be called last which is why it's called here.
         let returns = self.get_return_type()?;
 
-        let Visitor {
-            kind,
-            is_payable,
-            is_private,
-            ignores_state,
-            result_serializer,
-            receiver,
-            ..
-        } = self;
+        let Visitor { kind, parsed_data, .. } = self;
+
+        let ParsedData {
+            is_payable, is_private, ignores_state, result_serializer, receiver, ..
+        } = parsed_data;
 
         let result = match kind {
             Call => MethodKind::Call(CallMethod {
