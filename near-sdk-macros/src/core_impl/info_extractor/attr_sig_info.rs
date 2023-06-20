@@ -189,7 +189,7 @@ impl AttrSigInfo {
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {
-                    visitor.visit_handles_result();
+                    visitor.visit_handle_result_attr();
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());

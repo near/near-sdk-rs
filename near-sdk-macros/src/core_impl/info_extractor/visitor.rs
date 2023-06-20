@@ -120,6 +120,10 @@ impl Visitor {
         }
     }
 
+    pub fn visit_handle_result_attr(&mut self) {
+        self.parsed_data.handles_result = true
+    }
+
     pub fn visit_receiver(&mut self, receiver: &Receiver) -> syn::Result<()> {
         use VisitorKind::*;
 
@@ -133,10 +137,6 @@ impl Visitor {
                 Err(Error::new(receiver.span(), message))
             }
         }
-    }
-
-    pub fn visit_handles_result(&mut self) {
-        self.parsed_data.handles_result = true
     }
 
     /// Extract the return type of the function. Must be called last as it depends on the value of
