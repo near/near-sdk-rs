@@ -227,7 +227,7 @@ where
     /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
     /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
     /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
-    pub fn defrag<F>(&mut self, callback: F)
+    pub(crate) fn defrag<F>(&mut self, callback: F)
     where
         F: FnMut(&T, u32),
     {
