@@ -208,9 +208,7 @@ impl AttrSigInfo {
             }
         }
 
-        // Visit return type
-        visitor.visit_return_type(&original_sig.output)?;
-        let method_kind = visitor.build();
+        let method_kind = visitor.build()?;
 
         *original_attrs = non_bindgen_attrs.clone();
 

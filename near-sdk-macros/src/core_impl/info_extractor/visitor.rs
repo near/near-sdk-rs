@@ -11,7 +11,7 @@ pub struct Visitor {
     is_private: bool,
     ignores_state: bool,
     result_serializer: SerializerType,
-    returns: Option<Returns>,
+    return_type: ReturnType,
     receiver: Option<Receiver>,
 }
 
@@ -42,7 +42,7 @@ impl Visitor {
             is_private: Default::default(),
             ignores_state: Default::default(),
             result_serializer: SerializerType::JSON,
-            returns: Default::default(),
+            return_type: original_sig.output.clone(),
             receiver: Default::default(),
         }
     }
@@ -131,29 +131,34 @@ impl Visitor {
         self.handles_result = true
     }
 
-    pub fn visit_return_type(&mut self, return_type: &ReturnType) -> syn::Result<()> {
+    /// Extract the return type of the function. Must be called last as it depends on the value of
+    /// `handles_result`. This is why it's private and called as part of `build`.
+    fn get_return_type(&mut self) -> syn::Result<Returns> {
         use VisitorKind::*;
 
-        self.returns = match return_type {
+        match &self.return_type {
             ReturnType::Default => match self.kind {
                 Call | View => {
-                    Some(Returns { original: return_type.clone(), kind: ReturnKind::Default })
+                    Ok(Returns { original: self.return_type.clone(), kind: ReturnKind::Default })
                 }
                 Init => {
                     let message = format!("{} function must return the contract state.", self.kind);
-                    return Err(Error::new(return_type.span(), message));
+                    Err(Error::new(self.return_type.span(), message))
                 }
             },
-            ReturnType::Type(_, typ) => Some(Returns {
-                original: return_type.clone(),
+            ReturnType::Type(_, typ) => Ok(Returns {
+                original: self.return_type.clone(),
                 kind: parse_return_kind(typ, self.handles_result)?,
             }),
-        };
-        Ok(())
+        }
     }
 
-    pub fn build(self) -> MethodKind {
+    /// Get the method data from the return type and the visited attributes and arguments.
+    pub fn build(mut self) -> syn::Result<MethodKind> {
         use VisitorKind::*;
+
+        // Must be called last which is why it's called here.
+        let returns = self.get_return_type()?;
 
         let Visitor {
             kind,
@@ -161,14 +166,11 @@ impl Visitor {
             is_private,
             ignores_state,
             result_serializer,
-            returns,
             receiver,
             ..
         } = self;
 
-        let returns = returns.expect("Expected `visit_result` to be called at least once.");
-
-        match kind {
+        let result = match kind {
             Call => MethodKind::Call(CallMethod {
                 is_payable,
                 is_private,
@@ -180,7 +182,9 @@ impl Visitor {
             View => {
                 MethodKind::View(ViewMethod { is_private, result_serializer, receiver, returns })
             }
-        }
+        };
+
+        Ok(result)
     }
 }
 
