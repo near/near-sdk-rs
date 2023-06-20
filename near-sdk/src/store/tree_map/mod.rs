@@ -667,7 +667,7 @@ where
     // - right-most (max) node of the left subtree (containing smaller keys) of node holding `key`
     // - or left-most (min) node of the right subtree (containing larger keys) of node holding `key`
     //
-    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> (Option<FreeListIndex>, Option<K>)
+    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> Option<K>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
@@ -679,7 +679,7 @@ where
             .and_then(|root| self.lookup_at(root, key))
         {
             Some(((l_id, node), r)) => ((l_id, node.clone()), r.map(|(i, n, e)| (i, n.clone(), e))),
-            None => return (self.root, None), // cannot remove a missing key, no changes to the tree needed
+            None => return None, // cannot remove a missing key, no changes to the tree needed
         };
 
         let lft_opt = r_node.lft;
@@ -687,7 +687,7 @@ where
 
         if lft_opt.is_none() && rgt_opt.is_none() {
             // Node is leaf, can simply remove and rebalance.
-            let mut new_id = if let Some((p_id, mut p_node, p_edge)) = remove_parent {
+            if let Some((p_id, mut p_node, p_edge)) = remove_parent {
                 match p_edge {
                     Edge::Right => {
                         p_node.rgt = None;
@@ -701,17 +701,15 @@ where
                 // removing node might have caused a imbalance - balance the tree up to the root,
                 // starting from lowest affected key - the parent of a leaf node in this case.
                 // At this point, we can assume there is a root because there is at least the parent
-                self.root.map(|root| self.check_balance(root, &p_node.key))
-            } else {
-                self.root
-            };
+                self.root = self.root.map(|root| self.check_balance(root, &p_node.key));
+            }
 
             let removed = expect(self.nodes.remove(r_id));
             if Some(r_id) == self.root {
-                new_id = None;
+                self.root = None;
             }
 
-            (new_id, Some(removed.key))
+            Some(removed.key)
         } else {
             // non-leaf node, select subtree to proceed with depending on balance
             let b = self.get_balance(&r_node);
@@ -747,13 +745,13 @@ where
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                let new_root = self.root.map(|root| {
+                self.root = self.root.map(|root| {
                     self.check_balance(
                         root,
                         parent.as_ref().map(|p| &p.1.key).unwrap_or(&r_node.key),
                     )
                 });
-                (new_root, Some(replaced_key))
+                Some(replaced_key)
             } else {
                 // proceed with right subtree
                 let rgt = expect(rgt_opt);
@@ -786,13 +784,13 @@ where
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                let new_root = self.root.map(|root| {
+                self.root = self.root.map(|root| {
                     self.check_balance(
                         root,
                         parent.as_ref().map(|p| &p.1.key).unwrap_or(&r_node.key),
                     )
                 });
-                (new_root, Some(replaced_key))
+                Some(replaced_key)
             }
         }
     }
@@ -957,8 +955,7 @@ where
         Q: BorshSerialize + ToOwned<Owned = K> + Eq + PartialOrd,
     {
         self.values.remove(key).map(|removed_value| {
-            let (new_root, removed) = self.tree.do_remove(key);
-            self.tree.root = new_root;
+            let removed = self.tree.do_remove(key);
             (expect(removed), removed_value)
         })
     }
@@ -2059,6 +2056,8 @@ mod tests {
         Flush,
         Restore,
         Get(u8),
+        EntryInsert(u8, u8),
+        EntryRemove(u8),
     }
 
     #[test]
@@ -2100,9 +2099,53 @@ mod tests {
                             let r2 = hm.get(&k);
                             assert_eq!(r1, r2)
                         }
+                        Op::EntryInsert(k, v) => {
+                            let r1 = um.entry(k).or_insert(v);
+                            let r2 = hm.entry(k).or_insert(v);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::EntryRemove(k) => match (um.entry(k), hm.entry(k)) {
+                            (
+                                Entry::Occupied(o1),
+                                std::collections::btree_map::Entry::Occupied(o2),
+                            ) => {
+                                let r1 = o1.remove();
+                                let r2 = o2.remove();
+                                assert_eq!(r1, r2)
+                            }
+                            (Entry::Vacant(_), std::collections::btree_map::Entry::Vacant(_)) => {}
+                            _ => panic!("inconsistent entry states"),
+                        },
                     }
                 }
             }
         }
+    }
+
+    #[test]
+    fn issue993() {
+        fn swap_set<H>(map: &mut TreeMap<(), (), H>)
+        where
+            H: ToKey,
+        {
+            match map.entry(()) {
+                Entry::Occupied(o) => {
+                    o.remove();
+                }
+                Entry::Vacant(o) => {
+                    o.insert(());
+                }
+            };
+        }
+
+        let mut map = TreeMap::new(b"m");
+        swap_set(&mut map);
+        assert_eq!(map.tree.root, Some(FreeListIndex(0)));
+        swap_set(&mut map);
+        assert_eq!(map.tree.root, None);
+        // This line previously panicked because the entry was removed without updating the tree
+        // root.
+        swap_set(&mut map);
+        assert_eq!(map.tree.root, Some(FreeListIndex(0)));
     }
 }

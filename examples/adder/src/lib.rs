@@ -58,7 +58,7 @@ mod tests {
         let worker = workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
-        let res = contract.view("__contract_abi", vec![]).await?;
+        let res = contract.view("__contract_abi").await?;
 
         let abi_root =
             serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();

@@ -221,8 +221,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     // resolves https://github.com/near/workspaces-rs/issues/201
     match res.receipt_outcomes()[5].clone().into_result()? {
         ValueOrReceiptId::Value(val) => {
-            let bytes = base64::decode(&val)?;
-            let used_amount = serde_json::from_slice::<U128>(&bytes)?;
+            let used_amount = val.json::<U128>()?;
             assert_eq!(used_amount, transfer_amount);
         }
         _ => panic!("Unexpected receipt id"),
@@ -389,7 +388,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     assert_eq!(promise_failures.len(), 1);
     let failure = promise_failures[0].clone().into_result();
     if let Err(err) = failure {
-        assert!(err.to_string().contains("ParseIntError"));
+        assert!(format!("{:?}", err).contains("ParseIntError"));
     } else {
         unreachable!();
     }

@@ -31,16 +31,15 @@ schemars = { version = "0.8.8", optional = true }
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 # Used for caching, might be worth porting only functionality needed.
-once_cell = { version = "1.8", default-features = false }
+once_cell = { version = "1.17", default-features = false }
 
 near-abi = { version = "0.3.0", features = ["__chunked-entries"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# alt_bn128 feature will need to be removed on the next version update (now stabilized)
-near-vm-logic = { version = "0.14", optional = true, features = ["protocol_feature_alt_bn128"] }
-near-primitives-core = { version = "0.14", optional = true }
-near-primitives = { version = "0.14", optional = true }
-near-crypto = { version = "0.14", optional = true }
+near-vm-logic = { version = "0.17", optional = true }
+near-primitives-core = { version = "0.17", optional = true }
+near-primitives = { version = "0.17", optional = true }
+near-crypto = { version = "0.17", optional = true }
 
 [dev-dependencies]
 rand = "0.8.4"
@@ -48,8 +47,8 @@ trybuild = "1.0"
 rustversion = "1.0"
 rand_xorshift = "0.3"
 quickcheck = "1.0"
-arbitrary = { version = ">=1.0, <1.1.4", features = ["derive"] }
-derive_arbitrary = ">=1.0, <=1.1.6"
+arbitrary = { version = "1.2.3", features = ["derive"] }
+derive_arbitrary = "1.2.3"
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
