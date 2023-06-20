@@ -279,7 +279,7 @@ where
         }
 
         // After defragmenting, these should all be `Slot::Empty`.
-        self.elements.remove_tail(self.elements.len() - self.occupied_count);
+        self.elements.drain(self.occupied_count..);
     }
 
     fn next_free_slot(&mut self) -> Option<FreeListIndex> {
