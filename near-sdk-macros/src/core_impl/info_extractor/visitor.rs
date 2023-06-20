@@ -124,7 +124,7 @@ impl Visitor {
         }
     }
 
-    pub fn visit_result(
+    pub fn visit_return_type(
         &mut self,
         handle_result: bool,
         return_type: &ReturnType,
