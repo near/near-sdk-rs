@@ -406,7 +406,12 @@ pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32
     }
 }
 
-/// Compute alt_bn128 g1 multiexp
+/// Compute alt_bn128 g1 multiexp.
+///
+/// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
+/// well-suited for ZK proofs.
+///
+/// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
 pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::alt_bn128_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
@@ -414,7 +419,12 @@ pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
     read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
 }
 
-/// Compute alt_bn128 g1 sum
+/// Compute alt_bn128 g1 sum.
+///
+/// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
+/// well-suited for ZK proofs.
+///
+/// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
 pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::alt_bn128_g1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
@@ -423,6 +433,11 @@ pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
 }
 
 /// Compute pairing check
+///
+/// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
+/// well-suited for ZK proofs.
+///
+/// See also: [EIP-197](https://eips.ethereum.org/EIPS/eip-197)
 pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
     unsafe { sys::alt_bn128_pairing_check(value.len() as _, value.as_ptr() as _) == 1 }
 }
