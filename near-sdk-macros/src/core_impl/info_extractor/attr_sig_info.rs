@@ -54,6 +54,7 @@ pub struct AttrSigInfo {
 }
 
 // FIXME: Remove once we switch over to AttrSigInfoV2
+// Tracking issue: https://github.com/near/near-sdk-rs/issues/1027
 impl From<AttrSigInfoV2> for AttrSigInfo {
     fn from(info: AttrSigInfoV2) -> Self {
         match info.method_kind {
