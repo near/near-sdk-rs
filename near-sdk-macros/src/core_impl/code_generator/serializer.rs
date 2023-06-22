@@ -1,9 +1,9 @@
-use crate::core_impl::info_extractor::{AttrSigInfo, SerializerType};
+use crate::core_impl::info_extractor::{AttrSigInfoV1, SerializerType};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
 pub fn generate_serializer(
-    attr_sig_info: &AttrSigInfo,
+    attr_sig_info: &AttrSigInfoV1,
     serializer: &SerializerType,
 ) -> TokenStream2 {
     let has_input_args = attr_sig_info.input_args().next().is_some();

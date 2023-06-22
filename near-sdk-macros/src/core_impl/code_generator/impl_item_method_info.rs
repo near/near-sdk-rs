@@ -1,5 +1,5 @@
 use crate::core_impl::info_extractor::{
-    AttrSigInfo, ImplItemMethodInfo, MethodType, SerializerType,
+    AttrSigInfoV1, ImplItemMethodInfo, MethodType, SerializerType,
 };
 use crate::core_impl::utils;
 use proc_macro2::TokenStream as TokenStream2;
@@ -46,7 +46,7 @@ impl ImplItemMethodInfo {
         let callback_vec_deser = attr_signature_info.callback_vec_deserialization();
 
         let arg_list = attr_signature_info.arg_list();
-        let AttrSigInfo {
+        let AttrSigInfoV1 {
             non_bindgen_attrs,
             ident,
             receiver,
@@ -206,7 +206,7 @@ fn init_method_wrapper(
 ) -> Result<TokenStream2, syn::Error> {
     let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = method_info;
     let arg_list = attr_signature_info.arg_list();
-    let AttrSigInfo { ident, returns, is_handles_result, .. } = attr_signature_info;
+    let AttrSigInfoV1 { ident, returns, is_handles_result, .. } = attr_signature_info;
     let state_check = if check_state {
         quote! {
             if near_sdk::env::state_exists() {

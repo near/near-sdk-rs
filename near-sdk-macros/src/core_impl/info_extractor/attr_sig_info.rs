@@ -26,7 +26,7 @@ pub struct AttrSigInfoV2 {
 }
 
 /// Information extracted from method attributes and signature.
-pub struct AttrSigInfo {
+pub struct AttrSigInfoV1 {
     /// The name of the method.
     pub ident: Ident,
     /// Attributes not related to bindgen.
@@ -55,10 +55,10 @@ pub struct AttrSigInfo {
 
 // FIXME: Remove once we switch over to AttrSigInfoV2
 // Tracking issue: https://github.com/near/near-sdk-rs/issues/1027
-impl From<AttrSigInfoV2> for AttrSigInfo {
+impl From<AttrSigInfoV2> for AttrSigInfoV1 {
     fn from(info: AttrSigInfoV2) -> Self {
         match info.method_kind {
-            MethodKind::Call(call_method) => AttrSigInfo {
+            MethodKind::Call(call_method) => AttrSigInfoV1 {
                 ident: info.ident,
                 non_bindgen_attrs: info.non_bindgen_attrs,
                 args: info.args,
@@ -75,7 +75,7 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
                 returns: call_method.returns.original,
                 original_sig: info.original_sig,
             },
-            MethodKind::View(view_method) => AttrSigInfo {
+            MethodKind::View(view_method) => AttrSigInfoV1 {
                 ident: info.ident,
                 non_bindgen_attrs: info.non_bindgen_attrs,
                 args: info.args,
@@ -92,7 +92,7 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
                 returns: view_method.returns.original,
                 original_sig: info.original_sig,
             },
-            MethodKind::Init(init_method) => AttrSigInfo {
+            MethodKind::Init(init_method) => AttrSigInfoV1 {
                 ident: info.ident,
                 non_bindgen_attrs: info.non_bindgen_attrs,
                 args: info.args,
@@ -117,7 +117,7 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
     }
 }
 
-impl AttrSigInfo {
+impl AttrSigInfoV1 {
     fn sanitize_self(original_sig: &mut Signature, source_type: &TokenStream2) -> syn::Result<()> {
         match original_sig.output {
             ReturnType::Default => {}
@@ -213,7 +213,7 @@ impl AttrSigInfo {
 
         *original_attrs = non_bindgen_attrs.clone();
 
-        let mut result: AttrSigInfo = AttrSigInfoV2 {
+        let mut result: AttrSigInfoV1 = AttrSigInfoV2 {
             ident,
             non_bindgen_attrs,
             args,

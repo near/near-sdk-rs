@@ -4,7 +4,7 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
 
 use crate::core_impl::{
-    utils, AttrSigInfo, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
+    utils, AttrSigInfoV1, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
     SerializerType,
 };
 
@@ -105,7 +105,7 @@ impl ImplItemMethodInfo {
         let modifiers = quote! {
             vec![#(#modifiers),*]
         };
-        let AttrSigInfo { is_handles_result, .. } = self.attr_signature_info;
+        let AttrSigInfoV1 { is_handles_result, .. } = self.attr_signature_info;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();

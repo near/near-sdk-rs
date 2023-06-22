@@ -1,10 +1,10 @@
 use proc_macro2::TokenStream as TokenStream2;
 
-use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
+use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfoV1, BindgenArgType, SerializerType};
 use crate::core_impl::utils;
 use quote::quote;
 
-impl AttrSigInfo {
+impl AttrSigInfoV1 {
     pub fn input_struct_ser(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(

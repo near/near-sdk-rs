@@ -7,7 +7,7 @@ mod arg_info;
 pub use arg_info::{ArgInfo, BindgenArgType};
 
 mod attr_sig_info;
-pub use attr_sig_info::AttrSigInfo;
+pub use attr_sig_info::AttrSigInfoV1;
 
 mod impl_item_method_info;
 pub use impl_item_method_info::ImplItemMethodInfo;
