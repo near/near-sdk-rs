@@ -118,22 +118,27 @@ impl From<AttrSigInfoV2> for AttrSigInfo {
 }
 
 impl AttrSigInfo {
-    fn sanitize_self(original_sig: &mut Signature, source_type: &TokenStream2) -> syn::Result<()> {
+    /// Apart from replacing `Self` types with their concretions, returns spans of all `Self` tokens found.
+    fn sanitize_self(
+        original_sig: &mut Signature,
+        source_type: &TokenStream2,
+    ) -> syn::Result<Vec<Span>> {
         match original_sig.output {
-            ReturnType::Default => {}
-            ReturnType::Type(_, ref mut ty) => {
-                match ty.as_mut() {
-                    x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
-                        *ty = utils::sanitize_self(x, source_type)?.ty.into();
-                    }
-                    Type::Reference(ref mut r) => {
-                        r.elem = utils::sanitize_self(&r.elem, source_type)?.ty.into();
-                    }
-                    _ => return Err(Error::new(ty.span(), "Unsupported contract API type.")),
-                };
-            }
-        };
-        Ok(())
+            ReturnType::Default => Ok(vec![]),
+            ReturnType::Type(_, ref mut ty) => match ty.as_mut() {
+                x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
+                    let res = utils::sanitize_self(x, source_type)?;
+                    *ty = res.ty.into();
+                    Ok(res.self_occurrences)
+                }
+                Type::Reference(ref mut r) => {
+                    let res = utils::sanitize_self(&r.elem, source_type)?;
+                    r.elem = res.ty.into();
+                    Ok(res.self_occurrences)
+                }
+                _ => Err(Error::new(ty.span(), "Unsupported contract API type.")),
+            },
+        }
     }
 
     pub fn new(
@@ -141,7 +146,7 @@ impl AttrSigInfo {
         original_sig: &mut Signature,
         source_type: &TokenStream2,
     ) -> syn::Result<Self> {
-        Self::sanitize_self(original_sig, source_type)?;
+        let self_occurrences = Self::sanitize_self(original_sig, source_type)?;
 
         let mut errors = vec![];
         for generic in &original_sig.generics.params {
@@ -212,13 +217,26 @@ impl AttrSigInfo {
         let method_kind = visitor.build()?;
 
         *original_attrs = non_bindgen_attrs.clone();
-        let returns = match &original_sig.output {
-            ReturnType::Default => ReturnType::Default,
-            ReturnType::Type(arrow, ty) => {
-                let (_, _, ty) = utils::extract_ref_mut(ty, ty.span())?;
-                ReturnType::Type(*arrow, utils::sanitize_self(&ty, source_type)?.ty.into())
-            }
-        };
+
+        if !self_occurrences.is_empty()
+            && matches!(method_kind, MethodKind::Call(_) | MethodKind::View(_))
+        {
+            // TODO: return an error instead in 5.0
+            // see https://github.com/near/near-sdk-rs/issues/1005
+            println!(
+                "near_bindgen: references to `Self` in non-init method return types will be forbidden in 5.0"
+            );
+
+            // Once proc_macro::Diagnostic is stabilized, we could start getting rid of the `println` and
+            // try the code below. See: https://github.com/rust-lang/rust/issues/54140
+            //
+            // proc_macro::Diagnostic::spanned(
+            //     self_occurrences.into(),
+            //     proc_macro::Level::Warning,
+            //     "references to `Self` in non-init methods will be forbidden in 5.0",
+            // )
+            // .emit();
+        }
 
         let mut result: AttrSigInfo = AttrSigInfoV2 {
             ident,

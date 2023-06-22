@@ -113,11 +113,11 @@ pub(crate) fn sig_is_supported(sig: &Signature) -> syn::Result<()> {
     Ok(())
 }
 
-fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> (TokenStream2, bool) {
-    let mut self_occurred = false;
+fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> (TokenStream2, Vec<Span>) {
+    let mut self_occurrences = vec![];
     let trees = typ.into_iter().map(|t| match t {
         TokenTree::Ident(ident) if ident == "Self" => {
-            self_occurred = true;
+            self_occurrences.push(ident.span());
             replace_with
                 .clone()
                 .into_iter()
@@ -128,34 +128,28 @@ fn _sanitize_self(typ: TokenStream2, replace_with: &TokenStream2) -> (TokenStrea
                 .collect::<TokenStream2>()
         }
         TokenTree::Group(group) => {
-            let (stream, self_occurred_inner) = _sanitize_self(group.stream(), replace_with);
-            self_occurred |= self_occurred_inner;
+            let (stream, self_occurrences_inner) = _sanitize_self(group.stream(), replace_with);
+            self_occurrences.extend(self_occurrences_inner);
             TokenTree::Group(Group::new(group.delimiter(), stream)).into()
         }
         rest => rest.into(),
     });
-    (trees.collect(), self_occurred)
+    (trees.collect(), self_occurrences)
 }
 
 pub fn sanitize_self(typ: &Type, replace_with: &TokenStream2) -> syn::Result<SanitizeSelfResult> {
-    let (ty_tokens, self_occurred) = _sanitize_self(quote! { #typ }, replace_with);
+    let (ty_tokens, self_occurrences) = _sanitize_self(quote! { #typ }, replace_with);
 
     let ty = syn::parse2(ty_tokens).map_err(|original| {
         syn::Error::new(original.span(), "`Self` sanitization failed. Please report this as a bug.")
     })?;
 
-    Ok(SanitizeSelfResult { ty, self_occurred })
+    Ok(SanitizeSelfResult { ty, self_occurrences })
 }
 
 pub struct SanitizeSelfResult {
     pub ty: Type,
-    pub self_occurred: bool,
-}
-
-impl From<SanitizeSelfResult> for Type {
-    fn from(value: SanitizeSelfResult) -> Self {
-        value.ty
-    }
+    pub self_occurrences: Vec<Span>,
 }
 
 #[cfg(test)]
@@ -192,17 +186,14 @@ mod tests {
     fn sanitize_self_keeps_track_of_replacements() {
         let typ: Type = syn::parse_str("Self").unwrap();
         let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
-        let occurred = sanitize_self(&typ, &replace_with).unwrap().self_occurred;
-        assert!(occurred);
+        assert_eq!(sanitize_self(&typ, &replace_with).unwrap().self_occurrences.len(), 1);
 
         let typ: Type = syn::parse_str("SomeType").unwrap();
         let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
-        let occurred = sanitize_self(&typ, &replace_with).unwrap().self_occurred;
-        assert!(!occurred);
+        assert!(sanitize_self(&typ, &replace_with).unwrap().self_occurrences.is_empty());
 
         let typ: Type = syn::parse_str("Option<[(Self, Result<Self, ()>); 2]>").unwrap();
         let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
-        let occurred = sanitize_self(&typ, &replace_with).unwrap().self_occurred;
-        assert!(occurred);
+        assert_eq!(sanitize_self(&typ, &replace_with).unwrap().self_occurrences.len(), 2);
     }
 }
