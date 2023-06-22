@@ -59,8 +59,6 @@ pub struct CallMethod {
     pub is_private: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
-    /// What this function returns.
-    pub returns: Returns,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
     pub receiver: Option<Receiver>,
 }
@@ -71,8 +69,6 @@ pub struct ViewMethod {
     pub is_private: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
-    /// What this function returns.
-    pub returns: Returns,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
     pub receiver: Option<Receiver>,
 }
@@ -83,14 +79,14 @@ pub struct InitMethod {
     pub is_payable: bool,
     /// Whether init method ignores state
     pub ignores_state: bool,
-    /// What this function returns.
-    pub returns: Returns,
 }
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Returns {
-    original: ReturnType,
-    kind: ReturnKind,
+    /// The original return type of the method in the Rust AST.
+    pub original: ReturnType,
+    /// The return type of the method in our logic.
+    pub kind: ReturnKind,
 }
 
 #[derive(Clone, PartialEq, Eq)]

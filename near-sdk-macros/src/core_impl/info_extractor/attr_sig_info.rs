@@ -3,7 +3,7 @@ use super::{
     ArgInfo, BindgenArgType, InitAttr, MethodKind, MethodType, ReturnKind, SerializerAttr,
     SerializerType,
 };
-use crate::core_impl::utils;
+use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -20,6 +20,8 @@ pub struct AttrSigInfoV2 {
     pub args: Vec<ArgInfo>,
     /// Describes the type of the method.
     pub method_kind: MethodKind,
+    /// What this function returns.
+    pub returns: Returns,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
     /// The original method signature.
@@ -66,14 +68,11 @@ impl From<AttrSigInfoV2> for AttrSigInfoV1 {
                 method_type: MethodType::Regular,
                 is_payable: call_method.is_payable,
                 is_private: call_method.is_private,
-                is_handles_result: matches!(
-                    call_method.returns.kind,
-                    ReturnKind::HandlesResult { .. }
-                ),
+                is_handles_result: matches!(info.returns.kind, ReturnKind::HandlesResult { .. }),
                 input_serializer: info.input_serializer,
                 result_serializer: call_method.result_serializer,
                 receiver: call_method.receiver,
-                returns: call_method.returns.original,
+                returns: info.returns.original,
                 original_sig: info.original_sig,
             },
             MethodKind::View(view_method) => AttrSigInfoV1 {
@@ -83,14 +82,11 @@ impl From<AttrSigInfoV2> for AttrSigInfoV1 {
                 method_type: MethodType::View,
                 is_payable: false,
                 is_private: view_method.is_private,
-                is_handles_result: matches!(
-                    view_method.returns.kind,
-                    ReturnKind::HandlesResult { .. }
-                ),
+                is_handles_result: matches!(info.returns.kind, ReturnKind::HandlesResult { .. }),
                 input_serializer: info.input_serializer,
                 result_serializer: view_method.result_serializer,
                 receiver: view_method.receiver,
-                returns: view_method.returns.original,
+                returns: info.returns.original,
                 original_sig: info.original_sig,
             },
             MethodKind::Init(init_method) => AttrSigInfoV1 {
@@ -104,14 +100,11 @@ impl From<AttrSigInfoV2> for AttrSigInfoV1 {
                 },
                 is_payable: init_method.is_payable,
                 is_private: false,
-                is_handles_result: matches!(
-                    init_method.returns.kind,
-                    ReturnKind::HandlesResult { .. }
-                ),
+                is_handles_result: matches!(info.returns.kind, ReturnKind::HandlesResult { .. }),
                 input_serializer: info.input_serializer,
                 result_serializer: SerializerType::JSON,
                 receiver: None,
-                returns: init_method.returns.original,
+                returns: info.returns.original,
                 original_sig: info.original_sig,
             },
         }
@@ -210,7 +203,7 @@ impl AttrSigInfoV2 {
             }
         }
 
-        let method_kind = visitor.build()?;
+        let (method_kind, returns) = visitor.build()?;
 
         *original_attrs = non_bindgen_attrs.clone();
 
@@ -219,6 +212,7 @@ impl AttrSigInfoV2 {
             non_bindgen_attrs,
             args,
             method_kind,
+            returns,
             input_serializer: SerializerType::JSON,
             original_sig: original_sig.clone(),
         };
