@@ -117,7 +117,7 @@ impl From<AttrSigInfoV2> for AttrSigInfoV1 {
     }
 }
 
-impl AttrSigInfoV1 {
+impl AttrSigInfoV2 {
     fn sanitize_self(original_sig: &mut Signature, source_type: &TokenStream2) -> syn::Result<()> {
         match original_sig.output {
             ReturnType::Default => {}
@@ -213,15 +213,14 @@ impl AttrSigInfoV1 {
 
         *original_attrs = non_bindgen_attrs.clone();
 
-        let mut result: AttrSigInfoV1 = AttrSigInfoV2 {
+        let mut result = AttrSigInfoV2 {
             ident,
             non_bindgen_attrs,
             args,
             method_kind,
             input_serializer: SerializerType::JSON,
             original_sig: original_sig.clone(),
-        }
-        .into();
+        };
 
         let input_serializer =
             if result.input_args().all(|arg: &ArgInfo| arg.serializer_ty == SerializerType::JSON) {
@@ -236,6 +235,21 @@ impl AttrSigInfoV1 {
             };
         result.input_serializer = input_serializer;
         Ok(result)
+    }
+
+    /// Only get args that correspond to `env::input()`.
+    pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
+        self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
+    }
+}
+
+impl AttrSigInfoV1 {
+    pub fn new(
+        original_attrs: &mut Vec<Attribute>,
+        original_sig: &mut Signature,
+        source_type: &TokenStream2,
+    ) -> syn::Result<Self> {
+        AttrSigInfoV2::new(original_attrs, original_sig, source_type).map(|v2| v2.into())
     }
 
     /// Only get args that correspond to `env::input()`.
