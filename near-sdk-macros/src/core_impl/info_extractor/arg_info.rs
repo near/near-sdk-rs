@@ -58,7 +58,7 @@ impl ArgInfo {
                 ));
             }
         };
-        *original.ty.as_mut() = utils::sanitize_self(&original.ty, source_type)?;
+        *original.ty.as_mut() = utils::sanitize_self(&original.ty, source_type)?.into();
         let (reference, mutability, ty) =
             utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
         // In the absence of callback attributes this is a regular argument.

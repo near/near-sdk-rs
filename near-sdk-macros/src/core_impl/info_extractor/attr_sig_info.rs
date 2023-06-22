@@ -124,10 +124,10 @@ impl AttrSigInfo {
             ReturnType::Type(_, ref mut ty) => {
                 match ty.as_mut() {
                     x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
-                        *ty = utils::sanitize_self(x, source_type)?.into();
+                        *ty = utils::sanitize_self(x, source_type)?.ty.into();
                     }
                     Type::Reference(ref mut r) => {
-                        r.elem = utils::sanitize_self(&r.elem, source_type)?.into();
+                        r.elem = utils::sanitize_self(&r.elem, source_type)?.ty.into();
                     }
                     _ => return Err(Error::new(ty.span(), "Unsupported contract API type.")),
                 };
@@ -212,6 +212,13 @@ impl AttrSigInfo {
         let method_kind = visitor.build()?;
 
         *original_attrs = non_bindgen_attrs.clone();
+        let returns = match &original_sig.output {
+            ReturnType::Default => ReturnType::Default,
+            ReturnType::Type(arrow, ty) => {
+                let (_, _, ty) = utils::extract_ref_mut(ty, ty.span())?;
+                ReturnType::Type(*arrow, utils::sanitize_self(&ty, source_type)?.ty.into())
+            }
+        };
 
         let mut result: AttrSigInfo = AttrSigInfoV2 {
             ident,
