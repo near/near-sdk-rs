@@ -1,4 +1,4 @@
-use crate::core_impl::info_extractor::AttrSigInfoV1;
+use crate::core_impl::info_extractor::AttrSigInfoV2;
 use crate::core_impl::utils;
 use quote::ToTokens;
 use syn::{ImplItemMethod, Type, Visibility};
@@ -6,7 +6,7 @@ use syn::{ImplItemMethod, Type, Visibility};
 /// Information extracted from `ImplItemMethod`.
 pub struct ImplItemMethodInfo {
     /// Information on the attributes and the signature of the method.
-    pub attr_signature_info: AttrSigInfoV1,
+    pub attr_signature_info: AttrSigInfoV2,
     /// The type of the contract struct.
     pub struct_type: Type,
 }
@@ -22,7 +22,7 @@ impl ImplItemMethodInfo {
         utils::sig_is_supported(sig)?;
         if is_trait_impl || matches!(original.vis, Visibility::Public(_)) {
             let attr_signature_info =
-                AttrSigInfoV1::new(attrs, sig, &struct_type.to_token_stream())?;
+                AttrSigInfoV2::new(attrs, sig, &struct_type.to_token_stream())?;
             Ok(Some(Self { attr_signature_info, struct_type }))
         } else {
             Ok(None)
@@ -35,7 +35,7 @@ impl ImplItemMethodInfo {
 #[cfg(test)]
 mod tests {
     use syn::{parse_quote, Type, ImplItemMethod, ReturnType};
-    use crate::core_impl::ImplItemMethodInfo;
+    use crate::core_impl::{ImplItemMethodInfo};
 
     #[test]
     fn init_no_return() {
@@ -58,7 +58,7 @@ mod tests {
             pub fn method(k: &mut u64) -> Result<Self, Error> { }
         };
         let method = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
-        let actual = method.attr_signature_info.returns;
+        let actual = method.attr_signature_info.returns.original;
         let expected: Type = syn::parse_str("Result<Hello, Error>").unwrap();
         assert!(matches!(actual, ReturnType::Type(_, ty) if ty.as_ref() == &expected));
     }

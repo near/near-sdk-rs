@@ -46,6 +46,10 @@ impl ImplItemMethodInfo {
         let callback_vec_deser = attr_signature_info.callback_vec_deserialization();
 
         let arg_list = attr_signature_info.arg_list();
+
+        // FIXME: Temporary until next commit
+        let attr_signature_info: AttrSigInfoV1 = attr_signature_info.clone().into();
+
         let AttrSigInfoV1 {
             non_bindgen_attrs,
             ident,
@@ -57,7 +61,7 @@ impl ImplItemMethodInfo {
             is_private,
             is_handles_result,
             ..
-        } = attr_signature_info;
+        } = &attr_signature_info;
         let deposit_check = if *is_payable || matches!(method_type, &MethodType::View) {
             // No check if the method is payable or a view method
             quote! {}
@@ -206,7 +210,11 @@ fn init_method_wrapper(
 ) -> Result<TokenStream2, syn::Error> {
     let ImplItemMethodInfo { attr_signature_info, struct_type, .. } = method_info;
     let arg_list = attr_signature_info.arg_list();
-    let AttrSigInfoV1 { ident, returns, is_handles_result, .. } = attr_signature_info;
+
+    // FIXME: Temporary until next commit
+    let attr_signature_info: AttrSigInfoV1 = attr_signature_info.clone().into();
+
+    let AttrSigInfoV1 { ident, returns, is_handles_result, .. } = &attr_signature_info;
     let state_check = if check_state {
         quote! {
             if near_sdk::env::state_exists() {
