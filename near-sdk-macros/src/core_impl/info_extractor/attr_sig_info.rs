@@ -10,6 +10,7 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Error, FnArg, GenericParam, Ident, Receiver, ReturnType, Signature, Type};
 
 /// Information extracted from method attributes and signature.
+#[derive(Clone)]
 pub struct AttrSigInfoV2 {
     /// The name of the method.
     pub ident: Ident,

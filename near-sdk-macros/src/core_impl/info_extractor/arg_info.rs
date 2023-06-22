@@ -4,6 +4,7 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
 
+#[derive(Clone)]
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
     Regular,
@@ -16,6 +17,7 @@ pub enum BindgenArgType {
 }
 
 /// A single argument of a function after it was processed by the bindgen.
+#[derive(Clone)]
 pub struct ArgInfo {
     /// Attributes not related to bindgen.
     pub non_bindgen_attrs: Vec<Attribute>,
