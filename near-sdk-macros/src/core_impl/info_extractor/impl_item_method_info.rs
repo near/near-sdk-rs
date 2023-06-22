@@ -28,3 +28,85 @@ impl ImplItemMethodInfo {
         }
     }
 }
+
+// Rustfmt removes comas.
+#[rustfmt::skip]
+#[cfg(test)]
+mod tests {
+    use syn::{parse_quote, Type, ImplItemMethod, ReturnType};
+    use crate::core_impl::ImplItemMethodInfo;
+
+    #[test]
+    fn init_no_return() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            pub fn method(k: &mut u64) { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let expected = "Init function must return the contract state.";
+        assert_eq!(expected, actual.to_string());
+    }
+
+    #[test]
+    fn init_result_return() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            #[handle_result]
+            pub fn method(k: &mut u64) -> Result<Self, Error> { }
+        };
+        let method = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method.attr_signature_info.returns;
+        let expected: Type = syn::parse_str("Result<Hello, Error>").unwrap();
+        assert!(matches!(actual, ReturnType::Type(_, ty) if ty.as_ref() == &expected));
+    }
+
+    #[test]
+    fn handle_result_incorrect_return_type() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            pub fn method(&self) -> &'static str { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let expected = "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).";
+        assert_eq!(expected, actual.to_string());
+    }
+
+    #[test]
+    fn handle_result_without_marker() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
+        assert_eq!(expected, actual.to_string());
+    }
+
+    #[test]
+    fn init_result_without_handle_result() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[init]
+            pub fn new() -> Result<Self, &'static str> { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
+        assert_eq!(expected, actual.to_string());
+    }
+
+
+    #[test]
+    fn payable_self_by_value_fails() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[payable]
+            pub fn method(self) -> Self { }
+        };
+        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let expected = "View function can't be payable.";
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
+}

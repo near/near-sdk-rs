@@ -1,4 +1,4 @@
-error: Payable method must be mutable (not view)
+error: View function can't be payable.
   --> $DIR/payable_view.rs:12:5
    |
 12 |     #[payable]
