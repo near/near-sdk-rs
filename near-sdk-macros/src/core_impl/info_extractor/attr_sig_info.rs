@@ -146,7 +146,7 @@ impl AttrSigInfo {
         original_sig: &mut Signature,
         source_type: &TokenStream2,
     ) -> syn::Result<Self> {
-        let self_occurrences = Self::sanitize_self(original_sig, source_type)?;
+        let mut self_occurrences = Self::sanitize_self(original_sig, source_type)?;
 
         let mut errors = vec![];
         for generic in &original_sig.generics.params {
@@ -214,6 +214,8 @@ impl AttrSigInfo {
             }
         }
 
+        self_occurrences.extend(args.iter().map(|arg| arg.self_occurrences.clone()).flatten());
+
         let method_kind = visitor.build()?;
 
         *original_attrs = non_bindgen_attrs.clone();
@@ -224,7 +226,7 @@ impl AttrSigInfo {
             // TODO: return an error instead in 5.0
             // see https://github.com/near/near-sdk-rs/issues/1005
             println!(
-                "near_bindgen: references to `Self` in non-init method return types will be forbidden in 5.0"
+                "near_bindgen: references to `Self` in non-init methods will be forbidden in 5.0"
             );
 
             // Once proc_macro::Diagnostic is stabilized, we could start getting rid of the `println` and
@@ -236,6 +238,7 @@ impl AttrSigInfo {
             //     "references to `Self` in non-init methods will be forbidden in 5.0",
             // )
             // .emit();
+            //
         }
 
         let mut result: AttrSigInfo = AttrSigInfoV2 {
