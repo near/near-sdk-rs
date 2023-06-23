@@ -237,18 +237,3 @@ impl AttrSigInfoV2 {
         self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
     }
 }
-
-impl AttrSigInfoV1 {
-    pub fn new(
-        original_attrs: &mut Vec<Attribute>,
-        original_sig: &mut Signature,
-        source_type: &TokenStream2,
-    ) -> syn::Result<Self> {
-        AttrSigInfoV2::new(original_attrs, original_sig, source_type).map(|v2| v2.into())
-    }
-
-    /// Only get args that correspond to `env::input()`.
-    pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
-        self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
-    }
-}
