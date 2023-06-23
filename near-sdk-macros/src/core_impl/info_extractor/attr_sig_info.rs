@@ -214,7 +214,7 @@ impl AttrSigInfo {
             }
         }
 
-        self_occurrences.extend(args.iter().map(|arg| arg.self_occurrences.clone()).flatten());
+        self_occurrences.extend(args.iter().flat_map(|arg| arg.self_occurrences.clone()));
 
         let method_kind = visitor.build()?;
 
