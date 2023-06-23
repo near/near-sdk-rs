@@ -611,3 +611,229 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
         T::json_schema(gen)
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod tests {
+    use crate::mock::VmAction;
+    use crate::test_utils::get_created_receipts;
+    use crate::test_utils::test_env::{alice, bob};
+    use crate::{
+        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, Balance, Promise,
+        PublicKey,
+    };
+
+    fn pk() -> PublicKey {
+        "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap()
+    }
+
+    fn get_actions() -> std::vec::IntoIter<VmAction> {
+        let receipts = get_created_receipts();
+        let first_receipt = receipts.into_iter().next().unwrap();
+        first_receipt.actions.into_iter()
+    }
+
+    fn has_add_key_with_full_access(public_key: PublicKey, nonce: Option<u64>) -> bool {
+        get_actions().any(|el| {
+            matches!(
+                el,
+                VmAction::AddKeyWithFullAccess { public_key: p, nonce: n }
+                if p == public_key
+                    && (nonce.is_none() || Some(n) == nonce)
+            )
+        })
+    }
+
+    fn has_add_key_with_function_call(
+        public_key: PublicKey,
+        allowance: u128,
+        receiver_id: AccountId,
+        function_names: String,
+        nonce: Option<u64>,
+    ) -> bool {
+        get_actions().any(|el| {
+            matches!(
+                el,
+                VmAction::AddKeyWithFunctionCall {
+                    public_key: p,
+                    allowance: a,
+                    receiver_id: r,
+                    function_names: f,
+                    nonce: n
+                }
+                if p == public_key
+                    && a.unwrap() == allowance
+                    && r == receiver_id
+                    && f == function_names.split(',').collect::<Vec<_>>()
+                    && (nonce.is_none() || Some(n) == nonce)
+            )
+        })
+    }
+
+    #[test]
+    fn test_add_full_access_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+
+        // Promise is only executed when dropped so we put it in its own scope to make sure receipts
+        // are ready afterwards.
+        {
+            Promise::new(alice()).create_account().add_full_access_key(public_key.clone());
+        }
+
+        assert!(has_add_key_with_full_access(public_key, None));
+    }
+
+    #[test]
+    fn test_add_full_access_key_with_nonce() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let nonce = 42;
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_full_access_key_with_nonce(public_key.clone(), nonce);
+        }
+
+        assert!(has_add_key_with_full_access(public_key, Some(nonce)));
+    }
+
+    #[test]
+    fn test_add_access_key_allowance() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+
+        {
+            Promise::new(alice()).create_account().add_access_key_allowance(
+                public_key.clone(),
+                Allowance::Limited(allowance.try_into().unwrap()),
+                receiver_id.clone(),
+                function_names.clone(),
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            None
+        ));
+    }
+
+    #[test]
+    fn test_add_access_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance: Balance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+
+        {
+            #[allow(deprecated)]
+            Promise::new(alice()).create_account().add_access_key(
+                public_key.clone(),
+                allowance,
+                receiver_id.clone(),
+                function_names.clone(),
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            None
+        ));
+    }
+
+    #[test]
+    fn test_add_access_key_allowance_with_nonce() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+        let nonce = 42;
+
+        {
+            Promise::new(alice()).create_account().add_access_key_allowance_with_nonce(
+                public_key.clone(),
+                Allowance::Limited(allowance.try_into().unwrap()),
+                receiver_id.clone(),
+                function_names.clone(),
+                nonce,
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            Some(nonce)
+        ));
+    }
+
+    #[test]
+    fn test_add_access_key_with_nonce() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+        let nonce = 42;
+
+        {
+            #[allow(deprecated)]
+            Promise::new(alice()).create_account().add_access_key_with_nonce(
+                public_key.clone(),
+                allowance,
+                receiver_id.clone(),
+                function_names.clone(),
+                nonce,
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            Some(nonce)
+        ));
+    }
+
+    #[test]
+    fn test_delete_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_full_access_key(public_key.clone())
+                .delete_key(public_key.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                VmAction::DeleteKey { public_key: p } if p == public_key
+            )
+        });
+        assert!(has_action);
+    }
+}
