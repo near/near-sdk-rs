@@ -806,9 +806,11 @@ mod tests {
                 if near_sdk::env::state_exists() {
                     near_sdk::env::panic_str("The contract has already been initialized");
                 }
-                let result = Hello::new();
-                match result {
-                    Ok(contract) => near_sdk::env::state_write(&contract),
+                let contract = Hello::new();
+                match contract {
+                    Ok(contract) => {
+                        near_sdk::env::state_write(&contract);
+                    }
                     Err(err) => near_sdk::FunctionError::panic(&err)
                 }
             }
@@ -834,9 +836,11 @@ mod tests {
                 if near_sdk::env::attached_deposit() != 0 {
                     near_sdk::env::panic_str("Method new doesn't accept deposit");
                 }
-                let result = Hello::new();
-                match result {
-                    Ok(contract) => near_sdk::env::state_write(&contract),
+                let contract = Hello::new();
+                match contract {
+                    Ok(contract) => {
+                        near_sdk::env::state_write(&contract);
+                    }
                     Err(err) => near_sdk::FunctionError::panic(&err)
                 }
             }
