@@ -721,6 +721,39 @@ mod tests {
         );
         assert_eq!(expected.to_string(), actual.to_string());
     }
+    
+    #[test]
+    fn handle_result_mut() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemMethod = parse_quote! {
+            #[handle_result]
+            pub fn method(&mut self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        let expected = quote!(
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn method() {
+                near_sdk::env::setup_panic_hook();
+                if near_sdk::env::attached_deposit() != 0 {
+                    near_sdk::env::panic_str("Method method doesn't accept deposit");
+                }
+                let mut contract: Hello = near_sdk::env::state_read().unwrap_or_default();
+                let result = contract.method();
+                match result {
+                    Ok(result) => {
+                        let result =
+                            near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                        near_sdk::env::value_return(&result);
+                        near_sdk::env::state_write(&contract);
+                    }
+                    Err(err) => near_sdk::FunctionError::panic(&err)
+                }
+            }
+        );
+        assert_eq!(expected.to_string(), actual.to_string());
+    }
 
     #[test]
     fn handle_result_borsh() {
