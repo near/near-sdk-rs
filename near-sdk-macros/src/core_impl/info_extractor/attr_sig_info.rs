@@ -56,8 +56,8 @@ pub struct AttrSigInfoV1 {
     pub original_sig: Signature,
 }
 
-// FIXME: Remove once we switch over to AttrSigInfoV2
-// Tracking issue: https://github.com/near/near-sdk-rs/issues/1027
+// FIXME: Remove once we refactor ABI generator to use `AttrSigInfoV2`
+// Tracking issue: https://github.com/near/near-sdk-rs/issues/1032
 impl From<AttrSigInfoV2> for AttrSigInfoV1 {
     fn from(info: AttrSigInfoV2) -> Self {
         match info.method_kind {

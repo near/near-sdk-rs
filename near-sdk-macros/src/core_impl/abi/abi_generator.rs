@@ -80,7 +80,8 @@ impl ImplItemMethodInfo {
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
-        // FIXME: Temporary until next commit
+        // FIXME: Refactor to use `AttrSigInfoV2`
+        // Tracking issue: https://github.com/near/near-sdk-rs/issues/1032
         let attr_signature_info: AttrSigInfoV1 = self.attr_signature_info.clone().into();
 
         let function_name_str = attr_signature_info.ident.to_string();
