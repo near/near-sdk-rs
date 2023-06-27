@@ -11,30 +11,47 @@ pub struct Ident {
 
 #[near_bindgen]
 impl Ident {
-    pub fn plain_arg(_a: Self) {
+    #[init]
+    pub fn plain_arg(_a: Self) -> Self {
         unimplemented!()
     }
+
+    #[init]
     pub fn plain_ret() -> Self {
         unimplemented!()
     }
+
+    #[init]
     pub fn plain_arg_ret(a: Self) -> Self {
         a
     }
-    pub fn nested_arg(_a: Vec<Self>) {
+
+    #[init]
+    pub fn nested_arg(_a: Vec<Self>) -> Self {
         unimplemented!()
     }
+
+    #[init]
     pub fn nested_ret() -> Vec<Self> {
         unimplemented!()
     }
+
+    #[init]
     pub fn nested_arg_ret(a: Vec<Self>) -> Vec<Self> {
         a
     }
-    pub fn deeply_nested_arg(_a: Option<[(Self, Result<Self, ()>); 2]>) {
+
+    #[init]
+    pub fn deeply_nested_arg(_a: Option<[(Self, Result<Self, ()>); 2]>) -> Self {
         unimplemented!()
     }
+
+    #[init]
     pub fn deeply_nested_ret() -> Option<[(Self, Result<Self, ()>); 2]> {
         unimplemented!()
     }
+
+    #[init]
     pub fn deeply_nested_arg_ret(
         a: Option<[(Self, Result<Self, ()>); 2]>,
     ) -> Option<[(Self, Result<Self, ()>); 2]> {
