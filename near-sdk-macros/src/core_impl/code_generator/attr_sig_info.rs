@@ -10,6 +10,20 @@ impl AttrSigInfoV2 {
         self.input_args().next().is_some()
     }
 
+    /// Whether the method has `payable` attribute.
+    /// Only available when `__abi-generate` feature is enabled as it's only in the abi generator
+    /// currently.
+    #[cfg(feature = "__abi-generate")]
+    pub fn is_payable(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.is_payable,
+            Init(init_method) => init_method.is_payable,
+            View(_) => false,
+        }
+    }
+
     /// Whether the method has `private` attribute.
     pub fn is_private(&self) -> bool {
         use MethodKind::*;

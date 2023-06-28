@@ -1,11 +1,9 @@
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::spanned::Spanned;
-use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
+use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, Type};
 
 use crate::core_impl::{
-    utils, AttrSigInfoV1, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
-    SerializerType,
+    utils, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodKind, ReturnKind, SerializerType,
 };
 
 pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
@@ -77,9 +75,7 @@ impl ImplItemMethodInfo {
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
-        // FIXME: Refactor to use `AttrSigInfoV2`
-        // Tracking issue: https://github.com/near/near-sdk-rs/issues/1032
-        let attr_signature_info: AttrSigInfoV1 = self.attr_signature_info.clone().into();
+        let attr_signature_info = &self.attr_signature_info;
 
         let function_name_str = attr_signature_info.ident.to_string();
         let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
@@ -87,26 +83,25 @@ impl ImplItemMethodInfo {
             None => quote! { None },
         };
         let mut modifiers = vec![];
-        let kind = match &attr_signature_info.method_type {
-            &MethodType::View => quote! { near_sdk::__private::AbiFunctionKind::View },
-            &MethodType::Regular => {
+        let kind = match &attr_signature_info.method_kind {
+            MethodKind::View(_) => quote! { near_sdk::__private::AbiFunctionKind::View },
+            MethodKind::Call(_) => {
                 quote! { near_sdk::__private::AbiFunctionKind::Call }
             }
-            &MethodType::Init | &MethodType::InitIgnoreState => {
+            MethodKind::Init(_) => {
                 modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Init });
                 quote! { near_sdk::__private::AbiFunctionKind::Call }
             }
         };
-        if attr_signature_info.is_payable {
+        if attr_signature_info.is_payable() {
             modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Payable });
         }
-        if attr_signature_info.is_private {
+        if attr_signature_info.is_private() {
             modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Private });
         }
         let modifiers = quote! {
             vec![#(#modifiers),*]
         };
-        let AttrSigInfoV1 { is_handles_result, .. } = attr_signature_info;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();
@@ -160,9 +155,7 @@ impl ImplItemMethodInfo {
                             .into_compile_error();
                         };
 
-                        let abi_type =
-                            generate_abi_type(typ, &attr_signature_info.result_serializer);
-                        callback_vec = Some(quote! { Some(#abi_type) })
+                        callback_vec = Some(self.abi_callback_vec_tokens(typ));
                     } else {
                         return syn::Error::new(
                             Span::call_site(),
@@ -187,45 +180,7 @@ impl ImplItemMethodInfo {
         };
         let callback_vec = callback_vec.unwrap_or(quote! { None });
 
-        let result = match attr_signature_info.method_type {
-            MethodType::Init | MethodType::InitIgnoreState => {
-                // Init methods must return the contract state, so the return type does not matter
-                quote! {
-                    None
-                }
-            }
-            _ => match &attr_signature_info.returns {
-                ReturnType::Default => {
-                    quote! {
-                        None
-                    }
-                }
-                ReturnType::Type(_, ty) if is_handles_result && utils::type_is_result(ty) => {
-                    let ty = if let Some(ty) = utils::extract_ok_type(ty) {
-                        ty
-                    } else {
-                        return syn::Error::new_spanned(
-                            ty,
-                            "Function marked with #[handle_result] should have return type Result<T, E> (where E implements FunctionError).",
-                        )
-                        .into_compile_error();
-                    };
-                    let abi_type = generate_abi_type(ty, &attr_signature_info.result_serializer);
-                    quote! { Some(#abi_type) }
-                }
-                ReturnType::Type(_, ty) if is_handles_result => {
-                    return syn::Error::new(
-                        ty.span(),
-                        "Method marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
-                    )
-                    .to_compile_error();
-                }
-                ReturnType::Type(_, ty) => {
-                    let abi_type = generate_abi_type(ty, &attr_signature_info.result_serializer);
-                    quote! { Some(#abi_type) }
-                }
-            },
-        };
+        let result = self.abi_result_tokens();
 
         quote! {
              near_sdk::__private::AbiFunction {
@@ -238,6 +193,47 @@ impl ImplItemMethodInfo {
                  callbacks_vec: #callback_vec,
                  result: #result
              }
+        }
+    }
+
+    fn abi_result_tokens(&self) -> TokenStream2 {
+        use ReturnKind::*;
+
+        match &self.attr_signature_info.returns.kind {
+            Default => quote! { None },
+            General(ty) => self.abi_result_tokens_with_return_value(ty),
+            HandlesResult { ok_type } => self.abi_result_tokens_with_return_value(ok_type),
+        }
+    }
+
+    fn abi_result_tokens_with_return_value(&self, return_value_type: &Type) -> TokenStream2 {
+        use MethodKind::*;
+
+        let some_abi_type = |result_serializer: &SerializerType| {
+            let abi_type = generate_abi_type(&return_value_type, result_serializer);
+            quote! { Some(#abi_type) }
+        };
+
+        match &self.attr_signature_info.method_kind {
+            Call(call_method) => some_abi_type(&call_method.result_serializer),
+            // Init methods don't return a value, they just save the newly created contract state.
+            Init(_) => quote! { None },
+            View(view_method) => some_abi_type(&view_method.result_serializer),
+        }
+    }
+
+    fn abi_callback_vec_tokens(&self, callback_vec_type: &Type) -> TokenStream2 {
+        let abi_type = |result_serializer: &SerializerType| {
+            let tokens = generate_abi_type(callback_vec_type, result_serializer);
+            quote! {
+                Some(#tokens)
+            }
+        };
+
+        match &self.attr_signature_info.method_kind {
+            MethodKind::Call(call_method) => abi_type(&call_method.result_serializer),
+            MethodKind::Init(_) => quote! { None },
+            MethodKind::View(view_method) => abi_type(&view_method.result_serializer),
         }
     }
 }
