@@ -25,4 +25,9 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/generic_function.rs");
     t.compile_fail("compilation_tests/generic_const_function.rs");
     t.pass("compilation_tests/self_support.rs");
+    // The following couple tests should be activated before releasing 5.0
+    // See: https://github.com/near/near-sdk-rs/issues/1005
+    //
+    // t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_return.rs");
+    // t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_arg.rs");
 }

@@ -1,7 +1,7 @@
 //! Rust contract that uses conditional compilation.
 
-use near_sdk::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near_bindgen;
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -12,13 +12,15 @@ struct Incrementer {
 #[near_bindgen]
 impl Incrementer {
     #[cfg(feature = "myfeature")]
+    #[init]
     pub fn new() -> Self {
-        Self {value: 0}
+        Self { value: 0 }
     }
 
     #[cfg(not(feature = "myfeature"))]
+    #[init]
     pub fn new() -> Self {
-        Self {value: 1}
+        Self { value: 1 }
     }
 
     #[cfg(feature = "myfeature")]

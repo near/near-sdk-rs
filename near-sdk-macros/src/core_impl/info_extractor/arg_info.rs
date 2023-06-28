@@ -1,6 +1,6 @@
 use crate::core_impl::info_extractor::{SerializerAttr, SerializerType};
 use crate::core_impl::utils;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
 
@@ -37,6 +37,8 @@ pub struct ArgInfo {
     pub bindgen_ty: BindgenArgType,
     /// Type of serializer that we use for this argument.
     pub serializer_ty: SerializerType,
+    /// Spans of all occurences of the `Self` token, if any.
+    pub self_occurrences: Vec<Span>,
     /// The original `PatType` of the argument.
     pub original: PatType,
 }
@@ -60,7 +62,8 @@ impl ArgInfo {
                 ));
             }
         };
-        *original.ty.as_mut() = utils::sanitize_self(&original.ty, source_type)?;
+        let sanitize_self = utils::sanitize_self(&original.ty, source_type)?;
+        *original.ty.as_mut() = sanitize_self.ty;
         let (reference, mutability, ty) =
             utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
         // In the absence of callback attributes this is a regular argument.
@@ -108,6 +111,7 @@ impl ArgInfo {
             ty,
             bindgen_ty,
             serializer_ty,
+            self_occurrences: sanitize_self.self_occurrences,
             original: original.clone(),
         })
     }
