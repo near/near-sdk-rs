@@ -4,7 +4,7 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, ReturnType, Type};
 
 use crate::core_impl::{
-    utils, AttrSigInfo, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
+    utils, AttrSigInfoV1, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodType,
     SerializerType,
 };
 
@@ -80,13 +80,17 @@ impl ImplItemMethodInfo {
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
-        let function_name_str = self.attr_signature_info.ident.to_string();
-        let function_doc = match parse_rustdoc(&self.attr_signature_info.non_bindgen_attrs) {
+        // FIXME: Refactor to use `AttrSigInfoV2`
+        // Tracking issue: https://github.com/near/near-sdk-rs/issues/1032
+        let attr_signature_info: AttrSigInfoV1 = self.attr_signature_info.clone().into();
+
+        let function_name_str = attr_signature_info.ident.to_string();
+        let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
             Some(doc) => quote! { Some(#doc.to_string()) },
             None => quote! { None },
         };
         let mut modifiers = vec![];
-        let kind = match &self.attr_signature_info.method_type {
+        let kind = match &attr_signature_info.method_type {
             &MethodType::View => quote! { near_sdk::__private::AbiFunctionKind::View },
             &MethodType::Regular => {
                 quote! { near_sdk::__private::AbiFunctionKind::Call }
@@ -96,21 +100,21 @@ impl ImplItemMethodInfo {
                 quote! { near_sdk::__private::AbiFunctionKind::Call }
             }
         };
-        if self.attr_signature_info.is_payable {
+        if attr_signature_info.is_payable {
             modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Payable });
         }
-        if self.attr_signature_info.is_private {
+        if attr_signature_info.is_private {
             modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Private });
         }
         let modifiers = quote! {
             vec![#(#modifiers),*]
         };
-        let AttrSigInfo { is_handles_result, .. } = self.attr_signature_info;
+        let AttrSigInfoV1 { is_handles_result, .. } = attr_signature_info;
 
         let mut params = Vec::<TokenStream2>::new();
         let mut callbacks = Vec::<TokenStream2>::new();
         let mut callback_vec: Option<TokenStream2> = None;
-        for arg in &self.attr_signature_info.args {
+        for arg in &attr_signature_info.args {
             let typ = &arg.ty;
             let arg_name = arg.ident.to_string();
             match arg.bindgen_ty {
@@ -160,7 +164,7 @@ impl ImplItemMethodInfo {
                         };
 
                         let abi_type =
-                            generate_abi_type(typ, &self.attr_signature_info.result_serializer);
+                            generate_abi_type(typ, &attr_signature_info.result_serializer);
                         callback_vec = Some(quote! { Some(#abi_type) })
                     } else {
                         return syn::Error::new(
@@ -172,7 +176,7 @@ impl ImplItemMethodInfo {
                 }
             };
         }
-        let params = match self.attr_signature_info.input_serializer {
+        let params = match attr_signature_info.input_serializer {
             SerializerType::JSON => quote! {
                 near_sdk::__private::AbiParameters::Json {
                     args: vec![#(#params),*]
@@ -186,14 +190,14 @@ impl ImplItemMethodInfo {
         };
         let callback_vec = callback_vec.unwrap_or(quote! { None });
 
-        let result = match self.attr_signature_info.method_type {
+        let result = match attr_signature_info.method_type {
             MethodType::Init | MethodType::InitIgnoreState => {
                 // Init methods must return the contract state, so the return type does not matter
                 quote! {
                     None
                 }
             }
-            _ => match &self.attr_signature_info.returns {
+            _ => match &attr_signature_info.returns {
                 ReturnType::Default => {
                     quote! {
                         None
@@ -209,8 +213,7 @@ impl ImplItemMethodInfo {
                         )
                         .into_compile_error();
                     };
-                    let abi_type =
-                        generate_abi_type(ty, &self.attr_signature_info.result_serializer);
+                    let abi_type = generate_abi_type(ty, &attr_signature_info.result_serializer);
                     quote! { Some(#abi_type) }
                 }
                 ReturnType::Type(_, ty) if is_handles_result => {
@@ -221,8 +224,7 @@ impl ImplItemMethodInfo {
                     .to_compile_error();
                 }
                 ReturnType::Type(_, ty) => {
-                    let abi_type =
-                        generate_abi_type(ty, &self.attr_signature_info.result_serializer);
+                    let abi_type = generate_abi_type(ty, &attr_signature_info.result_serializer);
                     quote! { Some(#abi_type) }
                 }
             },

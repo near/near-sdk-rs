@@ -161,8 +161,8 @@ impl Visitor {
         }
     }
 
-    /// Get the method data from the return type and the visited attributes and arguments.
-    pub fn build(mut self) -> syn::Result<MethodKind> {
+    /// Get the method data and the return type from the visited attributes and arguments.
+    pub fn build(mut self) -> syn::Result<(MethodKind, Returns)> {
         use VisitorKind::*;
 
         // Must be called last which is why it's called here.
@@ -174,21 +174,15 @@ impl Visitor {
             is_payable, is_private, ignores_state, result_serializer, receiver, ..
         } = parsed_data;
 
-        let result = match kind {
-            Call => MethodKind::Call(CallMethod {
-                is_payable,
-                is_private,
-                result_serializer,
-                returns,
-                receiver,
-            }),
-            Init => MethodKind::Init(InitMethod { is_payable, ignores_state, returns }),
-            View => {
-                MethodKind::View(ViewMethod { is_private, result_serializer, receiver, returns })
+        let method_kind = match kind {
+            Call => {
+                MethodKind::Call(CallMethod { is_payable, is_private, result_serializer, receiver })
             }
+            Init => MethodKind::Init(InitMethod { is_payable, ignores_state }),
+            View => MethodKind::View(ViewMethod { is_private, result_serializer, receiver }),
         };
 
-        Ok(result)
+        Ok((method_kind, returns))
     }
 }
 
