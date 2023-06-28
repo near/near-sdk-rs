@@ -1,4 +1,4 @@
-use crate::core_impl::{serializer, AttrSigInfoV2};
+use crate::core_impl::{serializer, AttrSigInfo};
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use syn::{parse_quote, Attribute, Generics, Path, Signature};
@@ -97,7 +97,7 @@ fn is_fn_attribute_to_forward(attribute: &Attribute) -> bool {
 /// Generate methods on <StructName>Ext to enable calling each method.
 pub(crate) fn generate_ext_function_wrappers<'a>(
     ident: &Ident,
-    methods: impl IntoIterator<Item = &'a AttrSigInfoV2>,
+    methods: impl IntoIterator<Item = &'a AttrSigInfo>,
 ) -> TokenStream2 {
     let ext_ident = format_ident!("{}Ext", ident);
     let mut res = TokenStream2::new();
@@ -111,12 +111,12 @@ pub(crate) fn generate_ext_function_wrappers<'a>(
     }
 }
 
-fn generate_ext_function(attr_signature_info: &AttrSigInfoV2) -> TokenStream2 {
+fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let pat_type_list = attr_signature_info.pat_type_list();
     let serialize =
         serializer::generate_serializer(attr_signature_info, &attr_signature_info.input_serializer);
 
-    let AttrSigInfoV2 { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
+    let AttrSigInfo { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
     let ident_str = ident.to_string();
     let mut new_non_bindgen_attrs = TokenStream2::new();
     for attribute in non_bindgen_attrs.iter() {

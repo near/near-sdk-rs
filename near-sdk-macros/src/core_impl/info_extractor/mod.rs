@@ -7,7 +7,7 @@ mod arg_info;
 pub use arg_info::{ArgInfo, BindgenArgType};
 
 mod attr_sig_info;
-pub use attr_sig_info::{AttrSigInfoV1, AttrSigInfoV2};
+pub use attr_sig_info::AttrSigInfo;
 
 mod impl_item_method_info;
 pub use impl_item_method_info::ImplItemMethodInfo;
@@ -33,15 +33,6 @@ pub use item_impl_info::ItemImplInfo;
 pub enum SerializerType {
     JSON,
     Borsh,
-}
-
-/// Type of the method.
-#[derive(PartialEq, Eq)]
-pub enum MethodType {
-    Regular,
-    View,
-    Init,
-    InitIgnoreState,
 }
 
 #[derive(Clone, PartialEq, Eq)]
