@@ -295,3 +295,220 @@ pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
         Some(doc)
     }
 }
+
+// Rustfmt removes comas.
+#[rustfmt::skip]
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+    use syn::{parse_quote, Type};
+    use crate::core_impl::ImplItemMethodInfo;
+
+    #[test]
+    fn test_generate_abi_fallible_json() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            /// I am a function.
+            #[handle_result]
+            pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+        
+        let expected = quote! {
+            near_sdk::__private::AbiFunction {
+                name: "f3".to_string(),
+                doc: Some(" I am a function.".to_string()),
+                kind: near_sdk::__private::AbiFunctionKind::Call,
+                modifiers: vec![],
+                params: near_sdk::__private::AbiParameters::Json {
+                    args: vec![
+                        near_sdk::__private::AbiJsonParameter {
+                            name: "arg0".to_string(),
+                            type_schema: gen.subschema_for::<FancyStruct>(),
+                        },
+                        near_sdk::__private::AbiJsonParameter {
+                            name: "arg1".to_string(),
+                            type_schema: gen.subschema_for::<u64>(),
+                        }
+                    ]
+                },
+                callbacks: vec![],
+                callbacks_vec: None,
+                result: Some(near_sdk::__private::AbiType::Json {
+                    type_schema: gen.subschema_for::<IsOk>(),
+                })
+            }
+        };
+        
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn test_generate_abi_fallible_borsh() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            #[result_serializer(borsh)]
+            #[payable]
+            #[handle_result]
+            pub fn f3(&mut self, #[serializer(borsh)] arg0: FancyStruct) -> Result<IsOk, Error> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+
+        let expected = quote! {
+            near_sdk::__private::AbiFunction {
+                name: "f3".to_string(),
+                doc: None,
+                kind: near_sdk::__private::AbiFunctionKind::Call,
+                modifiers: vec![near_sdk::__private::AbiFunctionModifier::Payable],
+                params: near_sdk::__private::AbiParameters::Borsh {
+                    args: vec![
+                        near_sdk::__private::AbiBorshParameter {
+                            name: "arg0".to_string(),
+                            type_schema: <FancyStruct as near_sdk::borsh::BorshSchema>::schema_container(),
+                        }
+                    ]
+                },
+                callbacks: vec![],
+                callbacks_vec: None,
+                result: Some(near_sdk::__private::AbiType::Borsh {
+                    type_schema: <IsOk as near_sdk::borsh::BorshSchema>::schema_container(),
+                })
+            }
+        };
+
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+    
+    #[test]
+    fn test_generate_abi_private_callback_vec() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            #[private] 
+            pub fn method(
+                &self, 
+                #[callback_vec] x: Vec<String>, 
+            ) -> bool { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+        
+        let expected = quote! {
+           near_sdk::__private::AbiFunction { 
+                name: "method".to_string(),
+                doc: None, 
+                kind: near_sdk::__private::AbiFunctionKind::View , 
+                modifiers: vec! [near_sdk::__private::AbiFunctionModifier::Private],
+                params: near_sdk::__private::AbiParameters::Json { 
+                    args: vec![]
+                }, 
+                callbacks: vec! [], 
+                callbacks_vec: Some(near_sdk::__private::AbiType::Json { 
+                    type_schema: gen.subschema_for::< String >() , 
+                }),
+                result: Some(near_sdk::__private::AbiType::Json {
+                    type_schema: gen.subschema_for::< bool >() ,
+                })
+            }
+        };
+        
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+    
+    #[test]
+    fn test_generate_abi_callback_args() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            pub fn method(&self, #[callback_unwrap] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback_unwrap] #[serializer(json)] z: Vec<u8>) { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+
+        let expected = quote! {
+           near_sdk::__private::AbiFunction { 
+                name: "method".to_string(),
+                doc: None, 
+                kind: near_sdk::__private::AbiFunctionKind::View , 
+                modifiers: vec! [],
+                params: near_sdk::__private::AbiParameters::Borsh {
+                    args: vec! [
+                        near_sdk::__private::AbiBorshParameter {
+                            name: "y".to_string(),
+                            type_schema: < String as near_sdk::borsh::BorshSchema >::schema_container(),
+                        }
+                    ]
+                }, 
+                callbacks: vec! [
+                    near_sdk::__private::AbiType::Borsh { 
+                        type_schema: <u64 as near_sdk::borsh::BorshSchema>::schema_container(),
+                    },
+                    near_sdk::__private::AbiType::Json {
+                        type_schema: gen.subschema_for::< Vec<u8> >(),
+                    }
+                ],
+                callbacks_vec: None,
+                result: None 
+            }
+        };
+
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+    
+    #[test]
+    fn test_generate_abi_init_ignore_state() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            #[init(ignore_state)]
+            pub fn new() -> u64 { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+
+        let expected = quote! {
+            near_sdk::__private::AbiFunction {
+                name: "new".to_string(),
+                doc: None,
+                kind: near_sdk::__private::AbiFunctionKind::Call,
+                modifiers: vec![
+                    near_sdk::__private::AbiFunctionModifier::Init
+                ],
+                params: near_sdk::__private::AbiParameters::Json {
+                    args: vec![]
+                },
+                callbacks: vec![],
+                callbacks_vec: None,
+                result: None
+            }
+        };
+
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+    
+    #[test]
+    fn test_generate_abi_no_return() {
+        let impl_type: Type = syn::parse_str("Test").unwrap();
+        let mut method = parse_quote! {
+            pub fn method() { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.abi_struct();
+
+        let expected = quote! {
+            near_sdk::__private::AbiFunction {
+                name: "method".to_string(),
+                doc: None,
+                kind: near_sdk::__private::AbiFunctionKind::View,
+                modifiers: vec![],
+                params: near_sdk::__private::AbiParameters::Json {
+                    args: vec![]
+                },
+                callbacks: vec![],
+                callbacks_vec: None,
+                result: None
+            }
+        };
+
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+}
