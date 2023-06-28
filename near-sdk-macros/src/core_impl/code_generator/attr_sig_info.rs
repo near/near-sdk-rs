@@ -1,13 +1,24 @@
 use proc_macro2::TokenStream as TokenStream2;
 
 use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfoV2, BindgenArgType, SerializerType};
-use crate::core_impl::utils;
+use crate::core_impl::{utils, MethodKind};
 use quote::quote;
 
 impl AttrSigInfoV2 {
     /// Whether the signature has function arguments.
     pub fn has_input_args(&self) -> bool {
         self.input_args().next().is_some()
+    }
+
+    /// Whether the method has `private` attribute.
+    pub fn is_private(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.is_private,
+            Init(_) => false,
+            View(view_method) => view_method.is_private,
+        }
     }
 
     pub fn input_struct_ser(&self) -> TokenStream2 {

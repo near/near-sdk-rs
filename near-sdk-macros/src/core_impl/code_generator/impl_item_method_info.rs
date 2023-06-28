@@ -171,36 +171,15 @@ impl ImplItemMethodInfo {
     }
 
     fn private_check_tokens(&self) -> TokenStream2 {
-        use MethodKind::*;
-
-        let reject_cross_call = || {
+        if self.attr_signature_info.is_private() {
             let error = format!("Method {} is private", self.attr_signature_info.ident);
             quote! {
                 if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
                     near_sdk::env::panic_str(#error);
                 }
             }
-        };
-
-        match &self.attr_signature_info.method_kind {
-            Call(call_method) => {
-                if call_method.is_private {
-                    reject_cross_call()
-                } else {
-                    quote! {}
-                }
-            }
-
-            // Init methods cannot be private.
-            Init(_) => quote! {},
-
-            View(view_method) => {
-                if view_method.is_private {
-                    reject_cross_call()
-                } else {
-                    quote! {}
-                }
-            }
+        } else {
+            quote! {}
         }
     }
 
