@@ -46,36 +46,33 @@ impl ImplItemMethodInfo {
     /// The following function:
     /// ```ignore
     /// /// I am a function.
+    /// #[handle_result]
     /// pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
     /// ```
     /// will produce this struct:
     /// ```ignore
-    /// near_abi::AbiFunction {
+    /// near_sdk::__private::AbiFunction {
     ///     name: "f3".to_string(),
     ///     doc: Some(" I am a function.".to_string()),
-    ///     is_view: false,
-    ///     is_init: false,
-    ///     is_payable: false,
-    ///     is_private: false,
-    ///     params: vec![
-    ///         near_abi::AbiParameter {
-    ///             name: "arg0".to_string(),
-    ///             typ: near_abi::AbiType::Json {
+    ///     kind: near_sdk::__private::AbiFunctionKind::Call,
+    ///     modifiers: vec![],
+    ///     params: near_sdk::__private::AbiParameters::Json {
+    ///         args: vec![
+    ///             near_sdk::__private::AbiJsonParameter {
+    ///                 name: "arg0".to_string(),
     ///                 type_schema: gen.subschema_for::<FancyStruct>(),
     ///             },
-    ///         },
-    ///         near_abi::AbiParameter {
-    ///             name: "arg1".to_string(),
-    ///             typ: near_abi::AbiType::Json {
+    ///             near_sdk::__private::AbiJsonParameter {
+    ///                 name: "arg1".to_string(),
     ///                 type_schema: gen.subschema_for::<u64>(),
-    ///             },
-    ///         }
-    ///     ],
+    ///             }
+    ///         ]
+    ///     },
     ///     callbacks: vec![],
     ///     callbacks_vec: None,
-    ///     result: near_abi::AbiType::Json {
-    ///         type_schema: gen.subschema_for::<IsOk>(),
-    ///     }
+    ///     result: Some(near_sdk::__private::AbiType::Json {
+    ///     type_schema: gen.subschema_for::<IsOk>(),
+    ///     })
     /// }
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
