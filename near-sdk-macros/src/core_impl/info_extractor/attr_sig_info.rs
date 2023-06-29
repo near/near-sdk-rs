@@ -1,17 +1,13 @@
 use super::visitor::Visitor;
-use super::{
-    ArgInfo, BindgenArgType, InitAttr, MethodKind, MethodType, ReturnKind, SerializerAttr,
-    SerializerType,
-};
+use super::{ArgInfo, BindgenArgType, InitAttr, MethodKind, SerializerAttr, SerializerType};
 use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, GenericParam, Ident, Receiver, ReturnType, Signature, Type};
+use syn::{Attribute, Error, FnArg, GenericParam, Ident, ReturnType, Signature, Type};
 
 /// Information extracted from method attributes and signature.
-#[derive(Clone)]
-pub struct AttrSigInfoV2 {
+pub struct AttrSigInfo {
     /// The name of the method.
     pub ident: Ident,
     /// Attributes not related to bindgen.
@@ -28,90 +24,7 @@ pub struct AttrSigInfoV2 {
     pub original_sig: Signature,
 }
 
-/// Information extracted from method attributes and signature.
-pub struct AttrSigInfoV1 {
-    /// The name of the method.
-    pub ident: Ident,
-    /// Attributes not related to bindgen.
-    pub non_bindgen_attrs: Vec<Attribute>,
-    /// All arguments of the method.
-    pub args: Vec<ArgInfo>,
-    /// Describes the type of the method.
-    pub method_type: MethodType,
-    /// Whether method accepting $NEAR.
-    pub is_payable: bool,
-    /// Whether method can accept calls from self (current account)
-    pub is_private: bool,
-    /// Whether method returns Result type where only Ok type is serialized
-    pub is_handles_result: bool,
-    /// The serializer that we use for `env::input()`.
-    pub input_serializer: SerializerType,
-    /// The serializer that we use for the return type.
-    pub result_serializer: SerializerType,
-    /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
-    pub receiver: Option<Receiver>,
-    /// What this function returns.
-    pub returns: ReturnType,
-    /// The original method signature.
-    pub original_sig: Signature,
-}
-
-// FIXME: Remove once we refactor ABI generator to use `AttrSigInfoV2`
-// Tracking issue: https://github.com/near/near-sdk-rs/issues/1032
-impl From<AttrSigInfoV2> for AttrSigInfoV1 {
-    fn from(info: AttrSigInfoV2) -> Self {
-        match info.method_kind {
-            MethodKind::Call(call_method) => AttrSigInfoV1 {
-                ident: info.ident,
-                non_bindgen_attrs: info.non_bindgen_attrs,
-                args: info.args,
-                method_type: MethodType::Regular,
-                is_payable: call_method.is_payable,
-                is_private: call_method.is_private,
-                is_handles_result: matches!(info.returns.kind, ReturnKind::HandlesResult { .. }),
-                input_serializer: info.input_serializer,
-                result_serializer: call_method.result_serializer,
-                receiver: call_method.receiver,
-                returns: info.returns.original,
-                original_sig: info.original_sig,
-            },
-            MethodKind::View(view_method) => AttrSigInfoV1 {
-                ident: info.ident,
-                non_bindgen_attrs: info.non_bindgen_attrs,
-                args: info.args,
-                method_type: MethodType::View,
-                is_payable: false,
-                is_private: view_method.is_private,
-                is_handles_result: matches!(info.returns.kind, ReturnKind::HandlesResult { .. }),
-                input_serializer: info.input_serializer,
-                result_serializer: view_method.result_serializer,
-                receiver: view_method.receiver,
-                returns: info.returns.original,
-                original_sig: info.original_sig,
-            },
-            MethodKind::Init(init_method) => AttrSigInfoV1 {
-                ident: info.ident,
-                non_bindgen_attrs: info.non_bindgen_attrs,
-                args: info.args,
-                method_type: if init_method.ignores_state {
-                    MethodType::InitIgnoreState
-                } else {
-                    MethodType::Init
-                },
-                is_payable: init_method.is_payable,
-                is_private: false,
-                is_handles_result: matches!(info.returns.kind, ReturnKind::HandlesResult { .. }),
-                input_serializer: info.input_serializer,
-                result_serializer: SerializerType::JSON,
-                receiver: None,
-                returns: info.returns.original,
-                original_sig: info.original_sig,
-            },
-        }
-    }
-}
-
-impl AttrSigInfoV2 {
+impl AttrSigInfo {
     /// Apart from replacing `Self` types with their concretions, returns spans of all `Self` tokens found.
     fn sanitize_self(
         original_sig: &mut Signature,
@@ -235,7 +148,7 @@ impl AttrSigInfoV2 {
             //
         }
 
-        let mut result = AttrSigInfoV2 {
+        let mut result = AttrSigInfo {
             ident,
             non_bindgen_attrs,
             args,
