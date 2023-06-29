@@ -69,7 +69,7 @@ impl ImplItemMethodInfo {
     ///     callbacks: vec![],
     ///     callbacks_vec: None,
     ///     result: Some(near_sdk::__private::AbiType::Json {
-    ///     type_schema: gen.subschema_for::<IsOk>(),
+    ///         type_schema: gen.subschema_for::<IsOk>(),
     ///     })
     /// }
     /// ```
