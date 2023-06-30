@@ -1779,7 +1779,7 @@ dependencies = [
 
 [[package]]
 name = "near-contract-standards"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "near-sdk",
  "schemars",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "base64 0.13.1",
  "borsh 0.9.3",
@@ -2099,7 +2099,7 @@ dependencies = [
 
 [[package]]
 name = "near-sdk-macros"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -2203,7 +2203,7 @@ dependencies = [
 
 [[package]]
 name = "non-fungible-token"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "near-contract-standards",
  "near-sdk",
