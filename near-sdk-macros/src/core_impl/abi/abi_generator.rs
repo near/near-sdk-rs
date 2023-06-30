@@ -210,7 +210,7 @@ impl ImplItemMethodInfo {
         use MethodKind::*;
 
         let some_abi_type = |result_serializer: &SerializerType| {
-            let abi_type = generate_abi_type(&return_value_type, result_serializer);
+            let abi_type = generate_abi_type(return_value_type, result_serializer);
             quote! { Some(#abi_type) }
         };
 
@@ -250,7 +250,7 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
 }
 
 fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 {
-    let schema = generate_schema(&ty, serializer_type);
+    let schema = generate_schema(ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
             near_sdk::__private::AbiType::Json {
