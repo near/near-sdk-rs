@@ -1,0 +1,38 @@
+name: Compare contract sizes with master
+
+on:
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  generate_report:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.comment.body == '/compare'}}
+    steps:
+      - name: Generate report
+        id: report
+        run: |
+          echo "::set-output name=REPORT::$(scripts/compare_sizes.py)"
+      - name: Submit report
+        if: ${{ success() }}
+        uses: actions/github-script@v4
+        with:
+          script: |
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: ${{ steps.report.outputs.REPORT }},
+            });
+      - name: Notify about failure
+        if: ${{ failure() }}
+        uses: actions/github-script@v4
+        with:
+          script: |
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Failed to generate size comparison report! See the failed CI job for more details.',
+            });
