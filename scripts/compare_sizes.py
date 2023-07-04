@@ -36,7 +36,7 @@ class ProjectInstance:
     def build_artifacts(self):
         import subprocess
 
-        return subprocess.run(os.path.join(self.examples_dir(), "build_all_docker.sh"))
+        return subprocess.run(os.path.join(self.examples_dir(), "build_all_docker.sh"), stdout = subprocess.DEVNULL)
 
     def sizes(self):
         self.build_artifacts()
