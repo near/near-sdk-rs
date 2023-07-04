@@ -11,7 +11,7 @@
 - Fixed invalid import from "legacy" feature flag from stabilized collection. [PR 960](https://github.com/near/near-sdk-rs/pull/960)
 
 ### Removed
-- Removed declarative macros for NFT impl code generation. [PR 1042]()https://github.com/near/near-sdk-rs/pull/1042
+- Removed declarative macros for NFT impl code generation. [PR 1042](https://github.com/near/near-sdk-rs/pull/1042)
 
 ## [4.1.0] - 2022-11-09
 
