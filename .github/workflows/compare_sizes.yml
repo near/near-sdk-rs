@@ -7,6 +7,8 @@ jobs:
   generate_report:
     runs-on: ubuntu-latest
     if: ${{ (github.event.issue.pull_request) && (github.event.comment.body == '/compare') }}
+    permissions:
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -15,9 +17,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Generate report
-        id: report
         run: |
-          echo "::set-output name=REPORT::$(scripts/compare_sizes.py)"
+          yes | pip install GitPython
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "REPORT<<$EOF" >> "$GITHUB_ENV"
+          scripts/compare_sizes.py >> "$GITHUB_ENV"
+          echo "$EOF" >> "$GITHUB_ENV"
       - name: Submit report
         if: ${{ success() }}
         uses: actions/github-script@v4
@@ -27,7 +32,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: ${{ steps.report.outputs.REPORT }},
+              body: process.env.REPORT,
             });
       - name: Notify about failure
         if: ${{ failure() }}
