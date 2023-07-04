@@ -1,14 +1,12 @@
 name: Compare contract sizes with master
-
 on:
   issue_comment:
     types:
       - created
-
 jobs:
   generate_report:
     runs-on: ubuntu-latest
-    if: ${{ github.event.comment.body == '/compare'}}
+    if: ${{ (github.event.issue.pull_request) && (github.event.comment.body == '/compare') }}
     steps:
       - name: Generate report
         id: report
