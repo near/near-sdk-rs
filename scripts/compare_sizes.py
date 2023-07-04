@@ -59,10 +59,7 @@ def report(master, this_branch):
 
         return res
 
-    header = """<style>.good{color:Green;}</style>
-<style>.bad{color:Red;}</style>
-
-# Contract size report
+    header = """# Contract size report
 
 Sizes are given in bytes.
 
