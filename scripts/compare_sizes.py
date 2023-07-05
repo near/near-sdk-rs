@@ -53,13 +53,7 @@ def report(master, this_branch):
     def diff(old, new):
         diff = (new - old)/old
 
-        res = "{0:+.0%}".format(diff)
-        if diff < -.1:
-            res = f"<div class=\"good\">{res}</div>"
-        elif diff > .1:
-            res = f"<div class=\"bad\">{res}</div>"
-
-        return res
+        return "{0:+.0%}".format(diff)
 
     header = """# Contract size report
 
@@ -69,6 +63,7 @@ Sizes are given in bytes.
 | - | - | - | - |"""
 
     combined = [(name,master,branch,diff(master, branch)) for name, master, branch in common_entries(master, this_branch)]
+    combined.sort(key=lambda el: el[0])
     rows = [f"| {name} | {old} | {new} | {diff} |" for name, old, new, diff in combined]
 
     return "\n".join([header, *rows])
