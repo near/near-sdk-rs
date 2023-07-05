@@ -5,6 +5,8 @@
 import os
 import tempfile
 import glob
+import shutil
+import sys
 from git import Repo
 
 this_file = os.path.abspath(os.path.realpath(__file__))
@@ -33,19 +35,19 @@ class ProjectInstance:
     def examples_dir(self):
         return os.path.join(self.root_dir, "examples")
 
-    def build_artifacts(self):
+    def docker_target_dir(self):
+        return os.path.join(self.root_dir, "docker-target")
+
+    def build_artifacts(self, *build_args):
         import subprocess
 
-        return subprocess.run(os.path.join(self.examples_dir(), "build_all_docker.sh"), stdout = subprocess.DEVNULL)
+        return subprocess.run([os.path.join(self.examples_dir(), "build_all_docker.sh"), *build_args], stdout = subprocess.DEVNULL)
 
-    def sizes(self):
-        self.build_artifacts()
+    def sizes(self, *build_args):
+        self.build_artifacts(*build_args)
 
         artifact_paths = glob.glob(self.examples_dir() + '/*/res/*.wasm')
         return {os.path.basename(path):os.stat(path).st_size for path in artifact_paths}
-
-cur_branch = ProjectInstance(project_root)
-repo = Repo(project_root)
 
 def report(master, this_branch):
     def diff(old, new):
@@ -71,13 +73,21 @@ Sizes are given in bytes.
 
     return "\n".join([header, *rows])
 
+build_args = sys.argv[1:]
+
+cur_branch = ProjectInstance(project_root)
+repo = Repo(project_root)
+
 try:
     with tempfile.TemporaryDirectory() as tempdir:
         repo.git.worktree("add", tempdir, "master")
         master = ProjectInstance(tempdir)
 
-        master_sizes = master.sizes()
-        cur_sizes = cur_branch.sizes()
+        cur_sizes = cur_branch.sizes(*build_args)
+
+        shutil.copytree(cur_branch.docker_target_dir(), master.docker_target_dir())
+        master_sizes = master.sizes(*build_args)
+
         print(report(master_sizes, cur_sizes))
 finally:
     repo.git.worktree("prune")

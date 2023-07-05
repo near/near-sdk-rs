@@ -16,12 +16,24 @@ jobs:
         run: hub pr checkout ${{ github.event.issue.number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache intermediate artifacts
+        uses: actions/cache@v3
+        env:
+          cache-name: compare-sizes
+        with:
+          path: |
+            docker-target
+            /home/runner/work/.cargo/git
+            /home/runner/work/.cargo/registry
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
       - name: Generate report
         run: |
           yes | pip install GitPython
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "REPORT<<$EOF" >> "$GITHUB_ENV"
-          scripts/compare_sizes.py >> "$GITHUB_ENV"
+          scripts/compare_sizes.py --cargo-cache-dir /home/runner/work/.cargo >> "$GITHUB_ENV"
           echo "$EOF" >> "$GITHUB_ENV"
       - name: Submit report
         if: ${{ success() }}
