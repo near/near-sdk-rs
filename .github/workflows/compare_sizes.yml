@@ -34,7 +34,7 @@ jobs:
           yes | pip install GitPython
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "REPORT<<$EOF" >> "$GITHUB_ENV"
-          scripts/compare_sizes.py --cargo-cache-dir /home/runner/work/.cargo >> "$GITHUB_ENV"
+          ci/compare_sizes/compare_sizes.py --cargo-cache-dir /home/runner/work/.cargo >> "$GITHUB_ENV"
           echo "$EOF" >> "$GITHUB_ENV"
       - name: Submit report
         if: ${{ success() }}
