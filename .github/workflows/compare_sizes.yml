@@ -25,9 +25,10 @@ jobs:
             docker-target
             /home/runner/work/.cargo/git
             /home/runner/work/.cargo/registry
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
+          # TODO: add an additional key here, e.g. the Rust toolchain version used
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          # restore-keys: |
+          #   ${{ runner.os }}-build-${{ env.cache-name }}
       - name: Generate report
         run: |
           yes | pip install GitPython
