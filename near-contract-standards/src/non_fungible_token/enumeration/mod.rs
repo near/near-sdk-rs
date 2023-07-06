@@ -5,6 +5,43 @@ use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 
 /// Offers methods helpful in determining account ownership of NFTs and provides a way to page through NFTs per owner, determine total supply, etc.
+///
+/// # Examples
+///
+/// ```
+/// use std::collections::HashMap;
+/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen, Promise};
+/// use near_contract_standards::non_fungible_token::{NonFungibleToken, TokenId, Token};
+/// use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
+/// use near_sdk::json_types::U128;
+///
+/// #[near_bindgen]
+/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// pub struct Contract {
+///    tokens: NonFungibleToken,
+///}
+///
+/// #[near_bindgen]
+/// impl NonFungibleTokenEnumeration for Contract {
+///     fn nft_total_supply(&self) -> U128 {
+///         self.tokens.nft_total_supply()
+///     }
+///
+///     fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token> {
+///         self.tokens.nft_tokens(from_index, limit)
+///     }
+///
+///     fn nft_supply_for_owner(&self, account_id: AccountId) -> U128 {
+///         self.tokens.nft_supply_for_owner(account_id)
+///     }
+///
+///     fn nft_tokens_for_owner(&self, account_id: AccountId, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token> {
+///         self.tokens.nft_tokens_for_owner(account_id, from_index, limit)
+///     }
+/// }
+/// ```
+///
 pub trait NonFungibleTokenEnumeration {
     /// Returns the total supply of non-fungible tokens as a string representing an
     /// unsigned 128-bit integer to avoid JSON number limit of 2^53.

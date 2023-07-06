@@ -20,7 +20,11 @@ pub use self::token::{Token, TokenId};
 mod utils;
 pub use utils::*;
 
-pub use self::core::NonFungibleToken;
 pub use macros::*;
+
+pub use self::approval::NonFungibleTokenApproval;
+pub use self::core::NonFungibleToken;
+pub use self::core::NonFungibleTokenResolver;
+pub use self::enumeration::NonFungibleTokenEnumeration;
 
 pub mod events;

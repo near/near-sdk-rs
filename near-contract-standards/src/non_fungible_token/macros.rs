@@ -1,7 +1,9 @@
 /// The core methods for a basic non-fungible token. Extension standards may be
 /// added in addition to this macro.
 #[macro_export]
-#[deprecated(note = "implement the NonFungibleTokenCore and NonFungibleTokenResolver traits manually instead.")]
+#[deprecated(
+    note = "implement the NonFungibleTokenCore and NonFungibleTokenResolver traits manually instead."
+)]
 macro_rules! impl_non_fungible_token_core {
     ($contract: ident, $token: ident) => {
         use $crate::non_fungible_token::core::NonFungibleTokenCore;
