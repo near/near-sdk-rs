@@ -10,8 +10,7 @@ use std::collections::HashMap;
 /// use std::collections::HashMap;
 /// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 /// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen};
-/// use near_contract_standards::non_fungible_token::{NonFungibleToken, TokenId};
-/// use near_contract_standards::non_fungible_token::core::NonFungibleTokenResolver;
+/// use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenResolver, TokenId};
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
