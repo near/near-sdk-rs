@@ -1,6 +1,9 @@
 /// The core methods for a basic non-fungible token. Extension standards may be
 /// added in addition to this macro.
 #[macro_export]
+#[deprecated(
+    note = "implement the near_contract_standards::non_fungible_token::NonFungibleTokenCore and near_contract_standards::non_fungible_token::NonFungibleTokenResolver traits manually instead."
+)]
 macro_rules! impl_non_fungible_token_core {
     ($contract: ident, $token: ident) => {
         use $crate::non_fungible_token::core::NonFungibleTokenCore;
@@ -60,6 +63,9 @@ macro_rules! impl_non_fungible_token_core {
 /// Non-fungible token approval management allows for an escrow system where
 /// multiple approvals per token exist.
 #[macro_export]
+#[deprecated(
+    note = "implement the near_contract_standards::non_fungible_token::NonFungibleTokenApproval trait manually instead."
+)]
 macro_rules! impl_non_fungible_token_approval {
     ($contract: ident, $token: ident) => {
         use $crate::non_fungible_token::approval::NonFungibleTokenApproval;
@@ -101,6 +107,9 @@ macro_rules! impl_non_fungible_token_approval {
 /// Non-fungible enumeration adds the extension standard offering several
 /// view-only methods to get token supply, tokens per owner, etc.
 #[macro_export]
+#[deprecated(
+    note = "implement the near_contract_standards::non_fungible_token::NonFungibleTokenEnumeration trait manually instead."
+)]
 macro_rules! impl_non_fungible_token_enumeration {
     ($contract: ident, $token: ident) => {
         use $crate::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
