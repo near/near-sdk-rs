@@ -22,6 +22,13 @@ pub struct LookupMap<K, V> {
 
 impl<K, V> LookupMap<K, V> {
     /// Create a new map. Use `key_prefix` as a unique prefix for keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupMap;
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
+    /// ```
     pub fn new<S>(key_prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -97,17 +104,53 @@ where
     }
 
     /// Returns true if the map contains a given key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.contains_key(&"Toyota".into()), false);
+    ///
+    /// map.insert(&"Toyota".into(), &"Camry".into());
+    /// assert_eq!(map.contains_key(&"Toyota".into()), true);
+    /// ```
     pub fn contains_key(&self, key: &K) -> bool {
         self.contains_key_raw(&Self::serialize_key(key))
     }
 
     /// Returns the value corresponding to the key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.get(&"Toyota".into()), None);
+    ///
+    /// map.insert(&"Toyota".into(), &"Camry".into());
+    /// assert_eq!(map.get(&"Toyota".into()), Some("Camry".into()));
+    /// ```
     pub fn get(&self, key: &K) -> Option<V> {
         self.get_raw(&Self::serialize_key(key)).map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
     /// Removes a key from the map, returning the value at the key if the key was previously in the
     /// map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.remove(&"Toyota".into()), None);
+    ///
+    /// map.insert(&"Toyota".into(), &"Camry".into());
+    /// assert_eq!(map.remove(&"Toyota".into()), Some("Camry".into()));
+    /// ```
     pub fn remove(&mut self, key: &K) -> Option<V> {
         self.remove_raw(&Self::serialize_key(key))
             .map(|value_raw| Self::deserialize_value(&value_raw))
@@ -117,11 +160,38 @@ where
     /// If the map did not have this key present, `None` is returned. Otherwise returns
     /// a value. Note, the keys that have the same hash value are undistinguished by
     /// the implementation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut map: LookupMap<String, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.insert(&"Toyota".into(), &"Camry".into()), None);
+    /// assert_eq!(map.insert(&"Toyota".into(), &"Corolla".into()), Some("Camry".into()));
+    /// ```
     pub fn insert(&mut self, key: &K, value: &V) -> Option<V> {
         self.insert_raw(&Self::serialize_key(key), &Self::serialize_value(value))
             .map(|value_raw| Self::deserialize_value(&value_raw))
     }
 
+    /// Inserts all new key-values from the iterator and replaces values with existing keys
+    /// with new values returned from the iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::collections::LookupMap;
+    ///
+    /// let mut extendee: LookupMap<String, String> = LookupMap::new(b"m");
+    /// let mut source = vec![];
+    ///
+    /// source.push(("Toyota".into(), "Camry".into()));
+    /// source.push(("Nissan".into(), "Almera".into()));
+    /// source.push(("Ford".into(), "Mustang".into()));
+    /// source.push(("Chevrolet".into(), "Camaro".into()));
+    /// extendee.extend(source.into_iter());
+    /// ```
     pub fn extend<IT: IntoIterator<Item = (K, V)>>(&mut self, iter: IT) {
         for (el_key, el_value) in iter {
             self.insert(&el_key, &el_value);

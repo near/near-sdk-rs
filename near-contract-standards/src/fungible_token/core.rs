@@ -1,7 +1,9 @@
+use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
 
+#[ext_contract(ext_ft_core)]
 pub trait FungibleTokenCore {
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id`.
     /// Both accounts must be registered with the contract for transfer to succeed. (See [NEP-145](https://github.com/near/NEPs/discussions/145))

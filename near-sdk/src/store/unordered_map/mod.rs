@@ -7,28 +7,26 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
+use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 pub use self::iter::{Drain, Iter, IterMut, Keys, Values, ValuesMut};
 use super::free_list::FreeListIndex;
-use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
-
-const ERR_NOT_EXIST: &str = "Key does not exist in map";
+use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 
 /// A lazily loaded storage map that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupMap`](crate::store::LookupMap), except
 /// that it stores the keys so that [`UnorderedMap`] can be iterable.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`CryptoHasher`] implementation.
+/// using the map's [`ToKey`] implementation.
 ///
 /// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 /// ```
@@ -81,7 +79,7 @@ pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     keys: FreeList<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
@@ -99,7 +97,7 @@ impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn serialize<W: borsh::maybestd::io::Write>(
         &self,
@@ -115,7 +113,7 @@ impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
         Ok(Self {
@@ -129,7 +127,7 @@ impl<K, V, H> Drop for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -140,7 +138,7 @@ impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedMap")
@@ -155,6 +153,18 @@ where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
+    /// Create a new iterable map. Use `prefix` as a unique prefix for keys.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where
@@ -168,14 +178,13 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Initialize a [`UnorderedMap`] with a custom hash function.
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::{UnorderedMap, key::Keccak256};
     ///
     /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
@@ -190,17 +199,51 @@ where
     }
 
     /// Return the amount of elements inside of the map.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// assert_eq!(map.len(), 0);
+    /// map.insert("a".to_string(), 1);
+    /// map.insert("b".to_string(), 2);
+    /// assert_eq!(map.len(), 2);
+    /// ```
     pub fn len(&self) -> u32 {
         self.keys.len()
     }
 
     /// Returns true if there are no elements inside of the map.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// assert!(map.is_empty());
+    /// map.insert("a".to_string(), 1);
+    /// assert!(!map.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.keys.is_empty()
     }
 
     /// Clears the map, removing all key-value pairs. Keeps the allocated memory
     /// for reuse.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// map.insert("a".to_string(), 1);
+    ///
+    /// map.clear();
+    ///
+    /// assert!(map.is_empty());
+    /// ```
     pub fn clear(&mut self)
     where
         K: BorshDeserialize + Clone,
@@ -374,13 +417,23 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Returns a reference to the value corresponding to the key.
     ///
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// assert!(map.insert("test".to_string(), 5u8).is_none());
+    /// assert_eq!(map.get("test"), Some(&5));
+    /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -394,6 +447,18 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// assert!(map.insert("test".to_string(), 5u8).is_none());
+    ///
+    /// *map.get_mut("test").unwrap() = 6;
+    /// assert_eq!(map["test"], 6);
+    /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
@@ -409,6 +474,20 @@ where
     /// If the map did have this key present, the value is updated, and the old
     /// value is returned. The key is not updated, though; this matters for
     /// types that can be `==` without being identical.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// assert!(map.is_empty());
+    ///
+    /// map.insert("a".to_string(), 1);
+    ///
+    /// assert!(!map.is_empty());
+    /// assert_eq!(map.values().collect::<Vec<_>>(), [&1]);
+    /// ```
     pub fn insert(&mut self, k: K, value: V) -> Option<V>
     where
         K: Clone + BorshDeserialize,
@@ -430,6 +509,17 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// map.insert("test".to_string(), 7u8);
+    ///
+    /// assert!(map.contains_key("test"));
+    /// ```
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -444,6 +534,30 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of keys isn't
+    /// rearranged; instead, the removed key is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// map.insert("test".to_string(), 7u8);
+    /// assert_eq!(map.len(), 1);
+    ///
+    /// map.remove("test");
+    ///
+    /// assert_eq!(map.len(), 0);
+    /// ```
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q> + BorshDeserialize,
@@ -458,6 +572,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match
     /// those for the key type.
+    ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of keys isn't
+    /// rearranged; instead, the removed key is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
     ///
     /// # Examples
     ///
@@ -515,7 +639,7 @@ impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -523,6 +647,47 @@ where
     pub fn flush(&mut self) {
         self.keys.flush();
         self.values.flush();
+    }
+}
+
+impl<K, V, H> UnorderedMap<K, V, H>
+where
+    K: BorshSerialize + BorshDeserialize + Ord + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: ToKey,
+{
+    /// Remove empty placeholders leftover from calling [`remove`](Self::remove).
+    ///
+    /// When elements are removed using [`remove`](Self::remove), the underlying vector isn't
+    /// rearranged; instead, the removed element is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
+    /// to remedy that by removing all empty slots from the underlying vector and compacting it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedMap;
+    ///
+    /// let mut map = UnorderedMap::new(b"b");
+    ///
+    /// for i in 0..4 {
+    ///     map.insert(i, i);
+    /// }
+    ///
+    /// map.remove(&1);
+    /// map.remove(&3);
+    ///
+    /// map.defrag();
+    /// ```
+    pub fn defrag(&mut self) {
+        self.keys.defrag(|key, new_index| {
+            if let Some(existing) = self.values.get_mut(key) {
+                existing.key_index = FreeListIndex(new_index);
+            }
+        });
     }
 }
 
@@ -651,5 +816,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn defrag() {
+        let mut map = UnorderedMap::new(b"b");
+
+        let all_indices = 0..=8;
+
+        for i in all_indices {
+            map.insert(i, i);
+        }
+
+        let removed = [2, 4, 6];
+        let existing = [0, 1, 3, 5, 7, 8];
+
+        for id in removed {
+            map.remove(&id);
+        }
+
+        map.defrag();
+
+        for i in removed {
+            assert_eq!(map.get(&i), None);
+        }
+        for i in existing {
+            assert_eq!(map.get(&i), Some(&i));
+        }
+
+        //Check the elements moved during defragmentation
+        assert_eq!(map.remove_entry(&7).unwrap(), (7, 7));
+        assert_eq!(map.remove_entry(&8).unwrap(), (8, 8));
+        assert_eq!(map.remove_entry(&1).unwrap(), (1, 1));
+        assert_eq!(map.remove_entry(&3).unwrap(), (3, 3));
     }
 }

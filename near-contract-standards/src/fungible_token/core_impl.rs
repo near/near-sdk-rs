@@ -1,56 +1,19 @@
 use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::resolver::FungibleTokenResolver;
+use crate::fungible_token::events::{FtBurn, FtTransfer};
+use crate::fungible_token::receiver::ext_ft_receiver;
+use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, log, require, AccountId, Balance, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, log, require, AccountId, Balance, Gas, IntoStorageKey, PromiseOrValue,
+    PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
 
-const NO_DEPOSIT: Balance = 0;
-
-#[ext_contract(ext_self)]
-trait FungibleTokenResolver {
-    fn ft_resolve_transfer(
-        &mut self,
-        sender_id: AccountId,
-        receiver_id: AccountId,
-        amount: U128,
-    ) -> U128;
-}
-
-#[ext_contract(ext_fungible_token_receiver)]
-pub trait FungibleTokenReceiver {
-    fn ft_on_transfer(
-        &mut self,
-        sender_id: AccountId,
-        amount: U128,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-}
-
-#[ext_contract(ext_fungible_token)]
-pub trait FungibleTokenContract {
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
-
-    fn ft_transfer_call(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-        msg: String,
-    ) -> PromiseOrValue<U128>;
-
-    /// Returns the total supply of the token in a decimal string representation.
-    fn ft_total_supply(&self) -> U128;
-
-    /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: AccountId) -> U128;
-}
+const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
@@ -108,7 +71,7 @@ impl FungibleToken {
             self.total_supply = self
                 .total_supply
                 .checked_add(amount)
-                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
         } else {
             env::panic_str("Balance overflow");
         }
@@ -121,7 +84,7 @@ impl FungibleToken {
             self.total_supply = self
                 .total_supply
                 .checked_sub(amount)
-                .unwrap_or_else(|| env::panic_str("Total supply overflow"));
+                .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
         } else {
             env::panic_str("The account doesn't have enough balance");
         }
@@ -138,10 +101,13 @@ impl FungibleToken {
         require!(amount > 0, "The amount should be a positive number");
         self.internal_withdraw(sender_id, amount);
         self.internal_deposit(receiver_id, amount);
-        log!("Transfer {} from {} to {}", amount, sender_id, receiver_id);
-        if let Some(memo) = memo {
-            log!("Memo: {}", memo);
+        FtTransfer {
+            old_owner_id: sender_id,
+            new_owner_id: receiver_id,
+            amount: &U128(amount),
+            memo: memo.as_deref(),
         }
+        .emit();
     }
 
     pub fn internal_register_account(&mut self, account_id: &AccountId) {
@@ -167,31 +133,24 @@ impl FungibleTokenCore for FungibleToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
-        require!(
-            env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL + GAS_FOR_RESOLVE_TRANSFER,
-            "More gas is required"
-        );
+        require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
+        let receiver_gas = env::prepaid_gas()
+            .0
+            .checked_sub(GAS_FOR_FT_TRANSFER_CALL.0)
+            .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
         // Initiating receiver's call and the callback
-        ext_fungible_token_receiver::ft_on_transfer(
-            sender_id.clone(),
-            amount.into(),
-            msg,
-            receiver_id.clone(),
-            NO_DEPOSIT,
-            env::prepaid_gas() - GAS_FOR_FT_TRANSFER_CALL,
-        )
-        .then(ext_self::ft_resolve_transfer(
-            sender_id,
-            receiver_id,
-            amount.into(),
-            env::current_account_id(),
-            NO_DEPOSIT,
-            GAS_FOR_RESOLVE_TRANSFER,
-        ))
-        .into()
+        ext_ft_receiver::ext(receiver_id.clone())
+            .with_static_gas(receiver_gas.into())
+            .ft_on_transfer(sender_id.clone(), amount.into(), msg)
+            .then(
+                ext_ft_resolver::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
+            )
+            .into()
     }
 
     fn ft_total_supply(&self) -> U128 {
@@ -217,7 +176,6 @@ impl FungibleToken {
 
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
-            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(unused_amount) = near_sdk::serde_json::from_slice::<U128>(&value) {
                     std::cmp::min(amount, unused_amount.0)
@@ -232,16 +190,43 @@ impl FungibleToken {
             let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(0);
             if receiver_balance > 0 {
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
-                self.accounts.insert(&receiver_id, &(receiver_balance - refund_amount));
+                if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
+                    self.accounts.insert(&receiver_id, &new_receiver_balance);
+                } else {
+                    env::panic_str("The receiver account doesn't have enough balance");
+                }
 
                 if let Some(sender_balance) = self.accounts.get(sender_id) {
-                    self.accounts.insert(sender_id, &(sender_balance + refund_amount));
-                    log!("Refund {} from {} to {}", refund_amount, receiver_id, sender_id);
-                    return (amount - refund_amount, 0);
+                    if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
+                        self.accounts.insert(sender_id, &new_sender_balance);
+                    } else {
+                        env::panic_str("Sender balance overflow");
+                    }
+
+                    FtTransfer {
+                        old_owner_id: &receiver_id,
+                        new_owner_id: sender_id,
+                        amount: &U128(refund_amount),
+                        memo: Some("refund"),
+                    }
+                    .emit();
+                    let used_amount = amount
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
+                    return (used_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
-                    self.total_supply -= refund_amount;
+                    self.total_supply = self
+                        .total_supply
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
                     log!("The account of the sender was deleted");
+                    FtBurn {
+                        owner_id: &receiver_id,
+                        amount: &U128(refund_amount),
+                        memo: Some("refund"),
+                    }
+                    .emit();
                     return (amount, refund_amount);
                 }
             }

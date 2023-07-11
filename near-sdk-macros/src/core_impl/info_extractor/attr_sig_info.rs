@@ -1,8 +1,10 @@
-use super::{ArgInfo, BindgenArgType, InitAttr, MethodType, SerializerAttr, SerializerType};
-use proc_macro2::Span;
+use super::visitor::Visitor;
+use super::{ArgInfo, BindgenArgType, InitAttr, MethodKind, SerializerAttr, SerializerType};
+use crate::core_impl::{utils, Returns};
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, Ident, Receiver, ReturnType, Signature};
+use syn::{Attribute, Error, FnArg, GenericParam, Ident, ReturnType, Signature, Type};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
@@ -13,79 +15,94 @@ pub struct AttrSigInfo {
     /// All arguments of the method.
     pub args: Vec<ArgInfo>,
     /// Describes the type of the method.
-    pub method_type: MethodType,
-    /// Whether method accepting $NEAR.
-    pub is_payable: bool,
-    /// Whether method can accept calls from self (current account)
-    pub is_private: bool,
+    pub method_kind: MethodKind,
+    /// What this function returns.
+    pub returns: Returns,
     /// The serializer that we use for `env::input()`.
     pub input_serializer: SerializerType,
-    /// The serializer that we use for the return type.
-    pub result_serializer: SerializerType,
-    /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
-    pub receiver: Option<Receiver>,
-    /// What this function returns.
-    pub returns: ReturnType,
     /// The original method signature.
     pub original_sig: Signature,
 }
 
 impl AttrSigInfo {
-    /// Process the method and extract information important for near-sdk.
+    /// Apart from replacing `Self` types with their concretions, returns spans of all `Self` tokens found.
+    fn sanitize_self(
+        original_sig: &mut Signature,
+        source_type: &TokenStream2,
+    ) -> syn::Result<Vec<Span>> {
+        match original_sig.output {
+            ReturnType::Default => Ok(vec![]),
+            ReturnType::Type(_, ref mut ty) => match ty.as_mut() {
+                x @ (Type::Array(_) | Type::Path(_) | Type::Tuple(_) | Type::Group(_)) => {
+                    let res = utils::sanitize_self(x, source_type)?;
+                    *ty = res.ty.into();
+                    Ok(res.self_occurrences)
+                }
+                Type::Reference(ref mut r) => {
+                    let res = utils::sanitize_self(&r.elem, source_type)?;
+                    r.elem = res.ty.into();
+                    Ok(res.self_occurrences)
+                }
+                _ => Err(Error::new(ty.span(), "Unsupported contract API type.")),
+            },
+        }
+    }
+
     pub fn new(
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
+        source_type: &TokenStream2,
     ) -> syn::Result<Self> {
-        if original_sig.asyncness.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to be async.",
-            ));
+        let mut self_occurrences = Self::sanitize_self(original_sig, source_type)?;
+
+        let mut errors = vec![];
+        for generic in &original_sig.generics.params {
+            match generic {
+                GenericParam::Type(type_generic) => {
+                    errors.push(Error::new(
+                        type_generic.span(),
+                        "Contract API is not allowed to have generics.",
+                    ));
+                }
+                GenericParam::Const(const_generic) => {
+                    // `generic.span()` points to the `const` part of const generics, so we use `ident` explicitly.
+                    errors.push(Error::new(
+                        const_generic.ident.span(),
+                        "Contract API is not allowed to have generics.",
+                    ));
+                }
+                _ => {}
+            }
         }
-        if original_sig.abi.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have binary interface.",
-            ));
+        if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
+            return Err(combined_errors);
         }
-        if original_sig.variadic.is_some() {
-            return Err(Error::new(
-                original_sig.span(),
-                "Contract API is not allowed to have variadic arguments.",
-            ));
-        }
+
+        let mut visitor = Visitor::new(original_attrs, original_sig);
 
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
-        let mut args = vec![];
-        let mut method_type = MethodType::Regular;
-        let mut is_payable = false;
-        let mut is_private = false;
-        // By the default we serialize the result with JSON.
-        let mut result_serializer = SerializerType::JSON;
 
-        let mut payable_attr = None;
+        // Visit attributes
         for attr in original_attrs.iter() {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
                     let init_attr: InitAttr = syn::parse2(attr.tokens.clone())?;
-                    if init_attr.ignore_state {
-                        method_type = MethodType::InitIgnoreState;
-                    } else {
-                        method_type = MethodType::Init;
-                    }
+                    visitor.visit_init_attr(attr, &init_attr)?;
                 }
                 "payable" => {
-                    payable_attr = Some(attr);
-                    is_payable = true;
+                    visitor.visit_payable_attr(attr)?;
                 }
                 "private" => {
-                    is_private = true;
+                    visitor.visit_private_attr(attr)?;
                 }
                 "result_serializer" => {
                     let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
-                    result_serializer = serializer.serializer_type;
+                    visitor.visit_result_serializer_attr(attr, &serializer)?;
+                }
+                "handle_result" => {
+                    visitor.visit_handle_result_attr();
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
@@ -93,52 +110,51 @@ impl AttrSigInfo {
             }
         }
 
-        let mut receiver = None;
+        // Visit arguments
+        let mut args = vec![];
         for fn_arg in &mut original_sig.inputs {
             match fn_arg {
-                FnArg::Receiver(r) => receiver = Some((*r).clone()),
+                FnArg::Receiver(r) => visitor.visit_receiver(r)?,
                 FnArg::Typed(pat_typed) => {
-                    args.push(ArgInfo::new(pat_typed)?);
+                    args.push(ArgInfo::new(pat_typed, source_type)?);
                 }
             }
         }
 
-        if let Some(ref receiver) = receiver {
-            if matches!(method_type, MethodType::Regular) {
-                if receiver.mutability.is_none() || receiver.reference.is_none() {
-                    method_type = MethodType::View;
-                }
-            } else {
-                return Err(Error::new(
-                    payable_attr.span(),
-                    "Init methods can't have `self` attribute",
-                ));
-            }
-        };
+        let (method_kind, returns) = visitor.build()?;
 
-        if let Some(payable_attr) = payable_attr {
-            if matches!(method_type, MethodType::View) {
-                return Err(Error::new(
-                    payable_attr.span(),
-                    "Payable method must be mutable (not view)",
-                ));
-            }
-        }
+        self_occurrences.extend(args.iter().flat_map(|arg| arg.self_occurrences.clone()));
 
         *original_attrs = non_bindgen_attrs.clone();
-        let returns = original_sig.output.clone();
 
-        let mut result = Self {
+        if !self_occurrences.is_empty()
+            && matches!(method_kind, MethodKind::Call(_) | MethodKind::View(_))
+        {
+            // TODO: return an error instead in 5.0
+            // see https://github.com/near/near-sdk-rs/issues/1005
+            println!(
+                "near_bindgen: references to `Self` in non-init methods will be forbidden in 5.0"
+            );
+
+            // Once proc_macro::Diagnostic is stabilized, we could start getting rid of the `println` and
+            // try the code below. See: https://github.com/rust-lang/rust/issues/54140
+            //
+            // proc_macro::Diagnostic::spanned(
+            //     self_occurrences.into(),
+            //     proc_macro::Level::Warning,
+            //     "references to `Self` in non-init methods will be forbidden in 5.0",
+            // )
+            // .emit();
+            //
+        }
+
+        let mut result = AttrSigInfo {
             ident,
             non_bindgen_attrs,
             args,
-            input_serializer: SerializerType::JSON,
-            method_type,
-            is_payable,
-            is_private,
-            result_serializer,
-            receiver,
+            method_kind,
             returns,
+            input_serializer: SerializerType::JSON,
             original_sig: original_sig.clone(),
         };
 

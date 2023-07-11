@@ -3,15 +3,18 @@
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
-use std::mem::size_of;
+use std::convert::TryInto;
+use std::mem::{size_of, size_of_val};
 use std::panic as std_panic;
 use std::{convert::TryFrom, mem::MaybeUninit};
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
+use crate::promise::Allowance;
 use crate::types::{
     AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
+use crate::{GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -93,7 +96,7 @@ pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
 ///       );
 /// near_sdk::env::set_blockchain_interface(mocked_blockchain);
 /// ```
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
     crate::mock::with_mocked_blockchain(|b| {
         *b = blockchain_interface;
@@ -113,10 +116,24 @@ pub fn setup_panic_hook() {
 
 /// Reads the content of the `register_id`. If register is not used returns `None`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
-    let len = register_len(register_id)?;
-    let res = vec![0u8; len as usize];
-    unsafe { sys::read_register(register_id, res.as_ptr() as _) };
-    Some(res)
+    // Get register length and convert to a usize. The max register size in config is much less
+    // than the u32 max so the abort should never be hit, but is there for safety because there
+    // would be undefined behaviour during `read_register` if the buffer length is truncated.
+    let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
+
+    // Initialize buffer with capacity.
+    let mut buffer = Vec::with_capacity(len);
+
+    // Read register into buffer.
+    //* SAFETY: This is safe because the buffer is initialized with the exact capacity of the
+    //*         register that is being read from.
+    unsafe {
+        sys::read_register(register_id, buffer.as_mut_ptr() as u64);
+
+        // Set updated length after writing to buffer.
+        buffer.set_len(len);
+    }
+    Some(buffer)
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
@@ -181,6 +198,11 @@ pub fn block_height() -> BlockHeight {
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
 pub fn block_timestamp() -> u64 {
     unsafe { sys::block_timestamp() }
+}
+
+/// Current block timestamp, i.e, number of non-leap-milliseconds since January 1, 1970 0:00:00 UTC.
+pub fn block_timestamp_ms() -> u64 {
+    block_timestamp() / 1_000_000
 }
 
 /// Current epoch height.
@@ -254,6 +276,18 @@ pub fn random_seed_array() -> [u8; 32] {
 }
 
 /// Hashes the random sequence of bytes using sha256.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256;
+/// use hex;
+///
+/// assert_eq!(
+///     sha256(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
+/// );
+/// ```
 pub fn sha256(value: &[u8]) -> Vec<u8> {
     sha256_array(value).to_vec()
 }
@@ -269,6 +303,20 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 }
 
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::sha256_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &sha256_array(b"The phrase that will be hashed"),
+///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn sha256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
@@ -344,6 +392,56 @@ pub fn ecrecover(
     }
 }
 
+/// Verifies signature of message using provided ED25519 Public Key
+pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32]) -> bool {
+    unsafe {
+        sys::ed25519_verify(
+            signature.len() as _,
+            signature.as_ptr() as _,
+            message.len() as _,
+            message.as_ptr() as _,
+            public_key.len() as _,
+            public_key.as_ptr() as _,
+        ) == 1
+    }
+}
+
+/// Compute alt_bn128 g1 multiexp.
+///
+/// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
+/// well-suited for ZK proofs.
+///
+/// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
+pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        sys::alt_bn128_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+
+/// Compute alt_bn128 g1 sum.
+///
+/// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
+/// well-suited for ZK proofs.
+///
+/// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
+pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
+    unsafe {
+        sys::alt_bn128_g1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
+    };
+    read_register(ATOMIC_OP_REGISTER).expect(REGISTER_EXPECTED_ERR)
+}
+
+/// Compute pairing check
+///
+/// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
+/// well-suited for ZK proofs.
+///
+/// See also: [EIP-197](https://eips.ethereum.org/EIPS/eip-197)
+pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
+    unsafe { sys::alt_bn128_pairing_check(value.len() as _, value.as_ptr() as _) == 1 }
+}
+
 // ################
 // # Promises API #
 // ################
@@ -398,7 +496,7 @@ pub fn promise_then(
 
 /// Creates a new promise which completes when time all promises passed as arguments complete.
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
-    let mut data = vec![0u8; promise_indices.len() * size_of::<PromiseIndex>()];
+    let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
         data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
             .copy_from_slice(&promise_indices[i].to_le_bytes());
@@ -452,6 +550,28 @@ pub fn promise_batch_action_function_call(
     }
 }
 
+pub fn promise_batch_action_function_call_weight(
+    promise_index: PromiseIndex,
+    function_name: &str,
+    arguments: &[u8],
+    amount: Balance,
+    gas: Gas,
+    weight: GasWeight,
+) {
+    unsafe {
+        sys::promise_batch_action_function_call_weight(
+            promise_index,
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            &amount as *const Balance as _,
+            gas.0,
+            weight.0,
+        )
+    }
+}
+
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
     unsafe { sys::promise_batch_action_transfer(promise_index, &amount as *const Balance as _) }
 }
@@ -484,6 +604,13 @@ pub fn promise_batch_action_add_key_with_full_access(
         )
     }
 }
+
+/// This is a short lived function while we migrate between the Balance and the allowance type
+pub(crate) fn migrate_to_allowance(allowance: Balance) -> Allowance {
+    Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
+}
+
+#[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
 pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -492,7 +619,30 @@ pub fn promise_batch_action_add_key_with_function_call(
     receiver_id: &AccountId,
     function_names: &str,
 ) {
+    let allowance = migrate_to_allowance(allowance);
+    promise_batch_action_add_key_allowance_with_function_call(
+        promise_index,
+        public_key,
+        nonce,
+        allowance,
+        receiver_id,
+        function_names,
+    )
+}
+
+pub fn promise_batch_action_add_key_allowance_with_function_call(
+    promise_index: PromiseIndex,
+    public_key: &PublicKey,
+    nonce: u64,
+    allowance: Allowance,
+    receiver_id: &AccountId,
+    function_names: &str,
+) {
     let receiver_id: &str = receiver_id.as_ref();
+    let allowance = match allowance {
+        Allowance::Limited(x) => x.get(),
+        Allowance::Unlimited => 0,
+    };
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
             promise_index,
@@ -540,13 +690,19 @@ pub fn promise_results_count() -> u64 {
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
-        0 => PromiseResult::NotReady,
-        1 => {
+    match promise_result_internal(result_idx) {
+        Ok(()) => {
             let data = expect_register(read_register(ATOMIC_OP_REGISTER));
             PromiseResult::Successful(data)
         }
-        2 => PromiseResult::Failed,
+        Err(PromiseError::Failed) => PromiseResult::Failed,
+    }
+}
+
+pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
+    match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
+        1 => Ok(()),
+        2 => Err(PromiseError::Failed),
         _ => abort(),
     }
 }
@@ -634,6 +790,16 @@ pub fn log(message: &[u8]) {
 // ###############
 /// Writes key-value into storage.
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(!storage_write(b"key", b"value"));
+/// assert!(storage_write(b"key", b"another_value"));
+/// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
+/// ```
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         sys::storage_write(
@@ -650,6 +816,16 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     }
 }
 /// Reads the value stored under the given key.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::{storage_write, storage_read};
+///
+/// assert!(storage_read(b"key").is_none());
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_read(b"key").unwrap(), b"value");
+/// ```
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,
@@ -911,5 +1087,160 @@ mod tests {
         {
             assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
         }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn signer_public_key() {
+        let key: PublicKey =
+            "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
+
+        crate::testing_env!(crate::test_utils::VMContextBuilder::new()
+            .signer_account_pk(key.clone())
+            .build());
+        assert_eq!(super::signer_account_pk(), key);
+    }
+
+    #[test]
+    fn ed25519_verify() {
+        const SIGNATURE: [u8; 64] = [
+            145, 193, 203, 18, 114, 227, 14, 117, 33, 213, 121, 66, 130, 14, 25, 4, 36, 120, 46,
+            142, 226, 215, 7, 66, 122, 112, 97, 30, 249, 135, 61, 165, 221, 249, 252, 23, 105, 40,
+            56, 70, 31, 152, 236, 141, 154, 122, 207, 20, 75, 118, 79, 90, 168, 6, 221, 122, 213,
+            29, 126, 196, 216, 104, 191, 6,
+        ];
+
+        const BAD_SIGNATURE: [u8; 64] = [1; 64];
+
+        // create a forged signature with the `s` scalar not properly reduced
+        // https://docs.rs/ed25519/latest/src/ed25519/lib.rs.html#302
+        const FORGED_SIGNATURE: [u8; 64] = {
+            let mut sig = SIGNATURE;
+            sig[63] = 0b1110_0001;
+            sig
+        };
+
+        const PUBLIC_KEY: [u8; 32] = [
+            32, 122, 6, 120, 146, 130, 30, 37, 215, 112, 241, 251, 160, 196, 124, 17, 255, 75, 129,
+            62, 84, 22, 46, 206, 158, 184, 57, 224, 118, 35, 26, 182,
+        ];
+
+        // create a forged public key to force a PointDecompressionError
+        // https://docs.rs/ed25519-dalek/latest/src/ed25519_dalek/public.rs.html#142
+        const FORGED_PUBLIC_KEY: [u8; 32] = {
+            let mut key = PUBLIC_KEY;
+            key[31] = 0b1110_0001;
+            key
+        };
+
+        // 32 bytes message
+        const MESSAGE: [u8; 32] = [
+            107, 97, 106, 100, 108, 102, 107, 106, 97, 108, 107, 102, 106, 97, 107, 108, 102, 106,
+            100, 107, 108, 97, 100, 106, 102, 107, 108, 106, 97, 100, 115, 107,
+        ];
+
+        assert!(super::ed25519_verify(&SIGNATURE, &MESSAGE, &PUBLIC_KEY));
+        assert!(!super::ed25519_verify(&BAD_SIGNATURE, &MESSAGE, &FORGED_PUBLIC_KEY));
+        assert!(!super::ed25519_verify(&SIGNATURE, &MESSAGE, &FORGED_PUBLIC_KEY));
+        assert!(!super::ed25519_verify(&FORGED_SIGNATURE, &MESSAGE, &PUBLIC_KEY));
+    }
+
+    #[test]
+    pub fn alt_bn128_g1_multiexp() {
+        // Originated from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-test-contracts/estimator-contract/src/lib.rs#L557-L720
+        let buffer = [
+            16, 238, 91, 161, 241, 22, 172, 158, 138, 252, 202, 212, 136, 37, 110, 231, 118, 220,
+            8, 45, 14, 153, 125, 217, 227, 87, 238, 238, 31, 138, 226, 8, 238, 185, 12, 155, 93,
+            126, 144, 248, 200, 177, 46, 245, 40, 162, 169, 80, 150, 211, 157, 13, 10, 36, 44, 232,
+            173, 32, 32, 115, 123, 2, 9, 47, 190, 148, 181, 91, 69, 6, 83, 40, 65, 222, 251, 70,
+            81, 73, 60, 142, 130, 217, 176, 20, 69, 75, 40, 167, 41, 180, 244, 5, 142, 215, 135,
+            35,
+        ];
+
+        assert_eq!(
+            super::alt_bn128_g1_multiexp(&buffer),
+            vec![
+                150, 94, 159, 52, 239, 226, 181, 150, 77, 86, 90, 186, 102, 219, 243, 204, 36, 128,
+                164, 209, 106, 6, 62, 124, 235, 104, 223, 195, 30, 204, 42, 20, 13, 158, 14, 197,
+                133, 73, 43, 171, 28, 68, 82, 116, 244, 164, 36, 251, 244, 8, 234, 40, 118, 55,
+                216, 187, 242, 39, 213, 160, 192, 184, 28, 23
+            ]
+        );
+    }
+
+    #[test]
+    pub fn alt_bn128_g1_sum() {
+        // Originated from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-test-contracts/estimator-contract/src/lib.rs#L557-L720
+        let buffer = [
+            0, 11, 49, 94, 29, 152, 111, 116, 138, 248, 2, 184, 8, 159, 80, 169, 45, 149, 48, 32,
+            49, 37, 6, 133, 105, 171, 194, 120, 44, 195, 17, 180, 35, 137, 154, 4, 192, 211, 244,
+            93, 200, 2, 44, 0, 64, 26, 108, 139, 147, 88, 235, 242, 23, 253, 52, 110, 236, 67, 99,
+            176, 2, 186, 198, 228, 25,
+        ];
+
+        assert_eq!(
+            super::alt_bn128_g1_sum(&buffer),
+            vec![
+                11, 49, 94, 29, 152, 111, 116, 138, 248, 2, 184, 8, 159, 80, 169, 45, 149, 48, 32,
+                49, 37, 6, 133, 105, 171, 194, 120, 44, 195, 17, 180, 35, 137, 154, 4, 192, 211,
+                244, 93, 200, 2, 44, 0, 64, 26, 108, 139, 147, 88, 235, 242, 23, 253, 52, 110, 236,
+                67, 99, 176, 2, 186, 198, 228, 25
+            ]
+        );
+    }
+
+    #[test]
+    pub fn alt_bn128_pairing_check() {
+        // Taken from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-vm-runner/src/logic/tests/alt_bn128.rs#L239-L250
+        let valid_pair = [
+            117, 10, 217, 99, 113, 78, 234, 67, 183, 90, 26, 58, 200, 86, 195, 123, 42, 184, 213,
+            88, 224, 248, 18, 200, 108, 6, 181, 6, 28, 17, 99, 7, 36, 134, 53, 115, 192, 180, 3,
+            113, 76, 227, 174, 147, 50, 174, 79, 74, 151, 195, 172, 10, 211, 210, 26, 92, 117, 246,
+            65, 237, 168, 104, 16, 4, 1, 26, 3, 219, 6, 13, 193, 115, 77, 230, 27, 13, 242, 214,
+            195, 9, 213, 99, 135, 12, 160, 202, 114, 135, 175, 42, 116, 172, 79, 234, 26, 41, 212,
+            111, 192, 129, 124, 112, 57, 107, 38, 244, 230, 222, 240, 36, 65, 238, 133, 188, 19,
+            43, 148, 59, 205, 40, 161, 179, 173, 228, 88, 169, 231, 29, 17, 67, 163, 51, 165, 187,
+            101, 44, 250, 24, 68, 101, 92, 128, 203, 190, 51, 85, 9, 43, 58, 136, 68, 180, 92, 110,
+            185, 168, 107, 129, 45, 30, 187, 22, 100, 17, 75, 93, 216, 125, 23, 212, 11, 186, 199,
+            204, 1, 140, 133, 11, 82, 44, 65, 222, 20, 26, 48, 26, 132, 220, 25, 213, 93, 25, 79,
+            176, 4, 149, 151, 243, 11, 131, 253, 233, 121, 38, 222, 15, 118, 117, 200, 214, 175,
+            233, 130, 181, 193, 167, 255, 153, 169, 240, 207, 235, 28, 31, 83, 74, 69, 179, 6, 150,
+            72, 67, 74, 166, 130, 83, 82, 115, 123, 111, 208, 221, 64, 43, 237, 213, 186, 235, 7,
+            56, 251, 179, 95, 233, 159, 23, 109, 173, 85, 103, 8, 165, 235, 226, 218, 79, 72, 120,
+            172, 251, 20, 83, 121, 201, 140, 98, 170, 246, 121, 218, 19, 115, 42, 135, 60, 239, 30,
+            32, 49, 170, 171, 204, 196, 197, 160, 158, 168, 47, 23, 110, 139, 123, 222, 222, 245,
+            98, 125, 208, 70, 39, 110, 186, 146, 254, 66, 185, 118, 3, 78, 32, 47, 179, 197, 93,
+            79, 240, 204, 78, 236, 133, 213, 173, 117, 94, 63, 154, 68, 89, 236, 138, 0, 247, 242,
+            212, 245, 33, 249, 0, 35, 246, 233, 0, 124, 86, 198, 162, 201, 54, 19, 26, 196, 75,
+            254, 71, 70, 238, 51, 2, 23, 185, 152, 139, 134, 65, 107, 129, 114, 244, 47, 251, 240,
+            80, 193, 23,
+        ];
+        assert!(super::alt_bn128_pairing_check(&valid_pair));
+
+        // Taken from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-vm-runner/src/logic/tests/alt_bn128.rs#L254-L265
+        let invalid_pair = [
+            117, 10, 217, 99, 113, 78, 234, 67, 183, 90, 26, 58, 200, 86, 195, 123, 42, 184, 213,
+            88, 224, 248, 18, 200, 108, 6, 181, 6, 28, 17, 99, 7, 36, 134, 53, 115, 192, 180, 3,
+            113, 76, 227, 174, 147, 50, 174, 79, 74, 151, 195, 172, 10, 211, 210, 26, 92, 117, 246,
+            65, 237, 168, 104, 16, 4, 1, 26, 3, 219, 6, 13, 193, 115, 77, 230, 27, 13, 242, 214,
+            195, 9, 213, 99, 135, 12, 160, 202, 114, 135, 175, 42, 116, 172, 79, 234, 26, 41, 212,
+            111, 192, 129, 124, 112, 57, 107, 38, 244, 230, 222, 240, 36, 65, 238, 133, 188, 19,
+            43, 148, 59, 205, 40, 161, 179, 173, 228, 88, 169, 231, 29, 17, 67, 163, 51, 165, 187,
+            101, 44, 250, 24, 68, 101, 92, 128, 203, 190, 51, 85, 9, 43, 58, 136, 68, 180, 92, 110,
+            185, 168, 107, 129, 45, 30, 187, 22, 100, 17, 75, 93, 216, 125, 23, 212, 11, 186, 199,
+            204, 1, 140, 133, 11, 82, 44, 65, 222, 20, 26, 48, 26, 132, 220, 25, 213, 93, 25, 117,
+            10, 217, 99, 113, 78, 234, 67, 183, 90, 26, 58, 200, 86, 195, 123, 42, 184, 213, 88,
+            224, 248, 18, 200, 108, 6, 181, 6, 28, 17, 99, 7, 36, 134, 53, 115, 192, 180, 3, 113,
+            76, 227, 174, 147, 50, 174, 79, 74, 151, 195, 172, 10, 211, 210, 26, 92, 117, 246, 65,
+            237, 168, 104, 16, 4, 109, 173, 85, 103, 8, 165, 235, 226, 218, 79, 72, 120, 172, 251,
+            20, 83, 121, 201, 140, 98, 170, 246, 121, 218, 19, 115, 42, 135, 60, 239, 30, 32, 49,
+            170, 171, 204, 196, 197, 160, 158, 168, 47, 23, 110, 139, 123, 222, 222, 245, 98, 125,
+            208, 70, 39, 110, 186, 146, 254, 66, 185, 118, 3, 78, 32, 47, 179, 197, 93, 79, 240,
+            204, 78, 236, 133, 213, 173, 117, 94, 63, 154, 68, 89, 236, 138, 0, 247, 242, 212, 245,
+            33, 249, 0, 35, 246, 233, 0, 124, 86, 198, 162, 201, 54, 19, 26, 196, 75, 254, 71, 70,
+            238, 51, 2, 23, 185, 152, 139, 134, 65, 107, 129, 114, 244, 47, 251, 240, 80, 193, 23,
+        ];
+
+        assert!(!super::alt_bn128_pairing_check(&invalid_pair));
     }
 }

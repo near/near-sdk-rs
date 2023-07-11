@@ -4,6 +4,8 @@ on:
     branches:
       - master
   pull_request:
+env:
+  RUSTFLAGS: -D warnings
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
@@ -11,32 +13,65 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable, 1.56.0]
+        toolchain: [stable, 1.69.0]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Add wasm32 target
-        run: rustup target add wasm32-unknown-unknown
+      - run: rustup target add wasm32-unknown-unknown
       - name: Test
-        run: cargo test --all --features unstable
+        run: cargo test --all --features unstable,legacy
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
-        with: 
+        with:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
       - name: Test Format
         run: cargo fmt -- --check
-      - run: cargo clippy --features unstable --tests -- -Dclippy::all
+      - run: cargo clippy --tests --all-features -- -Dclippy::all
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Setup Windows toolchain"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v1
+      - run: cargo check -p near-sdk --features unstable,legacy
+      - run: cargo check -p near-sdk --no-default-features
+      - run: cargo check -p near-sdk --no-default-features --features legacy
+      - run: cargo check -p near-sdk --no-default-features --features unstable
+      - run: cargo check -p near-contract-standards
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v1
+      - name: Install Audit
+        run: cargo install cargo-audit
+      - name: Run Audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: audit
+          args: --ignore RUSTSEC-2020-0071

@@ -1,8 +1,9 @@
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::AccountId;
+use near_sdk::{ext_contract, AccountId};
 use std::collections::HashMap;
 
 /// Used when an NFT is transferred using `nft_transfer_call`. This is the method that's called after `nft_on_transfer`. This trait is implemented on the NFT contract.
+#[ext_contract(ext_nft_resolver)]
 pub trait NonFungibleTokenResolver {
     /// Finalize an `nft_transfer_call` chain of cross-contract calls.
     ///
@@ -25,7 +26,7 @@ pub trait NonFungibleTokenResolver {
     /// * `previous_owner_id`: the owner prior to the call to `nft_transfer_call`
     /// * `receiver_id`: the `receiver_id` argument given to `nft_transfer_call`
     /// * `token_id`: the `token_id` argument given to `ft_transfer_call`
-    /// * `approvals`: if using Approval Management, contract MUST provide
+    /// * `approved_account_ids`: if using Approval Management, contract MUST provide
     ///   set of original approved accounts in this argument, and restore these
     ///   approved accounts in case of revert.
     ///
@@ -35,6 +36,6 @@ pub trait NonFungibleTokenResolver {
         previous_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
-        approvals: Option<HashMap<AccountId, u64>>,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool;
 }

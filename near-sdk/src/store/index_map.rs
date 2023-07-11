@@ -29,7 +29,10 @@ impl<T> IndexMap<T>
 where
     T: BorshSerialize,
 {
-    /// Create new index map. Prefixes storage accesss with the prefix provided.
+    /// Create new index map. This creates a mapping of `u32` -> `T` in storage.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
     pub fn new<S>(prefix: S) -> Self
     where
         S: IntoStorageKey,
@@ -145,7 +148,6 @@ where
     }
 
     /// Removes value at index and returns existing value.
-    #[allow(dead_code)]
     pub fn remove(&mut self, index: u32) -> Option<T> {
         self.get_mut_inner(index).replace(None)
     }
@@ -160,7 +162,7 @@ where
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unstable"))]
 #[cfg(test)]
 mod tests {
     use super::IndexMap;

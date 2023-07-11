@@ -1,5 +1,6 @@
 mod external;
 mod mocked_blockchain;
+mod mocked_memory;
 mod receipt;
 
 pub(crate) use self::external::SdkExternal;

@@ -2,7 +2,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Base64VecU8(#[serde(with = "base64_bytes")] pub Vec<u8>);
 
 impl From<Vec<u8>> for Base64VecU8 {
@@ -14,6 +14,21 @@ impl From<Vec<u8>> for Base64VecU8 {
 impl From<Base64VecU8> for Vec<u8> {
     fn from(v: Base64VecU8) -> Vec<u8> {
         v.0
+    }
+}
+
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for Base64VecU8 {
+    fn is_referenceable() -> bool {
+        false
+    }
+
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
     }
 }
 
@@ -38,7 +53,7 @@ mod base64_bytes {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&base64::encode(&bytes))
+        serializer.serialize_str(&base64::encode(bytes))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>

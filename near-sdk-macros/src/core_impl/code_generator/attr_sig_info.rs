@@ -1,14 +1,73 @@
 use proc_macro2::TokenStream as TokenStream2;
 
-use crate::core_impl::info_extractor::{
-    ArgInfo, AttrSigInfo, BindgenArgType, InputStructType, SerializerType,
-};
+use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
+use crate::core_impl::{utils, MethodKind};
 use quote::quote;
 
 impl AttrSigInfo {
-    /// Create struct representing input arguments.
-    /// * input_struct_type represents whether the input structure will be used for serialization
-    ///     (e.g. for a promise input) or deserialization (e.g. for a method input).
+    /// Whether the signature has function arguments.
+    pub fn has_input_args(&self) -> bool {
+        self.input_args().next().is_some()
+    }
+
+    /// Whether the method has `payable` attribute.
+    /// Only available when `__abi-generate` feature is enabled as it's only in the abi generator
+    /// currently.
+    #[cfg(feature = "__abi-generate")]
+    pub fn is_payable(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.is_payable,
+            Init(init_method) => init_method.is_payable,
+            View(_) => false,
+        }
+    }
+
+    /// Whether the method has `private` attribute.
+    pub fn is_private(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.is_private,
+            Init(_) => false,
+            View(view_method) => view_method.is_private,
+        }
+    }
+
+    pub fn input_struct_ser(&self) -> TokenStream2 {
+        let args: Vec<_> = self.input_args().collect();
+        assert!(
+            !args.is_empty(),
+            "Can only generate input struct for when input args are specified"
+        );
+        let attribute = match &self.input_serializer {
+            SerializerType::JSON => quote! {
+                #[derive(near_sdk::serde::Serialize)]
+                #[serde(crate = "near_sdk::serde")]
+            },
+            SerializerType::Borsh => quote! {
+                #[derive(near_sdk::borsh::BorshSerialize)]
+            },
+        };
+        let mut fields = TokenStream2::new();
+        for arg in args {
+            let ArgInfo { ty, ident, .. } = &arg;
+            fields.extend(quote! {
+                #ident: &'nearinput #ty,
+            });
+        }
+        quote! {
+            #attribute
+            struct Input<'nearinput> {
+                #fields
+            }
+        }
+    }
+    /// Create struct representing input arguments to deserialize.
+    ///
+    /// Code generated is based on the serialization type of `Self::input_serializer`.
+    ///
     /// Each argument is getting converted to a field in a struct. Specifically argument:
     /// `ATTRIBUTES ref mut binding @ SUBPATTERN : TYPE` is getting converted to:
     /// `binding: SUBTYPE,` where `TYPE` is one of the following: `& SUBTYPE`, `&mut SUBTYPE`,
@@ -22,34 +81,19 @@ impl AttrSigInfo {
     ///   arg2: (u64, Vec<String>),
     /// }
     /// ```
-    pub fn input_struct(&self, input_struct_type: InputStructType) -> TokenStream2 {
+    pub fn input_struct_deser(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
             !args.is_empty(),
             "Can only generate input struct for when input args are specified"
         );
-        let attribute = match input_struct_type {
-            InputStructType::Serialization => match &self.input_serializer {
-                SerializerType::JSON => quote! {
-                    #[derive(near_sdk::serde::Serialize)]
-                    #[serde(crate = "near_sdk::serde")]
-                },
-                SerializerType::Borsh => {
-                    quote! {
-                        #[derive(near_sdk::borsh::BorshSerialize)]
-                    }
-                }
+        let attribute = match &self.input_serializer {
+            SerializerType::JSON => quote! {
+                #[derive(near_sdk::serde::Deserialize)]
+                #[serde(crate = "near_sdk::serde")]
             },
-            InputStructType::Deserialization => match &self.input_serializer {
-                SerializerType::JSON => quote! {
-                    #[derive(near_sdk::serde::Deserialize)]
-                    #[serde(crate = "near_sdk::serde")]
-                },
-                SerializerType::Borsh => {
-                    quote! {
-                        #[derive(near_sdk::borsh::BorshDeserialize)]
-                    }
-                }
+            SerializerType::Borsh => quote! {
+                #[derive(near_sdk::borsh::BorshDeserialize)]
             },
         };
         let mut fields = TokenStream2::new();
@@ -96,16 +140,16 @@ impl AttrSigInfo {
         }
     }
 
-    /// Create expression that constructs the struct.
+    /// Create expression that constructs the struct with references to each variable.
     /// # Example:
     /// ```ignore
     /// Input {
-    ///     arg0,
-    ///     arg1,
-    ///     arg2,
+    ///     arg0: &arg0,
+    ///     arg1: &arg1,
+    ///     arg2: &arg2,
     /// }
     /// ```
-    pub fn constructor_expr(&self) -> TokenStream2 {
+    pub fn constructor_expr_ref(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
             !args.is_empty(),
@@ -115,7 +159,7 @@ impl AttrSigInfo {
         for arg in args {
             let ArgInfo { ident, .. } = &arg;
             fields.extend(quote! {
-            #ident,
+                #ident: &#ident,
             });
         }
         quote! {
@@ -191,11 +235,38 @@ impl AttrSigInfo {
                         }
                     }
                     BindgenArgType::CallbackResultArg => {
+                        let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
+                            ok_type
+                        } else {
+                            return syn::Error::new_spanned(ty, "Function parameters marked with \
+                                #[callback_result] should have type Result<T, PromiseError>").into_compile_error()
+                        };
                         let deserialize = deserialize_data(serializer_ty);
+                        let deserialization_branch = match ok_type {
+                            // The unit type in this context is a bit special because functions
+                            // without an explicit return type do not serialize their response.
+                            // But when someone tries to refer to their callback result with
+                            // `#[callback_result]` they specify the callback type as
+                            // `Result<(), PromiseError>` which cannot be correctly deserialized from
+                            // an empty byte array.
+                            //
+                            // So instead of going through serde, we consider deserialization to be
+                            // successful if the byte array is empty or try the normal
+                            // deserialization otherwise.
+                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
+                                quote! {
+                                    near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
+                                        Ok(()),
+                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                },
+                            _ =>
+                                quote! {
+                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                }
+                        };
                         let result = quote! {
                             match near_sdk::env::promise_result(#idx) {
-                                near_sdk::PromiseResult::Successful(data) => Ok(#deserialize),
-                                near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
+                                #deserialization_branch,
                                 near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
                             }
                         };

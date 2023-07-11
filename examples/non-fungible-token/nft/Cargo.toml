@@ -2,10 +2,10 @@
 name = "non-fungible-token"
 version = "1.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }

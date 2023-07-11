@@ -4,11 +4,9 @@ use syn::{Error, ImplItem, ItemImpl, Type};
 
 /// Information extracted from `impl` section.
 pub struct ItemImplInfo {
-    /// Whether this is a trait implementation.
-    pub is_trait_impl: bool,
     /// The type for which this `impl` is written.
     pub ty: Type,
-    /// Info extracted for each method.
+    /// Info extracted for each public method.
     pub methods: Vec<ImplItemMethodInfo>,
 }
 
@@ -26,10 +24,11 @@ impl ItemImplInfo {
         let mut methods = vec![];
         for subitem in &mut original.items {
             if let ImplItem::Method(m) = subitem {
-                let method_info = ImplItemMethodInfo::new(m, ty.clone())?;
-                methods.push(method_info);
+                if let Some(method_info) = ImplItemMethodInfo::new(m, is_trait_impl, ty.clone())? {
+                    methods.push(method_info);
+                }
             }
         }
-        Ok(Self { is_trait_impl, ty, methods })
+        Ok(Self { ty, methods })
     }
 }

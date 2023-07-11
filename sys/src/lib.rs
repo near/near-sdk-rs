@@ -44,6 +44,14 @@ extern "C" {
         malleability_flag: u64,
         register_id: u64,
     ) -> u64;
+    pub fn ed25519_verify(
+        sig_len: u64,
+        sig_ptr: u64,
+        msg_len: u64,
+        msg_ptr: u64,
+        pub_key_len: u64,
+        pub_key_ptr: u64,
+    ) -> u64;
     // #####################
     // # Miscellaneous API #
     // #####################
@@ -93,6 +101,16 @@ extern "C" {
         arguments_ptr: u64,
         amount_ptr: u64,
         gas: u64,
+    );
+    pub fn promise_batch_action_function_call_weight(
+        promise_index: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        weight: u64,
     );
     pub fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64);
     pub fn promise_batch_action_stake(

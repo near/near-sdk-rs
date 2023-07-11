@@ -1,10 +1,15 @@
 use super::{Receipt, SdkExternal};
+// TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
+use crate::mock::mocked_memory::MockedMemory;
+use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{Balance, PromiseResult};
-use crate::RuntimeFeesConfig;
-use near_vm_logic::mocks::mock_memory::MockedMemory;
+use crate::{CurveType, Gas, RuntimeFeesConfig};
+use crate::{PublicKey, VMContext};
+use near_crypto::PublicKey as VmPublicKey;
+use near_primitives::transaction::Action as PrimitivesAction;
 use near_vm_logic::types::PromiseResult as VmPromiseResult;
-use near_vm_logic::{External, MemoryLike, VMConfig, VMContext, VMLogic, VMOutcome};
+use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -54,9 +59,10 @@ impl MockedBlockchain {
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(SdkExternal::new());
+        let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
-        ext.validators = validators;
-        let memory = memory_opt.unwrap_or_else(|| Box::new(MockedMemory {}));
+        ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
+        let memory = memory_opt.unwrap_or_else(|| Box::<MockedMemory>::default());
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
@@ -83,20 +89,103 @@ impl MockedBlockchain {
         std::mem::take(&mut self.logic_fixture.ext.fake_trie)
     }
 
-    pub fn created_receipts(&self) -> &Vec<Receipt> {
-        &self.logic_fixture.ext.receipts
-    }
-    pub fn outcome(&self) -> VMOutcome {
-        self.logic.borrow().clone_outcome()
+    /// Returns metadata about the receipts created
+    pub fn created_receipts(&self) -> Vec<Receipt> {
+        self.logic
+            .borrow()
+            .action_receipts()
+            .iter()
+            .map(|(receiver, receipt)| {
+                let actions = receipt.actions.iter().map(action_to_sdk_action).collect();
+                Receipt { receiver_id: receiver.as_str().parse().unwrap(), actions }
+            })
+            .collect()
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
-        self.logic.borrow_mut().gas(gas_amount).unwrap()
+        self.logic.borrow_mut().gas(gas_amount.into()).unwrap()
     }
 
+    /// Returns logs created so far by the runtime.
     pub fn logs(&self) -> Vec<String> {
-        self.logic.borrow().clone_outcome().logs
+        self.logic.borrow().logs().to_vec()
     }
+}
+
+fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
+    near_vm_logic::VMContext {
+        current_account_id: context.current_account_id.as_str().parse().unwrap(),
+        signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
+        signer_account_pk: context.signer_account_pk.into_bytes(),
+        predecessor_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
+        input: context.input,
+        block_height: context.block_index,
+        block_timestamp: context.block_timestamp,
+        epoch_height: context.epoch_height,
+        account_balance: context.account_balance,
+        account_locked_balance: context.account_locked_balance,
+        storage_usage: context.storage_usage,
+        attached_deposit: context.attached_deposit,
+        prepaid_gas: context.prepaid_gas.0,
+        random_seed: context.random_seed.to_vec(),
+        view_config: context.view_config,
+        output_data_receivers: context
+            .output_data_receivers
+            .into_iter()
+            .map(|a| a.as_str().parse().unwrap())
+            .collect(),
+    }
+}
+
+fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
+    match action {
+        PrimitivesAction::CreateAccount(_) => VmAction::CreateAccount,
+        PrimitivesAction::DeployContract(c) => VmAction::DeployContract { code: c.code.clone() },
+        PrimitivesAction::FunctionCall(f) => VmAction::FunctionCall {
+            function_name: f.method_name.clone(),
+            args: f.args.clone(),
+            gas: Gas(f.gas),
+            deposit: f.deposit,
+        },
+        PrimitivesAction::Transfer(t) => VmAction::Transfer { deposit: t.deposit },
+        PrimitivesAction::Stake(s) => {
+            VmAction::Stake { stake: s.stake, public_key: pub_key_conversion(&s.public_key) }
+        }
+        PrimitivesAction::AddKey(k) => match &k.access_key.permission {
+            near_primitives::account::AccessKeyPermission::FunctionCall(f) => {
+                VmAction::AddKeyWithFunctionCall {
+                    public_key: pub_key_conversion(&k.public_key),
+                    nonce: k.access_key.nonce,
+                    allowance: f.allowance,
+                    receiver_id: f.receiver_id.parse().unwrap(),
+                    function_names: f.method_names.clone(),
+                }
+            }
+            near_primitives::account::AccessKeyPermission::FullAccess => {
+                VmAction::AddKeyWithFullAccess {
+                    public_key: pub_key_conversion(&k.public_key),
+                    nonce: k.access_key.nonce,
+                }
+            }
+        },
+        PrimitivesAction::DeleteKey(k) => {
+            VmAction::DeleteKey { public_key: pub_key_conversion(&k.public_key) }
+        }
+        PrimitivesAction::DeleteAccount(a) => {
+            VmAction::DeleteAccount { beneficiary_id: a.beneficiary_id.parse().unwrap() }
+        }
+        PrimitivesAction::Delegate(_d) => {
+            panic!("Unimplemented")
+        }
+    }
+}
+
+fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
+    let curve_type = match key.key_type() {
+        near_crypto::KeyType::ED25519 => CurveType::ED25519,
+        near_crypto::KeyType::SECP256K1 => CurveType::SECP256K1,
+    };
+    PublicKey::from_parts(curve_type, key.key_data().to_vec()).unwrap()
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -206,6 +295,26 @@ mod mock_chain {
     ) -> u64 {
         with_mock_interface(|b| {
             b.ecrecover(hash_len, hash_ptr, sig_len, sig_ptr, v, malleability_flag, register_id)
+        })
+    }
+    #[no_mangle]
+    extern "C" fn ed25519_verify(
+        signature_len: u64,
+        signature_ptr: u64,
+        message_len: u64,
+        message_ptr: u64,
+        public_key_len: u64,
+        public_key_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.ed25519_verify(
+                signature_len,
+                signature_ptr,
+                message_len,
+                message_ptr,
+                public_key_len,
+                public_key_ptr,
+            )
         })
     }
     #[no_mangle]
@@ -332,6 +441,32 @@ mod mock_chain {
             )
         })
     }
+
+    #[no_mangle]
+    extern "C" fn promise_batch_action_function_call_weight(
+        promise_index: u64,
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        amount_ptr: u64,
+        gas: u64,
+        weight: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_function_call_weight(
+                promise_index,
+                function_name_len,
+                function_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                amount_ptr,
+                gas,
+                weight,
+            )
+        })
+    }
+
     #[no_mangle]
     extern "C" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
         with_mock_interface(|b| b.promise_batch_action_transfer(promise_index, amount_ptr))
@@ -456,5 +591,17 @@ mod mock_chain {
     #[no_mangle]
     extern "C" fn validator_total_stake(stake_ptr: u64) {
         with_mock_interface(|b| b.validator_total_stake(stake_ptr))
+    }
+    #[no_mangle]
+    extern "C" fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.alt_bn128_g1_multiexp(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C" fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64) {
+        with_mock_interface(|b| b.alt_bn128_g1_sum(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
+        with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
     }
 }

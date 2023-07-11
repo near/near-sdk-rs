@@ -10,12 +10,12 @@ use std::{fmt, mem};
 
 /// Index for value within a bucket.
 #[derive(BorshSerialize, BorshDeserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FreeListIndex(u32);
+pub struct FreeListIndex(pub(crate) u32);
 
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
-pub struct FreeList<T>
+pub(crate) struct FreeList<T>
 where
     T: BorshSerialize,
 {
@@ -122,7 +122,8 @@ where
     }
 
     /// Clears the bucket, removing all values (including removed entries).
-    pub fn clear(&mut self) {
+    #[cfg(test)]
+    fn clear(&mut self) {
         self.elements.clear();
         self.first_free = None;
         self.occupied_count = 0;
@@ -135,6 +136,7 @@ where
 {
     /// Returns a reference to filled cell, if the value at the given index is valid. If the index
     /// is out of range or has been removed, returns `None`.
+    #[allow(dead_code)]
     pub fn get(&self, index: FreeListIndex) -> Option<&T> {
         if let Slot::Occupied(value) = self.elements.get(index.0)? {
             Some(value)
@@ -144,6 +146,7 @@ where
     }
     /// Returns a mutable reference to filled cell, if the value at the given index is valid. If
     /// the index is out of range or has been removed, returns `None`.
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, index: FreeListIndex) -> Option<&mut T> {
         if let Slot::Occupied(value) = self.elements.get_mut(index.0)? {
             Some(value)
@@ -220,6 +223,92 @@ where
     pub fn drain(&mut self) -> Drain<T> {
         Drain::new(self)
     }
+
+    /// Empty slots in the front of the list is swapped with occupied slots in back of the list.
+    /// Defrag helps reduce gas cost in certain scenarios where lot of elements in front of the list are
+    /// removed without getting replaced. Please see https://github.com/near/near-sdk-rs/issues/990
+    pub(crate) fn defrag<F>(&mut self, callback: F)
+    where
+        F: FnMut(&T, u32),
+    {
+        Defrag::new(self).defrag(callback);
+        self.first_free = None;
+    }
+}
+
+/// Defrag struct has helper functions to perform defragmentation of `FreeList`. See the
+/// documentation of function [`FreeList::defrag`] for more details.
+struct Defrag<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    elements: &'a mut Vector<Slot<T>>,
+    occupied_count: u32,
+    curr_free_slot: Option<FreeListIndex>,
+    defrag_index: u32,
+}
+
+impl<'a, T> Defrag<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
+{
+    /// Create a new struct for defragmenting `FreeList`.
+    fn new(list: &'a mut FreeList<T>) -> Self {
+        Self {
+            elements: &mut list.elements,
+            occupied_count: list.occupied_count,
+            defrag_index: list.occupied_count,
+            curr_free_slot: list.first_free,
+        }
+    }
+
+    fn defrag<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&T, u32),
+    {
+        while let Some(curr_free_index) = self.next_free_slot() {
+            if let Some((value, occupied_index)) = self.next_occupied() {
+                callback(value, curr_free_index.0);
+                //The entry at curr_free_index.0 should have `None` by now.
+                //Moving it to `occupied_index` will make that entry empty.
+                self.elements.swap(curr_free_index.0, occupied_index);
+            } else {
+                //Could not find an occupied slot to fill the free slot
+                env::panic_str(ERR_INCONSISTENT_STATE)
+            }
+        }
+
+        // After defragmenting, these should all be `Slot::Empty`.
+        self.elements.drain(self.occupied_count..);
+    }
+
+    fn next_free_slot(&mut self) -> Option<FreeListIndex> {
+        while let Some(curr_free_index) = self.curr_free_slot {
+            let curr_slot = self.elements.get(curr_free_index.0);
+            self.curr_free_slot = match curr_slot {
+                Some(Slot::Empty { next_free }) => *next_free,
+                Some(Slot::Occupied(_)) => {
+                    //The free list chain should not have an occupied slot
+                    env::panic_str(ERR_INCONSISTENT_STATE)
+                }
+                _ => None,
+            };
+            if curr_free_index.0 < self.occupied_count {
+                return Some(curr_free_index);
+            }
+        }
+        None
+    }
+
+    fn next_occupied(&mut self) -> Option<(&T, u32)> {
+        while self.defrag_index < self.elements.len {
+            if let Some(Slot::Occupied(value)) = self.elements.get(self.defrag_index) {
+                return Some((value, self.defrag_index));
+            }
+            self.defrag_index += 1;
+        }
+        None
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -232,6 +321,25 @@ mod tests {
 
     use super::*;
     use crate::test_utils::test_env::setup_free;
+
+    #[test]
+    fn new_bucket_is_empty() {
+        let bucket: FreeList<u8> = FreeList::new(b"b");
+        assert!(bucket.is_empty());
+    }
+
+    #[test]
+    fn occupied_count_gets_updated() {
+        let mut bucket = FreeList::new(b"b");
+        let indices: Vec<_> = (0..5).map(|i| bucket.insert(i)).collect();
+
+        assert_eq!(bucket.occupied_count, 5);
+
+        bucket.remove(indices[1]);
+        bucket.remove(indices[3]);
+
+        assert_eq!(bucket.occupied_count, 3);
+    }
 
     #[test]
     fn basic_functionality() {
@@ -247,6 +355,32 @@ mod tests {
 
         *bucket.get_mut(i3).unwrap() = 4;
         assert_eq!(bucket.get(i3), Some(&4));
+    }
+
+    #[test]
+    fn defrag() {
+        let mut bucket = FreeList::new(b"b");
+        let indices: Vec<_> = (0..8).map(|i| bucket.insert(i)).collect();
+
+        //Empty, Empty, Empty, Empty, Occupied, Empty, Occupied, Empty
+        bucket.remove(indices[1]);
+        bucket.remove(indices[3]);
+        bucket.remove(indices[0]);
+        bucket.remove(indices[5]);
+        bucket.remove(indices[2]);
+        bucket.remove(indices[7]);
+
+        //4 should move to index 0, 6 should move to index 1
+        bucket.defrag(|_, _| {});
+
+        //Check the free slots chain is complete after defrag
+        assert_eq!(bucket.occupied_count, bucket.len());
+
+        assert_eq!(*bucket.get(indices[0]).unwrap(), 4u8);
+        assert_eq!(*bucket.get(indices[1]).unwrap(), 6u8);
+        for i in indices[2..].iter() {
+            assert_eq!(bucket.get(*i), None);
+        }
     }
 
     #[test]

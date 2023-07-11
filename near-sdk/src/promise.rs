@@ -2,9 +2,30 @@ use borsh::BorshSchema;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::{Error, Write};
+use std::num::NonZeroU128;
 use std::rc::Rc;
 
-use crate::{AccountId, Balance, Gas, PromiseIndex, PublicKey};
+use crate::env::migrate_to_allowance;
+use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
+
+/// Allow an access key to spend either an unlimited or limited amount of gas
+// This wrapper prevents incorrect construction
+#[derive(Clone, Copy)]
+pub enum Allowance {
+    Unlimited,
+    Limited(NonZeroU128),
+}
+
+impl Allowance {
+    pub fn unlimited() -> Allowance {
+        Allowance::Unlimited
+    }
+
+    /// This will return an None if you try to pass a zero value balance
+    pub fn limited(balance: Balance) -> Option<Allowance> {
+        NonZeroU128::new(balance).map(Allowance::Limited)
+    }
+}
 
 enum PromiseAction {
     CreateAccount,
@@ -16,6 +37,13 @@ enum PromiseAction {
         arguments: Vec<u8>,
         amount: Balance,
         gas: Gas,
+    },
+    FunctionCallWeight {
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+        weight: GasWeight,
     },
     Transfer {
         amount: Balance,
@@ -30,7 +58,7 @@ enum PromiseAction {
     },
     AddAccessKey {
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: Allowance,
         receiver_id: AccountId,
         function_names: String,
         nonce: u64,
@@ -60,6 +88,16 @@ impl PromiseAction {
                     *gas,
                 )
             }
+            FunctionCallWeight { function_name, arguments, amount, gas, weight } => {
+                crate::env::promise_batch_action_function_call_weight(
+                    promise_index,
+                    function_name,
+                    arguments,
+                    *amount,
+                    *gas,
+                    GasWeight(weight.0),
+                )
+            }
             Transfer { amount } => {
                 crate::env::promise_batch_action_transfer(promise_index, *amount)
             }
@@ -74,7 +112,7 @@ impl PromiseAction {
                 )
             }
             AddAccessKey { public_key, allowance, receiver_id, function_names, nonce } => {
-                crate::env::promise_batch_action_add_key_with_function_call(
+                crate::env::promise_batch_action_add_key_allowance_with_function_call(
                     promise_index,
                     public_key,
                     *nonce,
@@ -166,7 +204,7 @@ impl PromiseJoint {
 /// #[near_bindgen]
 /// impl ContractA {
 ///     pub fn a(&self) -> Promise {
-///         contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
+///         contract_b::ext("bob_near".parse().unwrap()).b()
 ///     }
 /// }
 /// ```
@@ -183,7 +221,6 @@ impl PromiseJoint {
 ///   .transfer(1000)
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
-#[derive(Clone)]
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
@@ -253,6 +290,26 @@ impl Promise {
         self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
     }
 
+    /// A low-level interface for making a function call to the account that this promise acts on.
+    /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
+    /// on this function call at the end of the scheduling method execution.
+    pub fn function_call_weight(
+        self,
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: Balance,
+        gas: Gas,
+        weight: GasWeight,
+    ) -> Self {
+        self.add_action(PromiseAction::FunctionCallWeight {
+            function_name,
+            arguments,
+            amount,
+            gas,
+            weight,
+        })
+    }
+
     /// Transfer tokens to the account that this promise acts on.
     pub fn transfer(self, amount: Balance) -> Self {
         self.add_action(PromiseAction::Transfer { amount })
@@ -276,6 +333,23 @@ impl Promise {
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
     /// e.g. `"method_a,method_b".to_string()`.
+    pub fn add_access_key_allowance(
+        self,
+        public_key: PublicKey,
+        allowance: Allowance,
+        receiver_id: AccountId,
+        function_names: String,
+    ) -> Self {
+        self.add_access_key_allowance_with_nonce(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            0,
+        )
+    }
+
+    #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
     pub fn add_access_key(
         self,
         public_key: PublicKey,
@@ -283,14 +357,15 @@ impl Promise {
         receiver_id: AccountId,
         function_names: String,
     ) -> Self {
-        self.add_access_key_with_nonce(public_key, allowance, receiver_id, function_names, 0)
+        let allowance = migrate_to_allowance(allowance);
+        self.add_access_key_allowance(public_key, allowance, receiver_id, function_names)
     }
 
     /// Add an access key with a provided nonce.
-    pub fn add_access_key_with_nonce(
+    pub fn add_access_key_allowance_with_nonce(
         self,
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: Allowance,
         receiver_id: AccountId,
         function_names: String,
         nonce: u64,
@@ -302,6 +377,25 @@ impl Promise {
             function_names,
             nonce,
         })
+    }
+
+    #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance_with_nonce instead")]
+    pub fn add_access_key_with_nonce(
+        self,
+        public_key: PublicKey,
+        allowance: Balance,
+        receiver_id: AccountId,
+        function_names: String,
+        nonce: u64,
+    ) -> Self {
+        let allowance = migrate_to_allowance(allowance);
+        self.add_access_key_allowance_with_nonce(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            nonce,
+        )
     }
 
     /// Delete access key from the given account.
@@ -353,7 +447,15 @@ impl Promise {
     /// ```
     pub fn then(self, mut other: Promise) -> Promise {
         match &mut other.subtype {
-            PromiseSubtype::Single(x) => *x.after.borrow_mut() = Some(self),
+            PromiseSubtype::Single(x) => {
+                let mut after = x.after.borrow_mut();
+                if after.is_some() {
+                    crate::env::panic_str(
+                        "Cannot callback promise which is already scheduled after another",
+                    );
+                }
+                *after = Some(self)
+            }
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
         other
@@ -378,11 +480,11 @@ impl Promise {
     /// #[near_bindgen]
     /// impl ContractA {
     ///     pub fn a1(&self) {
-    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000)).as_return();
+    ///        contract_b::ext("bob_near".parse().unwrap()).b().as_return();
     ///     }
     ///
     ///     pub fn a2(&self) -> Promise {
-    ///        contract_b::b("bob_near".parse().unwrap(), 0, Gas(1_000))
+    ///        contract_b::ext("bob_near".parse().unwrap()).b()
     ///     }
     /// }
     /// ```
@@ -430,6 +532,36 @@ impl borsh::BorshSerialize for Promise {
     }
 }
 
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for Promise {
+    fn schema_name() -> String {
+        "Promise".to_string()
+    }
+
+    fn json_schema(_gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        // Since promises are untyped, for now we represent Promise results with the schema
+        // `true` which matches everything (i.e. always passes validation)
+        schemars::schema::Schema::Bool(true)
+    }
+}
+
+/// When the method can return either a promise or a value, it can be called with `PromiseOrValue::Promise`
+/// or `PromiseOrValue::Value` to specify which one should be returned.
+/// # Example
+/// ```no_run
+/// # use near_sdk::{ext_contract, near_bindgen, Gas, PromiseOrValue};
+/// #[ext_contract]
+/// pub trait ContractA {
+///     fn a(&mut self);
+/// }
+///
+/// let value = Some(true);
+/// let val: PromiseOrValue<bool> = if let Some(value) = value {
+///     PromiseOrValue::Value(value)
+/// } else {
+///     contract_a::ext("bob_near".parse().unwrap()).a().into()
+/// };
+/// ```
 #[derive(serde::Serialize)]
 #[serde(untagged)]
 pub enum PromiseOrValue<T> {
@@ -466,5 +598,242 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
             // The promise is dropped to cause env::promise calls.
             PromiseOrValue::Promise(p) => p.serialize(writer),
         }
+    }
+}
+
+#[cfg(feature = "abi")]
+impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
+    fn schema_name() -> String {
+        format!("PromiseOrValue{}", T::schema_name())
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        T::json_schema(gen)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(test)]
+mod tests {
+    use crate::mock::VmAction;
+    use crate::test_utils::get_created_receipts;
+    use crate::test_utils::test_env::{alice, bob};
+    use crate::{
+        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, Balance, Promise,
+        PublicKey,
+    };
+
+    fn pk() -> PublicKey {
+        "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap()
+    }
+
+    fn get_actions() -> std::vec::IntoIter<VmAction> {
+        let receipts = get_created_receipts();
+        let first_receipt = receipts.into_iter().next().unwrap();
+        first_receipt.actions.into_iter()
+    }
+
+    fn has_add_key_with_full_access(public_key: PublicKey, nonce: Option<u64>) -> bool {
+        get_actions().any(|el| {
+            matches!(
+                el,
+                VmAction::AddKeyWithFullAccess { public_key: p, nonce: n }
+                if p == public_key
+                    && (nonce.is_none() || Some(n) == nonce)
+            )
+        })
+    }
+
+    fn has_add_key_with_function_call(
+        public_key: PublicKey,
+        allowance: u128,
+        receiver_id: AccountId,
+        function_names: String,
+        nonce: Option<u64>,
+    ) -> bool {
+        get_actions().any(|el| {
+            matches!(
+                el,
+                VmAction::AddKeyWithFunctionCall {
+                    public_key: p,
+                    allowance: a,
+                    receiver_id: r,
+                    function_names: f,
+                    nonce: n
+                }
+                if p == public_key
+                    && a.unwrap() == allowance
+                    && r == receiver_id
+                    && f == function_names.split(',').collect::<Vec<_>>()
+                    && (nonce.is_none() || Some(n) == nonce)
+            )
+        })
+    }
+
+    #[test]
+    fn test_add_full_access_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+
+        // Promise is only executed when dropped so we put it in its own scope to make sure receipts
+        // are ready afterwards.
+        {
+            Promise::new(alice()).create_account().add_full_access_key(public_key.clone());
+        }
+
+        assert!(has_add_key_with_full_access(public_key, None));
+    }
+
+    #[test]
+    fn test_add_full_access_key_with_nonce() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let nonce = 42;
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_full_access_key_with_nonce(public_key.clone(), nonce);
+        }
+
+        assert!(has_add_key_with_full_access(public_key, Some(nonce)));
+    }
+
+    #[test]
+    fn test_add_access_key_allowance() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+
+        {
+            Promise::new(alice()).create_account().add_access_key_allowance(
+                public_key.clone(),
+                Allowance::Limited(allowance.try_into().unwrap()),
+                receiver_id.clone(),
+                function_names.clone(),
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            None
+        ));
+    }
+
+    #[test]
+    fn test_add_access_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance: Balance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+
+        {
+            #[allow(deprecated)]
+            Promise::new(alice()).create_account().add_access_key(
+                public_key.clone(),
+                allowance,
+                receiver_id.clone(),
+                function_names.clone(),
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            None
+        ));
+    }
+
+    #[test]
+    fn test_add_access_key_allowance_with_nonce() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+        let nonce = 42;
+
+        {
+            Promise::new(alice()).create_account().add_access_key_allowance_with_nonce(
+                public_key.clone(),
+                Allowance::Limited(allowance.try_into().unwrap()),
+                receiver_id.clone(),
+                function_names.clone(),
+                nonce,
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            Some(nonce)
+        ));
+    }
+
+    #[test]
+    fn test_add_access_key_with_nonce() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+        let allowance = 100;
+        let receiver_id = bob();
+        let function_names = "method_a,method_b".to_string();
+        let nonce = 42;
+
+        {
+            #[allow(deprecated)]
+            Promise::new(alice()).create_account().add_access_key_with_nonce(
+                public_key.clone(),
+                allowance,
+                receiver_id.clone(),
+                function_names.clone(),
+                nonce,
+            );
+        }
+
+        assert!(has_add_key_with_function_call(
+            public_key,
+            allowance,
+            receiver_id,
+            function_names,
+            Some(nonce)
+        ));
+    }
+
+    #[test]
+    fn test_delete_key() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let public_key: PublicKey = pk();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .add_full_access_key(public_key.clone())
+                .delete_key(public_key.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                VmAction::DeleteKey { public_key: p } if p == public_key
+            )
+        });
+        assert!(has_action);
     }
 }

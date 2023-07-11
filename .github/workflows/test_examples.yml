@@ -4,6 +4,8 @@ on:
     branches:
       - master
   pull_request:
+env:
+  RUSTFLAGS: -D warnings
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
@@ -11,11 +13,12 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
-        example: [cross-contract-high-level, cross-contract-low-level, fungible-token]
+        # after fix of https://github.com/near/nearcore/pull/9140#issuecomment-1576655073, it should be [stable]
+        toolchain: [1.69.0]
+        example: [cross-contract-calls, fungible-token]
           
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with and wasm32"
         uses: actions-rs/toolchain@v1
         with:

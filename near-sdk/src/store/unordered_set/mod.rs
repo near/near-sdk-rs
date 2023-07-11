@@ -1,12 +1,10 @@
 mod impls;
 mod iter;
 
+pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
 use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
-use crate::crypto_hash::{CryptoHasher, Sha256};
 use crate::store::free_list::FreeListIndex;
-use crate::store::unordered_set::iter::{
-    Difference, Drain, Intersection, Iter, SymmetricDifference, Union,
-};
+use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
@@ -22,12 +20,12 @@ use std::fmt;
 /// [`BorshDeserialize`] trait.
 ///
 /// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
-/// element using the set's [`CryptoHasher`] implementation.
+/// element using the set's [`ToKey`] implementation.
 ///
 /// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 ///
@@ -79,11 +77,12 @@ use std::fmt;
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
+/// [`LookupSet`]: crate::store::LookupSet
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     elements: FreeList<T>,
     index: LookupMap<T, FreeListIndex, H>,
@@ -92,7 +91,7 @@ where
 impl<T, H> Drop for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -102,7 +101,7 @@ where
 impl<T, H> fmt::Debug for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UnorderedSet")
@@ -116,6 +115,18 @@ impl<T> UnorderedSet<T, Sha256>
 where
     T: BorshSerialize + Ord,
 {
+    /// Create a new iterable set. Use `prefix` as a unique prefix for keys.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedSet;
+    ///
+    /// let mut map: UnorderedSet<String> = UnorderedSet::new(b"b");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where
@@ -128,13 +139,13 @@ where
 impl<T, H> UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Initialize a [`UnorderedSet`] with a custom hash function.
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
+    /// use near_sdk::store::key::Keccak256;
     /// use near_sdk::store::UnorderedMap;
     ///
     /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");

@@ -37,7 +37,7 @@ where
     T: BorshSerialize,
 {
     /// Key bytes to index the contract's storage.
-    storage_key: Box<[u8]>,
+    prefix: Box<[u8]>,
 
     /// Cached value which is lazily loaded and deserialized from storage.
     #[borsh_skip]
@@ -48,8 +48,11 @@ impl<T> LazyOption<T>
 where
     T: BorshSerialize,
 {
-    /// Create a new lazy option with the given `storage_key` and the initial value.
-    pub fn new<S>(storage_key: S, value: Option<T>) -> Self
+    /// Create a new lazy option with the given `prefix` and the initial value.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
+    pub fn new<S>(prefix: S, value: Option<T>) -> Self
     where
         S: IntoStorageKey,
     {
@@ -58,10 +61,7 @@ where
             None => CacheEntry::new_cached(None),
         };
 
-        Self {
-            storage_key: storage_key.into_storage_key().into_boxed_slice(),
-            cache: OnceCell::from(cache),
-        }
+        Self { prefix: prefix.into_storage_key().into_boxed_slice(), cache: OnceCell::from(cache) }
     }
 
     /// Updates the value with a new value. This does not load the current value from storage.
@@ -71,7 +71,8 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(value))
-                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"));
+                // Cache is checked to not be filled in if statement above
+                .unwrap_or_else(|_| env::abort());
         }
     }
 
@@ -85,9 +86,9 @@ where
             }
 
             match v.value().as_ref() {
-                Some(value) => serialize_and_store(&self.storage_key, value),
+                Some(value) => serialize_and_store(&self.prefix, value),
                 None => {
-                    env::storage_remove(&self.storage_key);
+                    env::storage_remove(&self.prefix);
                 }
             }
 
@@ -106,7 +107,7 @@ where
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
     pub fn get(&self) -> &Option<T> {
-        let entry = self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
+        let entry = self.cache.get_or_init(|| load_and_deserialize(&self.prefix));
         entry.value()
     }
 
@@ -114,7 +115,7 @@ where
     /// The load from storage only happens once, and if the value is already cached, it will not
     /// be reloaded.
     pub fn get_mut(&mut self) -> &mut Option<T> {
-        self.cache.get_or_init(|| load_and_deserialize(&self.storage_key));
+        self.cache.get_or_init(|| load_and_deserialize(&self.prefix));
         let entry = self.cache.get_mut().unwrap_or_else(|| env::abort());
         entry.value_mut()
     }
@@ -167,14 +168,33 @@ mod tests {
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "None");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cache: Some(CacheEntry { value: None, state: Cached }) }"
+            );
         }
 
-        lazy_option.set(Some(1u64));
+        *lazy_option = Some(1u8);
         if cfg!(feature = "expensive-debug") {
             assert_eq!(format!("{:?}", lazy_option), "Some(1)");
         } else {
-            assert_eq!(format!("{:?}", lazy_option), "LazyOption { storage_key: [109] }");
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cache: Some(CacheEntry { value: Some(1), state: Modified }) }"
+            );
+        }
+
+        // Serialize and deserialize to simulate storing and loading.
+        let serialized = borsh::to_vec(&lazy_option).unwrap();
+        drop(lazy_option);
+        let lazy_option = LazyOption::<u8>::try_from_slice(&serialized).unwrap();
+        if cfg!(feature = "expensive-debug") {
+            assert_eq!(format!("{:?}", lazy_option), "Some(1)");
+        } else {
+            assert_eq!(
+                format!("{:?}", lazy_option),
+                "LazyOption { storage_key: [109], cache: None }"
+            );
         }
     }
 }

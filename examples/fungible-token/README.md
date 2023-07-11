@@ -1,11 +1,10 @@
 Fungible Token (FT)
 ===================
 
-Example implementation of a [Fungible Token] contract which uses [near-contract-standards] and [simulation] tests.
+Example implementation of a [Fungible Token] contract which uses [near-contract-standards].
 
   [Fungible Token]: https://nomicon.io/Standards/Tokens/FungibleTokenCore.html
   [near-contract-standards]: https://github.com/near/near-sdk-rs/tree/master/near-contract-standards
-  [simulation]: https://github.com/near/near-sdk-rs/tree/master/near-sdk-sim
 
 NOTES:
  - The maximum balance value is limited by U128 (2**128 - 1).

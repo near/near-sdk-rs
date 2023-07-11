@@ -5,17 +5,15 @@
 #[cfg(test)]
 extern crate quickcheck;
 
+#[cfg(all(feature = "unstable", feature = "abi"))]
+pub use near_sdk_macros::NearSchema;
 pub use near_sdk_macros::{
-    callback, callback_vec, ext_contract, init, metadata, near_bindgen, result_serializer,
-    serializer, BorshStorageKey, PanicOnDefault,
+    ext_contract, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, PanicOnDefault,
 };
 
-#[cfg(feature = "unstable")]
 pub mod store;
 
-#[cfg(feature = "unstable")]
-pub use environment::hash as crypto_hash;
-
+#[cfg(feature = "legacy")]
 pub mod collections;
 mod environment;
 pub use environment::env;
@@ -24,31 +22,33 @@ pub use environment::env;
 pub use near_sys as sys;
 
 mod promise;
-pub use promise::{Promise, PromiseOrValue};
+pub use promise::{Allowance, Promise, PromiseOrValue};
 
-mod metadata;
-pub use metadata::{Metadata, MethodMetadata};
+// Private types just used within macro generation, not stable to be used.
+#[doc(hidden)]
+#[path = "private/mod.rs"]
+pub mod __private;
 
 pub mod json_types;
 
 mod types;
 pub use crate::types::*;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use environment::mock;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 // Re-export to avoid breakages
 pub use environment::mock::MockedBlockchain;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use near_vm_logic::VMConfig;
-#[cfg(not(target_arch = "wasm32"))]
-pub use near_vm_logic::VMContext;
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+pub use test_utils::context::VMContext;
 
 pub mod utils;
-pub use crate::utils::storage_key_impl::*;
+pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub mod test_utils;
 
 // Set up global allocator by default if custom-allocator feature is not set in wasm32 architecture.

@@ -1,4 +1,5 @@
-use crate::{BindgenArgType, ImplItemMethodInfo, InputStructType, MethodType, SerializerType};
+use crate::core_impl::MethodKind;
+use crate::{BindgenArgType, ImplItemMethodInfo, SerializerType};
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -14,7 +15,7 @@ impl ImplItemMethodInfo {
     /// ```
     /// will produce this struct:
     /// ```ignore
-    /// near_sdk::MethodMetadata {
+    /// near_sdk::__private::MethodMetadata {
     ///     name: "f3".to_string(),
     ///     is_view: false,
     ///     is_init: false,
@@ -33,16 +34,12 @@ impl ImplItemMethodInfo {
     /// }
     /// ```
     /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
-    pub fn metadata_struct(&self) -> TokenStream2 {
+    pub(crate) fn metadata_struct(&self) -> TokenStream2 {
         let method_name_str = self.attr_signature_info.ident.to_string();
-        let is_view = matches!(&self.attr_signature_info.method_type, &MethodType::View);
-        let is_init = matches!(
-            &self.attr_signature_info.method_type,
-            &MethodType::Init | &MethodType::InitIgnoreState
-        );
+        let is_view = matches!(&self.attr_signature_info.method_kind, &MethodKind::View(_));
+        let is_init = matches!(&self.attr_signature_info.method_kind, &MethodKind::Init(_));
         let args = if self.attr_signature_info.input_args().next().is_some() {
-            let input_struct =
-                self.attr_signature_info.input_struct(InputStructType::Deserialization);
+            let input_struct = self.attr_signature_info.input_struct_deser();
             // If input args are JSON then we need to additionally specify schema for them.
             let additional_schema = match &self.attr_signature_info.input_serializer {
                 SerializerType::Borsh => TokenStream2::new(),
@@ -94,7 +91,7 @@ impl ImplItemMethodInfo {
                 }
             }
         };
-        let result = match &self.attr_signature_info.returns {
+        let result = match &self.attr_signature_info.returns.original {
             ReturnType::Default => {
                 quote! {
                     None
@@ -108,7 +105,7 @@ impl ImplItemMethodInfo {
         };
 
         quote! {
-             near_sdk::MethodMetadata {
+             near_sdk::__private::MethodMetadata {
                  name: #method_name_str.to_string(),
                  is_view: #is_view,
                  is_init: #is_init,

@@ -32,8 +32,5 @@ else
     ./examples/build_all_docker.sh --check
     echo "Testing all examples"
     ./examples/test_all.sh
-    # TODO re-enable when parsing unknown sections is fixed in twiggy 
-    #      https://github.com/rustwasm/twiggy/pull/576
-    # echo "Checking size of all example contracts"
-    # ./examples/size_all.sh
+    ./examples/size_all.sh
 fi

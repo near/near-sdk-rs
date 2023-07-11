@@ -76,7 +76,7 @@ impl PublicKey {
         }
     }
 
-    fn from_parts(curve: CurveType, data: Vec<u8>) -> Result<Self, ParsePublicKeyError> {
+    pub fn from_parts(curve: CurveType, data: Vec<u8>) -> Result<Self, ParsePublicKeyError> {
         let expected_length = curve.data_len();
         if data.len() != expected_length {
             return Err(ParsePublicKeyError {
@@ -156,6 +156,21 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     {
         let s: String = serde::Deserialize::deserialize(deserializer)?;
         s.parse::<PublicKey>().map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(feature = "abi")]
+impl schemars::JsonSchema for PublicKey {
+    fn is_referenceable() -> bool {
+        false
+    }
+
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
     }
 }
 

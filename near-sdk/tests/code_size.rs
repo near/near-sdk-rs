@@ -2,7 +2,7 @@
 fn check_example_size(example: &str) -> usize {
     let status = std::process::Command::new("cargo")
         .env("RUSTFLAGS", "-C link-arg=-s")
-        .args(&["build", "--release", "--target", "wasm32-unknown-unknown", "--manifest-path"])
+        .args(["build", "--release", "--target", "wasm32-unknown-unknown", "--manifest-path"])
         .arg(format!("../examples/{}/Cargo.toml", example))
         .status()
         .unwrap();
@@ -13,7 +13,7 @@ fn check_example_size(example: &str) -> usize {
     let wasm = std::fs::read(format!(
         "../examples/{}/target/wasm32-unknown-unknown/release/{}.wasm",
         example,
-        example.replace("-", "_")
+        example.replace('-', "_")
     ))
     .unwrap();
 
@@ -24,14 +24,14 @@ fn check_example_size(example: &str) -> usize {
 fn lock_fungible_code_size_check() {
     let size = check_example_size("lockable-fungible-token");
 
-    // Current contract size at the time of writing this test is 164_433, giving about ~10% buffer.
-    assert!(size < 180_000);
+    // Current contract size at the time of writing this test is 141_474, giving about ~10% buffer.
+    assert!(size < 155_000);
 }
 
 #[test]
 fn status_message_code_size_check() {
     let size = check_example_size("status-message");
 
-    // Currently 140823.
-    assert!(size < 155_000);
+    // Currently 123821.
+    assert!(size < 135_000);
 }

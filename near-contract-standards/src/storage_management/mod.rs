@@ -5,6 +5,7 @@ use near_sdk::AccountId;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalance {
     pub total: U128,
     pub available: U128,
@@ -12,6 +13,7 @@ pub struct StorageBalance {
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalanceBounds {
     pub min: U128,
     pub max: Option<U128>,

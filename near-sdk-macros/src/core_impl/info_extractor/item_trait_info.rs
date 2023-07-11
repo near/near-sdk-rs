@@ -1,5 +1,6 @@
 use super::TraitItemMethodInfo;
 use inflector::Inflector;
+use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Error, Ident, ItemTrait, TraitItem};
 
@@ -30,7 +31,8 @@ impl ItemTraitInfo {
                     ))
                 }
                 TraitItem::Method(method) => {
-                    methods.push(TraitItemMethodInfo::new(method)?);
+                    methods
+                        .push(TraitItemMethodInfo::new(method, &original.ident.to_token_stream())?);
                     if method.default.is_some() {
                         return Err(Error::new(
                             method.span(),

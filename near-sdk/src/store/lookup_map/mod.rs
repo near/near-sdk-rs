@@ -3,12 +3,12 @@ mod impls;
 
 use std::borrow::Borrow;
 use std::fmt;
-use std::marker::PhantomData;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
-use crate::crypto_hash::{CryptoHasher, Sha256};
+use super::ERR_NOT_EXIST;
+use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey};
 
@@ -16,25 +16,23 @@ pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
 const ERR_ELEMENT_DESERIALIZATION: &str = "Cannot deserialize element";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
-const ERR_NOT_EXIST: &str = "Key does not exist in map";
-
-type LookupKey = [u8; 32];
 
 /// A non-iterable, lazily loaded storage map that stores its content directly on the storage trie.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
-/// using the map's [`CryptoHasher`] implementation.
+/// and transformed using the map's [`ToKey`] implementation.
 ///
-/// The default hash function for [`LookupMap`] is [`Sha256`] which uses a syscall
-/// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
-/// use [`with_hasher`]. Alternative builtin hash functions can be found at
-/// [`near_sdk::crypto_hash`](crate::crypto_hash).
+/// The default hash function for [`LookupMap`] is [`Identity`] which just prefixes the serialized
+/// key object and uses these bytes as the key. This is to be backwards-compatible with
+/// [`collections::LookupMap`](crate::collections::LookupMap) and be fast for small keys.
+/// To use a custom function, use [`with_hasher`]. Alternative builtin hash functions can be found
+/// at [`near_sdk::store::key`](crate::store::key).
 ///
 /// # Examples
 /// ```
 /// use near_sdk::store::LookupMap;
 ///
-/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Sha256>`
+/// // Initializes a map, the generic types can be inferred to `LookupMap<String, u8, Identity>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
 /// let mut map = LookupMap::new(b"a");
 ///
@@ -47,7 +45,7 @@ type LookupKey = [u8; 32];
 /// assert_eq!(map["test"], 5u8);
 /// ```
 ///
-/// `LookupMap` also implements an [`Entry API`](Self::entry), which allows
+/// [`LookupMap`] also implements an [`Entry API`](Self::entry), which allows
 /// for more complex methods of getting, setting, updating and removing keys and
 /// their values:
 ///
@@ -78,29 +76,26 @@ type LookupKey = [u8; 32];
 ///
 /// [`with_hasher`]: Self::with_hasher
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct LookupMap<K, V, H = Sha256>
+pub struct LookupMap<K, V, H = Identity>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     prefix: Box<[u8]>,
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
     #[borsh_skip]
-    cache: StableMap<K, EntryAndHash<V>>,
-
-    #[borsh_skip]
-    hasher: PhantomData<H>,
+    cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
 }
 
-struct EntryAndHash<V> {
+struct EntryAndHash<V, T> {
     value: OnceCell<CacheEntry<V>>,
-    hash: OnceCell<[u8; 32]>,
+    hash: OnceCell<T>,
 }
 
-impl<V> Default for EntryAndHash<V> {
+impl<V, T> Default for EntryAndHash<V, T> {
     fn default() -> Self {
         Self { value: Default::default(), hash: Default::default() }
     }
@@ -110,7 +105,7 @@ impl<K, V, H> Drop for LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn drop(&mut self) {
         self.flush()
@@ -121,18 +116,30 @@ impl<K, V, H> fmt::Debug for LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LookupMap").field("prefix", &self.prefix).finish()
     }
 }
 
-impl<K, V> LookupMap<K, V, Sha256>
+impl<K, V> LookupMap<K, V, Identity>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
 {
+    /// Create a new [`LookupMap`] with the prefix provided.
+    ///
+    /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
+    /// storing and looking up values in storage to ensure no collisions with other collections.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
     where
@@ -146,14 +153,13 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Initialize a [`LookupMap`] with a custom hash function.
     ///
     /// # Example
     /// ```
-    /// use near_sdk::crypto_hash::Keccak256;
-    /// use near_sdk::store::LookupMap;
+    /// use near_sdk::store::{LookupMap, key::Keccak256};
     ///
     /// let map = LookupMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
@@ -161,11 +167,7 @@ where
     where
         S: IntoStorageKey,
     {
-        Self {
-            prefix: prefix.into_storage_key().into_boxed_slice(),
-            cache: Default::default(),
-            hasher: Default::default(),
-        }
+        Self { prefix: prefix.into_storage_key().into_boxed_slice(), cache: Default::default() }
     }
 
     /// Overwrites the current value for the given key.
@@ -174,6 +176,20 @@ where
     /// Use [`LookupMap::insert`] if you need the previous value.
     ///
     /// Calling `set` with a `None` value will delete the entry from storage.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map = LookupMap::new(b"m");
+    ///
+    /// map.set("test".to_string(), Some(7u8));
+    /// assert!(map.contains_key("test"));
+    ///
+    /// //Delete the entry from storage
+    /// map.set("test".to_string(), None);
+    /// assert!(!map.contains_key("test"));
+    /// ```
     pub fn set(&mut self, key: K, value: Option<V>) {
         let entry = self.cache.get_mut(key);
         match entry.value.get_mut() {
@@ -183,37 +199,25 @@ where
             }
         }
     }
-
-    fn lookup_key<Q: ?Sized>(prefix: &[u8], key: &Q, buffer: &mut Vec<u8>) -> LookupKey
-    where
-        Q: BorshSerialize,
-        K: Borrow<Q>,
-    {
-        // Concat the prefix with serialized key and hash the bytes for the lookup key.
-        buffer.extend(prefix);
-        key.serialize(buffer).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-
-        H::hash(buffer)
-    }
 }
 
 impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_DESERIALIZATION))
     }
 
-    fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> (LookupKey, Option<V>)
+    fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> (H::KeyType, Option<V>)
     where
         Q: BorshSerialize,
         K: Borrow<Q>,
     {
-        let key = Self::lookup_key(prefix, key, &mut Vec::new());
-        let storage_bytes = env::storage_read(&key);
+        let key = H::to_key(prefix, key, &mut Vec::new());
+        let storage_bytes = env::storage_read(key.as_ref());
         (key, storage_bytes.as_deref().map(Self::deserialize_element))
     }
 
@@ -222,6 +226,17 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    ///
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.get(&1), Some(&"a".to_string()));
+    /// assert_eq!(map.get(&2), None);
+    /// ```
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -259,6 +274,18 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// if let Some(x) = map.get_mut(&1) {
+    ///     *x = "b".to_string();
+    ///     assert_eq!(map[&1], "b".to_string());
+    /// }
+    /// ```
     pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
@@ -274,6 +301,19 @@ where
     /// If the map did have this key present, the value is updated, and the old
     /// value is returned. The key is not updated, though; this matters for
     /// types that can be `==` without being identical.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// assert_eq!(map.insert(37, "a".to_string()), None);
+    /// assert_eq!(map.contains_key(&37), true);
+    ///
+    /// map.insert(37, "b".to_string());
+    /// assert_eq!(map.insert(37, "c".to_string()), Some("b".to_string()));
+    /// assert_eq!(map[&37], "c".to_string());
+    /// ```
     pub fn insert(&mut self, k: K, v: V) -> Option<V>
     where
         K: Clone,
@@ -286,6 +326,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.contains_key(&1), true);
+    /// assert_eq!(map.contains_key(&2), false);
+    /// ```
     pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -300,8 +350,8 @@ where
         }
 
         // Value is not in cache, check if storage has value for given key.
-        let storage_key = Self::lookup_key(&self.prefix, k, &mut Vec::new());
-        let contains = env::storage_has_key(&storage_key);
+        let storage_key = H::to_key(&self.prefix, k, &mut Vec::new());
+        let contains = env::storage_has_key(storage_key.as_ref());
 
         if !contains {
             // If value not in cache and not in storage, can set a cached `None`
@@ -318,6 +368,16 @@ where
     /// The key may be any borrowed form of the map's key type, but
     /// [`BorshSerialize`] and [`ToOwned<Owned = K>`](ToOwned) on the borrowed form *must* match those for
     /// the key type.
+    ///
+    /// # Example
+    /// ```
+    /// use near_sdk::store::LookupMap;
+    ///
+    /// let mut map: LookupMap<u32, String> = LookupMap::new(b"m");
+    /// map.insert(1, "a".to_string());
+    /// assert_eq!(map.remove(&1), Some("a".to_string()));
+    /// assert_eq!(map.remove(&1), None);
+    /// ```
     pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q>,
@@ -361,7 +421,7 @@ impl<K, V, H> LookupMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
-    H: CryptoHasher<Digest = [u8; 32]>,
+    H: ToKey,
 {
     /// Flushes the intermediate values of the map before this is called when the structure is
     /// [`Drop`]ed. This will write all modified values to storage but keep all cached values
@@ -374,18 +434,18 @@ where
                     let prefix = &self.prefix;
                     let key = v.hash.get_or_init(|| {
                         buf.clear();
-                        Self::lookup_key(prefix, k, &mut buf)
+                        H::to_key(prefix, k, &mut buf)
                     });
                     match val.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf)
                                 .unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION));
-                            env::storage_write(key, &buf);
+                            env::storage_write(key.as_ref(), &buf);
                         }
                         None => {
                             // Element was removed, clear the storage for the value
-                            env::storage_remove(key);
+                            env::storage_remove(key.as_ref());
                         }
                     }
 
@@ -402,8 +462,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::LookupMap;
-    use crate::crypto_hash::Keccak256;
     use crate::env;
+    use crate::store::key::{Keccak256, ToKey};
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use rand::seq::SliceRandom;
@@ -527,6 +587,30 @@ mod tests {
     }
 
     #[test]
+    fn size_of_map() {
+        assert_eq!(core::mem::size_of::<LookupMap<u8, u8>>(), 48);
+    }
+
+    #[test]
+    fn identity_compat_v1() {
+        use crate::collections::LookupMap as LM1;
+
+        let mut lm1 = LM1::new(b"m");
+        lm1.insert(&8u8, &"Some value".to_string());
+        lm1.insert(&0, &"Other".to_string());
+        assert_eq!(lm1.get(&8), Some("Some value".to_string()));
+
+        let mut lm2 = LookupMap::new(b"m");
+        assert_eq!(lm2.get(&8u8), Some(&"Some value".to_string()));
+        assert_eq!(lm2.remove(&0), Some("Other".to_string()));
+        *lm2.get_mut(&8).unwrap() = "New".to_string();
+        lm2.flush();
+
+        assert!(!lm1.contains_key(&0));
+        assert_eq!(lm1.get(&8), Some("New".to_string()));
+    }
+
+    #[test]
     fn test_extend() {
         let mut map = LookupMap::new(b"m");
         let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(4);
@@ -563,7 +647,7 @@ mod tests {
         // Create duplicate which references same data
         assert_eq!(map[&5], 8);
 
-        let storage_key = LookupMap::<u8, u8, Keccak256>::lookup_key(b"m", &5, &mut Vec::new());
+        let storage_key = Keccak256::to_key(b"m", &5, &mut Vec::new());
         assert!(!env::storage_has_key(&storage_key));
 
         drop(map);
