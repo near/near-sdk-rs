@@ -1,6 +1,9 @@
 /// The core methods for a basic fungible token. Extension standards may be
 /// added in addition to this macro.
 #[macro_export]
+#[deprecated(
+    note = "implement the near_contract_standards::fungible_token::{FungibleTokenCore, FungibleTokenResolver} traits manually instead."
+)]
 macro_rules! impl_fungible_token_core {
     ($contract: ident, $token: ident $(, $on_tokens_burned_fn:ident)?) => {
         use $crate::fungible_token::core::FungibleTokenCore;
@@ -64,6 +67,9 @@ macro_rules! impl_fungible_token_core {
 /// Takes name of the Contract struct, the inner field for the token and optional method name to
 /// call when the account was closed.
 #[macro_export]
+#[deprecated(
+    note = "implement the near_contract_standards::fungible_token::StorageManagement trait manually instead."
+)]
 macro_rules! impl_fungible_token_storage {
     ($contract: ident, $token: ident $(, $on_account_closed_fn:ident)?) => {
         use $crate::storage_management::{
