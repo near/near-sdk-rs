@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 # Requires:
-# `pip install GitPython`
+# `pip install GitPython docker appdirs`
 import argparse
 import os
 import sys
+from cache import Cache
 from appdirs import AppDirs
 
 from project_instance import ProjectInstance
@@ -58,8 +59,9 @@ def main():
     parser.add_argument("-c", "--cargo-cache-dir")
     args = parser.parse_args()
 
-    cache = args.cargo_cache_dir if args.cargo_cache_dir else default_cache_dir
-    build_args = ["--cargo-cache-dir", cache]
+    cache_dir = args.cargo_cache_dir if args.cargo_cache_dir else default_cache_dir
+    cache = Cache(cache_dir)
+    # build_args = ["--cargo-cache-dir", cache]
 
     this_file = os.path.abspath(os.path.realpath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(this_file)))
@@ -67,8 +69,8 @@ def main():
     cur_branch = ProjectInstance(project_root)
 
     with cur_branch.branch("master") as master:
-        cur_sizes = cur_branch.sizes(*build_args)
-        master_sizes = master.sizes(*build_args)
+        cur_sizes = cur_branch.sizes(cache)
+        master_sizes = master.sizes(cache)
 
         print(report(master_sizes, cur_sizes))
 

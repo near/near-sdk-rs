@@ -1,10 +1,13 @@
+import docker
 import os
 import glob
 import subprocess
 import tempfile
 import shutil
+import sys
 from contextlib import contextmanager
 from git import Repo
+
 
 class ProjectInstance:
     def __init__(self, root_dir):
@@ -19,12 +22,6 @@ class ProjectInstance:
                 repo.git.worktree("add", tempdir, branch)
                 branch_project = ProjectInstance(tempdir)
 
-                # copy build artifacts, if any
-                try:
-                    shutil.copytree(self.docker_target_dir(), branch_project.docker_target_dir())
-                except Exception:
-                    pass
-
                 yield branch_project
         finally:
             repo.git.worktree("prune")
@@ -35,11 +32,43 @@ class ProjectInstance:
     def docker_target_dir(self):
         return os.path.join(self.root_dir, "docker-target")
 
-    def build_artifacts(self, *build_args):
-        return subprocess.run([os.path.join(self.examples_dir(), "build_all_docker.sh"), *build_args], stdout = subprocess.DEVNULL)
+    def _build_artifact(self, artifact, cache):
+        client = docker.from_env()
 
-    def sizes(self, *build_args):
-        self.build_artifacts(*build_args)
+        client.containers.run(
+            "nearprotocol/contract-builder:latest-arm64",
+            "./build.sh",
+            mounts=[
+                docker.types.Mount("/host", self.root_dir, type="bind"),
+                docker.types.Mount(
+                    "/usr/local/cargo/registry", cache.registry, type="bind"
+                ),
+                docker.types.Mount("/usr/local/cargo/git", cache.git, type="bind"),
+                docker.types.Mount("/target", cache.target, type="bind"),
+            ],
+            working_dir=f"/host/examples/{artifact.name}",
+            cap_add=["SYS_PTRACE"],
+            security_opt=["seccomp=unconfined"],
+            auto_remove=True,
+            user=os.getuid(),
+            environment={
+                "RUSTFLAGS": "-C link-arg=-s",
+                "CARGO_TARGET_DIR": "/target",
+            },
+        )
 
-        artifact_paths = glob.glob(self.examples_dir() + '/*/res/*.wasm')
-        return {os.path.basename(path):os.stat(path).st_size for path in artifact_paths}
+    def _examples(self):
+        return filter(os.DirEntry.is_dir, os.scandir(self.examples_dir()))
+
+    def build_artifacts(self, cache):
+        for example in self._examples():
+            print(f"Building {example.name}...", file=sys.stderr)
+            self._build_artifact(example, cache)
+
+    def sizes(self, cache):
+        self.build_artifacts(cache)
+
+        artifact_paths = glob.glob(self.examples_dir() + "/*/res/*.wasm")
+        return {
+            os.path.basename(path): os.stat(path).st_size for path in artifact_paths
+        }
