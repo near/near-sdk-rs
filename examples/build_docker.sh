@@ -13,9 +13,6 @@ NAME="$1"
 pushd $(dirname ${BASH_SOURCE[0]})
 cd ../
 
-SOURCE_HASH="$(echo $(pwd) | md5sum | awk '{print $1;}')"
-CONT_NAME="build_${NAME}_$SOURCE_HASH"
-
 # Pick the correct tag to pull from Docker Hub based on OS architecture
 _warning="
 ${YELLOW}WARNING${NC}: You are building smart contracts using ARM64. The resulting artifacts will
@@ -29,13 +26,13 @@ else
     TAG="latest-amd64"
 fi
 
-if docker ps -a --format '{{.Names}}' | grep -Eq "^$CONT_NAME\$"; then
+if docker ps -a --format '{{.Names}}' | grep -Eq "^build_${NAME}\$"; then
     echo "Container exists"
 else
     docker create \
         --mount type=bind,source=$(pwd),target=/host \
         --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
-        --name="$CONT_NAME" \
+        --name=build_"$NAME" \
         -w /host/examples/"$NAME" \
         -e RUSTFLAGS='-C link-arg=-s' \
         -e CARGO_TARGET_DIR='/host/docker-target' \
@@ -43,5 +40,5 @@ else
         /bin/bash
 fi
 
-docker start "$CONT_NAME"
-docker exec "$CONT_NAME" /bin/bash -c "./build.sh"
+docker start build_"$NAME"
+docker exec build_"$NAME" /bin/bash -c "./build.sh"
