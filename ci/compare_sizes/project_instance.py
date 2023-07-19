@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import shutil
 import sys
+import platform
 from contextlib import contextmanager
 from git import Repo
 
@@ -34,9 +35,11 @@ class ProjectInstance:
 
     def _build_artifact(self, artifact, cache):
         client = docker.from_env()
+        tag = "latest-arm64" if platform.machine() == "ARM64" else "latest-amd64"
+        image = f"nearprotocol/contract-builder:{tag}"
 
         client.containers.run(
-            "nearprotocol/contract-builder:latest-arm64",
+            image,
             "./build.sh",
             mounts=[
                 docker.types.Mount("/host", self.root_dir, type="bind"),
