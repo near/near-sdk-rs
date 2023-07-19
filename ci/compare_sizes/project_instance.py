@@ -61,7 +61,10 @@ class ProjectInstance:
         )
 
     def _examples(self):
-        return filter(os.DirEntry.is_dir, os.scandir(self.examples_dir()))
+        examples = filter(os.DirEntry.is_dir, os.scandir(self.examples_dir()))
+
+        # build "status-message" first, as it's a dependency of some other examples
+        return sorted(examples, key=lambda x: x.name != "status-message")
 
     def build_artifacts(self, cache):
         for example in self._examples():
