@@ -49,7 +49,7 @@ class ProjectInstance:
             working_dir=f"/host/examples/{artifact.name}",
             cap_add=["SYS_PTRACE"],
             security_opt=["seccomp=unconfined"],
-            auto_remove=True,
+            remove=True,
             user=os.getuid(),
             environment={
                 "RUSTFLAGS": "-C link-arg=-s",
