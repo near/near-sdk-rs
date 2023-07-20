@@ -4,7 +4,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
 impl ItemTraitInfo {
-    /// Generate code that wrapps external calls.
+    /// Generate code that wraps external calls.
     pub fn wrap_trait_ext(&self) -> TokenStream2 {
         let mod_name = &self.mod_name;
         let ext_structs = generate_ext_structs(&self.original.ident, None);
