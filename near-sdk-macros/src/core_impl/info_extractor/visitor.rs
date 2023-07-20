@@ -209,14 +209,7 @@ fn is_view(sig: &Signature) -> bool {
 
 fn parse_return_kind(typ: &Type, handles_result: bool) -> syn::Result<ReturnKind> {
     if handles_result {
-        if let Some(ok_type) = utils::extract_ok_type(typ) {
-            Ok(ReturnKind::HandlesResult { ok_type: ok_type.clone() })
-        } else {
-            Err(Error::new(
-                typ.span(),
-                "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).",
-            ))
-        }
+        Ok(ReturnKind::HandlesResult { ty: typ.clone() })
     } else if utils::type_is_result(typ) {
         Err(Error::new(
             typ.span(),

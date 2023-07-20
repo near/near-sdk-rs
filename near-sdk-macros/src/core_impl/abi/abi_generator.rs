@@ -1,6 +1,6 @@
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, Type};
+use syn::{parse_quote, Attribute, Lit::Str, Meta::NameValue, MetaNameValue, Type};
 
 use crate::core_impl::{
     utils, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodKind, ReturnKind, SerializerType,
@@ -202,7 +202,11 @@ impl ImplItemMethodInfo {
         match &self.attr_signature_info.returns.kind {
             Default => quote! { None },
             General(ty) => self.abi_result_tokens_with_return_value(ty),
-            HandlesResult { ok_type } => self.abi_result_tokens_with_return_value(ok_type),
+            HandlesResult { ty } => {
+                // extract the `Ok` type from the result
+                let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
+                self.abi_result_tokens_with_return_value(&ty)
+            }
         }
     }
 
@@ -329,7 +333,7 @@ mod tests {
                 callbacks: vec![],
                 callbacks_vec: None,
                 result: Some(near_sdk::__private::AbiType::Json {
-                    type_schema: gen.subschema_for::<IsOk>(),
+                    type_schema: gen.subschema_for::< <Result<IsOk, Error> as near_sdk::__private::ResultTypeExt>::Okay>(),
                 })
             }
         };
@@ -366,7 +370,7 @@ mod tests {
                 callbacks: vec![],
                 callbacks_vec: None,
                 result: Some(near_sdk::__private::AbiType::Borsh {
-                    type_schema: <IsOk as near_sdk::borsh::BorshSchema>::schema_container(),
+                    type_schema: < <Result<IsOk, Error> as near_sdk::__private::ResultTypeExt>::Okay as near_sdk::borsh::BorshSchema>::schema_container(),
                 })
             }
         };

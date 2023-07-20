@@ -25,6 +25,7 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/generic_function.rs");
     t.compile_fail("compilation_tests/generic_const_function.rs");
     t.pass("compilation_tests/self_support.rs");
+    t.pass("compilation_tests/handle_result_alias.rs");
     // The following couple tests should be activated before releasing 5.0
     // See: https://github.com/near/near-sdk-rs/issues/1005
     //

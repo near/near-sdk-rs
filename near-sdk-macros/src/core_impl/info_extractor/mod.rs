@@ -84,5 +84,5 @@ pub struct Returns {
 pub enum ReturnKind {
     Default,
     General(Type),
-    HandlesResult { ok_type: Type },
+    HandlesResult { ty: Type },
 }

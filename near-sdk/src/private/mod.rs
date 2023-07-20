@@ -12,6 +12,9 @@ pub use schemars;
 mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
+mod result_type_ext;
+pub use result_type_ext::ResultTypeExt;
+
 use crate::IntoStorageKey;
 use borsh::BorshSerialize;
 
