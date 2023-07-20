@@ -12,11 +12,11 @@ from git import Repo
 
 class ProjectInstance:
     def __init__(self, root_dir):
-        self.root_dir = root_dir
+        self._root_dir = root_dir
 
     @contextmanager
     def branch(self, branch):
-        repo = Repo(self.root_dir)
+        repo = Repo(self._root_dir)
 
         try:
             with tempfile.TemporaryDirectory() as tempdir:
@@ -27,11 +27,9 @@ class ProjectInstance:
         finally:
             repo.git.worktree("prune")
 
-    def examples_dir(self):
-        return os.path.join(self.root_dir, "examples")
-
-    def docker_target_dir(self):
-        return os.path.join(self.root_dir, "docker-target")
+    @property
+    def _examples_dir(self):
+        return os.path.join(self._root_dir, "examples")
 
     def _build_artifact(self, artifact, cache):
         client = docker.from_env()
@@ -42,7 +40,7 @@ class ProjectInstance:
             image,
             "./build.sh",
             mounts=[
-                docker.types.Mount("/host", self.root_dir, type="bind"),
+                docker.types.Mount("/host", self._root_dir, type="bind"),
                 docker.types.Mount(
                     "/usr/local/cargo/registry", cache.registry, type="bind"
                 ),
@@ -60,21 +58,22 @@ class ProjectInstance:
             },
         )
 
+    @property
     def _examples(self):
-        examples = filter(os.DirEntry.is_dir, os.scandir(self.examples_dir()))
+        examples = filter(os.DirEntry.is_dir, os.scandir(self._examples_dir))
 
         # build "status-message" first, as it's a dependency of some other examples
         return sorted(examples, key=lambda x: x.name != "status-message")
 
     def build_artifacts(self, cache):
-        for example in self._examples():
+        for example in self._examples:
             print(f"Building {example.name}...", file=sys.stderr)
             self._build_artifact(example, cache)
 
     def sizes(self, cache):
         self.build_artifacts(cache)
 
-        artifact_paths = glob.glob(self.examples_dir() + "/*/res/*.wasm")
+        artifact_paths = glob.glob(self._examples_dir + "/*/res/*.wasm")
         return {
             os.path.basename(path): os.stat(path).st_size for path in artifact_paths
         }

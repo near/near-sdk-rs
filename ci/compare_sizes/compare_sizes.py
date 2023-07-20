@@ -47,11 +47,6 @@ Sizes are given in bytes.
 
 
 def main():
-    default_cache_dir = os.path.join(
-        AppDirs("near_sdk_dev_cache", "near").user_data_dir,
-        "contract_build",
-    )
-
     parser = argparse.ArgumentParser(
         prog="compare_sizes",
         description="compare example contract sizes between current branch and master",
@@ -59,9 +54,12 @@ def main():
     parser.add_argument("-c", "--cargo-cache-dir")
     args = parser.parse_args()
 
+    default_cache_dir = os.path.join(
+        AppDirs("near_sdk_dev_cache", "near").user_data_dir,
+        "contract_build",
+    )
     cache_dir = args.cargo_cache_dir if args.cargo_cache_dir else default_cache_dir
     cache = Cache(cache_dir)
-    # build_args = ["--cargo-cache-dir", cache]
 
     this_file = os.path.abspath(os.path.realpath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(this_file)))

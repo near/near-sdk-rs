@@ -11,17 +11,17 @@ class Cache:
         os.makedirs(self.target, exist_ok=True)
 
     @property
-    def dir(self):
+    def root(self):
         return self._dir
 
     @property
     def registry(self):
-        return os.path.join(self._dir, "registry")
+        return os.path.join(self.root, "registry")
 
     @property
     def git(self):
-        return os.path.join(self._dir, "git")
+        return os.path.join(self.root, "git")
 
     @property
     def target(self):
-        return os.path.join(self._dir, "target")
+        return os.path.join(self.root, "target")
