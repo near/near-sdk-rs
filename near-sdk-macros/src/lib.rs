@@ -435,8 +435,8 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
             #[allow(non_camel_case_types)]
             type #input_ident_proxy = #input_ident;
             {
-                use near_sdk::borsh;
-                use near_sdk::__private::schemars;
+                use ::near_sdk::borsh;
+                use ::near_sdk::__private::schemars;
 
                 #derive
                 #input
@@ -457,9 +457,9 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item) {
         let name = &input.ident;
         TokenStream::from(quote! {
-            impl Default for #name {
+            impl ::std::default::Default for #name {
                 fn default() -> Self {
-                    near_sdk::env::panic_str("The contract is not initialized");
+                    ::near_sdk::env::panic_str("The contract is not initialized");
                 }
             }
         })
@@ -501,7 +501,7 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
         parse_quote!(where #predicate)
     };
     TokenStream::from(quote! {
-        impl #impl_generics near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause {}
+        impl #impl_generics ::near_sdk::__private::BorshIntoStorageKey for #name #ty_generics #where_clause {}
     })
 }
 
@@ -524,9 +524,9 @@ pub fn function_error(item: TokenStream) -> TokenStream {
         );
     };
     TokenStream::from(quote! {
-        impl near_sdk::FunctionError for #name {
+        impl ::near_sdk::FunctionError for #name {
             fn panic(&self) -> ! {
-                near_sdk::env::panic_str(&::std::string::ToString::to_string(&self))
+                ::near_sdk::env::panic_str(&::std::string::ToString::to_string(&self))
             }
         }
     })
@@ -559,7 +559,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             if let Some(version) = core_impl::get_event_version(var) {
                 let var_ident = &var.ident;
                 event_meta.push(quote! {
-                    #name::#var_ident { .. } => {(#standard_ident.to_string(), #version.to_string())}
+                    #name::#var_ident { .. } => {(::std::string::ToString::to_string(&#standard_ident), ::std::string::ToString::to_string(#version))}
                 })
             } else {
                 return TokenStream::from(
@@ -585,12 +585,14 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
                 pub fn emit(&self) {
+                    use ::std::string::String;
+
                     let (standard, version): (String, String) = match self {
                         #(#event_meta),*
                     };
 
-                    #[derive(near_sdk::serde::Serialize)]
-                    #[serde(crate="near_sdk::serde")]
+                    #[derive(::near_sdk::serde::Serialize)]
+                    #[serde(crate="::near_sdk::serde")]
                     #[serde(rename_all="snake_case")]
                     struct EventBuilder #custom_impl_generics #where_clause {
                         standard: String,
@@ -599,9 +601,9 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                         event_data: &#event_lifetime #name #type_generics
                     }
                     let event = EventBuilder { standard, version, event_data: self };
-                    let json = near_sdk::serde_json::to_string(&event)
-                            .unwrap_or_else(|_| near_sdk::env::abort());
-                    near_sdk::env::log_str(&format!("EVENT_JSON:{}", json));
+                    let json = ::near_sdk::serde_json::to_string(&event)
+                            .unwrap_or_else(|_| ::near_sdk::env::abort());
+                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
                 }
             }
         })

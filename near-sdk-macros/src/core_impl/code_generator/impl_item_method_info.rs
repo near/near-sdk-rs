@@ -89,19 +89,19 @@ impl ImplItemMethodInfo {
             #contract_init
             #method_invocation_with_return
             match #result_identifier {
-                Ok(#result_identifier) => {
+                ::std::result::Result::Ok(#result_identifier) => {
                     #value_ser
                     #value_return
                     #contract_ser
                 }
-                Err(err) => near_sdk::FunctionError::panic(&err)
+                ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
             }
         }
     }
 
     fn panic_hook_tokens(&self) -> TokenStream2 {
         quote! {
-            near_sdk::env::setup_panic_hook();
+            ::near_sdk::env::setup_panic_hook();
         }
     }
 
@@ -118,13 +118,13 @@ impl ImplItemMethodInfo {
             let decomposition = self.attr_signature_info.decomposition_pattern();
             let serializer_invocation = match self.attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                    near_sdk::serde_json::from_slice(
-                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    ::near_sdk::serde_json::from_slice(
+                        &::near_sdk::env::input().expect("Expected input since method has arguments.")
                     ).expect("Failed to deserialize input from JSON.")
                 },
                 SerializerType::Borsh => quote! {
-                    near_sdk::borsh::BorshDeserialize::try_from_slice(
-                        &near_sdk::env::input().expect("Expected input since method has arguments.")
+                    ::near_sdk::borsh::BorshDeserialize::try_from_slice(
+                        &::near_sdk::env::input().expect("Expected input since method has arguments.")
                     ).expect("Failed to deserialize input from Borsh.")
                 },
             };
@@ -143,8 +143,8 @@ impl ImplItemMethodInfo {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
             let error = format!("Method {} doesn't accept deposit", self.attr_signature_info.ident);
             quote! {
-                if near_sdk::env::attached_deposit() != 0 {
-                    near_sdk::env::panic_str(#error);
+                if ::near_sdk::env::attached_deposit() != 0 {
+                    ::near_sdk::env::panic_str(#error);
                 }
             }
         };
@@ -174,8 +174,8 @@ impl ImplItemMethodInfo {
         if self.attr_signature_info.is_private() {
             let error = format!("Method {} is private", self.attr_signature_info.ident);
             quote! {
-                if near_sdk::env::current_account_id() != near_sdk::env::predecessor_account_id() {
-                    near_sdk::env::panic_str(#error);
+                if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id() {
+                    ::near_sdk::env::panic_str(#error);
                 }
             }
         } else {
@@ -194,8 +194,8 @@ impl ImplItemMethodInfo {
             Init(init_method) => {
                 if !init_method.ignores_state {
                     quote! {
-                        if near_sdk::env::state_exists() {
-                            near_sdk::env::panic_str("The contract has already been initialized");
+                        if ::near_sdk::env::state_exists() {
+                            ::near_sdk::env::panic_str("The contract has already been initialized");
                         }
                     }
                 } else {
@@ -218,7 +218,7 @@ impl ImplItemMethodInfo {
             let mutability = receiver.mutability;
 
             quote! {
-                let #mutability contract: #struct_type = near_sdk::env::state_read().unwrap_or_default();
+                let #mutability contract: #struct_type = ::near_sdk::env::state_read().unwrap_or_default();
             }
         };
 
@@ -252,7 +252,7 @@ impl ImplItemMethodInfo {
 
         fn contract_ser() -> TokenStream2 {
             quote! {
-                near_sdk::env::state_write(&contract);
+                ::near_sdk::env::state_write(&contract);
             }
         }
 
@@ -337,10 +337,10 @@ impl ImplItemMethodInfo {
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-                let result = near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
             },
             SerializerType::Borsh => quote! {
-                let result = near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                let result = ::near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
             },
         };
 
@@ -360,7 +360,7 @@ impl ImplItemMethodInfo {
 
         let value_return = || {
             quote! {
-                near_sdk::env::value_return(&result);
+                ::near_sdk::env::value_return(&result);
             }
         };
 
