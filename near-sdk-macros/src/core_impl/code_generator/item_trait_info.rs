@@ -37,16 +37,16 @@ mod tests {
         let mut t: ItemTrait = syn::parse2(
             quote!{
                 pub trait ExternalCrossContract {
-                    fn merge_sort(&self, arr: ::std::vec::Vec<u8>) -> PromiseOrValue<::std::vec::Vec<u8>>;
+                    fn merge_sort(&self, arr: Vec<u8>) -> PromiseOrValue<Vec<u8>>;
                     fn merge(
                         &self,
                         #[callback_unwrap]
                         #[serializer(borsh)]
-                        data0: ::std::vec::Vec<u8>,
+                        data0: Vec<u8>,
                         #[callback_unwrap]
                         #[serializer(borsh)]
-                        data1: ::std::vec::Vec<u8>,
-                    ) -> ::std::vec::Vec<u8>;
+                        data1: Vec<u8>,
+                    ) -> Vec<u8>;
                 }
             }
         ).unwrap();
@@ -89,13 +89,13 @@ mod tests {
                 impl ExternalCrossContractExt {
                     pub fn merge_sort(
                         self,
-                        arr: ::std::vec::Vec<u8>,
+                        arr: Vec<u8>,
                     ) -> ::near_sdk::Promise {
                         let __args = {
                             #[derive(::near_sdk :: serde :: Serialize)]
                             #[serde(crate = "::near_sdk::serde")]
                             struct Input<'nearinput> {
-                                arr: &'nearinput ::std::vec::Vec<u8>,
+                                arr: &'nearinput Vec<u8>,
                             }
                             let __args = Input { arr: &arr, };
                             ::near_sdk::serde_json::to_vec(&__args)
@@ -133,7 +133,7 @@ mod tests {
             quote!{
               trait Test {
                 #[result_serializer(borsh)]
-                fn test(#[serializer(borsh)] v: ::std::vec::Vec<String>) -> ::std::vec::Vec<String>;
+                fn test(#[serializer(borsh)] v: Vec<String>) -> Vec<String>;
               }
             }
         ).unwrap();
@@ -176,12 +176,12 @@ mod tests {
             impl TestExt {
                 pub fn test(
                     self,
-                    v: ::std::vec::Vec<String>,
+                    v: Vec<String>,
                 ) -> ::near_sdk::Promise {
                     let __args = {
                         #[derive(::near_sdk :: borsh :: BorshSerialize)]
                         struct Input<'nearinput> {
-                            v: &'nearinput ::std::vec::Vec<String>,
+                            v: &'nearinput Vec<String>,
                         }
                         let __args = Input { v: &v, };
                         ::near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
