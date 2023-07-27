@@ -20,10 +20,12 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
         const _: () = {
             #[no_mangle]
             pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
-                let mut gen = near_sdk::__private::schemars::gen::SchemaGenerator::default();
+                use ::std::string::String;
+
+                let mut gen = ::near_sdk::__private::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
-                let mut data = std::mem::ManuallyDrop::new(
-                    near_sdk::serde_json::to_vec(&near_sdk::__private::ChunkedAbiEntry::new(
+                let mut data = ::std::mem::ManuallyDrop::new(
+                    ::near_sdk::serde_json::to_vec(&::near_sdk::__private::ChunkedAbiEntry::new(
                         functions,
                         gen.into_root_schema_for::<String>(),
                     ))
@@ -79,28 +81,28 @@ impl ImplItemMethodInfo {
 
         let function_name_str = attr_signature_info.ident.to_string();
         let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
-            Some(doc) => quote! { Some(#doc.to_string()) },
-            None => quote! { None },
+            Some(doc) => quote! { ::std::option::Option::Some(::std::string::String::from(#doc)) },
+            None => quote! { ::std::option::Option::None },
         };
         let mut modifiers = vec![];
         let kind = match &attr_signature_info.method_kind {
-            MethodKind::View(_) => quote! { near_sdk::__private::AbiFunctionKind::View },
+            MethodKind::View(_) => quote! { ::near_sdk::__private::AbiFunctionKind::View },
             MethodKind::Call(_) => {
-                quote! { near_sdk::__private::AbiFunctionKind::Call }
+                quote! { ::near_sdk::__private::AbiFunctionKind::Call }
             }
             MethodKind::Init(_) => {
-                modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Init });
-                quote! { near_sdk::__private::AbiFunctionKind::Call }
+                modifiers.push(quote! { ::near_sdk::__private::AbiFunctionModifier::Init });
+                quote! { ::near_sdk::__private::AbiFunctionKind::Call }
             }
         };
         if attr_signature_info.is_payable() {
-            modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Payable });
+            modifiers.push(quote! { ::near_sdk::__private::AbiFunctionModifier::Payable });
         }
         if attr_signature_info.is_private() {
-            modifiers.push(quote! { near_sdk::__private::AbiFunctionModifier::Private });
+            modifiers.push(quote! { ::near_sdk::__private::AbiFunctionModifier::Private });
         }
         let modifiers = quote! {
-            vec![#(#modifiers),*]
+            ::std::vec![#(#modifiers),*]
         };
 
         let mut params = Vec::<TokenStream2>::new();
@@ -114,14 +116,14 @@ impl ImplItemMethodInfo {
                     let schema = generate_schema(typ, &arg.serializer_ty);
                     match arg.serializer_ty {
                         SerializerType::JSON => params.push(quote! {
-                            near_sdk::__private::AbiJsonParameter {
-                                name: #arg_name.to_string(),
+                            ::near_sdk::__private::AbiJsonParameter {
+                                name: ::std::string::String::from(#arg_name),
                                 type_schema: #schema,
                             }
                         }),
                         SerializerType::Borsh => params.push(quote! {
-                            near_sdk::__private::AbiBorshParameter {
-                                name: #arg_name.to_string(),
+                            ::near_sdk::__private::AbiBorshParameter {
+                                name: ::std::string::String::from(#arg_name),
                                 type_schema: #schema,
                             }
                         }),
@@ -168,28 +170,28 @@ impl ImplItemMethodInfo {
         }
         let params = match attr_signature_info.input_serializer {
             SerializerType::JSON => quote! {
-                near_sdk::__private::AbiParameters::Json {
-                    args: vec![#(#params),*]
+                ::near_sdk::__private::AbiParameters::Json {
+                    args: ::std::vec![#(#params),*]
                 }
             },
             SerializerType::Borsh => quote! {
-                near_sdk::__private::AbiParameters::Borsh {
-                    args: vec![#(#params),*]
+                ::near_sdk::__private::AbiParameters::Borsh {
+                    args: ::std::vec![#(#params),*]
                 }
             },
         };
-        let callback_vec = callback_vec.unwrap_or(quote! { None });
+        let callback_vec = callback_vec.unwrap_or(quote! { ::std::option::Option::None });
 
         let result = self.abi_result_tokens();
 
         quote! {
-             near_sdk::__private::AbiFunction {
-                 name: #function_name_str.to_string(),
+             ::near_sdk::__private::AbiFunction {
+                 name: ::std::string::String::from(#function_name_str),
                  doc: #function_doc,
                  kind: #kind,
                  modifiers: #modifiers,
                  params: #params,
-                 callbacks: vec![#(#callbacks),*],
+                 callbacks: ::std::vec![#(#callbacks),*],
                  callbacks_vec: #callback_vec,
                  result: #result
              }
@@ -200,7 +202,7 @@ impl ImplItemMethodInfo {
         use ReturnKind::*;
 
         match &self.attr_signature_info.returns.kind {
-            Default => quote! { None },
+            Default => quote! { ::std::option::Option::None },
             General(ty) => self.abi_result_tokens_with_return_value(ty),
             HandlesResult { ok_type } => self.abi_result_tokens_with_return_value(ok_type),
         }
@@ -211,13 +213,13 @@ impl ImplItemMethodInfo {
 
         let some_abi_type = |result_serializer: &SerializerType| {
             let abi_type = generate_abi_type(return_value_type, result_serializer);
-            quote! { Some(#abi_type) }
+            quote! { ::std::option::Option::Some(#abi_type) }
         };
 
         match &self.attr_signature_info.method_kind {
             Call(call_method) => some_abi_type(&call_method.result_serializer),
             // Init methods don't return a value, they just save the newly created contract state.
-            Init(_) => quote! { None },
+            Init(_) => quote! { ::std::option::Option::None },
             View(view_method) => some_abi_type(&view_method.result_serializer),
         }
     }
@@ -226,13 +228,13 @@ impl ImplItemMethodInfo {
         let abi_type = |result_serializer: &SerializerType| {
             let tokens = generate_abi_type(callback_vec_type, result_serializer);
             quote! {
-                Some(#tokens)
+                ::std::option::Option::Some(#tokens)
             }
         };
 
         match &self.attr_signature_info.method_kind {
             MethodKind::Call(call_method) => abi_type(&call_method.result_serializer),
-            MethodKind::Init(_) => quote! { None },
+            MethodKind::Init(_) => quote! { ::std::option::Option::None },
             MethodKind::View(view_method) => abi_type(&view_method.result_serializer),
         }
     }
@@ -244,7 +246,7 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
             gen.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            <#ty as near_sdk::borsh::BorshSchema>::schema_container()
+            <#ty as ::near_sdk::borsh::BorshSchema>::schema_container()
         },
     }
 }
@@ -253,12 +255,12 @@ fn generate_abi_type(ty: &Type, serializer_type: &SerializerType) -> TokenStream
     let schema = generate_schema(ty, serializer_type);
     match serializer_type {
         SerializerType::JSON => quote! {
-            near_sdk::__private::AbiType::Json {
+            ::near_sdk::__private::AbiType::Json {
                 type_schema: #schema,
             }
         },
         SerializerType::Borsh => quote! {
-            near_sdk::__private::AbiType::Borsh {
+            ::near_sdk::__private::AbiType::Borsh {
                 type_schema: #schema,
             }
         },
@@ -309,26 +311,26 @@ mod tests {
         let actual = method_info.abi_struct();
         
         let expected = quote! {
-            near_sdk::__private::AbiFunction {
-                name: "f3".to_string(),
-                doc: Some(" I am a function.".to_string()),
-                kind: near_sdk::__private::AbiFunctionKind::Call,
-                modifiers: vec![],
-                params: near_sdk::__private::AbiParameters::Json {
-                    args: vec![
-                        near_sdk::__private::AbiJsonParameter {
-                            name: "arg0".to_string(),
+            ::near_sdk::__private::AbiFunction {
+                name: ::std::string::String::from("f3"),
+                doc: ::std::option::Option::Some(::std::string::String::from(" I am a function.")),
+                kind: ::near_sdk::__private::AbiFunctionKind::Call,
+                modifiers: ::std::vec![],
+                params: ::near_sdk::__private::AbiParameters::Json {
+                    args: ::std::vec![
+                        ::near_sdk::__private::AbiJsonParameter {
+                            name: ::std::string::String::from("arg0"),
                             type_schema: gen.subschema_for::<FancyStruct>(),
                         },
-                        near_sdk::__private::AbiJsonParameter {
-                            name: "arg1".to_string(),
+                        ::near_sdk::__private::AbiJsonParameter {
+                            name: ::std::string::String::from("arg1"),
                             type_schema: gen.subschema_for::<u64>(),
                         }
                     ]
                 },
-                callbacks: vec![],
-                callbacks_vec: None,
-                result: Some(near_sdk::__private::AbiType::Json {
+                callbacks: ::std::vec![],
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
                     type_schema: gen.subschema_for::<IsOk>(),
                 })
             }
@@ -350,23 +352,23 @@ mod tests {
         let actual = method_info.abi_struct();
 
         let expected = quote! {
-            near_sdk::__private::AbiFunction {
-                name: "f3".to_string(),
-                doc: None,
-                kind: near_sdk::__private::AbiFunctionKind::Call,
-                modifiers: vec![near_sdk::__private::AbiFunctionModifier::Payable],
-                params: near_sdk::__private::AbiParameters::Borsh {
-                    args: vec![
-                        near_sdk::__private::AbiBorshParameter {
-                            name: "arg0".to_string(),
-                            type_schema: <FancyStruct as near_sdk::borsh::BorshSchema>::schema_container(),
+            ::near_sdk::__private::AbiFunction {
+                name: ::std::string::String::from("f3"),
+                doc: ::std::option::Option::None,
+                kind: ::near_sdk::__private::AbiFunctionKind::Call,
+                modifiers: ::std::vec![::near_sdk::__private::AbiFunctionModifier::Payable],
+                params: ::near_sdk::__private::AbiParameters::Borsh {
+                    args: ::std::vec![
+                        ::near_sdk::__private::AbiBorshParameter {
+                            name: ::std::string::String::from("arg0"),
+                            type_schema: <FancyStruct as ::near_sdk::borsh::BorshSchema>::schema_container(),
                         }
                     ]
                 },
-                callbacks: vec![],
-                callbacks_vec: None,
-                result: Some(near_sdk::__private::AbiType::Borsh {
-                    type_schema: <IsOk as near_sdk::borsh::BorshSchema>::schema_container(),
+                callbacks: ::std::vec![],
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Borsh {
+                    type_schema: <IsOk as ::near_sdk::borsh::BorshSchema>::schema_container(),
                 })
             }
         };
@@ -388,19 +390,19 @@ mod tests {
         let actual = method_info.abi_struct();
         
         let expected = quote! {
-           near_sdk::__private::AbiFunction { 
-                name: "method".to_string(),
-                doc: None, 
-                kind: near_sdk::__private::AbiFunctionKind::View , 
-                modifiers: vec! [near_sdk::__private::AbiFunctionModifier::Private],
-                params: near_sdk::__private::AbiParameters::Json { 
-                    args: vec![]
+           ::near_sdk::__private::AbiFunction { 
+                name: ::std::string::String::from("method"),
+                doc: ::std::option::Option::None, 
+                kind: ::near_sdk::__private::AbiFunctionKind::View , 
+                modifiers: ::std::vec! [::near_sdk::__private::AbiFunctionModifier::Private],
+                params: ::near_sdk::__private::AbiParameters::Json { 
+                    args: ::std::vec![]
                 }, 
-                callbacks: vec! [], 
-                callbacks_vec: Some(near_sdk::__private::AbiType::Json { 
+                callbacks: ::std::vec! [], 
+                callbacks_vec: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json { 
                     type_schema: gen.subschema_for::< String >() , 
                 }),
-                result: Some(near_sdk::__private::AbiType::Json {
+                result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
                     type_schema: gen.subschema_for::< bool >() ,
                 })
             }
@@ -419,29 +421,29 @@ mod tests {
         let actual = method_info.abi_struct();
 
         let expected = quote! {
-           near_sdk::__private::AbiFunction { 
-                name: "method".to_string(),
-                doc: None, 
-                kind: near_sdk::__private::AbiFunctionKind::View , 
-                modifiers: vec! [],
-                params: near_sdk::__private::AbiParameters::Borsh {
-                    args: vec! [
-                        near_sdk::__private::AbiBorshParameter {
-                            name: "y".to_string(),
-                            type_schema: < String as near_sdk::borsh::BorshSchema >::schema_container(),
+           ::near_sdk::__private::AbiFunction { 
+                name: ::std::string::String::from("method"),
+                doc: ::std::option::Option::None, 
+                kind: ::near_sdk::__private::AbiFunctionKind::View , 
+                modifiers: ::std::vec! [],
+                params: ::near_sdk::__private::AbiParameters::Borsh {
+                    args: ::std::vec! [
+                        ::near_sdk::__private::AbiBorshParameter {
+                            name: ::std::string::String::from("y"),
+                            type_schema: < String as ::near_sdk::borsh::BorshSchema >::schema_container(),
                         }
                     ]
                 }, 
-                callbacks: vec! [
-                    near_sdk::__private::AbiType::Borsh { 
-                        type_schema: <u64 as near_sdk::borsh::BorshSchema>::schema_container(),
+                callbacks: ::std::vec! [
+                    ::near_sdk::__private::AbiType::Borsh { 
+                        type_schema: <u64 as ::near_sdk::borsh::BorshSchema>::schema_container(),
                     },
-                    near_sdk::__private::AbiType::Json {
+                    ::near_sdk::__private::AbiType::Json {
                         type_schema: gen.subschema_for::< Vec<u8> >(),
                     }
                 ],
-                callbacks_vec: None,
-                result: None 
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::None 
             }
         };
 
@@ -459,19 +461,19 @@ mod tests {
         let actual = method_info.abi_struct();
 
         let expected = quote! {
-            near_sdk::__private::AbiFunction {
-                name: "new".to_string(),
-                doc: None,
-                kind: near_sdk::__private::AbiFunctionKind::Call,
-                modifiers: vec![
-                    near_sdk::__private::AbiFunctionModifier::Init
+            ::near_sdk::__private::AbiFunction {
+                name: ::std::string::String::from("new"),
+                doc: ::std::option::Option::None,
+                kind: ::near_sdk::__private::AbiFunctionKind::Call,
+                modifiers: ::std::vec![
+                    ::near_sdk::__private::AbiFunctionModifier::Init
                 ],
-                params: near_sdk::__private::AbiParameters::Json {
-                    args: vec![]
+                params: ::near_sdk::__private::AbiParameters::Json {
+                    args: ::std::vec![]
                 },
-                callbacks: vec![],
-                callbacks_vec: None,
-                result: None
+                callbacks: ::std::vec![],
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::None
             }
         };
 
@@ -488,17 +490,17 @@ mod tests {
         let actual = method_info.abi_struct();
 
         let expected = quote! {
-            near_sdk::__private::AbiFunction {
-                name: "method".to_string(),
-                doc: None,
-                kind: near_sdk::__private::AbiFunctionKind::View,
-                modifiers: vec![],
-                params: near_sdk::__private::AbiParameters::Json {
-                    args: vec![]
+            ::near_sdk::__private::AbiFunction {
+                name: ::std::string::String::from("method"),
+                doc: ::std::option::Option::None,
+                kind: ::near_sdk::__private::AbiFunctionKind::View,
+                modifiers: ::std::vec![],
+                params: ::near_sdk::__private::AbiParameters::Json {
+                    args: ::std::vec![]
                 },
-                callbacks: vec![],
-                callbacks_vec: None,
-                result: None
+                callbacks: ::std::vec![],
+                callbacks_vec: ::std::option::Option::None,
+                result: ::std::option::Option::None
             }
         };
 
