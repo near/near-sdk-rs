@@ -8,7 +8,7 @@ mod primitives;
 pub use self::primitives::*;
 
 mod account_id;
-pub use self::account_id::{AccountId, ParseAccountIdError};
+pub use self::account_id::{AccountId, AccountIdRef, ParseAccountIdError};
 
 mod gas;
 pub use self::gas::Gas;
