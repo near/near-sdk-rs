@@ -110,11 +110,21 @@ impl AsMut<str> for AccountId {
     }
 }
 
-impl AsRef<AccountIdRef> for AccountId {
-    fn as_ref(&self) -> &AccountIdRef {
-        AccountIdRef::new_unchecked(self)
-    }
-}
+// Surprisingly, adding the following impl will break existing contracts. Consider this example:
+//
+// ```
+// let sender = AccountId::new_unchecked("alice.near");
+// println!("{}", sender.as_ref());
+// ```
+//
+// Once we have two `AsRef<...>` implementations for `AccountId`, user code like the above might not compile
+// due to ambiguous type. (Do we want to get a `&str`, or an `&AccountIdRef`?)
+
+// impl AsRef<AccountIdRef> for AccountId {
+//     fn as_ref(&self) -> &AccountIdRef {
+//         AccountIdRef::new_unchecked(self)
+//     }
+// }
 
 impl AsMut<AccountIdRef> for AccountId {
     fn as_mut(&mut self) -> &mut AccountIdRef {
