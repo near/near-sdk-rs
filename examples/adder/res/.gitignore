@@ -3,4 +3,3 @@
 
 # Except this to keep the directory
 !.gitignore
-!adder_abi.json
