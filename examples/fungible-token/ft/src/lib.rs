@@ -28,8 +28,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Balance, BorshStorageKey, PanicOnDefault,
-    PromiseOrValue,
+    env, log, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 
 #[near_bindgen]
