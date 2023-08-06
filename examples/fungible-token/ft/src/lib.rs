@@ -131,7 +131,7 @@ impl FungibleTokenResolver for Contract {
         let (used_amount, burned_amount) =
             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
         if burned_amount > 0 {
-            log!("Account @{} burned {}", account_id, burned_amount);
+            log!("Account @{} burned {}", sender_id, burned_amount);
         }
         used_amount.into()
     }
