@@ -32,8 +32,10 @@ pub struct StorageBalanceBounds {
 /// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
-/// use near_contract_standards::fungible_token::{FungibleToken, StorageManagement};
-/// use near_contract_standards::storage_management::{StorageBalance, StorageBalanceBounds};
+/// use near_contract_standards::fungible_token::FungibleToken;
+/// use near_contract_standards::storage_management::{
+///     StorageBalance, StorageBalanceBounds, StorageManagement,
+/// };
 /// use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
 ///
 /// #[near_bindgen]

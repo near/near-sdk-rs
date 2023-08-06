@@ -19,9 +19,11 @@ use near_contract_standards::fungible_token::metadata::{
     FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
 };
 use near_contract_standards::fungible_token::{
-    FungibleToken, FungibleTokenCore, FungibleTokenResolver, StorageManagement,
+    FungibleToken, FungibleTokenCore, FungibleTokenResolver,
 };
-use near_contract_standards::storage_management::{StorageBalance, StorageBalanceBounds};
+use near_contract_standards::storage_management::{
+    StorageBalance, StorageBalanceBounds, StorageManagement,
+};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
@@ -88,14 +90,6 @@ impl Contract {
 
         this
     }
-
-    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
-        log!("Closed @{} with {}", account_id, balance);
-    }
-
-    fn on_tokens_burned(&mut self, account_id: AccountId, amount: Balance) {
-        log!("Account @{} burned {}", account_id, amount);
-    }
 }
 
 #[near_bindgen]
@@ -137,7 +131,7 @@ impl FungibleTokenResolver for Contract {
         let (used_amount, burned_amount) =
             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
         if burned_amount > 0 {
-            self.on_tokens_burned(sender_id, burned_amount);
+            log!("Account @{} burned {}", account_id, burned_amount);
         }
         used_amount.into()
     }
@@ -163,7 +157,7 @@ impl StorageManagement for Contract {
     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
         #[allow(unused_variables)]
         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force) {
-            self.on_account_closed(account_id, balance);
+            log!("Closed @{} with {}", account_id, balance);
             true
         } else {
             false
