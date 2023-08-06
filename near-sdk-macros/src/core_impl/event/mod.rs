@@ -24,10 +24,10 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
         let standard_name = format!("{}_event_standard", name);
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
         // NearEvent Macro handles implementation
-        input
-            .attrs
-            .push(parse_quote! (#[derive(near_sdk::serde::Serialize, near_sdk::EventMetadata)]));
-        input.attrs.push(parse_quote! (#[serde(crate="near_sdk::serde")]));
+        input.attrs.push(
+            parse_quote! (#[derive(::near_sdk::serde::Serialize, ::near_sdk::EventMetadata)]),
+        );
+        input.attrs.push(parse_quote! (#[serde(crate="::near_sdk::serde")]));
         input.attrs.push(parse_quote! (#[serde(tag = "event", content = "data")]));
         input.attrs.push(parse_quote! (#[serde(rename_all = "snake_case")]));
 
