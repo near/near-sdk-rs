@@ -4,17 +4,7 @@ pub use near_vm_logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 //* Types from near_vm_logic
 /// Promise index that is computed only once.
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Copy, Clone)]
-pub struct PromiseIndex(u64);
-
-impl PromiseIndex {
-    pub(crate) fn new(ix: u64) -> Self {
-        Self(ix)
-    }
-
-    pub(crate) fn raw(self) -> u64 {
-        self.0
-    }
-}
+pub struct PromiseIndex(pub(crate) u64);
 
 /// An index of Receipt to append an action
 #[deprecated(since = "4.1.0", note = "type not used within SDK, use u64 directly or another alias")]

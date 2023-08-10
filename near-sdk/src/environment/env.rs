@@ -456,7 +456,7 @@ pub fn promise_create(
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
     unsafe {
-        PromiseIndex::new(sys::promise_create(
+        PromiseIndex(sys::promise_create(
             account_id.len() as _,
             account_id.as_ptr() as _,
             function_name.len() as _,
@@ -480,8 +480,8 @@ pub fn promise_then(
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
     unsafe {
-        PromiseIndex::new(sys::promise_then(
-            promise_idx.raw(),
+        PromiseIndex(sys::promise_then(
+            promise_idx.0,
             account_id.len() as _,
             account_id.as_ptr() as _,
             function_name.len() as _,
@@ -499,26 +499,23 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
         data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
-            .copy_from_slice(&promise_indices[i].raw().to_le_bytes());
+            .copy_from_slice(&promise_indices[i].0.to_le_bytes());
     }
-    unsafe { PromiseIndex::new(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
+    unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
 }
 
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id = account_id.as_ref();
     unsafe {
-        PromiseIndex::new(sys::promise_batch_create(
-            account_id.len() as _,
-            account_id.as_ptr() as _,
-        ))
+        PromiseIndex(sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _))
     }
 }
 
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
-        PromiseIndex::new(sys::promise_batch_then(
-            promise_index.raw(),
+        PromiseIndex(sys::promise_batch_then(
+            promise_index.0,
             account_id.len() as _,
             account_id.as_ptr() as _,
         ))
@@ -526,13 +523,13 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 }
 
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
-    unsafe { sys::promise_batch_action_create_account(promise_index.raw()) }
+    unsafe { sys::promise_batch_action_create_account(promise_index.0) }
 }
 
 pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
         sys::promise_batch_action_deploy_contract(
-            promise_index.raw(),
+            promise_index.0,
             code.len() as _,
             code.as_ptr() as _,
         )
@@ -548,7 +545,7 @@ pub fn promise_batch_action_function_call(
 ) {
     unsafe {
         sys::promise_batch_action_function_call(
-            promise_index.raw(),
+            promise_index.0,
             function_name.len() as _,
             function_name.as_ptr() as _,
             arguments.len() as _,
@@ -569,7 +566,7 @@ pub fn promise_batch_action_function_call_weight(
 ) {
     unsafe {
         sys::promise_batch_action_function_call_weight(
-            promise_index.raw(),
+            promise_index.0,
             function_name.len() as _,
             function_name.as_ptr() as _,
             arguments.len() as _,
@@ -582,9 +579,7 @@ pub fn promise_batch_action_function_call_weight(
 }
 
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
-    unsafe {
-        sys::promise_batch_action_transfer(promise_index.raw(), &amount as *const Balance as _)
-    }
+    unsafe { sys::promise_batch_action_transfer(promise_index.0, &amount as *const Balance as _) }
 }
 
 pub fn promise_batch_action_stake(
@@ -594,7 +589,7 @@ pub fn promise_batch_action_stake(
 ) {
     unsafe {
         sys::promise_batch_action_stake(
-            promise_index.raw(),
+            promise_index.0,
             &amount as *const Balance as _,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
@@ -608,7 +603,7 @@ pub fn promise_batch_action_add_key_with_full_access(
 ) {
     unsafe {
         sys::promise_batch_action_add_key_with_full_access(
-            promise_index.raw(),
+            promise_index.0,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
             nonce,
@@ -656,7 +651,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
     };
     unsafe {
         sys::promise_batch_action_add_key_with_function_call(
-            promise_index.raw(),
+            promise_index.0,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
             nonce,
@@ -671,7 +666,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
-            promise_index.raw(),
+            promise_index.0,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
         )
@@ -685,7 +680,7 @@ pub fn promise_batch_action_delete_account(
     let beneficiary_id: &str = beneficiary_id.as_ref();
     unsafe {
         sys::promise_batch_action_delete_account(
-            promise_index.raw(),
+            promise_index.0,
             beneficiary_id.len() as _,
             beneficiary_id.as_ptr() as _,
         )
@@ -720,7 +715,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// Consider the execution result of promise under `promise_idx` as execution result of this
 /// function.
 pub fn promise_return(promise_idx: PromiseIndex) {
-    unsafe { sys::promise_return(promise_idx.raw()) }
+    unsafe { sys::promise_return(promise_idx.0) }
 }
 
 // ###############
