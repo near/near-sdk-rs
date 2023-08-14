@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
 #[repr(u8)]
+#[borsh(use_discriminant=true)]
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,

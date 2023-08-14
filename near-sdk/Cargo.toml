@@ -24,7 +24,7 @@ serde_json = "1"
 near-sdk-macros = { path = "../near-sdk-macros", version = "~4.1.1" }
 near-sys = { path = "../sys", version = "0.2" }
 base64 = "0.13"
-borsh = { version = "0.9", features = ["const-generics"] }
+borsh = { version = "1.0.0-alpha.2", features = ["derive", "schema"] }
 bs58 = "0.4"
 schemars = { version = "0.8.8", optional = true }
 # Export dependencies for contracts
