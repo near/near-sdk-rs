@@ -1,3 +1,8 @@
+//! This module represents a Fungible Token standard.
+//!
+//! # Examples
+//! See [`FungibleTokenCore`] and [`FungibleTokenResolver`] for example usage.
+
 pub mod core;
 pub mod core_impl;
 pub mod events;

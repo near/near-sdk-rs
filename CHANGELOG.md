@@ -12,7 +12,7 @@
 
 ### Removed
 - Deprecated declarative macros for NFT impl code generation. [PR 1042](https://github.com/near/near-sdk-rs/pull/1042)
-- Deprecated declarative macros for FT impl code generation. TODO: FIX LINK [PR 1042](https://github.com/near/near-sdk-rs/pull/1042)
+- Deprecated declarative macros for FT impl code generation. [PR 1054](https://github.com/near/near-sdk-rs/pull/1054)
 
 ## [4.1.0] - 2022-11-09
 
