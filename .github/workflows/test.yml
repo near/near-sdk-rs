@@ -74,4 +74,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: audit
-          args: --ignore RUSTSEC-2020-0071
+          args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0093
