@@ -47,6 +47,7 @@ impl ArgInfo {
         let mut non_bindgen_attrs = vec![];
         let pat_reference;
         let pat_mutability;
+        let mut errors = vec![];
         let ident = match original.pat.as_ref() {
             Pat::Ident(pat_ident) => {
                 pat_reference = pat_ident.by_ref;
@@ -54,12 +55,18 @@ impl ArgInfo {
                 pat_ident.ident.clone()
             }
             _ => {
-                return Err(Error::new(
+                errors.push(Error::new(
                     original.span(),
                     "Only identity patterns are supported in function arguments.",
                 ));
+                //Providing dummy variables.
+                //Their value won't have any effect as they are not used later in the code except return.
+                pat_reference = None;
+                pat_mutability = None;
+                Ident::new("DUMMY", Span::call_site())
             }
         };
+
         let sanitize_self = utils::sanitize_self(&original.ty, source_type)?;
         *original.ty.as_mut() = sanitize_self.ty;
         let (reference, mutability, ty) =
@@ -80,10 +87,14 @@ impl ArgInfo {
                 "callback_vec" => {
                     bindgen_ty = BindgenArgType::CallbackArgVec;
                 }
-                "serializer" => {
-                    let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
-                    serializer_ty = serializer.serializer_type;
-                }
+                "serializer" => match syn::parse2::<SerializerAttr>(attr.tokens.clone()) {
+                    Ok(serializer) => {
+                        serializer_ty = serializer.serializer_type;
+                    }
+                    Err(err) => {
+                        errors.push(err);
+                    }
+                },
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
                 }
@@ -99,18 +110,28 @@ impl ArgInfo {
                 && attr_str != "callback_unwrap"
         });
 
-        Ok(Self {
-            non_bindgen_attrs,
-            ident,
-            pat_reference,
-            pat_mutability,
-            reference,
-            mutability,
-            ty,
-            bindgen_ty,
-            serializer_ty,
-            self_occurrences: sanitize_self.self_occurrences,
-            original: original.clone(),
-        })
+        if errors.is_empty() {
+            Ok(Self {
+                non_bindgen_attrs,
+                ident,
+                pat_reference,
+                pat_mutability,
+                reference,
+                mutability,
+                ty,
+                bindgen_ty,
+                serializer_ty,
+                self_occurrences: sanitize_self.self_occurrences,
+                original: original.clone(),
+            })
+        } else {
+            Err(errors
+                .into_iter()
+                .reduce(|mut l, r| {
+                    l.combine(r);
+                    l
+                })
+                .unwrap())
+        }
     }
 }
