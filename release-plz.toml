@@ -1,0 +1,17 @@
+[workspace]
+# Use `near-sdk` crate CHANGELOG as top-level one
+changelog_update = false
+
+[[package]]
+name = "near-sdk"
+changelog_update = true
+changelog_path = "./CHANGELOG.md"
+changelog_include = ["near-sdk-macros"]
+
+[[package]]
+name = "near-contract-standards"
+changelog_update = true
+
+[[package]]
+name = "near-sys"
+changelog_update = true

@@ -7,6 +7,9 @@ members = [
 ]
 exclude = ["examples/"]
 
+[workspace.package]
+version = "4.1.1"
+
 # Special triple # comment for ci.
 [patch.crates-io]
 ### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
