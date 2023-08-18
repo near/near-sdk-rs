@@ -226,12 +226,12 @@ fn is_view(sig: &Signature) -> bool {
 
 fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<ReturnKind> {
     match handles_result {
-        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResult { ty: typ.clone() }),
+        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResult(typ.clone())),
         ResultHandling::Check => {
             if !utils::type_is_result(typ) {
                 Err(Error::new(typ.span(), "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`."))
             } else {
-                Ok(ReturnKind::HandlesResult { ty: typ.clone() })
+                Ok(ReturnKind::HandlesResult(typ.clone()))
             }
         }
         ResultHandling::None => {
