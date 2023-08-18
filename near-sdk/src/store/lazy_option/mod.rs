@@ -40,7 +40,7 @@ where
     prefix: Box<[u8]>,
 
     /// Cached value which is lazily loaded and deserialized from storage.
-    #[borsh_skip]
+    #[borsh(skip, bound(deserialize = ""))]
     cache: OnceCell<CacheEntry<T>>,
 }
 

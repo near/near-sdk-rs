@@ -24,7 +24,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
-    #[borsh_skip]
+    #[borsh(skip)]
     el: PhantomData<T>,
 }
 

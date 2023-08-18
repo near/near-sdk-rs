@@ -3,7 +3,7 @@ use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
 use near_sdk::AccountId;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, near_bindgen};
 use std::collections::HashMap;

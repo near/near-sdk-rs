@@ -10,6 +10,11 @@ else
 
     cargo generate-lockfile
 
+    ### this is section for packages, refusing to work with 1.69
+    cargo update -p clap@4.4.1 --precise 4.3.24
+    cargo update -p clap_lex@0.5.1 --precise 0.5.0
+    ### end of 1.69 threshold section
+
     cp Cargo.toml{,.bak}
     cp Cargo.lock{,.bak}
 

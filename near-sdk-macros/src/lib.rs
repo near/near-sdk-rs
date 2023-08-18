@@ -277,7 +277,7 @@ pub fn metadata(item: TokenStream) -> TokenStream {
 }
 
 #[cfg(feature = "abi")]
-#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
+#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate))]
 pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -334,9 +334,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
         attrs.retain(|attr| {
-            ["serde", "schemars", "validate", "borsh_skip"]
-                .iter()
-                .any(|&path| attr.path.is_ident(path))
+            ["serde", "schemars", "validate", "borsh"].iter().any(|&path| attr.path.is_ident(path))
         });
     };
 
@@ -411,14 +409,14 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         quote! {
             #[automatically_derived]
             impl borsh::BorshSchema for #input_ident_proxy {
-                fn declaration() -> ::std::string::String {
+                fn declaration() -> borsh::schema::Declaration {
                     stringify!(#input_ident).to_string()
                 }
 
                 fn add_definitions_recursively(
-                    definitions: &mut borsh::maybestd::collections::HashMap<
+                    definitions: &mut borsh::__private::maybestd::collections::BTreeMap<
                         borsh::schema::Declaration,
-                        borsh::schema::Definition,
+                        borsh::schema::Definition
                     >,
                 ) {
                     <#input_ident as borsh::BorshSchema>::add_definitions_recursively(definitions);

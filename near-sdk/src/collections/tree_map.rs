@@ -1377,8 +1377,8 @@ mod tests {
 
     #[test]
     fn test_insert_8_remove_4_regression() {
-        let insert = vec![882, 398, 161, 76];
-        let remove = vec![242, 687, 860, 811];
+        let insert = [882, 398, 161, 76];
+        let remove = [242, 687, 860, 811];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 

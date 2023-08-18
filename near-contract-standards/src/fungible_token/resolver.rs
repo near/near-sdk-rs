@@ -6,7 +6,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId};
 ///
 /// ```
 /// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, Balance, log};
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenResolver};

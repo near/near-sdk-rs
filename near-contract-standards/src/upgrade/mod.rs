@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U64;
 use near_sdk::{env, require, AccountId, Duration, Promise, Timestamp};
 

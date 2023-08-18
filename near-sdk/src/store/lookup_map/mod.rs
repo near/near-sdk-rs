@@ -86,7 +86,7 @@ where
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
-    #[borsh_skip]
+    #[borsh(skip, bound(deserialize = ""))]
     cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
 }
 

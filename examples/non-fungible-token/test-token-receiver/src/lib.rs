@@ -3,7 +3,7 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 */
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{
     env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue,
 };

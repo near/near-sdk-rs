@@ -1,6 +1,6 @@
 use borsh::BorshSchema;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::io::{Error, Write};
 use std::num::NonZeroU128;
 use std::rc::Rc;
@@ -229,7 +229,7 @@ pub struct Promise {
 /// Until we implement strongly typed promises we serialize them as unit struct.
 impl BorshSchema for Promise {
     fn add_definitions_recursively(
-        definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
+        definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,
     ) {
         <()>::add_definitions_recursively(definitions);
     }
@@ -574,7 +574,7 @@ where
     T: BorshSchema,
 {
     fn add_definitions_recursively(
-        definitions: &mut HashMap<borsh::schema::Declaration, borsh::schema::Definition>,
+        definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,
     ) {
         T::add_definitions_recursively(definitions);
     }

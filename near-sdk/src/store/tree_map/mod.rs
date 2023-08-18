@@ -71,10 +71,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         BorshSerialize::serialize(&self.values, writer)?;
         BorshSerialize::serialize(&self.tree, writer)?;
         Ok(())
@@ -87,10 +84,10 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
         Ok(Self {
-            values: BorshDeserialize::deserialize(buf)?,
-            tree: BorshDeserialize::deserialize(buf)?,
+            values: BorshDeserialize::deserialize_reader(reader)?,
+            tree: BorshDeserialize::deserialize_reader(reader)?,
         })
     }
 }
@@ -101,6 +98,7 @@ where
     K: BorshSerialize,
 {
     root: Option<FreeListIndex>,
+    #[borsh(bound(deserialize = ""))]
     nodes: FreeList<Node<K>>,
 }
 
@@ -1471,8 +1469,8 @@ mod tests {
 
     #[test]
     fn test_insert_8_remove_4_regression() {
-        let insert = vec![882, 398, 161, 76];
-        let remove = vec![242, 687, 860, 811];
+        let insert = [882, 398, 161, 76];
+        let remove = [242, 687, 860, 811];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 

@@ -1,10 +1,11 @@
-use borsh::{maybestd::io, BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
-use std::convert::TryFrom;
+use std::{convert::TryFrom, io};
 
 /// PublicKey curve
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
 #[repr(u8)]
+#[borsh(use_discriminant = true)]
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
@@ -142,8 +143,8 @@ impl serde::Serialize for PublicKey {
 }
 
 impl BorshDeserialize for PublicKey {
-    fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        <Vec<u8> as BorshDeserialize>::deserialize(buf).and_then(|s| {
+    fn deserialize_reader<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        <Vec<u8> as BorshDeserialize>::deserialize_reader(reader).and_then(|s| {
             Self::try_from(s).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         })
     }

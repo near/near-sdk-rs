@@ -66,7 +66,7 @@ where
 {
     /// Key bytes to index the contract's storage.
     storage_key: Box<[u8]>,
-    #[borsh_skip]
+    #[borsh(skip, bound(deserialize = ""))]
     /// Cached value which is lazily loaded and deserialized from storage.
     cache: OnceCell<CacheEntry<T>>,
 }

@@ -510,9 +510,9 @@ mod tests {
         struct DeserializeCounter(u64);
 
         impl BorshDeserialize for DeserializeCounter {
-            fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+            fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
                 DES_COUNT.fetch_add(1, Ordering::SeqCst);
-                u64::deserialize(buf).map(DeserializeCounter)
+                u64::deserialize_reader(reader).map(DeserializeCounter)
             }
         }
 

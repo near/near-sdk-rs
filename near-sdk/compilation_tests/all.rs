@@ -21,7 +21,6 @@ fn compilation_tests() {
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
     t.pass("compilation_tests/schema_derive.rs");
-    t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     t.compile_fail("compilation_tests/generic_function.rs");
     t.compile_fail("compilation_tests/generic_const_function.rs");
     t.pass("compilation_tests/self_support.rs");
@@ -31,4 +30,11 @@ fn compilation_tests() {
     // t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_return.rs");
     // t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_arg.rs");
     t.pass("compilation_tests/private_init_method.rs");
+}
+
+#[rustversion::since(1.72)]
+#[test]
+fn compilation_tests_only_latest() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("compilation_tests/schema_derive_invalids.rs");
 }

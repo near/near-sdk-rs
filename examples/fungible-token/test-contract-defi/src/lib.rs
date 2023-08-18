@@ -2,7 +2,7 @@
 Some hypothetical DeFi contract that will do smart things with the transferred tokens
 */
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
     env, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault, PromiseOrValue,

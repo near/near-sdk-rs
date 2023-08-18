@@ -84,7 +84,9 @@ where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
+    #[borsh(bound(serialize = "", deserialize = ""))]
     elements: FreeList<T>,
+    #[borsh(bound(serialize = "", deserialize = ""))]
     index: LookupMap<T, FreeListIndex, H>,
 }
 
@@ -602,11 +604,11 @@ mod tests {
 
         assert_eq!(
             set1.difference(&set2).collect::<HashSet<_>>(),
-            ["a".to_string(), "d".to_string()].iter().collect()
+            ["a".to_string(), "d".to_string()].iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             set2.difference(&set1).collect::<HashSet<_>>(),
-            ["e".to_string()].iter().collect()
+            ["e".to_string()].iter().collect::<HashSet<_>>()
         );
         assert!(set1.difference(&set2).nth(1).is_some());
         assert!(set1.difference(&set2).nth(2).is_none());
@@ -642,11 +644,11 @@ mod tests {
 
         assert_eq!(
             set1.symmetric_difference(&set2).collect::<HashSet<_>>(),
-            ["a".to_string(), "d".to_string()].iter().collect()
+            ["a".to_string(), "d".to_string()].iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             set2.symmetric_difference(&set1).collect::<HashSet<_>>(),
-            ["a".to_string(), "d".to_string()].iter().collect()
+            ["a".to_string(), "d".to_string()].iter().collect::<HashSet<_>>()
         );
     }
 
@@ -679,11 +681,11 @@ mod tests {
 
         assert_eq!(
             set1.intersection(&set2).collect::<HashSet<_>>(),
-            ["b".to_string(), "c".to_string()].iter().collect()
+            ["b".to_string(), "c".to_string()].iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             set2.intersection(&set1).collect::<HashSet<_>>(),
-            ["b".to_string(), "c".to_string()].iter().collect()
+            ["b".to_string(), "c".to_string()].iter().collect::<HashSet<_>>()
         );
         assert!(set1.intersection(&set2).nth(1).is_some());
         assert!(set1.intersection(&set2).nth(2).is_none());
@@ -718,11 +720,15 @@ mod tests {
 
         assert_eq!(
             set1.union(&set2).collect::<HashSet<_>>(),
-            ["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string()].iter().collect()
+            ["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string()]
+                .iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(
             set2.union(&set1).collect::<HashSet<_>>(),
-            ["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string()].iter().collect()
+            ["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string()]
+                .iter()
+                .collect::<HashSet<_>>()
         );
     }
 

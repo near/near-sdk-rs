@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unstable"] }
+borsh = { version = "1.0.0-alpha.3", features = ["derive"] }
 
 [profile.release]
 codegen-units = 1

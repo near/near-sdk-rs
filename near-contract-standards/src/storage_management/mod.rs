@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
@@ -29,7 +29,7 @@ pub struct StorageBalanceBounds {
 ///
 /// ```
 /// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, Balance, log};
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::FungibleToken;

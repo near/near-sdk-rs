@@ -9,7 +9,7 @@ use near_sdk::PromiseOrValue;
 ///
 /// ```
 /// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, PromiseOrValue};
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenCore};

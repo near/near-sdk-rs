@@ -125,10 +125,7 @@ impl<T> BorshSerialize for Vector<T>
 where
     T: BorshSerialize,
 {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         BorshSerialize::serialize(&self.len, writer)?;
         BorshSerialize::serialize(&self.values, writer)?;
         Ok(())
@@ -139,10 +136,10 @@ impl<T> BorshDeserialize for Vector<T>
 where
     T: BorshSerialize,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
         Ok(Self {
-            len: BorshDeserialize::deserialize(buf)?,
-            values: BorshDeserialize::deserialize(buf)?,
+            len: BorshDeserialize::deserialize_reader(reader)?,
+            values: BorshDeserialize::deserialize_reader(reader)?,
         })
     }
 }

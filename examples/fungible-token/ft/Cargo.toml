@@ -9,5 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
+borsh = { version = "1.0.0-alpha.3", features = ["derive"] }
 near-contract-standards = { path = "../../../near-contract-standards" }
 schemars = "0.8"
