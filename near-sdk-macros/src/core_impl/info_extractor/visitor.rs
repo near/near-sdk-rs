@@ -86,7 +86,7 @@ impl Visitor {
         }
     }
 
-    pub fn visit_private_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+    pub fn visit_private_attr(&mut self, attr: &Attribute) -> syn::Result<()> {
         use VisitorKind::*;
 
         match self.kind {
@@ -95,13 +95,8 @@ impl Visitor {
                 Ok(())
             }
             Init => {
-                // TODO: return an error instead in 5.0
-                // see https://github.com/near/near-sdk-rs/issues/1040
-                println!("near_bindgen: private init functions will be disallowed in 5.0");
-                Ok(())
-
-                // let message = format!("{} function can't be private.", self.kind);
-                // Err(Error::new(attr.span(), message))
+                let message = format!("{} function can't be private.", self.kind);
+                Err(Error::new(attr.span(), message))
             }
         }
     }
