@@ -1,5 +1,7 @@
 use super::visitor::Visitor;
-use super::{ArgInfo, BindgenArgType, InitAttr, MethodKind, SerializerAttr, SerializerType};
+use super::{
+    ArgInfo, BindgenArgType, HandleResultAttr, InitAttr, MethodKind, SerializerAttr, SerializerType,
+};
 use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
@@ -102,7 +104,8 @@ impl AttrSigInfo {
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {
-                    visitor.visit_handle_result_attr();
+                    let handle_result = HandleResultAttr::from_attr(attr)?;
+                    visitor.visit_handle_result_attr(&handle_result);
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());

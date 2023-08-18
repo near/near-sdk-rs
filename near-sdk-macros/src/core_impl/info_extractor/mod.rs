@@ -3,6 +3,9 @@ use syn::{Receiver, ReturnType, Type};
 mod serializer_attr;
 pub use serializer_attr::SerializerAttr;
 
+mod handle_result_attr;
+pub use handle_result_attr::HandleResultAttr;
+
 mod arg_info;
 pub use arg_info::{ArgInfo, BindgenArgType};
 

@@ -11,7 +11,7 @@ struct Contract {
 
 #[near_bindgen]
 impl Contract {
-    #[handle_result]
+    #[handle_result(aliased)]
     pub fn fun(&self) -> MyResult {
         Err("error")
     }
