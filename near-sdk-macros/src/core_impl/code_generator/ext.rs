@@ -13,12 +13,12 @@ pub(crate) fn generate_ext_structs(
     let name = format_ident!("{}Ext", ident);
     let mut ext_code = quote! {
         /// API for calling this contract's functions in a subsequent execution.
-        pub fn ext(account_id: near_sdk::AccountId) -> #name {
+        pub fn ext(account_id: ::near_sdk::AccountId) -> #name {
             #name {
                 account_id,
                 deposit: 0,
-                static_gas: near_sdk::Gas(0),
-                gas_weight: near_sdk::GasWeight::default(),
+                static_gas: ::near_sdk::Gas(0),
+                gas_weight: ::near_sdk::GasWeight::default(),
             }
         }
     };
@@ -34,23 +34,23 @@ pub(crate) fn generate_ext_structs(
     quote! {
       #[must_use]
       pub struct #name {
-          pub(crate) account_id: near_sdk::AccountId,
-          pub(crate) deposit: near_sdk::Balance,
-          pub(crate) static_gas: near_sdk::Gas,
-          pub(crate) gas_weight: near_sdk::GasWeight,
+          pub(crate) account_id: ::near_sdk::AccountId,
+          pub(crate) deposit: ::near_sdk::Balance,
+          pub(crate) static_gas: ::near_sdk::Gas,
+          pub(crate) gas_weight: ::near_sdk::GasWeight,
       }
 
       impl #name {
-          pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+          pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
               self.deposit = amount;
               self
           }
-          pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+          pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
               self.static_gas = static_gas;
               self
           }
           pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-              self.gas_weight = near_sdk::GasWeight(gas_weight);
+              self.gas_weight = ::near_sdk::GasWeight(gas_weight);
               self
           }
       }
@@ -127,11 +127,11 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let Signature { generics, .. } = original_sig;
     quote! {
         #new_non_bindgen_attrs
-        pub fn #ident #generics(self, #pat_type_list) -> near_sdk::Promise {
+        pub fn #ident #generics(self, #pat_type_list) -> ::near_sdk::Promise {
             let __args = #serialize;
-            near_sdk::Promise::new(self.account_id)
+            ::near_sdk::Promise::new(self.account_id)
             .function_call_weight(
-                #ident_str.to_string(),
+                ::std::string::String::from(#ident_str),
                 __args,
                 self.deposit,
                 self.static_gas,
@@ -157,33 +157,33 @@ mod tests {
         let expected = quote!(
           #[must_use]
           pub struct TestExt {
-              pub(crate) account_id: near_sdk::AccountId,
-              pub(crate) deposit: near_sdk::Balance,
-              pub(crate) static_gas: near_sdk::Gas,
-              pub(crate) gas_weight: near_sdk::GasWeight,
+              pub(crate) account_id: ::near_sdk::AccountId,
+              pub(crate) deposit: ::near_sdk::Balance,
+              pub(crate) static_gas: ::near_sdk::Gas,
+              pub(crate) gas_weight: ::near_sdk::GasWeight,
           }
           impl TestExt {
-              pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+              pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
                   self.deposit = amount;
                   self
               }
-              pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+              pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
                   self.static_gas = static_gas;
                   self
               }
               pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                  self.gas_weight = near_sdk::GasWeight(gas_weight);
+                  self.gas_weight = ::near_sdk::GasWeight(gas_weight);
                   self
               }
           }
           impl Test {
             /// API for calling this contract's functions in a subsequent execution.
-            pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
+            pub fn ext(account_id: ::near_sdk::AccountId) -> TestExt {
                 TestExt {
                     account_id,
                     deposit: 0,
-                    static_gas: near_sdk::Gas(0),
-                    gas_weight: near_sdk::GasWeight::default(),
+                    static_gas: ::near_sdk::Gas(0),
+                    gas_weight: ::near_sdk::GasWeight::default(),
                 }
             }
           }
@@ -198,32 +198,32 @@ mod tests {
         let expected = quote!(
           #[must_use]
           pub struct TestExt {
-              pub(crate) account_id: near_sdk::AccountId,
-              pub(crate) deposit: near_sdk::Balance,
-              pub(crate) static_gas: near_sdk::Gas,
-              pub(crate) gas_weight: near_sdk::GasWeight,
+              pub(crate) account_id: ::near_sdk::AccountId,
+              pub(crate) deposit: ::near_sdk::Balance,
+              pub(crate) static_gas: ::near_sdk::Gas,
+              pub(crate) gas_weight: ::near_sdk::GasWeight,
           }
           impl TestExt {
-              pub fn with_attached_deposit(mut self, amount: near_sdk::Balance) -> Self {
+              pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
                   self.deposit = amount;
                   self
               }
-              pub fn with_static_gas(mut self, static_gas: near_sdk::Gas) -> Self {
+              pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
                   self.static_gas = static_gas;
                   self
               }
               pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                  self.gas_weight = near_sdk::GasWeight(gas_weight);
+                  self.gas_weight = ::near_sdk::GasWeight(gas_weight);
                   self
               }
           }
           /// API for calling this contract's functions in a subsequent execution.
-          pub fn ext(account_id: near_sdk::AccountId) -> TestExt {
+          pub fn ext(account_id: ::near_sdk::AccountId) -> TestExt {
               TestExt {
                   account_id,
                   deposit: 0,
-                  static_gas: near_sdk::Gas(0),
-                  gas_weight: near_sdk::GasWeight::default(),
+                  static_gas: ::near_sdk::Gas(0),
+                  gas_weight: ::near_sdk::GasWeight::default(),
               }
           }
         );
@@ -247,10 +247,10 @@ mod tests {
         // Note: only whitelisted non-bindgen attributes are forwarded.
         let expected = quote! {
             #[cfg(target_os = "linux")]
-            pub fn method (self,) -> near_sdk::Promise {
-                let __args = vec![];
-                near_sdk::Promise::new(self.account_id).function_call_weight(
-                    "method".to_string(),
+            pub fn method (self,) -> ::near_sdk::Promise {
+                let __args = ::std::vec![];
+                ::near_sdk::Promise::new(self.account_id).function_call_weight(
+                    ::std::string::String::from("method"),
                     __args,
                     self.deposit,
                     self.static_gas,
@@ -270,18 +270,18 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
-            pub fn method(self, k: &String,) -> near_sdk::Promise {
-                let __args = {#[derive(near_sdk :: serde :: Serialize)]
-                    #[serde(crate = "near_sdk::serde")]
+            pub fn method(self, k: &String,) -> ::near_sdk::Promise {
+                let __args = {#[derive(::near_sdk :: serde :: Serialize)]
+                    #[serde(crate = "::near_sdk::serde")]
                     struct Input<'nearinput> {
                         k: &'nearinput String,
                     }
                     let __args = Input { k: &k, };
-                    near_sdk::serde_json::to_vec(&__args)
+                    ::near_sdk::serde_json::to_vec(&__args)
                         .expect("Failed to serialize the cross contract args using JSON.")
                 };
-                near_sdk::Promise::new(self.account_id).function_call_weight(
-                    "method".to_string(),
+                ::near_sdk::Promise::new(self.account_id).function_call_weight(
+                    ::std::string::String::from("method"),
                     __args,
                     self.deposit,
                     self.static_gas,
@@ -301,19 +301,19 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
         let expected = quote!(
-          pub fn borsh_test(self, a: String,) -> near_sdk::Promise {
+          pub fn borsh_test(self, a: String,) -> ::near_sdk::Promise {
             let __args = {
-              #[derive(near_sdk :: borsh :: BorshSerialize)]
+              #[derive(::near_sdk :: borsh :: BorshSerialize)]
               struct Input<'nearinput> {
                   a: &'nearinput String,
               }
               let __args = Input { a: &a, };
-              near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
+              ::near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
                   .expect("Failed to serialize the cross contract args using Borsh.")
             };
-              near_sdk::Promise::new(self.account_id)
+              ::near_sdk::Promise::new(self.account_id)
                   .function_call_weight(
-                      "borsh_test".to_string(),
+                      ::std::string::String::from("borsh_test"),
                       __args,
                       self.deposit,
                       self.static_gas,

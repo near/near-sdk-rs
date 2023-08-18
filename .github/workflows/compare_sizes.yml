@@ -1,0 +1,60 @@
+name: Compare contract sizes with master
+on:
+  issue_comment:
+    types:
+      - created
+jobs:
+  generate_report:
+    runs-on: ubuntu-latest
+    if: ${{ (github.event.issue.pull_request) && (github.event.comment.body == '/compare') }}
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Checkout Pull Request
+        run: hub pr checkout ${{ github.event.issue.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache intermediate artifacts
+        uses: actions/cache@v3
+        env:
+          cache-name: compare-sizes
+        with:
+          path: |
+            docker-target
+            /home/runner/work/.cargo/git
+            /home/runner/work/.cargo/registry
+          # TODO: add an additional key here, e.g. the Rust toolchain version used
+          key: ${{ runner.os }}-build-${{ env.cache-name }}
+          # restore-keys: |
+          #   ${{ runner.os }}-build-${{ env.cache-name }}
+      - name: Generate report
+        run: |
+          yes | pip install GitPython docker appdirs
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "REPORT<<$EOF" >> "$GITHUB_ENV"
+          ci/compare_sizes/compare_sizes.py --cargo-cache-dir /home/runner/work/.cargo >> "$GITHUB_ENV"
+          echo "$EOF" >> "$GITHUB_ENV"
+      - name: Submit report
+        if: ${{ success() }}
+        uses: actions/github-script@v4
+        with:
+          script: |
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: process.env.REPORT,
+            });
+      - name: Notify about failure
+        if: ${{ failure() }}
+        uses: actions/github-script@v4
+        with:
+          script: |
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Failed to generate size comparison report! See the failed CI job for more details.',
+            });
