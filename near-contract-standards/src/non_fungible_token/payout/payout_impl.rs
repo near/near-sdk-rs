@@ -6,16 +6,11 @@ use near_sdk::assert_one_yocto;
 use near_sdk::{require, AccountId, Balance, IntoStorageKey};
 use std::collections::HashMap;
 impl Royalties {
-    /*   pub fn new(accounts: HashMap<AccountId, u8>, percent: u8) -> Self {
-        let this = Self { accounts, percent };
-        this.validate();
-        this
-    } */
     pub fn new<S>(key_prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
-        let temp_accounts: HashMap<AccountId, u8> = HashMap::new();
+        let temp_accounts: HashMap<AccountId, BasisPoint> = HashMap::new();
         let this =
             Self { key_prefix: key_prefix.into_storage_key(), accounts: temp_accounts, percent: 0 };
         this.validate();
@@ -27,7 +22,7 @@ impl Royalties {
             self.accounts.len() <= 10,
             "can only have a maximum of 10 accounts spliting royalties"
         );
-        let mut total: u8 = 0;
+        let mut total: BasisPoint = 0;
         self.accounts.iter().for_each(|(_, percent)| {
             require!(*percent <= 100, "each royalty should be less than 100");
             total += percent;
@@ -52,7 +47,7 @@ impl Royalties {
     }
 }
 
-fn apply_percent(percent: u8, int: u128) -> u128 {
+fn apply_percent(percent: BasisPoint, int: u128) -> u128 {
     int * percent as u128 / 100u128
 }
 

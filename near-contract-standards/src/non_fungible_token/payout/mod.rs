@@ -5,20 +5,88 @@ use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+type BasisPoint = u16;
+
 #[derive(Default, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-
 pub struct Payout {
     pub payout: HashMap<AccountId, U128>,
 }
+
 #[derive(Deserialize, Serialize, BorshDeserialize, BorshSerialize, Default, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Royalties {
     key_prefix: Vec<u8>,
-    pub accounts: HashMap<AccountId, u8>,
-    pub percent: u8,
+    pub accounts: HashMap<AccountId, BasisPoint>,
+    pub percent: BasisPoint,
 }
-/// Offers methods helpful in determining account ownership of NFTs and provides a way to page through NFTs per owner, determine total supply, etc.
+
+/// An interface allowing non-fungible token contracts to request that financial contracts pay-out
+/// multiple receivers, enabling flexible royalty implementations.
+///
+/// [Royalties and Payouts standard]: <https://nomicon.io/Standards/Tokens/NonFungibleToken/Payout>
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen, assert_one_yocto};
+/// use near_contract_standards::non_fungible_token::{core::NonFungibleTokenCore, NonFungibleToken, NonFungibleTokenPayout, payout::Payout, TokenId, Token};
+/// use near_sdk::json_types::U128;
+///
+/// #[near_bindgen]
+/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// pub struct Contract {
+///    tokens: NonFungibleToken,
+///}
+/// #[near_bindgen]
+/// impl NonFungibleTokenCore for Contract {
+///     #[payable]
+///    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, approval_id: Option<u64>, memo: Option<String>) {
+///        self.tokens.nft_transfer(receiver_id, token_id, approval_id, memo);
+///    }
+///
+///    #[payable]
+///    fn nft_transfer_call(&mut self, receiver_id: AccountId, token_id: TokenId, approval_id: Option<u64>, memo: Option<String>, msg: String) -> PromiseOrValue<bool> {
+///        self.tokens.nft_transfer_call(receiver_id, token_id, approval_id, memo, msg)
+///    }
+///
+///    fn nft_token(&self, token_id: TokenId) -> Option<Token> {
+///        self.tokens.nft_token(token_id)
+///    }
+///}
+/// #[near_bindgen]
+/// impl NonFungibleTokenPayout for Contract {
+///     #[allow(unused_variables)]
+///     fn nft_payout(
+///         &self,
+///         token_id: String,
+///         balance: U128,
+///         max_len_payout: Option<u32>,
+///     ) -> Payout {
+///         let owner_id = self.tokens.owner_by_id.get(&token_id).expect("No such token_id");
+///         self.tokens.royalties.as_ref()
+///             .map_or(Payout::default(), |r| r.create_payout(balance.0, &owner_id))
+///     }
+///     #[payable]
+///     fn nft_transfer_payout(
+///         &mut self,
+///         receiver_id: AccountId,
+///         token_id: String,
+///         approval_id: Option<u64>,
+///         memo: Option<String>,
+///         balance: U128,
+///         max_len_payout: Option<u32>,
+///     ) -> Payout {
+///         assert_one_yocto();
+///         let payout = self.nft_payout(token_id.clone(), balance, max_len_payout);
+///         self.nft_transfer(receiver_id, token_id, approval_id, memo);
+///         payout
+///     }
+/// }
+/// ```
+///
 pub trait NonFungibleTokenPayout {
     fn nft_payout(&self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout;
     /// Given a `token_id` and NEAR-denominated balance, transfer the token

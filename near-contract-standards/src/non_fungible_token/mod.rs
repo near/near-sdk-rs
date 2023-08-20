@@ -29,5 +29,6 @@ pub use self::approval::NonFungibleTokenApproval;
 pub use self::core::NonFungibleToken;
 pub use self::core::NonFungibleTokenResolver;
 pub use self::enumeration::NonFungibleTokenEnumeration;
+pub use self::payout::NonFungibleTokenPayout;
 
 pub mod events;
