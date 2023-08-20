@@ -23,13 +23,15 @@ use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEn
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
-use near_contract_standards::non_fungible_token::NonFungibleToken;
+use near_contract_standards::non_fungible_token::payout::Payout;
+use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenPayout};
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+    assert_one_yocto, env, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault,
+    Promise, PromiseOrValue,
 };
 use std::collections::HashMap;
 
@@ -211,6 +213,31 @@ impl NonFungibleTokenEnumeration for Contract {
         limit: Option<u64>,
     ) -> Vec<Token> {
         self.tokens.nft_tokens_for_owner(account_id, from_index, limit)
+    }
+}
+
+impl NonFungibleTokenPayout for Contract {
+    fn nft_payout(&self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout {
+        let owner_id = self.tokens.owner_by_id.get(&token_id).expect("No such token_id");
+        self.tokens
+            .royalties
+            .as_ref()
+            .map_or(Payout::default(), |r| r.create_payout(balance.0, &owner_id))
+    }
+
+    fn nft_transfer_payout(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: String,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+        balance: U128,
+        max_len_payout: Option<u32>,
+    ) -> Payout {
+        assert_one_yocto();
+        let payout = self.nft_payout(token_id.clone(), balance, max_len_payout);
+        self.nft_transfer(receiver_id, token_id, approval_id, memo);
+        payout
     }
 }
 
