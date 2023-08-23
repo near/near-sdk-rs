@@ -1,5 +1,0 @@
-error: Init function can't be private.
-  --> compilation_tests/private_init_method.rs:14:5
-   |
-14 |     #[private]
-   |     ^

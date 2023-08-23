@@ -86,19 +86,9 @@ impl Visitor {
         }
     }
 
-    pub fn visit_private_attr(&mut self, attr: &Attribute) -> syn::Result<()> {
-        use VisitorKind::*;
-
-        match self.kind {
-            Call | View => {
-                self.parsed_data.is_private = true;
-                Ok(())
-            }
-            Init => {
-                let message = format!("{} function can't be private.", self.kind);
-                Err(Error::new(attr.span(), message))
-            }
-        }
+    pub fn visit_private_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.is_private = true;
+        Ok(())
     }
 
     pub fn visit_result_serializer_attr(
