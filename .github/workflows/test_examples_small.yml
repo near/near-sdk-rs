@@ -24,12 +24,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Build status-message-collections
-        env: 
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/status-message-collections/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/status-message-collections/target/wasm32-unknown-unknown/release/*.wasm ./examples/status-message-collections/res/
-      - name: Test status-message-collections
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/status-message-collections/Cargo.toml --all
       - name: Build lockable-fungible-token
         env: 
           RUSTFLAGS: '-C link-arg=-s'
