@@ -45,36 +45,28 @@ impl ArgInfo {
     /// Extract near-sdk specific argument info.
     pub fn new(original: &mut PatType, source_type: &TokenStream) -> syn::Result<Self> {
         let mut non_bindgen_attrs = vec![];
-        let pat_reference;
-        let pat_mutability;
-        let mut errors = vec![];
-        let ident = match original.pat.as_ref() {
+        let pat_info = match original.pat.as_ref() {
             Pat::Ident(pat_ident) => {
-                pat_reference = pat_ident.by_ref;
-                pat_mutability = pat_ident.mutability;
-                pat_ident.ident.clone()
+                Ok((pat_ident.by_ref, pat_ident.mutability, pat_ident.ident.clone()))
             }
-            _ => {
-                errors.push(Error::new(
-                    original.span(),
-                    "Only identity patterns are supported in function arguments.",
-                ));
-                //Providing dummy variables.
-                //Their value won't have any effect as they are not used later in the code except return.
-                pat_reference = None;
-                pat_mutability = None;
-                Ident::new("DUMMY", Span::call_site())
-            }
+            _ => Err(Error::new(
+                original.span(),
+                "Only identity patterns are supported in function arguments.",
+            )),
         };
 
-        let sanitize_self = utils::sanitize_self(&original.ty, source_type)?;
-        *original.ty.as_mut() = sanitize_self.ty;
-        let (reference, mutability, ty) =
-            utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
+        let result_sanitize_and_ty = (|| {
+            let sanitize_self = utils::sanitize_self(&original.ty, source_type)?;
+            *original.ty.as_mut() = sanitize_self.ty.clone();
+            let ty_info = utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
+            Ok((sanitize_self, ty_info))
+        })();
+
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
+        let mut more_errors: Vec<Error> = Vec::new();
         for attr in &original.attrs {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
@@ -91,8 +83,8 @@ impl ArgInfo {
                     Ok(serializer) => {
                         serializer_ty = serializer.serializer_type;
                     }
-                    Err(err) => {
-                        errors.push(err);
+                    Err(e) => {
+                        more_errors.push(e);
                     }
                 },
                 _ => {
@@ -110,28 +102,37 @@ impl ArgInfo {
                 && attr_str != "callback_unwrap"
         });
 
-        if errors.is_empty() {
-            Ok(Self {
+        match (&pat_info, &result_sanitize_and_ty, more_errors.is_empty()) {
+            (
+                Ok((pat_reference, pat_mutability, ident)),
+                Ok((sanitize_self, (reference, mutability, ty))),
+                true,
+            ) => Ok(Self {
                 non_bindgen_attrs,
-                ident,
-                pat_reference,
-                pat_mutability,
-                reference,
-                mutability,
-                ty,
+                ident: ident.clone(),
+                pat_reference: *pat_reference,
+                pat_mutability: *pat_mutability,
+                reference: *reference,
+                mutability: *mutability,
+                ty: ty.clone(),
                 bindgen_ty,
                 serializer_ty,
-                self_occurrences: sanitize_self.self_occurrences,
+                self_occurrences: sanitize_self.self_occurrences.clone(),
                 original: original.clone(),
-            })
-        } else {
-            Err(errors
-                .into_iter()
-                .reduce(|mut l, r| {
-                    l.combine(r);
-                    l
-                })
-                .unwrap())
+            }),
+            _ => {
+                more_errors.extend(pat_info.err());
+                more_errors.extend(result_sanitize_and_ty.err());
+                Err(Self::combine_errors(more_errors).unwrap())
+            }
         }
+    }
+
+    // helper function
+    fn combine_errors(errors: impl IntoIterator<Item = Error>) -> Option<Error> {
+        errors.into_iter().reduce(|mut acc, e| {
+            acc.combine(syn::Error::new(e.span(), e.to_string()));
+            acc
+        })
     }
 }
