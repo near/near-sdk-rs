@@ -1,19 +1,19 @@
 error: Unsupported serializer type.
-  --> compilation_tests/invalid_arg_pat.rs:25:1
+  --> compilation_tests/invalid_arg_pat.rs:13:1
    |
-25 | #[near_bindgen]
+13 | #[near_bindgen]
    | ^^^^^^^^^^^^^^^
    |
    = note: this error originates in the attribute macro `near_bindgen` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: Unsupported contract API type.
-  --> compilation_tests/invalid_arg_pat.rs:27:38
+  --> compilation_tests/invalid_arg_pat.rs:15:37
    |
-27 |     pub fn faulty_method(&mut self,  #[serializer(SomeNonExistentSerializer)] _a: *mut u32,) {}
-   |                                      ^
+15 |     pub fn faulty_method(&mut self, #[serializer(SomeNonExistentSerializer)] _a: *mut u32) {}
+   |                                     ^
 
 error: Only identity patterns are supported in function arguments.
-  --> compilation_tests/invalid_arg_pat.rs:28:38
+  --> compilation_tests/invalid_arg_pat.rs:16:38
    |
-28 |     pub fn faulty_method1(&mut self, #[serializer(SomeNonExistentSerializer)] (a, b): (u8, u32)) {}
+16 |     pub fn faulty_method1(&mut self, #[serializer(SomeNonExistentSerializer)] (a, b): (u8, u32)) {}
    |                                      ^
