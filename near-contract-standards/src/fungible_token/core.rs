@@ -2,7 +2,54 @@ use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
-
+/// The core methods for a basic fungible token. Extension standards may be
+/// added in addition to this trait.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, PromiseOrValue};
+/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::collections::LazyOption;
+/// use near_sdk::json_types::U128;
+/// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenCore};
+/// use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
+///
+/// #[near_bindgen]
+/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// pub struct Contract {
+///     token: FungibleToken,
+///     metadata: LazyOption<FungibleTokenMetadata>,
+/// }
+///
+/// #[near_bindgen]
+/// impl FungibleTokenCore for Contract {
+///     #[payable]
+///     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
+///         self.token.ft_transfer(receiver_id, amount, memo)
+///     }
+///
+///     #[payable]
+///     fn ft_transfer_call(
+///         &mut self,
+///         receiver_id: AccountId,
+///         amount: U128,
+///         memo: Option<String>,
+///         msg: String,
+///     ) -> PromiseOrValue<U128> {
+///         self.token.ft_transfer_call(receiver_id, amount, memo, msg)
+///     }
+///
+///     fn ft_total_supply(&self) -> U128 {
+///         self.token.ft_total_supply()
+///     }
+///
+///     fn ft_balance_of(&self, account_id: AccountId) -> U128 {
+///         self.token.ft_balance_of(account_id)
+///     }
+/// }
+/// ```
+///
 #[ext_contract(ext_ft_core)]
 pub trait FungibleTokenCore {
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id`.
