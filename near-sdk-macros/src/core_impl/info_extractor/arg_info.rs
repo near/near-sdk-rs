@@ -2,7 +2,7 @@ use crate::core_impl::info_extractor::{SerializerAttr, SerializerType};
 use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
-use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
+use syn::{Attribute, Error, Ident, Pat, PatType, Token, Type};
 
 pub enum BindgenArgType {
     /// Argument that we read from `env::input()`.
@@ -49,8 +49,8 @@ impl ArgInfo {
             Pat::Ident(pat_ident) => {
                 Ok((pat_ident.by_ref, pat_ident.mutability, pat_ident.ident.clone()))
             }
-            _ => Err(Error::new(
-                original.span(),
+            _ => Err(Error::new_spanned(
+                &original.pat,
                 "Only identity patterns are supported in function arguments.",
             )),
         };
@@ -58,7 +58,7 @@ impl ArgInfo {
         let result_sanitize_and_ty = (|| {
             let sanitize_self = utils::sanitize_self(&original.ty, source_type)?;
             *original.ty.as_mut() = sanitize_self.ty.clone();
-            let ty_info = utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
+            let ty_info = utils::extract_ref_mut(original.ty.as_ref())?;
             Ok((sanitize_self, ty_info))
         })();
 
@@ -84,7 +84,8 @@ impl ArgInfo {
                         serializer_ty = serializer.serializer_type;
                     }
                     Err(e) => {
-                        more_errors.push(e);
+                        let spanned_error = syn::Error::new_spanned(attr, e.to_string());
+                        more_errors.push(spanned_error);
                     }
                 },
                 _ => {
