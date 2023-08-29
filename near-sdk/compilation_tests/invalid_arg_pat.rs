@@ -1,4 +1,4 @@
-// //! Method with non-deserializable argument type.
+//! Method with non-deserializable argument type.
 //This tests also checks whether argument errors gets combined or not.
 //faulty_method checks a combination of serialiser and type not not supported
 //faulty_method1 checks a combination of serialiser and only Identity pattern allowed.
