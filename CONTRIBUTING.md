@@ -17,6 +17,8 @@ Please use descriptive PR titles. We loosely follow the [conventional commits](h
 ### Before opening a PR
 
 Ensure the following are satisfied before opening a PR:
+
+- The `git-hooks.sh` script has been run to install the git hooks.
 - Code is formatted with `rustfmt` by running `cargo fmt`
 - Run all tests and linters with [./run-tests.sh](./run-tests.sh)
 - Ensure any new functionality is adequately tested
