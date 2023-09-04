@@ -285,9 +285,9 @@ mod tests {
 
         // Test internal serialization of Vec<u8> is the same:
         let old_key = PublicKeyRef(data.clone());
-        let old_encoded_key = old_key.try_to_vec().unwrap();
+        let old_encoded_key = borsh::to_vec(&old_key).unwrap();
         let new_key: PublicKey = data.try_into().unwrap();
-        let new_encoded_key = new_key.try_to_vec().unwrap();
+        let new_encoded_key = borsh::to_vec(&new_key).unwrap();
         assert_eq!(old_encoded_key, new_encoded_key);
         assert_eq!(
             &new_encoded_key,

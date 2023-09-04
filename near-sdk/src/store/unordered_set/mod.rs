@@ -513,7 +513,7 @@ mod tests {
     use crate::store::UnorderedSet;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, BorshSerialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashSet;
@@ -835,7 +835,7 @@ mod tests {
                             us.flush();
                         }
                         Op::Restore => {
-                            let serialized = us.try_to_vec().unwrap();
+                            let serialized = to_vec(&us).unwrap();
                             us = UnorderedSet::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Contains(v) => {

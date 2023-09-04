@@ -6,7 +6,7 @@
 
 mod impls;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 use once_cell::unsync::OnceCell;
 
 use crate::env;
@@ -40,7 +40,7 @@ pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = value.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
+    let serialized = to_vec(value).unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
     env::storage_write(key, &serialized);
 }
 
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(*a, 42);
 
         *a = 30;
-        let serialized = a.try_to_vec().unwrap();
+        let serialized = to_vec(&a).unwrap();
         drop(a);
         assert_eq!(u32::try_from_slice(&env::storage_read(b"a").unwrap()).unwrap(), 30);
 

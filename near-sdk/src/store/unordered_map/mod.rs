@@ -694,7 +694,7 @@ mod tests {
     use super::UnorderedMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, BorshSerialize};
+    use borsh::{BorshDeserialize, to_vec};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashMap;
@@ -801,7 +801,7 @@ mod tests {
                             um.flush();
                         }
                         Op::Restore => {
-                            let serialized = um.try_to_vec().unwrap();
+                            let serialized = to_vec(&um).unwrap();
                             um = UnorderedMap::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {

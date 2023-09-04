@@ -151,7 +151,7 @@ fn collections_vec_not_backwards_compatible() {
     let mut v1 = Vec1::new(b"m");
     v1.extend([1u8, 2, 3, 4]);
     // Old collections serializes length as `u64` when new serializes as `u32`.
-    assert!(Vector::<u8>::try_from_slice(&v1.try_to_vec().unwrap()).is_err());
+    assert!(Vector::<u8>::try_from_slice(&borsh::to_vec(&v1).unwrap()).is_err());
 }
 
 impl<T> Vector<T>
@@ -543,7 +543,7 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, BorshSerialize};
+    use borsh::{BorshDeserialize, BorshSerialize, to_vec};
     use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
@@ -840,7 +840,7 @@ mod tests {
                             sv.flush();
                         }
                         Op::Reset => {
-                            let serialized = sv.try_to_vec().unwrap();
+                            let serialized = to_vec(&sv).unwrap();
                             sv = Vector::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {
@@ -872,7 +872,7 @@ mod tests {
 
         let mut vec = Vector::new(b"v".to_vec());
         vec.push("Some data");
-        let serialized = vec.try_to_vec().unwrap();
+        let serialized = to_vec(&vec).unwrap();
 
         // Expected to serialize len then prefix
         let mut expected_buf = Vec::new();

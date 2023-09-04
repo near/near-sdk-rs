@@ -520,7 +520,7 @@ mod tests {
                             sv.flush();
                         }
                         Op::Reset => {
-                            let serialized = sv.try_to_vec().unwrap();
+                            let serialized = borsh::to_vec(&sv).unwrap();
                             sv = FreeList::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {

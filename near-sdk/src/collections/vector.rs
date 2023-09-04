@@ -4,7 +4,7 @@ use core::ops::Range;
 use std::iter::FusedIterator;
 use std::marker::PhantomData;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -180,7 +180,7 @@ where
     T: BorshSerialize,
 {
     fn serialize_element(element: &T) -> Vec<u8> {
-        element.try_to_vec().unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION))
+        to_vec(element).unwrap_or_else(|_| env::panic_str(ERR_ELEMENT_SERIALIZATION))
     }
 
     /// Appends an element to the back of the collection.

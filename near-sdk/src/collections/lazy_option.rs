@@ -5,7 +5,7 @@
 //! `LazyOption` and it will not be deserialized until requested.
 use std::marker::PhantomData;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 
 use crate::env;
 use crate::IntoStorageKey;
@@ -91,7 +91,7 @@ where
     }
 
     fn serialize_value(value: &T) -> Vec<u8> {
-        match value.try_to_vec() {
+        match to_vec(value) {
             Ok(x) => x,
             Err(_) => env::panic_str(ERR_VALUE_SERIALIZATION),
         }

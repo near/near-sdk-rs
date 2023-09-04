@@ -6,7 +6,7 @@ pub use iter::Iter;
 
 use crate::collections::{append, append_slice, Vector};
 use crate::{env, IntoStorageKey};
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 use std::mem::size_of;
 
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
@@ -174,7 +174,7 @@ where
     V: BorshSerialize + BorshDeserialize,
 {
     fn serialize_key(key: &K) -> Vec<u8> {
-        match key.try_to_vec() {
+        match to_vec(key) {
             Ok(x) => x,
             Err(_) => env::panic_str(ERR_KEY_SERIALIZATION),
         }
@@ -188,7 +188,7 @@ where
     }
 
     fn serialize_value(value: &V) -> Vec<u8> {
-        match value.try_to_vec() {
+        match to_vec(value) {
             Ok(x) => x,
             Err(_) => env::panic_str(ERR_VALUE_SERIALIZATION),
         }

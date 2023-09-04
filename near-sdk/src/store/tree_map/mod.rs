@@ -2089,7 +2089,7 @@ mod tests {
                             um.flush();
                         }
                         Op::Restore => {
-                            let serialized = um.try_to_vec().unwrap();
+                            let serialized = borsh::to_vec(&um).unwrap();
                             um = TreeMap::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {

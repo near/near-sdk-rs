@@ -3,7 +3,7 @@
 //! makes this implementation more efficient in the number of reads and writes.
 use std::marker::PhantomData;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize, to_vec};
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -68,7 +68,7 @@ where
     T: BorshSerialize,
 {
     fn serialize_element(element: &T) -> Vec<u8> {
-        match element.try_to_vec() {
+        match to_vec(element) {
             Ok(x) => x,
             Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
