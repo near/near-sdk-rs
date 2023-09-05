@@ -5,7 +5,7 @@
 //! `LazyOption` and it will not be deserialized until requested.
 use std::marker::PhantomData;
 
-use borsh::{BorshDeserialize, BorshSerialize, to_vec};
+use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::env;
 use crate::IntoStorageKey;

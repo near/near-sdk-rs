@@ -443,11 +443,11 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a1acb549fd0db3b4150957daa838fa9bbd26c18f18b32f24c9678de4b8ca4f7"
+checksum = "41898277107b0d3f027593697912977397eba6ac39a55bdd2eb02c1d5d5013b5"
 dependencies = [
- "borsh-derive 1.0.0-alpha.3",
+ "borsh-derive 1.0.0-alpha.4",
  "cfg_aliases",
 ]
 
@@ -479,9 +479,9 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e6d4b2eff15f3f87c5d0844180621f6eb0688e68820d76cf17149a02eef1c78"
+checksum = "413cb435569fe499e89235f758304e0e7198016baa351d8f5827ea0f40526ce0"
 dependencies = [
  "once_cell",
  "proc-macro-crate 1.3.1",
@@ -755,7 +755,6 @@ dependencies = [
 name = "cross-contract-high-level"
 version = "1.1.0"
 dependencies = [
- "borsh 1.0.0-alpha.3",
  "near-sdk",
 ]
 
@@ -763,7 +762,6 @@ dependencies = [
 name = "cross-contract-low-level"
 version = "1.1.0"
 dependencies = [
- "borsh 1.0.0-alpha.3",
  "near-sdk",
 ]
 
@@ -1792,9 +1790,9 @@ dependencies = [
 [[package]]
 name = "near-abi"
 version = "0.3.0"
-source = "git+https://github.com/dj8yfo/near-abi-rs.git?branch=borsh_update#fb57a26524e30f8a18683415e1d9d549824091ca"
+source = "git+https://github.com/dj8yfo/near-abi-rs.git?branch=borsh_update#f9430ffb61cbe2b1316b5200eb292b2a237b08d8"
 dependencies = [
- "borsh 1.0.0-alpha.3",
+ "borsh 1.0.0-alpha.4",
  "schemars",
  "semver",
  "serde",
@@ -2145,7 +2143,7 @@ name = "near-sdk"
 version = "4.1.1"
 dependencies = [
  "base64 0.13.1",
- "borsh 1.0.0-alpha.3",
+ "borsh 1.0.0-alpha.4",
  "bs58",
  "near-abi",
  "near-crypto 0.17.0",

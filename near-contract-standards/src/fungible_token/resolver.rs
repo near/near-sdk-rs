@@ -14,6 +14,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId};
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// #[borsh(crate = "::near_sdk::borsh")]
 /// pub struct Contract {
 ///     token: FungibleToken,
 ///     metadata: LazyOption<FungibleTokenMetadata>,

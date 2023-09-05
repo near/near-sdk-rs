@@ -14,6 +14,7 @@ use std::collections::HashMap;
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// #[borsh(crate = "::near_sdk::borsh")]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}

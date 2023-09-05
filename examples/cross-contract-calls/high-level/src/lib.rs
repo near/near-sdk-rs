@@ -4,6 +4,7 @@ use near_sdk::{log, near_bindgen, PromiseOrValue};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct CrossContract {}
 
 #[near_bindgen]

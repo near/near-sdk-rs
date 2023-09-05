@@ -8,6 +8,7 @@ const SINGLE_CALL_GAS: Gas = Gas(20_000_000_000_000);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct FactoryContract {}
 
 #[near_bindgen]

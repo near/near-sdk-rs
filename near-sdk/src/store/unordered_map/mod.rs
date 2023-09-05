@@ -694,7 +694,7 @@ mod tests {
     use super::UnorderedMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, to_vec};
+    use borsh::{to_vec, BorshDeserialize};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashMap;

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct Account {
     /// Current unlocked balance.
     pub balance: Balance,
@@ -46,6 +47,7 @@ impl Account {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,

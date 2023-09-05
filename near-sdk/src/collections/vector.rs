@@ -4,7 +4,7 @@ use core::ops::Range;
 use std::iter::FusedIterator;
 use std::marker::PhantomData;
 
-use borsh::{BorshDeserialize, BorshSerialize, to_vec};
+use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};

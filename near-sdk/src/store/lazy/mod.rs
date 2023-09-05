@@ -6,7 +6,7 @@
 
 mod impls;
 
-use borsh::{BorshDeserialize, BorshSerialize, to_vec};
+use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
 use crate::env;

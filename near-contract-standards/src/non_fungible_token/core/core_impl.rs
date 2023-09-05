@@ -28,6 +28,7 @@ const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_
 ///
 /// For example usage, see examples/non-fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct NonFungibleToken {
     // owner of contract
     pub owner_id: AccountId,
@@ -50,6 +51,7 @@ pub struct NonFungibleToken {
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
+#[borsh(crate = "::near_sdk::borsh")]
 pub enum StorageKey {
     TokensPerOwner { account_hash: Vec<u8> },
 }

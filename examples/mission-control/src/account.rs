@@ -19,10 +19,12 @@ use std::ops;
     BorshSerialize,
 )]
 #[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct Quantity(pub i32);
 
 #[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct Account(pub HashMap<Asset, Quantity>);
 
 pub enum Tranx {

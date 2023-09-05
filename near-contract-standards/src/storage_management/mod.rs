@@ -5,6 +5,7 @@ use near_sdk::AccountId;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "::near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalance {
     pub total: U128,
@@ -13,6 +14,7 @@ pub struct StorageBalance {
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "::near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalanceBounds {
     pub min: U128,
@@ -40,6 +42,7 @@ pub struct StorageBalanceBounds {
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// #[borsh(crate = "::near_sdk::borsh")]
 /// pub struct Contract {
 ///     token: FungibleToken,
 ///     metadata: LazyOption<FungibleTokenMetadata>,

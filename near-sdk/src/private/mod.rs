@@ -13,7 +13,7 @@ mod metadata;
 pub use metadata::{Metadata, MethodMetadata};
 
 use crate::IntoStorageKey;
-use borsh::{BorshSerialize, to_vec};
+use borsh::{to_vec, BorshSerialize};
 
 /// Converts a Borsh serializable object into a `Vec<u8>` that is used for a storage key.
 ///

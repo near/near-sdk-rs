@@ -11,6 +11,7 @@ use std::collections::HashMap;
 #[near_bindgen]
 #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "::near_sdk::borsh")]
 pub struct MissionControl {
     account: Account,
     agents: HashMap<AccountId, Agent>,

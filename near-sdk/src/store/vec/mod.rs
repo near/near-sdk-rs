@@ -543,7 +543,7 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, BorshSerialize, to_vec};
+    use borsh::{to_vec, BorshDeserialize, BorshSerialize};
     use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
