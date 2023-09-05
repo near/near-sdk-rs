@@ -75,7 +75,7 @@ impl ImplItemMethodInfo {
     ///     })
     /// }
     /// ```
-    /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
+    /// If args are serialized with Borsh it will not include `#[derive(::near_sdk::borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
         let attr_signature_info = &self.attr_signature_info;
 
@@ -246,7 +246,7 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
             gen.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            <#ty as ::near_sdk::borsh::BorshSchema>::schema_container()
+            ::near_sdk::borsh::schema_container_of::<#ty>()
         },
     }
 }
@@ -361,14 +361,14 @@ mod tests {
                     args: ::std::vec![
                         ::near_sdk::__private::AbiBorshParameter {
                             name: ::std::string::String::from("arg0"),
-                            type_schema: <FancyStruct as ::near_sdk::borsh::BorshSchema>::schema_container(),
+                            type_schema: ::near_sdk::borsh::schema_container_of::<FancyStruct>(),
                         }
                     ]
                 },
                 callbacks: ::std::vec![],
                 callbacks_vec: ::std::option::Option::None,
                 result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Borsh {
-                    type_schema: <IsOk as ::near_sdk::borsh::BorshSchema>::schema_container(),
+                    type_schema: ::near_sdk::borsh::schema_container_of::<IsOk>(),
                 })
             }
         };
@@ -430,13 +430,13 @@ mod tests {
                     args: ::std::vec! [
                         ::near_sdk::__private::AbiBorshParameter {
                             name: ::std::string::String::from("y"),
-                            type_schema: < String as ::near_sdk::borsh::BorshSchema >::schema_container(),
+                            type_schema: ::near_sdk::borsh::schema_container_of::<String>(),
                         }
                     ]
                 }, 
                 callbacks: ::std::vec! [
                     ::near_sdk::__private::AbiType::Borsh { 
-                        type_schema: <u64 as ::near_sdk::borsh::BorshSchema>::schema_container(),
+                        type_schema: ::near_sdk::borsh::schema_container_of::<u64>(),
                     },
                     ::near_sdk::__private::AbiType::Json {
                         type_schema: gen.subschema_for::< Vec<u8> >(),

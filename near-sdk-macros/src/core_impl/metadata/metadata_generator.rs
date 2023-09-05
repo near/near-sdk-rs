@@ -20,20 +20,21 @@ impl ImplItemMethodInfo {
     ///     is_view: false,
     ///     is_init: false,
     ///     args: {
-    ///         #[derive(borsh::BorshSchema)]
+    ///         #[derive(::near_sdk::borsh::BorshSchema)]
+    ///         #[borsh(crate = "::near_sdk::borsh")]
     ///         #[derive(serde :: Deserialize, serde :: Serialize)]
     ///         struct Input {
     ///             arg0: FancyStruct,
     ///             arg1: u64,
     ///         }
-    ///         Some(Input::schema_container())
+    ///         Some(::near_sdk::borsh::schema_container_of::<Input>())
     ///     },
     ///     callbacks: vec![],
     ///     callbacks_vec: None,
-    ///     result: Some(Result < IsOk, Error > ::schema_container())
+    ///     result: Some(::near_sdk::borsh::schema_container_of::<Result < IsOk, Error >>())
     /// }
     /// ```
-    /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
+    /// If args are serialized with Borsh it will not include `#[derive(::near_sdk::borsh::BorshSchema)]`.
     pub(crate) fn metadata_struct(&self) -> TokenStream2 {
         let method_name_str = self.attr_signature_info.ident.to_string();
         let is_view = matches!(&self.attr_signature_info.method_kind, &MethodKind::View(_));
@@ -44,7 +45,8 @@ impl ImplItemMethodInfo {
             let additional_schema = match &self.attr_signature_info.input_serializer {
                 SerializerType::Borsh => TokenStream2::new(),
                 SerializerType::JSON => quote! {
-                    #[derive(::borsh::BorshSchema)]
+                    #[derive(::near_sdk::borsh::BorshSchema)]
+                    #[borsh(crate = "::near_sdk::borsh")]
                 },
             };
             quote! {
@@ -52,7 +54,7 @@ impl ImplItemMethodInfo {
                     #additional_schema
                     #[allow(dead_code)]
                     #input_struct
-                    ::std::option::Option::Some(<Input as ::near_sdk::borsh::BorshSchema>::schema_container())
+                    ::std::option::Option::Some(::near_sdk::borsh::schema_container_of::<Input>())
                 }
             }
         } else {
@@ -68,7 +70,7 @@ impl ImplItemMethodInfo {
             .map(|arg| {
                 let ty = &arg.ty;
                 quote! {
-                    <#ty as ::near_sdk::borsh::BorshSchema>::schema_container()
+                    ::near_sdk::borsh::schema_container_of::<#ty>()
                 }
             })
             .collect();
@@ -87,7 +89,7 @@ impl ImplItemMethodInfo {
             Some(arg) => {
                 let ty = &arg.ty;
                 quote! {
-                    ::std::option::Option::Some(<#ty as ::near_sdk::borsh::BorshSchema>::schema_container())
+                    ::std::option::Option::Some(::near_sdk::borsh::schema_container_of::<#ty>())
                 }
             }
         };
@@ -99,7 +101,7 @@ impl ImplItemMethodInfo {
             }
             ReturnType::Type(_, ty) => {
                 quote! {
-                    ::std::option::Option::Some(<#ty as ::near_sdk::borsh::BorshSchema>::schema_container())
+                    ::std::option::Option::Some(::near_sdk::borsh::schema_container_of::<#ty>())
                 }
             }
         };

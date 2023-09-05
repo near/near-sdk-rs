@@ -180,11 +180,12 @@ mod tests {
                 ) -> ::near_sdk::Promise {
                     let __args = {
                         #[derive(::near_sdk :: borsh :: BorshSerialize)]
+                        #[borsh(crate = "::near_sdk::borsh")]
                         struct Input<'nearinput> {
                             v: &'nearinput Vec<String>,
                         }
                         let __args = Input { v: &v, };
-                        ::near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
+                        ::near_sdk::borsh::to_vec(&__args)
                             .expect("Failed to serialize the cross contract args using Borsh.")
                     };
                     ::near_sdk::Promise::new(self.account_id)

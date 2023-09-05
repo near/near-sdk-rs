@@ -585,6 +585,7 @@ mod tests {
                     ::near_sdk::env::panic_str("Method method doesn't accept deposit");
                 }
                 #[derive(::near_sdk :: borsh :: BorshDeserialize)]
+                #[borsh(crate = "::near_sdk::borsh")]
                 struct Input {
                     k: u64,
                     m: Bar,
@@ -595,7 +596,7 @@ mod tests {
                 .expect("Failed to deserialize input from Borsh.");
                 let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
                 let result = contract.method(k, m, );
-                let result = ::near_sdk::borsh::BorshSerialize::try_to_vec(&result)
+                let result = ::near_sdk::borsh::to_vec(&result)
                     .expect("Failed to serialize the return value using Borsh.");
                 ::near_sdk::env::value_return(&result);
                 ::near_sdk::env::state_write(&contract);
@@ -621,6 +622,7 @@ mod tests {
                     ::near_sdk::env::panic_str("Method method is private");
                 }
                 #[derive(::near_sdk :: borsh :: BorshDeserialize)]
+                #[borsh(crate = "::near_sdk::borsh")]
                 struct Input {
                     y: ::std::string::String,
                 }
@@ -773,7 +775,7 @@ mod tests {
                 match result {
                     ::std::result::Result::Ok(result) => {
                         let result =
-                            ::near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                            ::near_sdk::borsh::to_vec(&result).expect("Failed to serialize the return value using Borsh.");
                         ::near_sdk::env::value_return(&result);
                     }
                     ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
