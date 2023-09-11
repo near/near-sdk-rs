@@ -84,7 +84,7 @@ error[E0277]: the trait bound `Inner: JsonSchema` is not satisfied
               i128
             and $N others
 note: required by a bound in `SchemaGenerator::subschema_for`
-   --> /Users/frol/.cargo/registry/src/index.crates.io-6f17d22bba15001f/schemars-0.8.11/src/gen.rs:218:38
+   --> $CARGO/schemars-0.8.11/src/gen.rs:218:38
     |
 218 |     pub fn subschema_for<T: ?Sized + JsonSchema>(&mut self) -> Schema {
     |                                      ^^^^^^^^^^ required by this bound in `SchemaGenerator::subschema_for`
