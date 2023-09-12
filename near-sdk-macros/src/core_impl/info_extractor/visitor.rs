@@ -87,23 +87,8 @@ impl Visitor {
     }
 
     pub fn visit_private_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
-        use VisitorKind::*;
-
-        match self.kind {
-            Call | View => {
-                self.parsed_data.is_private = true;
-                Ok(())
-            }
-            Init => {
-                // TODO: return an error instead in 5.0
-                // see https://github.com/near/near-sdk-rs/issues/1040
-                println!("near_bindgen: private init functions will be disallowed in 5.0");
-                Ok(())
-
-                // let message = format!("{} function can't be private.", self.kind);
-                // Err(Error::new(attr.span(), message))
-            }
-        }
+        self.parsed_data.is_private = true;
+        Ok(())
     }
 
     pub fn visit_result_serializer_attr(
