@@ -97,7 +97,7 @@ impl VMContextBuilder {
                 account_locked_balance: 0,
                 storage_usage: 1024 * 300,
                 attached_deposit: 0,
-                prepaid_gas: Gas(300 * 10u64.pow(12)),
+                prepaid_gas: Gas::from_ggas(300),
                 random_seed: [0u8; 32],
                 view_config: None,
                 output_data_receivers: vec![],

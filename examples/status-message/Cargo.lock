@@ -1289,6 +1289,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-gas"
+version = "0.2.2"
+dependencies = [
+ "borsh 0.10.3",
+ "near-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+]
+
+[[package]]
 name = "near-o11y"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,10 +1414,11 @@ dependencies = [
  "bs58",
  "near-abi",
  "near-crypto",
+ "near-gas",
  "near-primitives",
  "near-primitives-core",
  "near-sdk-macros",
- "near-sys",
+ "near-sys 0.2.0",
  "near-vm-logic",
  "once_cell",
  "schemars",
@@ -1438,6 +1448,12 @@ checksum = "6540152fba5e96fe5d575b79e8cd244cf2add747bb01362426bdc069bc3a23bc"
 [[package]]
 name = "near-sys"
 version = "0.2.0"
+
+[[package]]
+name = "near-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e307313276eaeced2ca95740b5639e1f3125b7c97f0a1151809d105f1aa8c6d3"
 
 [[package]]
 name = "near-vm-errors"

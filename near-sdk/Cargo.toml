@@ -33,7 +33,10 @@ wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-abi = { version = "0.3.0", features = ["__chunked-entries"], optional = true }
+near-abi = { version = "0.3.0", features = [
+    "__chunked-entries",
+], optional = true }
+near-gas = { path = "/var/home/ih/near-gas" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 near-vm-logic = { version = "0.17", optional = true }
@@ -57,7 +60,12 @@ expensive-debug = []
 unstable = []
 legacy = []
 abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
-unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+unit-testing = [
+    "near-vm-logic",
+    "near-primitives-core",
+    "near-primitives",
+    "near-crypto",
+]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
