@@ -3,10 +3,10 @@ use near_sdk::serde_json;
 use near_sdk::{env, near_bindgen, require, Gas, PromiseResult};
 
 // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
-const FACTORIAL_CALL_GAS: Gas = Gas::from_ggas(20);
+const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
 
 // Prepaid gas for a single `factorial_mult` call.
-const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_ggas(10);
+const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
