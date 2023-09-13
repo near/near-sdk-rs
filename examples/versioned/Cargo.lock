@@ -1289,6 +1289,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-gas"
+version = "0.2.2"
+
+[[package]]
 name = "near-o11y"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,6 +1409,7 @@ dependencies = [
  "bs58",
  "near-abi",
  "near-crypto",
+ "near-gas",
  "near-primitives",
  "near-primitives-core",
  "near-sdk-macros",

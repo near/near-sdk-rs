@@ -4,13 +4,11 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue,
-};
+use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
-const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas(BASE_GAS + PROMISE_CALL);
+const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_gas(BASE_GAS + PROMISE_CALL);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -65,7 +63,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
                 Self::ext(account_id)
-                    .with_static_gas(prepaid_gas - GAS_FOR_NFT_ON_TRANSFER)
+                    .with_static_gas(prepaid_gas.saturating_sub(GAS_FOR_NFT_ON_TRANSFER))
                     .ok_go(true)
                     .into()
             }
@@ -74,7 +72,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
                 Self::ext(account_id)
-                    .with_static_gas(prepaid_gas - GAS_FOR_NFT_ON_TRANSFER)
+                    .with_static_gas(prepaid_gas.saturating_sub(GAS_FOR_NFT_ON_TRANSFER))
                     .ok_go(false)
                     .into()
             }
