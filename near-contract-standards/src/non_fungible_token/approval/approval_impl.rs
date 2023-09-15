@@ -10,7 +10,7 @@ use crate::non_fungible_token::utils::{
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::{assert_one_yocto, env, require, AccountId, Gas, Promise};
 
-const GAS_FOR_NFT_APPROVE: Gas = Gas::from_ggas(10);
+const GAS_FOR_NFT_APPROVE: Gas = Gas::from_tgas(10);
 
 fn expect_token_found<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| env::panic_str("Token not found"))

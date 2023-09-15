@@ -4,7 +4,7 @@ use near_sdk::serde_json;
 use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
 
 // Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: Gas = Gas::from_ggas(20);
+const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]

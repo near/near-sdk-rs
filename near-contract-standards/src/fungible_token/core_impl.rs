@@ -10,8 +10,8 @@ use near_sdk::{
     PromiseResult, StorageUsage,
 };
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_ggas(5);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_ggas(30);
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
+const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 

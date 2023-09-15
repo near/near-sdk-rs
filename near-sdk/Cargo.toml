@@ -36,16 +36,11 @@ once_cell = { version = "1.17", default-features = false }
 near-abi = { version = "0.3.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-gas = { git = "https://github.com/iho/near-gas.git", rev = "83f50c185caf561266f0f710acdb3a9c5c0ec043", features = [
+near-gas = { git = "https://github.com/iho/near-gas.git", rev = "1c6574ddc1d1de82f79685441e55831f95936897", features = [
     "serde",
     "borsh",
     "schemars",
 ] }
-# near-gas = { path = "/var/home/ih/near-gas", features = [
-#     "serde",
-#     "borsh",
-#     "schemars",
-# ] }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

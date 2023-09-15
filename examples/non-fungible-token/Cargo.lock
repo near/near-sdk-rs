@@ -1851,6 +1851,7 @@ dependencies = [
 [[package]]
 name = "near-gas"
 version = "0.2.2"
+source = "git+https://github.com/iho/near-gas.git?rev=1c6574ddc1d1de82f79685441e55831f95936897#1c6574ddc1d1de82f79685441e55831f95936897"
 dependencies = [
  "borsh 0.9.3",
  "schemars",

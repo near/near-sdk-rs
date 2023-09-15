@@ -15,8 +15,8 @@ use near_sdk::{
 };
 use std::collections::HashMap;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_ggas(5);
-const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_ggas(30);
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
+const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 /// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
