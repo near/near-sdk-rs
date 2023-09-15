@@ -133,20 +133,16 @@ impl FungibleTokenCore for FungibleToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
-        require!(
-            env::prepaid_gas().as_gas() > GAS_FOR_FT_TRANSFER_CALL.as_gas(),
-            "More gas is required"
-        );
+        require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         let receiver_gas = env::prepaid_gas()
-            .as_gas()
-            .checked_sub(GAS_FOR_FT_TRANSFER_CALL.as_gas())
+            .checked_sub(GAS_FOR_FT_TRANSFER_CALL)
             .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
-            .with_static_gas(Gas::from_gas(receiver_gas))
+            .with_static_gas(receiver_gas)
             .ft_on_transfer(sender_id.clone(), amount.into(), msg)
             .then(
                 ext_ft_resolver::ext(env::current_account_id())

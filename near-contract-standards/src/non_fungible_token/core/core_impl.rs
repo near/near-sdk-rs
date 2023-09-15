@@ -391,10 +391,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
-        require!(
-            env::prepaid_gas().as_gas() > GAS_FOR_NFT_TRANSFER_CALL.as_gas(),
-            "More gas is required"
-        );
+        require!(env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
