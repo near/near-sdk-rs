@@ -6,9 +6,8 @@ use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
-const BASE_GAS: u64 = 5_000_000_000_000;
-const PROMISE_CALL: u64 = 5_000_000_000_000;
-const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_gas(BASE_GAS + PROMISE_CALL);
+/// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
+const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
