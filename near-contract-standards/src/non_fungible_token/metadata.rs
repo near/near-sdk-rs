@@ -10,7 +10,7 @@ pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct NFTContractMetadata {
     pub spec: String,              // required, essentially a version like "nft-1.0.0"
     pub name: String,              // required, ex. "Mosaics"
@@ -27,7 +27,7 @@ pub struct NFTContractMetadata {
 )]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct TokenMetadata {
     pub title: Option<String>, // ex. "Arch Nemesis: Mail Carrier" or "Parcel #5055"
     pub description: Option<String>, // free-form description

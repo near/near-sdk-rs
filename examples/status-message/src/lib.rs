@@ -3,12 +3,12 @@ use near_sdk::collections::LookupMap;
 use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey};
 
 #[derive(BorshSerialize, BorshStorageKey)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 struct RecordsKey;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct StatusMessage {
     records: LookupMap<AccountId, String>,
 }

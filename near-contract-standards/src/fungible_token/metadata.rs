@@ -7,7 +7,7 @@ pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct FungibleTokenMetadata {
     pub spec: String,

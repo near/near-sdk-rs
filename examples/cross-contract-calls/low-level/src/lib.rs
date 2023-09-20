@@ -10,7 +10,7 @@ const FACTORIAL_MULT_CALL_GAS: Gas = Gas(10_000_000_000_000);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct CrossContract {}
 
 #[near_bindgen]

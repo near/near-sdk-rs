@@ -17,7 +17,7 @@ use near_sdk::AccountId;
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "::near_sdk::borsh")]
+/// #[borsh(crate = "near_sdk::borsh")]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}

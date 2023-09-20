@@ -26,7 +26,7 @@ pub trait Upgradable {
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Upgrade {
     pub owner: AccountId,
     pub staging_duration: Duration,

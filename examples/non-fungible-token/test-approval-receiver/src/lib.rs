@@ -15,7 +15,7 @@ const GAS_FOR_NFT_ON_APPROVE: Gas = Gas(BASE_GAS + PROMISE_CALL);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct ApprovalReceiver {
     non_fungible_token_account_id: AccountId,
 }

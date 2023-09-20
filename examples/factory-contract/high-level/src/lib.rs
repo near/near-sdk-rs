@@ -4,7 +4,7 @@ use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId, Pro
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct FactoryContract {}
 
 // If the `ext_contract` name is not provided explicitly, the namespace for generated methods is

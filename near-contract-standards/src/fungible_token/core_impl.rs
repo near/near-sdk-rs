@@ -25,7 +25,7 @@ const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 ///
 /// For example usage, see examples/fungible-token/src/lib.rs.
 #[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "::near_sdk::borsh")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct FungibleToken {
     /// AccountID -> Account balance.
     pub accounts: LookupMap<AccountId, Balance>,

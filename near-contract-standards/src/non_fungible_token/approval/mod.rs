@@ -28,7 +28,7 @@ use near_sdk::Promise;
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "::near_sdk::borsh")]
+/// #[borsh(crate = "near_sdk::borsh")]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}
