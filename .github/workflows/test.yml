@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - run: rustup target add wasm32-unknown-unknown
       - name: Test
-        run: cargo test --all --features unstable,legacy
+        run: cargo +${{ matrix.toolchain }} test --all --features unstable,legacy
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
