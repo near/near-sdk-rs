@@ -21,6 +21,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
+          default: true
           target: wasm32-unknown-unknown
       - name: downgrade `anstyle`, `clap`, `clap_lex` crates to support older Rust toolchain
         if: matrix.toolchain == '1.69.0' 
@@ -30,7 +31,7 @@ jobs:
           cargo update -p clap_lex --precise 0.5.0
       - uses: Swatinem/rust-cache@v1
       - name: Test
-        run: cargo +${{ matrix.toolchain }} test --all --features unstable,legacy
+        run: cargo test --all --features unstable,legacy
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
