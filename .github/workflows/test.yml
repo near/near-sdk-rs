@@ -23,6 +23,12 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
       - uses: Swatinem/rust-cache@v1
       - run: rustup target add wasm32-unknown-unknown
+      - name: downgrade `anstyle`, `clap`, `clap_lex` crates to support older Rust toolchain
+        if: matrix.toolchain == '1.69.0' 
+        run: |
+          cargo update -p anstyle --precise 1.0.2
+          cargo update -p clap --precise 4.3.24
+          cargo update -p clap_lex --precise 0.5.0
       - name: Test
         run: cargo +${{ matrix.toolchain }} test --all --features unstable,legacy
   lint:
