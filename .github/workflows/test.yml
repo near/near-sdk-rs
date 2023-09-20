@@ -42,6 +42,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          default: true
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
       - name: Test Format
@@ -57,6 +58,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          default: true
       - uses: Swatinem/rust-cache@v1
       - run: cargo check -p near-sdk --features unstable,legacy
       - run: cargo check -p near-sdk --no-default-features
@@ -74,6 +76,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          default: true
       - uses: Swatinem/rust-cache@v1
       - name: Install Audit
         run: cargo install cargo-audit
