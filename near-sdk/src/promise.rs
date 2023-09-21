@@ -1,5 +1,7 @@
+#[cfg(feature = "abi")]
 use borsh::BorshSchema;
 use std::cell::RefCell;
+#[cfg(feature = "abi")]
 use std::collections::BTreeMap;
 use std::io::{Error, Write};
 use std::num::NonZeroU128;
@@ -227,6 +229,7 @@ pub struct Promise {
 }
 
 /// Until we implement strongly typed promises we serialize them as unit struct.
+#[cfg(feature = "abi")]
 impl BorshSchema for Promise {
     fn add_definitions_recursively(
         definitions: &mut BTreeMap<borsh::schema::Declaration, borsh::schema::Definition>,
@@ -569,6 +572,7 @@ pub enum PromiseOrValue<T> {
     Value(T),
 }
 
+#[cfg(feature = "abi")]
 impl<T> BorshSchema for PromiseOrValue<T>
 where
     T: BorshSchema,

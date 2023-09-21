@@ -1,4 +1,6 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
+use borsh::{BorshDeserialize, BorshSerialize};
 use core::ops;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -15,8 +17,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     BorshSerialize,
     BorshDeserialize,
     Hash,
-    BorshSchema,
 )]
+#[cfg_attr(feature = "abi", derive(BorshSchema))]
 #[repr(transparent)]
 pub struct Gas(pub u64);
 

@@ -1,4 +1,6 @@
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::{fmt, io};
@@ -33,10 +35,9 @@ use crate::env::is_valid_account_id;
 /// ```
 ///
 /// [`FromStr`]: std::str::FromStr
-#[derive(
-    Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash, BorshSchema,
-)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(BorshSchema))]
 pub struct AccountId(String);
 
 impl AccountId {

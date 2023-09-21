@@ -9,7 +9,9 @@ pub use near_abi::{
 #[cfg(feature = "abi")]
 pub use schemars;
 
+#[cfg(feature = "abi")]
 mod metadata;
+#[cfg(feature = "abi")]
 pub use metadata::{Metadata, MethodMetadata};
 
 use crate::IntoStorageKey;
