@@ -36,11 +36,7 @@ once_cell = { version = "1.17", default-features = false }
 near-abi = { version = "0.3.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-gas = { git = "https://github.com/Mr0melian/near-gas.git", rev = "e6cb97e25064231f5e34c96ea4887f75169fe4cb", features = [
-    "serde",
-    "borsh",
-    "schemars",
-] }
+near-gas = { version = "0.2.3", features = ["serde", "borsh", "schemars"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 near-vm-logic = { version = "0.17", optional = true }
