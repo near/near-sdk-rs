@@ -17,7 +17,7 @@ pub(crate) fn generate_ext_structs(
             #name {
                 account_id,
                 deposit: 0,
-                static_gas: ::near_sdk::Gas(0),
+                static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
             }
         }
@@ -182,7 +182,7 @@ mod tests {
                 TestExt {
                     account_id,
                     deposit: 0,
-                    static_gas: ::near_sdk::Gas(0),
+                    static_gas: ::near_sdk::Gas::from_gas(0),
                     gas_weight: ::near_sdk::GasWeight::default(),
                 }
             }
@@ -222,7 +222,7 @@ mod tests {
               TestExt {
                   account_id,
                   deposit: 0,
-                  static_gas: ::near_sdk::Gas(0),
+                  static_gas: ::near_sdk::Gas::from_gas(0),
                   gas_weight: ::near_sdk::GasWeight::default(),
               }
           }
