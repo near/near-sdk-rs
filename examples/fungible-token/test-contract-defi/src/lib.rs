@@ -10,7 +10,7 @@ use near_sdk::{
 
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
-const GAS_FOR_FT_ON_TRANSFER: Gas = Gas(BASE_GAS + PROMISE_CALL);
+const GAS_FOR_FT_ON_TRANSFER: Gas = Gas::from_gas(BASE_GAS + PROMISE_CALL);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -56,7 +56,7 @@ impl FungibleTokenReceiver for DeFi {
                 let prepaid_gas = env::prepaid_gas();
                 let account_id = env::current_account_id();
                 Self::ext(account_id)
-                    .with_static_gas(prepaid_gas - GAS_FOR_FT_ON_TRANSFER)
+                    .with_static_gas(prepaid_gas.saturating_sub(GAS_FOR_FT_ON_TRANSFER))
                     .value_please(msg)
                     .into()
             }

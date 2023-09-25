@@ -35,6 +35,7 @@ once_cell = { version = "1.17", default-features = false }
 
 # near-abi = { version = "0.3.0", features = ["__chunked-entries"], optional = true }
 near-abi = { version = "0.3.0", git = "https://github.com/dj8yfo/near-abi-rs.git", branch = "borsh_update", features = ["__chunked-entries"], optional = true }
+near-gas = { version = "0.2.3", features = ["serde", "borsh", "schemars"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 near-vm-logic = { version = "0.17", optional = true }
@@ -58,7 +59,12 @@ expensive-debug = []
 unstable = []
 legacy = []
 abi = ["borsh/schema", "near-abi", "schemars", "near-sdk-macros/abi"]
-unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+unit-testing = [
+    "near-vm-logic",
+    "near-primitives-core",
+    "near-primitives",
+    "near-crypto",
+]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
