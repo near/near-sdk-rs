@@ -50,12 +50,8 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
     assert!(!alice_approval_id_is_2);
 
     // alternatively, one could check the data returned by nft_token
-    let token = nft_contract
-        .call("nft_token")
-        .args_json((TOKEN_ID,))
-        .view()
-        .await?
-        .json::<Token>()?;
+    let token =
+        nft_contract.call("nft_token").args_json((TOKEN_ID,)).view().await?.json::<Token>()?;
     let mut expected_approvals: HashMap<AccountId, u64> = HashMap::new();
     expected_approvals.insert(AccountId::try_from(alice.id().to_string())?, 1);
     assert_eq!(token.approved_account_ids.unwrap(), expected_approvals);
@@ -157,12 +153,8 @@ async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
     assert!(res.is_success());
 
     // token now owned by alice
-    let token = nft_contract
-        .call("nft_token")
-        .args_json((TOKEN_ID,))
-        .view()
-        .await?
-        .json::<Token>()?;
+    let token =
+        nft_contract.call("nft_token").args_json((TOKEN_ID,)).view().await?.json::<Token>()?;
     assert_eq!(token.owner_id.to_string(), alice.id().to_string());
 
     Ok(())

@@ -65,9 +65,7 @@ pub struct Royalties {
 ///         balance: U128,
 ///         max_len_payout: Option<u32>,
 ///     ) -> Payout {
-///         let owner_id = self.tokens.owner_by_id.get(&token_id).expect("No such token_id");
-///         self.tokens.royalties.as_ref()
-///             .map_or(Payout::default(), |r| r.create_payout(balance.0, &owner_id))
+///         self.tokens.nft_payout(token_id, balance, max_len_payout)
 ///     }
 ///     #[payable]
 ///     fn nft_transfer_payout(
@@ -79,10 +77,14 @@ pub struct Royalties {
 ///         balance: U128,
 ///         max_len_payout: Option<u32>,
 ///     ) -> Payout {
-///         assert_one_yocto();
-///         let payout = self.nft_payout(token_id.clone(), balance, max_len_payout);
-///         self.nft_transfer(receiver_id, token_id, approval_id, memo);
-///         payout
+///         self.tokens.nft_transfer_payout(
+///             receiver_id,
+///             token_id,
+///             approval_id,
+///             memo,
+///             balance,
+///             max_len_payout,
+///         )
 ///     }
 /// }
 /// ```
