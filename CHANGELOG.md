@@ -4,7 +4,7 @@
 
 ### Added
 - **BREAKING** Added [NEP-199 - Non-Fungible Token Royalties and Payouts](https://github.com/willemneal/NEPs/blob/18828873648eff1a2e8464db234aefd70918b3e0/neps/nep-0199.md) implementation. This
-will need a state migration for any contracts using NFT of previous versions due to an extra field.
+will need a state migration in case of upgrade for any contracts using NFT of previous versions due to an extra field.
 
 ### Fixed
 - Exposed missing iterator types used in `near_sdk::store::UnorderedSet`. [PR 961](https://github.com/near/near-sdk-rs/pull/961)
