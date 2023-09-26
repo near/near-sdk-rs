@@ -1852,6 +1852,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-gas"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dac82d80f9dba5d879876ccee0fc8f4d91ca82552bad545e9f9714c5da49e4c"
+dependencies = [
+ "borsh 0.9.3",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "near-jsonrpc-client"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2088,6 +2099,7 @@ dependencies = [
  "bs58",
  "near-abi",
  "near-crypto 0.17.0",
+ "near-gas",
  "near-primitives 0.17.0",
  "near-primitives-core 0.17.0",
  "near-sdk-macros",

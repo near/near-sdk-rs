@@ -1289,6 +1289,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "near-gas"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dac82d80f9dba5d879876ccee0fc8f4d91ca82552bad545e9f9714c5da49e4c"
+dependencies = [
+ "borsh 0.9.3",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "near-o11y"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,6 +1416,7 @@ dependencies = [
  "bs58",
  "near-abi",
  "near-crypto",
+ "near-gas",
  "near-primitives",
  "near-primitives-core",
  "near-sdk-macros",

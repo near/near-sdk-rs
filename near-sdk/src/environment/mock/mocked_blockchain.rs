@@ -126,7 +126,7 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
         account_locked_balance: context.account_locked_balance,
         storage_usage: context.storage_usage,
         attached_deposit: context.attached_deposit,
-        prepaid_gas: context.prepaid_gas.0,
+        prepaid_gas: context.prepaid_gas.as_gas(),
         random_seed: context.random_seed.to_vec(),
         view_config: context.view_config,
         output_data_receivers: context
@@ -144,7 +144,7 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
         PrimitivesAction::FunctionCall(f) => VmAction::FunctionCall {
             function_name: f.method_name.clone(),
             args: f.args.clone(),
-            gas: Gas(f.gas),
+            gas: Gas::from_gas(f.gas),
             deposit: f.deposit,
         },
         PrimitivesAction::Transfer(t) => VmAction::Transfer { deposit: t.deposit },
