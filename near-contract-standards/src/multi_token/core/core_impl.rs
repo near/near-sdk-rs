@@ -1,5 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, TreeMap, UnorderedMap, UnorderedSet};
+use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
 use near_sdk::{
     assert_one_yocto, env, log, require, AccountId, Balance, BorshStorageKey, CryptoHash, Gas,
@@ -49,7 +49,7 @@ pub struct MultiToken {
     pub extra_storage_in_bytes_per_emission: StorageUsage,
 
     /// Owner of each token
-    pub owner_by_id: TreeMap<TokenId, AccountId>,
+    pub owner_by_id: UnorderedMap<TokenId, AccountId>,
 
     /// Total supply for each token
     pub total_supply: LookupMap<TokenId, Balance>,
@@ -124,7 +124,7 @@ impl MultiToken {
         let mut this = Self {
             owner_id,
             extra_storage_in_bytes_per_emission: 0,
-            owner_by_id: TreeMap::new(owner_by_id_prefix),
+            owner_by_id: UnorderedMap::new(owner_by_id_prefix),
             total_supply: LookupMap::new(StorageKey::TotalSupply { supply: 0 }),
             token_metadata_by_id: token_metadata_prefix.map(LookupMap::new),
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
