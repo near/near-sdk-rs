@@ -153,19 +153,13 @@ impl MultiTokenApproval for MultiToken {
         for (idx, (token_id, amount)) in token_ids.iter().zip(amounts).enumerate() {
             let by_owner = by_token.get(token_id).unwrap_or_default();
 
-            let grantee_to_approval = match by_owner.get(&owner_id) {
-                Some(grantee_to_approval) => grantee_to_approval,
-                None => return false,
+            let approval = match by_owner
+                .get(&owner_id)
+                .and_then(|grantee_to_approval| grantee_to_approval.get(&approved_account_id))
+            {
+                Some(approval) if approval.amount.eq(&amount.into()) => approval,
+                _ => return false,
             };
-
-            let approval = match grantee_to_approval.get(&approved_account_id) {
-                Some(approval) => approval,
-                None => return false,
-            };
-
-            if !approval.amount.eq(&amount.into()) {
-                return false;
-            }
 
             if let Some(given_approval) = approval_ids.get(idx) {
                 if !approval.approval_id.eq(given_approval) {

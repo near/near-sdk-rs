@@ -24,7 +24,7 @@ impl MultiTokenEnumeration for MultiToken {
             self.owner_by_id.len() as u128 >= start_index,
             "Out of bounds, please use a smaller from_index."
         );
-        let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
+        let limit = limit.unwrap_or(u64::MAX);
         require!(limit != 0, "Limit cannot be 0");
 
         self.owner_by_id

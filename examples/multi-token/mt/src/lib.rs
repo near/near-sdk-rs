@@ -48,7 +48,6 @@ impl ExampleMTContract {
 
     #[init]
     pub fn new(owner_id: AccountId, metadata: MtContractMetadata) -> Self {
-        require!(!env::state_exists(), "Already initialized");
         metadata.assert_valid();
 
         Self {
