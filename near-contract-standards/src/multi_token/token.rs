@@ -18,9 +18,16 @@ pub struct Approval {
 // How Approvals are stored in the contract
 pub type ApprovalContainer = LookupMap<TokenId, HashMap<AccountId, HashMap<AccountId, Approval>>>;
 
-// Represents a temporary record of an Approval
-// that was removed from the ApprovalContainer but may be restored in case of rollback in XCC.
-// Values are (owner_id, approval_id, amount)
+// Represents a record of an Approval that has been temporarily added or removed 
+// from the ApprovalContainer during cross-contract calls (XCC).
+// This data is stored to facilitate possible rollback scenarios where the 
+// approval needs to be restored.
+//
+// The tuple contains the following elements:
+// - `AccountId`: The Account ID of the owner who initially granted the approval.
+// - `Approval`: A struct containing:
+//   - `amount`: The number of tokens that were initially approved for transfer.
+//   - `approval_id`: A unique identifier assigned to this specific approval.
 pub type ClearedApproval = (AccountId, Approval);
 
 /// Info on individual token
