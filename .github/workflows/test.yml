@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable, 1.56.0]
+        toolchain: [stable, 1.69.0]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -21,8 +21,15 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
+          default: true
+          target: wasm32-unknown-unknown
+      - name: downgrade `anstyle`,`clap`,`clap_lex` crates to support older Rust toolchain
+        if: matrix.toolchain == '1.69.0' 
+        run: |
+          cargo update -p anstyle --precise 1.0.2
+          cargo update -p clap --precise 4.3.24
+          cargo update -p clap_lex --precise 0.5.0
       - uses: Swatinem/rust-cache@v1
-      - run: rustup target add wasm32-unknown-unknown
       - name: Test
         run: cargo test --all --features unstable,legacy
   lint:
@@ -35,11 +42,12 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          default: true
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
       - name: Test Format
         run: cargo fmt -- --check
-      - run: cargo clippy --features unstable,legacy --tests -- -Dclippy::all
+      - run: cargo clippy --tests --all-features -- -Dclippy::all
   windows:
     name: Windows
     runs-on: windows-latest
@@ -50,8 +58,12 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          default: true
       - uses: Swatinem/rust-cache@v1
       - run: cargo check -p near-sdk --features unstable,legacy
+      - run: cargo check -p near-sdk --no-default-features
+      - run: cargo check -p near-sdk --no-default-features --features legacy
+      - run: cargo check -p near-sdk --no-default-features --features unstable
       - run: cargo check -p near-contract-standards
   audit:
     name: Audit
@@ -64,11 +76,9 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+          default: true
       - uses: Swatinem/rust-cache@v1
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
-        uses: actions-rs/cargo@v1
-        with:
-          command: audit
-          args: --ignore RUSTSEC-2020-0071
+        run:  cargo audit

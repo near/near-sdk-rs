@@ -190,12 +190,12 @@ where
 {
 }
 
-/// A lazy iterator producing elements in the symmetrical difference of `UnorderedSet`s.
+/// A lazy iterator producing elements in the symmetrical difference of [`UnorderedSet`]s.
 ///
-/// This `struct` is created by the [`symmetrical_difference`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`symmetric_difference`] method on [`UnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`symmetrical_difference`]: UnorderedSet::symmetrical_difference
+/// [`symmetric_difference`]: UnorderedSet::symmetric_difference
 pub struct SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -284,7 +284,7 @@ where
 {
 }
 
-/// A draining iterator for [`UnorderedMap<K, V, H>`].
+/// A draining iterator for [`UnorderedSet`].
 ///
 /// This `struct` is created by the [`drain`] method on [`UnorderedSet`].
 /// See its documentation for more.

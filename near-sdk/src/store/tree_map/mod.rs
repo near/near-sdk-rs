@@ -316,18 +316,6 @@ where
         self.nodes.get(id)
     }
 
-    /// Returns the smallest stored key from the tree
-    fn min(&self) -> Option<&K> {
-        let root = self.root?;
-        self.min_at(root).map(|((_, n), _)| &n.key)
-    }
-
-    /// Returns the largest stored key from the tree
-    fn max(&self) -> Option<&K> {
-        let root = self.root?;
-        self.max_at(root).map(|((_, n), _)| &n.key)
-    }
-
     /// Returns the smallest key that is strictly greater than key given as the parameter
     fn higher<Q>(&self, key: &Q) -> Option<&K>
     where
@@ -679,7 +667,7 @@ where
     // - right-most (max) node of the left subtree (containing smaller keys) of node holding `key`
     // - or left-most (min) node of the right subtree (containing larger keys) of node holding `key`
     //
-    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> (Option<FreeListIndex>, Option<K>)
+    fn do_remove<Q: ?Sized>(&mut self, key: &Q) -> Option<K>
     where
         K: Borrow<Q>,
         Q: BorshSerialize + Eq + PartialOrd,
@@ -691,7 +679,7 @@ where
             .and_then(|root| self.lookup_at(root, key))
         {
             Some(((l_id, node), r)) => ((l_id, node.clone()), r.map(|(i, n, e)| (i, n.clone(), e))),
-            None => return (self.root, None), // cannot remove a missing key, no changes to the tree needed
+            None => return None, // cannot remove a missing key, no changes to the tree needed
         };
 
         let lft_opt = r_node.lft;
@@ -699,7 +687,7 @@ where
 
         if lft_opt.is_none() && rgt_opt.is_none() {
             // Node is leaf, can simply remove and rebalance.
-            let mut new_id = if let Some((p_id, mut p_node, p_edge)) = remove_parent {
+            if let Some((p_id, mut p_node, p_edge)) = remove_parent {
                 match p_edge {
                     Edge::Right => {
                         p_node.rgt = None;
@@ -713,17 +701,15 @@ where
                 // removing node might have caused a imbalance - balance the tree up to the root,
                 // starting from lowest affected key - the parent of a leaf node in this case.
                 // At this point, we can assume there is a root because there is at least the parent
-                self.root.map(|root| self.check_balance(root, &p_node.key))
-            } else {
-                self.root
-            };
+                self.root = self.root.map(|root| self.check_balance(root, &p_node.key));
+            }
 
             let removed = expect(self.nodes.remove(r_id));
             if Some(r_id) == self.root {
-                new_id = None;
+                self.root = None;
             }
 
-            (new_id, Some(removed.key))
+            Some(removed.key)
         } else {
             // non-leaf node, select subtree to proceed with depending on balance
             let b = self.get_balance(&r_node);
@@ -759,13 +745,13 @@ where
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                let new_root = self.root.map(|root| {
+                self.root = self.root.map(|root| {
                     self.check_balance(
                         root,
                         parent.as_ref().map(|p| &p.1.key).unwrap_or(&r_node.key),
                     )
                 });
-                (new_root, Some(replaced_key))
+                Some(replaced_key)
             } else {
                 // proceed with right subtree
                 let rgt = expect(rgt_opt);
@@ -798,13 +784,13 @@ where
 
                 // removing node might have caused an imbalance - balance the tree up to the root,
                 // starting from the lowest affected key (max key from left subtree in this case)
-                let new_root = self.root.map(|root| {
+                self.root = self.root.map(|root| {
                     self.check_balance(
                         root,
                         parent.as_ref().map(|p| &p.1.key).unwrap_or(&r_node.key),
                     )
                 });
-                (new_root, Some(replaced_key))
+                Some(replaced_key)
             }
         }
     }
@@ -969,8 +955,7 @@ where
         Q: BorshSerialize + ToOwned<Owned = K> + Eq + PartialOrd,
     {
         self.values.remove(key).map(|removed_value| {
-            let (new_root, removed) = self.tree.do_remove(key);
-            self.tree.root = new_root;
+            let removed = self.tree.do_remove(key);
             (expect(removed), removed_value)
         })
     }
@@ -1072,8 +1057,6 @@ mod tests {
         assert_eq!(height(&map), 0);
         assert_eq!(map.get(&42), None);
         assert!(!map.contains_key(&42));
-        assert_eq!(map.tree.min(), None);
-        assert_eq!(map.tree.max(), None);
         assert_eq!(map.tree.lower(&42), None);
         assert_eq!(map.tree.higher(&42), None);
     }
@@ -1233,14 +1216,16 @@ mod tests {
             map.insert(x, 1);
         }
 
-        assert_eq!(map.tree.max().unwrap(), vec.iter().max().unwrap());
+        let tree_max = map.tree.max_at(map.tree.root.unwrap()).map(|((_, n), _)| &n.key);
+
+        assert_eq!(tree_max.unwrap(), vec.iter().max().unwrap());
         map.clear();
     }
 
     #[test]
     fn test_lower() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1260,7 +1245,7 @@ mod tests {
     #[test]
     fn test_higher() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1280,7 +1265,7 @@ mod tests {
     #[test]
     fn test_floor_key() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1300,7 +1285,7 @@ mod tests {
     #[test]
     fn test_ceil_key() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1337,7 +1322,7 @@ mod tests {
 
     #[test]
     fn test_remove_3_desc() {
-        let vec: Vec<u32> = vec![3, 2, 1];
+        let vec = [3, 2, 1];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1356,7 +1341,7 @@ mod tests {
 
     #[test]
     fn test_remove_3_asc() {
-        let vec: Vec<u32> = vec![1, 2, 3];
+        let vec = [1, 2, 3];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1376,8 +1361,8 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_1() {
-        let vec: Vec<u32> =
-            vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
+        let vec =
+            [2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1398,8 +1383,7 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_2() {
-        let vec: Vec<u32> =
-            vec![700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
+        let vec = [700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1418,7 +1402,7 @@ mod tests {
 
     #[test]
     fn test_remove_9_regression() {
-        let vec: Vec<u32> = vec![
+        let vec = [
             1186903464, 506371929, 1738679820, 1883936615, 1815331350, 1512669683, 3581743264,
             1396738166, 1902061760,
         ];
@@ -1440,7 +1424,7 @@ mod tests {
 
     #[test]
     fn test_remove_20_regression_1() {
-        let vec: Vec<u32> = vec![
+        let vec = [
             552517392, 3638992158, 1015727752, 2500937532, 638716734, 586360620, 2476692174,
             1425948996, 3608478547, 757735878, 2709959928, 2092169539, 3620770200, 783020918,
             1986928932, 200210441, 1972255302, 533239929, 497054557, 2137924638,
@@ -1463,7 +1447,7 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression() {
-        let vec: Vec<u32> = vec![280, 606, 163, 857, 436, 508, 44, 801];
+        let vec = [280, 606, 163, 857, 436, 508, 44, 801];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
@@ -1486,8 +1470,8 @@ mod tests {
 
     #[test]
     fn test_insert_8_remove_4_regression() {
-        let insert = vec![882, 398, 161, 76];
-        let remove = vec![242, 687, 860, 811];
+        let insert = [882, 398, 161, 76];
+        let remove = [242, 687, 860, 811];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
@@ -1552,8 +1536,8 @@ mod tests {
 
     #[test]
     fn test_insert_2_remove_2_regression() {
-        let ins: Vec<u32> = vec![11760225, 611327897];
-        let rem: Vec<u32> = vec![2982517385, 1833990072];
+        let ins = [11760225, 611327897];
+        let rem = [2982517385, 1833990072];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(ins[0], 1);
@@ -1676,8 +1660,8 @@ mod tests {
     fn test_iter_from() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one = [10, 20, 30, 40, 50];
+        let two = [45, 35, 25, 15, 5];
 
         for x in &one {
             map.insert(*x, 42);
@@ -1715,8 +1699,8 @@ mod tests {
     fn test_iter_rev_from() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one = [10, 20, 30, 40, 50];
+        let two = [45, 35, 25, 15, 5];
 
         for x in &one {
             map.insert(*x, 42);
@@ -1753,8 +1737,8 @@ mod tests {
     fn test_range() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one = [10, 20, 30, 40, 50];
+        let two = [45, 35, 25, 15, 5];
 
         for x in &one {
             map.insert(*x, 42);
@@ -1829,8 +1813,8 @@ mod tests {
 
     #[test]
     fn test_balance_regression_1() {
-        let insert = vec![(2, 0), (3, 0), (4, 0)];
-        let remove = vec![0, 0, 0, 1];
+        let insert = [(2, 0), (3, 0), (4, 0)];
+        let remove = [0, 0, 0, 1];
 
         let map = avl(&insert, &remove);
         assert!(is_balanced(&map, map.tree.root.unwrap()));
@@ -1838,8 +1822,8 @@ mod tests {
 
     #[test]
     fn test_balance_regression_2() {
-        let insert = vec![(1, 0), (2, 0), (0, 0), (3, 0), (5, 0), (6, 0)];
-        let remove = vec![0, 0, 0, 3, 5, 6, 7, 4];
+        let insert = [(1, 0), (2, 0), (0, 0), (3, 0), (5, 0), (6, 0)];
+        let remove = [0, 0, 0, 3, 5, 6, 7, 4];
 
         let map = avl(&insert, &remove);
         assert!(is_balanced(&map, map.tree.root.unwrap()));
@@ -2071,6 +2055,8 @@ mod tests {
         Flush,
         Restore,
         Get(u8),
+        EntryInsert(u8, u8),
+        EntryRemove(u8),
     }
 
     #[test]
@@ -2112,9 +2098,53 @@ mod tests {
                             let r2 = hm.get(&k);
                             assert_eq!(r1, r2)
                         }
+                        Op::EntryInsert(k, v) => {
+                            let r1 = um.entry(k).or_insert(v);
+                            let r2 = hm.entry(k).or_insert(v);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::EntryRemove(k) => match (um.entry(k), hm.entry(k)) {
+                            (
+                                Entry::Occupied(o1),
+                                std::collections::btree_map::Entry::Occupied(o2),
+                            ) => {
+                                let r1 = o1.remove();
+                                let r2 = o2.remove();
+                                assert_eq!(r1, r2)
+                            }
+                            (Entry::Vacant(_), std::collections::btree_map::Entry::Vacant(_)) => {}
+                            _ => panic!("inconsistent entry states"),
+                        },
                     }
                 }
             }
         }
+    }
+
+    #[test]
+    fn issue993() {
+        fn swap_set<H>(map: &mut TreeMap<(), (), H>)
+        where
+            H: ToKey,
+        {
+            match map.entry(()) {
+                Entry::Occupied(o) => {
+                    o.remove();
+                }
+                Entry::Vacant(o) => {
+                    o.insert(());
+                }
+            };
+        }
+
+        let mut map = TreeMap::new(b"m");
+        swap_set(&mut map);
+        assert_eq!(map.tree.root, Some(FreeListIndex(0)));
+        swap_set(&mut map);
+        assert_eq!(map.tree.root, None);
+        // This line previously panicked because the entry was removed without updating the tree
+        // root.
+        swap_set(&mut map);
+        assert_eq!(map.tree.root, Some(FreeListIndex(0)));
     }
 }

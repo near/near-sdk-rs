@@ -97,7 +97,7 @@ impl VMContextBuilder {
                 account_locked_balance: 0,
                 storage_usage: 1024 * 300,
                 attached_deposit: 0,
-                prepaid_gas: Gas(300 * 10u64.pow(12)),
+                prepaid_gas: Gas::from_tgas(300),
                 random_seed: [0u8; 32],
                 view_config: None,
                 output_data_receivers: vec![],
@@ -125,8 +125,14 @@ impl VMContextBuilder {
         self
     }
 
+    #[deprecated(since = "4.1.2", note = "Use `block_height` method instead")]
     pub fn block_index(&mut self, block_index: BlockHeight) -> &mut Self {
         self.context.block_index = block_index;
+        self
+    }
+
+    pub fn block_height(&mut self, block_height: BlockHeight) -> &mut Self {
+        self.context.block_index = block_height;
         self
     }
 

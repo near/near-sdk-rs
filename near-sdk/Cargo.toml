@@ -1,6 +1,6 @@
 [package]
 name = "near-sdk"
-version = "4.1.0-pre.3"
+version.workspace = true
 authors = ["Near Inc <max@nearprotocol.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -15,13 +15,14 @@ Rust library for writing NEAR smart contracts.
 [[test]]
 name = "compilation_tests"
 path = "compilation_tests/all.rs"
+required-features = ["abi", "unstable"]
 
 [dependencies]
 # Provide near_bidgen macros.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-near-sdk-macros = { path = "../near-sdk-macros", version = "=4.1.0-pre.3" }
-near-sys = { path = "../sys", version = "0.2" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~4.1.1" }
+near-sys = { path = "../near-sys", version = "0.2" }
 base64 = "0.13"
 borsh = { version = "0.9", features = ["const-generics"] }
 bs58 = "0.4"
@@ -30,16 +31,18 @@ schemars = { version = "0.8.8", optional = true }
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 # Used for caching, might be worth porting only functionality needed.
-once_cell = { version = "1.8", default-features = false }
+once_cell = { version = "1.17", default-features = false }
 
-near-abi = { version = "0.2.0", features = ["__chunked-entries"], optional = true }
+near-abi = { version = "0.3.0", features = [
+    "__chunked-entries",
+], optional = true }
+near-gas = { version = "0.2.3", features = ["serde", "borsh", "schemars"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# alt_bn128 feature will need to be removed on the next version update (now stabilized)
-near-vm-logic = { version = "0.14", optional = true, features = ["protocol_feature_alt_bn128"] }
-near-primitives-core = { version = "0.14", optional = true }
-near-primitives = { version = "0.14", optional = true }
-near-crypto = { version = "0.14", optional = true }
+near-vm-logic = { version = "0.17", optional = true }
+near-primitives-core = { version = "0.17", optional = true }
+near-primitives = { version = "0.17", optional = true }
+near-crypto = { version = "0.17", optional = true }
 
 [dev-dependencies]
 rand = "0.8.4"
@@ -47,17 +50,22 @@ trybuild = "1.0"
 rustversion = "1.0"
 rand_xorshift = "0.3"
 quickcheck = "1.0"
-arbitrary = { version = ">=1.0, <1.1.4", features = ["derive"] }
-derive_arbitrary = ">=1.0, <=1.1.6"
+arbitrary = { version = "1.2.3", features = ["derive"] }
+derive_arbitrary = "1.2.3"
 hex = { version = "0.4.3", features = ["serde"] }
 
 [features]
-default = ["wee_alloc", "unit-testing", "legacy"]
+default = ["wee_alloc", "unit-testing", "legacy", "abi"]
 expensive-debug = []
 unstable = []
 legacy = []
-abi = ["near-abi", "schemars"]
-unit-testing = ["near-vm-logic", "near-primitives-core", "near-primitives", "near-crypto"]
+abi = ["near-abi", "schemars", "near-sdk-macros/abi"]
+unit-testing = [
+    "near-vm-logic",
+    "near-primitives-core",
+    "near-primitives",
+    "near-crypto",
+]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]

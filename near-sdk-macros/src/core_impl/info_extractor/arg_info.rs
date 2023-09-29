@@ -1,5 +1,6 @@
-use crate::core_impl::info_extractor::serializer_attr::SerializerAttr;
-use crate::core_impl::info_extractor::SerializerType;
+use crate::core_impl::info_extractor::{SerializerAttr, SerializerType};
+use crate::core_impl::utils;
+use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use syn::{spanned::Spanned, Attribute, Error, Ident, Pat, PatType, Token, Type};
 
@@ -34,22 +35,23 @@ pub struct ArgInfo {
     pub bindgen_ty: BindgenArgType,
     /// Type of serializer that we use for this argument.
     pub serializer_ty: SerializerType,
+    /// Spans of all occurences of the `Self` token, if any.
+    pub self_occurrences: Vec<Span>,
     /// The original `PatType` of the argument.
     pub original: PatType,
 }
 
 impl ArgInfo {
     /// Extract near-sdk specific argument info.
-    pub fn new(original: &mut PatType) -> syn::Result<Self> {
+    pub fn new(original: &mut PatType, source_type: &TokenStream) -> syn::Result<Self> {
         let mut non_bindgen_attrs = vec![];
         let pat_reference;
         let pat_mutability;
-        let ident;
-        match original.pat.as_ref() {
+        let ident = match original.pat.as_ref() {
             Pat::Ident(pat_ident) => {
                 pat_reference = pat_ident.by_ref;
                 pat_mutability = pat_ident.mutability;
-                ident = pat_ident.ident.clone();
+                pat_ident.ident.clone()
             }
             _ => {
                 return Err(Error::new(
@@ -58,18 +60,15 @@ impl ArgInfo {
                 ));
             }
         };
-        let (reference, mutability, ty) = match original.ty.as_ref() {
-            x @ Type::Array(_) | x @ Type::Path(_) | x @ Type::Tuple(_) => {
-                (None, None, (*x).clone())
-            }
-            Type::Reference(r) => (Some(r.and_token), r.mutability, (*r.elem.as_ref()).clone()),
-            _ => return Err(Error::new(original.span(), "Unsupported argument type.")),
-        };
+        let sanitize_self = utils::sanitize_self(&original.ty, source_type)?;
+        *original.ty.as_mut() = sanitize_self.ty;
+        let (reference, mutability, ty) =
+            utils::extract_ref_mut(original.ty.as_ref(), original.span())?;
         // In the absence of callback attributes this is a regular argument.
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
-        for attr in &mut original.attrs {
+        for attr in &original.attrs {
             let attr_str = attr.path.to_token_stream().to_string();
             match attr_str.as_str() {
                 "callback" | "callback_unwrap" => {
@@ -110,6 +109,7 @@ impl ArgInfo {
             ty,
             bindgen_ty,
             serializer_ty,
+            self_occurrences: sanitize_self.self_occurrences,
             original: original.clone(),
         })
     }

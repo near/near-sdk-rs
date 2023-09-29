@@ -1,10 +1,40 @@
 use proc_macro2::TokenStream as TokenStream2;
 
 use crate::core_impl::info_extractor::{ArgInfo, AttrSigInfo, BindgenArgType, SerializerType};
-use crate::core_impl::utils;
+use crate::core_impl::{utils, MethodKind};
 use quote::quote;
 
 impl AttrSigInfo {
+    /// Whether the signature has function arguments.
+    pub fn has_input_args(&self) -> bool {
+        self.input_args().next().is_some()
+    }
+
+    /// Whether the method has `payable` attribute.
+    /// Only available when `__abi-generate` feature is enabled as it's only in the abi generator
+    /// currently.
+    #[cfg(feature = "__abi-generate")]
+    pub fn is_payable(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.is_payable,
+            Init(init_method) => init_method.is_payable,
+            View(_) => false,
+        }
+    }
+
+    /// Whether the method has `private` attribute.
+    pub fn is_private(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.is_private,
+            Init(_) => false,
+            View(view_method) => view_method.is_private,
+        }
+    }
+
     pub fn input_struct_ser(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
@@ -13,11 +43,11 @@ impl AttrSigInfo {
         );
         let attribute = match &self.input_serializer {
             SerializerType::JSON => quote! {
-                #[derive(near_sdk::serde::Serialize)]
-                #[serde(crate = "near_sdk::serde")]
+                #[derive(::near_sdk::serde::Serialize)]
+                #[serde(crate = "::near_sdk::serde")]
             },
             SerializerType::Borsh => quote! {
-                #[derive(near_sdk::borsh::BorshSerialize)]
+                #[derive(::near_sdk::borsh::BorshSerialize)]
             },
         };
         let mut fields = TokenStream2::new();
@@ -59,11 +89,11 @@ impl AttrSigInfo {
         );
         let attribute = match &self.input_serializer {
             SerializerType::JSON => quote! {
-                #[derive(near_sdk::serde::Deserialize)]
-                #[serde(crate = "near_sdk::serde")]
+                #[derive(::near_sdk::serde::Deserialize)]
+                #[serde(crate = "::near_sdk::serde")]
             },
             SerializerType::Borsh => quote! {
-                #[derive(near_sdk::borsh::BorshDeserialize)]
+                #[derive(::near_sdk::borsh::BorshDeserialize)]
             },
         };
         let mut fields = TokenStream2::new();
@@ -192,9 +222,9 @@ impl AttrSigInfo {
                     BindgenArgType::CallbackArg => {
                         let error_msg = format!("Callback computation {} was not successful", idx);
                         let read_data = quote! {
-                            let data: Vec<u8> = match near_sdk::env::promise_result(#idx) {
-                                near_sdk::PromiseResult::Successful(x) => x,
-                                _ => near_sdk::env::panic_str(#error_msg)
+                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
+                                ::near_sdk::PromiseResult::Successful(x) => x,
+                                _ => ::near_sdk::env::panic_str(#error_msg)
                             };
                         };
                         let invocation = deserialize_data(serializer_ty);
@@ -225,20 +255,19 @@ impl AttrSigInfo {
                             // deserialization otherwise.
                             syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
                                 quote! {
-                                    near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
-                                        Ok(()),
-                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                    ::near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
+                                        ::std::result::Result::Ok(()),
+                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
                                 },
                             _ =>
                                 quote! {
-                                    near_sdk::PromiseResult::Successful(data) => Ok(#deserialize)
+                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
                                 }
                         };
                         let result = quote! {
-                            match near_sdk::env::promise_result(#idx) {
+                            match ::near_sdk::env::promise_result(#idx) {
                                 #deserialization_branch,
-                                near_sdk::PromiseResult::NotReady => Err(near_sdk::PromiseError::NotReady),
-                                near_sdk::PromiseResult::Failed => Err(near_sdk::PromiseError::Failed),
+                                ::near_sdk::PromiseResult::Failed => ::std::result::Result::Err(::near_sdk::PromiseError::Failed),
                             }
                         };
                         quote! {
@@ -261,16 +290,17 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = deserialize_data(&arg.serializer_ty);
                 quote! {
-                #acc
-                let #mutability #ident: #ty = (0..near_sdk::env::promise_results_count())
-                .map(|i| {
-                    let data: Vec<u8> = match near_sdk::env::promise_result(i) {
-                        near_sdk::PromiseResult::Successful(x) => x,
-                        _ => near_sdk::env::panic_str(&format!("Callback computation {} was not successful", i)),
-                    };
-                    #invocation
-                }).collect();
-            }
+                    #acc
+                    let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
+                        0..::near_sdk::env::promise_results_count(),
+                        |i| {
+                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
+                                ::near_sdk::PromiseResult::Successful(x) => x,
+                                _ => ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)),
+                            };
+                            #invocation
+                        }));
+                }
             })
     }
 }
@@ -278,10 +308,10 @@ impl AttrSigInfo {
 pub fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
-            near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+            ::near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
         },
         SerializerType::Borsh => quote! {
-            near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
+            ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
         },
     }
 }

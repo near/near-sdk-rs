@@ -75,6 +75,11 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         } else {
             return vec![];
         };
+
+        if token_set.is_empty() {
+            return vec![];
+        }
+
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
         require!(limit != 0, "Cannot provide limit of 0.");
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();

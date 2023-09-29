@@ -3,6 +3,29 @@ use near_sdk::{ext_contract, AccountId};
 use std::collections::HashMap;
 
 /// Used when an NFT is transferred using `nft_transfer_call`. This is the method that's called after `nft_on_transfer`. This trait is implemented on the NFT contract.
+///
+/// # Examples
+///
+/// ```
+/// use std::collections::HashMap;
+/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen};
+/// use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenResolver, TokenId};
+///
+/// #[near_bindgen]
+/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// pub struct Contract {
+///    tokens: NonFungibleToken,
+///}
+/// #[near_bindgen]
+/// impl NonFungibleTokenResolver for Contract {
+///     #[private]
+///     fn nft_resolve_transfer(&mut self, previous_owner_id: AccountId, receiver_id: AccountId, token_id: TokenId, approved_account_ids: Option<HashMap<AccountId, u64>>) -> bool {
+///         self.tokens.nft_resolve_transfer(previous_owner_id, receiver_id, token_id, approved_account_ids)
+///     }
+/// }
+/// ```
+///
 #[ext_contract(ext_nft_resolver)]
 pub trait NonFungibleTokenResolver {
     /// Finalize an `nft_transfer_call` chain of cross-contract calls.
@@ -26,7 +49,7 @@ pub trait NonFungibleTokenResolver {
     /// * `previous_owner_id`: the owner prior to the call to `nft_transfer_call`
     /// * `receiver_id`: the `receiver_id` argument given to `nft_transfer_call`
     /// * `token_id`: the `token_id` argument given to `ft_transfer_call`
-    /// * `approvals`: if using Approval Management, contract MUST provide
+    /// * `approved_account_ids`: if using Approval Management, contract MUST provide
     ///   set of original approved accounts in this argument, and restore these
     ///   approved accounts in case of revert.
     ///
@@ -36,6 +59,6 @@ pub trait NonFungibleTokenResolver {
         previous_owner_id: AccountId,
         receiver_id: AccountId,
         token_id: TokenId,
-        approvals: Option<HashMap<AccountId, u64>>,
+        approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool;
 }

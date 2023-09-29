@@ -1,0 +1,5 @@
+[advisories]
+ignore = [
+    "RUSTSEC-2020-0071", # `chrono` is a transient dependency used by `near-sandbox-utils` and other dependencies
+    "RUSTSEC-2022-0093", # security audit error in ed25519-dalek which is not relevant for near-sdk-rs
+]

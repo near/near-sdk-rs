@@ -43,7 +43,7 @@ impl MetadataVisitor {
             return Err(self.errors[0].clone());
         }
         let panic_hook = quote! {
-            near_sdk::env::setup_panic_hook();
+            ::near_sdk::env::setup_panic_hook();
         };
         let methods: Vec<TokenStream2> = self
             .impl_item_infos
@@ -56,12 +56,12 @@ impl MetadataVisitor {
             #[no_mangle]
             pub extern "C" fn metadata() {
                 #panic_hook
-                use borsh::*;
-                let metadata = near_sdk::__private::Metadata::new(vec![
+                use ::borsh::*;
+                let metadata = ::near_sdk::__private::Metadata::new(::std::vec![
                     #(#methods),*
                 ]);
-                let data = near_sdk::borsh::BorshSerialize::try_to_vec(&metadata).expect("Failed to serialize the metadata using Borsh");
-                near_sdk::env::value_return(&data);
+                let data = ::near_sdk::borsh::BorshSerialize::try_to_vec(&metadata).expect("Failed to serialize the metadata using Borsh");
+                ::near_sdk::env::value_return(&data);
             }
         })
     }
@@ -84,7 +84,7 @@ mod tests {
 
             #[near_bindgen]
             impl SomeTrait for Hello {
-                fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
+                fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Either<IsOk, Error> { }
             }
         };
 
@@ -98,60 +98,60 @@ mod tests {
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn metadata() {
-                near_sdk::env::setup_panic_hook();
-                use borsh::*;
-                let metadata = near_sdk::__private::Metadata::new(vec![
-                    near_sdk::__private::MethodMetadata {
-                        name: "f1".to_string(),
+                ::near_sdk::env::setup_panic_hook();
+                use ::borsh::*;
+                let metadata = ::near_sdk::__private::Metadata::new(::std::vec![
+                    ::near_sdk::__private::MethodMetadata {
+                        name: ::std::string::String::from("f1"),
                         is_view: true,
                         is_init: false,
-                        args: None,
-                        callbacks: vec![],
-                        callbacks_vec: None,
-                        result: None
+                        args: ::std::option::Option::None,
+                        callbacks: ::std::vec![],
+                        callbacks_vec: ::std::option::Option::None,
+                        result: ::std::option::Option::None
                     },
-                    near_sdk::__private::MethodMetadata {
-                        name: "f2".to_string(),
+                    ::near_sdk::__private::MethodMetadata {
+                        name: ::std::string::String::from("f2"),
                         is_view: false,
                         is_init: false,
                         args: {
-                            #[derive(borsh::BorshSchema)]
+                            #[derive(::borsh::BorshSchema)]
                             #[allow(dead_code)]
-                            #[derive(near_sdk :: serde :: Deserialize)]
-                            #[serde(crate = "near_sdk::serde")]
+                            #[derive(::near_sdk :: serde :: Deserialize)]
+                            #[serde(crate = "::near_sdk::serde")]
                             struct Input {
                                 arg0: FancyStruct,
                                 arg1: u64,
                             }
-                            Some(Input::schema_container())
+                            ::std::option::Option::Some(<Input as ::near_sdk::borsh::BorshSchema>::schema_container())
                         },
-                        callbacks: vec![],
-                        callbacks_vec: None,
-                        result: None
+                        callbacks: ::std::vec![],
+                        callbacks_vec: ::std::option::Option::None,
+                        result: ::std::option::Option::None
                     },
-                    near_sdk::__private::MethodMetadata {
-                        name: "f3".to_string(),
+                    ::near_sdk::__private::MethodMetadata {
+                        name: ::std::string::String::from("f3"),
                         is_view: false,
                         is_init: false,
                         args: {
-                            #[derive(borsh::BorshSchema)]
+                            #[derive(::borsh::BorshSchema)]
                             #[allow(dead_code)]
-                            #[derive(near_sdk :: serde :: Deserialize)]
-                            #[serde(crate = "near_sdk::serde")]
+                            #[derive(::near_sdk :: serde :: Deserialize)]
+                            #[serde(crate = "::near_sdk::serde")]
                             struct Input {
                                 arg0: FancyStruct,
                                 arg1: u64,
                             }
-                            Some(Input::schema_container())
+                            ::std::option::Option::Some(<Input as ::near_sdk::borsh::BorshSchema>::schema_container())
                         },
-                        callbacks: vec![],
-                        callbacks_vec: None,
-                        result: Some(Result < IsOk, Error > ::schema_container())
+                        callbacks: ::std::vec![],
+                        callbacks_vec: ::std::option::Option::None,
+                        result: ::std::option::Option::Some(<Either < IsOk, Error > as ::near_sdk::borsh::BorshSchema> ::schema_container())
                     }
                 ]);
-                let data = near_sdk::borsh::BorshSerialize::try_to_vec(&metadata)
+                let data = ::near_sdk::borsh::BorshSerialize::try_to_vec(&metadata)
                     .expect("Failed to serialize the metadata using Borsh");
-                near_sdk::env::value_return(&data);
+                ::near_sdk::env::value_return(&data);
             }
         );
         assert_eq!(expected.to_string(), actual.to_string());

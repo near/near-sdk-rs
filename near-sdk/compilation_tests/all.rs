@@ -20,4 +20,19 @@ fn compilation_tests() {
     t.pass("compilation_tests/borsh_storage_key_generics.rs");
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
+    t.pass("compilation_tests/schema_derive.rs");
+    if rustversion::cfg!(since(1.72)) {
+        // The compilation error output has slightly changed in 1.72, so we
+        // snapshoted this new version
+        t.compile_fail("compilation_tests/schema_derive_invalids.rs");
+    }
+    t.compile_fail("compilation_tests/generic_function.rs");
+    t.compile_fail("compilation_tests/generic_const_function.rs");
+    t.pass("compilation_tests/self_support.rs");
+    // The following couple tests should be activated before releasing 5.0
+    // See: https://github.com/near/near-sdk-rs/issues/1005
+    //
+    // t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_return.rs");
+    // t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_arg.rs");
+    t.pass("compilation_tests/private_init_method.rs");
 }

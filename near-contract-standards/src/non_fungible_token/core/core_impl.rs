@@ -15,8 +15,8 @@ use near_sdk::{
 };
 use std::collections::HashMap;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(5_000_000_000_000);
-const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas(25_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
+const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 /// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
@@ -207,13 +207,14 @@ impl NonFungibleToken {
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
         let approved_account_ids =
-            self.approvals_by_id.as_mut().and_then(|by_id| by_id.remove(token_id));
+            self.approvals_by_id.as_mut().map(|by_id| by_id.remove(token_id).unwrap_or_default());
 
         // check if authorized
         let sender_id = if sender_id != &owner_id {
-            // if approval extension is NOT being used, or if token has no approved accounts
-            let app_acc_ids =
-                approved_account_ids.as_ref().unwrap_or_else(|| env::panic_str("Unauthorized"));
+            // Panic if approval extension is NOT being used
+            let app_acc_ids = approved_account_ids
+                .as_ref()
+                .unwrap_or_else(|| env::panic_str("Approval extension is disabled"));
 
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = app_acc_ids.get(sender_id);
@@ -396,7 +397,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_nft_receiver::ext(receiver_id.clone())
-            .with_static_gas(env::prepaid_gas() - GAS_FOR_NFT_TRANSFER_CALL)
+            .with_static_gas(env::prepaid_gas().saturating_sub(GAS_FOR_NFT_TRANSFER_CALL))
             .nft_on_transfer(sender_id, old_owner.clone(), token_id.clone(), msg)
             .then(
                 ext_nft_resolver::ext(env::current_account_id())
@@ -428,7 +429,6 @@ impl NonFungibleTokenResolver for NonFungibleToken {
     ) -> bool {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
-            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(value) => {
                 if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
                     yes_or_no
@@ -467,7 +467,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         // 1. revert any approvals receiver already set, refunding storage costs
         // 2. reset approvals to what previous owner had set before call to nft_transfer_call
         if let Some(by_id) = &mut self.approvals_by_id {
-            if let Some(receiver_approvals) = by_id.get(&token_id) {
+            if let Some(receiver_approvals) = by_id.remove(&token_id) {
                 refund_approved_account_ids(receiver_id.clone(), &receiver_approvals);
             }
             if let Some(previous_owner_approvals) = approved_account_ids {
