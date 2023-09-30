@@ -30,9 +30,10 @@ impl ItemTraitInfo {
                         "Traits for external contracts do not support associated trait types yet.",
                     ))
                 }
-                TraitItem::Method(method) => {
-                    methods
-                        .push(TraitItemMethodInfo::new(method, &original.ident.to_token_stream())?);
+                TraitItem::Fn(method) => {
+                    let item = TraitItemMethodInfo::new(method, &original.ident.to_token_stream())?;
+                    methods.push(item);
+
                     if method.default.is_some() {
                         return Err(Error::new(
                             method.span(),

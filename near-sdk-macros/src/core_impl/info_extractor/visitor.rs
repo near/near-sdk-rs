@@ -177,7 +177,7 @@ impl Visitor {
 }
 
 fn is_init(attributes: &[Attribute]) -> bool {
-    attributes.iter().any(|a| a.path.to_token_stream().to_string() == "init")
+    attributes.iter().any(|a| a.path().to_token_stream().to_string() == "init")
 }
 
 fn is_view(sig: &Signature) -> bool {

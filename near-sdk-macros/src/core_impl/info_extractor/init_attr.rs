@@ -9,6 +9,7 @@ pub struct InitAttr {
 
 impl Parse for InitAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let _ident: Ident = input.parse()?;
         let ignore_state = if input.peek(Paren) {
             let content;
             let _paren_token = syn::parenthesized!(content in input);

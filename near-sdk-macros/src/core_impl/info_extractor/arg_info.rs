@@ -69,7 +69,7 @@ impl ArgInfo {
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
         for attr in &original.attrs {
-            let attr_str = attr.path.to_token_stream().to_string();
+            let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
                 "callback" | "callback_unwrap" => {
                     bindgen_ty = BindgenArgType::CallbackArg;
@@ -81,7 +81,7 @@ impl ArgInfo {
                     bindgen_ty = BindgenArgType::CallbackArgVec;
                 }
                 "serializer" => {
-                    let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
+                    let serializer: SerializerAttr = syn::parse2(attr.to_token_stream().clone())?;
                     serializer_ty = serializer.serializer_type;
                 }
                 _ => {
@@ -91,7 +91,7 @@ impl ArgInfo {
         }
 
         original.attrs.retain(|attr| {
-            let attr_str = attr.path.to_token_stream().to_string();
+            let attr_str = attr.path().to_token_stream().to_string();
             attr_str != "callback"
                 && attr_str != "callback_vec"
                 && attr_str != "serializer"

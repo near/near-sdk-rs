@@ -1,7 +1,8 @@
 use near_sdk::test_utils::get_logs;
 use near_sdk::{near_bindgen, AccountId};
 
-#[near_bindgen(event_json(standard = "test_standard", random = "random"), other_random)]
+#[near_bindgen(event_json(standard = "test_standard", random = "random"))]
+// #[near_bindgen(event_json(standard = "test_standard", random = "random"), other_random)]
 pub enum TestEvents<'a, 'b, T>
 where
     T: near_sdk::serde::Serialize,

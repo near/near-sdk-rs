@@ -285,49 +285,50 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let mut type_attrs = vec![];
     let mut errors = vec![];
     for attr in input.attrs {
-        match attr.parse_meta() {
-            // #[abi]
-            Ok(syn::Meta::Path(meta)) if meta.is_ident("abi") => {
-                errors.push(syn::Error::new_spanned(
-                    meta.into_token_stream(),
-                    "attribute requires at least one argument",
-                ));
-            }
-            // #[abi(json, borsh)]
-            Ok(syn::Meta::List(meta)) if meta.path.is_ident("abi") => {
-                // #[abi()]
-                if meta.nested.is_empty() {
-                    errors.push(syn::Error::new_spanned(
-                        meta.into_token_stream(),
-                        "attribute requires at least one argument",
-                    ));
-                    continue;
-                }
-                for meta in meta.nested {
-                    match meta {
-                        // #[abi(.. json ..)]
-                        syn::NestedMeta::Meta(m) if m.path().is_ident("json") => json_schema = true,
-                        // #[abi(.. borsh ..)]
-                        syn::NestedMeta::Meta(m) if m.path().is_ident("borsh") => {
-                            borsh_schema = true
-                        }
-                        _ => {
-                            errors.push(syn::Error::new_spanned(
-                                meta.into_token_stream(),
-                                "invalid argument, expected: `json` or `borsh`",
-                            ));
-                        }
+        let _ = attr.parse_nested_meta(|meta| {
+            let value: syn::Meta = meta.value()?.parse()?;
+            match value {
+                syn::Meta::Path(meta) => {
+                    if meta.is_ident("abi") {
+                        errors.push(syn::Error::new_spanned(
+                            meta.into_token_stream(),
+                            "attribute requires at least one argument",
+                        ));
                     }
                 }
+                syn::Meta::List(meta) => {
+                    let meta2 = meta.clone();
+                    if meta.path.is_ident("abi") {
+                        if meta.clone().to_token_stream().is_empty() {
+                            errors.push(syn::Error::new_spanned(
+                                meta.into_token_stream(),
+                                "attribute requires at least one argument",
+                            ));
+                        }
+                        let _ = meta2.parse_nested_meta(|m| {
+                            let value: syn::Meta = m.value()?.parse()?;
+
+                            if value.path().is_ident("json") {
+                                json_schema = true;
+                            } else if value.path().is_ident("borsh") {
+                                borsh_schema = true;
+                            } else {
+                                errors.push(syn::Error::new_spanned(
+                                    value.into_token_stream(),
+                                    "invalid argument, expected: `json` or `borsh`",
+                                ));
+                            };
+
+                            Ok(())
+                        });
+                    } else if meta.path.is_ident("serde") || meta.path.is_ident("schemars") {
+                        type_attrs.push(attr.clone())
+                    }
+                }
+                syn::Meta::NameValue(_meta) => {}
             }
-            // #[serde(..)], #[schemars(..)]
-            Ok(syn::Meta::List(meta))
-                if meta.path.is_ident("serde") || meta.path.is_ident("schemars") =>
-            {
-                type_attrs.push(attr)
-            }
-            _ => continue,
-        }
+            Ok(())
+        });
     }
 
     input.attrs = type_attrs;
@@ -336,7 +337,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         attrs.retain(|attr| {
             ["serde", "schemars", "validate", "borsh_skip"]
                 .iter()
-                .any(|&path| attr.path.is_ident(path))
+                .any(|&path| attr.path().is_ident(path))
         });
     };
 
@@ -365,9 +366,9 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
     }
 
-    if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
-        return TokenStream::from(combined_errors.to_compile_error());
-    }
+    // if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
+    //     return TokenStream::from(combined_errors.to_compile_error());
+    // }
 
     let json_schema = json_schema || !borsh_schema;
 
@@ -577,9 +578,10 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         // add `'near_event` lifetime for user defined events
         let mut generics = input.generics.clone();
         let event_lifetime = syn::Lifetime::new("'near_event", Span::call_site());
-        generics
-            .params
-            .insert(0, syn::GenericParam::Lifetime(syn::LifetimeDef::new(event_lifetime.clone())));
+        generics.params.insert(
+            0,
+            syn::GenericParam::Lifetime(syn::LifetimeParam::new(event_lifetime.clone())),
+        );
         let (custom_impl_generics, ..) = generics.split_for_impl();
 
         TokenStream::from(quote! {

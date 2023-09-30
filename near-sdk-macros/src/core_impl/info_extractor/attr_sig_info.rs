@@ -54,7 +54,6 @@ impl AttrSigInfo {
         source_type: &TokenStream2,
     ) -> syn::Result<Self> {
         let mut self_occurrences = Self::sanitize_self(original_sig, source_type)?;
-
         let mut errors = vec![];
         for generic in &original_sig.generics.params {
             match generic {
@@ -85,10 +84,10 @@ impl AttrSigInfo {
 
         // Visit attributes
         for attr in original_attrs.iter() {
-            let attr_str = attr.path.to_token_stream().to_string();
+            let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
-                    let init_attr: InitAttr = syn::parse2(attr.tokens.clone())?;
+                    let init_attr: InitAttr = syn::parse2(attr.meta.to_token_stream().clone())?;
                     visitor.visit_init_attr(attr, &init_attr)?;
                 }
                 "payable" => {
@@ -98,7 +97,8 @@ impl AttrSigInfo {
                     visitor.visit_private_attr(attr)?;
                 }
                 "result_serializer" => {
-                    let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
+                    let serializer: SerializerAttr =
+                        syn::parse2(attr.meta.to_token_stream().clone())?;
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {

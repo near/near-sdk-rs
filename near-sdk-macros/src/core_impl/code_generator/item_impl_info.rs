@@ -28,7 +28,7 @@ impl ItemImplInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{Type, ImplItemMethod, parse_quote};
+    use syn::{Type, ImplItemFn, parse_quote};
     use quote::quote;
     use crate::core_impl::info_extractor::ImplItemMethodInfo;
 
@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn trait_implt() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("fn method(&self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("fn method(&self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, true, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method(&self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn owned_no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method(self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn mut_owned_no_args_no_return() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(mut self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method(mut self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn no_args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&mut self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method(&mut self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn arg_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod =
+        let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn args_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod =
+        let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn args_return_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod =
+        let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn arg_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn arg_mut_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod =
+        let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn callback_args() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_unwrap] x: &mut u64, y: ::std::string::String, #[callback_unwrap] z: ::std::vec::Vec<u8>) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn callback_args_only() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_unwrap] x: &mut u64, #[callback_unwrap] y: ::std::string::String) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn callback_args_results() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_result] x: &mut Result<u64, PromiseError>, #[callback_result] y: Result<::std::string::String, PromiseError>) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn callback_args_vec() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_vec] x: Vec<String>, y: String) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn simple_init() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[init]
             pub fn method(k: &mut u64) -> Self { }
         };
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn init_no_return() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[init]
             pub fn method(k: &mut u64) { }
         };
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn init_ignore_state() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[init(ignore_state)]
             pub fn method(k: &mut u64) -> Self { }
         };
@@ -536,7 +536,7 @@ mod tests {
     #[test]
     fn init_payable() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[init]
             #[payable]
             pub fn method(k: &mut u64) -> Self { }
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn args_return_mut_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[result_serializer(borsh)]
             pub fn method(&mut self, #[serializer(borsh)] k: u64, #[serializer(borsh)]m: Bar) -> Option<u64> { }
         };
@@ -607,7 +607,7 @@ mod tests {
     #[test]
     fn callback_args_mixed_serialization() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_unwrap] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: ::std::string::String, #[callback_unwrap] #[serializer(json)] z: ::std::vec::Vec<u8>) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -650,7 +650,7 @@ mod tests {
     #[test]
     fn no_args_no_return_mut_payable() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("#[payable] pub fn method(&mut self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("#[payable] pub fn method(&mut self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -669,7 +669,7 @@ mod tests {
     #[test]
     fn private_method() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("#[private] pub fn private_method(&mut self) { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("#[private] pub fn private_method(&mut self) { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
@@ -694,7 +694,7 @@ mod tests {
     #[test]
     fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[handle_result]
             pub fn method(&self) -> Result::<u64, &'static str> { }
         };
@@ -723,7 +723,7 @@ mod tests {
     #[test]
     fn handle_result_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[handle_result]
             pub fn method(&mut self) -> Result<u64, &'static str> { }
         };
@@ -756,7 +756,7 @@ mod tests {
     #[test]
     fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[handle_result]
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
@@ -786,7 +786,7 @@ mod tests {
     #[test]
     fn handle_result_init() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[init]
             #[handle_result]
             pub fn new() -> Result<Self, &'static str> { }
@@ -819,7 +819,7 @@ mod tests {
     #[test]
     fn handle_result_init_ignore_state() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[init(ignore_state)]
             #[handle_result]
             pub fn new() -> Result<Self, &'static str> { }
@@ -849,7 +849,7 @@ mod tests {
     #[test]
     fn handle_no_self() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = syn::parse_str("pub fn method() { }").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("pub fn method() { }").unwrap();
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         let expected = quote!(
