@@ -279,7 +279,6 @@ pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
                     }
                 }
             }
-
             None
         })
         .collect::<Vec<_>>()

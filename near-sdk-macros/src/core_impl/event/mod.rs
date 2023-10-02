@@ -3,18 +3,41 @@ use proc_macro2::Span;
 
 use quote::quote;
 
-use syn::parse_macro_input;
+use darling::ast::NestedMeta;
+use darling::Error;
+use darling::FromMeta;
+use syn::{parse_quote, ItemEnum, LitStr};
 
-use syn::Meta;
-use syn::{parse_quote, ItemEnum, LitStr, MetaNameValue};
+#[derive(Default, FromMeta, Clone, Debug)]
+pub struct MacroConfig {
+    pub event_json: Option<EventsConfig>,
+}
+#[derive(Default, FromMeta, Clone, Debug)]
+pub struct EventsConfig {
+    standard: Option<String>,
+}
+
 /// this function is used to inject serialization macros and the `near_sdk::EventMetadata` macro.
 /// In addition, this function extracts the event's `standard` value and injects it as a constant to be used by
 /// the `near_sdk::EventMetadata` derive macro
 pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
     // get standard from attr args
-    let args = parse_macro_input!(attr as syn::Meta);
-    let standard = get_standard_arg(args);
-    if standard.is_none() {
+
+    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
+    };
+
+    let args = match MacroConfig::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
+        }
+    };
+
+    if args.event_json.is_none() || args.event_json.clone().unwrap().standard.is_none() {
         return TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
@@ -23,6 +46,8 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         );
     }
+
+    let standard = args.event_json.unwrap().standard.unwrap();
 
     if let Ok(mut input) = syn::parse::<ItemEnum>(item) {
         let name = &input.ident;
@@ -60,39 +85,4 @@ pub(crate) fn get_event_version(var: &syn::Variant) -> Option<LitStr> {
         }
     }
     None
-}
-
-/// this function returns the `standard` value from `#[near_bindgen(event_json(standard = "nepXXX"))]`
-fn get_standard_arg(meta: syn::Meta) -> Option<LitStr> {
-    let mut standard: Option<LitStr> = None;
-    if meta.path().is_ident("event_json") {
-        match meta {
-            Meta::NameValue(MetaNameValue { path, value, .. }) => {
-                if path.is_ident("standard") {
-                    if let syn::Expr::Lit(lit_str) = value {
-                        if let syn::Lit::Str(lit_str) = lit_str.lit {
-                            standard = Some(lit_str);
-                        }
-                    }
-                }
-            }
-            Meta::Path(path) => {
-                if path.is_ident("standard") {
-                    standard = Some(LitStr::new("nep141", Span::call_site()));
-                }
-            }
-            Meta::List(list) => {
-                let _ = list.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("standard") {
-                        let value = meta.value()?; // this parses the `=`
-                        let s: LitStr = value.parse()?; // this parses `"EarlGrey"`
-                        standard = Some(s);
-                    }
-
-                    Ok(())
-                });
-            }
-        }
-    }
-    standard
 }
