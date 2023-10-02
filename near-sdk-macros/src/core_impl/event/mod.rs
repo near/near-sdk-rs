@@ -1,13 +1,12 @@
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use proc_macro2::TokenStream as TokenStream2;
+
 use quote::quote;
-use syn::meta::ParseNestedMeta;
-use syn::parenthesized;
+
 use syn::parse_macro_input;
-use syn::Attribute;
+
 use syn::Meta;
-use syn::{parse_quote, DeriveInput, ItemEnum, LitStr, MetaNameValue};
+use syn::{parse_quote, ItemEnum, LitStr, MetaNameValue};
 /// this function is used to inject serialization macros and the `near_sdk::EventMetadata` macro.
 /// In addition, this function extracts the event's `standard` value and injects it as a constant to be used by
 /// the `near_sdk::EventMetadata` derive macro
@@ -68,16 +67,11 @@ fn get_standard_arg(meta: syn::Meta) -> Option<LitStr> {
     let mut standard: Option<LitStr> = None;
     if meta.path().is_ident("event_json") {
         match meta {
-            Meta::NameValue(named_value) => {
-                if let MetaNameValue { path, value, .. } = named_value {
-                    if path.is_ident("standard") {
-                        match value {
-                            syn::Expr::Lit(lit_str) => {
-                                if let syn::Lit::Str(lit_str) = lit_str.lit {
-                                    standard = Some(lit_str);
-                                }
-                            }
-                            _ => {}
+            Meta::NameValue(MetaNameValue { path, value, .. }) => {
+                if path.is_ident("standard") {
+                    if let syn::Expr::Lit(lit_str) = value {
+                        if let syn::Lit::Str(lit_str) = lit_str.lit {
+                            standard = Some(lit_str);
                         }
                     }
                 }

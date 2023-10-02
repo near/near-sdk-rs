@@ -299,7 +299,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                 syn::Meta::List(meta) => {
                     let meta2 = meta.clone();
                     if meta.path.is_ident("abi") {
-                        if meta.clone().to_token_stream().is_empty() {
+                        if meta.to_token_stream().is_empty() {
                             errors.push(syn::Error::new_spanned(
                                 meta.into_token_stream(),
                                 "attribute requires at least one argument",
