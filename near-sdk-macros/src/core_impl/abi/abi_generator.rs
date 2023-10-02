@@ -272,11 +272,10 @@ pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
         .iter()
         .filter_map(|attr| {
             if attr.path().is_ident("doc") {
-                if let NameValue(MetaNameValue { value, .. }) = attr.meta.clone() {
-                    if let Expr::Lit(value) = value {
-                        if let Str(doc) = value.lit {
-                            return Some(doc.value());
-                        }
+                if let NameValue(MetaNameValue { value: Expr::Lit(value), .. }) = attr.meta.clone()
+                {
+                    if let Str(doc) = value.lit {
+                        return Some(doc.value());
                     }
                 }
             }
