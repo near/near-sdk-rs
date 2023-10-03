@@ -276,8 +276,7 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 
-use darling::{Error, FromDeriveInput, FromMeta};
-use syn;
+use darling::{FromDeriveInput, FromMeta};
 
 #[derive(Default, FromMeta, Debug)]
 #[darling(default)]
@@ -302,7 +301,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let args = match DeriveNearSchema::from_derive_input(&input) {
         Ok(v) => v,
         Err(e) => {
-            return TokenStream::from(Error::from(e).write_errors());
+            return TokenStream::from(e.write_errors());
         }
     };
 

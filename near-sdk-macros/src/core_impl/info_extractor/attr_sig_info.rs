@@ -94,7 +94,7 @@ impl AttrSigInfo {
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
 
-        let args = AttributeConfig::from_attributes(&original_attrs)?;
+        let args = AttributeConfig::from_attributes(original_attrs)?;
         // Visit attributes
         for attr in original_attrs.iter() {
             let attr_str = attr.path().to_token_stream().to_string();
