@@ -289,25 +289,30 @@ struct DeriveNearSchema {
 #[cfg(feature = "abi")]
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
 pub fn derive_near_schema(input: TokenStream) -> TokenStream {
-    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let args = match DeriveNearSchema::from_derive_input(&input) {
+    let derive_input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let args = match DeriveNearSchema::from_derive_input(&derive_input) {
         Ok(v) => v,
         Err(e) => {
             return TokenStream::from(e.write_errors());
         }
     };
 
-    // #[abi(json, borsh)]
-    let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
-    if args.borsh.is_none() && args.json.is_none() {
+    if args.borsh.is_none()
+        && args.json.is_none()
+        && derive_input.attrs.iter().any(|attr| attr.path().is_ident("abi"))
+    {
         return TokenStream::from(
             syn::Error::new_spanned(
-                input.to_token_stream(),
-                "At least one of `json` or `borsh` inside of #[`abi(...)] must be specified",
+                derive_input.to_token_stream(),
+                "At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified",
             )
             .to_compile_error(),
         );
     }
+
+    // #[abi(json, borsh)]
+    let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
+    let mut input = derive_input;
     input.attrs = args.attrs;
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
