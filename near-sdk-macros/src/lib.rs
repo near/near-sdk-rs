@@ -276,8 +276,10 @@ pub fn metadata(item: TokenStream) -> TokenStream {
     }
 }
 #[cfg(feature = "abi")]
+use darling::FromDeriveInput;
 #[derive(darling::FromDeriveInput, Debug)]
 #[darling(attributes(abi), forward_attrs(serde, borsh_skip, schemars, validate))]
+#[cfg(feature = "abi")]
 struct DeriveNearSchema {
     attrs: Vec<syn::Attribute>,
     json: Option<bool>,
