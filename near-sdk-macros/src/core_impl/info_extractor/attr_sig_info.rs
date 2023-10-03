@@ -1,6 +1,6 @@
 use super::visitor::Visitor;
 use super::{ArgInfo, BindgenArgType, InitAttr, MethodKind, SerializerAttr, SerializerType};
-use crate::core_impl::{utils, Returns};
+use crate::core_impl::{serializer, utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -22,6 +22,18 @@ pub struct AttrSigInfo {
     pub input_serializer: SerializerType,
     /// The original method signature.
     pub original_sig: Signature,
+}
+
+use darling::{FromAttributes, FromMeta};
+#[derive(darling::FromAttributes, Clone, Debug)]
+#[darling(
+    attributes(init, payable, private, result_serializer, serializer, handle_result),
+    forward_attrs(serializer)
+)]
+struct AttributeConfig {
+    borsh: Option<bool>,
+    json: Option<bool>,
+    ignore_state: Option<bool>,
 }
 
 impl AttrSigInfo {
@@ -82,12 +94,16 @@ impl AttrSigInfo {
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
 
+        let args = AttributeConfig::from_attributes(&original_attrs)?;
         // Visit attributes
         for attr in original_attrs.iter() {
             let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
-                    let init_attr: InitAttr = syn::parse2(attr.meta.to_token_stream().clone())?;
+                    let mut init_attr = InitAttr { ignore_state: false };
+                    if let Some(state) = args.ignore_state {
+                        init_attr.ignore_state = state;
+                    }
                     visitor.visit_init_attr(attr, &init_attr)?;
                 }
                 "payable" => {
@@ -97,8 +113,23 @@ impl AttrSigInfo {
                     visitor.visit_private_attr(attr)?;
                 }
                 "result_serializer" => {
-                    let serializer: SerializerAttr =
-                        syn::parse2(attr.meta.to_token_stream().clone())?;
+                    if args.borsh.is_some() && args.json.is_some() {
+                        return Err(Error::new(
+                            attr.span(),
+                            "Only one of `borsh` or `json` can be specified.",
+                        ));
+                    };
+                    let mut serializer = SerializerAttr { serializer_type: SerializerType::JSON };
+                    if let Some(borsh) = args.borsh {
+                        if borsh {
+                            serializer.serializer_type = SerializerType::Borsh;
+                        }
+                    }
+                    if let Some(json) = args.json {
+                        if json {
+                            serializer.serializer_type = SerializerType::JSON;
+                        }
+                    }
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {

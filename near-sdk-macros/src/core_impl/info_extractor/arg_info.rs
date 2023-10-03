@@ -40,6 +40,17 @@ pub struct ArgInfo {
     /// The original `PatType` of the argument.
     pub original: PatType,
 }
+use darling::{FromAttributes, FromMeta};
+#[derive(darling::FromAttributes, Clone, Debug)]
+#[darling(
+    attributes(init, payable, private, result_serializer, serializer, handle_result),
+    forward_attrs(serializer)
+)]
+struct AttributeConfig {
+    borsh: Option<bool>,
+    json: Option<bool>,
+    ignore_state: Option<bool>,
+}
 
 impl ArgInfo {
     /// Extract near-sdk specific argument info.
@@ -68,6 +79,7 @@ impl ArgInfo {
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
+        let args = AttributeConfig::from_attributes(&original.attrs)?;
         for attr in &original.attrs {
             let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
@@ -81,8 +93,25 @@ impl ArgInfo {
                     bindgen_ty = BindgenArgType::CallbackArgVec;
                 }
                 "serializer" => {
-                    let serializer: SerializerAttr = syn::parse2(attr.to_token_stream().clone())?;
-                    serializer_ty = serializer.serializer_type;
+                    if args.borsh.is_some() && args.json.is_some() {
+                        return Err(Error::new(
+                            attr.span(),
+                            "Only one of `borsh` or `json` can be specified.",
+                        ));
+                    };
+
+                    if let Some(borsh) = args.borsh {
+                        if borsh {
+                            serializer_ty = SerializerType::Borsh;
+                        }
+                    }
+                    if let Some(json) = args.json {
+                        if json {
+                            serializer_ty = SerializerType::JSON;
+                        }
+                    }
+                    // let serializer: SerializerAttr = syn::parse2(attr.to_token_stream().clone())?;
+                    // serializer_ty = serializer.serializer_type;
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());

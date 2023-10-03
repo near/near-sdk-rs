@@ -36,40 +36,37 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
             return TokenStream::from(e.write_errors());
         }
     };
+    if let Some(standard) = args.event_json.and_then(|event_json| event_json.standard) {
+        if let Ok(mut input) = syn::parse::<ItemEnum>(item) {
+            let name = &input.ident;
+            let standard_name = format!("{}_event_standard", name);
+            let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
+            // NearEvent Macro handles implementation
+            input.attrs.push(
+                parse_quote! (#[derive(::near_sdk::serde::Serialize, ::near_sdk::EventMetadata)]),
+            );
+            input.attrs.push(parse_quote! (#[serde(crate="::near_sdk::serde")]));
+            input.attrs.push(parse_quote! (#[serde(tag = "event", content = "data")]));
+            input.attrs.push(parse_quote! (#[serde(rename_all = "snake_case")]));
 
-    if args.event_json.is_none() || args.event_json.clone().unwrap().standard.is_none() {
-        return TokenStream::from(
-            syn::Error::new(
-                Span::call_site(),
-                "Near events must have a `standard` value as an argument for `event_json` in the `near_bindgen` arguments. The value must be a string literal, e.g. \"nep999\", \"mintbase-marketplace\".",
+            TokenStream::from(quote! {
+                const #standard_ident: &'static str = #standard;
+                #input
+            })
+        } else {
+            TokenStream::from(
+                syn::Error::new(
+                    Span::call_site(),
+                    "`#[near_bindgen(event_json(standard = \"nepXXX\"))]` can only be used as an attribute on enums.",
+                )
+                .to_compile_error(),
             )
-            .to_compile_error(),
-        );
-    }
-
-    let standard = args.event_json.unwrap().standard.unwrap();
-
-    if let Ok(mut input) = syn::parse::<ItemEnum>(item) {
-        let name = &input.ident;
-        let standard_name = format!("{}_event_standard", name);
-        let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
-        // NearEvent Macro handles implementation
-        input.attrs.push(
-            parse_quote! (#[derive(::near_sdk::serde::Serialize, ::near_sdk::EventMetadata)]),
-        );
-        input.attrs.push(parse_quote! (#[serde(crate="::near_sdk::serde")]));
-        input.attrs.push(parse_quote! (#[serde(tag = "event", content = "data")]));
-        input.attrs.push(parse_quote! (#[serde(rename_all = "snake_case")]));
-
-        TokenStream::from(quote! {
-            const #standard_ident: &'static str = #standard;
-            #input
-        })
+        }
     } else {
         TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "`#[near_bindgen(event_json(standard = \"nepXXX\"))]` can only be used as an attribute on enums.",
+                "Near events must have a `standard` value as an argument for `event_json` in the `near_bindgen` arguments. The value must be a string literal, e.g. \"nep999\", \"mintbase-marketplace\".",
             )
             .to_compile_error(),
         )
