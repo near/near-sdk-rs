@@ -1,44 +1,32 @@
-error: attribute requires at least one argument
- --> compilation_tests/schema_derive_invalids.rs:9:3
-  |
-9 | #[abi]
-  |   ^^^
-
-error: attribute requires at least one argument
-  --> compilation_tests/schema_derive_invalids.rs:13:3
-   |
-13 | #[abi()]
-   |   ^^^^^
-
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:17:7
    |
 17 | #[abi(serde)]
    |       ^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:21:13
    |
 21 | #[abi(json, serde)]
    |             ^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:25:13
    |
 25 | #[abi(json, serde, schemars)]
    |             ^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `schemars`
   --> compilation_tests/schema_derive_invalids.rs:25:20
    |
 25 | #[abi(json, serde, schemars)]
    |                    ^^^^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:29:13
    |
 29 | #[abi(json, serde = "?")]
-   |             ^^^^^^^^^^^
+   |             ^^^^^
 
 error: `NearSchema` does not support derive for unions
   --> compilation_tests/schema_derive_invalids.rs:33:1
@@ -58,14 +46,11 @@ error: `NearSchema` does not support derive for unions
 43 | | }
    | |_^
 
-error: `NearSchema` does not support derive for unions
-  --> compilation_tests/schema_derive_invalids.rs:47:1
+error: Unknown field: `schemars`
+  --> compilation_tests/schema_derive_invalids.rs:46:13
    |
-47 | / union UnsupporteedWithArgs {
-48 | |     a: u8,
-49 | |     b: u16,
-50 | | }
-   | |_^
+46 | #[abi(json, schemars)]
+   |             ^^^^^^^^
 
 error[E0277]: the trait bound `Inner: JsonSchema` is not satisfied
  --> compilation_tests/schema_derive_invalids.rs:6:14
@@ -84,7 +69,7 @@ error[E0277]: the trait bound `Inner: JsonSchema` is not satisfied
             i128
           and $N others
 note: required by a bound in `SchemaGenerator::subschema_for`
- --> $CARGO/schemars-0.8.15/src/gen.rs
+ --> $CARGO/schemars-0.8.13/src/gen.rs
   |
   |     pub fn subschema_for<T: ?Sized + JsonSchema>(&mut self) -> Schema {
   |                                      ^^^^^^^^^^ required by this bound in `SchemaGenerator::subschema_for`
