@@ -109,8 +109,6 @@ impl ArgInfo {
                             serializer_ty = SerializerType::JSON;
                         }
                     }
-                    // let serializer: SerializerAttr = syn::parse2(attr.to_token_stream().clone())?;
-                    // serializer_ty = serializer.serializer_type;
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
