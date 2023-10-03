@@ -1,6 +1,6 @@
 use super::visitor::Visitor;
 use super::{ArgInfo, BindgenArgType, InitAttr, MethodKind, SerializerAttr, SerializerType};
-use crate::core_impl::{serializer, utils, Returns};
+use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -24,7 +24,7 @@ pub struct AttrSigInfo {
     pub original_sig: Signature,
 }
 
-use darling::{FromAttributes, FromMeta};
+use darling::FromAttributes;
 #[derive(darling::FromAttributes, Clone, Debug)]
 #[darling(
     attributes(init, payable, private, result_serializer, serializer, handle_result),

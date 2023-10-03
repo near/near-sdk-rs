@@ -1,4 +1,4 @@
-use crate::core_impl::info_extractor::{SerializerAttr, SerializerType};
+use crate::core_impl::info_extractor::SerializerType;
 use crate::core_impl::utils;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -40,7 +40,7 @@ pub struct ArgInfo {
     /// The original `PatType` of the argument.
     pub original: PatType,
 }
-use darling::{FromAttributes, FromMeta};
+use darling::FromAttributes;
 #[derive(darling::FromAttributes, Clone, Debug)]
 #[darling(
     attributes(init, payable, private, result_serializer, serializer, handle_result),
@@ -49,7 +49,6 @@ use darling::{FromAttributes, FromMeta};
 struct AttributeConfig {
     borsh: Option<bool>,
     json: Option<bool>,
-    ignore_state: Option<bool>,
 }
 
 impl ArgInfo {
