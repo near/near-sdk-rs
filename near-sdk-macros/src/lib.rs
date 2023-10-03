@@ -299,7 +299,15 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
     // #[abi(json, borsh)]
     let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
-
+    if args.borsh.is_none() && args.json.is_none() {
+        return TokenStream::from(
+            syn::Error::new_spanned(
+                input.to_token_stream(),
+                "At least one of `json` or `borsh` inside of #[`abi(...)] must be specified",
+            )
+            .to_compile_error(),
+        );
+    }
     input.attrs = args.attrs;
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
