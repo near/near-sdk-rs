@@ -1,0 +1,39 @@
+name: Release-plz auto-push Cargo.lock updates
+
+on:
+  push:
+    # Sequence of patterns matched against refs/heads
+    branches:    
+      - 'release-plz/*'
+jobs:
+  change-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: "1.69.0 rust toolchain"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.69.0
+          default: true
+      - name: update Cargo.locks
+        run: |
+          for dir in examples/adder examples/callback-results examples/cross-contract-calls \
+          examples/status-message examples/factory-contract examples/fungible-token \
+          examples/lockable-fungible-token examples/mission-control examples/non-fungible-token \
+          examples/test-contract examples/versioned
+          do;
+            pushd $dir
+            cargo update -p near-sdk
+            cargo update -p near-sys
+            cargo update -p near-contract-standards
+            cargo update -p near-sdk-macros
+            popd
+          done
+      - name: Commit and push changes
+        uses: devops-infra/action-commit-push@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          commit_message: examples Cargo.lock-s update
+          commit_prefix: "[AUTO-COMMIT]"
