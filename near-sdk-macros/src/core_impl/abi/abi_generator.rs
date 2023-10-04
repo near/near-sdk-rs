@@ -295,10 +295,23 @@ pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
+    use proc_macro2::TokenStream;
     use syn::{parse_quote, Type};
     use crate::core_impl::ImplItemMethodInfo;
-    use crate::core_impl::utils::test_helpers::local_insta_assert_snapshot;
+    use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
+    use quote::quote;
 
+
+    fn pretty_print_fn_body_syn_str(input: TokenStream) -> String {
+        let input =  quote!(
+            fn main() {
+            #input
+            }
+        );
+        let res = pretty_print_syn_str(&input).unwrap();
+       res.strip_prefix("fn main() {\n").unwrap().strip_suffix("}\n").unwrap().to_string()
+    }
+    
     #[test]
     fn test_generate_abi_fallible_json() {
         let impl_type: Type = syn::parse_str("Test").unwrap();
@@ -309,8 +322,8 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
-           
-        local_insta_assert_snapshot!(actual.to_string());
+
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
 
     #[test]
@@ -325,7 +338,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        local_insta_assert_snapshot!(actual.to_string());
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
     
     #[test]
@@ -341,7 +354,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
        
-        local_insta_assert_snapshot!(actual.to_string());
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
     
     #[test]
@@ -353,7 +366,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        local_insta_assert_snapshot!(actual.to_string());
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
     
     #[test]
@@ -366,7 +379,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        local_insta_assert_snapshot!(actual.to_string());
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
     
     #[test]
@@ -378,6 +391,6 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        local_insta_assert_snapshot!(actual.to_string());
+        local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
     }
 }

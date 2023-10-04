@@ -1,5 +1,23 @@
 ---
 source: near-sdk-macros/src/core_impl/abi/abi_generator.rs
-expression: "&actual.to_string()"
+expression: pretty_print_fn_body_syn_str(actual)
 ---
-:: near_sdk :: __private :: AbiFunction { name : :: std :: string :: String :: from ("f3") , doc : :: std :: option :: Option :: None , kind : :: near_sdk :: __private :: AbiFunctionKind :: Call , modifiers : :: std :: vec ! [:: near_sdk :: __private :: AbiFunctionModifier :: Payable] , params : :: near_sdk :: __private :: AbiParameters :: Borsh { args : :: std :: vec ! [:: near_sdk :: __private :: AbiBorshParameter { name : :: std :: string :: String :: from ("arg0") , type_schema : < FancyStruct as :: near_sdk :: borsh :: BorshSchema > :: schema_container () , }] } , callbacks : :: std :: vec ! [] , callbacks_vec : :: std :: option :: Option :: None , result : :: std :: option :: Option :: Some (:: near_sdk :: __private :: AbiType :: Borsh { type_schema : < IsOk as :: near_sdk :: borsh :: BorshSchema > :: schema_container () , }) }
+    ::near_sdk::__private::AbiFunction {
+        name: ::std::string::String::from("f3"),
+        doc: ::std::option::Option::None,
+        kind: ::near_sdk::__private::AbiFunctionKind::Call,
+        modifiers: ::std::vec![::near_sdk::__private::AbiFunctionModifier::Payable],
+        params: ::near_sdk::__private::AbiParameters::Borsh {
+            args: ::std::vec![
+                ::near_sdk::__private::AbiBorshParameter { name :
+                ::std::string::String::from("arg0"), type_schema : < FancyStruct as
+                ::near_sdk::borsh::BorshSchema > ::schema_container(), }
+            ],
+        },
+        callbacks: ::std::vec![],
+        callbacks_vec: ::std::option::Option::None,
+        result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Borsh {
+            type_schema: <IsOk as ::near_sdk::borsh::BorshSchema>::schema_container(),
+        }),
+    }
+
