@@ -27,3 +27,4 @@ jobs:
           # https://marcoieni.github.io/release-plz/github-action.html#triggering-further-workflow-runs
           GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          RELEASE_PLZ_CONTEXT: true

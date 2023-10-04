@@ -19,7 +19,7 @@ for d in "status-message/" $(ls -d */ | grep -v -e "status-message\/$"); do
     (./build_docker.sh ${d%%/})
 done
 
-if [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ]; then
+if [ -z "$RELEASE_PLZ_CONTEXT" ] && [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ]; then
     echo "Repository is dirty, please make sure you have committed all contract wasm files"
     exit 1
 fi
