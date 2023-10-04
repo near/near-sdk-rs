@@ -1,6 +1,6 @@
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::{Attribute, Lit::Str, Meta::NameValue, MetaNameValue, Type};
+use syn::{Attribute, Expr, Lit::Str, Meta::NameValue, MetaNameValue, Type};
 
 use crate::core_impl::{
     utils, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodKind, ReturnKind, SerializerType,
@@ -271,15 +271,15 @@ pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
     let doc = attrs
         .iter()
         .filter_map(|attr| {
-            if attr.path.is_ident("doc") {
-                if let NameValue(MetaNameValue { lit: Str(s), .. }) = attr.parse_meta().ok()? {
-                    Some(s.value())
-                } else {
-                    None
+            if attr.path().is_ident("doc") {
+                if let NameValue(MetaNameValue { value: Expr::Lit(value), .. }) = attr.meta.clone()
+                {
+                    if let Str(doc) = value.lit {
+                        return Some(doc.value());
+                    }
                 }
-            } else {
-                None
             }
+            None
         })
         .collect::<Vec<_>>()
         .join("\n");

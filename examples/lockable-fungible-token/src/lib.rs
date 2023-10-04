@@ -7,7 +7,7 @@ use std::str::FromStr;
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Account {
-    /// Current unlocked balance.
+    /// Current unlocked balance
     pub balance: Balance,
     /// Allowed account to the allowance amount.
     pub allowances: HashMap<AccountId, Balance>,

@@ -22,7 +22,7 @@ impl<'ast> Visit<'ast> for MetadataVisitor {
         let has_near_sdk_attr = i
             .attrs
             .iter()
-            .any(|attr| attr.path.to_token_stream().to_string().as_str() == "near_bindgen");
+            .any(|attr| attr.path().to_token_stream().to_string().as_str() == "near_bindgen");
         if has_near_sdk_attr {
             match ItemImplInfo::new(&mut i.clone()) {
                 Ok(info) => self.impl_item_infos.push(info),

@@ -1,7 +1,7 @@
 use crate::core_impl::info_extractor::AttrSigInfo;
 use crate::core_impl::utils;
 use quote::ToTokens;
-use syn::{ImplItemMethod, Type, Visibility};
+use syn::{ImplItemFn as ImplItemMethod, Type, Visibility};
 
 /// Information extracted from `ImplItemMethod`.
 pub struct ImplItemMethodInfo {
@@ -21,7 +21,8 @@ impl ImplItemMethodInfo {
         let ImplItemMethod { attrs, sig, .. } = original;
         utils::sig_is_supported(sig)?;
         if is_trait_impl || matches!(original.vis, Visibility::Public(_)) {
-            let attr_signature_info = AttrSigInfo::new(attrs, sig, &struct_type.to_token_stream())?;
+            let source_type = &struct_type.to_token_stream();
+            let attr_signature_info = AttrSigInfo::new(attrs, sig, source_type)?;
             Ok(Some(Self { attr_signature_info, struct_type }))
         } else {
             Ok(None)
@@ -33,7 +34,7 @@ impl ImplItemMethodInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{parse_quote, Type, ImplItemMethod, ReturnType};
+    use syn::{parse_quote, Type, ImplItemFn as ImplItemMethod , ReturnType};
     use crate::core_impl::{ImplItemMethodInfo};
 
     #[test]

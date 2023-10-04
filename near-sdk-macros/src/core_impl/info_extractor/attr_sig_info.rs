@@ -24,6 +24,18 @@ pub struct AttrSigInfo {
     pub original_sig: Signature,
 }
 
+use darling::FromAttributes;
+#[derive(darling::FromAttributes, Clone, Debug)]
+#[darling(
+    attributes(init, payable, private, result_serializer, serializer, handle_result),
+    forward_attrs(serializer)
+)]
+struct AttributeConfig {
+    borsh: Option<bool>,
+    json: Option<bool>,
+    ignore_state: Option<bool>,
+}
+
 impl AttrSigInfo {
     /// Apart from replacing `Self` types with their concretions, returns spans of all `Self` tokens found.
     fn sanitize_self(
@@ -54,7 +66,6 @@ impl AttrSigInfo {
         source_type: &TokenStream2,
     ) -> syn::Result<Self> {
         let mut self_occurrences = Self::sanitize_self(original_sig, source_type)?;
-
         let mut errors = vec![];
         for generic in &original_sig.generics.params {
             match generic {
@@ -83,12 +94,16 @@ impl AttrSigInfo {
         let ident = original_sig.ident.clone();
         let mut non_bindgen_attrs = vec![];
 
+        let args = AttributeConfig::from_attributes(original_attrs)?;
         // Visit attributes
         for attr in original_attrs.iter() {
-            let attr_str = attr.path.to_token_stream().to_string();
+            let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
-                    let init_attr: InitAttr = syn::parse2(attr.tokens.clone())?;
+                    let mut init_attr = InitAttr { ignore_state: false };
+                    if let Some(state) = args.ignore_state {
+                        init_attr.ignore_state = state;
+                    }
                     visitor.visit_init_attr(attr, &init_attr)?;
                 }
                 "payable" => {
@@ -98,7 +113,23 @@ impl AttrSigInfo {
                     visitor.visit_private_attr(attr)?;
                 }
                 "result_serializer" => {
-                    let serializer: SerializerAttr = syn::parse2(attr.tokens.clone())?;
+                    if args.borsh.is_some() && args.json.is_some() {
+                        return Err(Error::new(
+                            attr.span(),
+                            "Only one of `borsh` or `json` can be specified.",
+                        ));
+                    };
+                    let mut serializer = SerializerAttr { serializer_type: SerializerType::JSON };
+                    if let Some(borsh) = args.borsh {
+                        if borsh {
+                            serializer.serializer_type = SerializerType::Borsh;
+                        }
+                    }
+                    if let Some(json) = args.json {
+                        if json {
+                            serializer.serializer_type = SerializerType::JSON;
+                        }
+                    }
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {
