@@ -295,9 +295,9 @@ pub fn parse_rustdoc(attrs: &[Attribute]) -> Option<String> {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use quote::quote;
     use syn::{parse_quote, Type};
     use crate::core_impl::ImplItemMethodInfo;
+    use crate::core_impl::utils::test_helpers::local_insta_assert_snapshot;
 
     #[test]
     fn test_generate_abi_fallible_json() {
@@ -309,34 +309,8 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
-        
-        let expected = quote! {
-            ::near_sdk::__private::AbiFunction {
-                name: ::std::string::String::from("f3"),
-                doc: ::std::option::Option::Some(::std::string::String::from(" I am a function.")),
-                kind: ::near_sdk::__private::AbiFunctionKind::Call,
-                modifiers: ::std::vec![],
-                params: ::near_sdk::__private::AbiParameters::Json {
-                    args: ::std::vec![
-                        ::near_sdk::__private::AbiJsonParameter {
-                            name: ::std::string::String::from("arg0"),
-                            type_schema: gen.subschema_for::<FancyStruct>(),
-                        },
-                        ::near_sdk::__private::AbiJsonParameter {
-                            name: ::std::string::String::from("arg1"),
-                            type_schema: gen.subschema_for::<u64>(),
-                        }
-                    ]
-                },
-                callbacks: ::std::vec![],
-                callbacks_vec: ::std::option::Option::None,
-                result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
-                    type_schema: gen.subschema_for::<IsOk>(),
-                })
-            }
-        };
-        
-        assert_eq!(actual.to_string(), expected.to_string());
+           
+        local_insta_assert_snapshot!(actual.to_string());
     }
 
     #[test]
@@ -351,29 +325,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        let expected = quote! {
-            ::near_sdk::__private::AbiFunction {
-                name: ::std::string::String::from("f3"),
-                doc: ::std::option::Option::None,
-                kind: ::near_sdk::__private::AbiFunctionKind::Call,
-                modifiers: ::std::vec![::near_sdk::__private::AbiFunctionModifier::Payable],
-                params: ::near_sdk::__private::AbiParameters::Borsh {
-                    args: ::std::vec![
-                        ::near_sdk::__private::AbiBorshParameter {
-                            name: ::std::string::String::from("arg0"),
-                            type_schema: <FancyStruct as ::near_sdk::borsh::BorshSchema>::schema_container(),
-                        }
-                    ]
-                },
-                callbacks: ::std::vec![],
-                callbacks_vec: ::std::option::Option::None,
-                result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Borsh {
-                    type_schema: <IsOk as ::near_sdk::borsh::BorshSchema>::schema_container(),
-                })
-            }
-        };
-
-        assert_eq!(actual.to_string(), expected.to_string());
+        local_insta_assert_snapshot!(actual.to_string());
     }
     
     #[test]
@@ -388,27 +340,8 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
-        
-        let expected = quote! {
-           ::near_sdk::__private::AbiFunction { 
-                name: ::std::string::String::from("method"),
-                doc: ::std::option::Option::None, 
-                kind: ::near_sdk::__private::AbiFunctionKind::View , 
-                modifiers: ::std::vec! [::near_sdk::__private::AbiFunctionModifier::Private],
-                params: ::near_sdk::__private::AbiParameters::Json { 
-                    args: ::std::vec![]
-                }, 
-                callbacks: ::std::vec! [], 
-                callbacks_vec: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json { 
-                    type_schema: gen.subschema_for::< String >() , 
-                }),
-                result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
-                    type_schema: gen.subschema_for::< bool >() ,
-                })
-            }
-        };
-        
-        assert_eq!(actual.to_string(), expected.to_string());
+       
+        local_insta_assert_snapshot!(actual.to_string());
     }
     
     #[test]
@@ -420,34 +353,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        let expected = quote! {
-           ::near_sdk::__private::AbiFunction { 
-                name: ::std::string::String::from("method"),
-                doc: ::std::option::Option::None, 
-                kind: ::near_sdk::__private::AbiFunctionKind::View , 
-                modifiers: ::std::vec! [],
-                params: ::near_sdk::__private::AbiParameters::Borsh {
-                    args: ::std::vec! [
-                        ::near_sdk::__private::AbiBorshParameter {
-                            name: ::std::string::String::from("y"),
-                            type_schema: < String as ::near_sdk::borsh::BorshSchema >::schema_container(),
-                        }
-                    ]
-                }, 
-                callbacks: ::std::vec! [
-                    ::near_sdk::__private::AbiType::Borsh { 
-                        type_schema: <u64 as ::near_sdk::borsh::BorshSchema>::schema_container(),
-                    },
-                    ::near_sdk::__private::AbiType::Json {
-                        type_schema: gen.subschema_for::< Vec<u8> >(),
-                    }
-                ],
-                callbacks_vec: ::std::option::Option::None,
-                result: ::std::option::Option::None 
-            }
-        };
-
-        assert_eq!(actual.to_string(), expected.to_string());
+        local_insta_assert_snapshot!(actual.to_string());
     }
     
     #[test]
@@ -460,24 +366,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        let expected = quote! {
-            ::near_sdk::__private::AbiFunction {
-                name: ::std::string::String::from("new"),
-                doc: ::std::option::Option::None,
-                kind: ::near_sdk::__private::AbiFunctionKind::Call,
-                modifiers: ::std::vec![
-                    ::near_sdk::__private::AbiFunctionModifier::Init
-                ],
-                params: ::near_sdk::__private::AbiParameters::Json {
-                    args: ::std::vec![]
-                },
-                callbacks: ::std::vec![],
-                callbacks_vec: ::std::option::Option::None,
-                result: ::std::option::Option::None
-            }
-        };
-
-        assert_eq!(actual.to_string(), expected.to_string());
+        local_insta_assert_snapshot!(actual.to_string());
     }
     
     #[test]
@@ -489,21 +378,6 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
-        let expected = quote! {
-            ::near_sdk::__private::AbiFunction {
-                name: ::std::string::String::from("method"),
-                doc: ::std::option::Option::None,
-                kind: ::near_sdk::__private::AbiFunctionKind::View,
-                modifiers: ::std::vec![],
-                params: ::near_sdk::__private::AbiParameters::Json {
-                    args: ::std::vec![]
-                },
-                callbacks: ::std::vec![],
-                callbacks_vec: ::std::option::Option::None,
-                result: ::std::option::Option::None
-            }
-        };
-
-        assert_eq!(actual.to_string(), expected.to_string());
+        local_insta_assert_snapshot!(actual.to_string());
     }
 }

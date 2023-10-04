@@ -1,0 +1,17 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/ext.rs
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[cfg(target_os = "linux")]
+pub fn method(self) -> ::near_sdk::Promise {
+    let __args = ::std::vec![];
+    ::near_sdk::Promise::new(self.account_id)
+        .function_call_weight(
+            ::std::string::String::from("method"),
+            __args,
+            self.deposit,
+            self.static_gas,
+            self.gas_weight,
+        )
+}
+
