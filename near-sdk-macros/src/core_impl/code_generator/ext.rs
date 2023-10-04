@@ -87,7 +87,7 @@ fn is_fn_attribute_to_forward(attribute: &Attribute) -> bool {
     for to_forward in FN_ATTRIBUTES_TO_FORWARD.iter() {
         let to_forward_ident = Ident::new(to_forward, Span::mixed_site());
         let to_forward_path: Path = parse_quote! { #to_forward_ident };
-        if to_forward_path == attribute.path {
+        if &to_forward_path == attribute.meta.path() {
             return true;
         }
     }
@@ -148,7 +148,7 @@ mod tests {
 
     use super::*;
     use quote::quote;
-    use syn::{parse_quote, ImplItemMethod, ItemStruct, Type};
+    use syn::{parse_quote, ImplItemFn, ItemStruct, Type};
 
     #[test]
     fn ext_gen() {
@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn ext_fn_non_bindgen_attrs() {
         let impl_type: Type = parse_quote! { Hello };
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             #[cfg(target_os = "linux")]
             #[inline]
             #[warn(unused)]
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn ext_basic_json() {
         let impl_type: Type = parse_quote! { Hello };
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: ImplItemFn = parse_quote! {
             pub fn method(&self, k: &String) { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn ext_basic_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemMethod = parse_quote! {
+        let mut method: syn::ImplItemFn = parse_quote! {
           pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();

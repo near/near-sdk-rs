@@ -275,68 +275,51 @@ pub fn metadata(item: TokenStream) -> TokenStream {
         )
     }
 }
+#[cfg(feature = "abi")]
+use darling::FromDeriveInput;
+#[derive(darling::FromDeriveInput, Debug)]
+#[darling(attributes(abi), forward_attrs(serde, borsh_skip, schemars, validate))]
+#[cfg(feature = "abi")]
+struct DeriveNearSchema {
+    attrs: Vec<syn::Attribute>,
+    json: Option<bool>,
+    borsh: Option<bool>,
+}
 
 #[cfg(feature = "abi")]
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
 pub fn derive_near_schema(input: TokenStream) -> TokenStream {
-    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
-
-    let (mut json_schema, mut borsh_schema) = (false, false);
-    let mut type_attrs = vec![];
-    let mut errors = vec![];
-    for attr in input.attrs {
-        match attr.parse_meta() {
-            // #[abi]
-            Ok(syn::Meta::Path(meta)) if meta.is_ident("abi") => {
-                errors.push(syn::Error::new_spanned(
-                    meta.into_token_stream(),
-                    "attribute requires at least one argument",
-                ));
-            }
-            // #[abi(json, borsh)]
-            Ok(syn::Meta::List(meta)) if meta.path.is_ident("abi") => {
-                // #[abi()]
-                if meta.nested.is_empty() {
-                    errors.push(syn::Error::new_spanned(
-                        meta.into_token_stream(),
-                        "attribute requires at least one argument",
-                    ));
-                    continue;
-                }
-                for meta in meta.nested {
-                    match meta {
-                        // #[abi(.. json ..)]
-                        syn::NestedMeta::Meta(m) if m.path().is_ident("json") => json_schema = true,
-                        // #[abi(.. borsh ..)]
-                        syn::NestedMeta::Meta(m) if m.path().is_ident("borsh") => {
-                            borsh_schema = true
-                        }
-                        _ => {
-                            errors.push(syn::Error::new_spanned(
-                                meta.into_token_stream(),
-                                "invalid argument, expected: `json` or `borsh`",
-                            ));
-                        }
-                    }
-                }
-            }
-            // #[serde(..)], #[schemars(..)]
-            Ok(syn::Meta::List(meta))
-                if meta.path.is_ident("serde") || meta.path.is_ident("schemars") =>
-            {
-                type_attrs.push(attr)
-            }
-            _ => continue,
+    let derive_input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let args = match DeriveNearSchema::from_derive_input(&derive_input) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
         }
+    };
+
+    if args.borsh.is_none()
+        && args.json.is_none()
+        && derive_input.attrs.iter().any(|attr| attr.path().is_ident("abi"))
+    {
+        return TokenStream::from(
+            syn::Error::new_spanned(
+                derive_input.to_token_stream(),
+                "At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified",
+            )
+            .to_compile_error(),
+        );
     }
 
-    input.attrs = type_attrs;
+    // #[abi(json, borsh)]
+    let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
+    let mut input = derive_input;
+    input.attrs = args.attrs;
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
         attrs.retain(|attr| {
             ["serde", "schemars", "validate", "borsh_skip"]
                 .iter()
-                .any(|&path| attr.path.is_ident(path))
+                .any(|&path| attr.path().is_ident(path))
         });
     };
 
@@ -363,10 +346,6 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
                 .to_compile_error(),
             )
         }
-    }
-
-    if let Some(combined_errors) = errors.into_iter().reduce(|mut l, r| (l.combine(r), l).1) {
-        return TokenStream::from(combined_errors.to_compile_error());
     }
 
     let json_schema = json_schema || !borsh_schema;
@@ -577,9 +556,10 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         // add `'near_event` lifetime for user defined events
         let mut generics = input.generics.clone();
         let event_lifetime = syn::Lifetime::new("'near_event", Span::call_site());
-        generics
-            .params
-            .insert(0, syn::GenericParam::Lifetime(syn::LifetimeDef::new(event_lifetime.clone())));
+        generics.params.insert(
+            0,
+            syn::GenericParam::Lifetime(syn::LifetimeParam::new(event_lifetime.clone())),
+        );
         let (custom_impl_generics, ..) = generics.split_for_impl();
 
         TokenStream::from(quote! {
