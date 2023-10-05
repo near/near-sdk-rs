@@ -7,7 +7,7 @@ use test_case::test_case;
 #[test_case("factory_contract_low_level")]
 #[tokio::test]
 async fn test_deploy_status_message(contract_name: &str) -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let contract = worker.dev_deploy(&std::fs::read(format!("res/{}.wasm", contract_name))?).await?;
 
     // Needed because of 32 character minimum for TLA

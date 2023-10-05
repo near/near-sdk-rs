@@ -7,12 +7,13 @@ edition = "2021"
 [dev-dependencies]
 anyhow = "1.0"
 near-primitives = "0.17"
-near-contract-standards = { path = "../../near-contract-standards" }
-near-sdk = { path = "../../near-sdk" }
+near-contract-standards = "4.1.1"
+near-sdk = "4.1.1"
 near-units = "0.2.0"
 serde_json = "1.0"
 tokio = { version = "1.14", features = ["full"] }
-workspaces = "0.7.0"
+near-workspaces = { version = "0.8.0" }
+near-gas = "0.2.3"
 
 [profile.release]
 codegen-units = 1
@@ -25,8 +26,4 @@ overflow-checks = true
 
 [workspace]
 # remember to include a member for each contract
-members = [
-  "nft",
-  "test-approval-receiver",
-  "test-token-receiver",
-]
+members = ["nft", "test-approval-receiver", "test-token-receiver"]
