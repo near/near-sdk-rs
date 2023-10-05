@@ -147,87 +147,23 @@ mod tests {
     use crate::core_impl::ImplItemMethodInfo;
 
     use super::*;
-    use quote::quote;
     use syn::{parse_quote, ImplItemFn, ItemStruct, Type};
+    use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
     #[test]
     fn ext_gen() {
         let st: ItemStruct = parse_quote! { struct Test { a: u8 } };
         let actual = generate_ext_structs(&st.ident, Some(&st.generics));
-        let expected = quote!(
-          #[must_use]
-          pub struct TestExt {
-              pub(crate) account_id: ::near_sdk::AccountId,
-              pub(crate) deposit: ::near_sdk::Balance,
-              pub(crate) static_gas: ::near_sdk::Gas,
-              pub(crate) gas_weight: ::near_sdk::GasWeight,
-          }
-          impl TestExt {
-              pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
-                  self.deposit = amount;
-                  self
-              }
-              pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
-                  self.static_gas = static_gas;
-                  self
-              }
-              pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                  self.gas_weight = ::near_sdk::GasWeight(gas_weight);
-                  self
-              }
-          }
-          impl Test {
-            /// API for calling this contract's functions in a subsequent execution.
-            pub fn ext(account_id: ::near_sdk::AccountId) -> TestExt {
-                TestExt {
-                    account_id,
-                    deposit: 0,
-                    static_gas: ::near_sdk::Gas::from_gas(0),
-                    gas_weight: ::near_sdk::GasWeight::default(),
-                }
-            }
-          }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
+       
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
     #[test]
     fn module_ext_gen() {
         let ident: Ident = parse_quote! { Test };
         let actual = generate_ext_structs(&ident, None);
-        let expected = quote!(
-          #[must_use]
-          pub struct TestExt {
-              pub(crate) account_id: ::near_sdk::AccountId,
-              pub(crate) deposit: ::near_sdk::Balance,
-              pub(crate) static_gas: ::near_sdk::Gas,
-              pub(crate) gas_weight: ::near_sdk::GasWeight,
-          }
-          impl TestExt {
-              pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
-                  self.deposit = amount;
-                  self
-              }
-              pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
-                  self.static_gas = static_gas;
-                  self
-              }
-              pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                  self.gas_weight = ::near_sdk::GasWeight(gas_weight);
-                  self
-              }
-          }
-          /// API for calling this contract's functions in a subsequent execution.
-          pub fn ext(account_id: ::near_sdk::AccountId) -> TestExt {
-              TestExt {
-                  account_id,
-                  deposit: 0,
-                  static_gas: ::near_sdk::Gas::from_gas(0),
-                  gas_weight: ::near_sdk::GasWeight::default(),
-              }
-          }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
+    
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
     /// Verifies that only whitelisted attributes are forwarded to `_Ext`
@@ -244,21 +180,7 @@ mod tests {
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
 
-        // Note: only whitelisted non-bindgen attributes are forwarded.
-        let expected = quote! {
-            #[cfg(target_os = "linux")]
-            pub fn method (self,) -> ::near_sdk::Promise {
-                let __args = ::std::vec![];
-                ::near_sdk::Promise::new(self.account_id).function_call_weight(
-                    ::std::string::String::from("method"),
-                    __args,
-                    self.deposit,
-                    self.static_gas,
-                    self.gas_weight,
-                )
-            }
-        };
-        assert_eq!(expected.to_string(), actual.to_string());
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
     #[test]
@@ -269,27 +191,8 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
-        let expected = quote!(
-            pub fn method(self, k: &String,) -> ::near_sdk::Promise {
-                let __args = {#[derive(::near_sdk :: serde :: Serialize)]
-                    #[serde(crate = "::near_sdk::serde")]
-                    struct Input<'nearinput> {
-                        k: &'nearinput String,
-                    }
-                    let __args = Input { k: &k, };
-                    ::near_sdk::serde_json::to_vec(&__args)
-                        .expect("Failed to serialize the cross contract args using JSON.")
-                };
-                ::near_sdk::Promise::new(self.account_id).function_call_weight(
-                    ::std::string::String::from("method"),
-                    __args,
-                    self.deposit,
-                    self.static_gas,
-                    self.gas_weight,
-                )
-            }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
+     
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
     #[test]
@@ -300,28 +203,7 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
-        let expected = quote!(
-          pub fn borsh_test(self, a: String,) -> ::near_sdk::Promise {
-            let __args = {
-              #[derive(::near_sdk :: borsh :: BorshSerialize)]
-              #[borsh(crate = "::near_sdk::borsh")]
-              struct Input<'nearinput> {
-                  a: &'nearinput String,
-              }
-              let __args = Input { a: &a, };
-              ::near_sdk::borsh::to_vec(&__args)
-                  .expect("Failed to serialize the cross contract args using Borsh.")
-            };
-              ::near_sdk::Promise::new(self.account_id)
-                  .function_call_weight(
-                      ::std::string::String::from("borsh_test"),
-                      __args,
-                      self.deposit,
-                      self.static_gas,
-                      self.gas_weight,
-                  )
-          }
-        );
-        assert_eq!(expected.to_string(), actual.to_string());
+       
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }

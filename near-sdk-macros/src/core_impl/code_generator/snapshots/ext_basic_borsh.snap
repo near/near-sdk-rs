@@ -1,0 +1,25 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/ext.rs
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+pub fn borsh_test(self, a: String) -> ::near_sdk::Promise {
+    let __args = {
+        #[derive(::near_sdk::borsh::BorshSerialize)]
+        #[borsh(crate = "::near_sdk::borsh")]
+        struct Input<'nearinput> {
+            a: &'nearinput String,
+        }
+        let __args = Input { a: &a };
+        ::near_sdk::borsh::to_vec(&__args)
+            .expect("Failed to serialize the cross contract args using Borsh.")
+    };
+    ::near_sdk::Promise::new(self.account_id)
+        .function_call_weight(
+            ::std::string::String::from("borsh_test"),
+            __args,
+            self.deposit,
+            self.static_gas,
+            self.gas_weight,
+        )
+}
+

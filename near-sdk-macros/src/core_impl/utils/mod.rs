@@ -4,6 +4,9 @@ use syn::spanned::Spanned;
 use syn::token::{And, Mut};
 use syn::{GenericArgument, Path, PathArguments, Signature, Type};
 
+#[cfg(test)]
+pub mod test_helpers;
+
 /// Checks whether the given path is literally "Result".
 /// Note that it won't match a fully qualified name `core::result::Result` or a type alias like
 /// `type StringResult = Result<String, String>`.

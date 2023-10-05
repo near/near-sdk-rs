@@ -1,0 +1,17 @@
+---
+source: near-sdk-macros/src/core_impl/abi/abi_generator.rs
+expression: pretty_print_fn_body_syn_str(actual)
+---
+    ::near_sdk::__private::AbiFunction {
+        name: ::std::string::String::from("method"),
+        doc: ::std::option::Option::None,
+        kind: ::near_sdk::__private::AbiFunctionKind::View,
+        modifiers: ::std::vec![],
+        params: ::near_sdk::__private::AbiParameters::Json {
+            args: ::std::vec![],
+        },
+        callbacks: ::std::vec![],
+        callbacks_vec: ::std::option::Option::None,
+        result: ::std::option::Option::None,
+    }
+
