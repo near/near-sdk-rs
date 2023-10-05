@@ -7,8 +7,8 @@ edition = "2021"
 [dev-dependencies]
 anyhow = "1.0"
 near-primitives = "0.17"
-near-contract-standards = "4.1.1"
-near-sdk = "4.1.1"
+near-contract-standards = { path = "../../near-contract-standards" }
+near-sdk = { path = "../../near-sdk" }
 near-units = "0.2.0"
 serde_json = "1.0"
 tokio = { version = "1.14", features = ["full"] }
@@ -23,6 +23,9 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[patch.crates-io]
+near-sdk = { path = "../../near-sdk" }
 
 [workspace]
 # remember to include a member for each contract

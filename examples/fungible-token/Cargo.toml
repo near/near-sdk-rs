@@ -20,6 +20,9 @@ near-gas = { version = "*" }
 fungible-token = { path = "./ft" }
 defi = { path = "./test-contract-defi" }
 
+[patch.crates-io]
+near-sdk = { path = "../../near-sdk" }
+
 [profile.release]
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.

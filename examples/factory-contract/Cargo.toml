@@ -16,6 +16,10 @@ near-workspaces = { version = "0.8.0" }
 factory-contract-high-level = { path = "./high-level" }
 factory-contract-low-level = { path = "./low-level" }
 
+[patch.crates-io]
+near-sdk = { path = "../../near-sdk" }
+
+
 [profile.release]
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.
