@@ -28,4 +28,8 @@ near-sdk = { path = "../../near-sdk" }
 
 [workspace]
 # remember to include a member for each contract
-members = ["nft", "test-approval-receiver", "test-token-receiver"]
+members = [
+    "nft",
+    "test-approval-receiver",
+    "test-token-receiver"
+]

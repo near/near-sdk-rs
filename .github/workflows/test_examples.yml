@@ -14,7 +14,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         # after fix of https://github.com/near/nearcore/pull/9140#issuecomment-1576655073, it should be [stable]
-        toolchain: [1.69.0]
+        toolchain: [1.70.0]
         example: [cross-contract-calls, fungible-token]
 
     steps:
@@ -26,14 +26,6 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           default: true
           target: wasm32-unknown-unknown
-      - name: downgrade `anstyle`,`anstyle-parse`,`clap`,`clap_lex` crates to support older Rust toolchain
-        if: matrix.toolchain == '1.69.0'
-        run: |
-          cd ./examples/${{ matrix.example }}
-          cargo update -p anstyle --precise 1.0.2
-          cargo update -p anstyle-parse --precise 0.2.1
-          cargo update -p clap@4.4.6 --precise 4.3.24
-          cargo update -p clap_lex@0.5.1 --precise 0.5.0
       - uses: Swatinem/rust-cache@v1
         with:
           working-directory: ./examples/${{ matrix.example }}

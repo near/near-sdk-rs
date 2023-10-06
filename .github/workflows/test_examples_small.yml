@@ -14,7 +14,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         # after fix of https://github.com/near/nearcore/pull/9140#issuecomment-1576655073, it should be [stable]
-        toolchain: [1.69.0]
+        toolchain: [1.70.0]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
@@ -23,40 +23,6 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
-      - name: downgrade `anstyle`,`anstyle-parse`,`clap`,`clap_lex` crates to support older Rust toolchain
-        run: |
-          pushd ./examples/lockable-fungible-token
-          rm -f Cargo.lock 
-          cargo update -p anstyle --precise 1.0.2
-          cargo update -p anstyle-parse --precise 0.2.1
-          cargo update -p clap@4.4.6 --precise 4.3.24
-          cargo update -p clap_lex@0.5.1 --precise 0.5.0
-          popd 
-
-          pushd ./examples/status-message
-          rm -f Cargo.lock 
-          cargo update -p anstyle --precise 1.0.2
-          cargo update -p anstyle-parse --precise 0.2.1
-          cargo update -p clap@4.4.6 --precise 4.3.24
-          cargo update -p clap_lex@0.5.1 --precise 0.5.0
-          popd
-
-          pushd ./examples/mission-control
-          rm -f Cargo.lock 
-          cargo update -p anstyle --precise 1.0.2
-          cargo update -p anstyle-parse --precise 0.2.1
-          cargo update -p clap@4.4.6 --precise 4.3.24
-          cargo update -p clap_lex@0.5.1 --precise 0.5.0
-          popd
-
-          pushd ./examples/test-contract
-          rm -f Cargo.lock 
-          cargo update -p anstyle --precise 1.0.2
-          cargo update -p anstyle-parse --precise 0.2.1
-          cargo update -p clap@4.4.6 --precise 4.3.24
-          cargo update -p clap_lex@0.5.1 --precise 0.5.0
-          popd
-
       - uses: Swatinem/rust-cache@v1
       - name: Build lockable-fungible-token
         env:
