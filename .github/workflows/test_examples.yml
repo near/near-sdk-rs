@@ -16,21 +16,29 @@ jobs:
         # after fix of https://github.com/near/nearcore/pull/9140#issuecomment-1576655073, it should be [stable]
         toolchain: [1.69.0]
         example: [cross-contract-calls, fungible-token]
-          
+
     steps:
       - uses: actions/checkout@v3
-      - name: "${{ matrix.toolchain }} with and wasm32"
+      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
+          default: true
           target: wasm32-unknown-unknown
+      - name: downgrade `anstyle`,`anstyle-parse`,`clap`,`clap_lex` crates to support older Rust toolchain
+        if: matrix.toolchain == '1.69.0'
+        run: |
+          cargo update -p anstyle --precise 1.0.2
+          cargo update -p anstyle-parse --precise 0.2.1
+          cargo update -p clap --precise 4.3.24
+          cargo update -p clap_lex --precise 0.5.0
       - uses: Swatinem/rust-cache@v1
         with:
           working-directory: ./examples/${{ matrix.example }}
       - name: Build
-        env: 
-          RUSTFLAGS: '-C link-arg=-s'
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
         run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
       - name: Test
         run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --all
