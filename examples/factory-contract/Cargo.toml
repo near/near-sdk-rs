@@ -30,6 +30,6 @@ panic = "abort"
 
 [workspace]
 members = [
-    "high-level",
-    "low-level",
+  "high-level",
+  "low-level",
 ]
