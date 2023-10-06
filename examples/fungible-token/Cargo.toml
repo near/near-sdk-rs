@@ -33,6 +33,6 @@ overflow-checks = true
 [workspace]
 # remember to include a member for each contract
 members = [
-    "ft",
-    "test-contract-defi"
+  "ft",
+  "test-contract-defi",
 ]

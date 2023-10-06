@@ -29,4 +29,7 @@ debug = false
 panic = "abort"
 
 [workspace]
-members = ["high-level", "low-level"]
+members = [
+    "high-level",
+    "low-level",
+]

@@ -135,7 +135,6 @@ where
     /// assert_eq!(map["poneyland"], None);
     /// # }
     /// ```
-    #[allow(clippy::unwrap_or_default)]
     pub fn or_default(self) -> &'a mut V
     where
         V: Default,
