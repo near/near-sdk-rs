@@ -26,7 +26,7 @@ jobs:
       - name: downgrade `anstyle`,`anstyle-parse`,`clap`,`clap_lex` crates to support older Rust toolchain
         run: |
           pushd ./examples/lockable-fungible-token
-          rm Cargo.lock -f 
+          rm -f Cargo.lock 
           cargo update -p anstyle --precise 1.0.2
           cargo update -p anstyle-parse --precise 0.2.1
           cargo update -p clap@4.4.6 --precise 4.3.24
@@ -34,7 +34,7 @@ jobs:
           popd 
 
           pushd ./examples/status-message
-          rm Cargo.lock -f 
+          rm -f Cargo.lock 
           cargo update -p anstyle --precise 1.0.2
           cargo update -p anstyle-parse --precise 0.2.1
           cargo update -p clap@4.4.6 --precise 4.3.24
@@ -42,7 +42,7 @@ jobs:
           popd
 
           pushd ./examples/mission-control
-          rm Cargo.lock -f 
+          rm -f Cargo.lock 
           cargo update -p anstyle --precise 1.0.2
           cargo update -p anstyle-parse --precise 0.2.1
           cargo update -p clap@4.4.6 --precise 4.3.24
@@ -50,7 +50,7 @@ jobs:
           popd
 
           pushd ./examples/test-contract
-          rm Cargo.lock -f
+          rm -f Cargo.lock 
           cargo update -p anstyle --precise 1.0.2
           cargo update -p anstyle-parse --precise 0.2.1
           cargo update -p clap@4.4.6 --precise 4.3.24
