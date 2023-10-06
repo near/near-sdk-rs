@@ -97,7 +97,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json((false, 1u8, 0u8))
-            .gas(near_gas::NearGas::from_tgas(300))
+            .gas(near_sdk::Gas::from_tgas(300))
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, true));
@@ -106,7 +106,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json((true, 0u8, 1u8))
-            .gas(near_gas::NearGas::from_tgas(300))
+            .gas(near_sdk::Gas::from_tgas(300))
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, false));
@@ -115,7 +115,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json((true, 0u8, 0u8))
-            .gas(near_gas::NearGas::from_tgas(300))
+            .gas(near_sdk::Gas::from_tgas(300))
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, true));

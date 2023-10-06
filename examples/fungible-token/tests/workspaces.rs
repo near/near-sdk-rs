@@ -181,13 +181,13 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
             Function::new("ft_transfer_call")
                 .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))
                 .deposit(ONE_YOCTO)
-                .gas(near_gas::NearGas::from_tgas(150)),
+                .gas(near_sdk::Gas::from_tgas(150)),
         )
         .call(
             Function::new("storage_unregister")
                 .args_json((Some(true),))
                 .deposit(ONE_YOCTO)
-                .gas(near_gas::NearGas::from_tgas(150)),
+                .gas(near_sdk::Gas::from_tgas(150)),
         )
         .transact()
         .await?;

@@ -6,7 +6,7 @@ edition = "2021"
 
 [dev-dependencies]
 anyhow = "1.0"
-near-sdk = { version = "4.1.1", features = ["unstable"] }
+near-sdk = { version = "4.1.1"}
 near-units = "0.2.0"
 serde_json = "1.0"
 test-case = "2.0"

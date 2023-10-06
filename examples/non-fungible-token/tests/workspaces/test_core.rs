@@ -183,7 +183,7 @@ async fn simulate_transfer_call_receiver_panics() -> anyhow::Result<()> {
             Some("transfer & call"),
             "incorrect message",
         ))
-        .gas(near_gas::NearGas::from_gas(
+        .gas(near_sdk::Gas::from_gas(
             35_000_000_000_000 + 1
         ))
         .deposit(ONE_YOCTO)
@@ -220,7 +220,7 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
             Some("transfer & call"),
             "incorrect message",
         ))
-        .gas(near_gas::NearGas::from_tgas(30))
+        .gas(near_sdk::Gas::from_tgas(30))
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
@@ -249,7 +249,7 @@ async fn simulate_simple_transfer_no_logs_on_failure() -> anyhow::Result<()> {
         .call("nft_transfer")
         // transfer to the current owner should fail and not print log
         .args_json((nft_contract.id(), TOKEN_ID, Option::<u64>::None, Some("simple transfer")))
-        .gas(near_gas::NearGas::from_tgas(200))
+        .gas(near_sdk::Gas::from_tgas(200))
         .deposit(ONE_YOCTO)
         .transact()
         .await?;

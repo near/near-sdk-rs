@@ -8,13 +8,11 @@ edition = "2021"
 anyhow = "1.0"
 base64 = "0.13"
 near-primitives = "0.17"
-# near-sdk = { path = "../../near-sdk" }
 near-sdk = { version = "4.1.1" }
 near-units = "0.2.0"
 serde_json = "1.0"
 tokio = { version = "1.14", features = ["full"] }
 near-workspaces = { version = "0.8.0" }
-near-gas = { version = "*" }
 
 # remember to include a line for each contract
 fungible-token = { path = "./ft" }
@@ -34,4 +32,7 @@ overflow-checks = true
 
 [workspace]
 # remember to include a member for each contract
-members = ["ft", "test-contract-defi"]
+members = [
+    "ft",
+    "test-contract-defi"
+]
