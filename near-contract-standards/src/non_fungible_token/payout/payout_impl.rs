@@ -2,7 +2,7 @@ use super::NonFungibleTokenPayout;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::payout::*;
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::assert_one_yocto;
+use near_sdk::{assert_one_yocto, env};
 use near_sdk::{require, AccountId, Balance, IntoStorageKey};
 use std::collections::HashMap;
 impl Royalties {
@@ -48,7 +48,7 @@ impl Royalties {
 }
 
 fn apply_percent(percent: BasisPoint, int: u128) -> u128 {
-    int * percent as u128 / 100u128
+    int.checked_mul(percent as u128).unwrap_or_else(|| env::panic_str("royalty overflow")) / 100u128
 }
 
 impl NonFungibleTokenPayout for NonFungibleToken {

@@ -8,17 +8,22 @@ use std::collections::HashMap;
 
 type BasisPoint = u16;
 
+/// This struct represents NFT royalty payout for each receiver.
 #[derive(Default, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Payout {
     pub payout: HashMap<AccountId, U128>,
 }
 
+/// This struct represents percentage of total royalty per receiver as well as the total percentage
+/// of distributed royalties based on incoming payment.
 #[derive(Deserialize, Serialize, BorshDeserialize, BorshSerialize, Default, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Royalties {
     key_prefix: Vec<u8>,
+    /// A mapping of accounts to the percentage of total royalty to be distributed.
     pub accounts: HashMap<AccountId, BasisPoint>,
+    /// Total percent of incoming balance used for royalties.
     pub percent: BasisPoint,
 }
 
