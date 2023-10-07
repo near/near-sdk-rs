@@ -1,44 +1,46 @@
-error: attribute requires at least one argument
- --> compilation_tests/schema_derive_invalids.rs:9:3
-  |
-9 | #[abi]
-  |   ^^^
-
-error: attribute requires at least one argument
-  --> compilation_tests/schema_derive_invalids.rs:13:3
+error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified
+  --> compilation_tests/schema_derive_invalids.rs:9:1
    |
-13 | #[abi()]
-   |   ^^^^^
+9  | / #[abi]
+10 | | struct Nada;
+   | |____________^
 
-error: invalid argument, expected: `json` or `borsh`
+error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified
+  --> compilation_tests/schema_derive_invalids.rs:13:1
+   |
+13 | / #[abi()]
+14 | | struct Empty;
+   | |_____________^
+
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:17:7
    |
 17 | #[abi(serde)]
    |       ^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:21:13
    |
 21 | #[abi(json, serde)]
    |             ^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:25:13
    |
 25 | #[abi(json, serde, schemars)]
    |             ^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `schemars`
   --> compilation_tests/schema_derive_invalids.rs:25:20
    |
 25 | #[abi(json, serde, schemars)]
    |                    ^^^^^^^^
 
-error: invalid argument, expected: `json` or `borsh`
+error: Unknown field: `serde`
   --> compilation_tests/schema_derive_invalids.rs:29:13
    |
 29 | #[abi(json, serde = "?")]
-   |             ^^^^^^^^^^^
+   |             ^^^^^
 
 error: `NearSchema` does not support derive for unions
   --> compilation_tests/schema_derive_invalids.rs:33:1
@@ -49,10 +51,11 @@ error: `NearSchema` does not support derive for unions
 36 | | }
    | |_^
 
-error: `NearSchema` does not support derive for unions
-  --> compilation_tests/schema_derive_invalids.rs:40:1
+error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified
+  --> compilation_tests/schema_derive_invalids.rs:39:1
    |
-40 | / union UnsupporteedWithoutArgs {
+39 | / #[abi()]
+40 | | union UnsupporteedWithoutArgs {
 41 | |     a: u8,
 42 | |     b: u16,
 43 | | }

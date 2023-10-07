@@ -43,7 +43,7 @@ union UnsupporteedWithoutArgs {
 }
 
 #[derive(NearSchema)]
-#[abi(json, schemars)]
+#[abi(json)]
 union UnsupporteedWithArgs {
     a: u8,
     b: u16,
