@@ -13,8 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        # after fix of https://github.com/near/nearcore/pull/9140#issuecomment-1576655073, it should be [stable]
-        toolchain: [1.70.0]
+        toolchain: [stable]
         example: [cross-contract-calls, fungible-token]
     steps:
       - uses: actions/checkout@v3
