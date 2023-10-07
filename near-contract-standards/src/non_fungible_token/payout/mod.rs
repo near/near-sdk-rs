@@ -1,6 +1,7 @@
 mod payout_impl;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::TreeMap;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ pub struct Payout {
 pub struct Royalties {
     key_prefix: Vec<u8>,
     /// A mapping of accounts to the percentage of total royalty to be distributed.
-    pub accounts: HashMap<AccountId, BasisPoint>,
+    pub accounts: TreeMap<AccountId, BasisPoint>,
     /// Total percent of incoming balance used for royalties.
     pub percent: BasisPoint,
 }
