@@ -1225,7 +1225,7 @@ mod tests {
     #[test]
     fn test_lower() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1245,7 +1245,7 @@ mod tests {
     #[test]
     fn test_higher() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1265,7 +1265,7 @@ mod tests {
     #[test]
     fn test_floor_key() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1285,7 +1285,7 @@ mod tests {
     #[test]
     fn test_ceil_key() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
-        let vec: Vec<u32> = vec![10, 20, 30, 40, 50];
+        let vec = [10, 20, 30, 40, 50];
 
         for x in vec.into_iter() {
             map.insert(x, 1);
@@ -1322,7 +1322,7 @@ mod tests {
 
     #[test]
     fn test_remove_3_desc() {
-        let vec: Vec<u32> = vec![3, 2, 1];
+        let vec = [3, 2, 1];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1341,7 +1341,7 @@ mod tests {
 
     #[test]
     fn test_remove_3_asc() {
-        let vec: Vec<u32> = vec![1, 2, 3];
+        let vec = [1, 2, 3];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1361,8 +1361,8 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_1() {
-        let vec: Vec<u32> =
-            vec![2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
+        let vec =
+            [2104297040, 552624607, 4269683389, 3382615941, 155419892, 4102023417, 1795725075];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1383,8 +1383,7 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression_2() {
-        let vec: Vec<u32> =
-            vec![700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
+        let vec = [700623085, 87488544, 1500140781, 1111706290, 3187278102, 4042663151, 3731533080];
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
         for x in &vec {
@@ -1403,7 +1402,7 @@ mod tests {
 
     #[test]
     fn test_remove_9_regression() {
-        let vec: Vec<u32> = vec![
+        let vec = [
             1186903464, 506371929, 1738679820, 1883936615, 1815331350, 1512669683, 3581743264,
             1396738166, 1902061760,
         ];
@@ -1425,7 +1424,7 @@ mod tests {
 
     #[test]
     fn test_remove_20_regression_1() {
-        let vec: Vec<u32> = vec![
+        let vec = [
             552517392, 3638992158, 1015727752, 2500937532, 638716734, 586360620, 2476692174,
             1425948996, 3608478547, 757735878, 2709959928, 2092169539, 3620770200, 783020918,
             1986928932, 200210441, 1972255302, 533239929, 497054557, 2137924638,
@@ -1448,7 +1447,7 @@ mod tests {
 
     #[test]
     fn test_remove_7_regression() {
-        let vec: Vec<u32> = vec![280, 606, 163, 857, 436, 508, 44, 801];
+        let vec = [280, 606, 163, 857, 436, 508, 44, 801];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
@@ -1471,8 +1470,8 @@ mod tests {
 
     #[test]
     fn test_insert_8_remove_4_regression() {
-        let insert = vec![882, 398, 161, 76];
-        let remove = vec![242, 687, 860, 811];
+        let insert = [882, 398, 161, 76];
+        let remove = [242, 687, 860, 811];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
@@ -1537,8 +1536,8 @@ mod tests {
 
     #[test]
     fn test_insert_2_remove_2_regression() {
-        let ins: Vec<u32> = vec![11760225, 611327897];
-        let rem: Vec<u32> = vec![2982517385, 1833990072];
+        let ins = [11760225, 611327897];
+        let rem = [2982517385, 1833990072];
 
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         map.insert(ins[0], 1);
@@ -1661,8 +1660,8 @@ mod tests {
     fn test_iter_from() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one = [10, 20, 30, 40, 50];
+        let two = [45, 35, 25, 15, 5];
 
         for x in &one {
             map.insert(*x, 42);
@@ -1700,8 +1699,8 @@ mod tests {
     fn test_iter_rev_from() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one = [10, 20, 30, 40, 50];
+        let two = [45, 35, 25, 15, 5];
 
         for x in &one {
             map.insert(*x, 42);
@@ -1738,8 +1737,8 @@ mod tests {
     fn test_range() {
         let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
 
-        let one: Vec<u32> = vec![10, 20, 30, 40, 50];
-        let two: Vec<u32> = vec![45, 35, 25, 15, 5];
+        let one = [10, 20, 30, 40, 50];
+        let two = [45, 35, 25, 15, 5];
 
         for x in &one {
             map.insert(*x, 42);
@@ -1814,8 +1813,8 @@ mod tests {
 
     #[test]
     fn test_balance_regression_1() {
-        let insert = vec![(2, 0), (3, 0), (4, 0)];
-        let remove = vec![0, 0, 0, 1];
+        let insert = [(2, 0), (3, 0), (4, 0)];
+        let remove = [0, 0, 0, 1];
 
         let map = avl(&insert, &remove);
         assert!(is_balanced(&map, map.tree.root.unwrap()));
@@ -1823,8 +1822,8 @@ mod tests {
 
     #[test]
     fn test_balance_regression_2() {
-        let insert = vec![(1, 0), (2, 0), (0, 0), (3, 0), (5, 0), (6, 0)];
-        let remove = vec![0, 0, 0, 3, 5, 6, 7, 4];
+        let insert = [(1, 0), (2, 0), (0, 0), (3, 0), (5, 0), (6, 0)];
+        let remove = [0, 0, 0, 3, 5, 6, 7, 4];
 
         let map = avl(&insert, &remove);
         assert!(is_balanced(&map, map.tree.root.unwrap()));

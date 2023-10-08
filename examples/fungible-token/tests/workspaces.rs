@@ -1,9 +1,9 @@
 use near_sdk::json_types::U128;
 use near_sdk::ONE_YOCTO;
 use near_units::parse_near;
-use workspaces::operations::Function;
-use workspaces::result::ValueOrReceiptId;
-use workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
+use near_workspaces::operations::Function;
+use near_workspaces::result::ValueOrReceiptId;
+use near_workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
 
 async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::Result<()> {
     let res = contract
@@ -61,7 +61,7 @@ async fn init(
 #[tokio::test]
 async fn test_total_supply() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract.call("ft_total_supply").view().await?;
@@ -74,7 +74,7 @@ async fn test_total_supply() -> anyhow::Result<()> {
 async fn test_simple_transfer() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
     let res = contract
@@ -99,7 +99,7 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_close_account_empty_balance() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
     let res = alice
@@ -117,7 +117,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract
@@ -146,7 +146,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
 #[tokio::test]
 async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract
@@ -168,7 +168,7 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
 async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -181,13 +181,13 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
             Function::new("ft_transfer_call")
                 .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))
                 .deposit(ONE_YOCTO)
-                .gas(300_000_000_000_000 / 2),
+                .gas(near_sdk::Gas::from_tgas(150)),
         )
         .call(
             Function::new("storage_unregister")
                 .args_json((Some(true),))
                 .deposit(ONE_YOCTO)
-                .gas(300_000_000_000_000 / 2),
+                .gas(near_sdk::Gas::from_tgas(150)),
         )
         .transact()
         .await?;
@@ -199,8 +199,6 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(logs.contains(&"The account of the sender was deleted"));
     assert!(logs.contains(&(expected.as_str())));
 
-    // TODO: replace the following manual value extraction when workspaces
-    // resolves https://github.com/near/workspaces-rs/issues/201
     match res.receipt_outcomes()[5].clone().into_result()? {
         ValueOrReceiptId::Value(val) => {
             let used_amount = val.json::<U128>()?;
@@ -227,7 +225,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
 async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -262,7 +260,7 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
 {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // call fails because DEFI contract is not registered as FT user
@@ -295,7 +293,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     let initial_balance = U128::from(parse_near!("10000 N"));
     let refund_amount = U128::from(parse_near!("50 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account
@@ -333,7 +331,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
 async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Result<()> {
     let initial_balance = U128::from(parse_near!("10000 N"));
     let transfer_amount = U128::from(parse_near!("100 N"));
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
     // defi contract must be registered as a FT account

@@ -1,0 +1,25 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/ext.rs
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+pub fn method(self, k: &String) -> ::near_sdk::Promise {
+    let __args = {
+        #[derive(::near_sdk::serde::Serialize)]
+        #[serde(crate = "::near_sdk::serde")]
+        struct Input<'nearinput> {
+            k: &'nearinput String,
+        }
+        let __args = Input { k: &k };
+        ::near_sdk::serde_json::to_vec(&__args)
+            .expect("Failed to serialize the cross contract args using JSON.")
+    };
+    ::near_sdk::Promise::new(self.account_id)
+        .function_call_weight(
+            ::std::string::String::from("method"),
+            __args,
+            self.deposit,
+            self.static_gas,
+            self.gas_weight,
+        )
+}
+

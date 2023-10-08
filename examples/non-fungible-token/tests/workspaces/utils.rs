@@ -2,7 +2,7 @@ use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
 
 use near_units::parse_near;
-use workspaces::{Account, Contract, DevNetwork, Worker};
+use near_workspaces::{Account, Contract, DevNetwork, Worker};
 
 pub const TOKEN_ID: &str = "0";
 

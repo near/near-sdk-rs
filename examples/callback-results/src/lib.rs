@@ -68,7 +68,7 @@ mod tests {
     #[tokio::test]
     async fn workspaces_test() -> anyhow::Result<()> {
         let wasm = fs::read("res/callback_results.wasm").await?;
-        let worker = workspaces::sandbox().await?;
+        let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         // Call function a only to ensure it has correct behaviour
@@ -97,7 +97,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json((false, 1u8, 0u8))
-            .gas(300_000_000_000_000)
+            .gas(near_sdk::Gas::from_tgas(300))
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, true));
@@ -106,7 +106,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json((true, 0u8, 1u8))
-            .gas(300_000_000_000_000)
+            .gas(near_sdk::Gas::from_tgas(300))
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, false));
@@ -115,7 +115,7 @@ mod tests {
         let res = contract
             .call("call_all")
             .args_json((true, 0u8, 0u8))
-            .gas(300_000_000_000_000)
+            .gas(near_sdk::Gas::from_tgas(300))
             .transact()
             .await?;
         assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, true));

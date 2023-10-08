@@ -31,6 +31,7 @@ mod tests {
     use syn::ItemTrait;
     use quote::quote;
     use crate::core_impl::info_extractor::ItemTraitInfo;
+    use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
     #[test]
     fn ext_basic() {
@@ -52,79 +53,7 @@ mod tests {
         ).unwrap();
         let info = ItemTraitInfo::new(&mut t, None).unwrap();
         let actual = info.wrap_trait_ext();
-
-        let expected = quote! {
-            pub mod external_cross_contract {
-                use super::*;
-                #[must_use]
-                pub struct ExternalCrossContractExt {
-                    pub(crate) account_id: ::near_sdk::AccountId,
-                    pub(crate) deposit: ::near_sdk::Balance,
-                    pub(crate) static_gas: ::near_sdk::Gas,
-                    pub(crate) gas_weight: ::near_sdk::GasWeight,
-                }
-                impl ExternalCrossContractExt {
-                    pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
-                        self.deposit = amount;
-                        self
-                    }
-                    pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
-                        self.static_gas = static_gas;
-                        self
-                    }
-                    pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                        self.gas_weight = ::near_sdk::GasWeight(gas_weight);
-                        self
-                    }
-                }
-                /// API for calling this contract's functions in a subsequent execution.
-                pub fn ext(account_id: ::near_sdk::AccountId) -> ExternalCrossContractExt {
-                    ExternalCrossContractExt {
-                        account_id,
-                        deposit: 0,
-                        static_gas: ::near_sdk::Gas(0),
-                        gas_weight: ::near_sdk::GasWeight::default(),
-                    }
-                }
-                impl ExternalCrossContractExt {
-                    pub fn merge_sort(
-                        self,
-                        arr: Vec<u8>,
-                    ) -> ::near_sdk::Promise {
-                        let __args = {
-                            #[derive(::near_sdk :: serde :: Serialize)]
-                            #[serde(crate = "::near_sdk::serde")]
-                            struct Input<'nearinput> {
-                                arr: &'nearinput Vec<u8>,
-                            }
-                            let __args = Input { arr: &arr, };
-                            ::near_sdk::serde_json::to_vec(&__args)
-                                .expect("Failed to serialize the cross contract args using JSON.")
-                        };
-                        ::near_sdk::Promise::new(self.account_id)
-                            .function_call_weight(
-                                ::std::string::String::from("merge_sort"),
-                                __args,
-                                self.deposit,
-                                self.static_gas,
-                                self.gas_weight,
-                            )
-                    }
-                    pub fn merge(self,) -> ::near_sdk::Promise {
-                        let __args = ::std::vec![];
-                        ::near_sdk::Promise::new(self.account_id)
-                            .function_call_weight(
-                                ::std::string::String::from("merge"),
-                                __args,
-                                self.deposit,
-                                self.static_gas,
-                                self.gas_weight,
-                            )
-                    }
-                }
-            }
-        };
-        assert_eq!(actual.to_string(), expected.to_string());
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
     #[test]
@@ -140,65 +69,6 @@ mod tests {
         let info = ItemTraitInfo::new(&mut t, None).unwrap();
         let actual = info.wrap_trait_ext();
 
-        let expected = quote! {
-          pub mod test {
-            use super::*;
-            #[must_use]
-            pub struct TestExt {
-                pub(crate) account_id: ::near_sdk::AccountId,
-                pub(crate) deposit: ::near_sdk::Balance,
-                pub(crate) static_gas: ::near_sdk::Gas,
-                pub(crate) gas_weight: ::near_sdk::GasWeight,
-            }
-            impl TestExt {
-                pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
-                    self.deposit = amount;
-                    self
-                }
-                pub fn with_static_gas(mut self, static_gas: ::near_sdk::Gas) -> Self {
-                    self.static_gas = static_gas;
-                    self
-                }
-                pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
-                    self.gas_weight = ::near_sdk::GasWeight(gas_weight);
-                    self
-                }
-            }
-            /// API for calling this contract's functions in a subsequent execution.
-            pub fn ext(account_id: ::near_sdk::AccountId) -> TestExt {
-                TestExt {
-                    account_id,
-                    deposit: 0,
-                    static_gas: ::near_sdk::Gas(0),
-                    gas_weight: ::near_sdk::GasWeight::default(),
-                }
-            }
-            impl TestExt {
-                pub fn test(
-                    self,
-                    v: Vec<String>,
-                ) -> ::near_sdk::Promise {
-                    let __args = {
-                        #[derive(::near_sdk :: borsh :: BorshSerialize)]
-                        struct Input<'nearinput> {
-                            v: &'nearinput Vec<String>,
-                        }
-                        let __args = Input { v: &v, };
-                        ::near_sdk::borsh::BorshSerialize::try_to_vec(&__args)
-                            .expect("Failed to serialize the cross contract args using Borsh.")
-                    };
-                    ::near_sdk::Promise::new(self.account_id)
-                        .function_call_weight(
-                            ::std::string::String::from("test"),
-                            __args,
-                            self.deposit,
-                            self.static_gas,
-                            self.gas_weight,
-                        )
-                }
-            }
-        }
-        };
-        assert_eq!(actual.to_string(), expected.to_string());
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }
