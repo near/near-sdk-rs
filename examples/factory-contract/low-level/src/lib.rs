@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json;
 use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
@@ -8,6 +8,7 @@ const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct FactoryContract {}
 
 #[near_bindgen]

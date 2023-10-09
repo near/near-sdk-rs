@@ -30,10 +30,7 @@ impl<T> BorshSerialize for FreeList<T>
 where
     T: BorshSerialize,
 {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         BorshSerialize::serialize(&self.first_free, writer)?;
         BorshSerialize::serialize(&self.occupied_count, writer)?;
         BorshSerialize::serialize(&self.elements, writer)?;
@@ -45,11 +42,11 @@ impl<T> BorshDeserialize for FreeList<T>
 where
     T: BorshSerialize,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
         Ok(Self {
-            first_free: BorshDeserialize::deserialize(buf)?,
-            occupied_count: BorshDeserialize::deserialize(buf)?,
-            elements: BorshDeserialize::deserialize(buf)?,
+            first_free: BorshDeserialize::deserialize_reader(reader)?,
+            occupied_count: BorshDeserialize::deserialize_reader(reader)?,
+            elements: BorshDeserialize::deserialize_reader(reader)?,
         })
     }
 }
@@ -523,7 +520,7 @@ mod tests {
                             sv.flush();
                         }
                         Op::Reset => {
-                            let serialized = sv.try_to_vec().unwrap();
+                            let serialized = borsh::to_vec(&sv).unwrap();
                             sv = FreeList::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {

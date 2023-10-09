@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde_json;
 use near_sdk::{env, near_bindgen, require, Gas, PromiseResult};
 
@@ -10,6 +10,7 @@ const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct CrossContract {}
 
 #[near_bindgen]

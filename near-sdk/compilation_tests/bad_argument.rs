@@ -5,7 +5,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 
-#[derive(BorshSerialize, BorshDeserialize, Eq, PartialEq, Hash, PartialOrd, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 enum TypeA {
     Var1,
     Var2

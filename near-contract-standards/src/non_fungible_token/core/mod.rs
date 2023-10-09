@@ -23,12 +23,13 @@ use near_sdk::PromiseOrValue;
 /// # Examples
 ///
 /// ```
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen};
 /// use near_contract_standards::non_fungible_token::{core::NonFungibleTokenCore, NonFungibleToken, TokenId, Token};
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// #[borsh(crate = "near_sdk::borsh")]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}

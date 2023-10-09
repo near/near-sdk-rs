@@ -3,7 +3,7 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 */
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
@@ -11,6 +11,7 @@ const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct TokenReceiver {
     non_fungible_token_account_id: AccountId,
 }

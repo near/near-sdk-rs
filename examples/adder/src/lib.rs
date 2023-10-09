@@ -1,8 +1,9 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{near_bindgen, NearSchema};
 
 #[derive(NearSchema, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 #[abi(json, borsh)]
 pub struct Pair(u32, u32);
 
@@ -15,6 +16,7 @@ pub struct DoublePair {
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Adder {}
 
 #[near_bindgen]

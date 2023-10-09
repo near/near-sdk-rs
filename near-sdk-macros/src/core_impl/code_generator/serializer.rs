@@ -18,7 +18,7 @@ pub fn generate_serializer(
             ::near_sdk::serde_json::to_vec(&__args).expect("Failed to serialize the cross contract args using JSON.")
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::borsh::BorshSerialize::try_to_vec(&__args).expect("Failed to serialize the cross contract args using Borsh.")
+            ::near_sdk::borsh::to_vec(&__args).expect("Failed to serialize the cross contract args using Borsh.")
         },
     };
 

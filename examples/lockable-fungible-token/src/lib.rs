@@ -1,12 +1,13 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault};
 use std::collections::HashMap;
 use std::str::FromStr;
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Account {
-    /// Current unlocked balance.
+    /// Current unlocked balance
     pub balance: Balance,
     /// Allowed account to the allowance amount.
     pub allowances: HashMap<AccountId, Balance>,
@@ -46,6 +47,7 @@ impl Account {
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,

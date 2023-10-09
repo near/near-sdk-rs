@@ -10,7 +10,7 @@ pub extern "C" fn method() {
     let result = contract.method();
     match result {
         ::std::result::Result::Ok(result) => {
-            let result = ::near_sdk::borsh::BorshSerialize::try_to_vec(&result)
+            let result = ::near_sdk::borsh::to_vec(&result)
                 .expect("Failed to serialize the return value using Borsh.");
             ::near_sdk::env::value_return(&result);
         }

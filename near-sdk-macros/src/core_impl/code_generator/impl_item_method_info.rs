@@ -340,7 +340,7 @@ impl ImplItemMethodInfo {
                 let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
             },
             SerializerType::Borsh => quote! {
-                let result = ::near_sdk::borsh::BorshSerialize::try_to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                let result = ::near_sdk::borsh::to_vec(&result).expect("Failed to serialize the return value using Borsh.");
             },
         };
 

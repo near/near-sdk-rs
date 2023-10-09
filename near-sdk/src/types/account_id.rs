@@ -1,7 +1,9 @@
-use borsh::{maybestd::io, BorshDeserialize, BorshSchema, BorshSerialize};
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryFrom;
-use std::fmt;
+use std::{fmt, io};
 
 use crate::env::is_valid_account_id;
 
@@ -33,10 +35,9 @@ use crate::env::is_valid_account_id;
 /// ```
 ///
 /// [`FromStr`]: std::str::FromStr
-#[derive(
-    Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash, BorshSchema,
-)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "abi", derive(BorshSchema))]
 pub struct AccountId(String);
 
 impl AccountId {
@@ -86,8 +87,8 @@ impl<'de> Deserialize<'de> for AccountId {
 }
 
 impl BorshDeserialize for AccountId {
-    fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
-        <String as BorshDeserialize>::deserialize(buf).and_then(|s| {
+    fn deserialize_reader<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        <String as BorshDeserialize>::deserialize_reader(reader).and_then(|s| {
             Self::try_from(s).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         })
     }
@@ -163,6 +164,6 @@ mod tests {
         let account_id = AccountId::new_unchecked(id.to_string());
 
         // Test to make sure the account ID is serialized as a string through borsh
-        assert_eq!(str::try_to_vec(id).unwrap(), account_id.try_to_vec().unwrap());
+        assert_eq!(borsh::to_vec(id).unwrap(), borsh::to_vec(&account_id).unwrap());
     }
 }

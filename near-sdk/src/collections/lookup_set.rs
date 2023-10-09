@@ -3,7 +3,7 @@
 //! makes this implementation more efficient in the number of reads and writes.
 use std::marker::PhantomData;
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -17,7 +17,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupSet<T> {
     element_prefix: Vec<u8>,
-    #[borsh_skip]
+    #[borsh(skip)]
     el: PhantomData<T>,
 }
 
@@ -68,7 +68,7 @@ where
     T: BorshSerialize,
 {
     fn serialize_element(element: &T) -> Vec<u8> {
-        match element.try_to_vec() {
+        match to_vec(element) {
             Ok(x) => x,
             Err(_) => env::panic_str(ERR_ELEMENT_SERIALIZATION),
         }
