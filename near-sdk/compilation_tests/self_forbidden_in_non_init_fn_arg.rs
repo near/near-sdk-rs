@@ -11,7 +11,7 @@ pub struct Ident {
 
 #[near_bindgen]
 impl Ident {
-    pub fn plain_arg(_value: Option<Self>) {
+    pub fn plain_arg(_value: Option<Self>, _value2: Self) {
         unimplemented!()
     }
 }

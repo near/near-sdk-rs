@@ -1,0 +1,11 @@
+error: references to `Self` in non-init methods are forbidden since `near-sdk` 5.0
+  --> compilation_tests/self_forbidden_in_non_init_fn_arg.rs:14:37
+   |
+14 |     pub fn plain_arg(_value: Option<Self>, _value2: Self) {
+   |                                     ^^^^
+
+error: references to `Self` in non-init methods are forbidden since `near-sdk` 5.0
+  --> compilation_tests/self_forbidden_in_non_init_fn_arg.rs:14:53
+   |
+14 |     pub fn plain_arg(_value: Option<Self>, _value2: Self) {
+   |                                                     ^^^^

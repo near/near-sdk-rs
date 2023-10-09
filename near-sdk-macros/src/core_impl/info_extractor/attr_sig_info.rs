@@ -158,25 +158,11 @@ impl AttrSigInfo {
 
         *original_attrs = non_bindgen_attrs.clone();
 
-        if !self_occurrences.is_empty()
-            && matches!(method_kind, MethodKind::Call(_) | MethodKind::View(_))
-        {
-            // TODO: return an error instead in 5.0
-            // see https://github.com/near/near-sdk-rs/issues/1005
-            println!(
-                "near_bindgen: references to `Self` in non-init methods will be forbidden in 5.0"
-            );
-
-            // Once proc_macro::Diagnostic is stabilized, we could start getting rid of the `println` and
-            // try the code below. See: https://github.com/rust-lang/rust/issues/54140
-            //
-            // proc_macro::Diagnostic::spanned(
-            //     self_occurrences.into(),
-            //     proc_macro::Level::Warning,
-            //     "references to `Self` in non-init methods will be forbidden in 5.0",
-            // )
-            // .emit();
-            //
+        if matches!(method_kind, MethodKind::Call(_) | MethodKind::View(_)) {
+            report_spans(
+                &self_occurrences,
+                "references to `Self` in non-init methods are forbidden since `near-sdk` 5.0",
+            )?;
         }
 
         let mut result = AttrSigInfo {
@@ -207,5 +193,23 @@ impl AttrSigInfo {
     /// Only get args that correspond to `env::input()`.
     pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
         self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
+    }
+}
+
+// Generate errors for a given collection of spans. Returns `Ok` if no spans are provided.
+fn report_spans(spans: &[Span], msg: &str) -> Result<(), syn::Error> {
+    if spans.is_empty() {
+        Ok(())
+    } else {
+        let combined_errors = spans
+            .iter()
+            .map(|span| syn::Error::new(*span, msg))
+            .reduce(|mut acc, e| {
+                acc.combine(e);
+                acc
+            })
+            .unwrap();
+
+        Err(combined_errors)
     }
 }

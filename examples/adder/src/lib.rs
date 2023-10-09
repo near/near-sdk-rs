@@ -57,7 +57,7 @@ mod tests {
     #[tokio::test]
     async fn embedded_abi_test() -> anyhow::Result<()> {
         let wasm = fs::read("res/adder.wasm").await?;
-        let worker = workspaces::sandbox().await?;
+        let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
         let res = contract.view("__contract_abi").await?;
