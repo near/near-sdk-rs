@@ -75,7 +75,7 @@ impl ImplItemMethodInfo {
     ///     })
     /// }
     /// ```
-    /// If args are serialized with Borsh it will not include `#[derive(borsh::BorshSchema)]`.
+    /// If args are serialized with Borsh it will not include `#[derive(::near_sdk::borsh::BorshSchema)]`.
     pub fn abi_struct(&self) -> TokenStream2 {
         let attr_signature_info = &self.attr_signature_info;
 
@@ -246,7 +246,7 @@ fn generate_schema(ty: &Type, serializer_type: &SerializerType) -> TokenStream2 
             gen.subschema_for::<#ty>()
         },
         SerializerType::Borsh => quote! {
-            <#ty as ::near_sdk::borsh::BorshSchema>::schema_container()
+            ::near_sdk::borsh::schema_container_of::<#ty>()
         },
     }
 }

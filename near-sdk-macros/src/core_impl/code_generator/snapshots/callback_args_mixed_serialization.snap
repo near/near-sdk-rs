@@ -11,6 +11,7 @@ pub extern "C" fn method() {
         ::near_sdk::env::panic_str("Method method is private");
     }
     #[derive(::near_sdk::borsh::BorshDeserialize)]
+    #[borsh(crate = "::near_sdk::borsh")]
     struct Input {
         y: ::std::string::String,
     }

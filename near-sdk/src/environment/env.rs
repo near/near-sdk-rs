@@ -871,7 +871,7 @@ pub fn state_read<T: borsh::BorshDeserialize>() -> Option<T> {
 }
 
 pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
-    let data = state.try_to_vec().expect("Cannot serialize the contract state.");
+    let data = borsh::to_vec(state).expect("Cannot serialize the contract state.");
     storage_write(STATE_KEY, &data);
 }
 

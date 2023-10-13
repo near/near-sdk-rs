@@ -9,7 +9,7 @@ pub const TOKEN_ID: &str = "0";
 
 #[tokio::test]
 async fn simulate_simple_approve() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, alice, token_receiver_contract, _) = init(&worker).await?;
 
     // root approves alice
@@ -99,7 +99,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_approval_with_call() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, _, _, approval_receiver_contract) = init(&worker).await?;
 
     let res = nft_contract
@@ -129,7 +129,7 @@ async fn simulate_approval_with_call() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
 
     // root approves alice
@@ -162,7 +162,7 @@ async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_revoke() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, alice, token_receiver_contract, _) = init(&worker).await?;
 
     // root approves alice
@@ -246,7 +246,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_revoke_all() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, alice, token_receiver_contract, _) = init(&worker).await?;
 
     // root approves alice

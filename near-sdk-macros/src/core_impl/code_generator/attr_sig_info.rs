@@ -48,6 +48,7 @@ impl AttrSigInfo {
             },
             SerializerType::Borsh => quote! {
                 #[derive(::near_sdk::borsh::BorshSerialize)]
+                #[borsh(crate = "::near_sdk::borsh")]
             },
         };
         let mut fields = TokenStream2::new();
@@ -94,6 +95,7 @@ impl AttrSigInfo {
             },
             SerializerType::Borsh => quote! {
                 #[derive(::near_sdk::borsh::BorshDeserialize)]
+                #[borsh(crate = "::near_sdk::borsh")]
             },
         };
         let mut fields = TokenStream2::new();

@@ -981,7 +981,7 @@ where
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 enum Find<K> {
     /// Find the first element based on bound.
     First { bound: Bound<K> },

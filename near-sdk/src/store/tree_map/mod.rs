@@ -71,10 +71,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         BorshSerialize::serialize(&self.values, writer)?;
         BorshSerialize::serialize(&self.tree, writer)?;
         Ok(())
@@ -87,10 +84,10 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
         Ok(Self {
-            values: BorshDeserialize::deserialize(buf)?,
-            tree: BorshDeserialize::deserialize(buf)?,
+            values: BorshDeserialize::deserialize_reader(reader)?,
+            tree: BorshDeserialize::deserialize_reader(reader)?,
         })
     }
 }
@@ -101,6 +98,7 @@ where
     K: BorshSerialize,
 {
     root: Option<FreeListIndex>,
+    #[borsh(bound(deserialize = ""))]
     nodes: FreeList<Node<K>>,
 }
 
@@ -2090,7 +2088,7 @@ mod tests {
                             um.flush();
                         }
                         Op::Restore => {
-                            let serialized = um.try_to_vec().unwrap();
+                            let serialized = borsh::to_vec(&um).unwrap();
                             um = TreeMap::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {

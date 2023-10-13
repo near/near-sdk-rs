@@ -168,12 +168,10 @@ pub fn borsh_schema_spec() {
     #[abi(borsh)]
     pub enum EnumNoSchemaSpec {
         NoAttrs,
-        #[borsh_skip]
+        #[borsh(skip)]
         BorshSkip,
         Nested {
-            #[borsh_skip]
-            // fixme! rust complains of an unread field here
-            // fixme! https://github.com/near/borsh-rs/issues/111
+            #[borsh(skip)]
             nested: UnitEnumNoSchemaSpec,
         },
     }
@@ -185,7 +183,7 @@ pub fn borsh_schema_spec() {
     #[abi(borsh)]
     struct StructNoSchemaSpec {
         var1: EnumNoSchemaSpec,
-        #[borsh_skip]
+        #[borsh(skip)]
         var2: EnumNoSchemaSpec,
     }
 
@@ -215,22 +213,20 @@ pub fn json_borsh_schema_spec() {
     #[serde(rename = "NoSchemaSpecENUM")]
     pub enum EnumNoSchemaSpec {
         NoAttrs,
-        #[borsh_skip]
+        #[borsh(skip)]
         BorshSkip,
         #[serde(rename = "serde_via_schemars")]
         Serde,
-        #[borsh_skip]
+        #[borsh(skip)]
         #[serde(skip)]
         BorshSerde,
         #[serde(skip)]
-        #[borsh_skip]
+        #[borsh(skip)]
         SerdeBorsh,
         #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
         Nested {
-            #[borsh_skip]
-            // fixme! borsh doesn't play well with nested attributes
-            // fixme! https://github.com/near/borsh-rs/issues/110
-            // #[serde(alias = "inner_inner_hehe")]
+            #[borsh(skip)]
+            #[serde(alias = "inner_inner_hehe")]
             nested: UnitEnumNoSchemaSpec,
         },
     }
@@ -243,7 +239,7 @@ pub fn json_borsh_schema_spec() {
     #[serde(rename = "NoSchemaSpecSTRUCT")]
     struct StructNoSchemaSpec {
         var1: EnumNoSchemaSpec,
-        #[borsh_skip]
+        #[borsh(skip)]
         var2: EnumNoSchemaSpec,
     }
 

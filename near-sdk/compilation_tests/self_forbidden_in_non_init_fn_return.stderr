@@ -1,0 +1,5 @@
+error: references to `Self` in non-init methods are forbidden since `near-sdk` 5.0
+  --> compilation_tests/self_forbidden_in_non_init_fn_return.rs:14:27
+   |
+14 |     pub fn plain_ret() -> Self {
+   |                           ^^^^

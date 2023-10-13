@@ -99,10 +99,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         BorshSerialize::serialize(&self.keys, writer)?;
         BorshSerialize::serialize(&self.values, writer)?;
         Ok(())
@@ -115,10 +112,10 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
         Ok(Self {
-            keys: BorshDeserialize::deserialize(buf)?,
-            values: BorshDeserialize::deserialize(buf)?,
+            keys: BorshDeserialize::deserialize_reader(reader)?,
+            values: BorshDeserialize::deserialize_reader(reader)?,
         })
     }
 }
@@ -697,7 +694,7 @@ mod tests {
     use super::UnorderedMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, BorshSerialize};
+    use borsh::{to_vec, BorshDeserialize};
     use rand::RngCore;
     use rand::SeedableRng;
     use std::collections::HashMap;
@@ -804,7 +801,7 @@ mod tests {
                             um.flush();
                         }
                         Op::Restore => {
-                            let serialized = um.try_to_vec().unwrap();
+                            let serialized = to_vec(&um).unwrap();
                             um = UnorderedMap::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {

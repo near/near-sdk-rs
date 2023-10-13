@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, AccountId, Balance};
 
@@ -7,6 +7,7 @@ use near_sdk::{env, log, near_bindgen, AccountId, Balance};
 /// after each successful deposit.
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum VersionedContract {
     V0(ContractV0),
     V1(Contract),
@@ -47,6 +48,7 @@ impl Default for VersionedContract {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct ContractV0 {
     funders: UnorderedMap<AccountId, Balance>,
 }
@@ -58,6 +60,7 @@ impl Default for ContractV0 {
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
     funders: UnorderedMap<AccountId, Balance>,
     nonce: u64,

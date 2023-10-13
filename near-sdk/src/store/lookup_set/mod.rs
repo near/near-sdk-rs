@@ -52,7 +52,7 @@ where
 {
     prefix: Box<[u8]>,
 
-    #[borsh_skip]
+    #[borsh(skip)]
     hasher: PhantomData<fn() -> (T, H)>,
 }
 

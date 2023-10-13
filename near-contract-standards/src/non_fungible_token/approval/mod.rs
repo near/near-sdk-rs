@@ -22,12 +22,13 @@ use near_sdk::Promise;
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen, Promise};
 /// use near_contract_standards::non_fungible_token::{TokenId, NonFungibleToken, NonFungibleTokenApproval};
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// #[borsh(crate = "near_sdk::borsh")]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}

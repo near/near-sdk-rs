@@ -125,10 +125,7 @@ impl<T> BorshSerialize for Vector<T>
 where
     T: BorshSerialize,
 {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), borsh::maybestd::io::Error> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         BorshSerialize::serialize(&self.len, writer)?;
         BorshSerialize::serialize(&self.values, writer)?;
         Ok(())
@@ -139,10 +136,10 @@ impl<T> BorshDeserialize for Vector<T>
 where
     T: BorshSerialize,
 {
-    fn deserialize(buf: &mut &[u8]) -> Result<Self, borsh::maybestd::io::Error> {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
         Ok(Self {
-            len: BorshDeserialize::deserialize(buf)?,
-            values: BorshDeserialize::deserialize(buf)?,
+            len: BorshDeserialize::deserialize_reader(reader)?,
+            values: BorshDeserialize::deserialize_reader(reader)?,
         })
     }
 }
@@ -154,7 +151,7 @@ fn collections_vec_not_backwards_compatible() {
     let mut v1 = Vec1::new(b"m");
     v1.extend([1u8, 2, 3, 4]);
     // Old collections serializes length as `u64` when new serializes as `u32`.
-    assert!(Vector::<u8>::try_from_slice(&v1.try_to_vec().unwrap()).is_err());
+    assert!(Vector::<u8>::try_from_slice(&borsh::to_vec(&v1).unwrap()).is_err());
 }
 
 impl<T> Vector<T>
@@ -546,7 +543,7 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{BorshDeserialize, BorshSerialize};
+    use borsh::{to_vec, BorshDeserialize, BorshSerialize};
     use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
@@ -843,7 +840,7 @@ mod tests {
                             sv.flush();
                         }
                         Op::Reset => {
-                            let serialized = sv.try_to_vec().unwrap();
+                            let serialized = to_vec(&sv).unwrap();
                             sv = Vector::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {
@@ -875,7 +872,7 @@ mod tests {
 
         let mut vec = Vector::new(b"v".to_vec());
         vec.push("Some data");
-        let serialized = vec.try_to_vec().unwrap();
+        let serialized = to_vec(&vec).unwrap();
 
         // Expected to serialize len then prefix
         let mut expected_buf = Vec::new();

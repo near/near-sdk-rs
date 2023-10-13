@@ -287,7 +287,7 @@ struct DeriveNearSchema {
 }
 
 #[cfg(feature = "abi")]
-#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh_skip, schemars, validate))]
+#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate))]
 pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let derive_input = syn::parse_macro_input!(input as syn::DeriveInput);
     let args = match DeriveNearSchema::from_derive_input(&derive_input) {
@@ -317,7 +317,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
 
     let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
         attrs.retain(|attr| {
-            ["serde", "schemars", "validate", "borsh_skip"]
+            ["serde", "schemars", "validate", "borsh"]
                 .iter()
                 .any(|&path| attr.path().is_ident(path))
         });
@@ -357,11 +357,13 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         },
         // #[abi(borsh)]
         (false, true) => quote! {
-            #[derive(borsh::BorshSchema)]
+            #[derive(::near_sdk::borsh::BorshSchema)]
+            #[borsh(crate = "::near_sdk::borsh")]
         },
         // #[abi(json, borsh)]
         (true, true) => quote! {
-            #[derive(schemars::JsonSchema, borsh::BorshSchema)]
+            #[derive(schemars::JsonSchema, ::near_sdk::borsh::BorshSchema)]
+            #[borsh(crate = "::near_sdk::borsh")]
         },
     };
 
@@ -389,18 +391,18 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let borsh_impl = if borsh_schema {
         quote! {
             #[automatically_derived]
-            impl borsh::BorshSchema for #input_ident_proxy {
-                fn declaration() -> ::std::string::String {
+            impl ::near_sdk::borsh::BorshSchema for #input_ident_proxy {
+                fn declaration() -> ::near_sdk::borsh::schema::Declaration {
                     stringify!(#input_ident).to_string()
                 }
 
                 fn add_definitions_recursively(
-                    definitions: &mut borsh::maybestd::collections::HashMap<
-                        borsh::schema::Declaration,
-                        borsh::schema::Definition,
+                    definitions: &mut ::near_sdk::borsh::__private::maybestd::collections::BTreeMap<
+                        ::near_sdk::borsh::schema::Declaration,
+                        ::near_sdk::borsh::schema::Definition
                     >,
                 ) {
-                    <#input_ident as borsh::BorshSchema>::add_definitions_recursively(definitions);
+                    <#input_ident as ::near_sdk::borsh::BorshSchema>::add_definitions_recursively(definitions);
                 }
             }
         }
@@ -414,7 +416,6 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
             #[allow(non_camel_case_types)]
             type #input_ident_proxy = #input_ident;
             {
-                use ::near_sdk::borsh;
                 use ::near_sdk::__private::schemars;
 
                 #derive

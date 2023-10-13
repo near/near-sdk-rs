@@ -1,8 +1,9 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct TestContract {}
 
 impl Default for TestContract {
@@ -21,6 +22,7 @@ impl TestContract {
     #[init(ignore_state)]
     pub fn migrate_state() -> Self {
         #[derive(BorshDeserialize)]
+        #[borsh(crate = "near_sdk::borsh")]
         struct OldContract {
             // ...
         }

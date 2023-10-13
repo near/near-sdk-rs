@@ -56,11 +56,11 @@ impl MetadataVisitor {
             #[no_mangle]
             pub extern "C" fn metadata() {
                 #panic_hook
-                use ::borsh::*;
+                use ::near_sdk::borsh::*;
                 let metadata = ::near_sdk::__private::Metadata::new(::std::vec![
                     #(#methods),*
                 ]);
-                let data = ::near_sdk::borsh::BorshSerialize::try_to_vec(&metadata).expect("Failed to serialize the metadata using Borsh");
+                let data = ::near_sdk::borsh::to_vec(&metadata).expect("Failed to serialize the metadata using Borsh");
                 ::near_sdk::env::value_return(&data);
             }
         })
@@ -99,7 +99,7 @@ mod tests {
             #[no_mangle]
             pub extern "C" fn metadata() {
                 ::near_sdk::env::setup_panic_hook();
-                use ::borsh::*;
+                use ::near_sdk::borsh::*;
                 let metadata = ::near_sdk::__private::Metadata::new(::std::vec![
                     ::near_sdk::__private::MethodMetadata {
                         name: ::std::string::String::from("f1"),
@@ -115,7 +115,8 @@ mod tests {
                         is_view: false,
                         is_init: false,
                         args: {
-                            #[derive(::borsh::BorshSchema)]
+                            #[derive(::near_sdk::borsh::BorshSchema)]
+                            #[borsh(crate = "::near_sdk::borsh")]
                             #[allow(dead_code)]
                             #[derive(::near_sdk :: serde :: Deserialize)]
                             #[serde(crate = "::near_sdk::serde")]
@@ -123,7 +124,7 @@ mod tests {
                                 arg0: FancyStruct,
                                 arg1: u64,
                             }
-                            ::std::option::Option::Some(<Input as ::near_sdk::borsh::BorshSchema>::schema_container())
+                            ::std::option::Option::Some(::near_sdk::borsh::schema_container_of::<Input>())
                         },
                         callbacks: ::std::vec![],
                         callbacks_vec: ::std::option::Option::None,
@@ -134,7 +135,8 @@ mod tests {
                         is_view: false,
                         is_init: false,
                         args: {
-                            #[derive(::borsh::BorshSchema)]
+                            #[derive(::near_sdk::borsh::BorshSchema)]
+                            #[borsh(crate = "::near_sdk::borsh")]
                             #[allow(dead_code)]
                             #[derive(::near_sdk :: serde :: Deserialize)]
                             #[serde(crate = "::near_sdk::serde")]
@@ -142,14 +144,14 @@ mod tests {
                                 arg0: FancyStruct,
                                 arg1: u64,
                             }
-                            ::std::option::Option::Some(<Input as ::near_sdk::borsh::BorshSchema>::schema_container())
+                            ::std::option::Option::Some(::near_sdk::borsh::schema_container_of::<Input>())
                         },
                         callbacks: ::std::vec![],
                         callbacks_vec: ::std::option::Option::None,
-                        result: ::std::option::Option::Some(<Either < IsOk, Error > as ::near_sdk::borsh::BorshSchema> ::schema_container())
+                        result: ::std::option::Option::Some(::near_sdk::borsh::schema_container_of::<Either <IsOk , Error> >())
                     }
                 ]);
-                let data = ::near_sdk::borsh::BorshSerialize::try_to_vec(&metadata)
+                let data = ::near_sdk::borsh::to_vec(&metadata)
                     .expect("Failed to serialize the metadata using Borsh");
                 ::near_sdk::env::value_return(&data);
             }
