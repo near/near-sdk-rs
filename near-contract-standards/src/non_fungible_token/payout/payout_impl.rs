@@ -24,10 +24,10 @@ impl Royalties {
         );
         let mut total: BasisPoint = 0;
         self.accounts.iter().for_each(|(_, percent)| {
-            require!(percent <= 100, "each royalty should be less than 100");
+            require!(percent <= 100, "each royalty should be at most 100");
             total += percent;
         });
-        require!(total <= 100, "total percent of each royalty split  must be less than 100")
+        require!(total <= 100, "total percent of each royalty split must be at most 100")
     }
 
     pub fn create_payout(&self, balance: Balance, owner_id: &AccountId) -> Payout {

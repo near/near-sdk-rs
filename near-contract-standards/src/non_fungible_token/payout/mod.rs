@@ -12,6 +12,7 @@ type BasisPoint = u16;
 /// This struct represents NFT royalty payout for each receiver.
 #[derive(Default, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Payout {
     pub payout: HashMap<AccountId, U128>,
 }
@@ -19,6 +20,7 @@ pub struct Payout {
 /// This struct represents percentage of total royalty per receiver as well as the total percentage
 /// of distributed royalties based on incoming payment.
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct Royalties {
     /// A mapping of accounts to the percentage of total royalty to be distributed.
     pub accounts: TreeMap<AccountId, BasisPoint>,
