@@ -1,6 +1,6 @@
 mod payout_impl;
 
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
