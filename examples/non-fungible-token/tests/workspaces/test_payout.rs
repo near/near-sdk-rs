@@ -5,7 +5,7 @@ use near_sdk::ONE_YOCTO;
 
 #[tokio::test]
 async fn simulate_payout() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
 
     let res = nft_contract
@@ -24,7 +24,7 @@ async fn simulate_payout() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn nft_transfer_payout() -> anyhow::Result<()> {
-    let worker = workspaces::sandbox().await?;
+    let worker = near_workspaces::sandbox().await?;
     let (nft_contract, alice, _, _) = init(&worker).await?;
 
     let token =
