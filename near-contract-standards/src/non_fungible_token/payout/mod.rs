@@ -36,13 +36,14 @@ pub struct Royalties {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen, assert_one_yocto};
 /// use near_contract_standards::non_fungible_token::{core::NonFungibleTokenCore, NonFungibleToken, NonFungibleTokenPayout, payout::Payout, TokenId, Token};
 /// use near_sdk::json_types::U128;
 ///
 /// #[near_bindgen]
 /// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+/// #[borsh(crate = "near_sdk::borsh")]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}
