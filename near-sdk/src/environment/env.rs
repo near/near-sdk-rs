@@ -265,6 +265,40 @@ pub fn random_seed() -> Vec<u8> {
 /// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
 /// the block. This value is not modified in any way each time this function is called within the
 /// same method/block.
+/// Example of usage:
+/// ```rust
+/// use rand::{Rng, SeedableRng};
+/// use rand_chacha::ChaCha20Rng;
+/// #[near_bindgen]
+/// impl RngExample {
+///     pub fn increment(&mut self) {
+///         let mut rng = ChaCha20Rng::from_seed(env::random_seed_array());
+///         let value = rng.gen_range(0..1011);
+///         self.val += value;
+///     }
+///     pub fn get_value(&mut self) -> i32 {
+///         self.val
+///     }
+/// }
+/// ```
+///
+/// Example of usage with [near-rng](https://lib.rs/crates/near-rng) which allows to decrease size of contract binary:
+///
+/// ```rust
+/// use near_rng::Rng;
+/// #[near_bindgen]
+/// impl NearRngExample {
+///     pub fn increment(&mut self) {
+///         let mut rng = Rng::new(&env::random_seed());
+///         let value = rng.rand_range_i32(0, 20);
+///         self.val += value;
+///     }
+///     pub fn get_value(&mut self) -> i32 {
+///         self.val
+///     }
+/// }
+/// ```
+/// More info in [documentation](https://docs.near.org/develop/contracts/security/random)
 pub fn random_seed_array() -> [u8; 32] {
     //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
