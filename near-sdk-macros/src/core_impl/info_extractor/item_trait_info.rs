@@ -22,20 +22,21 @@ impl ItemTraitInfo {
         });
 
         let mut methods = vec![];
+        let mut errors = vec![];
         for item in &mut original.items {
             match item {
-                TraitItem::Type(_) => {
-                    return Err(Error::new(
-                        item.span(),
-                        "Traits for external contracts do not support associated trait types yet.",
-                    ))
-                }
+                TraitItem::Type(_) => errors.push(Error::new(
+                    item.span(),
+                    "Traits for external contracts do not support associated trait types yet.",
+                )),
                 TraitItem::Fn(method) => {
-                    let item = TraitItemMethodInfo::new(method, &original.ident.to_token_stream())?;
-                    methods.push(item);
+                    match TraitItemMethodInfo::new(method, &original.ident.to_token_stream()) {
+                        Ok(method_info) => methods.push(method_info),
+                        Err(e) => errors.push(e),
+                    };
 
                     if method.default.is_some() {
-                        return Err(Error::new(
+                        errors.push(Error::new(
                             method.span(),
                             "Traits that are used to describe external contract should not include
                              default implementations because this is not a valid use case of traits
@@ -45,6 +46,14 @@ impl ItemTraitInfo {
                 }
                 _ => {}
             }
+        }
+        if !errors.is_empty() {
+            // Combine all errors into one
+            let combined_error = errors.into_iter().reduce(|mut l, r| {
+                l.combine(r);
+                l
+            });
+            return Err(combined_error.unwrap());
         }
         Ok(Self { original: original.clone(), mod_name, methods })
     }

@@ -22,13 +22,26 @@ impl ItemImplInfo {
         let ty = (*original.self_ty.as_ref()).clone();
 
         let mut methods = vec![];
+        let mut errors = vec![];
         for subitem in &mut original.items {
             if let ImplItem::Fn(m) = subitem {
-                if let Some(method_info) = ImplItemMethodInfo::new(m, is_trait_impl, ty.clone())? {
-                    methods.push(method_info);
+                match ImplItemMethodInfo::new(m, is_trait_impl, ty.clone()) {
+                    Ok(Some(method_info)) => methods.push(method_info),
+                    Ok(None) => {} // do nothing
+                    Err(e) => errors.push(e),
                 }
             }
         }
+
+        if !errors.is_empty() {
+            // Combine all errors into one
+            let combined_error = errors.into_iter().reduce(|mut l, r| {
+                l.combine(r);
+                l
+            });
+            return Err(combined_error.unwrap());
+        }
+
         Ok(Self { ty, methods })
     }
 }
