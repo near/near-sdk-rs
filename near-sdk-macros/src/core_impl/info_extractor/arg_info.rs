@@ -76,7 +76,7 @@ impl ArgInfo {
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
-        let args = AttributeConfig::from_attributes(&original.attrs)?;
+
         let mut more_errors: Vec<Error> = Vec::new();
         for attr in &original.attrs {
             let attr_str = attr.path().to_token_stream().to_string();
@@ -91,6 +91,13 @@ impl ArgInfo {
                     bindgen_ty = BindgenArgType::CallbackArgVec;
                 }
                 "serializer" => {
+                    let args = match AttributeConfig::from_attributes(&original.attrs) {
+                        Ok(args) => args,
+                        Err(e) => {
+                            more_errors.push(Error::new(e.span(), e.to_string()));
+                            continue;
+                        }
+                    };
                     if args.borsh.is_some() && args.json.is_some() {
                         let spanned_error = syn::Error::new_spanned(
                             attr,

@@ -1,8 +1,8 @@
-error: Unsupported serializer type.
-  --> compilation_tests/invalid_arg_pat.rs:15:37
+error: Unknown field: `SomeNonExistentSerializer`
+  --> compilation_tests/invalid_arg_pat.rs:15:50
    |
 15 |     pub fn faulty_method(&mut self, #[serializer(SomeNonExistentSerializer)] _a: *mut u32) {}
-   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: Unsupported contract API type.
   --> compilation_tests/invalid_arg_pat.rs:15:82
@@ -10,11 +10,11 @@ error: Unsupported contract API type.
 15 |     pub fn faulty_method(&mut self, #[serializer(SomeNonExistentSerializer)] _a: *mut u32) {}
    |                                                                                  ^
 
-error: Unsupported serializer type.
-  --> compilation_tests/invalid_arg_pat.rs:16:38
+error: Unknown field: `SomeNonExistentSerializer`
+  --> compilation_tests/invalid_arg_pat.rs:16:51
    |
 16 |     pub fn faulty_method1(&mut self, #[serializer(SomeNonExistentSerializer)] (a, b): (u8, u32)) {}
-   |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: Only identity patterns are supported in function arguments.
   --> compilation_tests/invalid_arg_pat.rs:16:79
