@@ -9,8 +9,7 @@ use proc_macro::TokenStream;
 use self::core_impl::*;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::visit::Visit;
-use syn::{parse_quote, File, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -245,36 +244,6 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
-/// `metadata` generates the metadata method and should be placed at the very end of the `lib.rs` file.
-// TODO: Once Rust allows inner attributes and custom procedural macros for modules we should switch this
-// to be `#![metadata]` attribute at the top of the contract file instead. https://github.com/rust-lang/rust/issues/54727
-#[deprecated(
-    since = "4.1.0",
-    note = "metadata macro is no longer used. Use https://github.com/near/abi to generate a contract schema"
-)]
-#[proc_macro]
-pub fn metadata(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<File>(item) {
-        let mut visitor = MetadataVisitor::new();
-        visitor.visit_file(&input);
-        let generated = match visitor.generate_metadata_method() {
-            Ok(x) => x,
-            Err(err) => return TokenStream::from(err.to_compile_error()),
-        };
-        TokenStream::from(quote! {
-            #input
-            #generated
-        })
-    } else {
-        TokenStream::from(
-            syn::Error::new(
-                Span::call_site(),
-                "Failed to parse code decorated with `metadata!{}` macro. Only valid Rust is supported.",
-            )
-            .to_compile_error(),
-        )
-    }
-}
 #[cfg(feature = "abi")]
 use darling::FromDeriveInput;
 #[derive(darling::FromDeriveInput, Debug)]
