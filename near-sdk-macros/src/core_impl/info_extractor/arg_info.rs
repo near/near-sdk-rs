@@ -76,6 +76,7 @@ impl ArgInfo {
         let mut bindgen_ty = BindgenArgType::Regular;
         // In the absence of serialization attributes this is a JSON serialization.
         let mut serializer_ty = SerializerType::JSON;
+
         let mut more_errors: Vec<Error> = Vec::new();
         for attr in &original.attrs {
             let attr_str = attr.path().to_token_stream().to_string();
