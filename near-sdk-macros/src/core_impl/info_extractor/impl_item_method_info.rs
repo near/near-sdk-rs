@@ -71,7 +71,7 @@ mod tests {
             pub fn method(&self) -> &'static str { }
         };
         let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
-        let expected = "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError).";
+        let expected = "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`.";
         assert_eq!(expected, actual.to_string());
     }
 
