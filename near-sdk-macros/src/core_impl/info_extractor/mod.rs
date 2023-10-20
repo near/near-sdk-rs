@@ -6,6 +6,9 @@ pub use serializer_attr::SerializerAttr;
 mod arg_info;
 pub use arg_info::{ArgInfo, BindgenArgType};
 
+mod handle_result_attr;
+pub use handle_result_attr::HandleResultAttr;
+
 mod attr_sig_info;
 pub use attr_sig_info::AttrSigInfo;
 
@@ -84,5 +87,5 @@ pub struct Returns {
 pub enum ReturnKind {
     Default,
     General(Type),
-    HandlesResult { ok_type: Type },
+    HandlesResult(Type),
 }

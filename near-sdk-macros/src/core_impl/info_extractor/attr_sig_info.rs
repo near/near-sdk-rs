@@ -1,5 +1,7 @@
 use super::visitor::Visitor;
-use super::{ArgInfo, BindgenArgType, InitAttr, MethodKind, SerializerAttr, SerializerType};
+use super::{
+    ArgInfo, BindgenArgType, HandleResultAttr, InitAttr, MethodKind, SerializerAttr, SerializerType,
+};
 use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
@@ -34,6 +36,7 @@ struct AttributeConfig {
     borsh: Option<bool>,
     json: Option<bool>,
     ignore_state: Option<bool>,
+    aliased: Option<bool>,
 }
 
 impl AttrSigInfo {
@@ -133,7 +136,13 @@ impl AttrSigInfo {
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
                 "handle_result" => {
-                    visitor.visit_handle_result_attr();
+                    if let Some(value) = args.aliased {
+                        let handle_result = HandleResultAttr { check: value };
+                        visitor.visit_handle_result_attr(&handle_result);
+                    } else {
+                        let handle_result = HandleResultAttr { check: false };
+                        visitor.visit_handle_result_attr(&handle_result);
+                    }
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());
