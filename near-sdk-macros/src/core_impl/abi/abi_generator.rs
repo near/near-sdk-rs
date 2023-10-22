@@ -1,6 +1,6 @@
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
-use syn::{Attribute, Expr, Lit::Str, Meta::NameValue, MetaNameValue, Type};
+use syn::{parse_quote, Attribute, Expr, Lit::Str, Meta::NameValue, MetaNameValue, Type};
 
 use crate::core_impl::{
     utils, BindgenArgType, ImplItemMethodInfo, ItemImplInfo, MethodKind, ReturnKind, SerializerType,
@@ -204,7 +204,11 @@ impl ImplItemMethodInfo {
         match &self.attr_signature_info.returns.kind {
             Default => quote! { ::std::option::Option::None },
             General(ty) => self.abi_result_tokens_with_return_value(ty),
-            HandlesResult { ok_type } => self.abi_result_tokens_with_return_value(ok_type),
+            HandlesResult(ty) => {
+                // extract the `Ok` type from the result
+                let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
+                self.abi_result_tokens_with_return_value(&ty)
+            }
         }
     }
 
