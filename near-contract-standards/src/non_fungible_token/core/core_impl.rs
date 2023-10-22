@@ -92,7 +92,10 @@ impl NonFungibleToken {
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
             approvals_by_id,
             next_approval_id_by_id,
-            royalties: royalties_prefix.map(Royalties::new),
+            royalties: royalties_prefix.map(|prefix| {
+                // TODO: Figure out where the percent has to be coming from.
+                Royalties::new(prefix, 0)
+            }),
         };
         this.measure_min_token_storage_cost();
         this
