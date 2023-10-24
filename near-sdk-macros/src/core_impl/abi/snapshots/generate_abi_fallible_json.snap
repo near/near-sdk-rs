@@ -21,7 +21,10 @@ expression: pretty_print_fn_body_syn_str(actual)
         callbacks: ::std::vec![],
         callbacks_vec: ::std::option::Option::None,
         result: ::std::option::Option::Some(::near_sdk::__private::AbiType::Json {
-            type_schema: gen.subschema_for::<IsOk>(),
+            type_schema: gen
+                .subschema_for::<
+                    <Result<IsOk, Error> as near_sdk::__private::ResultTypeExt>::Okay,
+                >(),
         }),
     }
 
