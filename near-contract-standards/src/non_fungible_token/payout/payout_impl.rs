@@ -139,7 +139,7 @@ mod tests {
 
         // Make sure we don't overflow and don't end up with mismatched results due to using int as
         // opposed to float.
-        let balance = Balance::MAX / 100_00 * 100;
+        let balance = Balance::MAX / 10_000 * 100;
         let owner_id = AccountId::new_unchecked("alice".to_string());
         let payout = royalties.create_payout(balance, &owner_id);
         for (key, value) in payout.payout.iter() {
