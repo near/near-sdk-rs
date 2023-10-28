@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "each royalty should be at most 100")]
-    fn validate_roalty_per_account_fails() {
+    fn validate_royalty_per_account_fails() {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         // Fails with more than 100% per account.
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "total percent of each royalty split must be at most 100")]
-    fn validate_total_roalties_fails() {
+    fn validate_total_royalties_fails() {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         // Fails with total royalties over 100%.
