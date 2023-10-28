@@ -1,14 +1,11 @@
-
-use near_sdk::json_types::U128;
-use near_units::parse_near;
+use near_token::NearToken;
 use near_workspaces::{Account, Contract, DevNetwork, Worker};
 
 async fn init(
     worker: &Worker<impl DevNetwork>,
-    initial_balance: U128,
+    initial_balance: NearToken,
 ) -> anyhow::Result<(Contract, Account)> {
-    let contract =
-        worker.dev_deploy(include_bytes!("../res/lockable_fungible_token.wasm")).await?;
+    let contract = worker.dev_deploy(include_bytes!("../res/lockable_fungible_token.wasm")).await?;
 
     let res = contract
         .call("new")
@@ -21,7 +18,7 @@ async fn init(
     let alice = contract
         .as_account()
         .create_subaccount("alice")
-        .initial_balance(parse_near!("10 N"))
+        .initial_balance(NearToken::from_near(10).as_yoctonear())
         .transact()
         .await?
         .into_result()?;
@@ -32,42 +29,37 @@ async fn init(
 
 #[tokio::test]
 async fn test_owner_initial_state() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _) = init(&worker, initial_balance).await?;
 
     let res = contract.call("get_total_supply").view().await?;
-    assert_eq!(res.json::<U128>()?, initial_balance);
+    assert_eq!(res.json::<NearToken>()?, initial_balance);
+
+    let res = contract.call("get_total_balance").args_json((contract.id(),)).view().await?;
+    assert_eq!(res.json::<NearToken>()?, initial_balance);
+
+    let res = contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
+    assert_eq!(res.json::<NearToken>()?, initial_balance);
 
     let res =
-        contract.call("get_total_balance").args_json((contract.id(),)).view().await?;
-    assert_eq!(res.json::<U128>()?, initial_balance);
-
-    let res =
-        contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
-    assert_eq!(res.json::<U128>()?, initial_balance);
-
-    let res = contract
-        .call("get_allowance")
-        .args_json((contract.id(), contract.id()))
-        .view()
-        .await?;
-    assert_eq!(res.json::<U128>()?, U128::from(0));
+        contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_yoctonear(0));
 
     let res = contract
         .call("get_locked_balance")
         .args_json((contract.id(), contract.id()))
         .view()
         .await?;
-    assert_eq!(res.json::<U128>()?, U128::from(0));
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_yoctonear(0));
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_set_allowance() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let allowance_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let allowance_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice) = init(&worker, initial_balance).await?;
 
@@ -84,14 +76,14 @@ async fn test_set_allowance() -> anyhow::Result<()> {
         .args_json((contract.id(), contract.id()))
         .view()
         .await?
-        .json::<U128>()?;
+        .json::<NearToken>()?;
     let alice_allowance = contract
         .call("get_allowance")
         .args_json((contract.id(), alice.id()))
         .view()
         .await?
-        .json::<U128>()?;
-    assert_eq!(root_allowance, U128::from(0));
+        .json::<NearToken>()?;
+    assert_eq!(root_allowance, NearToken::from_yoctonear(0));
     assert_eq!(alice_allowance, allowance_amount);
 
     Ok(())
@@ -99,8 +91,8 @@ async fn test_set_allowance() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_fail_set_allowance_self() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let allowance_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let allowance_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _) = init(&worker, initial_balance).await?;
 
@@ -118,57 +110,47 @@ async fn test_fail_set_allowance_self() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_lock_owner() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let lock_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let lock_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _) = init(&worker, initial_balance).await?;
 
-    let res = contract
-        .call("lock")
-        .args_json((contract.id(), lock_amount))
-        .max_gas()
-        .transact()
-        .await?;
+    let res =
+        contract.call("lock").args_json((contract.id(), lock_amount)).max_gas().transact().await?;
     assert!(res.is_success());
 
-    let res =
-        contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
-    assert_eq!(res.json::<U128>()?.0, initial_balance.0 - lock_amount.0);
+    let res = contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
+    assert_eq!(
+        res.json::<NearToken>()?.as_yoctonear(),
+        initial_balance.as_yoctonear() - lock_amount.as_yoctonear()
+    );
 
-    let res = contract
-        .call("get_allowance")
-        .args_json((contract.id(), contract.id()))
-        .view()
-        .await?;
-    assert_eq!(res.json::<U128>()?, U128::from(0));
+    let res =
+        contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_yoctonear(0));
 
     let res = contract
         .call("get_locked_balance")
         .args_json((contract.id(), contract.id()))
         .view()
         .await?;
-    assert_eq!(res.json::<U128>()?, lock_amount);
+    assert_eq!(res.json::<NearToken>()?, lock_amount);
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_fail_lock() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice) = init(&worker, initial_balance).await?;
 
-    let res = contract
-        .call("lock")
-        .args_json((contract.id(), "0"))
-        .max_gas()
-        .transact()
-        .await;
+    let res = contract.call("lock").args_json((contract.id(), "0")).max_gas().transact().await;
     assert!(format!("{:?}", res).contains("Can't lock 0 tokens"));
 
     let res = contract
         .call("lock")
-        .args_json((contract.id(), U128::from(parse_near!("10001 N"))))
+        .args_json((contract.id(), NearToken::from_near(10001).as_yoctonear().to_string()))
         .max_gas()
         .transact()
         .await;
@@ -176,7 +158,7 @@ async fn test_fail_lock() -> anyhow::Result<()> {
 
     let res = alice
         .call(contract.id(), "lock")
-        .args_json((contract.id(), U128::from(parse_near!("10 N"))))
+        .args_json((contract.id(), NearToken::from_near(10).as_yoctonear().to_string()))
         .max_gas()
         .transact()
         .await;
@@ -187,17 +169,13 @@ async fn test_fail_lock() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_unlock_owner() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let lock_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let lock_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _) = init(&worker, initial_balance).await?;
 
-    let res = contract
-        .call("lock")
-        .args_json((contract.id(), lock_amount))
-        .max_gas()
-        .transact()
-        .await?;
+    let res =
+        contract.call("lock").args_json((contract.id(), lock_amount)).max_gas().transact().await?;
     assert!(res.is_success());
 
     let res = contract
@@ -208,44 +186,35 @@ async fn test_unlock_owner() -> anyhow::Result<()> {
         .await?;
     assert!(res.is_success());
 
-    let res =
-        contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
-    assert_eq!(res.json::<U128>()?.0, initial_balance.0);
+    let res = contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
+    assert_eq!(res.json::<NearToken>()?, initial_balance);
 
-    let res = contract
-        .call("get_allowance")
-        .args_json((contract.id(), contract.id()))
-        .view()
-        .await?;
-    assert_eq!(res.json::<U128>()?, U128::from(0));
+    let res =
+        contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_yoctonear(0));
 
     let res = contract
         .call("get_locked_balance")
         .args_json((contract.id(), contract.id()))
         .view()
         .await?;
-    assert_eq!(res.json::<U128>()?, U128::from(0));
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_yoctonear(0));
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_fail_unlock() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _) = init(&worker, initial_balance).await?;
 
-    let res = contract
-        .call("unlock")
-        .args_json((contract.id(), "0"))
-        .max_gas()
-        .transact()
-        .await;
+    let res = contract.call("unlock").args_json((contract.id(), "0")).max_gas().transact().await;
     assert!(format!("{:?}", res).contains("Can't unlock 0 tokens"));
 
     let res = contract
         .call("unlock")
-        .args_json((contract.id(), U128::from(parse_near!("1 N"))))
+        .args_json((contract.id(), NearToken::from_near(1).as_yoctonear().to_string()))
         .max_gas()
         .transact()
         .await;
@@ -256,8 +225,8 @@ async fn test_fail_unlock() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_simple_transfer() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice) = init(&worker, initial_balance).await?;
 
@@ -274,36 +243,34 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
         .args_json((contract.id(),))
         .view()
         .await?
-        .json::<U128>()?;
+        .json::<NearToken>()?;
     let alice_balance = contract
         .call("get_unlocked_balance")
         .args_json((alice.id(),))
         .view()
         .await?
-        .json::<U128>()?;
-    assert_eq!(initial_balance.0 - transfer_amount.0, root_balance.0);
-    assert_eq!(transfer_amount.0, alice_balance.0);
+        .json::<NearToken>()?;
+    assert_eq!(
+        initial_balance.as_yoctonear() - transfer_amount.as_yoctonear(),
+        root_balance.as_yoctonear()
+    );
+    assert_eq!(transfer_amount.as_yoctonear(), alice_balance.as_yoctonear());
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_fail_transfer() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice) = init(&worker, initial_balance).await?;
 
-    let res = contract
-        .call("transfer")
-        .args_json((alice.id(), "0"))
-        .max_gas()
-        .transact()
-        .await;
+    let res = contract.call("transfer").args_json((alice.id(), "0")).max_gas().transact().await;
     assert!(format!("{:?}", res).contains("Can't transfer 0 tokens"));
 
     let res = contract
         .call("transfer")
-        .args_json((alice.id(), U128::from(parse_near!("10001 N"))))
+        .args_json((alice.id(), NearToken::from_near(10001)))
         .max_gas()
         .transact()
         .await;

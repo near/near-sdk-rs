@@ -1,6 +1,7 @@
 use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
 
+use near_token::NearToken;
 use near_units::parse_near;
 use near_workspaces::{Account, Contract, DevNetwork, Worker};
 
@@ -83,7 +84,7 @@ pub async fn init(
     let res = nft_contract
         .as_account()
         .create_subaccount("alice")
-        .initial_balance(parse_near!("10 N"))
+        .initial_balance(NearToken::from_near(10).as_yoctonear())
         .transact()
         .await?;
     assert!(res.is_success());

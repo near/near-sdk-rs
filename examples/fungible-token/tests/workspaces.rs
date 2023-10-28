@@ -1,6 +1,6 @@
 use near_sdk::json_types::U128;
 use near_sdk::ONE_YOCTO;
-use near_units::parse_near;
+use near_token::NearToken;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
 use near_workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
@@ -20,13 +20,13 @@ async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::R
 
 async fn init(
     worker: &Worker<impl DevNetwork>,
-    initial_balance: U128,
+    initial_balance: NearToken,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let ft_contract = worker.dev_deploy(include_bytes!("../res/fungible_token.wasm")).await?;
 
     let res = ft_contract
         .call("new_default_meta")
-        .args_json((ft_contract.id(), initial_balance))
+        .args_json((ft_contract.id(), initial_balance.as_yoctonear().to_string()))
         .max_gas()
         .transact()
         .await?;
@@ -40,7 +40,7 @@ async fn init(
     let alice = ft_contract
         .as_account()
         .create_subaccount("alice")
-        .initial_balance(parse_near!("10 N"))
+        .initial_balance(NearToken::from_near(10).as_yoctonear())
         .transact()
         .await?
         .into_result()?;
@@ -60,20 +60,20 @@ async fn init(
 
 #[tokio::test]
 async fn test_total_supply() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
     let res = contract.call("ft_total_supply").view().await?;
-    assert_eq!(res.json::<U128>()?, initial_balance);
+    assert_eq!(res.json::<NearToken>()?, initial_balance);
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_simple_transfer() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
@@ -86,19 +86,30 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
         .await?;
     assert!(res.is_success());
 
-    let root_balance =
-        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
-    let alice_balance =
-        contract.call("ft_balance_of").args_json((alice.id(),)).view().await?.json::<U128>()?;
-    assert_eq!(initial_balance.0 - transfer_amount.0, root_balance.0);
-    assert_eq!(transfer_amount.0, alice_balance.0);
+    let root_balance = contract
+        .call("ft_balance_of")
+        .args_json((contract.id(),))
+        .view()
+        .await?
+        .json::<NearToken>()?;
+    let alice_balance = contract
+        .call("ft_balance_of")
+        .args_json((alice.id(),))
+        .view()
+        .await?
+        .json::<NearToken>()?;
+    assert_eq!(
+        initial_balance.as_yoctonear() - transfer_amount.as_yoctonear(),
+        root_balance.as_yoctonear()
+    );
+    assert_eq!(transfer_amount, alice_balance);
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_close_account_empty_balance() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
@@ -116,7 +127,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
@@ -145,7 +156,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
+    let initial_balance = NearToken::from_near(10000);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
@@ -166,8 +177,8 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
 
 #[tokio::test]
 async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -201,7 +212,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
 
     match res.receipt_outcomes()[5].clone().into_result()? {
         ValueOrReceiptId::Value(val) => {
-            let used_amount = val.json::<U128>()?;
+            let used_amount = val.json::<NearToken>()?;
             assert_eq!(used_amount, transfer_amount);
         }
         _ => panic!("Unexpected receipt id"),
@@ -209,22 +220,22 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(res.json::<bool>()?);
 
     let res = contract.call("ft_total_supply").view().await?;
-    assert_eq!(res.json::<U128>()?.0, transfer_amount.0 - 10);
+    assert_eq!(res.json::<NearToken>()?.as_yoctonear(), transfer_amount.as_yoctonear() - 10);
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
-        .json::<U128>()?;
-    assert_eq!(defi_balance.0, transfer_amount.0 - 10);
+        .json::<NearToken>()?;
+    assert_eq!(defi_balance.as_yoctonear(), transfer_amount.as_yoctonear() - 10);
 
     Ok(())
 }
 
 #[tokio::test]
 async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -241,16 +252,23 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
         .await?;
     assert!(res.is_success());
 
-    let root_balance =
-        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
+    let root_balance = contract
+        .call("ft_balance_of")
+        .args_json((contract.id(),))
+        .view()
+        .await?
+        .json::<NearToken>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
-        .json::<U128>()?;
-    assert_eq!(initial_balance.0 - transfer_amount.0, root_balance.0);
-    assert_eq!(transfer_amount.0, defi_balance.0);
+        .json::<NearToken>()?;
+    assert_eq!(
+        initial_balance.as_yoctonear() - transfer_amount.as_yoctonear(),
+        root_balance.as_yoctonear()
+    );
+    assert_eq!(transfer_amount, defi_balance);
 
     Ok(())
 }
@@ -258,8 +276,8 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
 #[tokio::test]
 async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() -> anyhow::Result<()>
 {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -274,25 +292,29 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
     assert!(res.is_failure());
 
     // balances remain unchanged
-    let root_balance =
-        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
+    let root_balance = contract
+        .call("ft_balance_of")
+        .args_json((contract.id(),))
+        .view()
+        .await?
+        .json::<NearToken>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
-        .json::<U128>()?;
-    assert_eq!(initial_balance.0, root_balance.0);
-    assert_eq!(0, defi_balance.0);
+        .json::<NearToken>()?;
+    assert_eq!(initial_balance, root_balance);
+    assert_eq!(0, defi_balance.as_yoctonear());
 
     Ok(())
 }
 
 #[tokio::test]
 async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let refund_amount = U128::from(parse_near!("50 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let refund_amount = NearToken::from_near(50);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -303,9 +325,9 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
         .call("ft_transfer_call")
         .args_json((
             defi_contract.id(),
-            transfer_amount,
+            transfer_amount.as_yoctonear().to_string(),
             Option::<String>::None,
-            refund_amount.0.to_string(),
+            refund_amount.as_yoctonear().to_string(),
         ))
         .max_gas()
         .deposit(ONE_YOCTO)
@@ -313,24 +335,35 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
         .await?;
     assert!(res.is_success());
 
-    let root_balance =
-        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
+    let root_balance = contract
+        .call("ft_balance_of")
+        .args_json((contract.id(),))
+        .view()
+        .await?
+        .json::<NearToken>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
-        .json::<U128>()?;
-    assert_eq!(initial_balance.0 - transfer_amount.0 + refund_amount.0, root_balance.0);
-    assert_eq!(transfer_amount.0 - refund_amount.0, defi_balance.0);
+        .json::<NearToken>()?;
+    assert_eq!(
+        initial_balance.as_yoctonear() - transfer_amount.as_yoctonear()
+            + refund_amount.as_yoctonear(),
+        root_balance.as_yoctonear()
+    );
+    assert_eq!(
+        transfer_amount.as_yoctonear() - refund_amount.as_yoctonear(),
+        defi_balance.as_yoctonear()
+    );
 
     Ok(())
 }
 
 #[tokio::test]
 async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Result<()> {
-    let initial_balance = U128::from(parse_near!("10000 N"));
-    let transfer_amount = U128::from(parse_near!("100 N"));
+    let initial_balance = NearToken::from_near(10000);
+    let transfer_amount = NearToken::from_near(100);
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -362,16 +395,20 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     }
 
     // balances remain unchanged
-    let root_balance =
-        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
+    let root_balance = contract
+        .call("ft_balance_of")
+        .args_json((contract.id(),))
+        .view()
+        .await?
+        .json::<NearToken>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
-        .json::<U128>()?;
+        .json::<NearToken>()?;
     assert_eq!(initial_balance, root_balance);
-    assert_eq!(0, defi_balance.0);
+    assert_eq!(0, defi_balance.as_yoctonear());
 
     Ok(())
 }
