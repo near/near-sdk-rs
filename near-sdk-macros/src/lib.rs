@@ -1,8 +1,10 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
+mod contract_metadata;
 mod core_impl;
 
+use contract_metadata::contract_metadata;
 use core_impl::ext::generate_ext_structs;
 use proc_macro::TokenStream;
 
@@ -81,6 +83,31 @@ use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 ///
 /// }
 /// ```
+///
+/// Contract Source Metadata Standard:
+///
+/// By passing `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
+/// according to NEP-330 standard.
+///
+/// XXX: TODO: work on docs
+///
+/// # Examples
+/// ```ignore
+/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::near_bindgen;
+///
+/// #[derive(Default, BorshSerialize, BorshDeserialize)]
+/// #[near_bindgen(contract_metadata(
+///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
+///     link = "https://github.com/near-examples/nft-tutorial",
+///     standards = [
+///         {standard = "nep330", version = "1.1.0"},
+///         {standard = "nep171", version = "1.0.0"},
+///         {standard = "nep177", version = "2.0.0"},
+///     ]
+/// ))]
+/// struct Contract {}
+/// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -88,6 +115,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        let metadata = contract_metadata(attr, item);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -97,6 +125,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #input
             #ext_gen
             #abi_embedded
+            #metadata
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
@@ -123,7 +152,9 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_generated = abi::generate(&item_impl_info);
 
         for method in &item_impl_info.methods {
-            if method.attr_signature_info.ident == "__contract_abi" {
+            if method.attr_signature_info.ident == "__contract_abi"
+                || method.attr_signature_info.ident == "contract_source_metadata"
+            {
                 return TokenStream::from(
                     syn::Error::new_spanned(
                         method.attr_signature_info.original_sig.ident.to_token_stream(),
