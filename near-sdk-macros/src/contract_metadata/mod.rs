@@ -1,47 +1,22 @@
 use darling::{ast::NestedMeta, Error, FromMeta};
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
-//use syn::parse_quote;
+use quote::quote;
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, Default, FromMeta)]
 pub struct ContractSourceMetadata {
     pub version: Option<String>,
     pub link: Option<String>,
+    #[darling(multiple, rename = "standard")]
     pub standards: Vec<Standard>,
 }
 
-impl FromMeta for ContractSourceMetadata {
-    fn from_list(v: &[NestedMeta]) -> Result<Self, Error> {
-        let mut version = None;
-        let mut link = None;
-        let mut standards = vec![];
-
-        // TODO: parse the NestedMeta list and populate the version, link, and standards fields.
-
-        Ok(Self { version, link, standards })
-    }
-}
-
-#[derive(Clone, Debug, FromMeta)]
+#[derive(FromMeta, serde::Serialize)]
 pub struct Standard {
     pub standard: String,
     pub version: String,
 }
 
-impl ToTokens for Standard {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let standard = &self.standard;
-        let version = &self.version;
-        tokens.extend(quote! {
-            ::near_contract_standards::Standard {
-                standard: #standard,
-                version: #version,
-            }
-        });
-    }
-}
-
-#[derive(Default, FromMeta, Clone, Debug)]
+#[derive(FromMeta)]
 struct MetadataConfig {
     pub contract_metadata: Option<ContractSourceMetadata>,
 }
@@ -60,10 +35,14 @@ pub(crate) fn contract_metadata(
 
     // short circuit to the default implementation if the contract_metadata attribute is not present
     if !attr.to_string().contains("contract_metadata") {
+        let mut val = ContractSourceMetadata::default();
+        populate_empty(&mut val);
+        let metadata = serde_json::to_string(&val).expect("ContractSourceMetadata is parsable");
+
         return TokenStream::from(quote! {
             impl #struct_ident {
-                pub fn contract_source_metadata(&self) -> ::near_contract_standards::ContractSourceMetadata {
-                    ::near_contract_standards::ContractSourceMetadata::default()
+                pub const fn contract_source_metadata(&self) -> String {
+                    #metadata
                 }
             }
         });
@@ -83,20 +62,31 @@ pub(crate) fn contract_metadata(
         }
     };
 
-    let ver = args.contract_metadata.clone().map(|v| v.version).flatten();
-    let link = args.contract_metadata.clone().map(|v| v.link).flatten();
-    let standards = args.contract_metadata.map(|v| v.standards).unwrap_or(vec![]);
+    let mut val = args.contract_metadata.unwrap();
+    populate_empty(&mut val);
+    let metadata = serde_json::to_string(&val).expect("ContractSourceMetadata is parsable");
 
-    // populate the impl with the parsed data.
     TokenStream::from(quote! {
         impl #struct_ident {
-            pub fn contract_source_metadata(&self) -> ::near_contract_standards::ContractSourceMetadata {
-                ::near_contract_standards::ContractSourceMetadata {
-                    version: #ver,
-                    link: #link,
-                    standards: #(#standards)*
-                }
+            pub const fn contract_source_metadata(&self) -> &'static str {
+                #metadata
             }
         }
     })
+}
+
+fn populate_empty(metadata: &mut ContractSourceMetadata) {
+    if metadata.version.is_none() {
+        metadata.version = std::env::var("CARGO_PKG_VERSION").ok();
+    }
+
+    if metadata.link.is_none() {
+        metadata.link = std::env::var("CARGO_PKG_REPOSITORY").ok();
+    }
+
+    if metadata.standards.is_empty() {
+        metadata
+            .standards
+            .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
+    }
 }

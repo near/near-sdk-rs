@@ -100,11 +100,9 @@ use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 /// #[near_bindgen(contract_metadata(
 ///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
 ///     link = "https://github.com/near-examples/nft-tutorial",
-///     standards = [
-///         {standard = "nep330", version = "1.1.0"},
-///         {standard = "nep171", version = "1.0.0"},
-///         {standard = "nep177", version = "2.0.0"},
-///     ]
+///     standard(standard = "nep330", version = "1.1.0"),
+///     standard(standard = "nep171", version = "1.0.0"),
+///     standard(standard = "nep177", version = "2.0.0"),
 /// ))]
 /// struct Contract {}
 /// ```
