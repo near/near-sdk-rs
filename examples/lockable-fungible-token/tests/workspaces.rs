@@ -1,6 +1,5 @@
-use near_token::NearToken;
+use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract, DevNetwork, Worker};
-
 async fn init(
     worker: &Worker<impl DevNetwork>,
     initial_balance: NearToken,
@@ -18,7 +17,7 @@ async fn init(
     let alice = contract
         .as_account()
         .create_subaccount("alice")
-        .initial_balance(NearToken::from_near(10).as_yoctonear())
+        .initial_balance(NearToken::from_near(10))
         .transact()
         .await?
         .into_result()?;

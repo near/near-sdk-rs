@@ -1,16 +1,15 @@
-use near_sdk::json_types::U128;
-use near_sdk::ONE_YOCTO;
-use near_token::NearToken;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
+use near_workspaces::types::NearToken;
 use near_workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
 
+const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::Result<()> {
     let res = contract
         .call("storage_deposit")
         .args_json((account_id, Option::<bool>::None))
         .max_gas()
-        .deposit(near_sdk::env::storage_byte_cost() * 125)
+        .deposit(NearToken::from_yoctonear(near_sdk::env::storage_byte_cost() * 125))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -26,7 +25,7 @@ async fn init(
 
     let res = ft_contract
         .call("new_default_meta")
-        .args_json((ft_contract.id(), initial_balance.as_yoctonear().to_string()))
+        .args_json((ft_contract.id(), initial_balance))
         .max_gas()
         .transact()
         .await?;
@@ -40,7 +39,7 @@ async fn init(
     let alice = ft_contract
         .as_account()
         .create_subaccount("alice")
-        .initial_balance(NearToken::from_near(10).as_yoctonear())
+        .initial_balance(NearToken::from_near(10))
         .transact()
         .await?
         .into_result()?;
@@ -49,7 +48,7 @@ async fn init(
     let res = ft_contract
         .call("storage_deposit")
         .args_json((alice.id(), Option::<bool>::None))
-        .deposit(near_sdk::env::storage_byte_cost() * 125)
+        .deposit(NearToken::from_yoctonear(near_sdk::env::storage_byte_cost() * 125))
         .max_gas()
         .transact()
         .await?;
@@ -170,7 +169,7 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
     assert!(res.is_success());
 
     let res = contract.call("ft_total_supply").view().await?;
-    assert_eq!(res.json::<U128>()?.0, 0);
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_near(0));
 
     Ok(())
 }

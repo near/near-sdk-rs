@@ -1,4 +1,4 @@
-use near_token::NearToken;
+use near_workspaces::types::NearToken;
 use test_case::test_case;
 
 #[test_case("factory_contract_high_level")]
@@ -17,7 +17,7 @@ async fn test_deploy_status_message(contract_name: &str) -> anyhow::Result<()> {
         .call("deploy_status_message")
         .args_json((status_id.clone(), status_amt))
         .max_gas()
-        .deposit(NearToken::from_near(50).as_yoctonear())
+        .deposit(NearToken::from_near(50))
         .transact()
         .await?;
     assert!(res.is_success());
