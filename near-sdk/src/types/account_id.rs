@@ -6,6 +6,7 @@ use std::convert::TryFrom;
 use std::{fmt, io};
 
 use crate::env::is_valid_account_id;
+use near_account_id::AccountId;
 
 /// Account identifier. This is the human readable utf8 string which is used internally to index
 /// accounts on the network and their respective state.
@@ -38,7 +39,7 @@ use crate::env::is_valid_account_id;
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Serialize, Hash)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "abi", derive(BorshSchema))]
-pub struct AccountId(String);
+pub struct AccountId(AccountId);
 
 impl AccountId {
     /// Returns reference to the account ID bytes.
