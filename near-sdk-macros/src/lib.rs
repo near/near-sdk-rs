@@ -9,7 +9,7 @@ use core_impl::ext::generate_ext_structs;
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
-use proc_macro2::Span;
+use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
@@ -113,7 +113,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let metadata = contract_metadata(attr, item);
+        let metadata = contract_metadata(attr);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -137,6 +137,26 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #abi_embedded
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+        // TODO: find better way to inject `contract_source_metadata` into the impl block
+        {
+            let name = Ident::new("uncommited", Span::call_site());
+            let contract_source_metadata = quote! {
+                impl #name{
+                    pub fn contract_source_metadata() -> String {
+                        CONTRACT_SOURCE_METADATA.to_string()
+                    }
+                }
+            };
+
+            input.items.push(
+                syn::parse::<ItemImpl>(contract_source_metadata.into())
+                    .expect("under uncommited impl block")
+                    .items
+                    .pop()
+                    .expect("contract_source_metadata()"),
+            );
+        }
+
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
@@ -150,9 +170,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_generated = abi::generate(&item_impl_info);
 
         for method in &item_impl_info.methods {
-            if method.attr_signature_info.ident == "__contract_abi"
-                || method.attr_signature_info.ident == "contract_source_metadata"
-            {
+            if method.attr_signature_info.ident == "__contract_abi" {
                 return TokenStream::from(
                     syn::Error::new_spanned(
                         method.attr_signature_info.original_sig.ident.to_token_stream(),

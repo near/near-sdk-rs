@@ -2,91 +2,78 @@ use darling::{ast::NestedMeta, Error, FromMeta};
 use proc_macro2::TokenStream;
 use quote::quote;
 
+#[derive(FromMeta)]
+struct MacroConfig {
+    contract_metadata: Option<ContractMetadata>,
+}
+
 #[derive(serde::Serialize, Default, FromMeta)]
-pub struct ContractSourceMetadata {
-    pub version: Option<String>,
-    pub link: Option<String>,
+struct ContractMetadata {
+    version: Option<String>,
+    link: Option<String>,
     #[darling(multiple, rename = "standard")]
-    pub standards: Vec<Standard>,
+    standards: Vec<Standard>,
 }
 
 #[derive(FromMeta, serde::Serialize)]
-pub struct Standard {
-    pub standard: String,
-    pub version: String,
+struct Standard {
+    standard: String,
+    version: String,
 }
 
-#[derive(FromMeta)]
-struct MetadataConfig {
-    pub contract_metadata: Option<ContractSourceMetadata>,
-}
-
-/// This function is used to extract/populate the contract metadata to the contract.
-pub(crate) fn contract_metadata(
-    attr: proc_macro::TokenStream,
-    item: proc_macro::TokenStream,
-) -> TokenStream {
-    let struct_ident = match syn::parse::<syn::ItemStruct>(item.into()) {
-        Ok(v) => v.ident,
-        Err(e) => {
-            return TokenStream::from(e.to_compile_error());
+impl ContractMetadata {
+    fn populate(mut self) -> Self {
+        if self.version.is_none() {
+            self.version = std::env::var("CARGO_PKG_VERSION").ok();
         }
-    };
 
-    // short circuit to the default implementation if the contract_metadata attribute is not present
-    if !attr.to_string().contains("contract_metadata") {
-        let mut val = ContractSourceMetadata::default();
-        populate_empty(&mut val);
-        let metadata = serde_json::to_string(&val).expect("ContractSourceMetadata is parsable");
+        if self.link.is_none() {
+            self.link = std::env::var("CARGO_PKG_REPOSITORY").ok();
+        }
 
-        return TokenStream::from(quote! {
-            impl #struct_ident {
-                pub const fn contract_source_metadata(&self) -> String {
-                    #metadata
-                }
-            }
-        });
+        if self.standards.is_empty() {
+            self.standards
+                .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
+        }
+
+        self
+    }
+}
+
+/// Allows for the injection of the contract source metadata infomation into the contract as a constant.
+pub(crate) fn contract_metadata(attr: proc_macro::TokenStream) -> TokenStream {
+    if attr.to_string().is_empty() {
+        let metadata = serde_json::to_string(&ContractMetadata::default().populate())
+            .expect("ContractMetadata implements Serialize");
+
+        return quote! {
+            const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
+        };
     }
 
     let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
         Err(e) => {
-            return proc_macro2::TokenStream::from(Error::from(e).write_errors());
+            return Error::from(e).write_errors();
         }
     };
 
-    let args = match MetadataConfig::from_list(&attr_args) {
+    let args = match MacroConfig::from_list(&attr_args) {
         Ok(v) => v,
         Err(e) => {
-            return TokenStream::from(e.write_errors());
+            return e.write_errors();
         }
     };
 
-    let mut val = args.contract_metadata.unwrap();
-    populate_empty(&mut val);
-    let metadata = serde_json::to_string(&val).expect("ContractSourceMetadata is parsable");
+    let metadata = serde_json::to_string(
+        &args
+            .contract_metadata
+            .expect("Attribute input must be present given standard was followed")
+            .populate(),
+    )
+    .expect("ContractMetadata implements Serialize");
 
-    TokenStream::from(quote! {
-        impl #struct_ident {
-            pub const fn contract_source_metadata(&self) -> &'static str {
-                #metadata
-            }
-        }
-    })
-}
-
-fn populate_empty(metadata: &mut ContractSourceMetadata) {
-    if metadata.version.is_none() {
-        metadata.version = std::env::var("CARGO_PKG_VERSION").ok();
-    }
-
-    if metadata.link.is_none() {
-        metadata.link = std::env::var("CARGO_PKG_REPOSITORY").ok();
-    }
-
-    if metadata.standards.is_empty() {
-        metadata
-            .standards
-            .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
+    quote! {
+        const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
     }
 }
