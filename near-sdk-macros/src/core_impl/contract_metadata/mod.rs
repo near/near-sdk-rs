@@ -40,14 +40,15 @@ impl ContractMetadata {
     }
 }
 
-/// Allows for the injection of the contract source metadata infomation into the contract as a constant.
-pub(crate) fn contract_metadata(attr: proc_macro::TokenStream) -> TokenStream {
+/// Allows for the injection of the contract source metadata infomation into the contract code as
+/// a constant.
+pub(crate) fn contract_source_metadata_const(attr: proc_macro::TokenStream) -> TokenStream {
     if attr.to_string().is_empty() {
         let metadata = serde_json::to_string(&ContractMetadata::default().populate())
             .expect("ContractMetadata implements Serialize");
 
         return quote! {
-            const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
+           pub const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
         };
     }
 
@@ -74,6 +75,6 @@ pub(crate) fn contract_metadata(attr: proc_macro::TokenStream) -> TokenStream {
     .expect("ContractMetadata implements Serialize");
 
     quote! {
-        const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
+       pub const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
     }
 }

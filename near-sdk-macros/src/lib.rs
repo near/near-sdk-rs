@@ -1,10 +1,8 @@
 #![recursion_limit = "128"]
 extern crate proc_macro;
 
-mod contract_metadata;
 mod core_impl;
 
-use contract_metadata::contract_metadata;
 use core_impl::ext::generate_ext_structs;
 use proc_macro::TokenStream;
 
@@ -113,7 +111,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let metadata = contract_metadata(attr);
+        let metadata = core_impl::contract_source_metadata_const(attr);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -126,6 +124,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        let metadata = core_impl::contract_source_metadata_const(attr);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -135,10 +134,11 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #input
             #ext_gen
             #abi_embedded
+            #metadata
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         // TODO: find better way to inject `contract_source_metadata` into the impl block
-        {
+        if !input.trait_.is_some() {
             let name = Ident::new("uncommited", Span::call_site());
             let contract_source_metadata = quote! {
                 impl #name{
