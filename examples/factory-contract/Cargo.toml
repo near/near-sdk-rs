@@ -12,7 +12,6 @@ serde_json = "1.0"
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
 near-workspaces = { git = "https://github.com/near/near-workspaces-rs.git" }
-near-token = { version = "0.1.0", features = ["serde", "borsh", "schemars"] }
 
 factory-contract-high-level = { path = "./high-level" }
 factory-contract-low-level = { path = "./low-level" }
