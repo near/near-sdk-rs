@@ -75,6 +75,6 @@ pub(crate) fn contract_source_metadata_const(attr: proc_macro::TokenStream) -> T
     .expect("ContractMetadata implements Serialize");
 
     quote! {
-       pub const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
+        const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
     }
 }

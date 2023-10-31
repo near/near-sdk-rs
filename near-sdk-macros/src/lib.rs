@@ -7,9 +7,9 @@ use core_impl::ext::generate_ext_structs;
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
-use proc_macro2::{Ident, Span};
+use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -84,10 +84,14 @@ use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 ///
 /// Contract Source Metadata Standard:
 ///
-/// By passing `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
-/// according to NEP-330 standard.
+/// By using `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
+/// according to NEP-330 standard. This still applies even when `#[near_bindgen]` is used without
+/// any arguments.
 ///
-/// XXX: TODO: work on docs
+/// All fields(version, link, standard) are optional and will be populated with defaults from the Cargo.toml file if not specified.
+///
+/// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
+/// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
 ///
 /// # Examples
 /// ```ignore
@@ -137,24 +141,32 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-        // TODO: find better way to inject `contract_source_metadata` into the impl block
-        if !input.trait_.is_some() {
-            let name = Ident::new("uncommited", Span::call_site());
-            let contract_source_metadata = quote! {
-                impl #name{
-                    pub fn contract_source_metadata() -> String {
-                        CONTRACT_SOURCE_METADATA.to_string()
-                    }
+        for method in input.items.iter() {
+            if let ImplItem::Fn(m) = method {
+                let ident = &m.sig.ident;
+                if ident.eq("__contract_abi") || ident.eq("contract_source_metadata") {
+                    return TokenStream::from(
+                        syn::Error::new_spanned(
+                            m.sig.ident.to_token_stream(),
+                            "use of reserved contract method",
+                        )
+                        .to_compile_error(),
+                    );
                 }
-            };
+            }
+        }
 
-            input.items.push(
-                syn::parse::<ItemImpl>(contract_source_metadata.into())
-                    .expect("under uncommited impl block")
-                    .items
-                    .pop()
-                    .expect("contract_source_metadata()"),
-            );
+        if input.trait_.is_none() {
+            match syn::parse_str::<syn::ImplItem>(
+                "pub fn contract_source_metadata() -> String { CONTRACT_SOURCE_METADATA.to_string() }",
+            ) {
+                Ok(x) => {
+                    input.items.push(x);
+                }
+                Err(err) => {
+                    return err.to_compile_error().into();
+                }
+            }
         }
 
         let item_impl_info = match ItemImplInfo::new(&mut input) {
@@ -168,18 +180,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_generated = quote! {};
         #[cfg(feature = "__abi-generate")]
         let abi_generated = abi::generate(&item_impl_info);
-
-        for method in &item_impl_info.methods {
-            if method.attr_signature_info.ident == "__contract_abi" {
-                return TokenStream::from(
-                    syn::Error::new_spanned(
-                        method.attr_signature_info.original_sig.ident.to_token_stream(),
-                        "use of reserved contract method",
-                    )
-                    .to_compile_error(),
-                );
-            }
-        }
 
         let generated_code = item_impl_info.wrapper_code();
 
