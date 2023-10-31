@@ -1,8 +1,9 @@
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::AccountId;
-use crate::{Balance, BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage};
+use crate::{BlockHeight, EpochHeight, Gas, PromiseResult, PublicKey, StorageUsage};
 use near_primitives_core::runtime::fees::RuntimeFeesConfig;
+use near_token::NearToken;
 use near_vm_logic::{VMConfig, ViewConfig};
 use std::convert::TryInto;
 
@@ -53,14 +54,14 @@ pub struct VMContext {
 
     /// The balance attached to the given account. Excludes the `attached_deposit` that was
     /// attached to the transaction.
-    pub account_balance: Balance,
+    pub account_balance: NearToken,
     /// The balance of locked tokens on the given account.
-    pub account_locked_balance: Balance,
+    pub account_locked_balance: NearToken,
     /// The account's storage usage before the contract execution
     pub storage_usage: StorageUsage,
     /// The balance that was attached to the call that will be immediately deposited before the
     /// contract execution starts.
-    pub attached_deposit: Balance,
+    pub attached_deposit: NearToken,
     /// The gas attached to the call that can be used to pay for the gas fees.
     pub prepaid_gas: Gas,
     /// Initial seed for randomness
@@ -93,10 +94,10 @@ impl VMContextBuilder {
                 block_index: 0,
                 block_timestamp: 0,
                 epoch_height: 0,
-                account_balance: 10u128.pow(26),
-                account_locked_balance: 0,
+                account_balance: NearToken::from_yoctonear(10u128.pow(26)),
+                account_locked_balance: NearToken::from_near(0),
                 storage_usage: 1024 * 300,
-                attached_deposit: 0,
+                attached_deposit: NearToken::from_near(0),
                 prepaid_gas: Gas::from_tgas(300),
                 random_seed: [0u8; 32],
                 view_config: None,
@@ -146,12 +147,12 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn account_balance(&mut self, amount: Balance) -> &mut Self {
+    pub fn account_balance(&mut self, amount: NearToken) -> &mut Self {
         self.context.account_balance = amount;
         self
     }
 
-    pub fn account_locked_balance(&mut self, amount: Balance) -> &mut Self {
+    pub fn account_locked_balance(&mut self, amount: NearToken) -> &mut Self {
         self.context.account_locked_balance = amount;
         self
     }
@@ -161,7 +162,7 @@ impl VMContextBuilder {
         self
     }
 
-    pub fn attached_deposit(&mut self, amount: Balance) -> &mut Self {
+    pub fn attached_deposit(&mut self, amount: NearToken) -> &mut Self {
         self.context.attached_deposit = amount;
         self
     }

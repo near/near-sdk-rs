@@ -12,10 +12,11 @@ use std::{convert::TryFrom, mem::MaybeUninit};
 use crate::mock::MockedBlockchain;
 use crate::promise::Allowance;
 use crate::types::{
-    AccountId, Balance, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
+    AccountId, BlockHeight, Gas, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
 use crate::{GasWeight, PromiseError};
 use near_sys as sys;
+use near_token::NearToken;
 
 const REGISTER_EXPECTED_ERR: &str =
     "Register was expected to have data because we just wrote it into it.";
@@ -220,25 +221,25 @@ pub fn storage_usage() -> StorageUsage {
 // #################
 /// The balance attached to the given account. This includes the attached_deposit that was
 /// attached to the transaction
-pub fn account_balance() -> Balance {
-    let data = [0u8; size_of::<Balance>()];
+pub fn account_balance() -> NearToken {
+    let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::account_balance(data.as_ptr() as u64) };
-    Balance::from_le_bytes(data)
+    NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
 /// The balance locked for potential validator staking.
-pub fn account_locked_balance() -> Balance {
-    let data = [0u8; size_of::<Balance>()];
+pub fn account_locked_balance() -> NearToken {
+    let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::account_locked_balance(data.as_ptr() as u64) };
-    Balance::from_le_bytes(data)
+    NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
 /// The balance that was attached to the call that will be immediately deposited before the
 /// contract execution starts
-pub fn attached_deposit() -> Balance {
-    let data = [0u8; size_of::<Balance>()];
+pub fn attached_deposit() -> NearToken {
+    let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::attached_deposit(data.as_ptr() as u64) };
-    Balance::from_le_bytes(data)
+    NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
@@ -497,7 +498,7 @@ pub fn promise_create(
     account_id: AccountId,
     function_name: &str,
     arguments: &[u8],
-    amount: Balance,
+    amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
@@ -509,7 +510,7 @@ pub fn promise_create(
             function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
-            &amount as *const Balance as _,
+            &amount as *const NearToken as _,
             gas.as_gas(),
         ))
     }
@@ -521,7 +522,7 @@ pub fn promise_then(
     account_id: AccountId,
     function_name: &str,
     arguments: &[u8],
-    amount: Balance,
+    amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
@@ -534,7 +535,7 @@ pub fn promise_then(
             function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
-            &amount as *const Balance as _,
+            &amount as *const NearToken as _,
             gas.as_gas(),
         ))
     }
@@ -586,7 +587,7 @@ pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
     function_name: &str,
     arguments: &[u8],
-    amount: Balance,
+    amount: NearToken,
     gas: Gas,
 ) {
     unsafe {
@@ -596,7 +597,7 @@ pub fn promise_batch_action_function_call(
             function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
-            &amount as *const Balance as _,
+            &amount as *const NearToken as _,
             gas.as_gas(),
         )
     }
@@ -606,7 +607,7 @@ pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
     function_name: &str,
     arguments: &[u8],
-    amount: Balance,
+    amount: NearToken,
     gas: Gas,
     weight: GasWeight,
 ) {
@@ -617,26 +618,26 @@ pub fn promise_batch_action_function_call_weight(
             function_name.as_ptr() as _,
             arguments.len() as _,
             arguments.as_ptr() as _,
-            &amount as *const Balance as _,
+            &amount as *const NearToken as _,
             gas.as_gas(),
             weight.0,
         )
     }
 }
 
-pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: Balance) {
-    unsafe { sys::promise_batch_action_transfer(promise_index.0, &amount as *const Balance as _) }
+pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
+    unsafe { sys::promise_batch_action_transfer(promise_index.0, &amount as *const NearToken as _) }
 }
 
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
-    amount: Balance,
+    amount: NearToken,
     public_key: &PublicKey,
 ) {
     unsafe {
         sys::promise_batch_action_stake(
             promise_index.0,
-            &amount as *const Balance as _,
+            &amount as *const NearToken as _,
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
         )
@@ -658,7 +659,7 @@ pub fn promise_batch_action_add_key_with_full_access(
 }
 
 /// This is a short lived function while we migrate between the Balance and the allowance type
-pub(crate) fn migrate_to_allowance(allowance: Balance) -> Allowance {
+pub(crate) fn migrate_to_allowance(allowance: NearToken) -> Allowance {
     Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
 }
 
@@ -667,7 +668,7 @@ pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
     nonce: u64,
-    allowance: Balance,
+    allowance: NearToken,
     receiver_id: &AccountId,
     function_names: &str,
 ) {
@@ -701,7 +702,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
             public_key.as_bytes().len() as _,
             public_key.as_bytes().as_ptr() as _,
             nonce,
-            &allowance as *const Balance as _,
+            &allowance as *const u128 as _,
             receiver_id.len() as _,
             receiver_id.as_ptr() as _,
             function_names.len() as _,
@@ -769,20 +770,20 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 // ###############
 
 /// For a given account return its current stake. If the account is not a validator, returns 0.
-pub fn validator_stake(account_id: &AccountId) -> Balance {
+pub fn validator_stake(account_id: &AccountId) -> NearToken {
     let account_id: &str = account_id.as_ref();
-    let data = [0u8; size_of::<Balance>()];
+    let data = [0u8; size_of::<NearToken>()];
     unsafe {
         sys::validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
     };
-    Balance::from_le_bytes(data)
+    NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
 /// Returns the total stake of validators in the current epoch.
-pub fn validator_total_stake() -> Balance {
-    let data = [0u8; size_of::<Balance>()];
+pub fn validator_total_stake() -> NearToken {
+    let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::validator_total_stake(data.as_ptr() as u64) };
-    Balance::from_le_bytes(data)
+    NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
 // #####################
@@ -932,9 +933,9 @@ pub fn state_exists() -> bool {
 
 /// Price per 1 byte of storage from mainnet genesis config.
 /// TODO: will be using the host function when it will be available.
-pub const STORAGE_PRICE_PER_BYTE: Balance = 10_000_000_000_000_000_000;
+pub const STORAGE_PRICE_PER_BYTE: NearToken = NearToken::from_yoctonear(10_000_000_000_000_000_000);
 
-pub fn storage_byte_cost() -> Balance {
+pub fn storage_byte_cost() -> NearToken {
     STORAGE_PRICE_PER_BYTE
 }
 
