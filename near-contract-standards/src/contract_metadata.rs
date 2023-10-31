@@ -24,9 +24,9 @@ impl ContractSourceMetadata {
     ///     .await?
     ///     .json::<String>()?;
     ///
-    /// let metadata = ContractSourceMetadata::from_str(&payload)?;
+    /// let metadata = ContractSourceMetadata::from_payload(&payload)?;
     /// ```
-    pub fn from_str(payload: &str) -> anyhow::Result<Self> {
+    pub fn from_payload(payload: &str) -> anyhow::Result<Self> {
         serde_json::from_str(payload)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize contract source metadata: {}", e))
     }
