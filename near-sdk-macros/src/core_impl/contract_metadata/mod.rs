@@ -9,9 +9,7 @@ struct MacroConfig {
 
 #[derive(serde::Serialize, Default, FromMeta)]
 struct ContractMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     link: Option<String>,
     #[darling(multiple, rename = "standard")]
     standards: Vec<Standard>,
@@ -26,11 +24,17 @@ struct Standard {
 impl ContractMetadata {
     fn populate(mut self) -> Self {
         if self.version.is_none() {
-            self.version = std::env::var("CARGO_PKG_VERSION").ok();
+            let version = std::env::var("CARGO_PKG_VERSION").unwrap_or(String::from(""));
+            if !version.is_empty() {
+                self.version = Some(version);
+            }
         }
 
         if self.link.is_none() {
-            self.link = std::env::var("CARGO_PKG_REPOSITORY").ok();
+            let repo = std::env::var("CARGO_PKG_REPOSITORY").unwrap_or(String::from(""));
+            if !repo.is_empty() {
+                self.link = Some(repo);
+            }
         }
 
         // adding nep330 if it is not present
