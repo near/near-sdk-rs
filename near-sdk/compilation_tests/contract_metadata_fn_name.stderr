@@ -1,0 +1,5 @@
+error: use of reserved contract method
+ --> compilation_tests/contract_metadata_fn_name.rs:8:12
+  |
+8 |     pub fn contract_source_metadata() {}
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^

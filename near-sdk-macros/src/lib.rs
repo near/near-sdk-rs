@@ -84,6 +84,8 @@ use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, Wher
 ///
 /// Contract Source Metadata Standard:
 ///
+/// The specification can be found here: <https://github.com/near/NEPs/blob/master/neps/nep-0330.md>
+///
 /// By using `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
 /// according to NEP-330 standard. This still applies even when `#[near_bindgen]` is used without
 /// any arguments.
@@ -157,9 +159,13 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         if input.trait_.is_none() {
-            match syn::parse_str::<syn::ImplItem>(
-                "pub fn contract_source_metadata() -> String { CONTRACT_SOURCE_METADATA.to_string() }",
-            ) {
+            let contract_source_metadata = quote! {
+                pub fn contract_source_metadata() {
+                    near_sdk::env::value_return(CONTRACT_SOURCE_METADATA.as_bytes())
+                }
+            };
+
+            match syn::parse2::<syn::ImplItem>(contract_source_metadata) {
                 Ok(x) => {
                     input.items.push(x);
                 }

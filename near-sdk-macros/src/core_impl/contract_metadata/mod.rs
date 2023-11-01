@@ -9,7 +9,9 @@ struct MacroConfig {
 
 #[derive(serde::Serialize, Default, FromMeta)]
 struct ContractMetadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     link: Option<String>,
     #[darling(multiple, rename = "standard")]
     standards: Vec<Standard>,
@@ -31,7 +33,15 @@ impl ContractMetadata {
             self.link = std::env::var("CARGO_PKG_REPOSITORY").ok();
         }
 
-        if self.standards.is_empty() {
+        // adding nep330 if it is not present
+        if self.standards.is_empty()
+            || self
+                .standards
+                .iter()
+                .find(|s| s.standard.to_ascii_lowercase().eq("nep330"))
+                .clone()
+                .is_none()
+        {
             self.standards
                 .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
         }
