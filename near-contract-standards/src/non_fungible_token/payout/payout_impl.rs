@@ -52,7 +52,6 @@ impl Royalties {
     }
 }
 
-// TODO: Perhaps redo this function so that it never overflows.
 fn apply_percent(percent: BasisPoint, int: u128) -> u128 {
     int.checked_mul(percent as u128).unwrap_or_else(|| env::panic_str("royalty overflow")) / 100u128
 }
@@ -202,6 +201,12 @@ mod tests {
         let royalties = Royalties::new(KEY_PREFIX);
 
         royalties.create_payout(Balance::MAX, &AccountId::new_unchecked("alice".to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "royalty overflow")]
+    fn apply_percent_overflow() {
+        apply_percent(10, Balance::MAX);
     }
 
     #[test]
