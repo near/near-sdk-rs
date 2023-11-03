@@ -198,7 +198,8 @@ mod tests {
             map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
         }
 
-        let royalties = Royalties::new(KEY_PREFIX);
+        let mut royalties = Royalties::new(KEY_PREFIX);
+        mem::swap(&mut royalties.accounts, &mut map);
 
         royalties.create_payout(Balance::MAX, &AccountId::new_unchecked("alice".to_string()));
     }
