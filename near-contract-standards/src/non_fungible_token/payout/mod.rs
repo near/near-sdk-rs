@@ -24,8 +24,6 @@ pub struct Payout {
 pub struct Royalties {
     /// A mapping of accounts to the percentage of total royalty to be distributed.
     pub accounts: TreeMap<AccountId, BasisPoint>,
-    /// Total percent of incoming balance used for royalties.
-    pub percent: BasisPoint,
 }
 
 /// An interface allowing non-fungible token contracts to request that financial contracts pay-out

@@ -6,18 +6,17 @@ use near_sdk::{assert_one_yocto, env};
 use near_sdk::{require, AccountId, Balance, IntoStorageKey};
 
 impl Royalties {
-    pub fn new<S>(key_prefix: S, percent: BasisPoint) -> Self
+    pub fn new<S>(key_prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
         let temp_accounts: TreeMap<AccountId, BasisPoint> = TreeMap::new(key_prefix);
-        let this = Self { accounts: temp_accounts, percent };
+        let this = Self { accounts: temp_accounts };
         this.validate();
         this
     }
 
     pub(crate) fn validate(&self) {
-        require!(self.percent <= 100, "royalty percent must be between 0 - 100");
         require!(
             self.accounts.len() <= 10,
             "can only have a maximum of 10 accounts spliting royalties"
@@ -31,17 +30,14 @@ impl Royalties {
     }
 
     pub fn create_payout(&self, balance: Balance, owner_id: &AccountId) -> Payout {
-        let royalty_payment = apply_percent(self.percent, balance);
         let mut payout = Payout {
             payout: self
                 .accounts
                 .iter()
-                .map(|(account, percent)| {
-                    (account.clone(), apply_percent(percent, royalty_payment).into())
-                })
+                .map(|(account, percent)| (account.clone(), apply_percent(percent, balance).into()))
                 .collect(),
         };
-        let rest = balance - royalty_payment;
+        let rest = balance - payout.payout.values().fold(0, |acc, &sum| acc + sum.0);
         let owner_payout: u128 = payout.payout.get(owner_id).map_or(0, |x| x.0) + rest;
         payout.payout.insert(owner_id.clone(), owner_payout.into());
         payout
@@ -106,20 +102,20 @@ mod tests {
             map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
         }
 
-        let mut royalties = Royalties::new(KEY_PREFIX, 100);
+        let mut royalties = Royalties::new(KEY_PREFIX);
 
         mem::swap(&mut royalties.accounts, &mut map);
         royalties.validate();
 
         // Make sure that max royalties works.
         let owner_id = AccountId::new_unchecked("alice".to_string());
-        let payout = royalties.create_payout(Balance::MAX / 100, &owner_id);
+        let payout = royalties.create_payout(1000, &owner_id);
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
             if *key == owner_id {
                 assert_eq!(*value, U128::from(0));
             } else {
-                assert_eq!(*value, U128::from(apply_percent(10, Balance::MAX / 100)));
+                assert_eq!(*value, U128::from(apply_percent(10, 1000)));
             }
         }
     }
@@ -129,10 +125,10 @@ mod tests {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         for idx in 0..10 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
+            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &8);
         }
 
-        let mut royalties = Royalties::new(KEY_PREFIX, 80);
+        let mut royalties = Royalties::new(KEY_PREFIX);
 
         mem::swap(&mut royalties.accounts, &mut map);
         royalties.validate();
@@ -153,8 +149,37 @@ mod tests {
     }
 
     #[test]
+    fn validate_owner_rest_and_royalty_path() {
+        let mut map = TreeMap::new(KEY_PREFIX);
+
+        for idx in 0..9 {
+            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &8);
+        }
+        map.insert(&AccountId::new_unchecked("alice".to_string()), &8);
+
+        let mut royalties = Royalties::new(KEY_PREFIX);
+
+        mem::swap(&mut royalties.accounts, &mut map);
+        royalties.validate();
+
+        // Make sure we don't overflow and don't end up with mismatched results due to using int as
+        // opposed to float.
+        let balance = Balance::MAX / 10_000 * 100;
+        let owner_id = AccountId::new_unchecked("alice".to_string());
+        let payout = royalties.create_payout(balance, &owner_id);
+        for (key, value) in payout.payout.iter() {
+            map.contains_key(key);
+            if *key == owner_id {
+                assert_eq!(*value, U128::from(apply_percent(28, balance)));
+            } else {
+                assert_eq!(*value, U128::from(apply_percent(8, balance)));
+            }
+        }
+    }
+
+    #[test]
     fn validate_empty_inputs() {
-        let _ = Royalties::new(KEY_PREFIX, 0);
+        let _ = Royalties::new(KEY_PREFIX);
     }
 
     #[test]
@@ -166,7 +191,7 @@ mod tests {
             map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
         }
 
-        let royalties = Royalties::new(KEY_PREFIX, 100);
+        let royalties = Royalties::new(KEY_PREFIX);
 
         royalties.create_payout(Balance::MAX, &AccountId::new_unchecked("alice".to_string()));
     }
@@ -181,7 +206,7 @@ mod tests {
             map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
         }
 
-        let mut royalties = Royalties::new(KEY_PREFIX, 100);
+        let mut royalties = Royalties::new(KEY_PREFIX);
 
         mem::swap(&mut royalties.accounts, &mut map);
         royalties.validate();
@@ -195,7 +220,7 @@ mod tests {
         // Fails with more than 100% per account.
         map.insert(&AccountId::new_unchecked("bob".to_string()), &101);
 
-        let mut royalties = Royalties::new(KEY_PREFIX, 100);
+        let mut royalties = Royalties::new(KEY_PREFIX);
 
         mem::swap(&mut royalties.accounts, &mut map);
         royalties.validate();
@@ -210,22 +235,7 @@ mod tests {
         for idx in 0..10 {
             map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &11);
         }
-        let mut royalties = Royalties::new(KEY_PREFIX, 100);
-
-        mem::swap(&mut royalties.accounts, &mut map);
-        royalties.validate();
-    }
-
-    #[test]
-    #[should_panic(expected = "royalty percent must be between 0 - 100")]
-    fn validate_royalty_base_percent_fails() {
-        let mut map = TreeMap::new(KEY_PREFIX);
-
-        // Fails with total royalties over 100%.
-        for idx in 0..10 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &11);
-        }
-        let mut royalties = Royalties::new(KEY_PREFIX, 101);
+        let mut royalties = Royalties::new(KEY_PREFIX);
 
         mem::swap(&mut royalties.accounts, &mut map);
         royalties.validate();
