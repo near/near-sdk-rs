@@ -30,7 +30,7 @@ pub struct StorageBalanceBounds {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, Balance, log};
+/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, NearToken, log};
 /// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
@@ -50,7 +50,7 @@ pub struct StorageBalanceBounds {
 ///
 /// #[near_bindgen]
 /// impl Contract {
-///    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
+///    fn on_account_closed(&mut self, account_id: AccountId, balance: NearToken) {
 ///         log!("Closed @{} with {}", account_id, balance);
 ///    }
 /// }

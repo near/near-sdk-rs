@@ -5,7 +5,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId};
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, Balance, log};
+/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, NearToken, log};
 /// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
@@ -22,7 +22,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId};
 ///
 /// #[near_bindgen]
 /// impl Contract {
-///     fn on_tokens_burned(&mut self, account_id: AccountId, amount: Balance) {
+///     fn on_tokens_burned(&mut self, account_id: AccountId, amount: NearToken) {
 ///         log!("Account @{} burned {}", account_id, amount);
 ///     }
 /// }
@@ -39,7 +39,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId};
 ///         let (used_amount, burned_amount) =
 ///             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
 ///         if burned_amount > 0 {
-///             self.on_tokens_burned(sender_id, burned_amount);
+///             self.on_tokens_burned(sender_id, NearToken::from_yoctonear(burned_amount));
 ///         }
 ///         used_amount.into()
 ///     }

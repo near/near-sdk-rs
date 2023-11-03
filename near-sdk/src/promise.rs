@@ -215,12 +215,12 @@ impl PromiseJoint {
 ///   schedules a transaction that creates an account, transfers tokens, and assigns a public key:
 ///
 /// ```no_run
-/// # use near_sdk::{Promise, env, test_utils::VMContextBuilder, testing_env, Gas};
+/// # use near_sdk::{Promise, env, test_utils::VMContextBuilder, testing_env, Gas, NearToken};
 /// # testing_env!(VMContextBuilder::new().signer_account_id("bob_near".parse().unwrap())
-/// #               .account_balance(1000).prepaid_gas(Gas::from_gas(1_000_000)).build());
+/// #               .account_balance(NearToken::from_yoctonear(1000)).prepaid_gas(Gas::from_gas(1_000_000)).build());
 /// Promise::new("bob_near".parse().unwrap())
 ///   .create_account()
-///   .transfer(1000)
+///   .transfer(NearToken::from_yoctonear(1000))
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
 pub struct Promise {
