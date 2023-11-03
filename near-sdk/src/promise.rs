@@ -8,7 +8,7 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-use crate::{AccountId, Balance, Gas, GasWeight, PromiseIndex, PublicKey};
+use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -24,8 +24,8 @@ impl Allowance {
     }
 
     /// This will return an None if you try to pass a zero value balance
-    pub fn limited(balance: Balance) -> Option<Allowance> {
-        NonZeroU128::new(balance).map(Allowance::Limited)
+    pub fn limited(balance: NearToken) -> Option<Allowance> {
+        NonZeroU128::new(balance.as_yoctonear()).map(Allowance::Limited)
     }
 }
 
@@ -37,21 +37,21 @@ enum PromiseAction {
     FunctionCall {
         function_name: String,
         arguments: Vec<u8>,
-        amount: Balance,
+        amount: NearToken,
         gas: Gas,
     },
     FunctionCallWeight {
         function_name: String,
         arguments: Vec<u8>,
-        amount: Balance,
+        amount: NearToken,
         gas: Gas,
         weight: GasWeight,
     },
     Transfer {
-        amount: Balance,
+        amount: NearToken,
     },
     Stake {
-        amount: Balance,
+        amount: NearToken,
         public_key: PublicKey,
     },
     AddFullAccessKey {
@@ -287,7 +287,7 @@ impl Promise {
         self,
         function_name: String,
         arguments: Vec<u8>,
-        amount: Balance,
+        amount: NearToken,
         gas: Gas,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
@@ -300,7 +300,7 @@ impl Promise {
         self,
         function_name: String,
         arguments: Vec<u8>,
-        amount: Balance,
+        amount: NearToken,
         gas: Gas,
         weight: GasWeight,
     ) -> Self {
@@ -314,12 +314,12 @@ impl Promise {
     }
 
     /// Transfer tokens to the account that this promise acts on.
-    pub fn transfer(self, amount: Balance) -> Self {
+    pub fn transfer(self, amount: NearToken) -> Self {
         self.add_action(PromiseAction::Transfer { amount })
     }
 
     /// Stake the account for the given amount of tokens using the given public key.
-    pub fn stake(self, amount: Balance, public_key: PublicKey) -> Self {
+    pub fn stake(self, amount: NearToken, public_key: PublicKey) -> Self {
         self.add_action(PromiseAction::Stake { amount, public_key })
     }
 
@@ -356,7 +356,7 @@ impl Promise {
     pub fn add_access_key(
         self,
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: NearToken,
         receiver_id: AccountId,
         function_names: String,
     ) -> Self {
@@ -386,7 +386,7 @@ impl Promise {
     pub fn add_access_key_with_nonce(
         self,
         public_key: PublicKey,
-        allowance: Balance,
+        allowance: NearToken,
         receiver_id: AccountId,
         function_names: String,
         nonce: u64,
@@ -623,7 +623,7 @@ mod tests {
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
     use crate::{
-        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, Balance, Promise,
+        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, NearToken, Promise,
         PublicKey,
     };
 
@@ -666,7 +666,7 @@ mod tests {
                     nonce: n
                 }
                 if p == public_key
-                    && a.unwrap() == allowance
+                    && a.unwrap() == NearToken::from_yoctonear(allowance)
                     && r == receiver_id
                     && f == function_names.split(',').collect::<Vec<_>>()
                     && (nonce.is_none() || Some(n) == nonce)
@@ -737,7 +737,7 @@ mod tests {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
         let public_key: PublicKey = pk();
-        let allowance: Balance = 100;
+        let allowance = NearToken::from_yoctonear(100);
         let receiver_id = bob();
         let function_names = "method_a,method_b".to_string();
 
@@ -753,7 +753,7 @@ mod tests {
 
         assert!(has_add_key_with_function_call(
             public_key,
-            allowance,
+            allowance.as_yoctonear(),
             receiver_id,
             function_names,
             None
@@ -794,7 +794,7 @@ mod tests {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
         let public_key: PublicKey = pk();
-        let allowance = 100;
+        let allowance = NearToken::from_yoctonear(100);
         let receiver_id = bob();
         let function_names = "method_a,method_b".to_string();
         let nonce = 42;
@@ -812,7 +812,7 @@ mod tests {
 
         assert!(has_add_key_with_function_call(
             public_key,
-            allowance,
+            allowance.as_yoctonear(),
             receiver_id,
             function_names,
             Some(nonce)

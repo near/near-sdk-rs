@@ -6,7 +6,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, log, require, AccountId, Balance, Gas, IntoStorageKey, PromiseOrValue,
+    assert_one_yocto, env, log, require, AccountId, Gas, IntoStorageKey, NearToken, PromiseOrValue,
     PromiseResult, StorageUsage,
 };
 
@@ -14,7 +14,7 @@ const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
-
+type Balance = u128;
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
 /// There are next traits that any contract may implement:

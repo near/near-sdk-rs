@@ -1,7 +1,7 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json;
-use near_sdk::{env, near_bindgen, AccountId, Gas, PromiseResult};
+use near_sdk::{env, near_bindgen, AccountId, Gas, NearToken, PromiseResult};
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
@@ -16,7 +16,7 @@ impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);
         env::promise_batch_action_create_account(promise_idx);
-        env::promise_batch_action_transfer(promise_idx, amount.0);
+        env::promise_batch_action_transfer(promise_idx, NearToken::from_yoctonear(amount.0));
         env::promise_batch_action_add_key_with_full_access(
             promise_idx,
             &env::signer_account_pk(),
@@ -31,7 +31,7 @@ impl FactoryContract {
             account_id,
             "set_status",
             &serde_json::to_vec(&(message,)).unwrap(),
-            0,
+            NearToken::from_near(0),
             SINGLE_CALL_GAS,
         );
     }
@@ -45,7 +45,7 @@ impl FactoryContract {
             account_id.clone(),
             "set_status",
             &serde_json::to_vec(&(message,)).unwrap(),
-            0,
+            NearToken::from_near(0),
             SINGLE_CALL_GAS,
         );
         let promise1 = env::promise_then(
@@ -53,7 +53,7 @@ impl FactoryContract {
             env::current_account_id(),
             "get_result",
             &serde_json::to_vec(&(account_id,)).unwrap(),
-            0,
+            NearToken::from_near(0),
             SINGLE_CALL_GAS.saturating_mul(2),
         );
         env::promise_return(promise1);
@@ -66,7 +66,7 @@ impl FactoryContract {
                     account_id,
                     "get_status",
                     &serde_json::to_vec(&(env::signer_account_id(),)).unwrap(),
-                    0,
+                    NearToken::from_near(0),
                     SINGLE_CALL_GAS,
                 ));
             }

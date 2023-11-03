@@ -1,7 +1,7 @@
 use crate::fungible_token::FungibleToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::json_types::U128;
-use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
+use near_sdk::{assert_one_yocto, env, log, AccountId, NearToken, Promise};
 
 impl FungibleToken {
     /// Internal method that returns the Account ID and the balance in case the account was
@@ -9,7 +9,7 @@ impl FungibleToken {
     pub fn internal_storage_unregister(
         &mut self,
         force: Option<bool>,
-    ) -> Option<(AccountId, Balance)> {
+    ) -> Option<(AccountId, NearToken)> {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();
         let force = force.unwrap_or(false);
@@ -17,8 +17,9 @@ impl FungibleToken {
             if balance == 0 || force {
                 self.accounts.remove(&account_id);
                 self.total_supply -= balance;
-                Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
-                Some((account_id, balance))
+                Promise::new(account_id.clone())
+                    .transfer(NearToken::from_yoctonear(self.storage_balance_bounds().min.0 + 1));
+                Some((account_id, NearToken::from_yoctonear(balance)))
             } else {
                 env::panic_str(
                     "Can't unregister the account with the positive balance without force",
@@ -47,22 +48,22 @@ impl StorageManagement for FungibleToken {
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
-        let amount: Balance = env::attached_deposit();
+        let amount = env::attached_deposit();
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
-            if amount > 0 {
+            if amount.as_yoctonear() > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(amount);
             }
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
-            if amount < min_balance {
+            if amount.as_yoctonear() < min_balance {
                 env::panic_str("The attached deposit is less than the minimum storage balance");
             }
 
             self.internal_register_account(&account_id);
-            let refund = amount - min_balance;
-            if refund > 0 {
+            let refund = amount.saturating_sub(NearToken::from_yoctonear(min_balance));
+            if refund.as_yoctonear() > 0 {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
         }
@@ -98,10 +99,11 @@ impl StorageManagement for FungibleToken {
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
         let required_storage_balance =
-            Balance::from(self.account_storage_usage) * env::storage_byte_cost();
+            NearToken::from_yoctonear(self.account_storage_usage as u128)
+                .saturating_mul(env::storage_byte_cost().as_yoctonear());
         StorageBalanceBounds {
-            min: required_storage_balance.into(),
-            max: Some(required_storage_balance.into()),
+            min: U128(required_storage_balance.as_yoctonear()),
+            max: Some(U128(required_storage_balance.as_yoctonear())),
         }
     }
 

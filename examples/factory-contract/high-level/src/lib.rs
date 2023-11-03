@@ -1,6 +1,6 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::PromiseError;
-use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId, Promise};
+use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId, NearToken, Promise};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
@@ -20,7 +20,7 @@ impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         Promise::new(account_id)
             .create_account()
-            .transfer(amount.0)
+            .transfer(NearToken::from_yoctonear(amount.0))
             .add_full_access_key(env::signer_account_pk())
             .deploy_contract(
                 include_bytes!("../../../status-message/res/status_message.wasm").to_vec(),
