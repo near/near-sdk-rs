@@ -15,7 +15,7 @@
 
 use crate::event::NearEvent;
 use near_sdk::json_types::U128;
-use near_sdk::{AccountId, NearToken};
+use near_sdk::AccountId;
 use serde::Serialize;
 
 /// Data to log for an FT mint event. To log this event, call [`.emit()`](FtMint::emit).
@@ -49,7 +49,7 @@ impl FtMint<'_> {
 pub struct FtTransfer<'a> {
     pub old_owner_id: &'a AccountId,
     pub new_owner_id: &'a AccountId,
-    pub amount: &'a NearToken,
+    pub amount: &'a U128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
 }
@@ -73,7 +73,7 @@ impl FtTransfer<'_> {
 #[derive(Serialize, Debug, Clone)]
 pub struct FtBurn<'a> {
     pub owner_id: &'a AccountId,
-    pub amount: &'a NearToken,
+    pub amount: &'a U128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
 }
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn ft_burn() {
         let owner_id = &bob();
-        let amount = &NearToken::from_yoctonear(100);
+        let amount = &U128(100);
         FtBurn { owner_id, amount, memo: None }.emit();
         assert_eq!(
             test_utils::get_logs()[0],
@@ -170,13 +170,9 @@ mod tests {
     #[test]
     fn ft_burns() {
         let owner_id = &bob();
-        let amount = &NearToken::from_yoctonear(100);
+        let amount = &U128(100);
         FtBurn::emit_many(&[
-            FtBurn {
-                owner_id: &alice(),
-                amount: &NearToken::from_yoctonear(200),
-                memo: Some("has memo"),
-            },
+            FtBurn { owner_id: &alice(), amount: &U128(200), memo: Some("has memo") },
             FtBurn { owner_id, amount, memo: None },
         ]);
         assert_eq!(
@@ -189,7 +185,7 @@ mod tests {
     fn ft_transfer() {
         let old_owner_id = &bob();
         let new_owner_id = &alice();
-        let amount = &NearToken::from_yoctonear(100);
+        let amount = &U128(100);
         FtTransfer { old_owner_id, new_owner_id, amount, memo: None }.emit();
         assert_eq!(
             test_utils::get_logs()[0],
@@ -201,12 +197,12 @@ mod tests {
     fn ft_transfers() {
         let old_owner_id = &bob();
         let new_owner_id = &alice();
-        let amount = &NearToken::from_yoctonear(100);
+        let amount = &U128(100);
         FtTransfer::emit_many(&[
             FtTransfer {
                 old_owner_id: &alice(),
                 new_owner_id: &bob(),
-                amount: &NearToken::from_yoctonear(200),
+                amount: &U128(200),
                 memo: Some("has memo"),
             },
             FtTransfer { old_owner_id, new_owner_id, amount, memo: None },

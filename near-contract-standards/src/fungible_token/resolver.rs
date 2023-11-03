@@ -1,4 +1,4 @@
-use near_sdk::{ext_contract, AccountId, NearToken};
+use near_sdk::{ext_contract, json_types::U128, AccountId};
 
 /// [`FungibleTokenResolver`] provides token transfer resolve functionality.
 ///
@@ -52,6 +52,6 @@ pub trait FungibleTokenResolver {
         &mut self,
         sender_id: AccountId,
         receiver_id: AccountId,
-        amount: NearToken,
-    ) -> NearToken;
+        amount: U128,
+    ) -> U128;
 }

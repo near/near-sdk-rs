@@ -7,12 +7,12 @@ pub mod external_cross_contract {
     #[must_use]
     pub struct ExternalCrossContractExt {
         pub(crate) account_id: ::near_sdk::AccountId,
-        pub(crate) deposit: ::near_sdk::NearToken,
+        pub(crate) deposit: ::near_sdk::Balance,
         pub(crate) static_gas: ::near_sdk::Gas,
         pub(crate) gas_weight: ::near_sdk::GasWeight,
     }
     impl ExternalCrossContractExt {
-        pub fn with_attached_deposit(mut self, amount: ::near_sdk::NearToken) -> Self {
+        pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
             self.deposit = amount;
             self
         }

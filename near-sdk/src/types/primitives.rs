@@ -31,6 +31,9 @@ pub type EpochHeight = u64;
 /// Shard index, from 0 to NUM_SHARDS - 1.
 #[deprecated(since = "4.0.0", note = "Type has no connection with the SDK")]
 pub type ShardId = u64;
+/// Balance is a type for storing amounts of tokens, specified in yoctoNEAR.
+pub type Balance = u128;
+
 /// Number of blocks in current group.
 #[deprecated(since = "4.0.0", note = "Type has no connection with the SDK")]
 pub type NumBlocks = u64;

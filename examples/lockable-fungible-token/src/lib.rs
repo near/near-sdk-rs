@@ -1,6 +1,6 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, near_bindgen, AccountId, NearToken, PanicOnDefault};
+use near_sdk::{env, near_bindgen, AccountId, Balance, PanicOnDefault};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -8,44 +8,40 @@ use std::str::FromStr;
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Account {
     /// Current unlocked balance
-    pub balance: NearToken,
+    pub balance: Balance,
     /// Allowed account to the allowance amount.
-    pub allowances: HashMap<AccountId, NearToken>,
+    pub allowances: HashMap<AccountId, Balance>,
     /// Allowed account to locked balance.
-    pub locked_balances: HashMap<AccountId, NearToken>,
+    pub locked_balances: HashMap<AccountId, Balance>,
 }
 
 impl Account {
-    pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: NearToken) {
-        if allowance.as_yoctonear() > 0 {
+    pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: Balance) {
+        if allowance > 0 {
             self.allowances.insert(escrow_account_id.clone(), allowance);
         } else {
             self.allowances.remove(escrow_account_id);
         }
     }
 
-    pub fn get_allowance(&self, escrow_account_id: &AccountId) -> NearToken {
-        *self.allowances.get(escrow_account_id).unwrap_or(&NearToken::from_near(0))
+    pub fn get_allowance(&self, escrow_account_id: &AccountId) -> Balance {
+        *self.allowances.get(escrow_account_id).unwrap_or(&0)
     }
 
-    pub fn set_locked_balance(&mut self, escrow_account_id: &AccountId, locked_balance: NearToken) {
-        if locked_balance.as_yoctonear() > 0 {
+    pub fn set_locked_balance(&mut self, escrow_account_id: &AccountId, locked_balance: Balance) {
+        if locked_balance > 0 {
             self.locked_balances.insert(escrow_account_id.clone(), locked_balance);
         } else {
             self.locked_balances.remove(escrow_account_id);
         }
     }
 
-    pub fn get_locked_balance(&self, escrow_account_id: &AccountId) -> NearToken {
-        *self.locked_balances.get(escrow_account_id).unwrap_or(&NearToken::from_near(0))
+    pub fn get_locked_balance(&self, escrow_account_id: &AccountId) -> Balance {
+        *self.locked_balances.get(escrow_account_id).unwrap_or(&0)
     }
 
-    pub fn total_balance(&self) -> NearToken {
-        let mut res = self.balance;
-        for value in self.locked_balances.values() {
-            res = res.saturating_add(*value);
-        }
-        res
+    pub fn total_balance(&self) -> Balance {
+        self.balance + self.locked_balances.values().sum::<Balance>()
     }
 }
 
@@ -57,7 +53,7 @@ pub struct FunToken {
     pub accounts: UnorderedMap<AccountId, Account>,
 
     /// Total supply of the all token.
-    pub total_supply: NearToken,
+    pub total_supply: Balance,
 }
 
 #[near_bindgen]
@@ -65,9 +61,8 @@ impl FunToken {
     #[init]
     #[handle_result]
     pub fn new(owner_id: AccountId, total_supply: String) -> Result<Self, &'static str> {
-        let total_supply = NearToken::from_yoctonear(
-            u128::from_str(&total_supply).map_err(|_| "Failed to parse total supply")?,
-        );
+        let total_supply =
+            u128::from_str(&total_supply).map_err(|_| "Failed to parse total supply")?;
         let mut ft = Self { accounts: UnorderedMap::new(b"a"), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
@@ -85,20 +80,18 @@ impl FunToken {
         escrow_account_id: AccountId,
         allowance: String,
     ) -> Result<(), &'static str> {
-        let allowance = NearToken::from_yoctonear(
-            u128::from_str(&allowance).map_err(|_| "Failed to parse allowance")?,
-        );
+        let allowance = u128::from_str(&allowance).map_err(|_| "Failed to parse allowance")?;
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
             return Err("Can't set allowance for yourself");
         }
         let mut account = self.get_account(&owner_id);
         let locked_balance = account.get_locked_balance(&escrow_account_id);
-        if locked_balance.as_yoctonear() > allowance.as_yoctonear() {
+        if locked_balance > allowance {
             return Err("The new allowance can't be less than the amount of locked tokens");
         }
 
-        account.set_allowance(&escrow_account_id, allowance.saturating_sub(locked_balance));
+        account.set_allowance(&escrow_account_id, allowance - locked_balance);
         self.accounts.insert(&owner_id, &account);
 
         Ok(())
@@ -111,10 +104,9 @@ impl FunToken {
     /// * The owner should have enough unlocked balance.
     #[handle_result]
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) -> Result<(), &'static str> {
-        let lock_amount = NearToken::from_yoctonear(
-            u128::from_str(&lock_amount).map_err(|_| "Failed to parse allow lock_amount")?,
-        );
-        if lock_amount.is_zero() {
+        let lock_amount =
+            u128::from_str(&lock_amount).map_err(|_| "Failed to parse allow lock_amount")?;
+        if lock_amount == 0 {
             return Err("Can't lock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
@@ -124,7 +116,7 @@ impl FunToken {
         if account.balance < lock_amount {
             return Err("Not enough unlocked balance");
         }
-        account.balance = account.balance.saturating_sub(lock_amount);
+        account.balance -= lock_amount;
 
         // If locking by escrow, need to check and update the allowance.
         if escrow_account_id != owner_id {
@@ -132,12 +124,12 @@ impl FunToken {
             if allowance < lock_amount {
                 return Err("Not enough allowance");
             }
-            account.set_allowance(&escrow_account_id, allowance.saturating_sub(lock_amount));
+            account.set_allowance(&escrow_account_id, allowance - lock_amount);
         }
 
         // Updating total lock balance
         let locked_balance = account.get_locked_balance(&escrow_account_id);
-        account.set_locked_balance(&escrow_account_id, locked_balance.saturating_add(lock_amount));
+        account.set_locked_balance(&escrow_account_id, locked_balance + lock_amount);
 
         self.accounts.insert(&owner_id, &account);
 
@@ -155,10 +147,9 @@ impl FunToken {
         owner_id: AccountId,
         unlock_amount: String,
     ) -> Result<(), &'static str> {
-        let unlock_amount = NearToken::from_yoctonear(
-            u128::from_str(&unlock_amount).map_err(|_| "Failed to parse allow unlock_amount")?,
-        );
-        if unlock_amount.is_zero() {
+        let unlock_amount =
+            u128::from_str(&unlock_amount).map_err(|_| "Failed to parse allow unlock_amount")?;
+        if unlock_amount == 0 {
             return Err("Can't unlock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
@@ -169,17 +160,16 @@ impl FunToken {
         if locked_balance < unlock_amount {
             return Err("Not enough locked tokens");
         }
-        account
-            .set_locked_balance(&escrow_account_id, locked_balance.saturating_sub(unlock_amount));
+        account.set_locked_balance(&escrow_account_id, locked_balance - unlock_amount);
 
         // If unlocking by escrow, need to update allowance.
         if escrow_account_id != owner_id {
             let allowance = account.get_allowance(&escrow_account_id);
-            account.set_allowance(&escrow_account_id, allowance.saturating_add(unlock_amount));
+            account.set_allowance(&escrow_account_id, allowance + unlock_amount);
         }
 
         // Updating unlocked balance
-        account.balance = account.balance.saturating_add(unlock_amount);
+        account.balance += unlock_amount;
 
         self.accounts.insert(&owner_id, &account);
 
@@ -202,10 +192,8 @@ impl FunToken {
         new_owner_id: AccountId,
         amount: String,
     ) -> Result<(), &'static str> {
-        let amount = NearToken::from_yoctonear(
-            u128::from_str(&amount).map_err(|_| "Failed to parse allow amount")?,
-        );
-        if amount.is_zero() {
+        let amount = u128::from_str(&amount).map_err(|_| "Failed to parse allow amount")?;
+        if amount == 0 {
             return Err("Can't transfer 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
@@ -214,20 +202,20 @@ impl FunToken {
         // Checking and updating locked balance
         let locked_balance = account.get_locked_balance(&escrow_account_id);
         let remaining_amount = if locked_balance >= amount {
-            account.set_locked_balance(&escrow_account_id, locked_balance.saturating_sub(amount));
-            NearToken::from_near(0)
+            account.set_locked_balance(&escrow_account_id, locked_balance - amount);
+            0
         } else {
-            account.set_locked_balance(&escrow_account_id, NearToken::from_near(0));
-            amount.saturating_sub(locked_balance)
+            account.set_locked_balance(&escrow_account_id, 0);
+            amount - locked_balance
         };
 
         // If there is remaining balance after the locked balance, we try to use unlocked tokens.
-        if remaining_amount.as_yoctonear() > 0 {
+        if remaining_amount > 0 {
             // Checking and updating unlocked balance
             if account.balance < remaining_amount {
                 return Err("Not enough unlocked balance");
             }
-            account.balance = account.balance.saturating_sub(remaining_amount);
+            account.balance -= remaining_amount;
 
             // If transferring by escrow, need to check and update allowance.
             if escrow_account_id != owner_id {
@@ -236,8 +224,7 @@ impl FunToken {
                 if allowance < remaining_amount {
                     return Err("Not enough allowance");
                 }
-                account
-                    .set_allowance(&escrow_account_id, allowance.saturating_sub(remaining_amount));
+                account.set_allowance(&escrow_account_id, allowance - remaining_amount);
             }
         }
 
@@ -245,7 +232,7 @@ impl FunToken {
 
         // Deposit amount to the new owner
         let mut new_account = self.get_account(&new_owner_id);
-        new_account.balance = new_account.balance.saturating_add(amount);
+        new_account.balance += amount;
         self.accounts.insert(&new_owner_id, &new_account);
 
         Ok(())
@@ -311,8 +298,8 @@ mod tests {
     fn test_new() {
         let context = get_context(carol());
         testing_env!(context);
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let contract = FunToken::new(bob(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let contract = FunToken::new(bob(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
         assert_eq!(contract.get_unlocked_balance(bob()), total_supply.to_string());
         assert_eq!(contract.get_total_balance(bob()), total_supply.to_string());
@@ -322,13 +309,13 @@ mod tests {
     fn test_transfer() {
         let context = get_context(carol());
         testing_env!(context);
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
-        let transfer_amount = total_supply.saturating_div(3);
-        contract.transfer(bob(), transfer_amount.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
+        let transfer_amount = total_supply / 3;
+        contract.transfer(bob(), transfer_amount.to_string()).unwrap();
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(transfer_amount)).to_string()
+            (total_supply - transfer_amount).to_string()
         );
         assert_eq!(contract.get_unlocked_balance(bob()), transfer_amount.to_string());
     }
@@ -356,17 +343,17 @@ mod tests {
     fn test_lock_and_unlock_owner() {
         let context = get_context(carol());
         testing_env!(context);
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let lock_amount = total_supply.saturating_div(3);
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
+        let lock_amount = total_supply / 3;
+        contract.lock(carol(), lock_amount.to_string()).unwrap();
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(lock_amount)).to_string()
+            (total_supply - lock_amount).to_string()
         );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
-        contract.unlock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
+        contract.unlock(carol(), lock_amount.to_string()).unwrap();
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply.to_string());
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
     }
@@ -375,39 +362,33 @@ mod tests {
     fn test_lock_and_transfer() {
         let context = get_context(carol());
         testing_env!(context);
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let lock_amount = total_supply.saturating_div(3);
-        let transfer_amount = lock_amount.saturating_div(3);
+        let lock_amount = total_supply / 3;
+        let transfer_amount = lock_amount / 3;
         // Locking
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
+        contract.lock(carol(), lock_amount.to_string()).unwrap();
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(lock_amount)).to_string()
+            (total_supply - lock_amount).to_string()
         );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         for i in 1..=5 {
             // Transfer to bob
-            contract.transfer(bob(), transfer_amount.as_yoctonear().to_string()).unwrap();
+            contract.transfer(bob(), transfer_amount.to_string()).unwrap();
             assert_eq!(
                 contract.get_unlocked_balance(carol()),
                 format!(
                     "{}",
-                    std::cmp::min(
-                        total_supply.saturating_sub(lock_amount),
-                        total_supply.saturating_sub(transfer_amount).saturating_mul(i)
-                    )
+                    std::cmp::min(total_supply - lock_amount, total_supply - transfer_amount * i)
                 )
             );
             assert_eq!(
                 contract.get_total_balance(carol()),
-                format!("{}", total_supply.saturating_sub(transfer_amount).saturating_mul(i))
+                format!("{}", total_supply - transfer_amount * i)
             );
-            assert_eq!(
-                contract.get_unlocked_balance(bob()),
-                format!("{}", transfer_amount.saturating_mul(i))
-            );
+            assert_eq!(contract.get_unlocked_balance(bob()), format!("{}", transfer_amount * i));
         }
     }
 
@@ -415,26 +396,24 @@ mod tests {
     fn test_carol_escrows_to_bob_transfers_to_alice() {
         // Acting as carol
         testing_env!(get_context(carol()));
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let allowance = total_supply.saturating_div(3);
-        let transfer_amount = allowance.saturating_div(3);
-        contract.set_allowance(bob(), allowance.as_yoctonear().to_string()).unwrap();
+        let allowance = total_supply / 3;
+        let transfer_amount = allowance / 3;
+        contract.set_allowance(bob(), format!("{}", allowance)).unwrap();
         assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance));
         // Acting as bob now
         testing_env!(get_context(bob()));
-        contract
-            .transfer_from(carol(), alice(), transfer_amount.as_yoctonear().to_string())
-            .unwrap();
+        contract.transfer_from(carol(), alice(), transfer_amount.to_string()).unwrap();
         assert_eq!(
             contract.get_total_balance(carol()),
-            (total_supply.saturating_sub(transfer_amount)).to_string()
+            (total_supply - transfer_amount).to_string()
         );
         assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount.to_string());
         assert_eq!(
             contract.get_allowance(carol(), bob()),
-            format!("{}", allowance.saturating_sub(transfer_amount))
+            format!("{}", allowance - transfer_amount)
         );
     }
 
@@ -442,37 +421,32 @@ mod tests {
     fn test_carol_escrows_to_bob_locks_and_transfers_to_alice() {
         // Acting as carol
         testing_env!(get_context(carol()));
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let allowance = total_supply.saturating_div(3);
-        let transfer_amount = allowance.saturating_div(3);
+        let allowance = total_supply / 3;
+        let transfer_amount = allowance / 3;
         let lock_amount = transfer_amount;
-        contract.set_allowance(bob(), allowance.as_yoctonear().to_string()).unwrap();
+        contract.set_allowance(bob(), format!("{}", allowance)).unwrap();
         assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance));
         // Acting as bob now
         testing_env!(get_context(bob()));
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
-        assert_eq!(
-            contract.get_allowance(carol(), bob()),
-            (allowance.saturating_sub(lock_amount)).to_string()
-        );
+        contract.lock(carol(), lock_amount.to_string()).unwrap();
+        assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(lock_amount)).to_string()
+            (total_supply - lock_amount).to_string()
         );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
-        contract
-            .transfer_from(carol(), alice(), transfer_amount.as_yoctonear().to_string())
-            .unwrap();
+        contract.transfer_from(carol(), alice(), transfer_amount.to_string()).unwrap();
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(transfer_amount)).to_string()
+            (total_supply - transfer_amount).to_string()
         );
         assert_eq!(contract.get_unlocked_balance(alice()), transfer_amount.to_string());
         assert_eq!(
             contract.get_allowance(carol(), bob()),
-            format!("{}", allowance.saturating_sub(transfer_amount))
+            format!("{}", allowance - transfer_amount)
         );
     }
 
@@ -480,26 +454,23 @@ mod tests {
     fn test_lock_and_unlock_through_allowance() {
         // Acting as carol
         testing_env!(get_context(carol()));
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let allowance = total_supply.saturating_div(3);
-        let lock_amount = allowance.saturating_div(2);
-        contract.set_allowance(bob(), allowance.as_yoctonear().to_string()).unwrap();
+        let allowance = total_supply / 3;
+        let lock_amount = allowance / 2;
+        contract.set_allowance(bob(), format!("{}", allowance)).unwrap();
         assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance));
         // Acting as bob now
         testing_env!(get_context(bob()));
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
-        assert_eq!(
-            contract.get_allowance(carol(), bob()),
-            (allowance.saturating_sub(lock_amount)).to_string()
-        );
+        contract.lock(carol(), lock_amount.to_string()).unwrap();
+        assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(lock_amount)).to_string()
+            (total_supply - lock_amount).to_string()
         );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
-        contract.unlock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
+        contract.unlock(carol(), lock_amount.to_string()).unwrap();
         assert_eq!(contract.get_allowance(carol(), bob()), format!("{}", allowance));
         assert_eq!(contract.get_unlocked_balance(carol()), total_supply.to_string());
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
@@ -509,61 +480,52 @@ mod tests {
     fn test_set_allowance_during_lock() {
         // Acting as carol
         testing_env!(get_context(carol()));
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let allowance = total_supply.saturating_mul(2).saturating_div(3);
-        let lock_amount = allowance.saturating_div(2);
-        contract.set_allowance(bob(), allowance.as_yoctonear().to_string()).unwrap();
+        let allowance = 2 * total_supply / 3;
+        let lock_amount = allowance / 2;
+        contract.set_allowance(bob(), allowance.to_string()).unwrap();
         assert_eq!(contract.get_allowance(carol(), bob()), allowance.to_string());
         // Acting as bob now
         testing_env!(get_context(bob()));
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
-        assert_eq!(
-            contract.get_allowance(carol(), bob()),
-            (allowance.saturating_sub(lock_amount)).to_string()
-        );
+        contract.lock(carol(), lock_amount.to_string()).unwrap();
+        assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(lock_amount)).to_string()
+            (total_supply - lock_amount).to_string()
         );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         // Acting as carol now
         testing_env!(get_context(carol()));
-        contract.set_allowance(bob(), allowance.as_yoctonear().to_string()).unwrap();
-        assert_eq!(
-            contract.get_allowance(carol(), bob()),
-            (allowance.saturating_sub(lock_amount)).to_string()
-        );
+        contract.set_allowance(bob(), allowance.to_string()).unwrap();
+        assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
     }
 
     #[test]
     fn test_competing_locks() {
         // Acting as carol
         testing_env!(get_context(carol()));
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
+        let total_supply = 1_000_000_000_000_000u128;
+        let mut contract = FunToken::new(carol(), total_supply.to_string()).unwrap();
         assert_eq!(contract.get_total_supply(), total_supply.to_string());
-        let allowance = total_supply.saturating_mul(2).saturating_div(3);
+        let allowance = 2 * total_supply / 3;
         let lock_amount = allowance;
-        contract.set_allowance(bob(), allowance.as_yoctonear().to_string()).unwrap();
-        contract.set_allowance(alice(), allowance.as_yoctonear().to_string()).unwrap();
+        contract.set_allowance(bob(), allowance.to_string()).unwrap();
+        contract.set_allowance(alice(), allowance.to_string()).unwrap();
         assert_eq!(contract.get_allowance(carol(), bob()), allowance.to_string());
         assert_eq!(contract.get_allowance(carol(), alice()), allowance.to_string());
         // Acting as bob now
         testing_env!(get_context(bob()));
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap();
-        assert_eq!(
-            contract.get_allowance(carol(), bob()),
-            (allowance.saturating_sub(lock_amount)).to_string()
-        );
+        contract.lock(carol(), lock_amount.to_string()).unwrap();
+        assert_eq!(contract.get_allowance(carol(), bob()), (allowance - lock_amount).to_string());
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(lock_amount)).to_string()
+            (total_supply - lock_amount).to_string()
         );
         assert_eq!(contract.get_total_balance(carol()), total_supply.to_string());
         // Acting as alice now
         testing_env!(get_context(alice()));
-        contract.lock(carol(), lock_amount.as_yoctonear().to_string()).unwrap_err();
+        contract.lock(carol(), lock_amount.to_string()).unwrap_err();
     }
 }

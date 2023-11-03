@@ -1,15 +1,15 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{AccountId, NearToken};
+use near_sdk::AccountId;
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalance {
-    pub total: NearToken,
-    pub available: NearToken,
+    pub total: U128,
+    pub available: U128,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -17,8 +17,8 @@ pub struct StorageBalance {
 #[borsh(crate = "near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalanceBounds {
-    pub min: NearToken,
-    pub max: Option<NearToken>,
+    pub min: U128,
+    pub max: Option<U128>,
 }
 
 /// Ensures that when fungible token storage grows by collections adding entries,

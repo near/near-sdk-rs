@@ -3,12 +3,11 @@ use super::{Receipt, SdkExternal};
 use crate::mock::mocked_memory::MockedMemory;
 use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
-use crate::types::PromiseResult;
+use crate::types::{Balance, PromiseResult};
 use crate::{CurveType, Gas, RuntimeFeesConfig};
 use crate::{PublicKey, VMContext};
 use near_crypto::PublicKey as VmPublicKey;
 use near_primitives::transaction::Action as PrimitivesAction;
-use near_token::NearToken;
 use near_vm_logic::types::PromiseResult as VmPromiseResult;
 use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic};
 use std::cell::RefCell;
@@ -56,14 +55,13 @@ impl MockedBlockchain {
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
-        validators: HashMap<String, NearToken>,
+        validators: HashMap<String, Balance>,
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(SdkExternal::new());
         let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
-        ext.validators =
-            validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v.as_yoctonear())).collect();
+        ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
         let memory = memory_opt.unwrap_or_else(|| Box::<MockedMemory>::default());
         let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
         let config = Box::new(config);
@@ -124,10 +122,10 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
         block_height: context.block_index,
         block_timestamp: context.block_timestamp,
         epoch_height: context.epoch_height,
-        account_balance: context.account_balance.as_yoctonear(),
-        account_locked_balance: context.account_locked_balance.as_yoctonear(),
+        account_balance: context.account_balance,
+        account_locked_balance: context.account_locked_balance,
         storage_usage: context.storage_usage,
-        attached_deposit: context.attached_deposit.as_yoctonear(),
+        attached_deposit: context.attached_deposit,
         prepaid_gas: context.prepaid_gas.as_gas(),
         random_seed: context.random_seed.to_vec(),
         view_config: context.view_config,
@@ -147,21 +145,18 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
             function_name: f.method_name.clone(),
             args: f.args.clone(),
             gas: Gas::from_gas(f.gas),
-            deposit: NearToken::from_yoctonear(f.deposit),
+            deposit: f.deposit,
         },
-        PrimitivesAction::Transfer(t) => {
-            VmAction::Transfer { deposit: NearToken::from_yoctonear(t.deposit) }
+        PrimitivesAction::Transfer(t) => VmAction::Transfer { deposit: t.deposit },
+        PrimitivesAction::Stake(s) => {
+            VmAction::Stake { stake: s.stake, public_key: pub_key_conversion(&s.public_key) }
         }
-        PrimitivesAction::Stake(s) => VmAction::Stake {
-            stake: NearToken::from_yoctonear(s.stake),
-            public_key: pub_key_conversion(&s.public_key),
-        },
         PrimitivesAction::AddKey(k) => match &k.access_key.permission {
             near_primitives::account::AccessKeyPermission::FunctionCall(f) => {
                 VmAction::AddKeyWithFunctionCall {
                     public_key: pub_key_conversion(&k.public_key),
                     nonce: k.access_key.nonce,
-                    allowance: f.allowance.map(NearToken::from_yoctonear),
+                    allowance: f.allowance,
                     receiver_id: f.receiver_id.parse().unwrap(),
                     function_names: f.method_names.clone(),
                 }

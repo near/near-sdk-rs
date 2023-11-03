@@ -1,7 +1,4 @@
-use borsh::BorshSerialize;
-use near_token::NearToken;
-
-use crate::{AccountId, Gas, PublicKey};
+use crate::{AccountId, Balance, Gas, PublicKey};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -21,13 +18,13 @@ pub enum VmAction {
         function_name: String,
         args: Vec<u8>,
         gas: Gas,
-        deposit: NearToken,
+        deposit: Balance,
     },
     Transfer {
-        deposit: NearToken,
+        deposit: Balance,
     },
     Stake {
-        stake: NearToken,
+        stake: Balance,
         public_key: PublicKey,
     },
     AddKeyWithFullAccess {
@@ -37,7 +34,7 @@ pub enum VmAction {
     AddKeyWithFunctionCall {
         public_key: PublicKey,
         nonce: u64,
-        allowance: Option<NearToken>,
+        allowance: Option<Balance>,
         receiver_id: AccountId,
         function_names: Vec<String>,
     },

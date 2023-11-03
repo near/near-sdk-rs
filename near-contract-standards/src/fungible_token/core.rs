@@ -1,6 +1,6 @@
 use near_sdk::ext_contract;
+use near_sdk::json_types::U128;
 use near_sdk::AccountId;
-use near_sdk::NearToken;
 use near_sdk::PromiseOrValue;
 /// The core methods for a basic fungible token. Extension standards may be
 /// added in addition to this trait.
@@ -63,7 +63,7 @@ pub trait FungibleTokenCore {
     /// - `receiver_id` - the account ID of the receiver.
     /// - `amount` - the amount of tokens to transfer. Must be a positive number in decimal string representation.
     /// - `memo` - an optional string field in a free form to associate a memo with this transfer.
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: NearToken, memo: Option<String>);
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
 
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id` account. Then
     /// calls `ft_on_transfer` method on `receiver_id` contract and attaches a callback to resolve this transfer.
@@ -91,14 +91,14 @@ pub trait FungibleTokenCore {
     fn ft_transfer_call(
         &mut self,
         receiver_id: AccountId,
-        amount: NearToken,
+        amount: U128,
         memo: Option<String>,
         msg: String,
-    ) -> PromiseOrValue<NearToken>;
+    ) -> PromiseOrValue<U128>;
 
     /// Returns the total supply of the token in a decimal string representation.
-    fn ft_total_supply(&self) -> NearToken;
+    fn ft_total_supply(&self) -> U128;
 
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
-    fn ft_balance_of(&self, account_id: AccountId) -> NearToken;
+    fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
