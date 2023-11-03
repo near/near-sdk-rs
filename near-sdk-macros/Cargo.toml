@@ -22,6 +22,8 @@ strum_macros = "0.24"
 quote = "1.0"
 Inflector = { version = "0.11.4", default-features = false, features = [] }
 darling = { version = "0.20.3" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dev-dependencies]
 insta = { version = "1.31.0", features = ["yaml"] }
