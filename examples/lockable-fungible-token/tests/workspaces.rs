@@ -43,7 +43,7 @@ async fn test_owner_initial_state() -> anyhow::Result<()> {
 
     let res =
         contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
-    assert_eq!(res.json::<NearToken>()?, NearToken::from_yoctonear(0));
+    assert_eq!(res.json::<NearToken>()?, NearToken::from_near(0));
 
     let res = contract
         .call("get_locked_balance")
@@ -149,7 +149,7 @@ async fn test_fail_lock() -> anyhow::Result<()> {
 
     let res = contract
         .call("lock")
-        .args_json((contract.id(), NearToken::from_near(10001).as_yoctonear().to_string()))
+        .args_json((contract.id(), NearToken::from_near(10001)))
         .max_gas()
         .transact()
         .await;

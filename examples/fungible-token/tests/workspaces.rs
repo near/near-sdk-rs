@@ -219,7 +219,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(res.json::<bool>()?);
 
     let res = contract.call("ft_total_supply").view().await?;
-    assert_eq!(res.json::<NearToken>()?.as_yoctonear(), transfer_amount.as_yoctonear() - 10);
+    assert_eq!(res.json::<NearToken>()?, transfer_amount.saturating_sub(NearToken::from_yoctonear(10)));
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
@@ -264,8 +264,8 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
         .await?
         .json::<NearToken>()?;
     assert_eq!(
-        initial_balance.as_yoctonear() - transfer_amount.as_yoctonear(),
-        root_balance.as_yoctonear()
+        initial_balance.saturating_sub(transfer_amount),
+        root_balance
     );
     assert_eq!(transfer_amount, defi_balance);
 
@@ -304,7 +304,7 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
         .await?
         .json::<NearToken>()?;
     assert_eq!(initial_balance, root_balance);
-    assert_eq!(0, defi_balance.as_yoctonear());
+    assert_eq!(NearToken::from_near(0), defi_balance);
 
     Ok(())
 }
