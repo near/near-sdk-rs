@@ -84,10 +84,8 @@ use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, Wher
 ///
 /// Contract Source Metadata Standard:
 ///
-/// The specification can be found here: <https://github.com/near/NEPs/blob/master/neps/nep-0330.md>
-///
 /// By using `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
-/// according to NEP-330 standard. This still applies even when `#[near_bindgen]` is used without
+/// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near_bindgen]` is used without
 /// any arguments.
 ///
 /// All fields(version, link, standard) are optional and will be populated with defaults from the Cargo.toml file if not specified.
@@ -143,13 +141,13 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
-        for method in input.items.iter() {
+        for method in &input.items {
             if let ImplItem::Fn(m) = method {
                 let ident = &m.sig.ident;
                 if ident.eq("__contract_abi") || ident.eq("contract_source_metadata") {
                     return TokenStream::from(
                         syn::Error::new_spanned(
-                            m.sig.ident.to_token_stream(),
+                            ident.to_token_stream(),
                             "use of reserved contract method",
                         )
                         .to_compile_error(),
@@ -165,7 +163,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             };
 
-            match syn::parse2::<syn::ImplItem>(contract_source_metadata) {
+            match syn::parse2::<ImplItem>(contract_source_metadata) {
                 Ok(x) => {
                     input.items.push(x);
                 }
