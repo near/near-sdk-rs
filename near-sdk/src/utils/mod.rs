@@ -86,7 +86,7 @@ pub fn assert_self() {
 /// Assert that 1 yoctoNEAR was attached.
 pub fn assert_one_yocto() {
     require!(
-        env::attached_deposit() == NearToken::from_near(1),
+        env::attached_deposit() == NearToken::from_yoctonear(1),
         "Requires attached deposit of exactly 1 yoctoNEAR"
     )
 }

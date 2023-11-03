@@ -1,3 +1,4 @@
+use near_sdk::json_types::U128;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
 use near_workspaces::types::NearToken;
@@ -9,7 +10,7 @@ async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::R
         .call("storage_deposit")
         .args_json((account_id, Option::<bool>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(near_sdk::env::storage_byte_cost() * 125))
+        .deposit(near_sdk::env::storage_byte_cost().saturating_mul(125))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -48,7 +49,7 @@ async fn init(
     let res = ft_contract
         .call("storage_deposit")
         .args_json((alice.id(), Option::<bool>::None))
-        .deposit(NearToken::from_yoctonear(near_sdk::env::storage_byte_cost() * 125))
+        .deposit(near_sdk::env::storage_byte_cost().saturating_mul(125))
         .max_gas()
         .transact()
         .await?;
@@ -116,7 +117,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
         .call(contract.id(), "storage_unregister")
         .args_json((Option::<bool>::None,))
         .max_gas()
-        .deposit(ONE_YOCTO)
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?;
     assert!(res.json::<bool>()?);
@@ -204,7 +205,7 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(res.is_success());
 
     let logs = res.logs();
-    let expected = format!("Account @{} burned {}", contract.id(), 10);
+    let expected = format!("Account @{} burned {}", contract.id(), 100000000000000000000000000);
     assert!(logs.len() >= 2);
     assert!(logs.contains(&"The account of the sender was deleted"));
     assert!(logs.contains(&(expected.as_str())));
@@ -219,14 +220,17 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(res.json::<bool>()?);
 
     let res = contract.call("ft_total_supply").view().await?;
-    assert_eq!(res.json::<NearToken>()?, transfer_amount.saturating_sub(NearToken::from_yoctonear(10)));
+    assert_eq!(
+        res.json::<U128>()?.0,
+        (transfer_amount.saturating_sub(NearToken::from_yoctonear(10)).as_yoctonear())
+    );
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
-        .json::<NearToken>()?;
-    assert_eq!(defi_balance.as_yoctonear(), transfer_amount.as_yoctonear() - 10);
+        .json::<U128>()?;
+    assert_eq!(defi_balance.0, transfer_amount.as_yoctonear() - 10);
 
     Ok(())
 }
@@ -263,10 +267,7 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
         .view()
         .await?
         .json::<NearToken>()?;
-    assert_eq!(
-        initial_balance.saturating_sub(transfer_amount),
-        root_balance
-    );
+    assert_eq!(initial_balance.saturating_sub(transfer_amount), root_balance);
     assert_eq!(transfer_amount, defi_balance);
 
     Ok(())
@@ -388,7 +389,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     assert_eq!(promise_failures.len(), 1);
     let failure = promise_failures[0].clone().into_result();
     if let Err(err) = failure {
-        assert!(format!("{:?}", err).contains("ParseIntError"));
+        assert!(format!("{:?}", err).contains("Not an integer"));
     } else {
         unreachable!();
     }

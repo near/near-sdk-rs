@@ -33,6 +33,7 @@ async fn test_owner_initial_state() -> anyhow::Result<()> {
     let (contract, _) = init(&worker, initial_balance).await?;
 
     let res = contract.call("get_total_supply").view().await?;
+
     assert_eq!(res.json::<NearToken>()?, initial_balance);
 
     let res = contract.call("get_total_balance").args_json((contract.id(),)).view().await?;

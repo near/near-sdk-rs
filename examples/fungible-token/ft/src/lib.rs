@@ -184,11 +184,11 @@ impl FungibleTokenMetadataProvider for Contract {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, Balance};
+    use near_sdk::{testing_env, NearToken};
 
     use super::*;
 
-    const TOTAL_SUPPLY: Balance = 1_000_000_000_000_000;
+    const TOTAL_SUPPLY: NearToken = NearToken::from_yoctonear(1_000_000_000_000_000);
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
@@ -203,10 +203,11 @@ mod tests {
     fn test_new() {
         let mut context = get_context(accounts(1));
         testing_env!(context.build());
-        let contract = Contract::new_default_meta(accounts(1).into(), TOTAL_SUPPLY.into());
+        let contract =
+            Contract::new_default_meta(accounts(1).into(), U128(TOTAL_SUPPLY.as_yoctonear()));
         testing_env!(context.is_view(true).build());
-        assert_eq!(contract.ft_total_supply().0, TOTAL_SUPPLY);
-        assert_eq!(contract.ft_balance_of(accounts(1)).0, TOTAL_SUPPLY);
+        assert_eq!(contract.ft_total_supply().0, TOTAL_SUPPLY.as_yoctonear());
+        assert_eq!(contract.ft_balance_of(accounts(1)).0, TOTAL_SUPPLY.as_yoctonear());
     }
 
     #[test]
@@ -221,10 +222,11 @@ mod tests {
     fn test_transfer() {
         let mut context = get_context(accounts(2));
         testing_env!(context.build());
-        let mut contract = Contract::new_default_meta(accounts(2).into(), TOTAL_SUPPLY.into());
+        let mut contract =
+            Contract::new_default_meta(accounts(2).into(), U128(TOTAL_SUPPLY.as_yoctonear()));
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(contract.storage_balance_bounds().min.into())
+            .attached_deposit(NearToken::from_yoctonear(contract.storage_balance_bounds().min.0))
             .predecessor_account_id(accounts(1))
             .build());
         // Paying for account registration, aka storage deposit
@@ -232,19 +234,22 @@ mod tests {
 
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(1)
+            .attached_deposit(NearToken::from_yoctonear(1))
             .predecessor_account_id(accounts(2))
             .build());
-        let transfer_amount = TOTAL_SUPPLY / 3;
-        contract.ft_transfer(accounts(1), transfer_amount.into(), None);
+        let transfer_amount = TOTAL_SUPPLY.saturating_div(3);
+        contract.ft_transfer(accounts(1), U128(transfer_amount.as_yoctonear()), None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
             .account_balance(env::account_balance())
             .is_view(true)
-            .attached_deposit(0)
+            .attached_deposit(NearToken::from_yoctonear(0))
             .build());
-        assert_eq!(contract.ft_balance_of(accounts(2)).0, (TOTAL_SUPPLY - transfer_amount));
-        assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount);
+        assert_eq!(
+            contract.ft_balance_of(accounts(2)).0,
+            (TOTAL_SUPPLY.saturating_sub(transfer_amount)).as_yoctonear()
+        );
+        assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount.as_yoctonear());
     }
 }

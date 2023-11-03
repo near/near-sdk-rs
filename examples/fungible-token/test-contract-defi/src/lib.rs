@@ -5,7 +5,7 @@ use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault, PromiseOrValue,
+    env, log, near_bindgen, require, AccountId, Gas, NearToken, PanicOnDefault, PromiseOrValue,
 };
 
 const BASE_GAS: u64 = 5_000_000_000_000;
@@ -68,7 +68,7 @@ impl FungibleTokenReceiver for DeFi {
 impl ValueReturnTrait for DeFi {
     fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128> {
         log!("in value_please, amount_to_return = {}", amount_to_return);
-        let amount: Balance = amount_to_return.parse().expect("Not an integer");
-        PromiseOrValue::Value(amount.into())
+        let amount: NearToken = amount_to_return.parse().expect("Not an integer");
+        PromiseOrValue::Value(U128(amount.as_yoctonear()))
     }
 }
