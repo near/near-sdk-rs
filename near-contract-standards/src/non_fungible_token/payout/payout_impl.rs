@@ -29,6 +29,14 @@ impl Royalties {
         require!(total <= 100, "total percent of each royalty split must be at most 100")
     }
 
+    /// Create a payout.
+    ///
+    /// # Arguments
+    /// * `balance` - total balance dedicated to the payout.
+    /// * `owner_id` - nft owner account id
+    ///
+    /// NOTE: The owner gets whatever is left after distributing the rest of the payout plus the
+    /// percentage specified explicitly, if any.
     pub fn create_payout(&self, balance: Balance, owner_id: &AccountId) -> Payout {
         let mut payout = Payout {
             payout: self
