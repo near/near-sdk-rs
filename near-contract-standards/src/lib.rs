@@ -13,3 +13,5 @@ pub mod storage_management;
 pub mod upgrade;
 
 pub(crate) mod event;
+
+pub mod contract_metadata;
