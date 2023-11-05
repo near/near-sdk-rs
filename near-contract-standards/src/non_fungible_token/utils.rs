@@ -52,7 +52,7 @@ pub fn refund_deposit(storage_used: u64) {
 /// Assert that at least 1 yoctoNEAR was attached.
 pub(crate) fn assert_at_least_one_yocto() {
     require!(
-        env::attached_deposit() >= NearToken::from_near(1),
+        env::attached_deposit() >= NearToken::from_yoctonear(1),
         "Requires attached deposit of at least 1 yoctoNEAR"
     )
 }
