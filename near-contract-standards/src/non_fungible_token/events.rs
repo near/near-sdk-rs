@@ -126,11 +126,11 @@ mod tests {
     use near_sdk::{test_utils, AccountId};
 
     fn bob() -> AccountId {
-        AccountId::new_unchecked("bob".to_string())
+        "bob".parse().unwrap()
     }
 
     fn alice() -> AccountId {
-        AccountId::new_unchecked("alice".to_string())
+        "alice".parse().unwrap()
     }
 
     #[test]

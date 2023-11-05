@@ -17,6 +17,7 @@ near-sdk = { path = "../near-sdk", version = "~4.1.1", default-features = false,
 serde = "1"
 serde_json = "1"
 schemars = "0.8"
+near-account-id = {path="/Users/ihor/near-account-id-rs", features = ["internal_unstable", "serde", "borsh", "schemars"]}
 
 [features]
 default = ["abi"]
