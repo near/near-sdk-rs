@@ -191,6 +191,7 @@ impl FungibleToken {
             let receiver_balance = self.accounts.get(&receiver_id).unwrap_or(0);
             if receiver_balance > 0 {
                 let refund_amount = std::cmp::min(receiver_balance, unused_amount);
+
                 if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
                     self.accounts.insert(&receiver_id, &new_receiver_balance);
                 } else {

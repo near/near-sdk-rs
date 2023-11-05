@@ -1,4 +1,3 @@
-use near_sdk::json_types::U128;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
 use near_workspaces::types::NearToken;
@@ -205,11 +204,10 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(res.is_success());
 
     let logs = res.logs();
-    let expected = format!("Account @{} burned {}", contract.id(), 100000000000000000000000000u128);
+    let expected = format!("Account @{} burned {}", contract.id(), 10);
     assert!(logs.len() >= 2);
-    dbg!(logs);
-    // assert!(logs.contains(&"The account of the sender was deleted"));
-    // assert!(logs.contains(&(expected.as_str())));
+    assert!(logs.contains(&"The account of the sender was deleted"));
+    assert!(logs.contains(&(expected.as_str())));
 
     match res.receipt_outcomes()[5].clone().into_result()? {
         ValueOrReceiptId::Value(val) => {
@@ -221,10 +219,10 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
     assert!(res.json::<bool>()?);
 
     let res = contract.call("ft_total_supply").view().await?;
-    // assert_eq!(
-    //     res.json::<NearToken>()?,
-    //     transfer_amount.saturating_sub(NearToken::from_yoctonear(10))
-    // );
+    assert_eq!(
+        res.json::<NearToken>()?,
+        transfer_amount.saturating_sub(NearToken::from_yoctonear(10))
+    );
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
@@ -327,7 +325,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
             defi_contract.id(),
             transfer_amount,
             Option::<String>::None,
-            refund_amount.to_string(),
+            refund_amount.as_yoctonear().to_string(),
         ))
         .max_gas()
         .deposit(ONE_YOCTO)
@@ -347,14 +345,10 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
         .await?
         .json::<NearToken>()?;
     assert_eq!(
-        initial_balance.as_yoctonear() - transfer_amount.as_yoctonear()
-            + refund_amount.as_yoctonear(),
-        root_balance.as_yoctonear()
+        initial_balance.saturating_sub(transfer_amount).saturating_add(refund_amount),
+        root_balance
     );
-    assert_eq!(
-        transfer_amount.as_yoctonear() - refund_amount.as_yoctonear(),
-        defi_balance.as_yoctonear()
-    );
+    assert_eq!(transfer_amount.saturating_sub(refund_amount), defi_balance);
 
     Ok(())
 }
@@ -388,7 +382,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
     assert_eq!(promise_failures.len(), 1);
     let failure = promise_failures[0].clone().into_result();
     if let Err(err) = failure {
-        assert!(format!("{:?}", err).contains("parsey as integer big panic oh no"));
+        assert!(format!("{:?}", err).contains("ParseIntError"));
     } else {
         unreachable!();
     }
