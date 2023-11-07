@@ -35,7 +35,7 @@ once_cell = { version = "1.17", default-features = false }
 
 near-abi = { version = "0.4.0", features = ["__chunked-entries"], optional = true }
 near-gas = { version = "0.2.3", features = ["serde", "borsh", "schemars"] }
-near-account-id = {path="/Users/ihor/near-account-id-rs", features = ["internal_unstable", "serde", "borsh", "schemars"]}
+near-account-id = {version="1.0.0-alpha.3", features = ["abi", "serde", "borsh", "schemars"]}
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 near-vm-logic = { version = "0.17", optional = true }
