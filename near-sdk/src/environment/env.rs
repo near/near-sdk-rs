@@ -551,7 +551,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 }
 
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
-    let account_id = account_id.as_ref();
+    let account_id: &str = account_id.as_ref();
     unsafe {
         PromiseIndex(sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _))
     }

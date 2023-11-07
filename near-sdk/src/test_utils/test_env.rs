@@ -2,15 +2,15 @@ use crate::test_utils::VMContextBuilder;
 use crate::{testing_env, AccountId, VMConfig};
 
 pub fn alice() -> AccountId {
-    AccountId::new_unchecked("alice.near".to_string())
+    "alice.near".parse().unwrap()
 }
 
 pub fn bob() -> AccountId {
-    AccountId::new_unchecked("bob.near".to_string())
+    "bob.near".parse().unwrap()
 }
 
 pub fn carol() -> AccountId {
-    AccountId::new_unchecked("carol.near".to_string())
+    "carol.near".parse().unwrap()
 }
 
 /// Updates the blockchain interface with the config passed in.
