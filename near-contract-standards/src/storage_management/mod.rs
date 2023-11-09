@@ -50,8 +50,8 @@ pub struct StorageBalanceBounds {
 ///
 /// #[near_bindgen]
 /// impl Contract {
-///    fn on_account_closed(&mut self, account_id: AccountId, balance: NearToken) {
-///         log!("Closed @{} with {}", account_id, balance);
+///    fn on_account_closed(&mut self, account_id: AccountId, balance: U128) {
+///         log!("Closed @{} with {}", account_id, balance.0);
 ///    }
 /// }
 ///

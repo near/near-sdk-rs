@@ -1,49 +1,52 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, near_bindgen, AccountId, NearToken, PanicOnDefault};
+use near_sdk::json_types::U128;
+use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault};
 use std::collections::HashMap;
 use std::str::FromStr;
+
+pub type Balance = U128;
 
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Account {
     /// Current unlocked balance
-    pub balance: NearToken,
+    pub balance: Balance,
     /// Allowed account to the allowance amount.
-    pub allowances: HashMap<AccountId, NearToken>,
+    pub allowances: HashMap<AccountId, Balance>,
     /// Allowed account to locked balance.
-    pub locked_balances: HashMap<AccountId, NearToken>,
+    pub locked_balances: HashMap<AccountId, Balance>,
 }
 
 impl Account {
-    pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: NearToken) {
-        if allowance.as_yoctonear() > 0 {
+    pub fn set_allowance(&mut self, escrow_account_id: &AccountId, allowance: Balance) {
+        if allowance.0 > 0 {
             self.allowances.insert(escrow_account_id.clone(), allowance);
         } else {
             self.allowances.remove(escrow_account_id);
         }
     }
 
-    pub fn get_allowance(&self, escrow_account_id: &AccountId) -> NearToken {
-        *self.allowances.get(escrow_account_id).unwrap_or(&NearToken::from_near(0))
+    pub fn get_allowance(&self, escrow_account_id: &AccountId) -> Balance {
+        *self.allowances.get(escrow_account_id).unwrap_or(&U128(0))
     }
 
-    pub fn set_locked_balance(&mut self, escrow_account_id: &AccountId, locked_balance: NearToken) {
-        if locked_balance.as_yoctonear() > 0 {
+    pub fn set_locked_balance(&mut self, escrow_account_id: &AccountId, locked_balance: Balance) {
+        if locked_balance.0 > 0 {
             self.locked_balances.insert(escrow_account_id.clone(), locked_balance);
         } else {
             self.locked_balances.remove(escrow_account_id);
         }
     }
 
-    pub fn get_locked_balance(&self, escrow_account_id: &AccountId) -> NearToken {
-        *self.locked_balances.get(escrow_account_id).unwrap_or(&NearToken::from_near(0))
+    pub fn get_locked_balance(&self, escrow_account_id: &AccountId) -> Balance {
+        *self.locked_balances.get(escrow_account_id).unwrap_or(&U128(0))
     }
 
-    pub fn total_balance(&self) -> NearToken {
+    pub fn total_balance(&self) -> Balance {
         let mut res = self.balance;
         for s in self.locked_balances.values() {
-            res = res.saturating_add(*s);
+            res = U128(res.0.saturating_add(s.0));
         }
         res
     }
@@ -57,7 +60,7 @@ pub struct FunToken {
     pub accounts: UnorderedMap<AccountId, Account>,
 
     /// Total supply of the all token.
-    pub total_supply: NearToken,
+    pub total_supply: Balance,
 }
 
 #[near_bindgen]
@@ -65,9 +68,8 @@ impl FunToken {
     #[init]
     #[handle_result]
     pub fn new(owner_id: AccountId, total_supply: String) -> Result<Self, &'static str> {
-        let total_supply = NearToken::from_yoctonear(
-            u128::from_str(&total_supply).map_err(|_| "Failed to parse total supply")?,
-        );
+        let total_supply =
+            U128(u128::from_str(&total_supply).map_err(|_| "Failed to parse total supply")?);
         let mut ft = Self { accounts: UnorderedMap::new(b"a"), total_supply };
         let mut account = ft.get_account(&owner_id);
         account.balance = total_supply;
@@ -85,20 +87,19 @@ impl FunToken {
         escrow_account_id: AccountId,
         allowance: String,
     ) -> Result<(), &'static str> {
-        let allowance = NearToken::from_yoctonear(
-            u128::from_str(&allowance).map_err(|_| "Failed to parse allowance")?,
-        );
+        let allowance = U128(u128::from_str(&allowance).map_err(|_| "Failed to parse allowance")?);
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
             return Err("Can't set allowance for yourself");
         }
         let mut account = self.get_account(&owner_id);
         let locked_balance = account.get_locked_balance(&escrow_account_id);
-        if locked_balance.as_yoctonear() > allowance.as_yoctonear() {
+        if locked_balance > allowance {
             return Err("The new allowance can't be less than the amount of locked tokens");
         }
 
-        account.set_allowance(&escrow_account_id, allowance.saturating_sub(locked_balance));
+        account
+            .set_allowance(&escrow_account_id, U128(allowance.0.saturating_sub(locked_balance.0)));
         self.accounts.insert(&owner_id, &account);
 
         Ok(())
@@ -111,20 +112,19 @@ impl FunToken {
     /// * The owner should have enough unlocked balance.
     #[handle_result]
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: String) -> Result<(), &'static str> {
-        let lock_amount = NearToken::from_yoctonear(
-            u128::from_str(&lock_amount).map_err(|_| "Failed to parse allow lock_amount")?,
-        );
-        if lock_amount.is_zero() {
+        let lock_amount =
+            U128(u128::from_str(&lock_amount).map_err(|_| "Failed to parse allow lock_amount")?);
+        if lock_amount.0 == 0 {
             return Err("Can't lock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
         let mut account = self.get_account(&owner_id);
 
         // Checking and updating unlocked balance
-        if account.balance.as_yoctonear() < lock_amount.as_yoctonear() {
+        if account.balance < lock_amount {
             return Err("Not enough unlocked balance");
         }
-        account.balance = account.balance.saturating_sub(lock_amount);
+        account.balance = U128(account.balance.0.saturating_sub(lock_amount.0));
 
         // If locking by escrow, need to check and update the allowance.
         if escrow_account_id != owner_id {
@@ -132,12 +132,16 @@ impl FunToken {
             if allowance < lock_amount {
                 return Err("Not enough allowance");
             }
-            account.set_allowance(&escrow_account_id, allowance.saturating_sub(lock_amount));
+            account
+                .set_allowance(&escrow_account_id, U128(allowance.0.saturating_sub(lock_amount.0)));
         }
 
         // Updating total lock balance
         let locked_balance = account.get_locked_balance(&escrow_account_id);
-        account.set_locked_balance(&escrow_account_id, locked_balance.saturating_add(lock_amount));
+        account.set_locked_balance(
+            &escrow_account_id,
+            U128(locked_balance.0.saturating_add(lock_amount.0)),
+        );
 
         self.accounts.insert(&owner_id, &account);
 
@@ -155,10 +159,10 @@ impl FunToken {
         owner_id: AccountId,
         unlock_amount: String,
     ) -> Result<(), &'static str> {
-        let unlock_amount = NearToken::from_yoctonear(
+        let unlock_amount = U128(
             u128::from_str(&unlock_amount).map_err(|_| "Failed to parse allow unlock_amount")?,
         );
-        if unlock_amount.is_zero() {
+        if unlock_amount.0 == 0 {
             return Err("Can't unlock 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
@@ -169,17 +173,22 @@ impl FunToken {
         if locked_balance < unlock_amount {
             return Err("Not enough locked tokens");
         }
-        account
-            .set_locked_balance(&escrow_account_id, locked_balance.saturating_sub(unlock_amount));
+        account.set_locked_balance(
+            &escrow_account_id,
+            U128(locked_balance.0.saturating_sub(unlock_amount.0)),
+        );
 
         // If unlocking by escrow, need to update allowance.
         if escrow_account_id != owner_id {
             let allowance = account.get_allowance(&escrow_account_id);
-            account.set_allowance(&escrow_account_id, allowance.saturating_add(unlock_amount));
+            account.set_allowance(
+                &escrow_account_id,
+                U128(allowance.0.saturating_add(unlock_amount.0)),
+            );
         }
 
         // Updating unlocked balance
-        account.balance = account.balance.saturating_add(unlock_amount);
+        account.balance = U128(account.balance.0.saturating_add(unlock_amount.0));
 
         self.accounts.insert(&owner_id, &account);
 
@@ -202,10 +211,8 @@ impl FunToken {
         new_owner_id: AccountId,
         amount: String,
     ) -> Result<(), &'static str> {
-        let amount = NearToken::from_yoctonear(
-            u128::from_str(&amount).map_err(|_| "Failed to parse allow amount")?,
-        );
-        if amount.is_zero() {
+        let amount = U128(u128::from_str(&amount).map_err(|_| "Failed to parse allow amount")?);
+        if amount.0 == 0 {
             return Err("Can't transfer 0 tokens");
         }
         let escrow_account_id = env::predecessor_account_id();
@@ -214,20 +221,23 @@ impl FunToken {
         // Checking and updating locked balance
         let locked_balance = account.get_locked_balance(&escrow_account_id);
         let remaining_amount = if locked_balance >= amount {
-            account.set_locked_balance(&escrow_account_id, locked_balance.saturating_sub(amount));
-            NearToken::from_near(0)
+            account.set_locked_balance(
+                &escrow_account_id,
+                U128(locked_balance.0.saturating_sub(amount.0)),
+            );
+            U128(0)
         } else {
-            account.set_locked_balance(&escrow_account_id, NearToken::from_near(0));
-            amount.saturating_sub(locked_balance)
+            account.set_locked_balance(&escrow_account_id, U128(0));
+            U128(amount.0.saturating_sub(locked_balance.0))
         };
 
         // If there is remaining balance after the locked balance, we try to use unlocked tokens.
-        if remaining_amount.as_yoctonear() > 0 {
+        if remaining_amount.0 > 0 {
             // Checking and updating unlocked balance
             if account.balance < remaining_amount {
                 return Err("Not enough unlocked balance");
             }
-            account.balance = account.balance.saturating_sub(remaining_amount);
+            account.balance = U128(account.balance.0.saturating_sub(remaining_amount.0));
 
             // If transferring by escrow, need to check and update allowance.
             if escrow_account_id != owner_id {
@@ -236,8 +246,10 @@ impl FunToken {
                 if allowance < remaining_amount {
                     return Err("Not enough allowance");
                 }
-                account
-                    .set_allowance(&escrow_account_id, allowance.saturating_sub(remaining_amount));
+                account.set_allowance(
+                    &escrow_account_id,
+                    U128(allowance.0.saturating_sub(remaining_amount.0)),
+                );
             }
         }
 
@@ -245,7 +257,7 @@ impl FunToken {
 
         // Deposit amount to the new owner
         let mut new_account = self.get_account(&new_owner_id);
-        new_account.balance = new_account.balance.saturating_add(amount);
+        new_account.balance = U128(new_account.balance.0.saturating_add(amount.0));
         self.accounts.insert(&new_owner_id, &new_account);
 
         Ok(())
@@ -263,30 +275,27 @@ impl FunToken {
 
     /// Returns total supply of tokens.
     pub fn get_total_supply(&self) -> String {
-        self.total_supply.as_yoctonear().to_string()
+        self.total_supply.0.to_string()
     }
 
     /// Returns total balance for the `owner_id` account. Including all locked and unlocked tokens.
     pub fn get_total_balance(&self, owner_id: AccountId) -> String {
-        self.get_account(&owner_id).total_balance().as_yoctonear().to_string()
+        self.get_account(&owner_id).total_balance().0.to_string()
     }
 
     /// Returns unlocked token balance for the `owner_id`.
     pub fn get_unlocked_balance(&self, owner_id: AccountId) -> String {
-        self.get_account(&owner_id).balance.as_yoctonear().to_string()
+        self.get_account(&owner_id).balance.0.to_string()
     }
 
     /// Returns current allowance for the `owner_id` to be able to use by `escrow_account_id`.
     pub fn get_allowance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> String {
-        self.get_account(&owner_id).get_allowance(&escrow_account_id).as_yoctonear().to_string()
+        self.get_account(&owner_id).get_allowance(&escrow_account_id).0.to_string()
     }
 
     /// Returns current locked balance for the `owner_id` locked by `escrow_account_id`.
     pub fn get_locked_balance(&self, owner_id: AccountId, escrow_account_id: AccountId) -> String {
-        self.get_account(&owner_id)
-            .get_locked_balance(&escrow_account_id)
-            .as_yoctonear()
-            .to_string()
+        self.get_account(&owner_id).get_locked_balance(&escrow_account_id).0.to_string()
     }
 }
 
@@ -325,18 +334,15 @@ mod tests {
     fn test_transfer() {
         let context = get_context(carol());
         testing_env!(context);
-        let total_supply = NearToken::from_yoctonear(1_000_000_000_000_000u128);
-        let mut contract = FunToken::new(carol(), total_supply.as_yoctonear().to_string()).unwrap();
-        let transfer_amount = total_supply.saturating_div(3);
-        contract.transfer(bob(), transfer_amount.as_yoctonear().to_string()).unwrap();
+        let total_supply = U128(1_000_000_000_000_000u128);
+        let mut contract = FunToken::new(carol(), total_supply.0.to_string()).unwrap();
+        let transfer_amount = total_supply.0.saturating_div(3);
+        contract.transfer(bob(), transfer_amount.to_string()).unwrap();
         assert_eq!(
             contract.get_unlocked_balance(carol()),
-            (total_supply.saturating_sub(transfer_amount)).as_yoctonear().to_string()
+            (total_supply.0.saturating_sub(transfer_amount)).to_string()
         );
-        assert_eq!(
-            contract.get_unlocked_balance(bob()),
-            transfer_amount.as_yoctonear().to_string()
-        );
+        assert_eq!(contract.get_unlocked_balance(bob()), transfer_amount.to_string());
     }
 
     #[test]

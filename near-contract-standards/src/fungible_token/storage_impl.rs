@@ -1,3 +1,4 @@
+use crate::fungible_token::core_impl::Balance;
 use crate::fungible_token::FungibleToken;
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::json_types::U128;
@@ -9,17 +10,17 @@ impl FungibleToken {
     pub fn internal_storage_unregister(
         &mut self,
         force: Option<bool>,
-    ) -> Option<(AccountId, NearToken)> {
+    ) -> Option<(AccountId, Balance)> {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();
         let force = force.unwrap_or(false);
         if let Some(balance) = self.accounts.get(&account_id) {
-            if balance == 0 || force {
+            if balance.0 == 0 || force {
                 self.accounts.remove(&account_id);
-                self.total_supply -= balance;
+                self.total_supply = U128(self.total_supply.0 + balance.0);
                 Promise::new(account_id.clone())
                     .transfer(NearToken::from_yoctonear(self.storage_balance_bounds().min.0 + 1));
-                Some((account_id, NearToken::from_yoctonear(balance)))
+                Some((account_id, balance))
             } else {
                 env::panic_str(
                     "Can't unregister the account with the positive balance without force",
@@ -98,12 +99,12 @@ impl StorageManagement for FungibleToken {
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
-        let required_storage_balance =
-            NearToken::from_yoctonear(self.account_storage_usage as u128)
-                .saturating_mul(env::storage_byte_cost().as_yoctonear());
+        let mut required_storage_balance: u128 = self.account_storage_usage.into();
+        required_storage_balance =
+            required_storage_balance.saturating_mul(env::storage_byte_cost().as_yoctonear());
         StorageBalanceBounds {
-            min: U128(required_storage_balance.as_yoctonear()),
-            max: Some(U128(required_storage_balance.as_yoctonear())),
+            min: U128(required_storage_balance),
+            max: Some(U128(required_storage_balance)),
         }
     }
 

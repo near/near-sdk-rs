@@ -11,7 +11,7 @@ near-units = "0.2.0"
 serde_json = "1.0"
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.8.0" }
+near-workspaces = { version = "0.9.0" }
 
 cross-contract-high-level = { path = "./high-level" }
 cross-contract-low-level = { path = "./low-level" }

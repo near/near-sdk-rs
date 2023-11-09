@@ -31,6 +31,8 @@ use near_sdk::{
     env, log, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue,
 };
 
+pub type Balance = U128;
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -188,7 +190,7 @@ mod tests {
 
     use super::*;
 
-    const TOTAL_SUPPLY: NearToken = NearToken::from_yoctonear(1_000_000_000_000_000);
+    const TOTAL_SUPPLY: Balance = U128(1_000_000_000_000_000);
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
@@ -203,11 +205,10 @@ mod tests {
     fn test_new() {
         let mut context = get_context(accounts(1));
         testing_env!(context.build());
-        let contract =
-            Contract::new_default_meta(accounts(1).into(), U128(TOTAL_SUPPLY.as_yoctonear()));
+        let contract = Contract::new_default_meta(accounts(1).into(), TOTAL_SUPPLY.into());
         testing_env!(context.is_view(true).build());
-        assert_eq!(contract.ft_total_supply().0, TOTAL_SUPPLY.as_yoctonear());
-        assert_eq!(contract.ft_balance_of(accounts(1)).0, TOTAL_SUPPLY.as_yoctonear());
+        assert_eq!(contract.ft_total_supply(), TOTAL_SUPPLY.into());
+        assert_eq!(contract.ft_balance_of(accounts(1)), TOTAL_SUPPLY.into());
     }
 
     #[test]
@@ -222,8 +223,7 @@ mod tests {
     fn test_transfer() {
         let mut context = get_context(accounts(2));
         testing_env!(context.build());
-        let mut contract =
-            Contract::new_default_meta(accounts(2).into(), U128(TOTAL_SUPPLY.as_yoctonear()));
+        let mut contract = Contract::new_default_meta(accounts(2).into(), TOTAL_SUPPLY);
         testing_env!(context
             .storage_usage(env::storage_usage())
             .attached_deposit(NearToken::from_yoctonear(contract.storage_balance_bounds().min.0))
@@ -237,8 +237,8 @@ mod tests {
             .attached_deposit(NearToken::from_yoctonear(1))
             .predecessor_account_id(accounts(2))
             .build());
-        let transfer_amount = TOTAL_SUPPLY.saturating_div(3);
-        contract.ft_transfer(accounts(1), U128(transfer_amount.as_yoctonear()), None);
+        let transfer_amount = TOTAL_SUPPLY.0 / 3;
+        contract.ft_transfer(accounts(1), U128(transfer_amount.into()), None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
@@ -248,8 +248,8 @@ mod tests {
             .build());
         assert_eq!(
             contract.ft_balance_of(accounts(2)).0,
-            (TOTAL_SUPPLY.saturating_sub(transfer_amount)).as_yoctonear()
+            (TOTAL_SUPPLY.0 - transfer_amount).into()
         );
-        assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount.as_yoctonear());
+        assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount);
     }
 }

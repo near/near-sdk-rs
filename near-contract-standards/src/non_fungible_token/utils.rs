@@ -16,10 +16,8 @@ where
     I: Iterator<Item = &'a AccountId>,
 {
     let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
-    Promise::new(account_id).transfer(
-        NearToken::from_yoctonear(storage_released as u128)
-            .saturating_mul(env::storage_byte_cost().as_yoctonear()),
-    )
+    Promise::new(account_id)
+        .transfer(env::storage_byte_cost().saturating_mul(storage_released.into()))
 }
 
 pub fn refund_approved_account_ids(
@@ -30,7 +28,7 @@ pub fn refund_approved_account_ids(
 }
 
 pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
-    let required_cost = env::storage_byte_cost().saturating_mul(storage_used as u128);
+    let required_cost = env::storage_byte_cost().saturating_mul(storage_used.into());
     let attached_deposit = env::attached_deposit();
 
     require!(
