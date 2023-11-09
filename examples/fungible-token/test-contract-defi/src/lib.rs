@@ -47,7 +47,7 @@ impl FungibleTokenReceiver for DeFi {
             env::predecessor_account_id() == self.fungible_token_account_id,
             "Only supports the one fungible token contract"
         );
-        log!("in {} tokens from @{} ft_on_transfer, msg = {}", amount.0, sender_id.as_ref(), msg);
+        log!("in {} tokens from @{} ft_on_transfer, msg = {}", amount.0, sender_id, msg);
         match msg.as_str() {
             "take-my-money" => PromiseOrValue::Value(U128::from(0)),
             _ => {

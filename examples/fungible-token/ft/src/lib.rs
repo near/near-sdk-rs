@@ -160,7 +160,7 @@ impl StorageManagement for Contract {
     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
         #[allow(unused_variables)]
         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force) {
-            log!("Closed @{} with {}", account_id, balance);
+            log!("Closed @{} with {}", account_id, balance.0);
             true
         } else {
             false

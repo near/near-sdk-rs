@@ -7,8 +7,7 @@ pub use self::public_key::{CurveType, PublicKey};
 mod primitives;
 pub use self::primitives::*;
 
-mod account_id;
-pub use self::account_id::{AccountId, ParseAccountIdError};
+pub use near_account_id::AccountId;
 
 pub use near_gas::NearGas as Gas;
 pub use near_token::NearToken;
