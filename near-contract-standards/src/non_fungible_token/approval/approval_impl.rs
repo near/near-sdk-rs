@@ -56,8 +56,12 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.map(|msg| {
-            ext_nft_approval_receiver::ext(account_id)
-                .nft_on_approve(token_id, owner_id, approval_id, msg)
+            ext_nft_approval_receiver::ext(account_id).nft_on_approve(
+                token_id,
+                owner_id,
+                approval_id,
+                msg,
+            )
         })
     }
 
