@@ -93,9 +93,10 @@ impl NonFungibleTokenPayout for NonFungibleToken {
 mod tests {
     use crate::non_fungible_token::payout::payout_impl::apply_percent;
     use crate::non_fungible_token::payout::Royalties;
+    use near_account_id::AccountIdRef;
     use near_sdk::collections::TreeMap;
     use near_sdk::json_types::U128;
-    use near_sdk::{AccountId, Balance};
+    use near_sdk::Balance;
     use std::mem;
 
     const KEY_PREFIX: &[u8] = "test_prefix".as_bytes();
@@ -106,7 +107,7 @@ mod tests {
 
         // Works with up to 100% and at most 10 accounts.
         for idx in 0..10 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
+            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &10);
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
@@ -115,7 +116,7 @@ mod tests {
         royalties.validate();
 
         // Make sure that max royalties works.
-        let owner_id = AccountId::new_unchecked("alice".to_string());
+        let owner_id = AccountIdRef::new_or_panic("alice").into();
         let payout = royalties.create_payout(1000, &owner_id);
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
@@ -132,7 +133,7 @@ mod tests {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         for idx in 0..10 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &8);
+            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &8);
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
@@ -143,8 +144,8 @@ mod tests {
         // Make sure we don't overflow and don't end up with mismatched results due to using int as
         // opposed to float.
         let balance = Balance::MAX / 10_000 * 100;
-        let owner_id = AccountId::new_unchecked("alice".to_string());
-        let payout = royalties.create_payout(balance, &owner_id);
+        let owner_id = AccountIdRef::new_or_panic("alice");
+        let payout = royalties.create_payout(balance, &owner_id.into());
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
             if *key == owner_id {
@@ -160,9 +161,9 @@ mod tests {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         for idx in 0..9 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &8);
+            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &8);
         }
-        map.insert(&AccountId::new_unchecked("alice".to_string()), &8);
+        map.insert(&AccountIdRef::new_or_panic("alice").into(), &8);
 
         let mut royalties = Royalties::new(KEY_PREFIX);
 
@@ -172,8 +173,8 @@ mod tests {
         // Make sure we don't overflow and don't end up with mismatched results due to using int as
         // opposed to float.
         let balance = Balance::MAX / 10_000 * 100;
-        let owner_id = AccountId::new_unchecked("alice".to_string());
-        let payout = royalties.create_payout(balance, &owner_id);
+        let owner_id = AccountIdRef::new_or_panic("alice");
+        let payout = royalties.create_payout(balance, &owner_id.into());
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
             if *key == owner_id {
@@ -195,13 +196,13 @@ mod tests {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         for idx in 0..10 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
+            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &10);
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
         mem::swap(&mut royalties.accounts, &mut map);
 
-        royalties.create_payout(Balance::MAX, &AccountId::new_unchecked("alice".to_string()));
+        royalties.create_payout(Balance::MAX, &AccountIdRef::new_or_panic("alice").into());
     }
 
     #[test]
@@ -217,7 +218,7 @@ mod tests {
 
         // Fails with 11 accounts.
         for idx in 0..11 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &10);
+            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &10);
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
@@ -232,7 +233,7 @@ mod tests {
         let mut map = TreeMap::new(KEY_PREFIX);
 
         // Fails with more than 100% per account.
-        map.insert(&AccountId::new_unchecked("bob".to_string()), &101);
+        map.insert(&AccountIdRef::new_or_panic("bob").into(), &101);
 
         let mut royalties = Royalties::new(KEY_PREFIX);
 
@@ -247,7 +248,7 @@ mod tests {
 
         // Fails with total royalties over 100%.
         for idx in 0..10 {
-            map.insert(&AccountId::new_unchecked(format!("bob_{}", idx)), &11);
+            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &11);
         }
         let mut royalties = Royalties::new(KEY_PREFIX);
 
