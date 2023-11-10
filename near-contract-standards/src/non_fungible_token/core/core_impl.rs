@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 const GAS_WEIGHT_FOR_NFT_ON_TRANSFER: GasWeight = GasWeight(9);
 const GAS_WEIGHT_FOR_NFT_RESOLVE_TRANSFER: GasWeight = GasWeight(1);
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(10);
+const GAS_FOR_NFT_RESOLVE_TRANSFER: Gas = Gas::from_tgas(10);
 
 /// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
@@ -403,7 +403,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
             .nft_on_transfer(sender_id, old_owner.clone(), token_id.clone(), msg)
             .then(
                 ext_nft_resolver::ext(env::current_account_id())
-                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .with_static_gas(GAS_FOR_NFT_RESOLVE_TRANSFER)
                     .with_unused_gas_weight(GAS_WEIGHT_FOR_NFT_RESOLVE_TRANSFER.0)
                     .nft_resolve_transfer(old_owner, receiver_id, token_id, old_approvals),
             )

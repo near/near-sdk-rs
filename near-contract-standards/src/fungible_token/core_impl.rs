@@ -6,12 +6,13 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, log, require, AccountId, Balance, Gas, IntoStorageKey, PromiseOrValue,
-    PromiseResult, StorageUsage,
+    assert_one_yocto, env, log, require, AccountId, Balance, Gas, GasWeight, IntoStorageKey,
+    PromiseOrValue, PromiseResult, StorageUsage,
 };
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
+const GAS_WEIGHT_FOR_FT_ON_TRANSFER: GasWeight = GasWeight(9);
+const GAS_WEIGHT_FOR_FT_RESOLVE_TRANSFER: GasWeight = GasWeight(1);
+const GAS_FOR_FT_RESOLVE_TRANSFER: Gas = Gas::from_tgas(10);
 
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 
@@ -134,20 +135,18 @@ impl FungibleTokenCore for FungibleToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
-        require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
-        let receiver_gas = env::prepaid_gas()
-            .checked_sub(GAS_FOR_FT_TRANSFER_CALL)
-            .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
+
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
-            .with_static_gas(receiver_gas)
+            .with_unused_gas_weight(GAS_WEIGHT_FOR_FT_ON_TRANSFER.0)
             .ft_on_transfer(sender_id.clone(), amount.into(), msg)
             .then(
                 ext_ft_resolver::ext(env::current_account_id())
-                    .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .with_static_gas(GAS_FOR_FT_RESOLVE_TRANSFER)
+                    .with_unused_gas_weight(GAS_WEIGHT_FOR_FT_RESOLVE_TRANSFER.0)
                     .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
             )
             .into()
