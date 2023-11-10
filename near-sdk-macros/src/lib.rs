@@ -9,7 +9,7 @@ use proc_macro::TokenStream;
 use self::core_impl::*;
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
-use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -81,6 +81,33 @@ use syn::{parse_quote, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 ///
 /// }
 /// ```
+///
+/// Contract Source Metadata Standard:
+///
+/// By using `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
+/// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near_bindgen]` is used without
+/// any arguments.
+///
+/// All fields(version, link, standard) are optional and will be populated with defaults from the Cargo.toml file if not specified.
+///
+/// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
+/// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
+///
+/// # Examples
+/// ```ignore
+/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+/// use near_sdk::near_bindgen;
+///
+/// #[derive(Default, BorshSerialize, BorshDeserialize)]
+/// #[near_bindgen(contract_metadata(
+///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
+///     link = "https://github.com/near-examples/nft-tutorial",
+///     standard(standard = "nep330", version = "1.1.0"),
+///     standard(standard = "nep171", version = "1.0.0"),
+///     standard(standard = "nep177", version = "2.0.0"),
+/// ))]
+/// struct Contract {}
+/// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -88,6 +115,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        let metadata = core_impl::contract_source_metadata_const(attr);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -97,8 +125,10 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #input
             #ext_gen
             #abi_embedded
+            #metadata
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        let metadata = core_impl::contract_source_metadata_const(attr);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -108,8 +138,41 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #input
             #ext_gen
             #abi_embedded
+            #metadata
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+        for method in &input.items {
+            if let ImplItem::Fn(m) = method {
+                let ident = &m.sig.ident;
+                if ident.eq("__contract_abi") || ident.eq("contract_source_metadata") {
+                    return TokenStream::from(
+                        syn::Error::new_spanned(
+                            ident.to_token_stream(),
+                            "use of reserved contract method",
+                        )
+                        .to_compile_error(),
+                    );
+                }
+            }
+        }
+
+        if input.trait_.is_none() {
+            let contract_source_metadata = quote! {
+                pub fn contract_source_metadata() {
+                    near_sdk::env::value_return(CONTRACT_SOURCE_METADATA.as_bytes())
+                }
+            };
+
+            match syn::parse2::<ImplItem>(contract_source_metadata) {
+                Ok(x) => {
+                    input.items.push(x);
+                }
+                Err(err) => {
+                    return err.to_compile_error().into();
+                }
+            }
+        }
+
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
@@ -121,18 +184,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_generated = quote! {};
         #[cfg(feature = "__abi-generate")]
         let abi_generated = abi::generate(&item_impl_info);
-
-        for method in &item_impl_info.methods {
-            if method.attr_signature_info.ident == "__contract_abi" {
-                return TokenStream::from(
-                    syn::Error::new_spanned(
-                        method.attr_signature_info.original_sig.ident.to_token_stream(),
-                        "use of reserved contract method",
-                    )
-                    .to_compile_error(),
-                );
-            }
-        }
 
         let generated_code = item_impl_info.wrapper_code();
 

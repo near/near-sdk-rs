@@ -8,9 +8,7 @@ use std::convert::TryInto;
 
 /// Returns a pre-defined account_id from a list of 6.
 pub fn accounts(id: usize) -> AccountId {
-    AccountId::new_unchecked(
-        ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].to_string(),
-    )
+    ["alice", "bob", "charlie", "danny", "eugene", "fargo"][id].parse().unwrap()
 }
 
 /// Simple VMContext builder that allows to quickly create custom context in tests.
