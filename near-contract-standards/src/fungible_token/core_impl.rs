@@ -130,7 +130,6 @@ impl FungibleTokenCore for FungibleToken {
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
     }
 
@@ -144,7 +143,6 @@ impl FungibleTokenCore for FungibleToken {
         assert_one_yocto();
         require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
-        let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         let receiver_gas = env::prepaid_gas()
             .checked_sub(GAS_FOR_FT_TRANSFER_CALL)
@@ -152,21 +150,21 @@ impl FungibleTokenCore for FungibleToken {
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
             .with_static_gas(receiver_gas)
-            .ft_on_transfer(sender_id.clone(), amount.into(), msg)
+            .ft_on_transfer(sender_id.clone(), amount, msg)
             .then(
                 ext_ft_resolver::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
-                    .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
+                    .ft_resolve_transfer(sender_id, receiver_id, amount),
             )
             .into()
     }
 
     fn ft_total_supply(&self) -> U128 {
-        self.total_supply.into()
+        self.total_supply
     }
 
     fn ft_balance_of(&self, account_id: AccountId) -> U128 {
-        self.accounts.get(&account_id).unwrap_or(U128(0)).into()
+        self.accounts.get(&account_id).unwrap_or(U128(0))
     }
 }
 
@@ -180,8 +178,6 @@ impl FungibleToken {
         receiver_id: AccountId,
         amount: U128,
     ) -> (u128, u128) {
-        let amount: Balance = amount.into();
-
         // Get the unused amount from the `ft_on_transfer` call result.
         let unused_amount = match env::promise_result(0) {
             PromiseResult::Successful(value) => {
