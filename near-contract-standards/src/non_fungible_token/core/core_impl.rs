@@ -10,13 +10,14 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, require, AccountId, BorshStorageKey, Gas, IntoStorageKey,
+    assert_one_yocto, env, require, AccountId, BorshStorageKey, Gas, GasWeight, IntoStorageKey,
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 
-const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
-const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
+const GAS_WEIGHT_FOR_NFT_ON_TRANSFER: GasWeight = GasWeight(9);
+const GAS_WEIGHT_FOR_NFT_RESOLVE_TRANSFER: GasWeight = GasWeight(1);
+const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(10);
 
 /// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
@@ -393,17 +394,17 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
-        require!(env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_nft_receiver::ext(receiver_id.clone())
-            .with_static_gas(env::prepaid_gas().saturating_sub(GAS_FOR_NFT_TRANSFER_CALL))
+            .with_unused_gas_weight(GAS_WEIGHT_FOR_NFT_ON_TRANSFER.0)
             .nft_on_transfer(sender_id, old_owner.clone(), token_id.clone(), msg)
             .then(
                 ext_nft_resolver::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    .with_unused_gas_weight(GAS_WEIGHT_FOR_NFT_RESOLVE_TRANSFER.0)
                     .nft_resolve_transfer(old_owner, receiver_id, token_id, old_approvals),
             )
             .into()
