@@ -51,7 +51,7 @@ impl FungibleToken {
 
     fn measure_account_storage_usage(&mut self) {
         let initial_storage_usage = env::storage_usage();
-        let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
+        let tmp_account_id = "a".repeat(64).parse().unwrap();
         self.accounts.insert(&tmp_account_id, &0u128);
         self.account_storage_usage = env::storage_usage() - initial_storage_usage;
         self.accounts.remove(&tmp_account_id);
