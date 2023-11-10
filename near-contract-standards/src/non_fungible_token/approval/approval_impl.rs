@@ -8,9 +8,7 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::{assert_one_yocto, env, require, AccountId, Gas, Promise};
-
-const GAS_FOR_NFT_APPROVE: Gas = Gas::from_tgas(10);
+use near_sdk::{assert_one_yocto, env, require, AccountId, Promise};
 
 fn expect_token_found<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| env::panic_str("Token not found"))
@@ -59,7 +57,6 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         // if given `msg`, schedule call to `nft_on_approve` and return it. Else, return None.
         msg.map(|msg| {
             ext_nft_approval_receiver::ext(account_id)
-                .with_static_gas(env::prepaid_gas().saturating_sub(GAS_FOR_NFT_APPROVE))
                 .nft_on_approve(token_id, owner_id, approval_id, msg)
         })
     }
