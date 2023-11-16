@@ -1,4 +1,5 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_account_id::AccountIdRef;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::U128;
 use near_sdk::{
@@ -16,8 +17,8 @@ use crate::multi_token::utils::{
     expect_approval, expect_approval_for_token, refund_deposit_to_account, Entity,
 };
 
-pub const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas(15_000_000_000_000);
-pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas(50_000_000_000_000 + GAS_FOR_RESOLVE_TRANSFER.0);
+pub const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(15);
+pub const GAS_FOR_MT_TRANSFER_CALL: Gas = Gas::from_tgas(50 + GAS_FOR_RESOLVE_TRANSFER.as_tgas());
 
 const ERR_MORE_GAS_REQUIRED: &str = "More gas is required";
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
@@ -32,6 +33,7 @@ const ERR_TOTAL_SUPPLY_NOT_FOUND_BY_TOKEN_ID: &str = "Total supply not found by 
 ///     - MultiTokenEnumeration -- interface for getting lists of tokens. MultiToken provides methods for it.
 ///     - MultiTokenMetadata -- return metadata for the token in NEP-245, up to contract to implement.
 #[derive(BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct MultiToken {
     /// Owner of contract
     pub owner_id: AccountId,
@@ -77,6 +79,7 @@ pub struct MultiToken {
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     Accounts,
     AccountTokens { account_id_hash: CryptoHash },
@@ -149,7 +152,7 @@ impl MultiToken {
         let mut user_token_balance = LookupMap::new(StorageKey::BalancesInner {
             token_id: env::sha256(tmp_token_id.as_bytes()),
         });
-        let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
+        let tmp_account_id = AccountIdRef::new_or_panic(&"a".repeat(64)).into();
 
         let initial_storage_usage = env::storage_usage();
 
@@ -168,7 +171,7 @@ impl MultiToken {
     }
 
     fn measure_min_account_storage_cost(&mut self) {
-        let tmp_account_id = AccountId::new_unchecked("a".repeat(64));
+        let tmp_account_id = AccountIdRef::new_or_panic(&"a".repeat(64)).into();
         let initial_storage_usage = env::storage_usage();
 
         // storage in NEAR's per account
@@ -530,8 +533,7 @@ impl MultiTokenCore for MultiToken {
             self.internal_transfer(&sender_id, &receiver_id, &token_id, amount_to_send, &approval);
 
         let receiver_gas = env::prepaid_gas()
-            .0
-            .checked_sub(GAS_FOR_MT_TRANSFER_CALL.0)
+            .checked_sub(GAS_FOR_MT_TRANSFER_CALL)
             .unwrap_or_else(|| env::panic_str(ERR_PREPAID_GAS_OVERFLOW));
 
         ext_mt_receiver::ext(receiver_id.clone())
@@ -581,7 +583,6 @@ impl MultiTokenCore for MultiToken {
         );
 
         let receiver_gas = env::prepaid_gas()
-            .0
             .checked_sub(GAS_FOR_MT_TRANSFER_CALL.into())
             .unwrap_or_else(|| env::panic_str(ERR_PREPAID_GAS_OVERFLOW));
 
@@ -661,7 +662,6 @@ impl MultiToken {
         // promise result contains what amounts were refunded by the receiver contract.
         let (amounts_to_refund, revert_approvals): (Vec<U128>, bool) = match env::promise_result(0)
         {
-            PromiseResult::NotReady => env::abort(),
             PromiseResult::Successful(values) => {
                 if let Ok(unused) = near_sdk::serde_json::from_slice::<Vec<U128>>(&values) {
                     // we can't be refunded by more than what we sent over

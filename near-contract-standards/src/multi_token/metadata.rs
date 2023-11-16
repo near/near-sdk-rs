@@ -1,4 +1,4 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::require;
 use near_sdk::serde::{Deserialize, Serialize};
 
@@ -8,7 +8,7 @@ pub const MT_METADATA_SPEC: &str = "mt-0.0.1";
 /// Metadata that will be permanently set at the contract init
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
-#[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct MtContractMetadata {
     pub spec: String,
     pub name: String,
@@ -22,7 +22,7 @@ pub struct MtContractMetadata {
 /// Metadata for each token
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, BorshDeserialize, BorshSerialize)]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
-#[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct TokenMetadata {
     pub title: Option<String>,
     /// Free-form description
