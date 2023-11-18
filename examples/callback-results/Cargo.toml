@@ -8,7 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = "4.1.1"
+near-sdk = { path = "../../near-sdk" }
 
 [dev-dependencies]
 near-workspaces = { version = "0.9.0" }

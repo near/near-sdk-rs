@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [5.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v4.1.1...near-sdk-v5.0.0) - 2023-11-18
+## [5.0.0-alpha.1](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sdk-v5.0.0-alpha.1) - 2023-11-18
 
 ### Added
 - adding `nep-0330` contract source metadata info ([#1106](https://github.com/near/near-sdk-rs/pull/1106))
@@ -24,7 +24,7 @@
 - prohibit NEAR function generics ([#980](https://github.com/near/near-sdk-rs/pull/980))
 - concretize `Self` references in method signatures ([#1001](https://github.com/near/near-sdk-rs/pull/1001))
 - make event `emit` public ([#975](https://github.com/near/near-sdk-rs/pull/975))
-- Expose missing UnorderedSet iter types ([#961](https://github.com/near/near-sdk-rs/pull/961))
+- Exposed missing iterator types used in `near_sdk::store::UnorderedSet` ([#961](https://github.com/near/near-sdk-rs/pull/961))
 - add compiler error for using Result with init ([#1024](https://github.com/near/near-sdk-rs/pull/1024))
 - fully qualify the schema_container method call ([#1003](https://github.com/near/near-sdk-rs/pull/1003))
 - `__abi-embed` compilation error ([#971](https://github.com/near/near-sdk-rs/pull/971))
@@ -57,9 +57,6 @@
 - cover all features with clippy ([#1044](https://github.com/near/near-sdk-rs/pull/1044))
 - use attr sig info in abi generator ([#1036](https://github.com/near/near-sdk-rs/pull/1036))
 - disentangle bindgen code generation ([#1033](https://github.com/near/near-sdk-rs/pull/1033))
-
-### Fixed
-- Exposed missing iterator types used in `near_sdk::store::UnorderedSet`. [PR 961](https://github.com/near/near-sdk-rs/pull/961)
 
 ## [4.1.1] - 2022-11-10
 

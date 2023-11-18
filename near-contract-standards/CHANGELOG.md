@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.0.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v4.1.1...near-contract-standards-v5.0.0) - 2023-11-18
+## [5.0.0-alpha.1](https://github.com/near/near-sdk-rs/compare/4.1.1...near-contract-standards-v5.0.0-alpha.1) - 2023-11-18
 
 ### Added
 - adding `nep-0330` contract source metadata info ([#1106](https://github.com/near/near-sdk-rs/pull/1106))
