@@ -2,6 +2,62 @@
 
 ## [Unreleased]
 
+## [5.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v4.1.1...near-sdk-v5.0.0) - 2023-11-18
+
+### Added
+- adding `nep-0330` contract source metadata info ([#1106](https://github.com/near/near-sdk-rs/pull/1106))
+- Support Result types in #[handle_result] regardless of how they're referred to ([#1099](https://github.com/near/near-sdk-rs/pull/1099))
+- accumulate compilation errors to provide them all at once ([#1097](https://github.com/near/near-sdk-rs/pull/1097))
+- [**breaking**] prohibit `Self` in non-init methods to prevent common footguns ([#1073](https://github.com/near/near-sdk-rs/pull/1073))
+- [**breaking**] Make `PromiseIndex` a newtype, so it cannot be misused ([#1066](https://github.com/near/near-sdk-rs/pull/1066))
+- Expose alt_bn128 curve host functions via near_sdk::env ([#1028](https://github.com/near/near-sdk-rs/pull/1028))
+- Deprecate `Self` in non-init function's return type ([#1030](https://github.com/near/near-sdk-rs/pull/1030))
+- new `near_sdk::store::UnorderedMap::defrag` method useful for gas tuning ([#1023](https://github.com/near/near-sdk-rs/pull/1023))
+- add ed25519_verify host function ([#1010](https://github.com/near/near-sdk-rs/pull/1010))
+- add `Default` implementation to JSON types ([#1018](https://github.com/near/near-sdk-rs/pull/1018))
+
+### Fixed
+- Fixed compilation-tests after stable Rust release 1.72 ([#1081](https://github.com/near/near-sdk-rs/pull/1081))
+- Un-deprecate private init functions ([#1074](https://github.com/near/near-sdk-rs/pull/1074))
+- *(store::TreeMap)* remove of the entry API now correctly updates the tree root when changed ([#995](https://github.com/near/near-sdk-rs/pull/995))
+- strip return types of lifetimes ([#982](https://github.com/near/near-sdk-rs/pull/982))
+- prohibit NEAR function generics ([#980](https://github.com/near/near-sdk-rs/pull/980))
+- concretize `Self` references in method signatures ([#1001](https://github.com/near/near-sdk-rs/pull/1001))
+- make event `emit` public ([#975](https://github.com/near/near-sdk-rs/pull/975))
+- Expose missing UnorderedSet iter types ([#961](https://github.com/near/near-sdk-rs/pull/961))
+- add compiler error for using Result with init ([#1024](https://github.com/near/near-sdk-rs/pull/1024))
+- fully qualify the schema_container method call ([#1003](https://github.com/near/near-sdk-rs/pull/1003))
+- `__abi-embed` compilation error ([#971](https://github.com/near/near-sdk-rs/pull/971))
+
+### Other
+- [**breaking**] Use type-safe NearToken instead of u128/U128 ([#1104](https://github.com/near/near-sdk-rs/pull/1104))
+- migrate to a external near-account-id crate for reusable AccountId type ([#1108](https://github.com/near/near-sdk-rs/pull/1108))
+- [**breaking**] Delete the deprecated metadata module from near-sdk-macros in favor of near-abi ([#1098](https://github.com/near/near-sdk-rs/pull/1098))
+- documented env::random_seed ([#1096](https://github.com/near/near-sdk-rs/pull/1096))
+- Update borsh to 1.0.0 ([#1075](https://github.com/near/near-sdk-rs/pull/1075))
+- bump version of near-workspaces ([#1094](https://github.com/near/near-sdk-rs/pull/1094))
+- upgrade syn crate from version 1 to 2 ([#1088](https://github.com/near/near-sdk-rs/pull/1088))
+- Move from Gas to NearGas from near-gas crate ([#1082](https://github.com/near/near-sdk-rs/pull/1082))
+- Respect `{{ matrix.toolchain }}` in "Test Core: test" job ([#1085](https://github.com/near/near-sdk-rs/pull/1085))
+- Add release-plz to automate releases ([#1069](https://github.com/near/near-sdk-rs/pull/1069))
+- add `add_access_key` test coverage ([#1029](https://github.com/near/near-sdk-rs/pull/1029))
+- disentangle bindgen extractor logic ([#1025](https://github.com/near/near-sdk-rs/pull/1025))
+- Bumped supported rust version to minimum 1.68 - reflected in BuildKite ([#1014](https://github.com/near/near-sdk-rs/pull/1014))
+- Update visibility of FreeList and method ([#998](https://github.com/near/near-sdk-rs/pull/998))
+- Add documentation to collection cache types ([#997](https://github.com/near/near-sdk-rs/pull/997))
+- abstract common functions in `Keys` and `KeysRange` ([#989](https://github.com/near/near-sdk-rs/pull/989))
+- perf (`TreeMap.range`): Update the TreeMap->Range logic ([#964](https://github.com/near/near-sdk-rs/pull/964))
+- Took out a footgun with allowances ([#976](https://github.com/near/near-sdk-rs/pull/976))
+- Depreciated legacy tree map  ([#963](https://github.com/near/near-sdk-rs/pull/963))
+- Removed the not ready enum type ([#977](https://github.com/near/near-sdk-rs/pull/977))
+- use `insta` crate for testing macro generated code ([#1090](https://github.com/near/near-sdk-rs/pull/1090))
+- Use global paths in macro expansions ([#1060](https://github.com/near/near-sdk-rs/pull/1060))
+- fix typo ([#1052](https://github.com/near/near-sdk-rs/pull/1052))
+- change private init method from error to warning ([#1043](https://github.com/near/near-sdk-rs/pull/1043))
+- cover all features with clippy ([#1044](https://github.com/near/near-sdk-rs/pull/1044))
+- use attr sig info in abi generator ([#1036](https://github.com/near/near-sdk-rs/pull/1036))
+- disentangle bindgen code generation ([#1033](https://github.com/near/near-sdk-rs/pull/1033))
+
 ### Fixed
 - Exposed missing iterator types used in `near_sdk::store::UnorderedSet`. [PR 961](https://github.com/near/near-sdk-rs/pull/961)
 
