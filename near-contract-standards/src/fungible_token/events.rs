@@ -15,14 +15,14 @@
 
 use crate::event::NearEvent;
 use near_sdk::json_types::U128;
-use near_sdk::AccountId;
+use near_sdk::AccountIdRef;
 use serde::Serialize;
 
 /// Data to log for an FT mint event. To log this event, call [`.emit()`](FtMint::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
 pub struct FtMint<'a> {
-    pub owner_id: &'a AccountId,
+    pub owner_id: &'a AccountIdRef,
     pub amount: &'a U128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
@@ -47,8 +47,8 @@ impl FtMint<'_> {
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
 pub struct FtTransfer<'a> {
-    pub old_owner_id: &'a AccountId,
-    pub new_owner_id: &'a AccountId,
+    pub old_owner_id: &'a AccountIdRef,
+    pub new_owner_id: &'a AccountIdRef,
     pub amount: &'a U128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
@@ -72,7 +72,7 @@ impl FtTransfer<'_> {
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
 pub struct FtBurn<'a> {
-    pub owner_id: &'a AccountId,
+    pub owner_id: &'a AccountIdRef,
     pub amount: &'a U128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memo: Option<&'a str>,
@@ -120,19 +120,11 @@ fn new_141_v1(event_kind: Nep141EventKind) -> NearEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use near_sdk::{test_utils, AccountId};
-
-    fn bob() -> AccountId {
-        AccountId::new_unchecked("bob".to_string())
-    }
-
-    fn alice() -> AccountId {
-        AccountId::new_unchecked("alice".to_string())
-    }
+    use near_sdk::{test_utils, AccountIdRef};
 
     #[test]
     fn ft_mint() {
-        let owner_id = &bob();
+        let owner_id = &AccountIdRef::new_or_panic("bob");
         let amount = &U128(100);
         FtMint { owner_id, amount, memo: None }.emit();
         assert_eq!(
@@ -143,12 +135,16 @@ mod tests {
 
     #[test]
     fn ft_mints() {
-        let owner_id = &bob();
+        let owner_id = &AccountIdRef::new_or_panic("bob");
         let amount = &U128(100);
         let mint_log = FtMint { owner_id, amount, memo: None };
         FtMint::emit_many(&[
             mint_log,
-            FtMint { owner_id: &alice(), amount: &U128(200), memo: Some("has memo") },
+            FtMint {
+                owner_id: &AccountIdRef::new_or_panic("alice"),
+                amount: &U128(200),
+                memo: Some("has memo"),
+            },
         ]);
         assert_eq!(
             test_utils::get_logs()[0],
@@ -158,7 +154,7 @@ mod tests {
 
     #[test]
     fn ft_burn() {
-        let owner_id = &bob();
+        let owner_id = &AccountIdRef::new_or_panic("bob");
         let amount = &U128(100);
         FtBurn { owner_id, amount, memo: None }.emit();
         assert_eq!(
@@ -169,10 +165,14 @@ mod tests {
 
     #[test]
     fn ft_burns() {
-        let owner_id = &bob();
+        let owner_id = &AccountIdRef::new_or_panic("bob");
         let amount = &U128(100);
         FtBurn::emit_many(&[
-            FtBurn { owner_id: &alice(), amount: &U128(200), memo: Some("has memo") },
+            FtBurn {
+                owner_id: &AccountIdRef::new_or_panic("alice"),
+                amount: &U128(200),
+                memo: Some("has memo"),
+            },
             FtBurn { owner_id, amount, memo: None },
         ]);
         assert_eq!(
@@ -183,8 +183,8 @@ mod tests {
 
     #[test]
     fn ft_transfer() {
-        let old_owner_id = &bob();
-        let new_owner_id = &alice();
+        let old_owner_id = &AccountIdRef::new_or_panic("bob");
+        let new_owner_id = &AccountIdRef::new_or_panic("alice");
         let amount = &U128(100);
         FtTransfer { old_owner_id, new_owner_id, amount, memo: None }.emit();
         assert_eq!(
@@ -195,13 +195,13 @@ mod tests {
 
     #[test]
     fn ft_transfers() {
-        let old_owner_id = &bob();
-        let new_owner_id = &alice();
+        let old_owner_id = &AccountIdRef::new_or_panic("bob");
+        let new_owner_id = &AccountIdRef::new_or_panic("alice");
         let amount = &U128(100);
         FtTransfer::emit_many(&[
             FtTransfer {
-                old_owner_id: &alice(),
-                new_owner_id: &bob(),
+                old_owner_id: &AccountIdRef::new_or_panic("alice"),
+                new_owner_id: &AccountIdRef::new_or_panic("bob"),
                 amount: &U128(200),
                 memo: Some("has memo"),
             },
