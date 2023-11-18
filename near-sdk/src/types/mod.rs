@@ -7,9 +7,10 @@ pub use self::public_key::{CurveType, PublicKey};
 mod primitives;
 pub use self::primitives::*;
 
-pub use near_account_id::AccountId;
+pub use near_account_id::{AccountId, AccountIdRef};
 
 pub use near_gas::NearGas as Gas;
+pub use near_token::NearToken;
 
 mod error;
 pub use self::error::Abort;
@@ -43,9 +44,3 @@ impl Default for GasWeight {
         Self(1)
     }
 }
-
-/// Balance of one Yocto NEAR, which is the smallest denomination. This value is 10^-24 of one NEAR.
-pub const ONE_YOCTO: Balance = 1;
-
-/// Balance of one NEAR, which is 10^24 Yocto NEAR.
-pub const ONE_NEAR: Balance = 1_000_000_000_000_000_000_000_000;

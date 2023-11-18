@@ -1,7 +1,7 @@
 use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
 
-use near_units::parse_near;
+use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract, DevNetwork, Worker};
 
 pub const TOKEN_ID: &str = "0";
@@ -30,7 +30,7 @@ pub async fn helper_mint(
         .call("nft_mint")
         .args_json((token_id, nft_contract.id(), token_metadata))
         .max_gas()
-        .deposit(parse_near!("7 mN"))
+        .deposit(NearToken::from_millinear(7))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -75,7 +75,7 @@ pub async fn init(
         .call("nft_mint")
         .args_json((TOKEN_ID, nft_contract.id(), token_metadata))
         .max_gas()
-        .deposit(parse_near!("7 mN"))
+        .deposit(NearToken::from_millinear(7))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -83,7 +83,7 @@ pub async fn init(
     let res = nft_contract
         .as_account()
         .create_subaccount("alice")
-        .initial_balance(parse_near!("10 N"))
+        .initial_balance(NearToken::from_near(10))
         .transact()
         .await?;
     assert!(res.is_success());

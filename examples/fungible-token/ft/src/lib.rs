@@ -28,7 +28,8 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, require, AccountId, BorshStorageKey, PanicOnDefault, PromiseOrValue,
+    env, log, near_bindgen, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault,
+    PromiseOrValue,
 };
 
 #[near_bindgen]
@@ -84,7 +85,7 @@ impl Contract {
 
         near_contract_standards::fungible_token::events::FtMint {
             owner_id: &owner_id,
-            amount: &total_supply,
+            amount: total_supply,
             memo: Some("new tokens are minted"),
         }
         .emit();
@@ -150,7 +151,7 @@ impl StorageManagement for Contract {
     }
 
     #[payable]
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
+    fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance {
         self.token.storage_withdraw(amount)
     }
 
@@ -183,8 +184,9 @@ impl FungibleTokenMetadataProvider for Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    use near_contract_standards::fungible_token::Balance;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, Balance};
+    use near_sdk::testing_env;
 
     use super::*;
 
@@ -232,7 +234,7 @@ mod tests {
 
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(1)
+            .attached_deposit(NearToken::from_yoctonear(1))
             .predecessor_account_id(accounts(2))
             .build());
         let transfer_amount = TOTAL_SUPPLY / 3;
@@ -242,7 +244,7 @@ mod tests {
             .storage_usage(env::storage_usage())
             .account_balance(env::account_balance())
             .is_view(true)
-            .attached_deposit(0)
+            .attached_deposit(NearToken::from_near(0))
             .build());
         assert_eq!(contract.ft_balance_of(accounts(2)).0, (TOTAL_SUPPLY - transfer_amount));
         assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount);

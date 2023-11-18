@@ -10,7 +10,7 @@ pub extern "C" fn private_method() {
     {
         ::near_sdk::env::panic_str("Method private_method is private");
     }
-    if ::near_sdk::env::attached_deposit() != 0 {
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
         ::near_sdk::env::panic_str("Method private_method doesn't accept deposit");
     }
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
