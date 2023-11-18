@@ -107,7 +107,7 @@ impl FungibleToken {
         FtTransfer {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,
-            amount: &U128(amount),
+            amount: U128(amount),
             memo: memo.as_deref(),
         }
         .emit();
@@ -208,7 +208,7 @@ impl FungibleToken {
                     FtTransfer {
                         old_owner_id: &receiver_id,
                         new_owner_id: sender_id,
-                        amount: &U128(refund_amount),
+                        amount: U128(refund_amount),
                         memo: Some("refund"),
                     }
                     .emit();
@@ -225,7 +225,7 @@ impl FungibleToken {
                     log!("The account of the sender was deleted");
                     FtBurn {
                         owner_id: &receiver_id,
-                        amount: &U128(refund_amount),
+                        amount: U128(refund_amount),
                         memo: Some("refund"),
                     }
                     .emit();
