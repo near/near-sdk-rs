@@ -16,7 +16,7 @@ pub(crate) fn generate_ext_structs(
         pub fn ext(account_id: ::near_sdk::AccountId) -> #name {
             #name {
                 account_id,
-                deposit: 0,
+                deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
             }
@@ -35,13 +35,13 @@ pub(crate) fn generate_ext_structs(
       #[must_use]
       pub struct #name {
           pub(crate) account_id: ::near_sdk::AccountId,
-          pub(crate) deposit: ::near_sdk::Balance,
+          pub(crate) deposit: ::near_sdk::NearToken,
           pub(crate) static_gas: ::near_sdk::Gas,
           pub(crate) gas_weight: ::near_sdk::GasWeight,
       }
 
       impl #name {
-          pub fn with_attached_deposit(mut self, amount: ::near_sdk::Balance) -> Self {
+          pub fn with_attached_deposit(mut self, amount: ::near_sdk::NearToken) -> Self {
               self.deposit = amount;
               self
           }

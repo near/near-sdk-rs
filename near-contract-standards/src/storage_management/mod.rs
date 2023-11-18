@@ -1,15 +1,14 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::AccountId;
+use near_sdk::{AccountId, NearToken};
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalance {
-    pub total: U128,
-    pub available: U128,
+    pub total: NearToken,
+    pub available: NearToken,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -17,8 +16,8 @@ pub struct StorageBalance {
 #[borsh(crate = "near_sdk::borsh")]
 #[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalanceBounds {
-    pub min: U128,
-    pub max: Option<U128>,
+    pub min: NearToken,
+    pub max: Option<NearToken>,
 }
 
 /// Ensures that when fungible token storage grows by collections adding entries,
@@ -30,7 +29,7 @@ pub struct StorageBalanceBounds {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, Balance, log};
+/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, NearToken, log};
 /// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
@@ -49,13 +48,6 @@ pub struct StorageBalanceBounds {
 /// }
 ///
 /// #[near_bindgen]
-/// impl Contract {
-///    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
-///         log!("Closed @{} with {}", account_id, balance);
-///    }
-/// }
-///
-/// #[near_bindgen]
 /// impl StorageManagement for Contract {
 ///     #[payable]
 ///     fn storage_deposit(
@@ -67,7 +59,7 @@ pub struct StorageBalanceBounds {
 ///     }
 ///
 ///     #[payable]
-///     fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
+///     fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance {
 ///         self.token.storage_withdraw(amount)
 ///     }
 ///
@@ -75,7 +67,7 @@ pub struct StorageBalanceBounds {
 ///     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
 ///         #[allow(unused_variables)]
 ///         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force) {
-///             self.on_account_closed(account_id, balance);
+///             log!("Closed @{} with {}", account_id, balance);
 ///             true
 ///         } else {
 ///             false
@@ -116,7 +108,7 @@ pub trait StorageManagement {
     /// function-call access-key call (UX wallet security)
     ///
     /// Returns the StorageBalance structure showing updated balances.
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance;
+    fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance;
 
     /// Unregisters the predecessor account and returns the storage NEAR deposit back.
     ///

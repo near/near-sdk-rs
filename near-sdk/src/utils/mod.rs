@@ -7,7 +7,7 @@ pub(crate) use self::stable_map::StableMap;
 mod cache_entry;
 pub(crate) use cache_entry::{CacheEntry, EntryState};
 
-use crate::{env, PromiseResult};
+use crate::{env, NearToken, PromiseResult};
 
 /// Helper macro to log a message through [`env::log_str`].
 /// This macro can be used similar to the [`std::format`] macro in most cases.
@@ -85,7 +85,10 @@ pub fn assert_self() {
 
 /// Assert that 1 yoctoNEAR was attached.
 pub fn assert_one_yocto() {
-    require!(env::attached_deposit() == 1, "Requires attached deposit of exactly 1 yoctoNEAR")
+    require!(
+        env::attached_deposit() == NearToken::from_yoctonear(1),
+        "Requires attached deposit of exactly 1 yoctoNEAR"
+    )
 }
 
 /// Returns true if promise was successful.

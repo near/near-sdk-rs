@@ -1,6 +1,6 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde_json;
-use near_sdk::{env, near_bindgen, require, Gas, PromiseResult};
+use near_sdk::{env, near_bindgen, require, Gas, NearToken, PromiseResult};
 
 // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
 const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
@@ -26,7 +26,7 @@ impl CrossContract {
             account_id.clone(),
             "factorial",
             &serde_json::to_vec(&(n - 1,)).unwrap(),
-            0,
+            NearToken::from_near(0),
             prepaid_gas.saturating_sub(FACTORIAL_MULT_CALL_GAS),
         );
         let promise1 = env::promise_then(
@@ -34,7 +34,7 @@ impl CrossContract {
             account_id,
             "factorial_mult",
             &serde_json::to_vec(&(n,)).unwrap(),
-            0,
+            NearToken::from_near(0),
             FACTORIAL_MULT_CALL_GAS,
         );
         env::promise_return(promise1);

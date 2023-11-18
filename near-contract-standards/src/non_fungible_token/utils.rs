@@ -1,4 +1,4 @@
-use near_sdk::{env, require, AccountId, Balance, Promise};
+use near_sdk::{env, require, AccountId, NearToken, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -16,7 +16,8 @@ where
     I: Iterator<Item = &'a AccountId>,
 {
     let storage_released: u64 = approved_account_ids.map(bytes_for_approved_account_id).sum();
-    Promise::new(account_id).transfer(Balance::from(storage_released) * env::storage_byte_cost())
+    Promise::new(account_id)
+        .transfer(env::storage_byte_cost().saturating_mul(storage_released.into()))
 }
 
 pub fn refund_approved_account_ids(
@@ -27,7 +28,7 @@ pub fn refund_approved_account_ids(
 }
 
 pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
-    let required_cost = env::storage_byte_cost() * Balance::from(storage_used);
+    let required_cost = env::storage_byte_cost().saturating_mul(storage_used.into());
     let attached_deposit = env::attached_deposit();
 
     require!(
@@ -35,8 +36,8 @@ pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
         format!("Must attach {} yoctoNEAR to cover storage", required_cost)
     );
 
-    let refund = attached_deposit - required_cost;
-    if refund > 1 {
+    let refund = attached_deposit.saturating_sub(required_cost);
+    if refund.as_yoctonear() > 1 {
         Promise::new(account_id).transfer(refund);
     }
 }
@@ -48,5 +49,8 @@ pub fn refund_deposit(storage_used: u64) {
 
 /// Assert that at least 1 yoctoNEAR was attached.
 pub(crate) fn assert_at_least_one_yocto() {
-    require!(env::attached_deposit() >= 1, "Requires attached deposit of at least 1 yoctoNEAR")
+    require!(
+        env::attached_deposit() >= NearToken::from_yoctonear(1),
+        "Requires attached deposit of at least 1 yoctoNEAR"
+    )
 }
