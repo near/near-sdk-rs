@@ -85,7 +85,7 @@ impl Contract {
 
         near_contract_standards::fungible_token::events::FtMint {
             owner_id: &owner_id,
-            amount: &total_supply,
+            amount: total_supply,
             memo: Some("new tokens are minted"),
         }
         .emit();

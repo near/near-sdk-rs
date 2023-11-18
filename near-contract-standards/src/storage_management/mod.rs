@@ -48,13 +48,6 @@ pub struct StorageBalanceBounds {
 /// }
 ///
 /// #[near_bindgen]
-/// impl Contract {
-///    fn on_account_closed(&mut self, account_id: AccountId, balance: U128) {
-///         log!("Closed @{} with {}", account_id, balance.0);
-///    }
-/// }
-///
-/// #[near_bindgen]
 /// impl StorageManagement for Contract {
 ///     #[payable]
 ///     fn storage_deposit(
@@ -74,7 +67,7 @@ pub struct StorageBalanceBounds {
 ///     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
 ///         #[allow(unused_variables)]
 ///         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force) {
-///             self.on_account_closed(account_id, balance);
+///             log!("Closed @{} with {}", account_id, balance.0);
 ///             true
 ///         } else {
 ///             false
