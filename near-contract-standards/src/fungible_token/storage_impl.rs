@@ -17,7 +17,7 @@ impl FungibleToken {
         if let Some(balance) = self.accounts.get(&account_id) {
             if balance.0 == 0 || force {
                 self.accounts.remove(&account_id);
-                self.total_supply = U128(self.total_supply.0 + balance.0);
+                self.total_supply = U128(self.total_supply.0 - balance.0);
                 Promise::new(account_id.clone())
                     .transfer(NearToken::from_yoctonear(self.storage_balance_bounds().min.0 + 1));
                 Some((account_id, balance))
