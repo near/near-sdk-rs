@@ -1,8 +1,10 @@
 use near_sdk::json_types::U128;
-use near_sdk::NearToken;
+use near_units::parse_near;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
-use near_workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
+use near_workspaces::{Account, AccountId, Contract, DevNetwork, Worker, types::NearToken};
+
+const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
 async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::Result<()> {
     let res = contract
@@ -59,7 +61,7 @@ async fn init(
 
 #[tokio::test]
 async fn test_total_supply() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
@@ -71,8 +73,8 @@ async fn test_total_supply() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_simple_transfer() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
-    let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
+    let transfer_amount = U128::from(parse_near!("100 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
@@ -80,7 +82,7 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
         .call("ft_transfer")
         .args_json((alice.id(), transfer_amount, Option::<bool>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_success());
@@ -97,7 +99,7 @@ async fn test_simple_transfer() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_close_account_empty_balance() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, alice, _) = init(&worker, initial_balance).await?;
 
@@ -105,7 +107,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
         .call(contract.id(), "storage_unregister")
         .args_json((Option::<bool>::None,))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.json::<bool>()?);
@@ -115,7 +117,7 @@ async fn test_close_account_empty_balance() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, _) = init(&worker, initial_balance).await?;
 
@@ -123,7 +125,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
         .call("storage_unregister")
         .args_json((Option::<bool>::None,))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await;
     assert!(format!("{:?}", res)
@@ -133,7 +135,7 @@ async fn test_close_account_non_empty_balance() -> anyhow::Result<()> {
         .call("storage_unregister")
         .args_json((Some(false),))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await;
     assert!(format!("{:?}", res)
@@ -152,7 +154,7 @@ async fn simulate_close_account_force_non_empty_balance() -> anyhow::Result<()> 
         .call("storage_unregister")
         .args_json((Some(true),))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_success());
@@ -179,13 +181,13 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
         .call(
             Function::new("ft_transfer_call")
                 .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))
-                .deposit(NearToken::from_yoctonear(1))
+                .deposit(ONE_YOCTO)
                 .gas(near_sdk::Gas::from_tgas(150)),
         )
         .call(
             Function::new("storage_unregister")
                 .args_json((Some(true),))
-                .deposit(NearToken::from_yoctonear(1))
+                .deposit(ONE_YOCTO)
                 .gas(near_sdk::Gas::from_tgas(150)),
         )
         .transact()
@@ -222,8 +224,8 @@ async fn simulate_transfer_call_with_burned_amount() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
-    let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
+    let transfer_amount = U128::from(parse_near!("100 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -235,7 +237,7 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
         .call("ft_transfer_call")
         .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "take-my-money"))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_success());
@@ -257,8 +259,8 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund() -> anyhow:
 #[tokio::test]
 async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() -> anyhow::Result<()>
 {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
-    let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
+    let transfer_amount = U128::from(parse_near!("100 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -267,7 +269,7 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
         .call("ft_transfer_call")
         .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "take-my-money"))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_failure());
@@ -289,9 +291,9 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft() ->
 
 #[tokio::test]
 async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
-    let refund_amount = U128::from(NearToken::from_near(50).as_yoctonear());
-    let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
+    let refund_amount = U128::from(parse_near!("50 N"));
+    let transfer_amount = U128::from(parse_near!("100 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -307,7 +309,7 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
             refund_amount.0.to_string(),
         ))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_success());
@@ -328,8 +330,8 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
 
 #[tokio::test]
 async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Result<()> {
-    let initial_balance = U128::from(NearToken::from_near(10000).as_yoctonear());
-    let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
+    let initial_balance = U128::from(parse_near!("10000 N"));
+    let transfer_amount = U128::from(parse_near!("100 N"));
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
@@ -346,7 +348,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund() -> anyhow::Re
             "no parsey as integer big panic oh no".to_string(),
         ))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_success());

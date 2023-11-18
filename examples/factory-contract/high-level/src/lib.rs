@@ -1,6 +1,6 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::PromiseError;
-use near_sdk::{env, ext_contract, json_types::U128, near_bindgen, AccountId, NearToken, Promise};
+use near_sdk::{env, ext_contract, near_bindgen, AccountId, NearToken, Promise};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]

@@ -14,6 +14,6 @@ pub mod resolver;
 pub mod storage_impl;
 
 pub use crate::fungible_token::core::FungibleTokenCore;
-pub use core_impl::FungibleToken;
+pub use core_impl::{Balance, FungibleToken};
 pub use macros::*;
 pub use resolver::FungibleTokenResolver;

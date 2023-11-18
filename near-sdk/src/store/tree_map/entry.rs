@@ -139,7 +139,6 @@ where
     where
         V: Default,
     {
-        #[allow(clippy::unwrap_or_default)]
         self.or_insert_with(Default::default)
     }
 
