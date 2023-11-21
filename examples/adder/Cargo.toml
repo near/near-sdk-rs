@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = { version = "4.1.1", features = ["unstable"] }
 serde = { version = "1", features = ["derive"] }
-schemars = "0.8"
 
 [dev-dependencies]
 near-workspaces = { version = "0.9.0" }
