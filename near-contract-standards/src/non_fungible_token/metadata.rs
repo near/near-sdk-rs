@@ -1,8 +1,9 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::require;
-use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::schemars;
+use near_sdk::serde::{Deserialize, Serialize};
+
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
