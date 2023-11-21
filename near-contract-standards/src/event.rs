@@ -1,4 +1,4 @@
-use near_sdk::env;
+use near_sdk::{env, log};
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]
@@ -8,6 +8,7 @@ use serde::Serialize;
 pub(crate) enum NearEvent<'a> {
     Nep171(crate::non_fungible_token::events::Nep171Event<'a>),
     Nep141(crate::fungible_token::events::Nep141Event<'a>),
+    Nep245(crate::multi_token::events::Nep245Event<'a>),
 }
 
 impl<'a> NearEvent<'a> {
@@ -24,6 +25,6 @@ impl<'a> NearEvent<'a> {
     /// Logs the event to the host. This is required to ensure that the event is triggered
     /// and to consume the event.
     pub(crate) fn emit(self) {
-        near_sdk::env::log_str(&self.to_json_event_string());
+        log!(&self.to_json_event_string());
     }
 }
