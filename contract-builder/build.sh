@@ -22,7 +22,7 @@ else
 fi
 
 if [[ ${branch} == "master" ]]; then
-    docker buildx build --platform $1 -t nearprotocol/"${image_name}:${branch}-${commit}-$1" -t nearprotocol/${image_name}:latest-$1 --push .
+    docker buildx build --platform linux/$1 -t nearprotocol/"${image_name}:${branch}-${commit}-$1" -t nearprotocol/${image_name}:latest-$1 --push .
 else
-    docker buildx build --platform $1 -t nearprotocol/"${image_name}:${branch}-${commit}-$1" --push .
+    docker buildx build --platform linux/$1 -t nearprotocol/"${image_name}:${branch}-${commit}-$1" --push .
 fi

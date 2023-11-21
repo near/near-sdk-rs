@@ -8,19 +8,15 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { version = "4.1.1", features = ["unstable"] }
-serde = { version = "1", features = ["derive"] }
+near-sdk = { path = "../../near-sdk", features = ["unstable"] }
 
 [dev-dependencies]
-near-workspaces = { version = "0.9.0" }
+near-workspaces = { version = "0.9.0", default-features = false, features = ["install"] }
 serde_json = "1.0"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-abi = "0.4.0"
 zstd = "0.11"
-
-[patch.crates-io]
-near-sdk = { path = "../../near-sdk" }
 
 [profile.release]
 codegen-units = 1
@@ -29,6 +25,3 @@ opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
-
-[workspace]
-members = []

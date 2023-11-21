@@ -4,10 +4,12 @@ use near_sdk::{near_bindgen, NearSchema};
 
 #[derive(NearSchema, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
+#[serde(crate = "near_sdk::serde")]
 #[abi(json, borsh)]
 pub struct Pair(u32, u32);
 
 #[derive(NearSchema, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 #[abi(json, borsh)]
 pub struct DoublePair {
     first: Pair,
@@ -63,28 +65,28 @@ mod tests {
         let res = contract.view("__contract_abi").await?;
 
         let abi_root =
-            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?).unwrap();
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
 
         assert_eq!(abi_root.schema_version, "0.3.0");
         assert_eq!(abi_root.metadata.name, Some("adder".to_string()));
         assert_eq!(abi_root.metadata.version, Some("0.1.0".to_string()));
         assert_eq!(
             &abi_root.metadata.authors[..],
-            &["Near Inc <hello@nearprotocol.com>".to_string()]
+            &["Near Inc <hello@nearprotocol.com>"]
         );
         assert_eq!(abi_root.body.functions.len(), 3);
 
         let add_function = &abi_root.body.functions[0];
 
-        assert_eq!(add_function.name, "add".to_string());
+        assert_eq!(add_function.name, "add");
         assert_eq!(add_function.doc, Some(" Adds two pairs point-wise.".to_string()));
         assert_eq!(add_function.kind, AbiFunctionKind::View);
-        assert_eq!(add_function.modifiers, vec![]);
+        assert_eq!(add_function.modifiers, &[]);
         match &add_function.params {
             AbiParameters::Json { args } => {
                 assert_eq!(args.len(), 2);
-                assert_eq!(args[0].name, "a".to_string());
-                assert_eq!(args[1].name, "b".to_string());
+                assert_eq!(args[0].name, "a");
+                assert_eq!(args[1].name, "b");
             }
             AbiParameters::Borsh { .. } => {
                 assert!(false);
