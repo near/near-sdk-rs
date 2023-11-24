@@ -1,16 +1,18 @@
 use super::NonFungibleTokenPayout;
+use crate::fungible_token::Balance;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::payout::*;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::{assert_one_yocto, env};
-use near_sdk::{require, AccountId, Balance, IntoStorageKey};
+use near_sdk::{require, AccountId, IntoStorageKey};
 
 impl Royalties {
     pub fn new<S>(key_prefix: S) -> Self
     where
         S: IntoStorageKey,
     {
-        let temp_accounts: TreeMap<AccountId, BasisPoint> = TreeMap::new(key_prefix);
+        let temp_accounts: TreeMap<AccountId, HashMap<TokenId, BasisPoint>> =
+            TreeMap::new(key_prefix);
         let this = Self { accounts: temp_accounts };
         this.validate();
         this
@@ -21,28 +23,53 @@ impl Royalties {
             self.accounts.len() <= 10,
             "can only have a maximum of 10 accounts spliting royalties"
         );
-        let mut total: BasisPoint = 0;
-        self.accounts.iter().for_each(|(_, percent)| {
-            require!(percent <= 100, "each royalty should be at most 100");
-            total += percent;
+
+        let mut total_per_token = HashMap::new();
+
+        self.accounts.iter().for_each(|(_, percent_per_token)| {
+            percent_per_token.iter().for_each(|(token_id, percent)| {
+                require!(*percent <= 100, "each royalty should be at most 100");
+                *total_per_token.entry(token_id.to_owned()).or_default() += percent;
+            });
         });
-        require!(total <= 100, "total percent of each royalty split must be at most 100")
+
+        total_per_token.values().for_each(|total: &u16| {
+            require!(
+                *total <= 100,
+                "total percent of each royalty split must be at most 100 per token"
+            )
+        });
     }
 
     /// Create a payout.
     ///
     /// # Arguments
+    /// * `token_id` - token_id for payout.
     /// * `balance` - total balance dedicated to the payout.
-    /// * `owner_id` - nft owner account id
+    /// * `owner_id` - nft owner account id.
     ///
     /// NOTE: The owner gets whatever is left after distributing the rest of the payout plus the
     /// percentage specified explicitly, if any.
-    pub fn create_payout(&self, balance: Balance, owner_id: &AccountId) -> Payout {
+    pub fn create_payout(
+        &self,
+        token_id: TokenId,
+        balance: Balance,
+        owner_id: &AccountId,
+    ) -> Payout {
         let mut payout = Payout {
             payout: self
                 .accounts
                 .iter()
-                .map(|(account, percent)| (account.clone(), apply_percent(percent, balance).into()))
+                .map(|(account, percent_per_token)| {
+                    (
+                        account.clone(),
+                        U128::from(apply_percent(
+                            *percent_per_token.get(&token_id).unwrap_or(&0),
+                            balance,
+                        )),
+                    )
+                })
+                .filter(|(_, payout)| payout.0 > 0)
                 .collect(),
         };
         let rest = balance - payout.payout.values().fold(0, |acc, &sum| acc + sum.0);
@@ -62,7 +89,7 @@ impl NonFungibleTokenPayout for NonFungibleToken {
         let payout = self
             .royalties
             .as_ref()
-            .map_or(Payout::default(), |r| r.create_payout(balance.0, &owner_id));
+            .map_or(Payout::default(), |r| r.create_payout(token_id, balance.0, &owner_id));
 
         if let Some(max_len_payout) = max_len_payout {
             require!(
@@ -91,12 +118,13 @@ impl NonFungibleTokenPayout for NonFungibleToken {
 }
 #[cfg(test)]
 mod tests {
+    use crate::fungible_token::Balance;
     use crate::non_fungible_token::payout::payout_impl::apply_percent;
     use crate::non_fungible_token::payout::Royalties;
     use near_account_id::AccountIdRef;
     use near_sdk::collections::TreeMap;
     use near_sdk::json_types::U128;
-    use near_sdk::Balance;
+    use std::collections::HashMap;
     use std::mem;
 
     const KEY_PREFIX: &[u8] = "test_prefix".as_bytes();
@@ -104,10 +132,14 @@ mod tests {
     #[test]
     fn validate_happy_path() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         // Works with up to 100% and at most 10 accounts.
         for idx in 0..10 {
-            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &10);
+            map.insert(
+                &AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(),
+                &HashMap::from([(token_id.clone(), 10)]),
+            );
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
@@ -117,7 +149,7 @@ mod tests {
 
         // Make sure that max royalties works.
         let owner_id = AccountIdRef::new_or_panic("alice").into();
-        let payout = royalties.create_payout(1000, &owner_id);
+        let payout = royalties.create_payout(token_id, 1000, &owner_id);
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
             if *key == owner_id {
@@ -131,9 +163,13 @@ mod tests {
     #[test]
     fn validate_owner_rest_path() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         for idx in 0..10 {
-            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &8);
+            map.insert(
+                &AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(),
+                &HashMap::from([(token_id.clone(), 8)]),
+            );
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
@@ -145,7 +181,7 @@ mod tests {
         // opposed to float.
         let balance = Balance::MAX / 10_000 * 100;
         let owner_id = AccountIdRef::new_or_panic("alice");
-        let payout = royalties.create_payout(balance, &owner_id.into());
+        let payout = royalties.create_payout(token_id, balance, &owner_id.into());
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
             if *key == owner_id {
@@ -159,11 +195,19 @@ mod tests {
     #[test]
     fn validate_owner_rest_and_royalty_path() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         for idx in 0..9 {
-            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &8);
+            map.insert(
+                &AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(),
+                &HashMap::from([(token_id.clone(), 8)]),
+            );
         }
-        map.insert(&AccountIdRef::new_or_panic("alice").into(), &8);
+
+        map.insert(
+            &AccountIdRef::new_or_panic("alice").into(),
+            &HashMap::from([(token_id.clone(), 8)]),
+        );
 
         let mut royalties = Royalties::new(KEY_PREFIX);
 
@@ -174,7 +218,7 @@ mod tests {
         // opposed to float.
         let balance = Balance::MAX / 10_000 * 100;
         let owner_id = AccountIdRef::new_or_panic("alice");
-        let payout = royalties.create_payout(balance, &owner_id.into());
+        let payout = royalties.create_payout(token_id, balance, &owner_id.into());
         for (key, value) in payout.payout.iter() {
             map.contains_key(key);
             if *key == owner_id {
@@ -194,15 +238,23 @@ mod tests {
     #[should_panic(expected = "royalty overflow")]
     fn create_payout_overflow() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         for idx in 0..10 {
-            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &10);
+            map.insert(
+                &AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(),
+                &HashMap::from([(token_id.clone(), 8)]),
+            );
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
         mem::swap(&mut royalties.accounts, &mut map);
 
-        royalties.create_payout(Balance::MAX, &AccountIdRef::new_or_panic("alice").into());
+        royalties.create_payout(
+            token_id,
+            Balance::MAX,
+            &AccountIdRef::new_or_panic("alice").into(),
+        );
     }
 
     #[test]
@@ -215,10 +267,14 @@ mod tests {
     #[should_panic(expected = "can only have a maximum of 10 accounts spliting royalties")]
     fn validate_too_many_accounts() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         // Fails with 11 accounts.
         for idx in 0..11 {
-            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &10);
+            map.insert(
+                &AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(),
+                &HashMap::from([(token_id.clone(), 8)]),
+            );
         }
 
         let mut royalties = Royalties::new(KEY_PREFIX);
@@ -231,9 +287,13 @@ mod tests {
     #[should_panic(expected = "each royalty should be at most 100")]
     fn validate_royalty_per_account_fails() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         // Fails with more than 100% per account.
-        map.insert(&AccountIdRef::new_or_panic("bob").into(), &101);
+        map.insert(
+            &AccountIdRef::new_or_panic("bob").into(),
+            &HashMap::from([(token_id.clone(), 101)]),
+        );
 
         let mut royalties = Royalties::new(KEY_PREFIX);
 
@@ -245,11 +305,16 @@ mod tests {
     #[should_panic(expected = "total percent of each royalty split must be at most 100")]
     fn validate_total_royalties_fails() {
         let mut map = TreeMap::new(KEY_PREFIX);
+        let token_id = "token_id".to_string();
 
         // Fails with total royalties over 100%.
         for idx in 0..10 {
-            map.insert(&AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(), &11);
+            map.insert(
+                &AccountIdRef::new_or_panic(&format!("bob_{}", idx)).into(),
+                &HashMap::from([(token_id.clone(), 11)]),
+            );
         }
+
         let mut royalties = Royalties::new(KEY_PREFIX);
 
         mem::swap(&mut royalties.accounts, &mut map);

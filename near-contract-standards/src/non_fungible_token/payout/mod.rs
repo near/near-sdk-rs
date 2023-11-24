@@ -1,5 +1,6 @@
 mod payout_impl;
 
+use crate::non_fungible_token::TokenId;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::json_types::U128;
@@ -22,8 +23,8 @@ pub struct Payout {
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Royalties {
-    /// A mapping of accounts to the percentage of total royalty to be distributed.
-    pub accounts: TreeMap<AccountId, BasisPoint>,
+    /// A mapping of accounts to the percentage of total royalty to be distributed per token.
+    pub accounts: TreeMap<AccountId, HashMap<TokenId, BasisPoint>>,
 }
 
 /// An interface allowing non-fungible token contracts to request that financial contracts pay-out
