@@ -1,4 +1,4 @@
-use crate::{AccountId, Balance, Gas, PublicKey};
+use crate::{AccountId, Gas, NearToken, PublicKey};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -18,13 +18,13 @@ pub enum VmAction {
         function_name: String,
         args: Vec<u8>,
         gas: Gas,
-        deposit: Balance,
+        deposit: NearToken,
     },
     Transfer {
-        deposit: Balance,
+        deposit: NearToken,
     },
     Stake {
-        stake: Balance,
+        stake: NearToken,
         public_key: PublicKey,
     },
     AddKeyWithFullAccess {
@@ -34,7 +34,7 @@ pub enum VmAction {
     AddKeyWithFunctionCall {
         public_key: PublicKey,
         nonce: u64,
-        allowance: Option<Balance>,
+        allowance: Option<NearToken>,
         receiver_id: AccountId,
         function_names: Vec<String>,
     },

@@ -564,6 +564,7 @@ mod tests {
 
             for _ in s.drain() {}
 
+            #[allow(clippy::never_loop)]
             for _ in &s {
                 panic!("s should be empty!");
             }

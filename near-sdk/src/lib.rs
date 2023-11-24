@@ -1,6 +1,8 @@
 //* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
 //* https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
+// We want to enable all clippy lints, but some of them generate false positives.
+#![allow(clippy::missing_const_for_fn, clippy::redundant_pub_crate)]
 
 #[cfg(test)]
 extern crate quickcheck;

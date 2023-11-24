@@ -1,11 +1,15 @@
 use crate::utils::init;
 use near_contract_standards::non_fungible_token::Token;
 
-use near_sdk::{AccountId, ONE_NEAR, ONE_YOCTO};
+use near_sdk::AccountId;
+use near_workspaces::types::NearToken;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
 pub const TOKEN_ID: &str = "0";
+
+const ONE_NEAR: NearToken = NearToken::from_near(1);
+const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
 #[tokio::test]
 async fn simulate_simple_approve() -> anyhow::Result<()> {
@@ -17,7 +21,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(510000000000000000000)
+        .deposit(NearToken::from_yoctonear(510000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -81,7 +85,7 @@ async fn simulate_simple_approve() -> anyhow::Result<()> {
         .max_gas()
         // note that token_receiver's account name is shorter, and so takes less bytes to store and
         // therefore requires a smaller deposit!
-        .deposit(450000000000000000000)
+        .deposit(NearToken::from_yoctonear(450000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -106,7 +110,7 @@ async fn simulate_approval_with_call() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, approval_receiver_contract.id(), Some("return-now".to_string())))
         .max_gas()
-        .deposit(450000000000000000000)
+        .deposit(NearToken::from_yoctonear(450000000000000000000))
         .transact()
         .await?;
     assert_eq!(res.json::<String>()?, "cool".to_string());
@@ -137,7 +141,7 @@ async fn simulate_approved_account_transfers_token() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(510000000000000000000)
+        .deposit(NearToken::from_yoctonear(510000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -170,7 +174,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(510000000000000000000)
+        .deposit(NearToken::from_yoctonear(510000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -180,7 +184,7 @@ async fn simulate_revoke() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, token_receiver_contract.id(), Option::<String>::None))
         .max_gas()
-        .deposit(450000000000000000000)
+        .deposit(NearToken::from_yoctonear(450000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -254,7 +258,7 @@ async fn simulate_revoke_all() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(510000000000000000000)
+        .deposit(NearToken::from_yoctonear(510000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());
@@ -264,7 +268,7 @@ async fn simulate_revoke_all() -> anyhow::Result<()> {
         .call("nft_approve")
         .args_json((TOKEN_ID, token_receiver_contract.id(), Option::<String>::None))
         .max_gas()
-        .deposit(450000000000000000000)
+        .deposit(NearToken::from_yoctonear(450000000000000000000))
         .transact()
         .await?;
     assert!(res.is_success());

@@ -1,7 +1,9 @@
 use crate::utils::{init, TOKEN_ID};
 use near_contract_standards::non_fungible_token::Token;
 
-use near_sdk::ONE_YOCTO;
+use near_workspaces::types::NearToken;
+
+const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
 #[tokio::test]
 async fn simulate_simple_transfer() -> anyhow::Result<()> {
@@ -154,9 +156,7 @@ async fn simulate_transfer_call_receiver_panics() -> anyhow::Result<()> {
             Some("transfer & call"),
             "incorrect message",
         ))
-        .gas(near_sdk::Gas::from_gas(
-            35_000_000_000_000 + 1
-        ))
+        .gas(near_sdk::Gas::from_gas(35_000_000_000_000 + 1))
         .deposit(ONE_YOCTO)
         .transact()
         .await?;

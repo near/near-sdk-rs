@@ -6,7 +6,7 @@ expression: pretty_print_syn_str(&actual).unwrap()
 #[no_mangle]
 pub extern "C" fn new() {
     ::near_sdk::env::setup_panic_hook();
-    if ::near_sdk::env::attached_deposit() != 0 {
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
         ::near_sdk::env::panic_str("Method new doesn't accept deposit");
     }
     if ::near_sdk::env::state_exists() {

@@ -1,7 +1,6 @@
-use crate::fungible_token::FungibleToken;
+use crate::fungible_token::{Balance, FungibleToken};
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
-use near_sdk::json_types::U128;
-use near_sdk::{assert_one_yocto, env, log, AccountId, Balance, Promise};
+use near_sdk::{assert_one_yocto, env, log, AccountId, NearToken, Promise};
 
 impl FungibleToken {
     /// Internal method that returns the Account ID and the balance in case the account was
@@ -17,7 +16,9 @@ impl FungibleToken {
             if balance == 0 || force {
                 self.accounts.remove(&account_id);
                 self.total_supply -= balance;
-                Promise::new(account_id.clone()).transfer(self.storage_balance_bounds().min.0 + 1);
+                Promise::new(account_id.clone()).transfer(
+                    self.storage_balance_bounds().min.saturating_add(NearToken::from_yoctonear(1)),
+                );
                 Some((account_id, balance))
             } else {
                 env::panic_str(
@@ -32,7 +33,10 @@ impl FungibleToken {
 
     fn internal_storage_balance_of(&self, account_id: &AccountId) -> Option<StorageBalance> {
         if self.accounts.contains_key(account_id) {
-            Some(StorageBalance { total: self.storage_balance_bounds().min, available: 0.into() })
+            Some(StorageBalance {
+                total: self.storage_balance_bounds().min,
+                available: NearToken::from_near(0),
+            })
         } else {
             None
         }
@@ -47,22 +51,22 @@ impl StorageManagement for FungibleToken {
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
-        let amount: Balance = env::attached_deposit();
+        let amount = env::attached_deposit();
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
-            if amount > 0 {
+            if amount > NearToken::from_near(0) {
                 Promise::new(env::predecessor_account_id()).transfer(amount);
             }
         } else {
-            let min_balance = self.storage_balance_bounds().min.0;
+            let min_balance = self.storage_balance_bounds().min;
             if amount < min_balance {
                 env::panic_str("The attached deposit is less than the minimum storage balance");
             }
 
             self.internal_register_account(&account_id);
-            let refund = amount - min_balance;
-            if refund > 0 {
+            let refund = amount.saturating_add(min_balance);
+            if refund > NearToken::from_near(0) {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
         }
@@ -75,12 +79,12 @@ impl StorageManagement for FungibleToken {
     /// * panics if `amount > 0`
     /// * never transfers Ⓝ to caller
     /// * returns a `storage_balance` struct if `amount` is 0
-    fn storage_withdraw(&mut self, amount: Option<U128>) -> StorageBalance {
+    fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance {
         assert_one_yocto();
         let predecessor_account_id = env::predecessor_account_id();
         if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
             match amount {
-                Some(amount) if amount.0 > 0 => {
+                Some(amount) if amount > NearToken::from_near(0) => {
                     env::panic_str("The amount is greater than the available storage balance");
                 }
                 _ => storage_balance,
@@ -98,11 +102,8 @@ impl StorageManagement for FungibleToken {
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
         let required_storage_balance =
-            Balance::from(self.account_storage_usage) * env::storage_byte_cost();
-        StorageBalanceBounds {
-            min: required_storage_balance.into(),
-            max: Some(required_storage_balance.into()),
-        }
+            env::storage_byte_cost().saturating_mul(self.account_storage_usage.into());
+        StorageBalanceBounds { min: required_storage_balance, max: Some(required_storage_balance) }
     }
 
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {

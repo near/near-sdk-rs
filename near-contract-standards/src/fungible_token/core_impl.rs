@@ -6,7 +6,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, log, require, AccountId, Balance, Gas, IntoStorageKey, PromiseOrValue,
+    assert_one_yocto, env, log, require, AccountId, Gas, IntoStorageKey, PromiseOrValue,
     PromiseResult, StorageUsage,
 };
 
@@ -14,6 +14,8 @@ const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
+
+pub type Balance = u128;
 
 /// Implementation of a FungibleToken standard.
 /// Allows to include NEP-141 compatible token to any contract.
@@ -105,7 +107,7 @@ impl FungibleToken {
         FtTransfer {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,
-            amount: &U128(amount),
+            amount: U128(amount),
             memo: memo.as_deref(),
         }
         .emit();
@@ -206,7 +208,7 @@ impl FungibleToken {
                     FtTransfer {
                         old_owner_id: &receiver_id,
                         new_owner_id: sender_id,
-                        amount: &U128(refund_amount),
+                        amount: U128(refund_amount),
                         memo: Some("refund"),
                     }
                     .emit();
@@ -223,7 +225,7 @@ impl FungibleToken {
                     log!("The account of the sender was deleted");
                     FtBurn {
                         owner_id: &receiver_id,
-                        amount: &U128(refund_amount),
+                        amount: U128(refund_amount),
                         memo: Some("refund"),
                     }
                     .emit();

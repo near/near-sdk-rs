@@ -15,6 +15,7 @@ use near_sdk::{
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
+use std::ops::Deref;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
@@ -265,7 +266,7 @@ impl NonFungibleToken {
             old_owner_id: owner_id,
             new_owner_id: receiver_id,
             token_ids: &[token_id],
-            authorized_id: sender_id.filter(|sender_id| *sender_id == owner_id),
+            authorized_id: sender_id.filter(|sender_id| *sender_id == owner_id).map(|f| f.deref()),
             memo: memo.as_deref(),
         }
         .emit();
