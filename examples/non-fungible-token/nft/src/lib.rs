@@ -378,7 +378,7 @@ mod tests {
 
         testing_env!(context
             .storage_usage(env::storage_usage())
-            .attached_deposit(1)
+            .attached_deposit(NearToken::from_yoctonear(1))
             .predecessor_account_id(accounts(0))
             .build());
 
@@ -400,7 +400,7 @@ mod tests {
             .storage_usage(env::storage_usage())
             .account_balance(env::account_balance())
             .is_view(true)
-            .attached_deposit(0)
+            .attached_deposit(NearToken::from_near(0))
             .build());
 
         if let Some(token) = contract.nft_token(token_id.clone()) {

@@ -1,7 +1,9 @@
 use crate::utils::{init, TOKEN_ID};
 use near_contract_standards::non_fungible_token::Token;
 use near_sdk::json_types::U128;
-use near_sdk::ONE_YOCTO;
+use near_sdk::NearToken;
+
+const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
 #[tokio::test]
 async fn simulate_payout() -> anyhow::Result<()> {
