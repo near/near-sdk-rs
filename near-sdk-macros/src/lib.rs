@@ -436,8 +436,6 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
             #[allow(non_camel_case_types)]
             type #input_ident_proxy = #input_ident;
             {
-                use ::near_sdk::schemars;
-
                 #derive
                 #input
 

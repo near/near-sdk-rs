@@ -1,7 +1,7 @@
 use crate::non_fungible_token::metadata::TokenMetadata;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
-use near_sdk::__private::schemars;
+use near_sdk::schemars;
 use std::collections::HashMap;
 /// Note that token IDs for NFTs are strings on NEAR. It's still fine to use autoincrementing numbers as unique IDs if desired, but they should be stringified. This is to make IDs more future-proof as chain-agnostic conventions and standards arise, and allows for more flexibility with considerations like bridging NFTs across chains, etc.
 pub type TokenId = String;
