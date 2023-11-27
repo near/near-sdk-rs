@@ -1,3 +1,5 @@
+#![cfg(feature = "abi")]
+
 use near_sdk::NearSchema;
 
 // https://stackoverflow.com/a/71721454/9806233
