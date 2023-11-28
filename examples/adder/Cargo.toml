@@ -9,7 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unstable"] }
-schemars = "0.8"
 
 [dev-dependencies]
 near-workspaces = { version = "0.9.0", default-features = false, features = ["install"] }

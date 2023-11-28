@@ -6,9 +6,6 @@ pub use near_abi::{
     AbiParameters, AbiType,
 };
 
-#[cfg(feature = "abi")]
-pub use schemars;
-
 use crate::IntoStorageKey;
 use borsh::{to_vec, BorshSerialize};
 
