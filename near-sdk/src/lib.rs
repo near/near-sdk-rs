@@ -60,8 +60,8 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 // Exporting common crates
 
-pub use borsh;
 pub use base64;
+pub use borsh;
 pub use bs58;
 #[cfg(feature = "abi")]
 pub use schemars;

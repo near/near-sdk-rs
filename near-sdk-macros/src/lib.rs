@@ -372,7 +372,7 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let json_schema = json_schema || !borsh_schema;
 
     let derive = {
-        let mut derive = quote!{};
+        let mut derive = quote! {};
         if borsh_schema {
             derive = quote! {
                 #[derive(::near_sdk::borsh::BorshSchema)]
