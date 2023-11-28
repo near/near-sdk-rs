@@ -368,23 +368,25 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
     }
 
+    // <unspecified> or #[abi(json)]
     let json_schema = json_schema || !borsh_schema;
 
-    let derive = match (json_schema, borsh_schema) {
-        // <unspecified> or #[abi(json)]
-        (_, false) => quote! {
-            #[derive(::near_sdk::schemars::JsonSchema)]
-        },
-        // #[abi(borsh)]
-        (false, true) => quote! {
-            #[derive(::near_sdk::borsh::BorshSchema)]
-            #[borsh(crate = "::near_sdk::borsh")]
-        },
-        // #[abi(json, borsh)]
-        (true, true) => quote! {
-            #[derive(::near_sdk::schemars::JsonSchema, ::near_sdk::borsh::BorshSchema)]
-            #[borsh(crate = "::near_sdk::borsh")]
-        },
+    let derive = {
+        let mut derive = quote!{};
+        if borsh_schema {
+            derive = quote! {
+                #[derive(::near_sdk::borsh::BorshSchema)]
+                #[borsh(crate = "::near_sdk::borsh")]
+            };
+        }
+        if json_schema {
+            derive = quote! {
+                #derive
+                #[derive(::near_sdk::schemars::JsonSchema)]
+                #[schemars(crate = "::near_sdk::schemars")]
+            };
+        }
+        derive
     };
 
     let input_ident = &input.ident;
