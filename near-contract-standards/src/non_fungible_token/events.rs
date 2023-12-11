@@ -14,12 +14,13 @@
 //! or [`NftBurn::emit_many`] respectively.
 
 use crate::event::NearEvent;
+use near_sdk::serde::Serialize;
 use near_sdk::AccountIdRef;
-use serde::Serialize;
 
 /// Data to log for an NFT mint event. To log this event, call [`.emit()`](NftMint::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
+#[serde(crate = "near_sdk::serde")]
 pub struct NftMint<'a> {
     pub owner_id: &'a AccountIdRef,
     pub token_ids: &'a [&'a str],
@@ -45,6 +46,7 @@ impl NftMint<'_> {
 /// call [`.emit()`](NftTransfer::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
+#[serde(crate = "near_sdk::serde")]
 pub struct NftTransfer<'a> {
     pub old_owner_id: &'a AccountIdRef,
     pub new_owner_id: &'a AccountIdRef,
@@ -72,6 +74,7 @@ impl NftTransfer<'_> {
 /// Data to log for an NFT burn event. To log this event, call [`.emit()`](NftBurn::emit).
 #[must_use]
 #[derive(Serialize, Debug, Clone)]
+#[serde(crate = "near_sdk::serde")]
 pub struct NftBurn<'a> {
     pub owner_id: &'a AccountIdRef,
     pub token_ids: &'a [&'a str],
@@ -96,6 +99,7 @@ impl NftBurn<'_> {
 }
 
 #[derive(Serialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
 pub(crate) struct Nep171Event<'a> {
     version: &'static str,
     #[serde(flatten)]
@@ -103,6 +107,7 @@ pub(crate) struct Nep171Event<'a> {
 }
 
 #[derive(Serialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
 #[serde(tag = "event", content = "data")]
 #[serde(rename_all = "snake_case")]
 #[allow(clippy::enum_variant_names)]

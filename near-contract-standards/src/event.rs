@@ -1,7 +1,9 @@
 use near_sdk::env;
-use serde::Serialize;
+use near_sdk::serde::Serialize;
+use near_sdk::serde_json;
 
 #[derive(Serialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
 #[serde(tag = "standard")]
 #[must_use = "don't forget to `.emit()` this event"]
 #[serde(rename_all = "snake_case")]

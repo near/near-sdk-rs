@@ -368,23 +368,25 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
     }
 
+    // <unspecified> or #[abi(json)]
     let json_schema = json_schema || !borsh_schema;
 
-    let derive = match (json_schema, borsh_schema) {
-        // <unspecified> or #[abi(json)]
-        (_, false) => quote! {
-            #[derive(schemars::JsonSchema)]
-        },
-        // #[abi(borsh)]
-        (false, true) => quote! {
-            #[derive(::near_sdk::borsh::BorshSchema)]
-            #[borsh(crate = "::near_sdk::borsh")]
-        },
-        // #[abi(json, borsh)]
-        (true, true) => quote! {
-            #[derive(schemars::JsonSchema, ::near_sdk::borsh::BorshSchema)]
-            #[borsh(crate = "::near_sdk::borsh")]
-        },
+    let derive = {
+        let mut derive = quote! {};
+        if borsh_schema {
+            derive = quote! {
+                #[derive(::near_sdk::borsh::BorshSchema)]
+                #[borsh(crate = "::near_sdk::borsh")]
+            };
+        }
+        if json_schema {
+            derive = quote! {
+                #derive
+                #[derive(::near_sdk::schemars::JsonSchema)]
+                #[schemars(crate = "::near_sdk::schemars")]
+            };
+        }
+        derive
     };
 
     let input_ident = &input.ident;
@@ -394,13 +396,13 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let json_impl = if json_schema {
         quote! {
             #[automatically_derived]
-            impl schemars::JsonSchema for #input_ident_proxy {
+            impl ::near_sdk::schemars::JsonSchema for #input_ident_proxy {
                 fn schema_name() -> ::std::string::String {
                     stringify!(#input_ident).to_string()
                 }
 
-                fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-                    <#input_ident as schemars::JsonSchema>::json_schema(gen)
+                fn json_schema(gen: &mut ::near_sdk::schemars::gen::SchemaGenerator) -> ::near_sdk::schemars::schema::Schema {
+                    <#input_ident as ::near_sdk::schemars::JsonSchema>::json_schema(gen)
                 }
             }
         }
@@ -436,8 +438,6 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
             #[allow(non_camel_case_types)]
             type #input_ident_proxy = #input_ident;
             {
-                use ::near_sdk::__private::schemars;
-
                 #derive
                 #input
 

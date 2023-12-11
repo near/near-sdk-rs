@@ -7,7 +7,7 @@
 #[cfg(test)]
 extern crate quickcheck;
 
-#[cfg(all(feature = "unstable", feature = "abi"))]
+#[cfg(feature = "abi")]
 pub use near_sdk_macros::NearSchema;
 pub use near_sdk_macros::{
     ext_contract, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, PanicOnDefault,
@@ -60,17 +60,10 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 // Exporting common crates
 
-#[doc(hidden)]
-pub use borsh;
-
-#[doc(hidden)]
 pub use base64;
-
-#[doc(hidden)]
+pub use borsh;
 pub use bs58;
-
-#[doc(hidden)]
+#[cfg(feature = "abi")]
+pub use schemars;
 pub use serde;
-
-#[doc(hidden)]
 pub use serde_json;
