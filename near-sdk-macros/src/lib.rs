@@ -283,9 +283,9 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 use crate::core_impl::metadata::generate_metadata_impl;
+
 #[cfg(feature = "abi")]
 use darling::FromDeriveInput;
-
 #[derive(darling::FromDeriveInput, Debug)]
 #[darling(attributes(abi), forward_attrs(serde, borsh_skip, schemars, validate))]
 #[cfg(feature = "abi")]
