@@ -116,6 +116,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
+        let metadata_impl_gen = generate_metadata_impl(&input.ident, &input.generics);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -126,9 +127,11 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_gen
             #abi_embedded
             #metadata
+            #metadata_impl_gen
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
+        let metadata_impl_gen = generate_metadata_impl(&input.ident, &input.generics);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -139,6 +142,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_gen
             #abi_embedded
             #metadata
+            #metadata_impl_gen
         })
     } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         for method in &input.items {
@@ -152,23 +156,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                         )
                         .to_compile_error(),
                     );
-                }
-            }
-        }
-
-        if input.trait_.is_none() {
-            let contract_source_metadata = quote! {
-                pub fn contract_source_metadata() {
-                    near_sdk::env::value_return(CONTRACT_SOURCE_METADATA.as_bytes())
-                }
-            };
-
-            match syn::parse2::<ImplItem>(contract_source_metadata) {
-                Ok(x) => {
-                    input.items.push(x);
-                }
-                Err(err) => {
-                    return err.to_compile_error().into();
                 }
             }
         }
@@ -295,8 +282,10 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
+use crate::core_impl::metadata::generate_metadata_impl;
 #[cfg(feature = "abi")]
 use darling::FromDeriveInput;
+
 #[derive(darling::FromDeriveInput, Debug)]
 #[darling(attributes(abi), forward_attrs(serde, borsh_skip, schemars, validate))]
 #[cfg(feature = "abi")]
