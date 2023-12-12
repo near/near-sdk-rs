@@ -27,6 +27,7 @@ jobs:
         if: matrix.toolchain == '1.69.0' 
         run: |
           cargo update -p anstyle --precise 1.0.2
+          cargo update -p anstyle-query --precise 1.0.0
           cargo update -p anstyle-parse --precise 0.2.1
           cargo update -p clap --precise 4.3.24
           cargo update -p clap_lex --precise 0.5.0
