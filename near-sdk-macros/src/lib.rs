@@ -3,7 +3,8 @@ extern crate proc_macro;
 
 mod core_impl;
 
-use core_impl::ext::generate_ext_structs;
+use core_impl::{ext::generate_ext_structs, metadata::generate_metadata_impl};
+
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
@@ -281,8 +282,6 @@ pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
-
-use crate::core_impl::metadata::generate_metadata_impl;
 
 #[cfg(feature = "abi")]
 use darling::FromDeriveInput;
