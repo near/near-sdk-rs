@@ -121,9 +121,9 @@ mod tests {
     use crate::fungible_token::Balance;
     use crate::non_fungible_token::payout::payout_impl::apply_percent;
     use crate::non_fungible_token::payout::Royalties;
-    use near_account_id::AccountIdRef;
     use near_sdk::collections::TreeMap;
     use near_sdk::json_types::U128;
+    use near_sdk::AccountIdRef;
     use std::collections::HashMap;
     use std::mem;
 

@@ -4,8 +4,8 @@ use crate::non_fungible_token::TokenId;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 type BasisPoint = u16;
