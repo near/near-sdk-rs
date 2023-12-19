@@ -3,7 +3,7 @@ use quote::quote;
 use syn::Generics;
 
 /// Generates a view method to retrieve the source metadata.
-pub(crate) fn generate_metadata_impl(
+pub(crate) fn generate_contract_metadata_method(
     ident: &Ident,
     generics: &Generics,
 ) -> proc_macro2::TokenStream {

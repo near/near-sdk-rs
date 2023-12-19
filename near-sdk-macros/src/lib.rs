@@ -3,7 +3,7 @@ extern crate proc_macro;
 
 mod core_impl;
 
-use core_impl::{ext::generate_ext_structs, metadata::generate_metadata_impl};
+use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method};
 
 use proc_macro::TokenStream;
 
@@ -117,7 +117,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_metadata_impl(&input.ident, &input.generics);
+        let metadata_impl_gen = generate_contract_metadata_method(&input.ident, &input.generics);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -132,7 +132,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_metadata_impl(&input.ident, &input.generics);
+        let metadata_impl_gen = generate_contract_metadata_method(&input.ident, &input.generics);
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
