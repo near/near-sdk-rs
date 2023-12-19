@@ -117,7 +117,16 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_contract_metadata_method(&input.ident, &input.generics);
+        let metadata_impl_gen = process_impl_block(
+            generate_contract_metadata_method(&input.ident, &input.generics).into(),
+            true,
+        )
+        .expect("failed to generate contract metadata");
+
+        let metadata_impl_gen = match metadata_impl_gen {
+            Ok(metadata) => metadata,
+            Err(err) => return err.into(),
+        };
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -132,7 +141,17 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_contract_metadata_method(&input.ident, &input.generics);
+        let metadata_impl_gen = process_impl_block(
+            generate_contract_metadata_method(&input.ident, &input.generics).into(),
+            true,
+        )
+        .expect("failed to generate contract metadata");
+
+        let metadata_impl_gen = match metadata_impl_gen {
+            Ok(metadata) => metadata,
+            Err(err) => return err.into(),
+        };
+
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -145,18 +164,50 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
             #metadata_impl_gen
         })
-    } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+    } else if let Some(impl_block) = process_impl_block(item, false) {
+        match impl_block {
+            Ok(res) => res,
+            Err(res) => res,
+        }
+        .into()
+    } else {
+        TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "near_bindgen can only be used on struct or enum definition and impl sections.",
+            )
+            .to_compile_error(),
+        )
+    }
+}
+
+// This function deals with impl block processing, generating wrappers and ABI.
+//
+// # Arguments
+// * block - impl block to process.
+// * internal - whether or not this is an internal call, if the call is internal - reserved contract
+// method checks will be skipped.
+//
+// Returns None in case the given block is not an impl block. The underlying Result has a
+// TokenStream error type, because those need to be propagated to the compiler.
+fn process_impl_block(
+    block: TokenStream,
+    internal: bool,
+) -> Option<Result<proc_macro2::TokenStream, proc_macro2::TokenStream>> {
+    if let Ok(mut input) = syn::parse::<ItemImpl>(block) {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
                 let ident = &m.sig.ident;
-                if ident.eq("__contract_abi") || ident.eq("contract_source_metadata") {
-                    return TokenStream::from(
+                if !internal && (ident.eq("__contract_abi") || ident.eq("contract_source_metadata"))
+                {
+                    return Some(Err(TokenStream::from(
                         syn::Error::new_spanned(
                             ident.to_token_stream(),
                             "use of reserved contract method",
                         )
                         .to_compile_error(),
-                    );
+                    )
+                    .into()));
                 }
             }
         }
@@ -164,7 +215,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let item_impl_info = match ItemImplInfo::new(&mut input) {
             Ok(x) => x,
             Err(err) => {
-                return err.to_compile_error().into();
+                return Some(Err(err.to_compile_error().into()));
             }
         };
 
@@ -177,21 +228,16 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         // Add wrapper methods for ext call API
         let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
-        TokenStream::from(quote! {
+        return Some(Ok(TokenStream::from(quote! {
             #ext_generated_code
             #input
             #generated_code
             #abi_generated
         })
-    } else {
-        TokenStream::from(
-            syn::Error::new(
-                Span::call_site(),
-                "near_bindgen can only be used on struct or enum definition and impl sections.",
-            )
-            .to_compile_error(),
-        )
+        .into()));
     }
+
+    None
 }
 
 /// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
