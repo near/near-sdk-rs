@@ -22,7 +22,7 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
             pub extern "C" fn #near_abi_symbol() -> (*const u8, usize) {
                 use ::std::string::String;
 
-                let mut gen = ::near_sdk::__private::schemars::gen::SchemaGenerator::default();
+                let mut gen = ::near_sdk::schemars::gen::SchemaGenerator::default();
                 let functions = vec![#(#functions),*];
                 let mut data = ::std::mem::ManuallyDrop::new(
                     ::near_sdk::serde_json::to_vec(&::near_sdk::__private::ChunkedAbiEntry::new(
