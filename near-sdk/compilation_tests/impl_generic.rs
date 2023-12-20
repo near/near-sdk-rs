@@ -2,6 +2,7 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
+#[allow(unused_imports)]
 use std::marker::PhantomData;
 
 #[near_bindgen]

@@ -11,5 +11,6 @@ mod item_impl_info;
 pub use item_impl_info::*;
 
 pub(crate) mod ext;
+pub(crate) mod metadata;
 
 pub(crate) mod serializer;
