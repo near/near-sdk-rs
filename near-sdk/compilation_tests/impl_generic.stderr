@@ -1,19 +1,11 @@
 error: Impl type parameters are not supported for smart contracts.
- --> compilation_tests/impl_generic.rs:9:20
-  |
-9 | struct Incrementer<T> {
-  |                    ^
+  --> compilation_tests/impl_generic.rs:10:20
+   |
+10 | struct Incrementer<T> {
+   |                    ^
 
 error: Impl type parameters are not supported for smart contracts.
-  --> compilation_tests/impl_generic.rs:15:6
+  --> compilation_tests/impl_generic.rs:16:6
    |
-15 | impl<'a, T: 'a + std::fmt::Display> Incrementer<T> {
+16 | impl<'a, T: 'a + std::fmt::Display> Incrementer<T> {
    |      ^^
-
-error: unused import: `std::marker::PhantomData`
- --> compilation_tests/impl_generic.rs:5:5
-  |
-5 | use std::marker::PhantomData;
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: `-D unused-imports` implied by `-D warnings`
