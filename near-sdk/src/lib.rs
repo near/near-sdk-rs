@@ -42,7 +42,7 @@ pub use environment::mock;
 // Re-export to avoid breakages
 pub use environment::mock::MockedBlockchain;
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
-pub use near_vm_logic::VMConfig;
+pub use near_parameters::config::RuntimeConfig as VMConfig;
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 pub use test_utils::context::VMContext;
 

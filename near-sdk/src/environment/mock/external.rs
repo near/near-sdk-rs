@@ -1,10 +1,11 @@
 use near_primitives::types::TrieNodesCount;
 use near_primitives_core::hash::{hash, CryptoHash};
-use near_primitives_core::types::{AccountId, Balance};
-use near_vm_logic::{External, StorageGetMode, ValuePtr};
+use near_primitives_core::types::Balance;
+use near_account_id::AccountId;
+use near_vm_runner::logic::{External, StorageGetMode, ValuePtr};
 use std::collections::HashMap;
 
-type Result<T> = ::core::result::Result<T, near_vm_logic::VMLogicError>;
+type Result<T> = ::core::result::Result<T, near_vm_runner::logic::errors::VMLogicError>;
 
 #[derive(Default, Clone)]
 /// Emulates the trie and the mock handling code for the SDK. This is a modified version of
@@ -74,7 +75,7 @@ impl External for SdkExternal {
         data_id
     }
 
-    fn get_trie_nodes_count(&self) -> TrieNodesCount {
+    fn get_trie_nodes_count(&self) -> near_primitives::types::TrieNodesCount {
         TrieNodesCount { db_reads: 0, mem_reads: 0 }
     }
 
@@ -84,5 +85,94 @@ impl External for SdkExternal {
 
     fn validator_total_stake(&self) -> Result<Balance> {
         Ok(self.validators.values().sum())
+    }
+
+    fn create_receipt(
+        &mut self,
+        receipt_indices: Vec<near_vm_runner::logic::types::ReceiptIndex>,
+        receiver_id: AccountId,
+    ) -> Result<near_vm_runner::logic::types::ReceiptIndex> {
+        todo!()
+    }
+
+    fn append_action_create_account(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    fn append_action_deploy_contract(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        code: Vec<u8>,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    fn append_action_function_call_weight(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        method_name: Vec<u8>,
+        args: Vec<u8>,
+        attached_deposit: Balance,
+        prepaid_gas: near_primitives_core::types::Gas,
+        gas_weight: near_primitives_core::types::GasWeight,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    fn append_action_transfer(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        deposit: Balance,
+    ) -> Result<()> {
+    todo!()
+    }
+
+    fn append_action_stake(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        stake: Balance,
+        public_key: near_crypto::PublicKey,
+    ) {
+        todo!()
+    }
+
+    fn append_action_add_key_with_full_access(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        public_key: near_crypto::PublicKey,
+        nonce: near_primitives_core::types::Nonce,
+    ) {
+        todo!()
+    }
+
+    fn append_action_add_key_with_function_call(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        public_key: near_crypto::PublicKey,
+        nonce: near_primitives_core::types::Nonce,
+        allowance: Option<Balance>,
+        receiver_id: AccountId,
+        method_names: Vec<Vec<u8>>,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    fn append_action_delete_key(&mut self, receipt_index: near_vm_runner::logic::types::ReceiptIndex, public_key: near_crypto::PublicKey) {
+        todo!()
+    }
+
+    fn append_action_delete_account(
+        &mut self,
+        receipt_index: near_vm_runner::logic::types::ReceiptIndex,
+        beneficiary_id: AccountId,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    fn get_receipt_receiver(&self, receipt_index: near_vm_runner::logic::types::ReceiptIndex) -> &AccountId {
+        todo!()
     }
 }

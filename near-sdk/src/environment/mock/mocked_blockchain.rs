@@ -4,14 +4,19 @@ use crate::mock::mocked_memory::MockedMemory;
 use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
-use crate::{CurveType, Gas, RuntimeFeesConfig};
+use crate::{CurveType, Gas};
 use crate::{PublicKey, VMContext};
 use near_crypto::PublicKey as VmPublicKey;
 use near_primitives::transaction::Action as PrimitivesAction;
-use near_vm_logic::types::PromiseResult as VmPromiseResult;
-use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic};
+use near_vm_runner::logic::types::PromiseResult as VmPromiseResult;
+use near_vm_runner::logic::{External, MemoryLike, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use near_parameters::RuntimeFeesConfig;
+pub use near_parameters::config::RuntimeConfig;
+
+pub use near_vm_runner::logic::Config;
+pub use near_parameters::config::RuntimeConfig as VMConfig;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
@@ -29,7 +34,7 @@ impl Default for MockedBlockchain {
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
-            VMConfig::test(),
+            RuntimeConfig::test(),
             RuntimeFeesConfig::test(),
             vec![],
             Default::default(),
@@ -71,14 +76,13 @@ impl MockedBlockchain {
         let mut logic_fixture = LogicFixture { ext, memory, promise_results, config, fees_config };
 
         let logic = unsafe {
-            VMLogic::new_with_protocol_version(
+            VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
-                &*(logic_fixture.config.as_mut() as *const VMConfig),
+                &*(logic_fixture.config.as_mut() as *const RuntimeConfig),
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
-                u32::MAX,
             )
         };
 
@@ -113,8 +117,8 @@ impl MockedBlockchain {
     }
 }
 
-fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
-    near_vm_logic::VMContext {
+fn sdk_context_to_vm_context(context: VMContext) -> near_vm_runner::logic::VMContext {
+    near_vm_runner::logic::VMContext {
         current_account_id: context.current_account_id.as_str().parse().unwrap(),
         signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
         signer_account_pk: context.signer_account_pk.into_bytes(),
@@ -176,7 +180,7 @@ fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
             VmAction::DeleteKey { public_key: pub_key_conversion(&k.public_key) }
         }
         PrimitivesAction::DeleteAccount(a) => {
-            VmAction::DeleteAccount { beneficiary_id: a.beneficiary_id.parse().unwrap() }
+            VmAction::DeleteAccount { beneficiary_id: a.beneficiary_id }
         }
         PrimitivesAction::Delegate(_d) => {
             panic!("Unimplemented")
@@ -194,7 +198,7 @@ fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
-    use near_vm_logic::{VMLogic, VMLogicError};
+    use near_vm_runner::logic::{VMLogic, VMLogicError};
 
     fn with_mock_interface<F, R>(f: F) -> R
     where
