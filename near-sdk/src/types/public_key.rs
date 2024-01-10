@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn test_public_key_to_string() {
         let key: PublicKey = expected_key();
-        let actual: String = String::try_from(&key).unwrap();
+        let actual: String = String::from(&key);
         assert_eq!(actual, "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp");
     }
 

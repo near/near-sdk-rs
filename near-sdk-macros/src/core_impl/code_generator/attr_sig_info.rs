@@ -307,7 +307,7 @@ impl AttrSigInfo {
     }
 }
 
-pub fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
+fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
             ::near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
