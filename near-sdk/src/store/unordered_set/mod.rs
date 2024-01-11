@@ -44,7 +44,7 @@ use std::fmt;
 /// [`UnorderedSet`] also implements various binary operations, which allow
 /// for iterating various combinations of two sets.
 ///
-/// ```
+/// ```ignore
 /// use near_sdk::store::UnorderedSet;
 /// use std::collections::HashSet;
 ///

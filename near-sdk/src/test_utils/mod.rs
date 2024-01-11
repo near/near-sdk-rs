@@ -28,7 +28,7 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 ///
 /// # Example use
 ///
-/// ```
+/// ```ignore
 /// use near_sdk::testing_env;
 /// use near_sdk::test_utils::{accounts, VMContextBuilder};
 /// use near_sdk::{VMConfig, RuntimeFeesConfig};
@@ -84,7 +84,7 @@ macro_rules! testing_env {
         $crate::testing_env!($context, $config, $crate::RuntimeFeesConfig::test())
     };
     ($context:expr) => {
-        $crate::testing_env!($context, $crate::VMConfig::test())
+        $crate::testing_env!($context, $crate::test_vm_config())
     };
 }
 

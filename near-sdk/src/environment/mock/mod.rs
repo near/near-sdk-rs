@@ -3,9 +3,11 @@ mod mocked_blockchain;
 mod mocked_memory;
 mod receipt;
 
+pub use mocked_blockchain::test_vm_config;
+
 pub(crate) use self::external::SdkExternal;
 pub use self::mocked_blockchain::MockedBlockchain;
-pub use self::receipt::{Receipt, VmAction};
+pub use self::receipt::{MockAction, Receipt};
 use core::cell::RefCell;
 
 thread_local! {

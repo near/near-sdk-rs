@@ -1,15 +1,14 @@
 use super::{Receipt, SdkExternal};
+use crate::mock::MockAction;
 // TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
 use crate::mock::mocked_memory::MockedMemory;
-use crate::mock::VmAction;
 use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
-use crate::{CurveType, Gas, RuntimeFeesConfig};
-use crate::{PublicKey, VMContext};
-use near_crypto::PublicKey as VmPublicKey;
-use near_primitives::transaction::Action as PrimitivesAction;
-use near_vm_logic::types::PromiseResult as VmPromiseResult;
-use near_vm_logic::{External, MemoryLike, VMConfig, VMLogic};
+use crate::VMContext;
+use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
+use near_primitives_core::version::PROTOCOL_VERSION;
+use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
+use near_vm_runner::logic::{External, MemoryLike, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -25,11 +24,20 @@ pub struct MockedBlockchain {
     logic_fixture: LogicFixture,
 }
 
+pub fn test_vm_config() -> near_parameters::vm::Config {
+    let store = RuntimeConfigStore::test();
+    let config = store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    near_parameters::vm::Config {
+        vm_kind: config.vm_kind.replace_with_wasmtime_if_unsupported(),
+        ..config
+    }
+}
+
 impl Default for MockedBlockchain {
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
-            VMConfig::test(),
+            test_vm_config(),
             RuntimeFeesConfig::test(),
             vec![],
             Default::default(),
@@ -44,14 +52,14 @@ struct LogicFixture {
     memory: Box<dyn MemoryLike>,
     #[allow(clippy::box_collection)]
     promise_results: Box<Vec<VmPromiseResult>>,
-    config: Box<VMConfig>,
+    config: Box<near_parameters::vm::Config>,
     fees_config: Box<RuntimeFeesConfig>,
 }
 
 impl MockedBlockchain {
     pub fn new(
         context: VMContext,
-        config: VMConfig,
+        config: near_parameters::vm::Config,
         fees_config: RuntimeFeesConfig,
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
@@ -71,14 +79,13 @@ impl MockedBlockchain {
         let mut logic_fixture = LogicFixture { ext, memory, promise_results, config, fees_config };
 
         let logic = unsafe {
-            VMLogic::new_with_protocol_version(
+            VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 context,
-                &*(logic_fixture.config.as_mut() as *const VMConfig),
+                &*(logic_fixture.config.as_mut() as *const near_parameters::vm::Config),
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
-                u32::MAX,
             )
         };
 
@@ -92,15 +99,39 @@ impl MockedBlockchain {
 
     /// Returns metadata about the receipts created
     pub fn created_receipts(&self) -> Vec<Receipt> {
-        self.logic
-            .borrow()
-            .action_receipts()
-            .iter()
-            .map(|(receiver, receipt)| {
-                let actions = receipt.actions.iter().map(action_to_sdk_action).collect();
-                Receipt { receiver_id: receiver.as_str().parse().unwrap(), actions }
+        let action_log = &self.logic_fixture.ext.action_log;
+        println!("{:#?}", action_log);
+        let create_receipts: Vec<(usize, MockAction)> = action_log
+            .clone()
+            .into_iter()
+            .enumerate()
+            .filter(|(_receipt_idx, action)| matches!(action, MockAction::CreateReceipt { .. }))
+            .collect();
+
+        let result = create_receipts
+            .into_iter()
+            .map(|(receipt_idx, create_receipt)| {
+                let (receiver_id, receipt_indices) = match create_receipt {
+                    MockAction::CreateReceipt { receiver_id, receipt_indices } => {
+                        (receiver_id, receipt_indices)
+                    }
+                    _ => panic!("not a CreateReceipt action!"),
+                };
+                let actions: Vec<MockAction> = action_log
+                    .iter()
+                    .filter(|action| match action.receipt_index() {
+                        None => false,
+                        Some(action_receipt_idx) => {
+                            action_receipt_idx == (receipt_idx as ReceiptIndex)
+                        }
+                    })
+                    .cloned()
+                    .collect();
+                Receipt { receiver_id, actions, receipt_indices }
             })
-            .collect()
+            .collect();
+        println!("{:#?}", result);
+        result
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
@@ -113,8 +144,8 @@ impl MockedBlockchain {
     }
 }
 
-fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
-    near_vm_logic::VMContext {
+fn sdk_context_to_vm_context(context: VMContext) -> near_vm_runner::logic::VMContext {
+    near_vm_runner::logic::VMContext {
         current_account_id: context.current_account_id.as_str().parse().unwrap(),
         signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
         signer_account_pk: context.signer_account_pk.into_bytes(),
@@ -138,64 +169,9 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_logic::VMContext {
     }
 }
 
-fn action_to_sdk_action(action: &PrimitivesAction) -> VmAction {
-    match action {
-        PrimitivesAction::CreateAccount(_) => VmAction::CreateAccount,
-        PrimitivesAction::DeployContract(c) => VmAction::DeployContract { code: c.code.clone() },
-        PrimitivesAction::FunctionCall(f) => VmAction::FunctionCall {
-            function_name: f.method_name.clone(),
-            args: f.args.clone(),
-            gas: Gas::from_gas(f.gas),
-            deposit: NearToken::from_yoctonear(f.deposit),
-        },
-        PrimitivesAction::Transfer(t) => {
-            VmAction::Transfer { deposit: NearToken::from_yoctonear(t.deposit) }
-        }
-        PrimitivesAction::Stake(s) => VmAction::Stake {
-            stake: NearToken::from_yoctonear(s.stake),
-            public_key: pub_key_conversion(&s.public_key),
-        },
-        PrimitivesAction::AddKey(k) => match &k.access_key.permission {
-            near_primitives::account::AccessKeyPermission::FunctionCall(f) => {
-                VmAction::AddKeyWithFunctionCall {
-                    public_key: pub_key_conversion(&k.public_key),
-                    nonce: k.access_key.nonce,
-                    allowance: f.allowance.map(NearToken::from_yoctonear),
-                    receiver_id: f.receiver_id.parse().unwrap(),
-                    function_names: f.method_names.clone(),
-                }
-            }
-            near_primitives::account::AccessKeyPermission::FullAccess => {
-                VmAction::AddKeyWithFullAccess {
-                    public_key: pub_key_conversion(&k.public_key),
-                    nonce: k.access_key.nonce,
-                }
-            }
-        },
-        PrimitivesAction::DeleteKey(k) => {
-            VmAction::DeleteKey { public_key: pub_key_conversion(&k.public_key) }
-        }
-        PrimitivesAction::DeleteAccount(a) => {
-            VmAction::DeleteAccount { beneficiary_id: a.beneficiary_id.parse().unwrap() }
-        }
-        PrimitivesAction::Delegate(_d) => {
-            panic!("Unimplemented")
-        }
-    }
-}
-
-fn pub_key_conversion(key: &VmPublicKey) -> PublicKey {
-    let curve_type = match key.key_type() {
-        near_crypto::KeyType::ED25519 => CurveType::ED25519,
-        near_crypto::KeyType::SECP256K1 => CurveType::SECP256K1,
-    };
-    PublicKey::from_parts(curve_type, key.key_data().to_vec()).unwrap()
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
-    use near_vm_logic::{VMLogic, VMLogicError};
-
+    use near_vm_runner::logic::{errors::VMLogicError, VMLogic};
     fn with_mock_interface<F, R>(f: F) -> R
     where
         F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,

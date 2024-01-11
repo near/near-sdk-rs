@@ -619,7 +619,7 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::mock::VmAction;
+    use crate::mock::MockAction;
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
     use crate::{
@@ -631,21 +631,42 @@ mod tests {
         "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap()
     }
 
-    fn get_actions() -> std::vec::IntoIter<VmAction> {
+    fn get_actions() -> std::vec::IntoIter<MockAction> {
         let receipts = get_created_receipts();
         let first_receipt = receipts.into_iter().next().unwrap();
         first_receipt.actions.into_iter()
     }
+    fn convert_key(public_key: &PublicKey) -> near_crypto::PublicKey {
+        // TODO: add Secp conversion
+
+        let key_bytes = public_key.clone().into_bytes();
+        let public_key = near_crypto::PublicKey::ED25519(
+            near_crypto::ED25519PublicKey::try_from(&key_bytes.as_slice()[1..]).unwrap(),
+        );
+        public_key
+    }
 
     fn has_add_key_with_full_access(public_key: PublicKey, nonce: Option<u64>) -> bool {
         get_actions().any(|el| {
+            let public_key = convert_key(&public_key);
+
             matches!(
                 el,
-                VmAction::AddKeyWithFullAccess { public_key: p, nonce: n }
+                MockAction::AddKeyWithFullAccess { public_key: p, nonce: n, receipt_index: _, }
                 if p == public_key
                     && (nonce.is_none() || Some(n) == nonce)
             )
         })
+    }
+
+    fn map_vec_str(vec_str: Vec<Vec<u8>>) -> Vec<String> {
+        vec_str
+            .into_iter()
+            .map(|element| {
+                let string: String = String::from_utf8(element).unwrap();
+                string
+            })
+            .collect()
     }
 
     fn has_add_key_with_function_call(
@@ -656,19 +677,22 @@ mod tests {
         nonce: Option<u64>,
     ) -> bool {
         get_actions().any(|el| {
+            let public_key = convert_key(&public_key);
+
             matches!(
                 el,
-                VmAction::AddKeyWithFunctionCall {
+                MockAction::AddKeyWithFunctionCall {
                     public_key: p,
                     allowance: a,
                     receiver_id: r,
-                    function_names: f,
-                    nonce: n
+                    method_names,
+                    nonce: n,
+                    receipt_index: _,
                 }
                 if p == public_key
                     && a.unwrap() == NearToken::from_yoctonear(allowance)
                     && r == receiver_id
-                    && f == function_names.split(',').collect::<Vec<_>>()
+                    && map_vec_str(method_names.clone()) == function_names.split(',').collect::<Vec<_>>()
                     && (nonce.is_none() || Some(n) == nonce)
             )
         })
@@ -832,10 +856,11 @@ mod tests {
                 .delete_key(public_key.clone());
         }
 
+        let public_key = convert_key(&public_key);
         let has_action = get_actions().any(|el| {
             matches!(
                 el,
-                VmAction::DeleteKey { public_key: p } if p == public_key
+                MockAction::DeleteKey { public_key: p , receipt_index: _, } if p == public_key
             )
         });
         assert!(has_action);

@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable, 1.69.0]
+        toolchain: [stable, 1.72.1]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -24,7 +24,7 @@ jobs:
           default: true
           target: wasm32-unknown-unknown
       - name: downgrade `anstyle`,`anstyle-parse`,`anstyle-query`,`clap`,`clap_lex`, `home` crates to support older Rust toolchain
-        if: matrix.toolchain == '1.69.0' 
+        if: matrix.toolchain == '1.72.1' 
         run: |
           cargo update -p anstyle --precise 1.0.2
           cargo update -p anstyle-query --precise 1.0.0
