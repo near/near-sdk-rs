@@ -1,4 +1,4 @@
-use super::{Receipt, SdkExternal};
+use super::Receipt;
 use crate::mock::MockAction;
 // TODO replace with near_vm_logic::mocks::mock_memory::MockedMemory after updating version from 0.17
 use crate::mock::mocked_memory::MockedMemory;
@@ -7,6 +7,7 @@ use crate::types::{NearToken, PromiseResult};
 use crate::VMContext;
 use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
 use near_primitives_core::version::PROTOCOL_VERSION;
+use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
 use near_vm_runner::logic::{External, MemoryLike, VMLogic};
 use std::cell::RefCell;
@@ -48,7 +49,7 @@ impl Default for MockedBlockchain {
 }
 
 struct LogicFixture {
-    ext: Box<SdkExternal>,
+    ext: Box<MockedExternal>,
     memory: Box<dyn MemoryLike>,
     #[allow(clippy::box_collection)]
     promise_results: Box<Vec<VmPromiseResult>>,
@@ -66,7 +67,7 @@ impl MockedBlockchain {
         validators: HashMap<String, NearToken>,
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
-        let mut ext = Box::new(SdkExternal::new());
+        let mut ext = Box::new(MockedExternal::new());
         let context = sdk_context_to_vm_context(context);
         ext.fake_trie = storage;
         ext.validators =
@@ -100,7 +101,8 @@ impl MockedBlockchain {
     /// Returns metadata about the receipts created
     pub fn created_receipts(&self) -> Vec<Receipt> {
         let action_log = &self.logic_fixture.ext.action_log;
-        println!("{:#?}", action_log);
+        let action_log: Vec<MockAction> =
+            action_log.clone().into_iter().map(<MockAction as From<_>>::from).collect();
         let create_receipts: Vec<(usize, MockAction)> = action_log
             .clone()
             .into_iter()
@@ -130,7 +132,6 @@ impl MockedBlockchain {
                 Receipt { receiver_id, actions, receipt_indices }
             })
             .collect();
-        println!("{:#?}", result);
         result
     }
 

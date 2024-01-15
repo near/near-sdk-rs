@@ -636,20 +636,10 @@ mod tests {
         let first_receipt = receipts.into_iter().next().unwrap();
         first_receipt.actions.into_iter()
     }
-    fn convert_key(public_key: &PublicKey) -> near_crypto::PublicKey {
-        // TODO: add Secp conversion
-
-        let key_bytes = public_key.clone().into_bytes();
-        let public_key = near_crypto::PublicKey::ED25519(
-            near_crypto::ED25519PublicKey::try_from(&key_bytes.as_slice()[1..]).unwrap(),
-        );
-        public_key
-    }
 
     fn has_add_key_with_full_access(public_key: PublicKey, nonce: Option<u64>) -> bool {
+        let public_key = near_crypto::PublicKey::try_from(public_key.clone()).unwrap();
         get_actions().any(|el| {
-            let public_key = convert_key(&public_key);
-
             matches!(
                 el,
                 MockAction::AddKeyWithFullAccess { public_key: p, nonce: n, receipt_index: _, }
@@ -659,16 +649,6 @@ mod tests {
         })
     }
 
-    fn map_vec_str(vec_str: Vec<Vec<u8>>) -> Vec<String> {
-        vec_str
-            .into_iter()
-            .map(|element| {
-                let string: String = String::from_utf8(element).unwrap();
-                string
-            })
-            .collect()
-    }
-
     fn has_add_key_with_function_call(
         public_key: PublicKey,
         allowance: u128,
@@ -676,9 +656,8 @@ mod tests {
         function_names: String,
         nonce: Option<u64>,
     ) -> bool {
+        let public_key = near_crypto::PublicKey::try_from(public_key.clone()).unwrap();
         get_actions().any(|el| {
-            let public_key = convert_key(&public_key);
-
             matches!(
                 el,
                 MockAction::AddKeyWithFunctionCall {
@@ -692,7 +671,7 @@ mod tests {
                 if p == public_key
                     && a.unwrap() == NearToken::from_yoctonear(allowance)
                     && r == receiver_id
-                    && map_vec_str(method_names.clone()) == function_names.split(',').collect::<Vec<_>>()
+                    && method_names.clone() == function_names.split(',').collect::<Vec<_>>()
                     && (nonce.is_none() || Some(n) == nonce)
             )
         })
@@ -855,8 +834,8 @@ mod tests {
                 .add_full_access_key(public_key.clone())
                 .delete_key(public_key.clone());
         }
+        let public_key = near_crypto::PublicKey::try_from(public_key.clone()).unwrap();
 
-        let public_key = convert_key(&public_key);
         let has_action = get_actions().any(|el| {
             matches!(
                 el,

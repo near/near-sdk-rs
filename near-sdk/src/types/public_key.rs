@@ -43,6 +43,40 @@ impl std::str::FromStr for CurveType {
     }
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(test)]
+impl TryFrom<PublicKey> for near_crypto::PublicKey {
+    type Error = ParsePublicKeyError;
+
+    fn try_from(public_key: PublicKey) -> Result<Self, Self::Error> {
+        let curve_type = CurveType::from_u8(public_key.data[0])?;
+        let expected_len = curve_type.data_len();
+
+        let key_bytes = public_key.clone().into_bytes();
+        if key_bytes.len() != expected_len + 1 {
+            return Err(ParsePublicKeyError {
+                kind: ParsePublicKeyErrorKind::InvalidLength(key_bytes.len()),
+            });
+        }
+
+        let data = &key_bytes.as_slice()[1..];
+        match curve_type {
+            CurveType::ED25519 => {
+                let public_key = near_crypto::PublicKey::ED25519(
+                    near_crypto::ED25519PublicKey::try_from(data).unwrap(),
+                );
+                Ok(public_key)
+            }
+            CurveType::SECP256K1 => {
+                let public_key = near_crypto::PublicKey::SECP256K1(
+                    near_crypto::Secp256K1PublicKey::try_from(data).unwrap(),
+                );
+                Ok(public_key)
+            }
+        }
+    }
+}
+
 /// Public key in a binary format with base58 string serialization with human-readable curve.
 /// The key types currently supported are `secp256k1` and `ed25519`.
 ///

@@ -1,4 +1,5 @@
 use near_primitives_core::types::GasWeight;
+use near_vm_runner::logic::mocks::mock_external::MockAction as LogicMockAction;
 use near_vm_runner::logic::types::ReceiptIndex;
 
 use crate::{AccountId, Gas, NearToken};
@@ -60,7 +61,7 @@ pub enum MockAction {
         nonce: u64,
         allowance: Option<NearToken>,
         receiver_id: AccountId,
-        method_names: Vec<Vec<u8>>,
+        method_names: Vec<String>,
     },
     AddKeyWithFullAccess {
         receipt_index: ReceiptIndex,
@@ -82,6 +83,79 @@ impl MockAction {
             MockAction::DeleteKey { receipt_index, .. } => Some(*receipt_index),
             MockAction::AddKeyWithFunctionCall { receipt_index, .. } => Some(*receipt_index),
             Self::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
+        }
+    }
+}
+
+fn map_vec_str(vec_str: Vec<Vec<u8>>) -> Vec<String> {
+    vec_str
+        .into_iter()
+        .map(|element| {
+            let string: String = String::from_utf8(element).unwrap();
+            string
+        })
+        .collect()
+}
+
+impl From<LogicMockAction> for MockAction {
+    fn from(value: LogicMockAction) -> Self {
+        match value {
+            LogicMockAction::CreateReceipt { receipt_indices, receiver_id } => {
+                Self::CreateReceipt { receipt_indices, receiver_id }
+            }
+            LogicMockAction::CreateAccount { receipt_index } => {
+                Self::CreateAccount { receipt_index }
+            }
+            LogicMockAction::DeployContract { receipt_index, code } => {
+                Self::DeployContract { receipt_index, code }
+            }
+            LogicMockAction::FunctionCallWeight {
+                receipt_index,
+                method_name,
+                args,
+                attached_deposit,
+                prepaid_gas,
+                gas_weight,
+            } => Self::FunctionCallWeight {
+                receipt_index,
+                method_name,
+                args,
+                attached_deposit: NearToken::from_yoctonear(attached_deposit),
+                prepaid_gas: Gas::from_gas(prepaid_gas),
+                gas_weight,
+            },
+            LogicMockAction::Transfer { receipt_index, deposit } => {
+                MockAction::Transfer { receipt_index, deposit: NearToken::from_yoctonear(deposit) }
+            }
+            LogicMockAction::Stake { receipt_index, stake, public_key } => MockAction::Stake {
+                receipt_index,
+                stake: NearToken::from_yoctonear(stake),
+                public_key,
+            },
+            LogicMockAction::DeleteAccount { receipt_index, beneficiary_id } => {
+                Self::DeleteAccount { receipt_index, beneficiary_id }
+            }
+            LogicMockAction::DeleteKey { receipt_index, public_key } => {
+                Self::DeleteKey { receipt_index, public_key }
+            }
+            LogicMockAction::AddKeyWithFunctionCall {
+                receipt_index,
+                public_key,
+                nonce,
+                allowance,
+                receiver_id,
+                method_names,
+            } => Self::AddKeyWithFunctionCall {
+                receipt_index,
+                public_key,
+                nonce,
+                allowance: allowance.map(NearToken::from_yoctonear),
+                receiver_id,
+                method_names: map_vec_str(method_names),
+            },
+            LogicMockAction::AddKeyWithFullAccess { receipt_index, public_key, nonce } => {
+                Self::AddKeyWithFullAccess { receipt_index, public_key, nonce }
+            }
         }
     }
 }
