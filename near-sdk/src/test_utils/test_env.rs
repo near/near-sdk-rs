@@ -1,5 +1,5 @@
 use crate::test_utils::VMContextBuilder;
-use crate::{testing_env, AccountId, VMConfig};
+use crate::{test_vm_config, testing_env, AccountId};
 
 pub fn alice() -> AccountId {
     "alice.near".parse().unwrap()
@@ -18,7 +18,7 @@ pub fn carol() -> AccountId {
     since = "4.0.0",
     note = "Use `testing_env!` macro to initialize with specific VMConfig"
 )]
-pub fn setup_with_config(vm_config: VMConfig) {
+pub fn setup_with_config(vm_config: near_parameters::vm::Config) {
     testing_env!(VMContextBuilder::new().build(), vm_config)
 }
 
@@ -34,5 +34,7 @@ pub fn setup() {
 /// free == effectively unlimited gas
 /// Sets up the blockchain interface with a [`VMConfig`] which sets the gas costs to zero.
 pub fn setup_free() {
-    crate::testing_env!(VMContextBuilder::new().build(), VMConfig::free())
+    let mut config = test_vm_config();
+    config.make_free();
+    crate::testing_env!(VMContextBuilder::new().build(), config)
 }
