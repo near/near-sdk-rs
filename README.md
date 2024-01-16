@@ -46,6 +46,7 @@ use near_sdk::{near_bindgen, env};
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct StatusMessage {
     records: HashMap<AccountId, String>,
 }
@@ -120,6 +121,7 @@ You can also prohibit `Default` trait initialization by using `near_sdk::PanicOn
 ```rust
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
@@ -189,6 +191,7 @@ The general workflow is the following:
 
    #[near_bindgen]
    #[derive(Default, BorshSerialize, BorshDeserialize)]
+   #[borsh(crate = "near_sdk::borsh")]
    pub struct MyContract {
        data: HashMap<u64, u64>
    }
