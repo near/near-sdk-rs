@@ -638,7 +638,7 @@ mod tests {
     }
 
     fn has_add_key_with_full_access(public_key: PublicKey, nonce: Option<u64>) -> bool {
-        let public_key = near_crypto::PublicKey::try_from(public_key.clone()).unwrap();
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
         get_actions().any(|el| {
             matches!(
                 el,
@@ -656,7 +656,7 @@ mod tests {
         function_names: String,
         nonce: Option<u64>,
     ) -> bool {
-        let public_key = near_crypto::PublicKey::try_from(public_key.clone()).unwrap();
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
         get_actions().any(|el| {
             matches!(
                 el,
@@ -834,7 +834,7 @@ mod tests {
                 .add_full_access_key(public_key.clone())
                 .delete_key(public_key.clone());
         }
-        let public_key = near_crypto::PublicKey::try_from(public_key.clone()).unwrap();
+        let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
 
         let has_action = get_actions().any(|el| {
             matches!(

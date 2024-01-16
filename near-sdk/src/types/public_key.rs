@@ -52,7 +52,7 @@ impl TryFrom<PublicKey> for near_crypto::PublicKey {
         let curve_type = CurveType::from_u8(public_key.data[0])?;
         let expected_len = curve_type.data_len();
 
-        let key_bytes = public_key.clone().into_bytes();
+        let key_bytes = public_key.into_bytes();
         if key_bytes.len() != expected_len + 1 {
             return Err(ParsePublicKeyError {
                 kind: ParsePublicKeyErrorKind::InvalidLength(key_bytes.len()),
