@@ -1,5 +1,5 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LookupMap;
+use near_sdk::collections::TreeMap;
 use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash};
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -18,12 +18,12 @@ pub struct SignatureRequest {
 #[borsh(crate = "near_sdk::borsh")]
 pub struct MpcContract {
     // Pending requests
-    requests: LookupMap<CryptoHash, SignatureRequest>,
+    requests: TreeMap<CryptoHash, SignatureRequest>,
 }
 
 impl Default for MpcContract {
     fn default() -> Self {
-        Self { requests: LookupMap::new(RecordsKey) }
+        Self { requests: TreeMap::new(RecordsKey) }
     }
 }
 
@@ -36,23 +36,22 @@ impl MpcContract {
     pub fn sign(&mut self, payload: String) {
         let account_id = env::signer_account_id();
 
-        let promise =
-            env::promise_await_data(account_id.clone(), YIELD_NUM_BLOCKS, DATA_ID_REGISTER);
-
-        log!("Created data-awaiting promise with index {:?}", promise);
+        let promise = env::promise_await_data(&account_id, YIELD_NUM_BLOCKS, DATA_ID_REGISTER);
 
         let data_id: CryptoHash =
             env::read_register(DATA_ID_REGISTER).expect("").try_into().expect("");
 
-        log!(
-            "request by account_id {} for payload {} is pending with data id {:?}",
-            account_id,
-            payload,
-            data_id
-        );
-
         self.requests.insert(&data_id, &SignatureRequest { account_id, payload });
 
         env::promise_return(promise);
+    }
+
+    #[payable]
+    pub fn sign_respond(&mut self, signature: String) {
+        // TODO: really the signer should pass the data id,
+        // but for now just match this response to an arbitrary pending request
+        let data_id = self.requests.min().expect("");
+
+        env::promise_submit_data(&data_id, &signature.into_bytes());
     }
 }

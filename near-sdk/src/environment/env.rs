@@ -14,7 +14,7 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{GasWeight, PromiseError};
+use crate::{CryptoHash, GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -492,11 +492,11 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 // # Promises API #
 // ################
 pub fn promise_await_data(
-    account_id: AccountId,
+    account_id: &AccountId,
     yield_num_blocks: u64,
     register_id: u64,
 ) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
+    let account_id: &str = account_id.as_ref();
     unsafe {
         PromiseIndex(sys::promise_await_data(
             account_id.len() as _,
@@ -507,7 +507,10 @@ pub fn promise_await_data(
     }
 }
 
-//pub fn promise_submit_data(data_id_ptr: u64, payload_len: u64, payload_ptr: u64);
+// TODO: return some kind of success/failure result
+pub fn promise_submit_data(data_id: &CryptoHash, data: &[u8]) {
+    unsafe { sys::promise_submit_data(data_id.as_ptr() as _, data.len() as _, data.as_ptr() as _) }
+}
 
 /// Creates a promise that will execute a method on account with given arguments and attaches
 /// the given amount and gas.
