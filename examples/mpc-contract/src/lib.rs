@@ -1,6 +1,8 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
-use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash};
+use near_sdk::{
+    env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas, NearToken,
+};
 
 #[derive(BorshSerialize, BorshStorageKey)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -35,17 +37,25 @@ impl MpcContract {
     #[payable]
     pub fn sign(&mut self, payload: String) {
         // Create the data-awaiting promise
-        let promise = env::promise_await_data(YIELD_NUM_BLOCKS, DATA_ID_REGISTER);
-
-        // Retrieve the generated data id
-        let data_id: CryptoHash =
-            env::read_register(DATA_ID_REGISTER).expect("").try_into().expect("");
+        let data_promise = env::promise_await_data(YIELD_NUM_BLOCKS, DATA_ID_REGISTER);
 
         // Record the pending request to be picked up by MPC indexers
+        let data_id: CryptoHash =
+            env::read_register(DATA_ID_REGISTER).expect("").try_into().expect("");
         self.requests
             .insert(&data_id, &SignatureRequest { account_id: env::signer_account_id(), payload });
 
-        env::promise_return(promise);
+        // Add a callback for post-processing
+        let _callback_promise = env::promise_then(
+            data_promise,
+            env::current_account_id(),
+            "sign_on_finish",
+            &serde_json::to_vec(&(data_id,)).unwrap(),
+            NearToken::from_near(0),
+            Gas::from_tgas(10),
+        );
+
+        env::promise_return(data_promise);
     }
 
     #[payable]
@@ -54,8 +64,14 @@ impl MpcContract {
         // but for now just match this response to an arbitrary pending request
         let data_id = self.requests.min().expect("");
 
-        log!("submitting response {} for data id {:?}", &signature, &data_id);
+        // validate_signature(...)
+
+        log!("received response {} for data id {:?}", &signature, &data_id);
 
         env::promise_submit_data(&data_id, &signature.into_bytes());
+    }
+
+    pub fn sign_on_finish(&mut self, data_id: CryptoHash) {
+        self.requests.remove(&data_id);
     }
 }
