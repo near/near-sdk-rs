@@ -1,7 +1,8 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::{
-    env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas, NearToken,
+    env, log, near_bindgen, require, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
+    NearToken,
 };
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -34,7 +35,7 @@ const DATA_ID_REGISTER: u64 = 0;
 
 #[near_bindgen]
 impl MpcContract {
-    #[payable]
+    /// User-facing API: accepts payload and returns signature
     pub fn sign(&mut self, payload: String) {
         // Create the data-awaiting promise
         let data_promise = env::promise_await_data(YIELD_NUM_BLOCKS, DATA_ID_REGISTER);
@@ -58,20 +59,36 @@ impl MpcContract {
         env::promise_return(data_promise);
     }
 
-    #[payable]
-    pub fn sign_respond(&mut self, signature: String) {
-        // TODO: really the caller of this function should pass the data id for the
-        // but for now just match this response to an arbitrary pending request
-        let data_id = self.requests.min().expect("");
+    /// Called by MPC participants to submit a signature
+    pub fn sign_respond(&mut self, data_id: String, signature: String) {
+        // For testing convenience, we accept a hexadecimal string
+        let mut data_id_buf = [0u8; 32];
+        hex::decode_to_slice(data_id, &mut data_id_buf).expect("");
+        let data_id = data_id_buf;
+        require!(self.requests.contains_key(&data_id));
 
-        // validate_signature(...)
+        // check that caller is allowed to respond, signature is valid, etc.
+        // ...
 
         log!("received response {} for data id {:?}", &signature, &data_id);
 
         env::promise_submit_data(&data_id, &signature.into_bytes());
     }
 
+    /// Callback used to clean up internal state
     pub fn sign_on_finish(&mut self, data_id: CryptoHash) {
         self.requests.remove(&data_id);
+    }
+
+    /// Helper for local testing
+    pub fn log_pending_requests(&self) {
+        for (data_id, request) in self.requests.iter() {
+            log!(
+                "{}: account_id={} payload={}",
+                hex::encode(data_id),
+                request.account_id,
+                request.payload
+            );
+        }
     }
 }
