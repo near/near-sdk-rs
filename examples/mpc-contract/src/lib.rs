@@ -2,7 +2,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::{
     env, log, near_bindgen, require, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken,
+    NearToken, PromiseResult,
 };
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -52,7 +52,7 @@ impl MpcContract {
             .insert(&data_id, &SignatureRequest { account_id: env::signer_account_id(), payload });
 
         // Add a callback for post-processing
-        let _callback_promise = env::promise_then(
+        let callback_promise = env::promise_then(
             data_promise,
             env::current_account_id(),
             "sign_on_finish",
@@ -61,7 +61,7 @@ impl MpcContract {
             SIGN_ON_FINISH_CALL_GAS,
         );
 
-        env::promise_return(data_promise);
+        env::promise_return(callback_promise);
     }
 
     /// Called by MPC participants to submit a signature
@@ -69,19 +69,28 @@ impl MpcContract {
         let mut data_id_buf = [0u8; 32];
         hex::decode_to_slice(data_id, &mut data_id_buf).expect("");
         let data_id = data_id_buf;
+
         require!(self.requests.contains_key(&data_id));
 
         // check that caller is allowed to respond, signature is valid, etc.
         // ...
 
-        log!("received response {} for data id {:?}", &signature, &data_id);
-
+        log!("submitting response {} for data id {:?}", &signature, &data_id);
         env::promise_submit_data(&data_id, &signature.into_bytes());
     }
 
     /// Callback used to clean up internal state after a request is processed
-    pub fn sign_on_finish(&mut self, data_id: CryptoHash) {
+    pub fn sign_on_finish(&mut self, data_id: CryptoHash) -> Option<String> {
         self.requests.remove(&data_id);
+
+        require!(env::promise_results_count() == 1);
+        match env::promise_result(0) {
+            PromiseResult::Successful(x) => {
+                let signature = std::str::from_utf8(&x).unwrap().to_string();
+                Some(signature + "_post")
+            }
+            _ => None,
+        }
     }
 
     /// Helper for local testing; prints all pending requests
