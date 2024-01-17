@@ -491,6 +491,24 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 // ################
 // # Promises API #
 // ################
+pub fn promise_await_data(
+    account_id: AccountId,
+    yield_num_blocks: u64,
+    register_id: u64,
+) -> PromiseIndex {
+    let account_id = account_id.as_bytes();
+    unsafe {
+        PromiseIndex(sys::promise_await_data(
+            account_id.len() as _,
+            account_id.as_ptr() as _,
+            yield_num_blocks as _,
+            register_id as _,
+        ))
+    }
+}
+
+//pub fn promise_submit_data(data_id_ptr: u64, payload_len: u64, payload_ptr: u64);
+
 /// Creates a promise that will execute a method on account with given arguments and attaches
 /// the given amount and gas.
 pub fn promise_create(
