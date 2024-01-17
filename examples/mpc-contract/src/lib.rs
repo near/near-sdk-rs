@@ -20,7 +20,6 @@ pub struct SignatureRequest {
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct MpcContract {
-    // Pending requests
     requests: TreeMap<CryptoHash, SignatureRequest>,
 }
 
@@ -30,8 +29,14 @@ impl Default for MpcContract {
     }
 }
 
-const YIELD_NUM_BLOCKS: u64 = 100;
+// Register used to receive data id from `promise_await_data`.
 const DATA_ID_REGISTER: u64 = 0;
+
+// Number of blocks for which `sign` will await a signature response.
+const YIELD_NUM_BLOCKS: u64 = 100;
+
+// Prepaid gas for a `sign_on_finish` call
+const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(10);
 
 #[near_bindgen]
 impl MpcContract {
@@ -53,7 +58,7 @@ impl MpcContract {
             "sign_on_finish",
             &serde_json::to_vec(&(data_id,)).unwrap(),
             NearToken::from_near(0),
-            Gas::from_tgas(10),
+            SIGN_ON_FINISH_CALL_GAS,
         );
 
         env::promise_return(data_promise);
@@ -61,7 +66,6 @@ impl MpcContract {
 
     /// Called by MPC participants to submit a signature
     pub fn sign_respond(&mut self, data_id: String, signature: String) {
-        // For testing convenience, we accept a hexadecimal string
         let mut data_id_buf = [0u8; 32];
         hex::decode_to_slice(data_id, &mut data_id_buf).expect("");
         let data_id = data_id_buf;
@@ -75,12 +79,12 @@ impl MpcContract {
         env::promise_submit_data(&data_id, &signature.into_bytes());
     }
 
-    /// Callback used to clean up internal state
+    /// Callback used to clean up internal state after a request is processed
     pub fn sign_on_finish(&mut self, data_id: CryptoHash) {
         self.requests.remove(&data_id);
     }
 
-    /// Helper for local testing
+    /// Helper for local testing; prints all pending requests
     pub fn log_pending_requests(&self) {
         for (data_id, request) in self.requests.iter() {
             log!(
