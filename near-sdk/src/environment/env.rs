@@ -491,20 +491,8 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 // ################
 // # Promises API #
 // ################
-pub fn promise_await_data(
-    account_id: &AccountId,
-    yield_num_blocks: u64,
-    register_id: u64,
-) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
-    unsafe {
-        PromiseIndex(sys::promise_await_data(
-            account_id.len() as _,
-            account_id.as_ptr() as _,
-            yield_num_blocks as _,
-            register_id as _,
-        ))
-    }
+pub fn promise_await_data(yield_num_blocks: u64, register_id: u64) -> PromiseIndex {
+    unsafe { PromiseIndex(sys::promise_await_data(yield_num_blocks as _, register_id as _)) }
 }
 
 // TODO: return some kind of success/failure result
