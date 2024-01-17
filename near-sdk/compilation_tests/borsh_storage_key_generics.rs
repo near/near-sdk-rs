@@ -1,6 +1,6 @@
 //! Testing BorshStorageKey macro with lifetimes and generics.
 
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::{near_bindgen, BorshStorageKey};
 

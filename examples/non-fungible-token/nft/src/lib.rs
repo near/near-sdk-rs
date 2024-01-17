@@ -23,7 +23,8 @@ use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEn
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
-use near_contract_standards::non_fungible_token::NonFungibleToken;
+use near_contract_standards::non_fungible_token::payout::Payout;
+use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenPayout};
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
@@ -51,6 +52,7 @@ enum StorageKey {
     TokenMetadata,
     Enumeration,
     Approval,
+    Royalties,
 }
 
 #[near_bindgen]
@@ -84,6 +86,7 @@ impl Contract {
                 Some(StorageKey::TokenMetadata),
                 Some(StorageKey::Enumeration),
                 Some(StorageKey::Approval),
+                Some(StorageKey::Royalties),
             ),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
@@ -215,6 +218,34 @@ impl NonFungibleTokenEnumeration for Contract {
 }
 
 #[near_bindgen]
+impl NonFungibleTokenPayout for Contract {
+    #[allow(unused_variables)]
+    fn nft_payout(&self, token_id: String, balance: U128, max_len_payout: Option<u32>) -> Payout {
+        self.tokens.nft_payout(token_id, balance, max_len_payout)
+    }
+
+    #[payable]
+    fn nft_transfer_payout(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: String,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+        balance: U128,
+        max_len_payout: Option<u32>,
+    ) -> Payout {
+        self.tokens.nft_transfer_payout(
+            receiver_id,
+            token_id,
+            approval_id,
+            memo,
+            balance,
+            max_len_payout,
+        )
+    }
+}
+
+#[near_bindgen]
 impl NonFungibleTokenMetadataProvider for Contract {
     fn nft_metadata(&self) -> NFTContractMetadata {
         self.metadata.get().unwrap()
@@ -329,6 +360,84 @@ mod tests {
         } else {
             panic!("token not correctly created, or not found by nft_token");
         }
+    }
+
+    #[test]
+    fn test_transfer_payout() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new_default_meta(accounts(0).into());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(MINT_STORAGE_COST)
+            .predecessor_account_id(accounts(0))
+            .build());
+        let token_id = "0".to_string();
+        contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(NearToken::from_yoctonear(1))
+            .predecessor_account_id(accounts(0))
+            .build());
+
+        let payout = contract.nft_transfer_payout(
+            accounts(1),
+            token_id.clone(),
+            None,
+            None,
+            U128::from(1),
+            None,
+        );
+
+        let mut expected_payout = HashMap::new();
+        expected_payout.insert(accounts(0), U128::from(1));
+
+        assert_eq!(payout.payout, expected_payout);
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .account_balance(env::account_balance())
+            .is_view(true)
+            .attached_deposit(NearToken::from_near(0))
+            .build());
+
+        if let Some(token) = contract.nft_token(token_id.clone()) {
+            assert_eq!(token.token_id, token_id);
+            assert_eq!(token.owner_id, accounts(1));
+            assert_eq!(token.metadata.unwrap(), sample_token_metadata());
+            assert_eq!(token.approved_account_ids.unwrap(), HashMap::new());
+        } else {
+            panic!("token not correctly created, or not found by nft_token");
+        }
+    }
+
+    #[test]
+    fn test_payout() {
+        let mut context = get_context(accounts(0));
+        testing_env!(context.build());
+        let mut contract = Contract::new_default_meta(accounts(0).into());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .attached_deposit(MINT_STORAGE_COST)
+            .predecessor_account_id(accounts(0))
+            .build());
+        let token_id = "0".to_string();
+        contract.nft_mint(token_id.clone(), accounts(0), sample_token_metadata());
+
+        testing_env!(context
+            .storage_usage(env::storage_usage())
+            .predecessor_account_id(accounts(0))
+            .build());
+
+        let payout = contract.nft_payout(token_id, U128::from(1), None);
+
+        let mut expected_payout = HashMap::new();
+        expected_payout.insert(accounts(0), U128::from(1));
+
+        assert_eq!(payout.payout, expected_payout);
     }
 
     #[test]

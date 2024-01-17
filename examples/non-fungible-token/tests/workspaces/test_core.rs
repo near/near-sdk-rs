@@ -191,6 +191,7 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
+
     assert!(res.is_failure());
 
     // Prints no logs

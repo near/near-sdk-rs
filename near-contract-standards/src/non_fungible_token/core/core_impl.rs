@@ -4,6 +4,7 @@ use crate::non_fungible_token::core::resolver::ext_nft_resolver;
 use crate::non_fungible_token::core::NonFungibleTokenCore;
 use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
+use crate::non_fungible_token::payout::Royalties;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
@@ -49,6 +50,7 @@ pub struct NonFungibleToken {
     // required by approval extension
     pub approvals_by_id: Option<LookupMap<TokenId, HashMap<AccountId, u64>>>,
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
+    pub royalties: Option<Royalties>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -58,18 +60,20 @@ pub enum StorageKey {
 }
 
 impl NonFungibleToken {
-    pub fn new<Q, R, S, T>(
+    pub fn new<Q, R, S, T, Y>(
         owner_by_id_prefix: Q,
         owner_id: AccountId,
         token_metadata_prefix: Option<R>,
         enumeration_prefix: Option<S>,
         approval_prefix: Option<T>,
+        royalties_prefix: Option<Y>,
     ) -> Self
     where
         Q: IntoStorageKey,
         R: IntoStorageKey,
         S: IntoStorageKey,
         T: IntoStorageKey,
+        Y: IntoStorageKey,
     {
         let (approvals_by_id, next_approval_id_by_id) = if let Some(prefix) = approval_prefix {
             let prefix: Vec<u8> = prefix.into_storage_key();
@@ -89,6 +93,7 @@ impl NonFungibleToken {
             tokens_per_owner: enumeration_prefix.map(LookupMap::new),
             approvals_by_id,
             next_approval_id_by_id,
+            royalties: royalties_prefix.map(|prefix| Royalties::new(prefix)),
         };
         this.measure_min_token_storage_cost();
         this

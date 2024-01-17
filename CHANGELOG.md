@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- **BREAKING** Added [NEP-199 - Non-Fungible Token Royalties and Payouts](https://github.com/willemneal/NEPs/blob/18828873648eff1a2e8464db234aefd70918b3e0/neps/nep-0199.md) implementation. This
+will need a state migration in case of upgrade for any contracts using NFT of previous versions due to an extra field.
+
 ## [5.0.0-alpha.1](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sdk-v5.0.0-alpha.1) - 2023-11-18
 
 ### Added
