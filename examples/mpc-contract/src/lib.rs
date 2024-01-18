@@ -36,7 +36,10 @@ const DATA_ID_REGISTER: u64 = 0;
 const YIELD_NUM_BLOCKS: u64 = 100;
 
 // Prepaid gas for a `sign_on_finish` call
-const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(10);
+const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(5);
+
+// Prepaid gas for a `sign_on_finish` call
+const REMOVE_REQUEST_CALL_GAS: Gas = Gas::from_tgas(5);
 
 #[near_bindgen]
 impl MpcContract {
@@ -56,6 +59,16 @@ impl MpcContract {
         self.requests
             .insert(&data_id, &SignatureRequest { account_id: env::signer_account_id(), payload });
 
+        // Schedule clean-up of self.requests after the yield execution completes
+        env::promise_then(
+            promise,
+            env::current_account_id(),
+            "remove_request",
+            &serde_json::to_vec(&(data_id,)).unwrap(),
+            NearToken::from_near(0),
+            REMOVE_REQUEST_CALL_GAS,
+        );
+
         env::promise_return(promise);
     }
 
@@ -74,10 +87,8 @@ impl MpcContract {
         env::promise_yield_resume(&data_id, &signature.into_bytes());
     }
 
-    /// Callback used to clean up internal state after a request is processed
+    /// Callback receiving the externally submitted data
     pub fn sign_on_finish(&mut self) -> Option<String> {
-        //self.requests.remove(&data_id);
-
         require!(env::promise_results_count() == 1);
         match env::promise_result(0) {
             PromiseResult::Successful(x) => {
@@ -86,6 +97,11 @@ impl MpcContract {
             }
             _ => None,
         }
+    }
+
+    /// Callback used to clean up the local state of the contract
+    pub fn remove_request(&mut self, data_id: CryptoHash) {
+        self.requests.remove(&data_id);
     }
 
     /// Helper for local testing; prints all pending requests
