@@ -33,3 +33,4 @@ prettyplease = { version = "0.2.15" }
 abi = []
 __abi-embed = ["abi"]
 __abi-generate = ["abi"]
+wasmcov = []

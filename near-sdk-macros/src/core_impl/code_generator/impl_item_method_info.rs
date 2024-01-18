@@ -52,11 +52,13 @@ impl ImplItemMethodInfo {
     fn void_return_body_tokens(&self) -> TokenStream2 {
         let contract_init = self.contract_init_tokens();
         let method_invocation = self.method_invocation_tokens();
+        let wasmcov = self.wasmcov_tokens();
         let contract_ser = self.contract_ser_tokens();
 
         quote! {
             #contract_init
             #method_invocation;
+            #wasmcov
             #contract_ser
         }
     }
@@ -67,12 +69,14 @@ impl ImplItemMethodInfo {
         let contract_ser = self.contract_ser_tokens();
         let value_ser = self.value_ser_tokens();
         let value_return = self.value_return_tokens();
+        let wasmcov = self.wasmcov_tokens();
 
         quote! {
             #contract_init
             #method_invocation_with_return
             #value_ser
             #value_return
+            #wasmcov
             #contract_ser
         }
     }
@@ -84,6 +88,7 @@ impl ImplItemMethodInfo {
         let value_ser = self.value_ser_tokens();
         let value_return = self.value_return_tokens();
         let result_identifier = self.result_identifier();
+        let wasmcov = self.wasmcov_tokens();
 
         quote! {
             #contract_init
@@ -92,6 +97,7 @@ impl ImplItemMethodInfo {
                 ::std::result::Result::Ok(#result_identifier) => {
                     #value_ser
                     #value_return
+                    #wasmcov
                     #contract_ser
                 }
                 ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
@@ -244,6 +250,26 @@ impl ImplItemMethodInfo {
                     quote! {}
                 }
             }
+        }
+    }
+
+    fn wasmcov_tokens(&self) -> TokenStream2 {
+        fn wasmcov() -> TokenStream2 {
+            quote! {
+                let mut coverage = vec![];
+                unsafe {
+                    // Note that this function is not thread-safe! Use a lock if needed.
+                    ::near_sdk::minicov::capture_coverage(&mut coverage).unwrap();
+                };
+                let base64_string = near_sdk::base64::encode(coverage);
+                ::near_sdk::env::log_str(&base64_string);
+            }
+        }
+
+        if cfg!(feature = "wasmcov") {
+            wasmcov()
+        } else {
+            quote! {}
         }
     }
 

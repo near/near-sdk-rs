@@ -63,6 +63,8 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub use base64;
 pub use borsh;
 pub use bs58;
+#[doc(hidden)]
+pub use minicov;
 #[cfg(feature = "abi")]
 pub use schemars;
 pub use serde;
