@@ -42,26 +42,21 @@ const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(10);
 impl MpcContract {
     /// User-facing API: accepts payload and returns signature
     pub fn sign(&mut self, payload: String) {
-        // Create the data-awaiting promise
-        let data_promise = env::promise_await_data(YIELD_NUM_BLOCKS, DATA_ID_REGISTER);
+        let promise = env::promise_yield_create(
+            "sign_on_finish",
+            &[],
+            SIGN_ON_FINISH_CALL_GAS,
+            YIELD_NUM_BLOCKS,
+            DATA_ID_REGISTER,
+        );
 
-        // Record the pending request to be picked up by MPC indexers
+        // Record the pending request
         let data_id: CryptoHash =
             env::read_register(DATA_ID_REGISTER).expect("").try_into().expect("");
         self.requests
             .insert(&data_id, &SignatureRequest { account_id: env::signer_account_id(), payload });
 
-        // Add a callback for post-processing
-        let callback_promise = env::promise_then(
-            data_promise,
-            env::current_account_id(),
-            "sign_on_finish",
-            &serde_json::to_vec(&(data_id,)).unwrap(),
-            NearToken::from_near(0),
-            SIGN_ON_FINISH_CALL_GAS,
-        );
-
-        env::promise_return(callback_promise);
+        env::promise_return(promise);
     }
 
     /// Called by MPC participants to submit a signature
@@ -76,12 +71,12 @@ impl MpcContract {
         // ...
 
         log!("submitting response {} for data id {:?}", &signature, &data_id);
-        env::promise_submit_data(&data_id, &signature.into_bytes());
+        env::promise_yield_resume(&data_id, &signature.into_bytes());
     }
 
     /// Callback used to clean up internal state after a request is processed
-    pub fn sign_on_finish(&mut self, data_id: CryptoHash) -> Option<String> {
-        self.requests.remove(&data_id);
+    pub fn sign_on_finish(&mut self) -> Option<String> {
+        //self.requests.remove(&data_id);
 
         require!(env::promise_results_count() == 1);
         match env::promise_result(0) {

@@ -491,13 +491,29 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 // ################
 // # Promises API #
 // ################
-pub fn promise_await_data(yield_num_blocks: u64, register_id: u64) -> PromiseIndex {
-    unsafe { PromiseIndex(sys::promise_await_data(yield_num_blocks as _, register_id as _)) }
+pub fn promise_yield_create(
+    function_name: &str,
+    arguments: &[u8],
+    gas: Gas,
+    yield_num_blocks: u64,
+    register_id: u64,
+) -> PromiseIndex {
+    unsafe {
+        PromiseIndex(sys::promise_yield_create(
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            gas.as_gas(),
+            yield_num_blocks as _,
+            register_id as _,
+        ))
+    }
 }
 
 // TODO: return some kind of success/failure result
-pub fn promise_submit_data(data_id: &CryptoHash, data: &[u8]) {
-    unsafe { sys::promise_submit_data(data_id.as_ptr() as _, data.len() as _, data.as_ptr() as _) }
+pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) {
+    unsafe { sys::promise_yield_resume(data_id.as_ptr() as _, data.len() as _, data.as_ptr() as _) }
 }
 
 /// Creates a promise that will execute a method on account with given arguments and attaches
