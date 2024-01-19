@@ -9,15 +9,6 @@ pub fn pretty_print_syn_str(input: &TokenStream) -> syn::Result<String> {
     Ok(prettyplease::unparse(&syn_file))
 }
 
-// macro_rules! local_insta_assert_debug_snapshot {
-//     ($value:expr) => {{
-
-//         insta::with_settings!({prepend_module_to_snapshot => false}, {
-//             insta::assert_debug_snapshot!($value);
-//         });
-//     }};
-// }
-
 macro_rules! local_insta_assert_snapshot {
     ($value:expr) => {{
 
