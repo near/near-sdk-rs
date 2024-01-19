@@ -2,7 +2,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::{
     env, log, near_bindgen, require, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken, PromiseResult,
+    NearToken, PromiseError, PromiseResult,
 };
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -84,19 +84,12 @@ impl MpcContract {
         // ...
 
         log!("submitting response {} for data id {:?}", &signature, &data_id);
-        env::promise_yield_resume(&data_id, &signature.into_bytes());
+        env::promise_yield_resume(&data_id, &serde_json::to_vec(&signature).unwrap());
     }
 
     /// Callback receiving the externally submitted data
-    pub fn sign_on_finish(&mut self) -> Option<String> {
-        require!(env::promise_results_count() == 1);
-        match env::promise_result(0) {
-            PromiseResult::Successful(x) => {
-                let signature = std::str::from_utf8(&x).unwrap().to_string();
-                Some(signature + "_post")
-            }
-            _ => None,
-        }
+    pub fn sign_on_finish(#[callback_unwrap] signature: String) -> String {
+        signature + " post"
     }
 
     /// Callback used to clean up the local state of the contract
