@@ -643,3 +643,34 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // 
+    const PREPENDED_METHODS: [&str; 1] = ["contract_source_metadata"];
+
+    // `cargo test --package near-sdk-macros --lib --all-features -- tests::ensure_abi_on_prepended_functions --exact --nocapture`
+    // Using <../../examples/adder> as out sample contract, we run `cargo near abi --out-dir .` at the contract's directory.
+    #[ignore = "left to the developer to run manually"]
+    #[test]
+    fn ensure_abi_for_prepended_functions() {
+        let path = std::path::Path::new("../../near-sdk-rs/examples/adder/adder_abi.json"); // assuming abi reference was generated in examples/adder
+        if !path.exists() {
+            println!("ABI not generated");
+            return;
+        }
+
+        let abi_root = serde_json::from_slice::<near_abi::AbiRoot>(
+            std::fs::read_to_string(&path).unwrap().as_bytes(),
+        )
+        .expect("expected valid JSON");
+
+        PREPENDED_METHODS.map(|method| {
+            assert!(
+                abi_root.body.functions.iter().any(|f| f.name == method),
+                "ABI should contain prepended method {}",
+                method
+            );
+        });
+    }
+}
