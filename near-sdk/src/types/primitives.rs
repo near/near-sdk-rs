@@ -2,7 +2,7 @@
 use near_primitives_core::hash::CryptoHash;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
-pub use near_primitives_core::runtime::fees::RuntimeFeesConfig;
+pub use near_parameters::RuntimeFeesConfig;
 
 //* Type aliases from near_primitives_core
 
