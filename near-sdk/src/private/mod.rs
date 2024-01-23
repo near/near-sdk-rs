@@ -5,9 +5,11 @@ pub use near_abi::{
     AbiBorshParameter, AbiFunction, AbiFunctionKind, AbiFunctionModifier, AbiJsonParameter,
     AbiParameters, AbiType,
 };
+#[cfg(feature = "abi")]
+mod result_type_ext;
 
 #[cfg(feature = "abi")]
-pub use schemars;
+pub use result_type_ext::ResultTypeExt;
 
 use crate::IntoStorageKey;
 use borsh::{to_vec, BorshSerialize};

@@ -1,5 +1,5 @@
 //!This file is to be removed once near-vm-logic is updated from version 0.17 and MockedMemory size can be customized
-use near_vm_logic::{MemSlice, MemoryLike};
+use near_vm_runner::logic::{MemSlice, MemoryLike};
 
 #[derive(Default)]
 pub struct MockedMemory {}

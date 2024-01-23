@@ -3,11 +3,12 @@ extern crate proc_macro;
 
 mod core_impl;
 
-use core_impl::ext::generate_ext_structs;
+use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method};
+
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
-use proc_macro2::Span;
+use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
@@ -114,8 +115,25 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         return core_impl::near_events(attr, item);
     }
 
+    let generate_metadata = |ident: &Ident,
+                             generics: &syn::Generics|
+     -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+        let metadata_impl_gen = generate_contract_metadata_method(ident, generics).into();
+        let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
+            .expect("failed to generate contract metadata");
+        process_impl_block(metadata_impl_gen)
+    };
+
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
+
+        let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
+
+        let metadata_impl_gen = match metadata_impl_gen {
+            Ok(metadata) => metadata,
+            Err(err) => return err.into(),
+        };
+
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -126,9 +144,17 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_gen
             #abi_embedded
             #metadata
+            #metadata_impl_gen
         })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
+        let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
+
+        let metadata_impl_gen = match metadata_impl_gen {
+            Ok(metadata) => metadata,
+            Err(err) => return err.into(),
+        };
+
         let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
         #[cfg(feature = "__abi-embed-checked")]
         let abi_embedded = abi::embed();
@@ -139,8 +165,9 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #ext_gen
             #abi_embedded
             #metadata
+            #metadata_impl_gen
         })
-    } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+    } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
                 let ident = &m.sig.ident;
@@ -155,46 +182,11 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-
-        if input.trait_.is_none() {
-            let contract_source_metadata = quote! {
-                pub fn contract_source_metadata() {
-                    near_sdk::env::value_return(CONTRACT_SOURCE_METADATA.as_bytes())
-                }
-            };
-
-            match syn::parse2::<ImplItem>(contract_source_metadata) {
-                Ok(x) => {
-                    input.items.push(x);
-                }
-                Err(err) => {
-                    return err.to_compile_error().into();
-                }
-            }
+        match process_impl_block(input) {
+            Ok(output) => output,
+            Err(output) => output,
         }
-
-        let item_impl_info = match ItemImplInfo::new(&mut input) {
-            Ok(x) => x,
-            Err(err) => {
-                return err.to_compile_error().into();
-            }
-        };
-
-        #[cfg(not(feature = "__abi-generate"))]
-        let abi_generated = quote! {};
-        #[cfg(feature = "__abi-generate")]
-        let abi_generated = abi::generate(&item_impl_info);
-
-        let generated_code = item_impl_info.wrapper_code();
-
-        // Add wrapper methods for ext call API
-        let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
-        TokenStream::from(quote! {
-            #ext_generated_code
-            #input
-            #generated_code
-            #abi_generated
-        })
+        .into()
     } else {
         TokenStream::from(
             syn::Error::new(
@@ -204,6 +196,39 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
+}
+
+// This function deals with impl block processing, generating wrappers and ABI.
+//
+// # Arguments
+// * input - impl block to process.
+//
+// The Result has a TokenStream error type, because those need to be propagated to the compiler.
+fn process_impl_block(
+    mut input: ItemImpl,
+) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
+    let item_impl_info = match ItemImplInfo::new(&mut input) {
+        Ok(x) => x,
+        Err(err) => return Err(err.to_compile_error()),
+    };
+
+    #[cfg(not(feature = "__abi-generate"))]
+    let abi_generated = quote! {};
+    #[cfg(feature = "__abi-generate")]
+    let abi_generated = abi::generate(&item_impl_info);
+
+    let generated_code = item_impl_info.wrapper_code();
+
+    // Add wrapper methods for ext call API
+    let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
+
+    Ok(TokenStream::from(quote! {
+        #ext_generated_code
+        #input
+        #generated_code
+        #abi_generated
+    })
+    .into())
 }
 
 /// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
@@ -368,23 +393,25 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
         }
     }
 
+    // <unspecified> or #[abi(json)]
     let json_schema = json_schema || !borsh_schema;
 
-    let derive = match (json_schema, borsh_schema) {
-        // <unspecified> or #[abi(json)]
-        (_, false) => quote! {
-            #[derive(schemars::JsonSchema)]
-        },
-        // #[abi(borsh)]
-        (false, true) => quote! {
-            #[derive(::near_sdk::borsh::BorshSchema)]
-            #[borsh(crate = "::near_sdk::borsh")]
-        },
-        // #[abi(json, borsh)]
-        (true, true) => quote! {
-            #[derive(schemars::JsonSchema, ::near_sdk::borsh::BorshSchema)]
-            #[borsh(crate = "::near_sdk::borsh")]
-        },
+    let derive = {
+        let mut derive = quote! {};
+        if borsh_schema {
+            derive = quote! {
+                #[derive(::near_sdk::borsh::BorshSchema)]
+                #[borsh(crate = "::near_sdk::borsh")]
+            };
+        }
+        if json_schema {
+            derive = quote! {
+                #derive
+                #[derive(::near_sdk::schemars::JsonSchema)]
+                #[schemars(crate = "::near_sdk::schemars")]
+            };
+        }
+        derive
     };
 
     let input_ident = &input.ident;
@@ -394,13 +421,13 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
     let json_impl = if json_schema {
         quote! {
             #[automatically_derived]
-            impl schemars::JsonSchema for #input_ident_proxy {
+            impl ::near_sdk::schemars::JsonSchema for #input_ident_proxy {
                 fn schema_name() -> ::std::string::String {
                     stringify!(#input_ident).to_string()
                 }
 
-                fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-                    <#input_ident as schemars::JsonSchema>::json_schema(gen)
+                fn json_schema(gen: &mut ::near_sdk::schemars::gen::SchemaGenerator) -> ::near_sdk::schemars::schema::Schema {
+                    <#input_ident as ::near_sdk::schemars::JsonSchema>::json_schema(gen)
                 }
             }
         }
@@ -436,8 +463,6 @@ pub fn derive_near_schema(input: TokenStream) -> TokenStream {
             #[allow(non_camel_case_types)]
             type #input_ident_proxy = #input_ident;
             {
-                use ::near_sdk::__private::schemars;
-
                 #derive
                 #input
 

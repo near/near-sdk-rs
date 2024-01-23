@@ -8,7 +8,6 @@ mod primitives;
 pub use self::primitives::*;
 
 pub use near_account_id::{AccountId, AccountIdRef};
-
 pub use near_gas::NearGas as Gas;
 pub use near_token::NearToken;
 

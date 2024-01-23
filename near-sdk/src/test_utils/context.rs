@@ -1,9 +1,9 @@
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
-use crate::AccountId;
+use crate::{test_vm_config, AccountId};
 use crate::{BlockHeight, EpochHeight, Gas, NearToken, PromiseResult, PublicKey, StorageUsage};
-use near_primitives_core::runtime::fees::RuntimeFeesConfig;
-use near_vm_logic::{VMConfig, ViewConfig};
+use near_parameters::RuntimeFeesConfig;
+use near_primitives_core::config::ViewConfig;
 use std::convert::TryInto;
 
 /// Returns a pre-defined account_id from a list of 6.
@@ -194,7 +194,7 @@ pub fn testing_env_with_promise_results(context: VMContext, promise_result: Prom
     //? Might be a good time to remove this utility function altogether
     crate::env::set_blockchain_interface(MockedBlockchain::new(
         context,
-        VMConfig::test(),
+        test_vm_config(),
         RuntimeFeesConfig::test(),
         vec![promise_result],
         storage,
