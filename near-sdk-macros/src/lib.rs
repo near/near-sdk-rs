@@ -646,31 +646,60 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
 
 #[cfg(test)]
 mod tests {
-    // 
-    const PREPENDED_METHODS: [&str; 1] = ["contract_source_metadata"];
+    use std::{collections::HashSet, fs, path::Path, process::Command};
 
-    // `cargo test --package near-sdk-macros --lib --all-features -- tests::ensure_abi_on_prepended_functions --exact --nocapture`
-    // Using <../../examples/adder> as out sample contract, we run `cargo near abi --out-dir .` at the contract's directory.
-    #[ignore = "left to the developer to run manually"]
+    // These methods are prepended to the contract internally, update this test list if they change
+    const PREPENDED_METHODS: [&str; 1] = ["contract_source_metadata"];
+    const PROJECT_PATH: &str = "../../near-sdk-rs/examples/adder";
+
     #[test]
     fn ensure_abi_for_prepended_functions() {
-        let path = std::path::Path::new("../../near-sdk-rs/examples/adder/adder_abi.json"); // assuming abi reference was generated in examples/adder
-        if !path.exists() {
-            println!("ABI not generated");
-            return;
-        }
+        let contract_dir = Path::new(PROJECT_PATH);
 
-        let abi_root = serde_json::from_slice::<near_abi::AbiRoot>(
-            std::fs::read_to_string(&path).unwrap().as_bytes(),
-        )
-        .expect("expected valid JSON");
+        let res = Command::new("bash")
+            .arg(contract_dir.join("abi.sh").to_str().expect("script path is valid"))
+            .output()
+            .unwrap();
 
+        assert!(
+            res.status.success(),
+            "failed to compile contract abi: {}",
+            String::from_utf8_lossy(&res.stderr)
+        );
+
+        let dylib_file = contract_dir.join(format!("res/libadder.{}", dylib_extension()));
+        assert!(dylib_file.exists(), "Dylib file should exist");
+
+        let dylib_file_contents =
+            fs::read(contract_dir.join(format!("res/libadder.{}", dylib_extension()))).unwrap();
+        let object = symbolic_debuginfo::Object::parse(&dylib_file_contents).unwrap();
+        let near_abi_symbols = object
+            .symbols()
+            .flat_map(|sym| sym.name)
+            .filter(|sym_name| sym_name.starts_with("__near_abi_"))
+            .collect::<HashSet<_>>();
+
+        // ensure methods are prepended
         PREPENDED_METHODS.map(|method| {
             assert!(
-                abi_root.body.functions.iter().any(|f| f.name == method),
+                near_abi_symbols.iter().any(|f| f.eq(&format!("__near_abi_{}", method))),
                 "ABI should contain prepended method {}",
                 method
             );
         });
+    }
+
+    const fn dylib_extension() -> &'static str {
+        #[cfg(target_os = "linux")]
+        return "so";
+
+        #[cfg(target_os = "macos")]
+        return "dylib";
+
+        #[cfg(target_os = "windows")]
+        return "dll";
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+        compile_error!("Unsupported platform");
     }
 }
