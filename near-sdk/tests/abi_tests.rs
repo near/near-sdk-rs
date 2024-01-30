@@ -17,6 +17,7 @@ fn ensure_abi_for_prepended_functions() {
         .args(["--manifest-path", &project_manifest.to_string_lossy()])
         .args(["--features", "near-sdk/__abi-generate"])
         .env("CARGO_TARGET_DIR", &target)
+        .env("RUSTFLAGS", "-Awarnings")
         .output()
         .unwrap();
 
