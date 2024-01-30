@@ -15,7 +15,7 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 /// [`MockedBlockchain`], in this order:
 /// - `context`: [`VMContext`] which contains some core information about
 /// the blockchain and message data which can be used from the smart contract.
-/// - `config` (optional): [`VMConfig`] which contains some additional information
+/// - `config` (optional): [`vm::Config`] which contains some additional information
 /// about the VM to configure parameters not directly related to the transaction being executed.
 /// - `fee_config`(optional): [`RuntimeFeesConfig`] which configures the
 /// fees for execution and storage of transactions.
@@ -29,9 +29,9 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 /// # Example use
 ///
 /// ```
-/// use near_sdk::testing_env;
+/// use near_sdk::{testing_env, test_vm_config};
 /// use near_sdk::test_utils::{accounts, VMContextBuilder};
-/// use near_sdk::{VMConfig, RuntimeFeesConfig};
+/// use near_parameters::RuntimeFeesConfig;
 /// use std::collections::HashMap;
 ///
 /// # fn main() {
@@ -44,7 +44,7 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 /// // Or include arguments up to the five optional
 /// testing_env!(
 ///     context,
-///     VMConfig::test(),
+///     test_vm_config(),
 ///     RuntimeFeesConfig::test(),
 ///     HashMap::default(),
 ///     Vec::default(),
@@ -54,8 +54,8 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 ///
 /// [`MockedBlockchain`]: crate::mock::MockedBlockchain
 /// [`VMContext`]: crate::VMContext
-/// [`VMConfig`]: crate::VMConfig
-/// [`RuntimeFeesConfig`]: crate::RuntimeFeesConfig
+/// [`vm::Config`]: near_parameters::vm::Config
+/// [`RuntimeFeesConfig`]: near_parameters::RuntimeFeesConfig
 /// [`AccountId`]: crate::AccountId
 /// [`Balance`]: crate::Balance
 /// [`PromiseResult`]: crate::PromiseResult
@@ -84,7 +84,7 @@ macro_rules! testing_env {
         $crate::testing_env!($context, $config, $crate::RuntimeFeesConfig::test())
     };
     ($context:expr) => {
-        $crate::testing_env!($context, $crate::VMConfig::test())
+        $crate::testing_env!($context, $crate::test_vm_config())
     };
 }
 

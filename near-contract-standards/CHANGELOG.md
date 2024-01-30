@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0-alpha.1...near-contract-standards-v5.0.0-alpha.2) - 2024-01-16
+
+### Other
+- fix new 1.75 warnings ([#1128](https://github.com/near/near-sdk-rs/pull/1128))
+- Re-exported packages cleanup ([#1114](https://github.com/near/near-sdk-rs/pull/1114))
+
 ## [5.0.0-alpha.1](https://github.com/near/near-sdk-rs/compare/4.1.1...near-contract-standards-v5.0.0-alpha.1) - 2023-11-18
 
 ### Added

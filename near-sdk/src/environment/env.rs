@@ -79,9 +79,9 @@ pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
 /// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
-/// ```no_run
+/// ```
 /// # let context = near_sdk::test_utils::VMContextBuilder::new().build();
-/// # let vm_config = near_sdk::VMConfig::test();
+/// # let vm_config = near_sdk::test_vm_config();
 /// # let fees_config = near_sdk::RuntimeFeesConfig::test();
 /// # let storage = Default::default();
 /// # let validators = Default::default();
