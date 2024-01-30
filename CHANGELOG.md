@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.1...near-sdk-v5.0.0-alpha.2) - 2024-01-16
+
+### Fixed
+- include `near-sdk/src/private/result_type_ext.rs` file into module tree ([#1122](https://github.com/near/near-sdk-rs/pull/1122))
+- Fixed `contract_source_metadata` compilation issue when multiple impl blocks are there ([#1118](https://github.com/near/near-sdk-rs/pull/1118))
+- remove leftover `near_sdk::__private::schemars` ([#1120](https://github.com/near/near-sdk-rs/pull/1120))
+
+### Other
+- [**breaking**] update `nearcore` crates from `0.17` -> `0.20` ([#1130](https://github.com/near/near-sdk-rs/pull/1130))
+- fix new 1.75 warnings ([#1128](https://github.com/near/near-sdk-rs/pull/1128))
+- Re-exported packages cleanup ([#1114](https://github.com/near/near-sdk-rs/pull/1114))
+
 ## [5.0.0-alpha.1](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sdk-v5.0.0-alpha.1) - 2023-11-18
 
 ### Added
