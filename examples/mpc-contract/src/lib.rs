@@ -2,7 +2,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::{
     env, log, near_bindgen, require, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken, PromiseError, PromiseResult,
+    NearToken,
 };
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -32,9 +32,6 @@ impl Default for MpcContract {
 // Register used to receive data id from `promise_await_data`.
 const DATA_ID_REGISTER: u64 = 0;
 
-// Number of blocks for which `sign` will await a signature response.
-const YIELD_NUM_BLOCKS: u64 = 100;
-
 // Prepaid gas for a `sign_on_finish` call
 const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(5);
 
@@ -49,7 +46,6 @@ impl MpcContract {
             "sign_on_finish",
             &[],
             SIGN_ON_FINISH_CALL_GAS,
-            YIELD_NUM_BLOCKS,
             DATA_ID_REGISTER,
         );
 

@@ -495,7 +495,6 @@ pub fn promise_yield_create(
     function_name: &str,
     arguments: &[u8],
     gas: Gas,
-    yield_num_blocks: u64,
     register_id: u64,
 ) -> PromiseIndex {
     unsafe {
@@ -505,7 +504,6 @@ pub fn promise_yield_create(
             arguments.len() as _,
             arguments.as_ptr() as _,
             gas.as_gas(),
-            yield_num_blocks as _,
             register_id as _,
         ))
     }
