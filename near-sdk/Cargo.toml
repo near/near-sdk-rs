@@ -58,6 +58,8 @@ hex = { version = "0.4.3", features = ["serde"] }
 getrandom = { version = "0.2", features = ["js"] }
 rand_chacha = "0.3.1"
 near-rng = "0.1.1"
+near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
+symbolic-debuginfo = "8.8"
 
 [features]
 default = ["wee_alloc", "unit-testing", "legacy", "abi"]
