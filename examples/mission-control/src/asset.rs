@@ -1,4 +1,5 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::schemars::JsonSchema;
 use near_sdk::serde::{Deserialize, Serialize};
 
 #[derive(
@@ -13,9 +14,11 @@ use near_sdk::serde::{Deserialize, Serialize};
     Deserialize,
     BorshDeserialize,
     BorshSerialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Resource {
     Battery,
     RgbSensor,
@@ -35,9 +38,11 @@ pub enum Resource {
     Deserialize,
     BorshDeserialize,
     BorshSerialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Reward {
     Score,
     Token,
@@ -58,9 +63,11 @@ pub enum Reward {
     Deserialize,
     BorshDeserialize,
     BorshSerialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Asset {
     Resource(Resource),
     Reward(Reward),
@@ -69,10 +76,20 @@ pub enum Asset {
 }
 
 #[derive(
-    PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord, BorshDeserialize, BorshSerialize,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    PartialOrd,
+    Ord,
+    BorshDeserialize,
+    BorshSerialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub enum Exchange {
     MissionTimeWithResource,
     MissionTimeWithTrust,
