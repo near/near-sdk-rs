@@ -8,7 +8,7 @@ fn ensure_abi_for_prepended_functions() {
     const NEAR_SDK_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
     // using the adder example as a test case
-    let target = Path::new(NEAR_SDK_DIR).join("../target");
+    let target = Path::new(NEAR_SDK_DIR).join("../examples/adder/target");
     let project_manifest = Path::new(NEAR_SDK_DIR).join("../examples/adder/Cargo.toml");
 
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
