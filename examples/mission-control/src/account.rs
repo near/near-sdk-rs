@@ -1,6 +1,7 @@
 use crate::asset::*;
 use crate::rate::*;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::schemars::JsonSchema;
 use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops;
@@ -17,14 +18,17 @@ use std::ops;
     Debug,
     BorshDeserialize,
     BorshSerialize,
+    JsonSchema,
 )]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct Quantity(pub i32);
 
-#[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize, JsonSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
+#[schemars(crate = "near_sdk::schemars")]
 pub struct Account(pub HashMap<Asset, Quantity>);
 
 pub enum Tranx {
