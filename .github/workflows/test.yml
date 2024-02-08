@@ -24,7 +24,7 @@ jobs:
           default: true
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-        name: Downgrade dependencies
+      - name: Downgrade dependencies
         run: cargo update -p clap@4.3.24
       - name: test
         run: cargo test --all --features unstable,legacy
