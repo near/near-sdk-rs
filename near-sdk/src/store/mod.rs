@@ -33,10 +33,10 @@
 //! Maps:
 //!
 //! - [`LookupMap`]: Wrapper around key-value storage interactions, similar to
-//! [`UnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
+//! [`FrangibleUnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
 //! iterated over.
 //!
-//! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
+//! - [`FrangibleUnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //! guarantees.
 //!
 //! - [`TreeMap`](TreeMap) (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
@@ -77,8 +77,8 @@ pub use self::lookup_map::LookupMap;
 mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
-pub mod unordered_map;
-pub use self::unordered_map::UnorderedMap;
+pub mod frangible_map;
+pub use self::frangible_map::FrangibleUnorderedMap;
 
 pub mod unordered_set;
 pub use self::unordered_set::UnorderedSet;

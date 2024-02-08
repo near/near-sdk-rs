@@ -1,5 +1,5 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::store::UnorderedMap;
+use near_sdk::store::FrangibleMap;
 use near_sdk::{env, log, near_bindgen, AccountId, NearToken};
 
 /// An example of a versioned contract. This is a simple contract that tracks how much
@@ -33,7 +33,7 @@ impl VersionedContract {
         }
     }
 
-    fn funders(&self) -> &UnorderedMap<AccountId, NearToken> {
+    fn funders(&self) -> &FrangibleMap<AccountId, NearToken> {
         match self {
             Self::V0(contract) => &contract.funders,
             Self::V1(contract) => &contract.funders,
@@ -50,25 +50,25 @@ impl Default for VersionedContract {
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct ContractV0 {
-    funders: UnorderedMap<AccountId, NearToken>,
+    funders: FrangibleMap<AccountId, NearToken>,
 }
 
 impl Default for ContractV0 {
     fn default() -> Self {
-        Self { funders: UnorderedMap::new(b"f") }
+        Self { funders: FrangibleMap::new(b"f") }
     }
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct Contract {
-    funders: UnorderedMap<AccountId, NearToken>,
+    funders: FrangibleMap<AccountId, NearToken>,
     nonce: u64,
 }
 
 impl Default for Contract {
     fn default() -> Self {
-        Self { funders: UnorderedMap::new(b"f"), nonce: 0 }
+        Self { funders: FrangibleMap::new(b"f"), nonce: 0 }
     }
 }
 
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn contract_v0_interactions() {
         let mut contract = {
-            let mut funders = UnorderedMap::new(b"f");
+            let mut funders = FrangibleMap::new(b"f");
             funders.insert(bob(), NearToken::from_yoctonear(8));
             VersionedContract::V0(ContractV0 { funders })
         };

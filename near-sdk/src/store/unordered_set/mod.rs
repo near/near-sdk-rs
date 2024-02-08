@@ -148,9 +148,9 @@ where
     /// # Example
     /// ```
     /// use near_sdk::store::key::Keccak256;
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::UnorderedSet;
     ///
-    /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
+    /// let map = UnorderedSet::<String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where

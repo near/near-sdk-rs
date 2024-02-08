@@ -2,10 +2,10 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ToKey, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
+use super::{FrangibleUnorderedMap, LookupMap, ToKey, ValueAndIndex, ERR_INCONSISTENT_STATE};
 use crate::{env, store::free_list};
 
-impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
+impl<'a, K, V, H> IntoIterator for &'a FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -19,7 +19,7 @@ where
     }
 }
 
-impl<'a, K, V, H> IntoIterator for &'a mut UnorderedMap<K, V, H>
+impl<'a, K, V, H> IntoIterator for &'a mut FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -33,9 +33,9 @@ where
     }
 }
 
-/// An iterator over elements of a [`UnorderedMap`].
+/// An iterator over elements of a [`FrangibleUnorderedMap`].
 ///
-/// This `struct` is created by the `iter` method on [`UnorderedMap`].
+/// This `struct` is created by the `iter` method on [`FrangibleUnorderedMap`].
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -54,7 +54,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a FrangibleUnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter(), values: &map.values }
     }
 }
@@ -120,9 +120,9 @@ where
     }
 }
 
-/// A mutable iterator over elements of a [`UnorderedMap`].
+/// A mutable iterator over elements of a [`FrangibleUnorderedMap`].
 ///
-/// This `struct` is created by the `iter_mut` method on [`UnorderedMap`].
+/// This `struct` is created by the `iter_mut` method on [`FrangibleUnorderedMap`].
 pub struct IterMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -141,7 +141,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a mut FrangibleUnorderedMap<K, V, H>) -> Self {
         Self { keys: map.keys.iter(), values: &mut map.values }
     }
     fn get_entry_mut<'b>(&'b mut self, key: &'a K) -> (&'a K, &'a mut V)
@@ -219,9 +219,9 @@ where
     }
 }
 
-/// An iterator over the keys of a [`UnorderedMap`].
+/// An iterator over the keys of a [`FrangibleUnorderedMap`].
 ///
-/// This `struct` is created by the `keys` method on [`UnorderedMap`].
+/// This `struct` is created by the `keys` method on [`FrangibleUnorderedMap`].
 pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize,
@@ -233,7 +233,7 @@ impl<'a, K> Keys<'a, K>
 where
     K: BorshSerialize + BorshDeserialize,
 {
-    pub(super) fn new<V, H>(map: &'a UnorderedMap<K, V, H>) -> Self
+    pub(super) fn new<V, H>(map: &'a FrangibleUnorderedMap<K, V, H>) -> Self
     where
         K: Ord,
         V: BorshSerialize,
@@ -274,9 +274,9 @@ where
     }
 }
 
-/// An iterator over the values of a [`UnorderedMap`].
+/// An iterator over the values of a [`FrangibleUnorderedMap`].
 ///
-/// This `struct` is created by the `values` method on [`UnorderedMap`].
+/// This `struct` is created by the `values` method on [`FrangibleUnorderedMap`].
 pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -292,7 +292,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    pub(super) fn new(map: &'a UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a FrangibleUnorderedMap<K, V, H>) -> Self {
         Self { inner: map.iter() }
     }
 }
@@ -352,9 +352,9 @@ where
     }
 }
 
-/// A mutable iterator over values of a [`UnorderedMap`].
+/// A mutable iterator over values of a [`FrangibleUnorderedMap`].
 ///
-/// This `struct` is created by the `values_mut` method on [`UnorderedMap`].
+/// This `struct` is created by the `values_mut` method on [`FrangibleUnorderedMap`].
 pub struct ValuesMut<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -370,7 +370,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    pub(super) fn new(map: &'a mut UnorderedMap<K, V, H>) -> Self {
+    pub(super) fn new(map: &'a mut FrangibleUnorderedMap<K, V, H>) -> Self {
         Self { inner: map.iter_mut() }
     }
 }
@@ -430,7 +430,7 @@ where
     }
 }
 
-/// A draining iterator for [`UnorderedMap<K, V, H>`].
+/// A draining iterator for [`FrangibleUnorderedMap<K, V, H>`].
 #[derive(Debug)]
 pub struct Drain<'a, K, V, H>
 where
@@ -448,7 +448,7 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
-    pub(crate) fn new(list: &'a mut UnorderedMap<K, V, H>) -> Self {
+    pub(crate) fn new(list: &'a mut FrangibleUnorderedMap<K, V, H>) -> Self {
         Self { keys: list.keys.drain(), values: &mut list.values }
     }
 

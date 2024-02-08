@@ -18,23 +18,28 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 
 /// A lazily loaded storage map that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupMap`](crate::store::LookupMap), except
-/// that it stores the keys so that [`UnorderedMap`] can be iterable.
+/// that it stores the keys so that [`FrangibleUnorderedMap`] can be iterable.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
 /// using the map's [`ToKey`] implementation.
 ///
-/// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
+/// The default hash function for [`FrangibleUnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
 ///
+/// # Performance considerations
+/// Note that this collection is optimized for fast removes at the expense of key management.
+/// If the amount of removes is significantly higher than the amount of inserts the iteration
+/// becomes more costly. See [`remove`](FrangibleUnorderedMap::remove) for details.
+///
 /// # Examples
 /// ```
-/// use near_sdk::store::UnorderedMap;
+/// use near_sdk::store::FrangibleUnorderedMap;
 ///
 /// // Initializes a map, the generic types can be inferred to `UnorderedMap<String, u8, Sha256>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
-/// let mut map = UnorderedMap::new(b"a");
+/// let mut map = FrangibleUnorderedMap::new(b"a");
 ///
 /// map.insert("test".to_string(), 7u8);
 /// assert!(map.contains_key("test"));
@@ -45,16 +50,16 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// assert_eq!(map["test"], 5u8);
 /// ```
 ///
-/// [`UnorderedMap`] also implements an [`Entry API`](Self::entry), which allows
+/// [`FrangibleUnorderedMap`] also implements an [`Entry API`](Self::entry), which allows
 /// for more complex methods of getting, setting, updating and removing keys and
 /// their values:
 ///
 /// ```
-/// use near_sdk::store::UnorderedMap;
+/// use near_sdk::store::FrangibleUnorderedMap;
 ///
 /// // type inference lets us omit an explicit type signature (which
 /// // would be `UnorderedMap<String, u8>` in this example).
-/// let mut player_stats = UnorderedMap::new(b"m");
+/// let mut player_stats = FrangibleUnorderedMap::new(b"m");
 ///
 /// fn random_stat_buff() -> u8 {
 ///     // could actually return some random value here - let's just return
@@ -75,7 +80,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
-pub struct UnorderedMap<K, V, H = Sha256>
+pub struct FrangibleUnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -93,7 +98,7 @@ struct ValueAndIndex<V> {
 
 //? Manual implementations needed only because borsh derive is leaking field types
 // https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
+impl<K, V, H> BorshSerialize for FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -106,7 +111,7 @@ where
     }
 }
 
-impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
+impl<K, V, H> BorshDeserialize for FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -120,7 +125,7 @@ where
     }
 }
 
-impl<K, V, H> Drop for UnorderedMap<K, V, H>
+impl<K, V, H> Drop for FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -131,7 +136,7 @@ where
     }
 }
 
-impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
+impl<K, V, H> fmt::Debug for FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
@@ -145,7 +150,7 @@ where
     }
 }
 
-impl<K, V> UnorderedMap<K, V, Sha256>
+impl<K, V> FrangibleUnorderedMap<K, V, Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -158,9 +163,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -171,19 +176,19 @@ where
     }
 }
 
-impl<K, V, H> UnorderedMap<K, V, H>
+impl<K, V, H> FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    /// Initialize a [`UnorderedMap`] with a custom hash function.
+    /// Initialize a [`FrangibleUnorderedMap`] with a custom hash function.
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::{UnorderedMap, key::Keccak256};
+    /// use near_sdk::store::{FrangibleUnorderedMap, key::Keccak256};
     ///
-    /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
+    /// let map = FrangibleUnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -199,9 +204,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// assert_eq!(map.len(), 0);
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
@@ -215,9 +220,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// assert!(map.is_empty());
     /// map.insert("a".to_string(), 1);
     /// assert!(!map.is_empty());
@@ -232,9 +237,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// map.insert("a".to_string(), 1);
     ///
     /// map.clear();
@@ -258,9 +263,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = FrangibleUnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -283,9 +288,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = FrangibleUnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -312,9 +317,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = FrangibleUnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -336,9 +341,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = FrangibleUnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -360,9 +365,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = FrangibleUnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -389,9 +394,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut a = UnorderedMap::new(b"m");
+    /// let mut a = FrangibleUnorderedMap::new(b"m");
     /// a.insert(1, "a".to_string());
     /// a.insert(2, "b".to_string());
     ///
@@ -410,7 +415,7 @@ where
     }
 }
 
-impl<K, V, H> UnorderedMap<K, V, H>
+impl<K, V, H> FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
@@ -425,9 +430,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     /// assert_eq!(map.get("test"), Some(&5));
     /// ```
@@ -448,9 +453,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     ///
     /// *map.get_mut("test").unwrap() = 6;
@@ -475,9 +480,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// assert!(map.is_empty());
     ///
     /// map.insert("a".to_string(), 1);
@@ -510,9 +515,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     ///
     /// assert!(map.contains_key("test"));
@@ -545,9 +550,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     /// assert_eq!(map.len(), 1);
     ///
@@ -583,9 +588,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = FrangibleUnorderedMap::new(b"m");
     /// map.insert(1, "a".to_string());
     /// assert_eq!(map.remove(&1), Some("a".to_string()));
     /// assert_eq!(map.remove(&1), None);
@@ -610,9 +615,9 @@ where
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut count = UnorderedMap::new(b"m");
+    /// let mut count = FrangibleUnorderedMap::new(b"m");
     ///
     /// for ch in [7, 2, 4, 7, 4, 1, 7] {
     ///     let counter = count.entry(ch).or_insert(0);
@@ -632,7 +637,7 @@ where
     }
 }
 
-impl<K, V, H> UnorderedMap<K, V, H>
+impl<K, V, H> FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -647,7 +652,7 @@ where
     }
 }
 
-impl<K, V, H> UnorderedMap<K, V, H>
+impl<K, V, H> FrangibleUnorderedMap<K, V, H>
 where
     K: BorshSerialize + BorshDeserialize + Ord + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -663,12 +668,15 @@ where
     /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
     /// to remedy that by removing all empty slots from the underlying vector and compacting it.
     ///
+    /// Note that this might exceed the available gas amount depending on the amount of free slots,
+    /// therefore has to be used with caution.
+    ///
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::FrangibleUnorderedMap;
     ///
-    /// let mut map = UnorderedMap::new(b"b");
+    /// let mut map = FrangibleUnorderedMap::new(b"b");
     ///
     /// for i in 0..4 {
     ///     map.insert(i, i);
@@ -691,7 +699,7 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use super::UnorderedMap;
+    use super::FrangibleUnorderedMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{to_vec, BorshDeserialize};
@@ -701,7 +709,7 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let mut map = UnorderedMap::new(b"b");
+        let mut map = FrangibleUnorderedMap::new(b"b");
         assert!(map.is_empty());
         assert!(map.insert("test".to_string(), 5u8).is_none());
         assert_eq!(map.get("test"), Some(&5));
@@ -716,7 +724,7 @@ mod tests {
 
     #[test]
     fn entry_api() {
-        let mut map = UnorderedMap::new(b"b");
+        let mut map = FrangibleUnorderedMap::new(b"b");
         {
             let test_entry = map.entry("test".to_string());
             assert_eq!(test_entry.key(), "test");
@@ -732,7 +740,7 @@ mod tests {
 
     #[test]
     fn map_iterator() {
-        let mut map = UnorderedMap::new(b"b");
+        let mut map = FrangibleUnorderedMap::new(b"b");
 
         map.insert(0u8, 0u8);
         map.insert(1, 1);
@@ -781,7 +789,7 @@ mod tests {
             crate::mock::with_mocked_blockchain(|b| b.take_storage());
             rng.fill_bytes(&mut buf);
 
-            let mut um = UnorderedMap::new(b"l");
+            let mut um = FrangibleUnorderedMap::new(b"l");
             let mut hm = HashMap::new();
             let u = Unstructured::new(&buf);
             if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
@@ -802,7 +810,8 @@ mod tests {
                         }
                         Op::Restore => {
                             let serialized = to_vec(&um).unwrap();
-                            um = UnorderedMap::deserialize(&mut serialized.as_slice()).unwrap();
+                            um = FrangibleUnorderedMap::deserialize(&mut serialized.as_slice())
+                                .unwrap();
                         }
                         Op::Get(k) => {
                             let r1 = um.get(&k);
@@ -817,7 +826,7 @@ mod tests {
 
     #[test]
     fn defrag() {
-        let mut map = UnorderedMap::new(b"b");
+        let mut map = FrangibleUnorderedMap::new(b"b");
 
         let all_indices = 0..=8;
 
