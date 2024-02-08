@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- renamed `store::UnorderedMap` to `FrangibleUnorderedMap` to reflect its fragmentation property([#1139](https://github.com/near/near-sdk-rs/pull/1139))
+
 ## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.1...near-sdk-v5.0.0-alpha.2) - 2024-01-16
 
 ### Fixed
