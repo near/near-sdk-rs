@@ -12,7 +12,7 @@ use std::fmt;
 
 /// A lazily loaded storage set that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupSet`](crate::store::LookupSet), except
-/// that it keeps track of the elements so that [`UnorderedSet`] can be iterable among other things.
+/// that it keeps track of the elements so that [`FrangibleUnorderedSet`] can be iterable among other things.
 ///
 /// As with the [`LookupSet`] type, an `UnorderedSet` requires that the elements
 /// implement the [`BorshSerialize`] and [`Ord`] traits. This can frequently be achieved by
@@ -22,38 +22,44 @@ use std::fmt;
 /// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
 /// element using the set's [`ToKey`] implementation.
 ///
-/// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
+/// The default hash function for [`FrangibleUnorderedSet`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
 ///
+/// # Performance considerations
+/// Note that this collection is optimized for fast removes at the expense of key management.
+/// If the amount of removes is significantly higher than the amount of inserts the iteration
+/// becomes more costly. See [`remove`](FrangibleUnorderedSet::remove) for details.
+/// If this is the use-case - see ['UnorderedSet`](crate::collections::UnorderedSet).
+///
 /// # Examples
 ///
 /// ```
-/// use near_sdk::store::UnorderedSet;
+/// use near_sdk::store::FrangibleUnorderedSet;
 ///
 /// // Initializes a set, the generic types can be inferred to `UnorderedSet<String, Sha256>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
-/// let mut set = UnorderedSet::new(b"a");
+/// let mut set = FrangibleUnorderedSet::new(b"a");
 ///
 /// set.insert("test".to_string());
 /// assert!(set.contains("test"));
 /// assert!(set.remove("test"));
 /// ```
 ///
-/// [`UnorderedSet`] also implements various binary operations, which allow
+/// [`FrangibleUnorderedSet`] also implements various binary operations, which allow
 /// for iterating various combinations of two sets.
 ///
 /// ```
-/// use near_sdk::store::UnorderedSet;
+/// use near_sdk::store::FrangibleUnorderedSet;
 /// use std::collections::HashSet;
 ///
-/// let mut set1 = UnorderedSet::new(b"m");
+/// let mut set1 = FrangibleUnorderedSet::new(b"m");
 /// set1.insert(1);
 /// set1.insert(2);
 /// set1.insert(3);
 ///
-/// let mut set2 = UnorderedSet::new(b"n");
+/// let mut set2 = FrangibleUnorderedSet::new(b"n");
 /// set2.insert(2);
 /// set2.insert(3);
 /// set2.insert(4);
@@ -79,7 +85,7 @@ use std::fmt;
 /// [`with_hasher`]: Self::with_hasher
 /// [`LookupSet`]: crate::store::LookupSet
 #[derive(BorshDeserialize, BorshSerialize)]
-pub struct UnorderedSet<T, H = Sha256>
+pub struct FrangibleUnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
@@ -90,7 +96,7 @@ where
     index: LookupMap<T, FreeListIndex, H>,
 }
 
-impl<T, H> Drop for UnorderedSet<T, H>
+impl<T, H> Drop for FrangibleUnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
@@ -100,7 +106,7 @@ where
     }
 }
 
-impl<T, H> fmt::Debug for UnorderedSet<T, H>
+impl<T, H> fmt::Debug for FrangibleUnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     H: ToKey,
@@ -113,7 +119,7 @@ where
     }
 }
 
-impl<T> UnorderedSet<T, Sha256>
+impl<T> FrangibleUnorderedSet<T, Sha256>
 where
     T: BorshSerialize + Ord,
 {
@@ -125,9 +131,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut map: UnorderedSet<String> = UnorderedSet::new(b"b");
+    /// let mut map: FrangibleUnorderedSet<String> = FrangibleUnorderedSet::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -138,19 +144,19 @@ where
     }
 }
 
-impl<T, H> UnorderedSet<T, H>
+impl<T, H> FrangibleUnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
-    /// Initialize a [`UnorderedSet`] with a custom hash function.
+    /// Initialize a [`FrangibleUnorderedSet`] with a custom hash function.
     ///
     /// # Example
     /// ```
     /// use near_sdk::store::key::Keccak256;
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let map = UnorderedSet::<String, Keccak256>::with_hasher(b"m");
+    /// let map = FrangibleUnorderedSet::<String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -188,14 +194,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = FrangibleUnorderedSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = FrangibleUnorderedSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -205,7 +211,7 @@ where
     ///     println!("{}", x); // Prints "a"
     /// }
     /// ```
-    pub fn difference<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Difference<'a, T, H>
+    pub fn difference<'a>(&'a self, other: &'a FrangibleUnorderedSet<T, H>) -> Difference<'a, T, H>
     where
         T: BorshDeserialize,
     {
@@ -218,14 +224,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = FrangibleUnorderedSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = FrangibleUnorderedSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -237,7 +243,7 @@ where
     /// ```
     pub fn symmetric_difference<'a>(
         &'a self,
-        other: &'a UnorderedSet<T, H>,
+        other: &'a FrangibleUnorderedSet<T, H>,
     ) -> SymmetricDifference<'a, T, H>
     where
         T: BorshDeserialize + Clone,
@@ -251,14 +257,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = FrangibleUnorderedSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = FrangibleUnorderedSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -268,7 +274,10 @@ where
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn intersection<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Intersection<'a, T, H>
+    pub fn intersection<'a>(
+        &'a self,
+        other: &'a FrangibleUnorderedSet<T, H>,
+    ) -> Intersection<'a, T, H>
     where
         T: BorshDeserialize,
     {
@@ -281,14 +290,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = FrangibleUnorderedSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = FrangibleUnorderedSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -298,7 +307,7 @@ where
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn union<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Union<'a, T, H>
+    pub fn union<'a>(&'a self, other: &'a FrangibleUnorderedSet<T, H>) -> Union<'a, T, H>
     where
         T: BorshDeserialize + Clone,
     {
@@ -311,14 +320,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = FrangibleUnorderedSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = FrangibleUnorderedSet::new(b"n");
     ///
     /// assert_eq!(set1.is_disjoint(&set2), true);
     /// set2.insert("d".to_string());
@@ -326,7 +335,7 @@ where
     /// set2.insert("a".to_string());
     /// assert_eq!(set1.is_disjoint(&set2), false);
     /// ```
-    pub fn is_disjoint(&self, other: &UnorderedSet<T, H>) -> bool
+    pub fn is_disjoint(&self, other: &FrangibleUnorderedSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -343,14 +352,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut sup = UnorderedSet::new(b"m");
+    /// let mut sup = FrangibleUnorderedSet::new(b"m");
     /// sup.insert("a".to_string());
     /// sup.insert("b".to_string());
     /// sup.insert("c".to_string());
     ///
-    /// let mut set = UnorderedSet::new(b"n");
+    /// let mut set = FrangibleUnorderedSet::new(b"n");
     ///
     /// assert_eq!(set.is_subset(&sup), true);
     /// set.insert("b".to_string());
@@ -358,7 +367,7 @@ where
     /// set.insert("d".to_string());
     /// assert_eq!(set.is_subset(&sup), false);
     /// ```
-    pub fn is_subset(&self, other: &UnorderedSet<T, H>) -> bool
+    pub fn is_subset(&self, other: &FrangibleUnorderedSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -375,13 +384,13 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut sub = UnorderedSet::new(b"m");
+    /// let mut sub = FrangibleUnorderedSet::new(b"m");
     /// sub.insert("a".to_string());
     /// sub.insert("b".to_string());
     ///
-    /// let mut set = UnorderedSet::new(b"n");
+    /// let mut set = FrangibleUnorderedSet::new(b"n");
     ///
     /// assert_eq!(set.is_superset(&sub), false);
     /// set.insert("b".to_string());
@@ -390,7 +399,7 @@ where
     /// set.insert("a".to_string());
     /// assert_eq!(set.is_superset(&sub), true);
     /// ```
-    pub fn is_superset(&self, other: &UnorderedSet<T, H>) -> bool
+    pub fn is_superset(&self, other: &FrangibleUnorderedSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -403,9 +412,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut set = UnorderedSet::new(b"m");
+    /// let mut set = FrangibleUnorderedSet::new(b"m");
     /// set.insert("a".to_string());
     /// set.insert("b".to_string());
     /// set.insert("c".to_string());
@@ -426,9 +435,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::FrangibleUnorderedSet;
     ///
-    /// let mut a = UnorderedSet::new(b"m");
+    /// let mut a = FrangibleUnorderedSet::new(b"m");
     /// a.insert(1);
     /// a.insert(2);
     ///
@@ -482,6 +491,16 @@ where
     /// The value may be any borrowed form of the set's value type, but
     /// [`BorshSerialize`], [`ToOwned<Owned = K>`](ToOwned) and [`Ord`] on the borrowed form *must*
     /// match those for the value type.
+    ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of values isn't
+    /// rearranged; instead, the removed value is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
     pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> bool
     where
         T: Borrow<Q> + BorshDeserialize,
@@ -507,10 +526,50 @@ where
     }
 }
 
+impl<T, H> FrangibleUnorderedSet<T, H>
+where
+    T: BorshSerialize + BorshDeserialize + Ord,
+    H: ToKey,
+{
+    /// Remove empty placeholders leftover from calling [`remove`](Self::remove).
+    ///
+    /// When elements are removed using [`remove`](Self::remove), the underlying vector isn't
+    /// rearranged; instead, the removed element is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
+    /// to remedy that by removing all empty slots from the underlying vector and compacting it.
+    ///
+    /// Note that this might exceed the available gas amount depending on the amount of free slots,
+    /// therefore has to be used with caution.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::FrangibleUnorderedSet;
+    ///
+    /// let mut set = FrangibleUnorderedSet::new(b"b");
+    ///
+    /// for i in 0..4 {
+    ///     set.insert(i);
+    /// }
+    ///
+    /// set.remove(&1);
+    /// set.remove(&3);
+    ///
+    /// set.defrag();
+    /// ```
+    pub fn defrag(&mut self) {
+        self.elements.defrag(|_, _| {});
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::store::UnorderedSet;
+    use crate::store::free_list::FreeListIndex;
+    use crate::store::FrangibleUnorderedSet;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{to_vec, BorshDeserialize};
@@ -520,7 +579,7 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let mut set = UnorderedSet::new(b"b");
+        let mut set = FrangibleUnorderedSet::new(b"b");
         assert!(set.is_empty());
         assert!(set.insert("test".to_string()));
         assert!(set.contains("test"));
@@ -532,7 +591,7 @@ mod tests {
 
     #[test]
     fn set_iterator() {
-        let mut set = UnorderedSet::new(b"b");
+        let mut set = FrangibleUnorderedSet::new(b"b");
 
         set.insert(0u8);
         set.insert(1);
@@ -555,7 +614,7 @@ mod tests {
 
     #[test]
     fn test_drain() {
-        let mut s = UnorderedSet::new(b"m");
+        let mut s = FrangibleUnorderedSet::new(b"m");
         s.extend(1..100);
 
         // Drain the set a few times to make sure that it does have any random residue
@@ -578,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_extend() {
-        let mut a = UnorderedSet::<u64>::new(b"m");
+        let mut a = FrangibleUnorderedSet::<u64>::new(b"m");
         a.insert(1);
 
         a.extend([2, 3, 4]);
@@ -592,13 +651,13 @@ mod tests {
 
     #[test]
     fn test_difference() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
         set1.insert("d".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("e".to_string());
@@ -617,12 +676,12 @@ mod tests {
 
     #[test]
     fn test_difference_empty() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert(1);
         set1.insert(2);
         set1.insert(3);
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert(3);
         set2.insert(1);
         set2.insert(2);
@@ -633,12 +692,12 @@ mod tests {
 
     #[test]
     fn test_symmetric_difference() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("d".to_string());
@@ -655,12 +714,12 @@ mod tests {
 
     #[test]
     fn test_symmetric_difference_empty() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert(1);
         set1.insert(2);
         set1.insert(3);
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert(3);
         set2.insert(1);
         set2.insert(2);
@@ -670,12 +729,12 @@ mod tests {
 
     #[test]
     fn test_intersection() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("d".to_string());
@@ -694,12 +753,12 @@ mod tests {
 
     #[test]
     fn test_intersection_empty() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert(1);
         set1.insert(2);
         set1.insert(3);
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert(4);
         set2.insert(6);
         set2.insert(5);
@@ -709,12 +768,12 @@ mod tests {
 
     #[test]
     fn test_union() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = FrangibleUnorderedSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = FrangibleUnorderedSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("d".to_string());
@@ -735,21 +794,21 @@ mod tests {
 
     #[test]
     fn test_union_empty() {
-        let set1 = UnorderedSet::<u64>::new(b"m");
-        let set2 = UnorderedSet::<u64>::new(b"n");
+        let set1 = FrangibleUnorderedSet::<u64>::new(b"m");
+        let set2 = FrangibleUnorderedSet::<u64>::new(b"n");
 
         assert_eq!(set1.union(&set2).collect::<HashSet<_>>(), HashSet::new());
     }
 
     #[test]
     fn test_subset_and_superset() {
-        let mut a = UnorderedSet::new(b"m");
+        let mut a = FrangibleUnorderedSet::new(b"m");
         assert!(a.insert(0));
         assert!(a.insert(50));
         assert!(a.insert(110));
         assert!(a.insert(70));
 
-        let mut b = UnorderedSet::new(b"n");
+        let mut b = FrangibleUnorderedSet::new(b"n");
         assert!(b.insert(0));
         assert!(b.insert(70));
         assert!(b.insert(190));
@@ -772,8 +831,8 @@ mod tests {
 
     #[test]
     fn test_disjoint() {
-        let mut xs = UnorderedSet::new(b"m");
-        let mut ys = UnorderedSet::new(b"n");
+        let mut xs = FrangibleUnorderedSet::new(b"m");
+        let mut ys = FrangibleUnorderedSet::new(b"n");
 
         assert!(xs.is_disjoint(&ys));
         assert!(ys.is_disjoint(&xs));
@@ -816,7 +875,7 @@ mod tests {
             crate::mock::with_mocked_blockchain(|b| b.take_storage());
             rng.fill_bytes(&mut buf);
 
-            let mut us = UnorderedSet::new(b"l");
+            let mut us = FrangibleUnorderedSet::new(b"l");
             let mut hs = HashSet::new();
             let u = Unstructured::new(&buf);
             if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
@@ -837,7 +896,8 @@ mod tests {
                         }
                         Op::Restore => {
                             let serialized = to_vec(&us).unwrap();
-                            us = UnorderedSet::deserialize(&mut serialized.as_slice()).unwrap();
+                            us = FrangibleUnorderedSet::deserialize(&mut serialized.as_slice())
+                                .unwrap();
                         }
                         Op::Contains(v) => {
                             let r1 = us.contains(&v);
@@ -848,5 +908,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn defrag() {
+        let mut set = FrangibleUnorderedSet::new(b"b");
+
+        let all_values = 0..=8;
+
+        for i in all_values {
+            set.insert(i);
+        }
+
+        let removed = [2, 4, 6];
+        let existing = [0, 1, 3, 5, 7, 8];
+
+        for id in removed {
+            set.remove(&id);
+        }
+
+        set.defrag();
+
+        for i in removed {
+            assert_eq!(set.contains(&i), false);
+        }
+        for i in existing {
+            assert_eq!(set.contains(&i), true);
+        }
+
+        // Check that 8 and 7 moved from the front of the list to the smallest removed indices that
+        // correspond to removed values.
+        assert_eq!(*set.elements.get(FreeListIndex(2)).unwrap(), 8);
+        assert_eq!(*set.elements.get(FreeListIndex(4)).unwrap(), 7);
+
+        // Check the last removed value.
+        assert_eq!(set.elements.get(FreeListIndex(6)), None);
     }
 }

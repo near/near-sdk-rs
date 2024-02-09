@@ -1,8 +1,8 @@
-use super::UnorderedSet;
+use super::FrangibleUnorderedSet;
 use crate::store::key::ToKey;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-impl<T, H> Extend<T> for UnorderedSet<T, H>
+impl<T, H> Extend<T> for FrangibleUnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,

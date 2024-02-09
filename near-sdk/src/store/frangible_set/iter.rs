@@ -1,11 +1,11 @@
-use super::UnorderedSet;
+use super::FrangibleUnorderedSet;
 use crate::store::free_list::FreeListIndex;
 use crate::store::key::ToKey;
 use crate::store::{free_list, LookupMap};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::iter::{Chain, FusedIterator};
 
-impl<'a, T, H> IntoIterator for &'a UnorderedSet<T, H>
+impl<'a, T, H> IntoIterator for &'a FrangibleUnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
@@ -18,12 +18,12 @@ where
     }
 }
 
-/// An iterator over elements of a [`UnorderedSet`].
+/// An iterator over elements of a [`FrangibleUnorderedSet`].
 ///
-/// This `struct` is created by the [`iter`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`iter`] method on [`FrangibleUnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`iter`]: UnorderedSet::iter
+/// [`iter`]: FrangibleUnorderedSet::iter
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -35,7 +35,7 @@ impl<'a, T> Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
 {
-    pub(super) fn new<H>(set: &'a UnorderedSet<T, H>) -> Self
+    pub(super) fn new<H>(set: &'a FrangibleUnorderedSet<T, H>) -> Self
     where
         H: ToKey,
     {
@@ -84,10 +84,10 @@ where
 
 /// A lazy iterator producing elements in the difference of `UnorderedSet`s.
 ///
-/// This `struct` is created by the [`difference`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`difference`] method on [`FrangibleUnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`difference`]: UnorderedSet::difference
+/// [`difference`]: FrangibleUnorderedSet::difference
 pub struct Difference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -95,7 +95,7 @@ where
 {
     elements: free_list::Iter<'a, T>,
 
-    other: &'a UnorderedSet<T, H>,
+    other: &'a FrangibleUnorderedSet<T, H>,
 }
 
 impl<'a, T, H> Difference<'a, T, H>
@@ -103,7 +103,10 @@ where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
 {
-    pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
+    pub(super) fn new(
+        set: &'a FrangibleUnorderedSet<T, H>,
+        other: &'a FrangibleUnorderedSet<T, H>,
+    ) -> Self {
         Self { elements: set.elements.iter(), other }
     }
 }
@@ -138,10 +141,10 @@ where
 
 /// A lazy iterator producing elements in the intersection of `UnorderedSet`s.
 ///
-/// This `struct` is created by the [`intersection`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`intersection`] method on [`FrangibleUnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`intersection`]: UnorderedSet::intersection
+/// [`intersection`]: FrangibleUnorderedSet::intersection
 pub struct Intersection<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -149,7 +152,7 @@ where
 {
     elements: free_list::Iter<'a, T>,
 
-    other: &'a UnorderedSet<T, H>,
+    other: &'a FrangibleUnorderedSet<T, H>,
 }
 
 impl<'a, T, H> Intersection<'a, T, H>
@@ -157,7 +160,10 @@ where
     T: BorshSerialize + Ord + BorshDeserialize,
     H: ToKey,
 {
-    pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
+    pub(super) fn new(
+        set: &'a FrangibleUnorderedSet<T, H>,
+        other: &'a FrangibleUnorderedSet<T, H>,
+    ) -> Self {
         Self { elements: set.elements.iter(), other }
     }
 }
@@ -190,12 +196,12 @@ where
 {
 }
 
-/// A lazy iterator producing elements in the symmetrical difference of [`UnorderedSet`]s.
+/// A lazy iterator producing elements in the symmetrical difference of [`FrangibleUnorderedSet`]s.
 ///
-/// This `struct` is created by the [`symmetric_difference`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`symmetric_difference`] method on [`FrangibleUnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`symmetric_difference`]: UnorderedSet::symmetric_difference
+/// [`symmetric_difference`]: FrangibleUnorderedSet::symmetric_difference
 pub struct SymmetricDifference<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -209,7 +215,10 @@ where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
 {
-    pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
+    pub(super) fn new(
+        set: &'a FrangibleUnorderedSet<T, H>,
+        other: &'a FrangibleUnorderedSet<T, H>,
+    ) -> Self {
         Self { iter: set.difference(other).chain(other.difference(set)) }
     }
 }
@@ -239,10 +248,10 @@ where
 
 /// A lazy iterator producing elements in the union of `UnorderedSet`s.
 ///
-/// This `struct` is created by the [`union`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`union`] method on [`FrangibleUnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`union`]: UnorderedSet::union
+/// [`union`]: FrangibleUnorderedSet::union
 pub struct Union<'a, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -256,7 +265,10 @@ where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
 {
-    pub(super) fn new(set: &'a UnorderedSet<T, H>, other: &'a UnorderedSet<T, H>) -> Self {
+    pub(super) fn new(
+        set: &'a FrangibleUnorderedSet<T, H>,
+        other: &'a FrangibleUnorderedSet<T, H>,
+    ) -> Self {
         Self { iter: set.iter().chain(other.difference(set)) }
     }
 }
@@ -284,12 +296,12 @@ where
 {
 }
 
-/// A draining iterator for [`UnorderedSet`].
+/// A draining iterator for [`FrangibleUnorderedSet`].
 ///
-/// This `struct` is created by the [`drain`] method on [`UnorderedSet`].
+/// This `struct` is created by the [`drain`] method on [`FrangibleUnorderedSet`].
 /// See its documentation for more.
 ///
-/// [`drain`]: UnorderedSet::drain
+/// [`drain`]: FrangibleUnorderedSet::drain
 #[derive(Debug)]
 pub struct Drain<'a, T, H>
 where
@@ -306,7 +318,7 @@ where
     T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,
 {
-    pub(crate) fn new(set: &'a mut UnorderedSet<T, H>) -> Self {
+    pub(crate) fn new(set: &'a mut FrangibleUnorderedSet<T, H>) -> Self {
         Self { elements: set.elements.drain(), index: &mut set.index }
     }
 

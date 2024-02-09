@@ -46,7 +46,7 @@
 //!
 //! - [`LookupSet`]: Non-iterable storage version of [`std::collections::HashSet`].
 //!
-//! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
+//! - [`FrangibleUnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
 //! version of [`LookupSet`] and persisted to storage.
 //!
 //! Basic Types:
@@ -80,8 +80,8 @@ pub use self::lookup_set::LookupSet;
 pub mod frangible_map;
 pub use self::frangible_map::FrangibleUnorderedMap;
 
-pub mod unordered_set;
-pub use self::unordered_set::UnorderedSet;
+pub mod frangible_set;
+pub use self::frangible_set::FrangibleUnorderedSet;
 
 #[cfg(feature = "unstable")]
 pub mod tree_map;
