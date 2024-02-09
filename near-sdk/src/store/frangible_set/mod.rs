@@ -930,10 +930,10 @@ mod tests {
         set.defrag();
 
         for i in removed {
-            assert_eq!(set.contains(&i), false);
+            assert!(!set.contains(&i));
         }
         for i in existing {
-            assert_eq!(set.contains(&i), true);
+            assert!(set.contains(&i));
         }
 
         // Check that 8 and 7 moved from the front of the list to the smallest removed indices that
