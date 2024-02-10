@@ -36,11 +36,11 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 ///
 /// # Examples
 /// ```
-/// use near_sdk::store::FrangibleUnorderedMap;
+/// use near_sdk::store::UnorderedMap;
 ///
 /// // Initializes a map, the generic types can be inferred to `UnorderedMap<String, u8, Sha256>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
-/// let mut map = FrangibleUnorderedMap::new(b"a");
+/// let mut map = UnorderedMap::new(b"a");
 ///
 /// map.insert("test".to_string(), 7u8);
 /// assert!(map.contains_key("test"));
@@ -56,11 +56,11 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// their values:
 ///
 /// ```
-/// use near_sdk::store::FrangibleUnorderedMap;
+/// use near_sdk::store::UnorderedMap;
 ///
 /// // type inference lets us omit an explicit type signature (which
 /// // would be `UnorderedMap<String, u8>` in this example).
-/// let mut player_stats = FrangibleUnorderedMap::new(b"m");
+/// let mut player_stats = UnorderedMap::new(b"m");
 ///
 /// fn random_stat_buff() -> u8 {
 ///     // could actually return some random value here - let's just return
@@ -81,6 +81,10 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
+#[deprecated(
+    since = "5.0.0",
+    note = "Suboptimal iteration performance. See performance considerations doc for details."
+)]
 pub struct FrangibleUnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
@@ -164,9 +168,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -187,9 +191,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::{FrangibleUnorderedMap, key::Keccak256};
+    /// use near_sdk::store::{UnorderedMap, key::Keccak256};
     ///
-    /// let map = FrangibleUnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
+    /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -205,9 +209,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert_eq!(map.len(), 0);
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
@@ -221,9 +225,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert!(map.is_empty());
     /// map.insert("a".to_string(), 1);
     /// assert!(!map.is_empty());
@@ -238,9 +242,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// map.insert("a".to_string(), 1);
     ///
     /// map.clear();
@@ -264,9 +268,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"m");
+    /// let mut map = UnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -289,9 +293,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"m");
+    /// let mut map = UnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -318,9 +322,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"m");
+    /// let mut map = UnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -342,9 +346,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"m");
+    /// let mut map = UnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -366,9 +370,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"m");
+    /// let mut map = UnorderedMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -395,9 +399,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut a = FrangibleUnorderedMap::new(b"m");
+    /// let mut a = UnorderedMap::new(b"m");
     /// a.insert(1, "a".to_string());
     /// a.insert(2, "b".to_string());
     ///
@@ -431,9 +435,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     /// assert_eq!(map.get("test"), Some(&5));
     /// ```
@@ -454,9 +458,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     ///
     /// *map.get_mut("test").unwrap() = 6;
@@ -481,9 +485,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// assert!(map.is_empty());
     ///
     /// map.insert("a".to_string(), 1);
@@ -516,9 +520,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     ///
     /// assert!(map.contains_key("test"));
@@ -551,9 +555,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map: FrangibleUnorderedMap<String, u8> = FrangibleUnorderedMap::new(b"b");
+    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     /// assert_eq!(map.len(), 1);
     ///
@@ -589,9 +593,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"m");
+    /// let mut map = UnorderedMap::new(b"m");
     /// map.insert(1, "a".to_string());
     /// assert_eq!(map.remove(&1), Some("a".to_string()));
     /// assert_eq!(map.remove(&1), None);
@@ -616,9 +620,9 @@ where
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut count = FrangibleUnorderedMap::new(b"m");
+    /// let mut count = UnorderedMap::new(b"m");
     ///
     /// for ch in [7, 2, 4, 7, 4, 1, 7] {
     ///     let counter = count.entry(ch).or_insert(0);
@@ -675,9 +679,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::FrangibleUnorderedMap;
+    /// use near_sdk::store::UnorderedMap;
     ///
-    /// let mut map = FrangibleUnorderedMap::new(b"b");
+    /// let mut map = UnorderedMap::new(b"b");
     ///
     /// for i in 0..4 {
     ///     map.insert(i, i);

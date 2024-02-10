@@ -78,10 +78,10 @@ mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
 pub mod frangible_map;
-pub use self::frangible_map::FrangibleUnorderedMap;
+pub use self::frangible_map::FrangibleUnorderedMap as UnorderedMap;
 
 pub mod frangible_set;
-pub use self::frangible_set::FrangibleUnorderedSet;
+pub use self::frangible_set::FrangibleUnorderedSet as UnorderedSet;
 
 #[cfg(feature = "unstable")]
 pub mod tree_map;
