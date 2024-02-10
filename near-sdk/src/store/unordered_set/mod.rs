@@ -12,7 +12,7 @@ use std::fmt;
 
 /// A lazily loaded storage set that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupSet`](crate::store::LookupSet), except
-/// that it keeps track of the elements so that [`FrangibleUnorderedSet`] can be iterable among other things.
+/// that it keeps track of the elements so that [`UnorderedSet`] can be iterable among other things.
 ///
 /// As with the [`LookupSet`] type, an `UnorderedSet` requires that the elements
 /// implement the [`BorshSerialize`] and [`Ord`] traits. This can frequently be achieved by
@@ -22,7 +22,7 @@ use std::fmt;
 /// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
 /// element using the set's [`ToKey`] implementation.
 ///
-/// The default hash function for [`FrangibleUnorderedSet`] is [`Sha256`] which uses a syscall
+/// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
@@ -30,7 +30,7 @@ use std::fmt;
 /// # Performance considerations
 /// Note that this collection is optimized for fast removes at the expense of key management.
 /// If the amount of removes is significantly higher than the amount of inserts the iteration
-/// becomes more costly. See [`remove`](FrangibleUnorderedSet::remove) for details.
+/// becomes more costly. See [`remove`](UnorderedSet::remove) for details.
 /// If this is the use-case - see ['UnorderedSet`](crate::collections::UnorderedSet).
 ///
 /// # Examples
@@ -47,7 +47,7 @@ use std::fmt;
 /// assert!(set.remove("test"));
 /// ```
 ///
-/// [`FrangibleUnorderedSet`] also implements various binary operations, which allow
+/// [`UnorderedSet`] also implements various binary operations, which allow
 /// for iterating various combinations of two sets.
 ///
 /// ```
@@ -89,7 +89,7 @@ use std::fmt;
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
-pub struct FrangibleUnorderedSet<T, H = Sha256>
+pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
@@ -100,7 +100,7 @@ where
     index: LookupMap<T, FreeListIndex, H>,
 }
 
-impl<T, H> Drop for FrangibleUnorderedSet<T, H>
+impl<T, H> Drop for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
@@ -110,7 +110,7 @@ where
     }
 }
 
-impl<T, H> fmt::Debug for FrangibleUnorderedSet<T, H>
+impl<T, H> fmt::Debug for UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     H: ToKey,
@@ -123,7 +123,7 @@ where
     }
 }
 
-impl<T> FrangibleUnorderedSet<T, Sha256>
+impl<T> UnorderedSet<T, Sha256>
 where
     T: BorshSerialize + Ord,
 {
@@ -148,12 +148,12 @@ where
     }
 }
 
-impl<T, H> FrangibleUnorderedSet<T, H>
+impl<T, H> UnorderedSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
-    /// Initialize a [`FrangibleUnorderedSet`] with a custom hash function.
+    /// Initialize a [`UnorderedSet`] with a custom hash function.
     ///
     /// # Example
     /// ```
@@ -215,7 +215,7 @@ where
     ///     println!("{}", x); // Prints "a"
     /// }
     /// ```
-    pub fn difference<'a>(&'a self, other: &'a FrangibleUnorderedSet<T, H>) -> Difference<'a, T, H>
+    pub fn difference<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Difference<'a, T, H>
     where
         T: BorshDeserialize,
     {
@@ -247,7 +247,7 @@ where
     /// ```
     pub fn symmetric_difference<'a>(
         &'a self,
-        other: &'a FrangibleUnorderedSet<T, H>,
+        other: &'a UnorderedSet<T, H>,
     ) -> SymmetricDifference<'a, T, H>
     where
         T: BorshDeserialize + Clone,
@@ -278,10 +278,7 @@ where
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn intersection<'a>(
-        &'a self,
-        other: &'a FrangibleUnorderedSet<T, H>,
-    ) -> Intersection<'a, T, H>
+    pub fn intersection<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Intersection<'a, T, H>
     where
         T: BorshDeserialize,
     {
@@ -311,7 +308,7 @@ where
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn union<'a>(&'a self, other: &'a FrangibleUnorderedSet<T, H>) -> Union<'a, T, H>
+    pub fn union<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Union<'a, T, H>
     where
         T: BorshDeserialize + Clone,
     {
@@ -339,7 +336,7 @@ where
     /// set2.insert("a".to_string());
     /// assert_eq!(set1.is_disjoint(&set2), false);
     /// ```
-    pub fn is_disjoint(&self, other: &FrangibleUnorderedSet<T, H>) -> bool
+    pub fn is_disjoint(&self, other: &UnorderedSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -371,7 +368,7 @@ where
     /// set.insert("d".to_string());
     /// assert_eq!(set.is_subset(&sup), false);
     /// ```
-    pub fn is_subset(&self, other: &FrangibleUnorderedSet<T, H>) -> bool
+    pub fn is_subset(&self, other: &UnorderedSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -403,7 +400,7 @@ where
     /// set.insert("a".to_string());
     /// assert_eq!(set.is_superset(&sub), true);
     /// ```
-    pub fn is_superset(&self, other: &FrangibleUnorderedSet<T, H>) -> bool
+    pub fn is_superset(&self, other: &UnorderedSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -530,7 +527,7 @@ where
     }
 }
 
-impl<T, H> FrangibleUnorderedSet<T, H>
+impl<T, H> UnorderedSet<T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,

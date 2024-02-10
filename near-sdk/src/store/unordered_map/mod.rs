@@ -18,12 +18,12 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 
 /// A lazily loaded storage map that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupMap`](crate::store::LookupMap), except
-/// that it stores the keys so that [`FrangibleUnorderedMap`] can be iterable.
+/// that it stores the keys so that [`UnorderedMap`] can be iterable.
 ///
 /// This map stores the values under a hash of the map's `prefix` and [`BorshSerialize`] of the key
 /// using the map's [`ToKey`] implementation.
 ///
-/// The default hash function for [`FrangibleUnorderedMap`] is [`Sha256`] which uses a syscall
+/// The default hash function for [`UnorderedMap`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
@@ -31,7 +31,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// # Performance considerations
 /// Note that this collection is optimized for fast removes at the expense of key management.
 /// If the amount of removes is significantly higher than the amount of inserts the iteration
-/// becomes more costly. See [`remove`](FrangibleUnorderedMap::remove) for details.
+/// becomes more costly. See [`remove`](UnorderedMap::remove) for details.
 /// If this is the use-case - see ['UnorderedMap`](crate::collections::UnorderedMap).
 ///
 /// # Examples
@@ -51,7 +51,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// assert_eq!(map["test"], 5u8);
 /// ```
 ///
-/// [`FrangibleUnorderedMap`] also implements an [`Entry API`](Self::entry), which allows
+/// [`UnorderedMap`] also implements an [`Entry API`](Self::entry), which allows
 /// for more complex methods of getting, setting, updating and removing keys and
 /// their values:
 ///
@@ -85,7 +85,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
-pub struct FrangibleUnorderedMap<K, V, H = Sha256>
+pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -103,7 +103,7 @@ struct ValueAndIndex<V> {
 
 //? Manual implementations needed only because borsh derive is leaking field types
 // https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -116,7 +116,7 @@ where
     }
 }
 
-impl<K, V, H> BorshDeserialize for FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<K, V, H> Drop for FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> Drop for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -141,7 +141,7 @@ where
     }
 }
 
-impl<K, V, H> fmt::Debug for FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> fmt::Debug for UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     V: BorshSerialize,
@@ -155,7 +155,7 @@ where
     }
 }
 
-impl<K, V> FrangibleUnorderedMap<K, V, Sha256>
+impl<K, V> UnorderedMap<K, V, Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -181,13 +181,13 @@ where
     }
 }
 
-impl<K, V, H> FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    /// Initialize a [`FrangibleUnorderedMap`] with a custom hash function.
+    /// Initialize a [`UnorderedMap`] with a custom hash function.
     ///
     /// # Example
     /// ```
@@ -420,7 +420,7 @@ where
     }
 }
 
-impl<K, V, H> FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize + BorshDeserialize,
@@ -642,7 +642,7 @@ where
     }
 }
 
-impl<K, V, H> FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
@@ -657,7 +657,7 @@ where
     }
 }
 
-impl<K, V, H> FrangibleUnorderedMap<K, V, H>
+impl<K, V, H> UnorderedMap<K, V, H>
 where
     K: BorshSerialize + BorshDeserialize + Ord + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -704,7 +704,7 @@ where
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use super::FrangibleUnorderedMap;
+    use super::UnorderedMap;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{to_vec, BorshDeserialize};
@@ -714,7 +714,7 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let mut map = FrangibleUnorderedMap::new(b"b");
+        let mut map = UnorderedMap::new(b"b");
         assert!(map.is_empty());
         assert!(map.insert("test".to_string(), 5u8).is_none());
         assert_eq!(map.get("test"), Some(&5));
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn entry_api() {
-        let mut map = FrangibleUnorderedMap::new(b"b");
+        let mut map = UnorderedMap::new(b"b");
         {
             let test_entry = map.entry("test".to_string());
             assert_eq!(test_entry.key(), "test");
@@ -745,7 +745,7 @@ mod tests {
 
     #[test]
     fn map_iterator() {
-        let mut map = FrangibleUnorderedMap::new(b"b");
+        let mut map = UnorderedMap::new(b"b");
 
         map.insert(0u8, 0u8);
         map.insert(1, 1);
@@ -794,7 +794,7 @@ mod tests {
             crate::mock::with_mocked_blockchain(|b| b.take_storage());
             rng.fill_bytes(&mut buf);
 
-            let mut um = FrangibleUnorderedMap::new(b"l");
+            let mut um = UnorderedMap::new(b"l");
             let mut hm = HashMap::new();
             let u = Unstructured::new(&buf);
             if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
@@ -815,8 +815,7 @@ mod tests {
                         }
                         Op::Restore => {
                             let serialized = to_vec(&um).unwrap();
-                            um = FrangibleUnorderedMap::deserialize(&mut serialized.as_slice())
-                                .unwrap();
+                            um = UnorderedMap::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Get(k) => {
                             let r1 = um.get(&k);
@@ -831,7 +830,7 @@ mod tests {
 
     #[test]
     fn defrag() {
-        let mut map = FrangibleUnorderedMap::new(b"b");
+        let mut map = UnorderedMap::new(b"b");
 
         let all_indices = 0..=8;
 

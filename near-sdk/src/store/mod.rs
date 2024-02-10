@@ -33,10 +33,10 @@
 //! Maps:
 //!
 //! - [`LookupMap`]: Wrapper around key-value storage interactions, similar to
-//! [`FrangibleUnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
+//! [`UnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
 //! iterated over.
 //!
-//! - [`FrangibleUnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
+//! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //! guarantees.
 //!
 //! - [`TreeMap`](TreeMap) (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
@@ -46,7 +46,7 @@
 //!
 //! - [`LookupSet`]: Non-iterable storage version of [`std::collections::HashSet`].
 //!
-//! - [`FrangibleUnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
+//! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
 //! version of [`LookupSet`] and persisted to storage.
 //!
 //! Basic Types:
@@ -77,13 +77,13 @@ pub use self::lookup_map::LookupMap;
 mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
-pub mod frangible_map;
+pub mod unordered_map;
 #[allow(deprecated)]
-pub use self::frangible_map::FrangibleUnorderedMap as UnorderedMap;
+pub use self::unordered_map::UnorderedMap;
 
-pub mod frangible_set;
+pub mod unordered_set;
 #[allow(deprecated)]
-pub use self::frangible_set::FrangibleUnorderedSet as UnorderedSet;
+pub use self::unordered_set::UnorderedSet;
 
 #[cfg(feature = "unstable")]
 pub mod tree_map;
