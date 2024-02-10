@@ -78,9 +78,11 @@ mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
 pub mod frangible_map;
+#[allow(deprecated)]
 pub use self::frangible_map::FrangibleUnorderedMap as UnorderedMap;
 
 pub mod frangible_set;
+#[allow(deprecated)]
 pub use self::frangible_set::FrangibleUnorderedSet as UnorderedSet;
 
 #[cfg(feature = "unstable")]
