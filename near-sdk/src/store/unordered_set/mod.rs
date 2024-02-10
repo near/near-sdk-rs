@@ -1,3 +1,6 @@
+// This suppresses the depreciation warnings for uses of UnorderedSet in this module
+#![allow(deprecated)]
+
 mod impls;
 mod iter;
 
