@@ -265,11 +265,14 @@ impl ImplItemMethodInfo {
             }
         }
 
-        if cfg!(feature = "wasmcov") {
-            wasmcov()
-        } else {
-            quote! {}
-        }
+        wasmcov()
+
+        // Passing feature to dependency of dependency doesn't seem to work
+        // if cfg!(feature = "wasmcov") {
+        //     wasmcov()
+        // } else {
+        //     quote! {}
+        // }
     }
 
     fn contract_ser_tokens(&self) -> TokenStream2 {

@@ -65,12 +65,12 @@ default = ["wee_alloc", "unit-testing", "legacy", "abi"]
 expensive-debug = []
 unstable = []
 legacy = []
+wasmcov = ["near-sdk-macros/wasmcov"]
 abi = ["borsh/unstable__schema", "near-abi", "schemars", "near-sdk-macros/abi", "near-account-id/abi", "near-gas/abi", "near-token/abi"]
 unit-testing = ["near-vm-runner", "near-primitives-core", "near-primitives", "near-crypto", "near-parameters"]
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
-wasmcov = ["near-sdk-macros/wasmcov"]
 
 [package.metadata.docs.rs]
 features = ["unstable", "legacy"]

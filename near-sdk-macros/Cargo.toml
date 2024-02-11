@@ -30,7 +30,8 @@ insta = { version = "1.31.0", features = ["yaml"] }
 prettyplease = { version = "0.2.15" }
 
 [features]
+wasmcov = []
 abi = []
 __abi-embed = ["abi"]
 __abi-generate = ["abi"]
-wasmcov = []
+
