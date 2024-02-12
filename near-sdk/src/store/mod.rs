@@ -78,9 +78,11 @@ mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
 pub mod unordered_map;
+#[allow(deprecated)]
 pub use self::unordered_map::UnorderedMap;
 
 pub mod unordered_set;
+#[allow(deprecated)]
 pub use self::unordered_set::UnorderedSet;
 
 #[cfg(feature = "unstable")]

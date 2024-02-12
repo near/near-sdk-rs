@@ -1,3 +1,6 @@
+// This suppresses the depreciation warnings for uses of UnorderedSet in this module
+#![allow(deprecated)]
+
 mod impls;
 mod iter;
 
@@ -26,6 +29,12 @@ use std::fmt;
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
+///
+/// # Performance considerations
+/// Note that this collection is optimized for fast removes at the expense of key management.
+/// If the amount of removes is significantly higher than the amount of inserts the iteration
+/// becomes more costly. See [`remove`](UnorderedSet::remove) for details.
+/// If this is the use-case - see ['UnorderedSet`](crate::collections::UnorderedSet).
 ///
 /// # Examples
 ///
@@ -79,6 +88,10 @@ use std::fmt;
 /// [`with_hasher`]: Self::with_hasher
 /// [`LookupSet`]: crate::store::LookupSet
 #[derive(BorshDeserialize, BorshSerialize)]
+#[deprecated(
+    since = "5.0.0",
+    note = "Suboptimal iteration performance. See performance considerations doc for details."
+)]
 pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
@@ -148,9 +161,9 @@ where
     /// # Example
     /// ```
     /// use near_sdk::store::key::Keccak256;
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::UnorderedSet;
     ///
-    /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
+    /// let map = UnorderedSet::<String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -482,6 +495,16 @@ where
     /// The value may be any borrowed form of the set's value type, but
     /// [`BorshSerialize`], [`ToOwned<Owned = K>`](ToOwned) and [`Ord`] on the borrowed form *must*
     /// match those for the value type.
+    ///
+    /// # Performance
+    ///
+    /// When elements are removed, the underlying vector of values isn't
+    /// rearranged; instead, the removed value is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
+    /// remedy this, take a look at [`defrag`](Self::defrag).
     pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> bool
     where
         T: Borrow<Q> + BorshDeserialize,
@@ -507,9 +530,49 @@ where
     }
 }
 
+impl<T, H> UnorderedSet<T, H>
+where
+    T: BorshSerialize + BorshDeserialize + Ord,
+    H: ToKey,
+{
+    /// Remove empty placeholders leftover from calling [`remove`](Self::remove).
+    ///
+    /// When elements are removed using [`remove`](Self::remove), the underlying vector isn't
+    /// rearranged; instead, the removed element is replaced with a placeholder value. These
+    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
+    ///
+    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
+    /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
+    /// to remedy that by removing all empty slots from the underlying vector and compacting it.
+    ///
+    /// Note that this might exceed the available gas amount depending on the amount of free slots,
+    /// therefore has to be used with caution.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use near_sdk::store::UnorderedSet;
+    ///
+    /// let mut set = UnorderedSet::new(b"b");
+    ///
+    /// for i in 0..4 {
+    ///     set.insert(i);
+    /// }
+    ///
+    /// set.remove(&1);
+    /// set.remove(&3);
+    ///
+    /// set.defrag();
+    /// ```
+    pub fn defrag(&mut self) {
+        self.elements.defrag(|_, _| {});
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use crate::store::free_list::FreeListIndex;
     use crate::store::UnorderedSet;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
@@ -848,5 +911,40 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn defrag() {
+        let mut set = UnorderedSet::new(b"b");
+
+        let all_values = 0..=8;
+
+        for i in all_values {
+            set.insert(i);
+        }
+
+        let removed = [2, 4, 6];
+        let existing = [0, 1, 3, 5, 7, 8];
+
+        for id in removed {
+            set.remove(&id);
+        }
+
+        set.defrag();
+
+        for i in removed {
+            assert!(!set.contains(&i));
+        }
+        for i in existing {
+            assert!(set.contains(&i));
+        }
+
+        // Check that 8 and 7 moved from the front of the list to the smallest removed indices that
+        // correspond to removed values.
+        assert_eq!(*set.elements.get(FreeListIndex(2)).unwrap(), 8);
+        assert_eq!(*set.elements.get(FreeListIndex(4)).unwrap(), 7);
+
+        // Check the last removed value.
+        assert_eq!(set.elements.get(FreeListIndex(6)), None);
     }
 }
