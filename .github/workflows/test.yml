@@ -24,7 +24,11 @@ jobs:
           default: true
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Test
+      - name: Downgrade dependencies
+        run: |
+          cargo update -p clap@4.5.0 --precise 4.4.18
+          cd examples/adder && cargo update -p clap@4.5.0 --precise 4.4.18
+      - name: test
         run: cargo test --all --features unstable,legacy
   lint:
     name: Clippy and fmt
