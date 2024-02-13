@@ -35,7 +35,7 @@ impl ImplItemMethodInfo {
 #[cfg(test)]
 mod tests {
     use syn::{parse_quote, Type, ImplItemFn as ImplItemMethod , ReturnType};
-    use crate::core_impl::{ImplItemMethodInfo};
+    use crate::core_impl::ImplItemMethodInfo;
 
     #[test]
     fn init_no_return() {

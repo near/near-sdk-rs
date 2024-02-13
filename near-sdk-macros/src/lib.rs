@@ -223,7 +223,7 @@ fn process_impl_block(
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
     Ok(TokenStream::from(quote! {
-        #ext_generated_code
+       // #ext_generated_code
         #input
         #generated_code
         #abi_generated

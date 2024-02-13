@@ -9,7 +9,15 @@ impl ImplItemMethodInfo {
     pub fn method_wrapper(&self) -> TokenStream2 {
         let non_bindgen_attrs = self.non_bindgen_attrs_tokens();
 
-        let ident = &self.attr_signature_info.ident;
+        // If the method has an alias, use it, otherwise use the method name.
+        let abi_alias = match &self.attr_signature_info.method_kind {
+            MethodKind::Call(call_method) => &call_method.alias,
+            MethodKind::Init(init_method) => &init_method.alias,
+            MethodKind::View(view_method) => &view_method.alias,
+        }
+        .as_ref()
+        .map(|alias| syn::Ident::new(&alias, self.attr_signature_info.ident.span()))
+        .unwrap_or(self.attr_signature_info.ident.clone());
 
         let panic_hook = self.panic_hook_tokens();
 
@@ -35,7 +43,7 @@ impl ImplItemMethodInfo {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn #ident() {
+            pub extern "C" fn #abi_alias() {
                 #panic_hook
                 #is_private_check
                 #deposit_check

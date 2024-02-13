@@ -6,7 +6,7 @@ use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, GenericParam, Ident, ReturnType, Signature, Type};
+use syn::{Attribute, Error, Expr, FnArg, GenericParam, Ident, Lit, ReturnType, Signature, Type};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
@@ -100,6 +100,23 @@ impl AttrSigInfo {
         let args = AttributeConfig::from_attributes(original_attrs)?;
         // Visit attributes
         for attr in original_attrs.iter() {
+            // working without crate darling here to allow for NameValue attributes
+            if attr.path().is_ident("abi_alias") {
+                let err =
+                    Error::new(attr.span(), "Expected a string literal for `abi_alias` attribute.");
+                if let Expr::Lit(exprlit) = attr.parse_args()? {
+                    if let Lit::Str(litstr) = exprlit.lit {
+                        visitor.visit_alias_attr(litstr.value());
+                    } else {
+                        return Err(err);
+                    }
+                } else {
+                    return Err(err);
+                }
+
+                continue;
+            }
+
             let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
@@ -176,6 +193,7 @@ impl AttrSigInfo {
 
         let mut result = AttrSigInfo {
             ident,
+
             non_bindgen_attrs,
             args,
             method_kind,

@@ -17,6 +17,7 @@ struct ParsedData {
     ignores_state: bool,
     result_serializer: SerializerType,
     receiver: Option<Receiver>,
+    alias: Option<String>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -44,6 +45,7 @@ impl Default for ParsedData {
             ignores_state: Default::default(),
             result_serializer: SerializerType::JSON,
             receiver: Default::default(),
+            alias: Default::default(),
         }
     }
 }
@@ -146,6 +148,10 @@ impl Visitor {
         }
     }
 
+    pub fn visit_alias_attr(&mut self, _alias: String) {
+        self.parsed_data.alias = Some(_alias);
+    }
+
     /// Extract the return type of the function. Must be called last as it depends on the value of
     /// `handles_result`. This is why it's private and called as part of `build`.
     fn get_return_type(&mut self) -> syn::Result<Returns> {
@@ -178,15 +184,25 @@ impl Visitor {
         let Visitor { kind, parsed_data, .. } = self;
 
         let ParsedData {
-            is_payable, is_private, ignores_state, result_serializer, receiver, ..
+            is_payable,
+            is_private,
+            ignores_state,
+            result_serializer,
+            receiver,
+            alias,
+            ..
         } = parsed_data;
 
         let method_kind = match kind {
-            Call => {
-                MethodKind::Call(CallMethod { is_payable, is_private, result_serializer, receiver })
-            }
-            Init => MethodKind::Init(InitMethod { is_payable, ignores_state }),
-            View => MethodKind::View(ViewMethod { is_private, result_serializer, receiver }),
+            Call => MethodKind::Call(CallMethod {
+                is_payable,
+                is_private,
+                result_serializer,
+                receiver,
+                alias,
+            }),
+            Init => MethodKind::Init(InitMethod { is_payable, ignores_state, alias }),
+            View => MethodKind::View(ViewMethod { is_private, result_serializer, receiver, alias }),
         };
 
         Ok((method_kind, returns))

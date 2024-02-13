@@ -1,5 +1,5 @@
-use crate::core_impl::ext::generate_ext_function_wrappers;
 use crate::ItemImplInfo;
+use crate::{core_impl::ext::generate_ext_function_wrappers, MethodKind};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Ident};
@@ -7,6 +7,18 @@ use syn::{spanned::Spanned, Ident};
 impl ItemImplInfo {
     /// Generate the code that wraps
     pub fn wrapper_code(&self) -> TokenStream2 {
+        {
+            let ident_ = &self.methods[0].attr_signature_info.ident;
+            let ident = match &self.methods[0].attr_signature_info.method_kind {
+                MethodKind::Init(m) => m
+                    .alias
+                    .as_ref()
+                    .map(|alias| syn::Ident::new(alias, ident_.span()))
+                    .unwrap_or(ident_.clone()),
+                _ => ident_.clone(),
+            };
+        }
+
         let mut res = TokenStream2::new();
         for method in &self.methods {
             res.extend(method.method_wrapper());

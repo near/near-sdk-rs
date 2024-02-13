@@ -13,7 +13,16 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
     }
 
     let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
-    let first_function_name = &i.methods[0].attr_signature_info.ident;
+    let ident_ = &i.methods[0].attr_signature_info.ident;
+    let first_function_name = match &i.methods[0].attr_signature_info.method_kind {
+        MethodKind::View(m) => m
+            .alias
+            .as_ref()
+            .map(|alias| syn::Ident::new(alias, ident_.span()))
+            .unwrap_or(ident_.clone()),
+        _ => ident_.clone(),
+    };
+
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]
