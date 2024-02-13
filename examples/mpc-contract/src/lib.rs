@@ -2,7 +2,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::{
     env, log, near_bindgen, require, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken, PromiseError,
+    GasWeight, NearToken, PromiseError,
 };
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -46,6 +46,7 @@ impl MpcContract {
             "sign_on_finish",
             &[],
             SIGN_ON_FINISH_CALL_GAS,
+            GasWeight(0),
             DATA_ID_REGISTER,
         );
 
@@ -89,7 +90,7 @@ impl MpcContract {
     ) -> Option<String> {
         match signature {
             Ok(signature) => Some(signature + " post"),
-            Err(_) => Some("signature request timed out"),
+            Err(_) => Some("signature request timed out".to_string()),
         }
     }
 
