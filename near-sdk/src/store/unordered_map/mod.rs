@@ -1,3 +1,6 @@
+// This suppresses the depreciation warnings for uses of UnorderedSet in this module
+#![allow(deprecated)]
+
 mod entry;
 mod impls;
 mod iter;
@@ -27,6 +30,12 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// (or host function) built into the NEAR runtime to hash the key. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
+///
+/// # Performance considerations
+/// Note that this collection is optimized for fast removes at the expense of key management.
+/// If the amount of removes is significantly higher than the amount of inserts the iteration
+/// becomes more costly. See [`remove`](UnorderedMap::remove) for details.
+/// If this is the use-case - see ['UnorderedMap`](crate::collections::UnorderedMap).
 ///
 /// # Examples
 /// ```
@@ -75,6 +84,10 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
+#[deprecated(
+    since = "5.0.0",
+    note = "Suboptimal iteration performance. See performance considerations doc for details."
+)]
 pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
@@ -662,6 +675,9 @@ where
     /// In cases where there are a lot of removals and not a lot of insertions, these leftover
     /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
     /// to remedy that by removing all empty slots from the underlying vector and compacting it.
+    ///
+    /// Note that this might exceed the available gas amount depending on the amount of free slots,
+    /// therefore has to be used with caution.
     ///
     /// # Examples
     ///
