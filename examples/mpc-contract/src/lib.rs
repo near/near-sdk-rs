@@ -2,7 +2,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::TreeMap;
 use near_sdk::{
     env, log, near_bindgen, require, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken,
+    NearToken, PromiseError,
 };
 
 #[derive(BorshSerialize, BorshStorageKey)]
@@ -84,8 +84,13 @@ impl MpcContract {
     }
 
     /// Callback receiving the externally submitted data
-    pub fn sign_on_finish(#[callback_unwrap] signature: String) -> String {
-        signature + " post"
+    pub fn sign_on_finish(
+        #[callback_result] signature: Result<String, PromiseError>,
+    ) -> Option<String> {
+        match signature {
+            Ok(signature) => Some(signature + " post"),
+            Err(_) => Some("signature request timed out"),
+        }
     }
 
     /// Callback used to clean up the local state of the contract
