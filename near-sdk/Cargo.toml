@@ -62,7 +62,7 @@ near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "8.8"
 
 [features]
-default = ["wee_alloc", "unit-testing", "legacy", "abi"]
+default = ["wee_alloc", "unit-testing"]
 expensive-debug = []
 unstable = []
 legacy = []
