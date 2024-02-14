@@ -28,7 +28,7 @@ impl TraitItemMethodInfo {
         let TraitItemFn { attrs, sig, .. } = original;
 
         utils::sig_is_supported(sig)?;
-        let attr_sig_info = AttrSigInfo::new(attrs, sig, trait_name)?;
+        let attr_sig_info = AttrSigInfo::new(attrs, sig, trait_name, None)?;
 
         let ident_byte_str =
             LitStr::new(&attr_sig_info.ident.to_string(), attr_sig_info.ident.span());

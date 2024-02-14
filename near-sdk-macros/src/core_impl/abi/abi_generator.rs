@@ -88,7 +88,13 @@ impl ImplItemMethodInfo {
     pub fn abi_struct(&self) -> TokenStream2 {
         let attr_signature_info = &self.attr_signature_info;
 
-        let function_name_str = attr_signature_info.ident.to_string();
+        let ident_ = attr_signature_info.ident.to_string();
+        let function_name_str = match &attr_signature_info.method_kind {
+            MethodKind::View(m) => m.alias.clone().unwrap_or(ident_.to_string()),
+            MethodKind::Call(m) => m.alias.clone().unwrap_or(ident_.to_string()),
+            MethodKind::Init(m) => m.alias.clone().unwrap_or(ident_.to_string()),
+        };
+
         let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
             Some(doc) => quote! { ::std::option::Option::Some(::std::string::String::from(#doc)) },
             None => quote! { ::std::option::Option::None },

@@ -1,4 +1,7 @@
-use crate::core_impl::{serializer, AttrSigInfo};
+use crate::{
+    core_impl::{serializer, AttrSigInfo},
+    MethodKind,
+};
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
 use syn::{parse_quote, Attribute, Generics, Path, Signature};
@@ -116,8 +119,21 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let serialize =
         serializer::generate_serializer(attr_signature_info, &attr_signature_info.input_serializer);
 
-    let AttrSigInfo { non_bindgen_attrs, ident, original_sig, .. } = attr_signature_info;
-    let ident_str = ident.to_string();
+    let AttrSigInfo { non_bindgen_attrs, ident, original_sig, method_kind, .. } =
+        attr_signature_info;
+
+    let ident_ = ident.clone().to_string();
+    let ident_str = match method_kind {
+        MethodKind::Call(m) => &m.alias,
+        MethodKind::Init(m) => &m.alias,
+        MethodKind::View(m) => &m.alias,
+    }
+    .as_ref()
+    .unwrap_or(&ident_)
+    .to_string();
+
+    let ident = &Ident::new(&ident_str, ident.span());
+
     let mut new_non_bindgen_attrs = TokenStream2::new();
     for attribute in non_bindgen_attrs.iter() {
         if is_fn_attribute_to_forward(attribute) {
@@ -154,7 +170,7 @@ mod tests {
     fn ext_gen() {
         let st: ItemStruct = parse_quote! { struct Test { a: u8 } };
         let actual = generate_ext_structs(&st.ident, Some(&st.generics));
-       
+
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
@@ -162,7 +178,7 @@ mod tests {
     fn module_ext_gen() {
         let ident: Ident = parse_quote! { Test };
         let actual = generate_ext_structs(&ident, None);
-    
+
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
@@ -177,7 +193,7 @@ mod tests {
             #[warn(unused)]
             pub fn method(&self) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
 
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
@@ -189,9 +205,9 @@ mod tests {
         let mut method: ImplItemFn = parse_quote! {
             pub fn method(&self, k: &String) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
-     
+
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 
@@ -201,9 +217,9 @@ mod tests {
         let mut method: syn::ImplItemFn = parse_quote! {
           pub fn borsh_test(&mut self, #[serializer(borsh)] a: String) {}
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = generate_ext_function(&method_info.attr_signature_info);
-       
+
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }

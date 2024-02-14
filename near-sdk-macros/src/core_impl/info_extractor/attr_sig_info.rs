@@ -6,12 +6,17 @@ use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, Expr, FnArg, GenericParam, Ident, Lit, ReturnType, Signature, Type};
+use syn::token::{For, Not};
+use syn::{
+    Attribute, Error, Expr, FnArg, GenericParam, Ident, Lit, Path, ReturnType, Signature, Type,
+};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
     /// The name of the method.
     pub ident: Ident,
+    /// Propagated to allow for the fully qualified path in the generated code.
+    pub trait_: Option<(Option<Not>, Path, For)>,
     /// Attributes not related to bindgen.
     pub non_bindgen_attrs: Vec<Attribute>,
     /// All arguments of the method.
@@ -67,6 +72,7 @@ impl AttrSigInfo {
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
         source_type: &TokenStream2,
+        trait_: Option<(Option<Not>, Path, For)>,
     ) -> syn::Result<Self> {
         let mut self_occurrences = Self::sanitize_self(original_sig, source_type)?;
         let mut errors = vec![];
@@ -193,7 +199,7 @@ impl AttrSigInfo {
 
         let mut result = AttrSigInfo {
             ident,
-
+            trait_,
             non_bindgen_attrs,
             args,
             method_kind,

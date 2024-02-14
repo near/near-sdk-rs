@@ -9,17 +9,9 @@ impl ImplItemMethodInfo {
     pub fn method_wrapper(&self) -> TokenStream2 {
         let non_bindgen_attrs = self.non_bindgen_attrs_tokens();
 
-        // If the method has an alias, use it, otherwise use the method name.
-        let abi_alias = match &self.attr_signature_info.method_kind {
-            MethodKind::Call(call_method) => &call_method.alias,
-            MethodKind::Init(init_method) => &init_method.alias,
-            MethodKind::View(view_method) => &view_method.alias,
-        }
-        .as_ref()
-        .map(|alias| syn::Ident::new(&alias, self.attr_signature_info.ident.span()))
-        .unwrap_or(self.attr_signature_info.ident.clone());
-
         let panic_hook = self.panic_hook_tokens();
+
+        let ident = self.abi_alias();
 
         let arg_struct = self.arg_struct_tokens();
         let arg_parsing = self.arg_parsing_tokens();
@@ -43,7 +35,7 @@ impl ImplItemMethodInfo {
             #non_bindgen_attrs
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
-            pub extern "C" fn #abi_alias() {
+            pub extern "C" fn #ident() {
                 #panic_hook
                 #is_private_check
                 #deposit_check
@@ -282,11 +274,18 @@ impl ImplItemMethodInfo {
 
     fn method_invocation_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
-
         let ident = &self.attr_signature_info.ident;
         let arg_list = self.attr_signature_info.arg_list();
 
         let method_invocation = || {
+            if let Some((_, path, _)) = &self.attr_signature_info.trait_ {
+                if let Some(trait_ident) = path.get_ident() {
+                    return quote! {
+                        #trait_ident::#ident(&contract, #arg_list)
+                    };
+                };
+            }
+
             quote! {
                 contract.#ident(#arg_list)
             }
@@ -409,5 +408,16 @@ impl ImplItemMethodInfo {
                 #value
             }
         })
+    }
+
+    fn abi_alias(&self) -> syn::Ident {
+        match &self.attr_signature_info.method_kind {
+            MethodKind::Call(call_method) => &call_method.alias,
+            MethodKind::Init(init_method) => &init_method.alias,
+            MethodKind::View(view_method) => &view_method.alias,
+        }
+        .as_ref()
+        .map(|alias| syn::Ident::new(&alias, self.attr_signature_info.ident.span()))
+        .unwrap_or(self.attr_signature_info.ident.clone())
     }
 }
