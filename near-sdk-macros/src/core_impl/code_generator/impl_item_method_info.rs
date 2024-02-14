@@ -417,7 +417,7 @@ impl ImplItemMethodInfo {
             MethodKind::View(view_method) => &view_method.alias,
         }
         .as_ref()
-        .map(|alias| syn::Ident::new(&alias, self.attr_signature_info.ident.span()))
+        .map(|alias| syn::Ident::new(alias, self.attr_signature_info.ident.span()))
         .unwrap_or(self.attr_signature_info.ident.clone())
     }
 }
