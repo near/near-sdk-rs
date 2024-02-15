@@ -52,7 +52,7 @@ impl MpcContract {
             DATA_ID_REGISTER,
         );
 
-        // Record the pending request
+        // Store the request in the contract's local state
         let data_id: CryptoHash =
             env::read_register(DATA_ID_REGISTER).expect("").try_into().expect("");
         self.requests.insert(
@@ -60,6 +60,8 @@ impl MpcContract {
             &SignatureRequest { data_id, account_id: env::signer_account_id(), payload },
         );
 
+        // The return value for this function call will be the value
+        // returned by the `sign_on_finish` callback.
         env::promise_return(promise);
     }
 
@@ -82,7 +84,7 @@ impl MpcContract {
         request_index: u64,
         #[callback_result] signature: Result<String, PromiseError>,
     ) -> Option<String> {
-        // clean up local state
+        // Clean up the local state
         self.requests.remove(&request_index);
 
         match signature {
