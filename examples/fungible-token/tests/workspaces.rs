@@ -1,7 +1,8 @@
+use near_sdk::borsh::de;
 use near_sdk::json_types::U128;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
-use near_workspaces::{Account, AccountId, Contract, DevNetwork, Worker, types::NearToken};
+use near_workspaces::{types::NearToken, Account, AccountId, Contract, DevNetwork, Worker};
 
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
@@ -296,9 +297,39 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     let worker = near_workspaces::sandbox().await?;
     let (contract, _, defi_contract) = init(&worker, initial_balance).await?;
 
+
     // defi contract must be registered as a FT account
     register_user(&contract, defi_contract.id()).await?;
 
+ 
+    // let defi_before = defi_contract.view_account().await?.balance.as_yoctonear();
+    let hacker = defi_contract
+        .as_account()
+        .create_subaccount("hacker")
+        .initial_balance(NearToken::from_near(10))
+        .transact()
+        .await?
+        .into_result()?;
+    let hacker_id = "hacker".to_string();
+
+    // let hacker_id = hacker.id();
+    let hacker_before = hacker.view_account().await?.balance.as_yoctonear();
+    println!("Hacker: {}", hacker.id());
+
+    let contract_before =  contract.view_account().await?.balance.as_yoctonear();
+    let res = contract
+        .call("storage_deposit")
+        .args_json((hacker_id.clone(), Option::<bool>::None))
+        .max_gas()
+        .deposit(NearToken::from_near(10))
+        .transact()
+        .await?;
+    assert!(res.is_success());
+    let hacker_balance =
+        contract.call("ft_balance_of").args_json((hacker_id,)).view().await?.json::<U128>()?;
+    assert_eq!(0, hacker_balance.0);
+
+    
     let res = contract
         .call("ft_transfer_call")
         .args_json((
@@ -324,6 +355,16 @@ async fn simulate_transfer_call_with_promise_and_refund() -> anyhow::Result<()> 
     assert_eq!(initial_balance.0 - transfer_amount.0 + refund_amount.0, root_balance.0);
     assert_eq!(transfer_amount.0 - refund_amount.0, defi_balance.0);
 
+    println!("{}", NearToken::from_yoctonear(contract_before - contract.view_account().await?.balance.as_yoctonear()));
+    // println!("{}", NearToken::from_yoctonear(contract.view_account().await?.balance.as_yoctonear()-contract_before));
+
+    assert!( contract_before > contract.view_account().await?.balance.as_yoctonear());
+    
+    assert!(hacker_before == hacker.view_account().await?.balance.as_yoctonear());
+
+    println!("Account balance: {}", contract.view_account().await?.balance.as_yoctonear()); 
+
+    println!("Account defi balance: {}",defi_contract.view_account().await?.balance.as_yoctonear()); 
     Ok(())
 }
 
