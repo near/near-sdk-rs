@@ -2,7 +2,7 @@ use crate::core_impl::info_extractor::{ImplItemMethodInfo, SerializerType};
 use crate::core_impl::{MethodKind, ReturnKind};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::Receiver;
+use syn::{Receiver, Type};
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -277,13 +277,24 @@ impl ImplItemMethodInfo {
         let ident = &self.attr_signature_info.ident;
         let arg_list = self.attr_signature_info.arg_list();
 
-        let method_invocation = || {
+        let method_invocation = |receiver: &Receiver| {
+            let _mut = receiver.mutability.map_or(quote! {}, |_| quote! {mut});
+
             if let Some((_, path, _)) = &self.attr_signature_info.trait_ {
                 if let Some(trait_ident) = path.get_ident() {
                     return quote! {
-                        #trait_ident::#ident(&contract, #arg_list)
+                        #trait_ident::#ident(&#_mut contract, #arg_list)
                     };
                 };
+            }
+
+            if let Type::Path(val) = &self.struct_type {
+                if !val.path.segments.is_empty() {
+                    let contract_ty = &val.path.segments[0].ident;
+                    quote! {
+                        #contract_ty::#ident(&#_mut contract, #arg_list)
+                    };
+                }
             }
 
             quote! {
@@ -299,24 +310,18 @@ impl ImplItemMethodInfo {
         };
 
         match &self.attr_signature_info.method_kind {
-            Call(call_method) => {
-                if call_method.receiver.is_some() {
-                    method_invocation()
-                } else {
-                    static_invocation()
-                }
-            }
+            Call(call_method) => match &call_method.receiver {
+                Some(receiver) => method_invocation(receiver),
+                None => static_invocation(),
+            },
 
             // The method invocation in Init methods is done in contract initialization.
             Init(_) => quote! {},
 
-            View(view_method) => {
-                if view_method.receiver.is_some() {
-                    method_invocation()
-                } else {
-                    static_invocation()
-                }
-            }
+            View(view_method) => match &view_method.receiver {
+                Some(receiver) => method_invocation(receiver),
+                None => static_invocation(),
+            },
         }
     }
 
@@ -413,7 +418,7 @@ impl ImplItemMethodInfo {
     fn abi_alias(&self) -> syn::Ident {
         match &self.attr_signature_info.method_kind {
             MethodKind::Call(call_method) => &call_method.alias,
-            MethodKind::Init(init_method) => &init_method.alias,
+            MethodKind::Init(_) => &None,
             MethodKind::View(view_method) => &view_method.alias,
         }
         .as_ref()

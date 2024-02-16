@@ -79,9 +79,6 @@ pub struct InitMethod {
     pub is_payable: bool,
     /// Whether init method ignores state
     pub ignores_state: bool,
-    /// The alias of the method as would appear in the ABI; here to
-    /// prevent method name collisions in the case of overloads or colliding trait methods.
-    pub alias: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

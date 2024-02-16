@@ -13,7 +13,7 @@ trait T1 {
 }
 
 trait T2 {
-    fn foo(&self, a: u32);
+    fn foo(&self);
 }
 
 #[near_bindgen]

@@ -44,6 +44,38 @@ use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, Wher
 /// }
 /// ```
 ///
+/// ABI Name Aliasing:
+///
+/// By using `[abi_alias(alias_name)]`, `near_bindgen` will generate the relevant abi code under the alias.
+/// This is useful in cases where the function name collides with names that have been reserved by NEAR, and or
+/// trait methods that have the same name.
+///
+/// Examples
+///
+/// ```ignore
+/// #[near_bindgen]
+/// struct Contract;
+/// 
+/// // here we have two traits with the same method name
+/// trait T1 { fn foo(&self); }
+/// trait T2 { fn foo(&self); }
+/// 
+/// #[near_bindgen]
+/// impl T1 for Contract {
+///    fn foo(&self) {
+///        log!("foo_one")
+///     }
+/// }
+///
+/// #[near_bindgen]
+/// impl T2 for Contract {
+///    #[abi_alias("foo_two")]
+///    fn foo(&self) {
+///        log!("foo_two")
+///    }
+/// }
+/// ```
+///
 /// Events Standard:
 ///
 /// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events

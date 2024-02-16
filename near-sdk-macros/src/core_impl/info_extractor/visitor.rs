@@ -201,7 +201,7 @@ impl Visitor {
                 receiver,
                 alias,
             }),
-            Init => MethodKind::Init(InitMethod { is_payable, ignores_state, alias }),
+            Init => MethodKind::Init(InitMethod { is_payable, ignores_state }),
             View => MethodKind::View(ViewMethod { is_private, result_serializer, receiver, alias }),
         };
 

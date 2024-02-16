@@ -125,7 +125,7 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
     let ident_ = ident.clone().to_string();
     let ident_str = match method_kind {
         MethodKind::Call(m) => &m.alias,
-        MethodKind::Init(m) => &m.alias,
+        MethodKind::Init(_) => &None,
         MethodKind::View(m) => &m.alias,
     }
     .as_ref()

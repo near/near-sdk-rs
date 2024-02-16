@@ -92,7 +92,7 @@ impl ImplItemMethodInfo {
         let function_name_str = match &attr_signature_info.method_kind {
             MethodKind::View(m) => m.alias.clone().unwrap_or(ident_.to_string()),
             MethodKind::Call(m) => m.alias.clone().unwrap_or(ident_.to_string()),
-            MethodKind::Init(m) => m.alias.clone().unwrap_or(ident_.to_string()),
+            MethodKind::Init(_) => ident_.to_string(),
         };
 
         let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
