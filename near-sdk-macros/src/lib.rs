@@ -3,7 +3,9 @@ extern crate proc_macro;
 
 mod core_impl;
 
-use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method};
+use core_impl::{
+    ext::generate_ext_structs, metadata::generate_contract_metadata_method, retrieve_abi_alias,
+};
 
 use proc_macro::TokenStream;
 
@@ -11,6 +13,9 @@ use self::core_impl::*;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+
+/// Reserved methods that cannot be used as contract method names, unless aliased.
+const RESERVED_METHODS: [&str; 2] = ["__contract_abi", "contract_source_metadata"];
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -41,38 +46,6 @@ use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, Wher
 /// #[near_bindgen]
 /// impl Contract {
 ///     pub fn some_function(&self) {}
-/// }
-/// ```
-///
-/// ABI Name Aliasing:
-///
-/// By using `[abi_alias(alias_name)]`, `near_bindgen` will generate the relevant abi code under the alias.
-/// This is useful in cases where the function name collides with names that have been reserved by NEAR, and or
-/// trait methods that have the same name.
-///
-/// Examples
-///
-/// ```ignore
-/// #[near_bindgen]
-/// struct Contract;
-/// 
-/// // here we have two traits with the same method name
-/// trait T1 { fn foo(&self); }
-/// trait T2 { fn foo(&self); }
-/// 
-/// #[near_bindgen]
-/// impl T1 for Contract {
-///    fn foo(&self) {
-///        log!("foo_one")
-///     }
-/// }
-///
-/// #[near_bindgen]
-/// impl T2 for Contract {
-///    #[abi_alias("foo_two")]
-///    fn foo(&self) {
-///        log!("foo_two")
-///    }
 /// }
 /// ```
 ///
@@ -141,6 +114,43 @@ use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, Wher
 /// ))]
 /// struct Contract {}
 /// ```
+///
+/// ABI Name Aliasing:
+///
+/// By using `#[abi_alias(alias_name)]`, `near_bindgen` will generate the relevant abi code under the alias.
+/// This can be useful in cases where trait methods have the same name like in the example below.
+///
+/// Note: We cannot alias methods that have been defined multiple times. This means aliasing a method like `contract_source_metadata`
+/// will not work unless the qualified name is something other than `Contract::contract_source_metadata` like `T3::contract_source_metadata`
+/// where `T3` is a trait.
+///
+/// Examples
+///
+/// ```ignore
+/// use near_sdk::near_bindgen;
+///
+/// #[near_bindgen]
+/// struct Contract;
+///
+/// // here we have two traits with the same method name
+/// trait T1 { fn foo(&self); }
+/// trait T2 { fn foo(&self); }
+///
+/// #[near_bindgen]
+/// impl T1 for Contract {
+///    fn foo(&self) {
+///        log!("foo_one")
+///     }
+/// }
+///
+/// #[near_bindgen]
+/// impl T2 for Contract {
+///    #[abi_alias("foo_two")]
+///    fn foo(&self) {
+///        log!("foo_two")
+///    }
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -203,7 +213,24 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
                 let ident = &m.sig.ident;
-                if ident.eq("__contract_abi") || ident.eq("contract_source_metadata") {
+                if RESERVED_METHODS.contains(&ident.to_string().as_str()) {
+                    if m.attrs.iter().any(|attr| {
+                        if attr.path().is_ident("abi_alias") && input.trait_.is_some() {
+                            return match retrieve_abi_alias(attr) {
+                                Ok(Some(alias)) => ident.ne(&alias),
+                                Ok(None) => false,
+                                Err(_) => {
+                                    // error deferred to `process_impl_block()`
+                                    true
+                                }
+                            };
+                        }
+
+                        false
+                    }) {
+                        continue;
+                    }
+
                     return TokenStream::from(
                         syn::Error::new_spanned(
                             ident.to_token_stream(),

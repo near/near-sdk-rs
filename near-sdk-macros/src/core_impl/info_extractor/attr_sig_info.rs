@@ -106,20 +106,8 @@ impl AttrSigInfo {
         let args = AttributeConfig::from_attributes(original_attrs)?;
         // Visit attributes
         for attr in original_attrs.iter() {
-            // working without crate darling here to allow for NameValue attributes
-            if attr.path().is_ident("abi_alias") {
-                let err =
-                    Error::new(attr.span(), "Expected a string literal for `abi_alias` attribute.");
-                if let Expr::Lit(exprlit) = attr.parse_args()? {
-                    if let Lit::Str(litstr) = exprlit.lit {
-                        visitor.visit_alias_attr(litstr.value());
-                    } else {
-                        return Err(err);
-                    }
-                } else {
-                    return Err(err);
-                }
-
+            if let Some(litstr) = retrieve_abi_alias(attr)? {
+                visitor.visit_alias_attr(litstr);
                 continue;
             }
 
@@ -227,6 +215,23 @@ impl AttrSigInfo {
     pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
         self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
     }
+}
+
+pub fn retrieve_abi_alias(attr: &Attribute) -> syn::Result<Option<String>> {
+    // working without crate darling here to allow for NameValue attributes
+    if attr.path().is_ident("abi_alias") {
+        let err = Error::new(attr.span(), "Expected a string literal for `abi_alias` attribute.");
+        if let Expr::Lit(exprlit) = attr.parse_args()? {
+            if let Lit::Str(litstr) = exprlit.lit {
+                return Ok(Some(litstr.value()));
+            } else {
+                return Err(err);
+            }
+        } else {
+            return Err(err);
+        }
+    }
+    Ok(None)
 }
 
 // Generate errors for a given collection of spans. Returns `Ok` if no spans are provided.

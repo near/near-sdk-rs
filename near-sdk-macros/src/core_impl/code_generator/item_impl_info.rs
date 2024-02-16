@@ -344,4 +344,54 @@ mod tests {
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
+
+    #[test]
+    fn serialize_method_name(){
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            pub fn serialize(&mut self){ }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap())
+    }
+
+    #[test]
+    fn abi_aliased_method(){
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[abi_alias("foo_one")]
+            pub fn foo(&self){ }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap())
+    }
+
+    #[test]
+    fn abi_aliased_trait_method(){
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[abi_alias("foo_one")]
+            pub fn foo(&self){ }
+        };
+
+        let trait_ = (None, parse_quote! { T1 }, parse_quote! { for });
+        let method_info = ImplItemMethodInfo::new(&mut method, Some(trait_), impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap())
+    }
+    #[test]
+    fn abi_aliased_mut_trait_method(){
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[abi_alias("foo_one")]
+            pub fn foo(&mut self){ }
+        };
+
+        let trait_ = (None, parse_quote! { T1 }, parse_quote! { for });
+        let method_info = ImplItemMethodInfo::new(&mut method, Some(trait_), impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap())
+    }
 }

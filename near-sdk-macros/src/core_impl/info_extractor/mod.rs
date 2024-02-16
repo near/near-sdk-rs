@@ -10,7 +10,7 @@ mod handle_result_attr;
 pub use handle_result_attr::HandleResultAttr;
 
 mod attr_sig_info;
-pub use attr_sig_info::AttrSigInfo;
+pub use attr_sig_info::{retrieve_abi_alias, AttrSigInfo};
 
 mod impl_item_method_info;
 pub use impl_item_method_info::ImplItemMethodInfo;
