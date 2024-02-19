@@ -65,7 +65,7 @@ impl StorageManagement for FungibleToken {
             }
 
             self.internal_register_account(&account_id);
-            let refund = amount.saturating_add(min_balance);
+            let refund = amount.saturating_sub(min_balance);
             if refund > NearToken::from_near(0) {
                 Promise::new(env::predecessor_account_id()).transfer(refund);
             }
