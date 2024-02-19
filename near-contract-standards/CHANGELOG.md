@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0-alpha.2...near-contract-standards-v5.0.0-alpha.3) - 2024-02-19
+
+### Fixed
+- Fixed a typo in the storage_deposit refund computation (introduced in 5.0.0-alpha.1 release) ([#1146](https://github.com/near/near-sdk-rs/pull/1146))
+
 ## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0-alpha.1...near-contract-standards-v5.0.0-alpha.2) - 2024-01-16
 
 ### Other

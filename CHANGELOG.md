@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.2...near-sdk-v5.0.0-alpha.3) - 2024-02-19
+
+### Fixed
+- Deprecated `store::UnorderedMap` and `store::UnorderedSet` due to not meeting the original requirements (iteration over a collection of more than 2k elements runs out of gas) ([#1139](https://github.com/near/near-sdk-rs/pull/1139))
+
+### Other
+- Added ABI tests for SDK-generated methods [contract_source_metadata] ([#1136](https://github.com/near/near-sdk-rs/pull/1136))
+
 ## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.1...near-sdk-v5.0.0-alpha.2) - 2024-01-16
 
 ### Fixed
