@@ -54,11 +54,15 @@ mod tests {
         testing_env!(context);
         let mut contract = StatusMessage::default();
         contract.set_status("hello".to_string());
+        // Flush the pending changes to avoid panic in the view method below due to the pending non-commited changes to the `store::LookupMap`:
+        // HostError(ProhibitedInView { method_name: "storage_write" })
+        contract.records.flush();
         assert_eq!(get_logs(), vec!["bob_near set_status with message hello"]);
+
         let context = get_context(true);
         testing_env!(context);
-        assert_eq!("hello".to_string(), contract.get_status("bob_near".parse().unwrap()).unwrap());
-        assert_eq!(get_logs(), vec!["get_status for account_id bob_near"])
+        assert_eq!("hello", contract.get_status("bob_near".parse().unwrap()).unwrap());
+        assert_eq!(get_logs(), vec!["get_status for account_id bob_near"]);
     }
 
     #[test]
