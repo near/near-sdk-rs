@@ -23,9 +23,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 near-sdk-macros = { path = "../near-sdk-macros", version = "~5.0.0-alpha.3" }
 near-sys = { path = "../near-sys", version = "0.2.1" }
-base64 = "0.13"
+base64 = "0.21"
 borsh = { version = "1.0.0", features = ["derive"] }
-bs58 = "0.4"
+bs58 = "0.5"
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
@@ -60,7 +60,7 @@ getrandom = { version = "0.2", features = ["js"] }
 rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
-symbolic-debuginfo = "8.8"
+symbolic-debuginfo = "12"
 
 [features]
 default = ["wee_alloc"]
