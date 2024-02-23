@@ -1067,29 +1067,41 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn hash_smoke_tests() {
+        use base64::Engine;
+
         assert_eq!(
             &super::sha256_array(b"some value"),
-            base64::decode("qz0H8xacy9DtbEtF3iFRn5+TjHLSQSSZiquUnOg7tRs").unwrap().as_slice()
+            base64::engine::general_purpose::STANDARD
+                .decode("qz0H8xacy9DtbEtF3iFRn5+TjHLSQSSZiquUnOg7tRs")
+                .unwrap()
+                .as_slice()
         );
 
         assert_eq!(
             &super::keccak256_array(b"some value"),
-            base64::decode("+Sjftfxys7v7mlzLDumEOye0rB68Jab294PiPr1H7x8=").unwrap().as_slice()
+            base64::engine::general_purpose::STANDARD
+                .decode("+Sjftfxys7v7mlzLDumEOye0rB68Jab294PiPr1H7x8=")
+                .unwrap()
+                .as_slice()
         );
 
         assert_eq!(
             &super::keccak512_array(b"some value"),
-            base64::decode(
-                "PjjRQKhRIzdO5j7CCJc6o5uHNJ0XzKyUiiST4YsYtZEyIM0XS09RGql5dwCeFr5IX8\
+            base64::engine::general_purpose::STANDARD
+                .decode(
+                    "PjjRQKhRIzdO5j7CCJc6o5uHNJ0XzKyUiiST4YsYtZEyIM0XS09RGql5dwCeFr5IX8\
                     lPXidDy5uwV501q0EFgw=="
-            )
-            .unwrap()
-            .as_slice()
+                )
+                .unwrap()
+                .as_slice()
         );
 
         assert_eq!(
             &super::ripemd160_array(b"some value"),
-            base64::decode("CfAl/tcE4eysj4iyvaPlaHbaA6w=").unwrap().as_slice()
+            base64::engine::general_purpose::STANDARD
+                .decode("CfAl/tcE4eysj4iyvaPlaHbaA6w=")
+                .unwrap()
+                .as_slice()
         );
     }
 
