@@ -18,6 +18,7 @@ This release mostly maintains backwards compatibility with the previous version,
 - New host functions exposed:
   - [`near_sdk::env::ed25519_verify`](https://docs.rs/near-sdk/5.0.0/near_sdk/env/fn.ed25519_verify.html) ([#1010](https://github.com/near/near-sdk-rs/pull/1010))
   - [`near_sdk::env::alt_bn128`](https://docs.rs/near-sdk/5.0.0/near_sdk/env/fn.alt_bn128.html) ([#1028](https://github.com/near/near-sdk-rs/pull/1028))
+- Slimmed down the dependencies by default, most notably, you may still need to explicitly enable `legacy` feature for `near_sdk::collections` and `unit-testing` feature for `near_sdk::testing_env` and `near_sdk::mock` ([#1149](https://github.com/near/near-sdk-rs/pull/1149))
 - Updated `nearcore` crates from `0.17` -> `0.20`, but contracts rarely use these directly so no breaking changes are expected ([#1130](https://github.com/near/near-sdk-rs/pull/1130))
 - Support Result types in `#[handle_result]` regardless of how they're referred to ([#1099](https://github.com/near/near-sdk-rs/pull/1099))
 - `Self` is now prohibited in non-init methods to prevent common footguns ([#1073](https://github.com/near/near-sdk-rs/pull/1073))
