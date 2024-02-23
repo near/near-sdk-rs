@@ -47,13 +47,14 @@ impl schemars::JsonSchema for Base64VecU8 {
 /// ```
 mod base64_bytes {
     use super::*;
+    use base64::Engine;
     use serde::de;
 
     pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&base64::encode(bytes))
+        serializer.serialize_str(&base64::engine::general_purpose::STANDARD.encode(bytes))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
@@ -61,7 +62,7 @@ mod base64_bytes {
         D: Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        base64::decode(s.as_str()).map_err(de::Error::custom)
+        base64::engine::general_purpose::STANDARD.decode(s.as_str()).map_err(de::Error::custom)
     }
 }
 

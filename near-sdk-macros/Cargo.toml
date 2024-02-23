@@ -15,14 +15,14 @@ Main macro of the library for writing NEAR smart contracts.
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1"
-syn = { version = "2", features = ["full", "fold", "extra-traits", "visit"] }
-strum = "0.24"
-strum_macros = "0.24"
-quote = "1.0"
+proc-macro2 = { version = "1",  default-features = false }
+syn = { version = "2", default-features = false }
+strum = { version = "0.26",  default-features = false }
+strum_macros = "0.26"
+quote = { version = "1.0",  default-features = false }
 Inflector = { version = "0.11.4", default-features = false, features = [] }
-darling = { version = "0.20.3" }
-serde = { version = "1", features = ["derive"] }
+darling = { version = "0.20.3", default-features = false }
+serde = { version = "1",  default-features = false, features = ["serde_derive"] }
 serde_json = "1"
 
 [dev-dependencies]

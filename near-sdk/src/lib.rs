@@ -7,10 +7,9 @@
 #[cfg(test)]
 extern crate quickcheck;
 
-#[cfg(feature = "abi")]
-pub use near_sdk_macros::NearSchema;
 pub use near_sdk_macros::{
-    ext_contract, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, PanicOnDefault,
+    ext_contract, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, NearSchema,
+    PanicOnDefault,
 };
 
 pub mod store;
@@ -36,21 +35,21 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock::test_vm_config;
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 // Re-export to avoid breakages
 pub use environment::mock::MockedBlockchain;
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use test_utils::context::VMContext;
 
 pub mod utils;
 pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+#[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub mod test_utils;
 
 // Set up global allocator by default if custom-allocator feature is not set in wasm32 architecture.

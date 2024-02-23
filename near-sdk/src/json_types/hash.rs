@@ -82,7 +82,7 @@ impl std::str::FromStr for Base58CryptoHash {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
-        let size = bs58::decode(value).into(&mut crypto_hash)?;
+        let size = bs58::decode(value).onto(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
             return Err(ParseCryptoHashError {
                 kind: ParseCryptoHashErrorKind::InvalidLength(size),
