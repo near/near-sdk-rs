@@ -6,12 +6,17 @@ use crate::core_impl::{utils, Returns};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Error, FnArg, GenericParam, Ident, ReturnType, Signature, Type};
+use syn::token::{For, Not};
+use syn::{
+    Attribute, Error, Expr, FnArg, GenericParam, Ident, Lit, Path, ReturnType, Signature, Type,
+};
 
 /// Information extracted from method attributes and signature.
 pub struct AttrSigInfo {
     /// The name of the method.
     pub ident: Ident,
+    /// Propagated to allow for the fully qualified path in the generated code.
+    pub trait_: Option<(Option<Not>, Path, For)>,
     /// Attributes not related to bindgen.
     pub non_bindgen_attrs: Vec<Attribute>,
     /// All arguments of the method.
@@ -67,6 +72,7 @@ impl AttrSigInfo {
         original_attrs: &mut Vec<Attribute>,
         original_sig: &mut Signature,
         source_type: &TokenStream2,
+        trait_: Option<(Option<Not>, Path, For)>,
     ) -> syn::Result<Self> {
         let mut self_occurrences = Self::sanitize_self(original_sig, source_type)?;
         let mut errors = vec![];
@@ -100,6 +106,11 @@ impl AttrSigInfo {
         let args = AttributeConfig::from_attributes(original_attrs)?;
         // Visit attributes
         for attr in original_attrs.iter() {
+            if let Some(litstr) = retrieve_abi_alias(attr)? {
+                visitor.visit_alias_attr(litstr);
+                continue;
+            }
+
             let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
                 "init" => {
@@ -176,6 +187,7 @@ impl AttrSigInfo {
 
         let mut result = AttrSigInfo {
             ident,
+            trait_,
             non_bindgen_attrs,
             args,
             method_kind,
@@ -203,6 +215,23 @@ impl AttrSigInfo {
     pub fn input_args(&self) -> impl Iterator<Item = &ArgInfo> {
         self.args.iter().filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::Regular))
     }
+}
+
+pub fn retrieve_abi_alias(attr: &Attribute) -> syn::Result<Option<String>> {
+    // working without crate darling here to allow for NameValue attributes
+    if attr.path().is_ident("abi_alias") {
+        let err = Error::new(attr.span(), "Expected a string literal for `abi_alias` attribute.");
+        if let Expr::Lit(exprlit) = attr.parse_args()? {
+            if let Lit::Str(litstr) = exprlit.lit {
+                return Ok(Some(litstr.value()));
+            } else {
+                return Err(err);
+            }
+        } else {
+            return Err(err);
+        }
+    }
+    Ok(None)
 }
 
 // Generate errors for a given collection of spans. Returns `Ok` if no spans are provided.

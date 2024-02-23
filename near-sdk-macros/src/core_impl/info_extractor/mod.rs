@@ -10,7 +10,7 @@ mod handle_result_attr;
 pub use handle_result_attr::HandleResultAttr;
 
 mod attr_sig_info;
-pub use attr_sig_info::AttrSigInfo;
+pub use attr_sig_info::{retrieve_abi_alias, AttrSigInfo};
 
 mod impl_item_method_info;
 pub use impl_item_method_info::ImplItemMethodInfo;
@@ -55,6 +55,9 @@ pub struct CallMethod {
     pub result_serializer: SerializerType,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
     pub receiver: Option<Receiver>,
+    /// The alias of the method as would appear in the ABI; here to
+    /// prevent method name collisions in the case of overloads or colliding trait methods.
+    pub alias: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -65,6 +68,9 @@ pub struct ViewMethod {
     pub result_serializer: SerializerType,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
     pub receiver: Option<Receiver>,
+    /// The alias of the method as would appear in the ABI; here to
+    /// prevent method name collisions in the case of overloads or colliding trait methods.
+    pub alias: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq)]

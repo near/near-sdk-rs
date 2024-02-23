@@ -13,7 +13,16 @@ pub fn generate(i: &ItemImplInfo) -> TokenStream2 {
     }
 
     let functions: Vec<TokenStream2> = i.methods.iter().map(|m| m.abi_struct()).collect();
-    let first_function_name = &i.methods[0].attr_signature_info.ident;
+    let ident_ = &i.methods[0].attr_signature_info.ident;
+    let first_function_name = match &i.methods[0].attr_signature_info.method_kind {
+        MethodKind::View(m) => m
+            .alias
+            .as_ref()
+            .map(|alias| syn::Ident::new(alias, ident_.span()))
+            .unwrap_or(ident_.clone()),
+        _ => ident_.clone(),
+    };
+
     let near_abi_symbol = format_ident!("__near_abi_{}", first_function_name);
     quote! {
         #[cfg(not(target_arch = "wasm32"))]
@@ -79,7 +88,13 @@ impl ImplItemMethodInfo {
     pub fn abi_struct(&self) -> TokenStream2 {
         let attr_signature_info = &self.attr_signature_info;
 
-        let function_name_str = attr_signature_info.ident.to_string();
+        let ident_ = attr_signature_info.ident.to_string();
+        let function_name_str = match &attr_signature_info.method_kind {
+            MethodKind::View(m) => m.alias.clone().unwrap_or(ident_.to_string()),
+            MethodKind::Call(m) => m.alias.clone().unwrap_or(ident_.to_string()),
+            MethodKind::Init(_) => ident_.to_string(),
+        };
+
         let function_doc = match parse_rustdoc(&attr_signature_info.non_bindgen_attrs) {
             Some(doc) => quote! { ::std::option::Option::Some(::std::string::String::from(#doc)) },
             None => quote! { ::std::option::Option::None },
@@ -324,7 +339,7 @@ mod tests {
             #[handle_result]
             pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -339,7 +354,7 @@ mod tests {
             #[handle_result]
             pub fn f3(&mut self, #[serializer(borsh)] arg0: FancyStruct) -> Result<IsOk, Error> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -355,7 +370,7 @@ mod tests {
                 #[callback_vec] x: Vec<String>, 
             ) -> bool { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
        
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -367,7 +382,7 @@ mod tests {
         let mut method = parse_quote! {
             pub fn method(&self, #[callback_unwrap] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback_unwrap] #[serializer(json)] z: Vec<u8>) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -380,7 +395,7 @@ mod tests {
             #[init(ignore_state)]
             pub fn new() -> u64 { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -392,7 +407,7 @@ mod tests {
         let mut method = parse_quote! {
             pub fn method() { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
