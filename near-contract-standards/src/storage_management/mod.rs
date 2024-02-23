@@ -1,20 +1,18 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::schemars;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{AccountId, NearToken};
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+use near_sdk::{AccountId, NearSchema, NearToken};
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalance {
     pub total: NearToken,
     pub available: NearToken,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct StorageBalanceBounds {
     pub min: NearToken,
     pub max: Option<NearToken>,

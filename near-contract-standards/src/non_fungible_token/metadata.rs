@@ -1,15 +1,23 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::require;
-use near_sdk::schemars;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{require, NearSchema};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
 /// Metadata for the NFT contract itself.
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    BorshDeserialize,
+    BorshSerialize,
+    Serialize,
+    Deserialize,
+    NearSchema,
+)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct NFTContractMetadata {
@@ -24,9 +32,17 @@ pub struct NFTContractMetadata {
 
 /// Metadata on the individual token level.
 #[derive(
-    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, BorshDeserialize, BorshSerialize, Default,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    BorshDeserialize,
+    BorshSerialize,
+    NearSchema,
 )]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct TokenMetadata {

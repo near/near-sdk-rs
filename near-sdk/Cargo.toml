@@ -23,23 +23,23 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 near-sdk-macros = { path = "../near-sdk-macros", version = "~5.0.0" }
 near-sys = { path = "../near-sys", version = "0.2.1" }
-base64 = "0.13"
+base64 = "0.21"
 borsh = { version = "1.0.0", features = ["derive"] }
-bs58 = "0.4"
-schemars = { version = "0.8.8", optional = true }
-# Export dependencies for contracts
-wee_alloc = { version = "0.4.5", default-features = false, optional = true }
+bs58 = "0.5"
 
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-abi = { version = "0.4.0", features = ["__chunked-entries"], optional = true }
 near-account-id = { version="1.0.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.2.3", features = ["serde", "borsh"] }
 near-token = { version = "0.2.0", features = ["serde", "borsh"] }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+schemars = { version = "0.8.8", optional = true }
+near-abi = { version = "0.4.0", features = ["__chunked-entries"], optional = true }
 near-vm-runner = { version = "0.20", optional = true }
 near-primitives-core = { version = "0.20", optional = true }
 near-primitives = { version = "0.20", optional = true }
@@ -47,6 +47,7 @@ near-crypto = { version = "0.20", optional = true }
 near-parameters = { version = "0.20", optional = true }
 
 [dev-dependencies]
+near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
 rand = "0.8.4"
 trybuild = "1.0"
 rustversion = "1.0"
@@ -59,10 +60,10 @@ getrandom = { version = "0.2", features = ["js"] }
 rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
-symbolic-debuginfo = "8.8"
+symbolic-debuginfo = "12"
 
 [features]
-default = ["wee_alloc", "unit-testing", "legacy", "abi"]
+default = ["wee_alloc"]
 expensive-debug = []
 unstable = []
 legacy = []

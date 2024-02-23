@@ -1069,27 +1069,28 @@ mod tests {
     fn hash_smoke_tests() {
         assert_eq!(
             &super::sha256_array(b"some value"),
-            base64::decode("qz0H8xacy9DtbEtF3iFRn5+TjHLSQSSZiquUnOg7tRs").unwrap().as_slice()
+            hex::decode("ab3d07f3169ccbd0ed6c4b45de21519f9f938c72d24124998aab949ce83bb51b")
+                .unwrap()
+                .as_slice()
         );
 
         assert_eq!(
             &super::keccak256_array(b"some value"),
-            base64::decode("+Sjftfxys7v7mlzLDumEOye0rB68Jab294PiPr1H7x8=").unwrap().as_slice()
+            hex::decode("f928dfb5fc72b3bbfb9a5ccb0ee9843b27b4ac1ebc25a6f6f783e23ebd47ef1f")
+                .unwrap()
+                .as_slice()
         );
 
         assert_eq!(
             &super::keccak512_array(b"some value"),
-            base64::decode(
-                "PjjRQKhRIzdO5j7CCJc6o5uHNJ0XzKyUiiST4YsYtZEyIM0XS09RGql5dwCeFr5IX8\
-                    lPXidDy5uwV501q0EFgw=="
-            )
-            .unwrap()
-            .as_slice()
+            hex::decode("3e38d140a85123374ee63ec208973aa39b87349d17ccac948a2493e18b18b5913220cd174b4f511aa97977009e16be485fc94f5e2743cb9bb0579d35ab410583")
+                .unwrap()
+                .as_slice()
         );
 
         assert_eq!(
             &super::ripemd160_array(b"some value"),
-            base64::decode("CfAl/tcE4eysj4iyvaPlaHbaA6w=").unwrap().as_slice()
+            hex::decode("09f025fed704e1ecac8f88b2bda3e56876da03ac").unwrap().as_slice()
         );
     }
 

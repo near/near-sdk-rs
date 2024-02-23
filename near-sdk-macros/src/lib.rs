@@ -321,156 +321,163 @@ pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[cfg(feature = "abi")]
-use darling::FromDeriveInput;
 #[derive(darling::FromDeriveInput, Debug)]
 #[darling(attributes(abi), forward_attrs(serde, borsh_skip, schemars, validate))]
-#[cfg(feature = "abi")]
 struct DeriveNearSchema {
     attrs: Vec<syn::Attribute>,
     json: Option<bool>,
     borsh: Option<bool>,
 }
 
-#[cfg(feature = "abi")]
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate))]
-pub fn derive_near_schema(input: TokenStream) -> TokenStream {
-    let derive_input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let args = match DeriveNearSchema::from_derive_input(&derive_input) {
-        Ok(v) => v,
-        Err(e) => {
-            return TokenStream::from(e.write_errors());
-        }
-    };
-
-    if args.borsh.is_none()
-        && args.json.is_none()
-        && derive_input.attrs.iter().any(|attr| attr.path().is_ident("abi"))
+pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
+    #[cfg(not(feature = "abi"))]
     {
-        return TokenStream::from(
-            syn::Error::new_spanned(
-                derive_input.to_token_stream(),
-                "At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified",
-            )
-            .to_compile_error(),
-        );
+        TokenStream::from(quote! {})
     }
 
-    // #[abi(json, borsh)]
-    let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
-    let mut input = derive_input;
-    input.attrs = args.attrs;
+    #[cfg(feature = "abi")]
+    {
+        use darling::FromDeriveInput;
 
-    let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
-        attrs.retain(|attr| {
-            ["serde", "schemars", "validate", "borsh"]
-                .iter()
-                .any(|&path| attr.path().is_ident(path))
-        });
-    };
-
-    match &mut input.data {
-        syn::Data::Struct(data) => {
-            for field in &mut data.fields {
-                strip_unknown_attr(&mut field.attrs);
+        let derive_input = syn::parse_macro_input!(input as syn::DeriveInput);
+        let args = match DeriveNearSchema::from_derive_input(&derive_input) {
+            Ok(v) => v,
+            Err(e) => {
+                return TokenStream::from(e.write_errors());
             }
+        };
+
+        if args.borsh.is_none()
+            && args.json.is_none()
+            && derive_input.attrs.iter().any(|attr| attr.path().is_ident("abi"))
+        {
+            return TokenStream::from(
+                syn::Error::new_spanned(
+                    derive_input.to_token_stream(),
+                    "At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified",
+                )
+                .to_compile_error(),
+            );
         }
-        syn::Data::Enum(data) => {
-            for variant in &mut data.variants {
-                strip_unknown_attr(&mut variant.attrs);
-                for field in &mut variant.fields {
+
+        // #[abi(json, borsh)]
+        let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
+        let mut input = derive_input;
+        input.attrs = args.attrs;
+
+        let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
+            attrs.retain(|attr| {
+                ["serde", "schemars", "validate", "borsh"]
+                    .iter()
+                    .any(|&path| attr.path().is_ident(path))
+            });
+        };
+
+        match &mut input.data {
+            syn::Data::Struct(data) => {
+                for field in &mut data.fields {
                     strip_unknown_attr(&mut field.attrs);
                 }
             }
-        }
-        syn::Data::Union(_) => {
-            return TokenStream::from(
-                syn::Error::new_spanned(
-                    input.to_token_stream(),
-                    "`NearSchema` does not support derive for unions",
+            syn::Data::Enum(data) => {
+                for variant in &mut data.variants {
+                    strip_unknown_attr(&mut variant.attrs);
+                    for field in &mut variant.fields {
+                        strip_unknown_attr(&mut field.attrs);
+                    }
+                }
+            }
+            syn::Data::Union(_) => {
+                return TokenStream::from(
+                    syn::Error::new_spanned(
+                        input.to_token_stream(),
+                        "`NearSchema` does not support derive for unions",
+                    )
+                    .to_compile_error(),
                 )
-                .to_compile_error(),
-            )
-        }
-    }
-
-    // <unspecified> or #[abi(json)]
-    let json_schema = json_schema || !borsh_schema;
-
-    let derive = {
-        let mut derive = quote! {};
-        if borsh_schema {
-            derive = quote! {
-                #[derive(::near_sdk::borsh::BorshSchema)]
-                #[borsh(crate = "::near_sdk::borsh")]
-            };
-        }
-        if json_schema {
-            derive = quote! {
-                #derive
-                #[derive(::near_sdk::schemars::JsonSchema)]
-                #[schemars(crate = "::near_sdk::schemars")]
-            };
-        }
-        derive
-    };
-
-    let input_ident = &input.ident;
-
-    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
-
-    let json_impl = if json_schema {
-        quote! {
-            #[automatically_derived]
-            impl ::near_sdk::schemars::JsonSchema for #input_ident_proxy {
-                fn schema_name() -> ::std::string::String {
-                    stringify!(#input_ident).to_string()
-                }
-
-                fn json_schema(gen: &mut ::near_sdk::schemars::gen::SchemaGenerator) -> ::near_sdk::schemars::schema::Schema {
-                    <#input_ident as ::near_sdk::schemars::JsonSchema>::json_schema(gen)
-                }
             }
         }
-    } else {
-        quote! {}
-    };
 
-    let borsh_impl = if borsh_schema {
-        quote! {
-            #[automatically_derived]
-            impl ::near_sdk::borsh::BorshSchema for #input_ident_proxy {
-                fn declaration() -> ::near_sdk::borsh::schema::Declaration {
-                    stringify!(#input_ident).to_string()
-                }
+        // <unspecified> or #[abi(json)]
+        let json_schema = json_schema || !borsh_schema;
 
-                fn add_definitions_recursively(
-                    definitions: &mut ::near_sdk::borsh::__private::maybestd::collections::BTreeMap<
-                        ::near_sdk::borsh::schema::Declaration,
-                        ::near_sdk::borsh::schema::Definition
-                    >,
-                ) {
-                    <#input_ident as ::near_sdk::borsh::BorshSchema>::add_definitions_recursively(definitions);
-                }
+        let derive = {
+            let mut derive = quote! {};
+            if borsh_schema {
+                derive = quote! {
+                    #[derive(::near_sdk::borsh::BorshSchema)]
+                    #[borsh(crate = "::near_sdk::borsh")]
+                };
             }
-        }
-    } else {
-        quote! {}
-    };
-
-    TokenStream::from(quote! {
-        #[cfg(not(target_arch = "wasm32"))]
-        const _: () = {
-            #[allow(non_camel_case_types)]
-            type #input_ident_proxy = #input_ident;
-            {
-                #derive
-                #input
-
-                #json_impl
-                #borsh_impl
-            };
+            if json_schema {
+                derive = quote! {
+                    #derive
+                    #[derive(::near_sdk::schemars::JsonSchema)]
+                    #[schemars(crate = "::near_sdk::schemars")]
+                };
+            }
+            derive
         };
-    })
+
+        let input_ident = &input.ident;
+
+        let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
+
+        let json_impl = if json_schema {
+            quote! {
+                #[automatically_derived]
+                impl ::near_sdk::schemars::JsonSchema for #input_ident_proxy {
+                    fn schema_name() -> ::std::string::String {
+                        stringify!(#input_ident).to_string()
+                    }
+
+                    fn json_schema(gen: &mut ::near_sdk::schemars::gen::SchemaGenerator) -> ::near_sdk::schemars::schema::Schema {
+                        <#input_ident as ::near_sdk::schemars::JsonSchema>::json_schema(gen)
+                    }
+                }
+            }
+        } else {
+            quote! {}
+        };
+
+        let borsh_impl = if borsh_schema {
+            quote! {
+                #[automatically_derived]
+                impl ::near_sdk::borsh::BorshSchema for #input_ident_proxy {
+                    fn declaration() -> ::near_sdk::borsh::schema::Declaration {
+                        stringify!(#input_ident).to_string()
+                    }
+
+                    fn add_definitions_recursively(
+                        definitions: &mut ::near_sdk::borsh::__private::maybestd::collections::BTreeMap<
+                            ::near_sdk::borsh::schema::Declaration,
+                            ::near_sdk::borsh::schema::Definition
+                        >,
+                    ) {
+                        <#input_ident as ::near_sdk::borsh::BorshSchema>::add_definitions_recursively(definitions);
+                    }
+                }
+            }
+        } else {
+            quote! {}
+        };
+
+        TokenStream::from(quote! {
+            #[cfg(not(target_arch = "wasm32"))]
+            const _: () = {
+                #[allow(non_camel_case_types)]
+                type #input_ident_proxy = #input_ident;
+                {
+                    #derive
+                    #input
+
+                    #json_impl
+                    #borsh_impl
+                };
+            };
+        })
+    }
 }
 
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following

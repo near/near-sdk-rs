@@ -1,15 +1,13 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::schemars;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{ext_contract, require};
+use near_sdk::{ext_contract, require, NearSchema};
 
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
-#[derive(BorshDeserialize, BorshSerialize, Clone, Deserialize, Serialize)]
+#[derive(Clone, BorshDeserialize, BorshSerialize, Deserialize, Serialize, NearSchema)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct FungibleTokenMetadata {
     pub spec: String,
     pub name: String,
