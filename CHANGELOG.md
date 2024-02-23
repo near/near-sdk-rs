@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [5.0.0](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sdk-v5.0.0) - 2024-02-21
+
+### Highlights
+
+This release mostly maintains backwards compatibility with the previous version, but it also includes several breaking changes that improve developer experience and bring security and performance fixes. The most notable changes are:
+
+- Contract source metadata ([NEP-330](https://github.com/near/NEPs/blob/master/neps/nep-0330.md)) is now implemented by default for all the contracts out of the box, which means that you can call `contract_source_metadata()` function and receive `{ version?: string, link?: string, standards?: { standard: string, version: string }[] }` ([#1106](https://github.com/near/near-sdk-rs/pull/1106))
+- Type-safe NEAR balance, gas amounts, and account ids were implemented:
+  - Use [`near_sdk::NearToken`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.NearToken.html) instead of u128/U128/Balance ([#1104](https://github.com/near/near-sdk-rs/pull/1104))
+  - Use [`near_sdk::Gas`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.Gas.html) instead of u64/Gas ([#1082](https://github.com/near/near-sdk-rs/pull/1082))
+  - Use [`near_sdk::AccountId`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.AccountId.html) or [`near_sdk::AccountIdRef`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.AccountIdRef.html) instead of String aliases for account ids ([#1108](https://github.com/near/near-sdk-rs/pull/1108))
+- Update [borsh to 1.0.0](https://github.com/near/borsh-rs/releases/tag/borsh-v1.0.0) ([#1075](https://github.com/near/near-sdk-rs/pull/1075))
+  - You will have to be explicit about the borsh re-export with `#[borsh(crate = "near_sdk::borsh")]`, see the example in the [README](https://github.com/near/near-sdk-rs#example)
+- New host functions exposed:
+  - [`near_sdk::env::ed25519_verify`](https://docs.rs/near-sdk/5.0.0/near_sdk/env/fn.ed25519_verify.html) ([#1010](https://github.com/near/near-sdk-rs/pull/1010))
+  - [`near_sdk::env::alt_bn128`](https://docs.rs/near-sdk/5.0.0/near_sdk/env/fn.alt_bn128.html) ([#1028](https://github.com/near/near-sdk-rs/pull/1028))
+- Slimmed down the dependencies by default, most notably, you may still need to explicitly enable `legacy` feature for `near_sdk::collections` and `unit-testing` feature for `near_sdk::testing_env` and `near_sdk::mock` ([#1149](https://github.com/near/near-sdk-rs/pull/1149))
+- Updated `nearcore` crates from `0.17` -> `0.20`, but contracts rarely use these directly so no breaking changes are expected ([#1130](https://github.com/near/near-sdk-rs/pull/1130))
+- Support Result types in `#[handle_result]` regardless of how they're referred to ([#1099](https://github.com/near/near-sdk-rs/pull/1099))
+- `Self` is now prohibited in non-init methods to prevent common footguns ([#1073](https://github.com/near/near-sdk-rs/pull/1073))
+- Require explicit `Unlimited` or `Limited` when specifying allowances to prevent `0` to be silently treated as unlimited allowance ([#976](https://github.com/near/near-sdk-rs/pull/976))
+- Performance improvement to `TreeMap.range` ([#964](https://github.com/near/near-sdk-rs/pull/964))
+- Deprecated `near_sdk::store::UnorderedMap` and `near_sdk::store::UnorderedSet` due to not meeting the original requirements (iteration over a collection of more than 2k elements runs out of gas) ([#1139](https://github.com/near/near-sdk-rs/pull/1139))
+- Deprecated `near_sdk::collections::LegacyTreeMap` ([#963](https://github.com/near/near-sdk-rs/pull/963))
+
+The best way to develop NEAR contracts in Rust is by using [`cargo-near` CLI](https://github.com/near/cargo-near).
+It provides a convenient way to create, build, test, and deploy contracts!
+
+Get your fully configured development environment in under 1 minute using [GitHub CodeSpaces configured for NEAR](https://github.com/near/cargo-near-new-project-template)!
+
 ## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.2...near-sdk-v5.0.0-alpha.3) - 2024-02-19
 
 ### Fixed
