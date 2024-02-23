@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [5.0.0-alpha.4](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.3...near-sdk-v5.0.0-alpha.4) - 2024-02-23
+
+### Other
+- Slimmed down the dependencies by default ([#1149](https://github.com/near/near-sdk-rs/pull/1149))
+
 ## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.2...near-sdk-v5.0.0-alpha.3) - 2024-02-19
 
 ### Fixed
