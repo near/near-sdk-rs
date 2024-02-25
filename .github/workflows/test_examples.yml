@@ -14,7 +14,20 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
-        example: [cross-contract-calls, fungible-token]
+        example:
+          [
+            adder,
+            callback-results,
+            cross-contract-calls,
+            factory-contract,
+            fungible-token,
+            lockable-fungible-token,
+            mission-control,
+            non-fungible-token,
+            status-message,
+            test-contract,
+            versioned,
+          ]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -28,7 +41,7 @@ jobs:
           working-directory: ./examples/${{ matrix.example }}
       - name: Build
         env:
-          RUSTFLAGS: '-C link-arg=-s'
+          RUSTFLAGS: "-C link-arg=-s"
         run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
       - name: Test
         run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --all
