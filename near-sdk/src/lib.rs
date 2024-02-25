@@ -52,11 +52,6 @@ pub use crate::utils::*;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub mod test_utils;
 
-// Set up global allocator by default if custom-allocator feature is not set in wasm32 architecture.
-#[cfg(all(feature = "wee_alloc", target_arch = "wasm32"))]
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 // Exporting common crates
 
 pub use base64;

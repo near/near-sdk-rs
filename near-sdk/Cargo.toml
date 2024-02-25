@@ -34,8 +34,6 @@ near-account-id = { version="1.0.0", features = ["serde", "borsh"] }
 near-gas = { version = "0.2.3", features = ["serde", "borsh"] }
 near-token = { version = "0.2.0", features = ["serde", "borsh"] }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 schemars = { version = "0.8.8", optional = true }
@@ -63,7 +61,7 @@ near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
 
 [features]
-default = ["wee_alloc"]
+default = []
 expensive-debug = []
 unstable = []
 legacy = []
