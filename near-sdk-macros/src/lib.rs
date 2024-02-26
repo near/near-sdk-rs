@@ -10,7 +10,172 @@ use proc_macro::TokenStream;
 use self::core_impl::*;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{parse_quote, parse_macro_input, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause, DeriveInput};
+use darling::{Error, FromMeta};
+use darling::ast::NestedMeta;
+use darling;
+// use syn::Meta;
+
+
+#[derive(Debug)]
+struct MyVec {
+    vec: Vec<Ident>,
+}
+impl FromMeta for MyVec {
+    fn from_list(items: &[NestedMeta]) -> Result<Self, darling::Error> {
+        Ok(MyVec {
+            vec:
+            items
+            .iter()
+            .map(<Ident as FromMeta>::from_nested_meta)
+            .map(|x| x.unwrap())
+            .collect()
+        })
+    }
+
+    fn from_value(value: &syn::Lit) -> Result<Self, darling::Error> {
+        let expr_array = syn::ExprArray::from_value(value)?;
+        Self::from_expr(&syn::Expr::Array(expr_array))
+    }
+
+    fn from_expr(expr: &syn::Expr) -> Result<Self, darling::Error> {
+        match expr {
+            syn::Expr::Array(expr_array) => Ok(MyVec {vec: expr_array
+                .elems
+                .iter()
+                .map(<Ident as FromMeta>::from_expr)
+                .map(|x| x.unwrap())
+                .collect::<Vec<_>>()
+            }),
+            syn::Expr::Lit(expr_lit) => Self::from_value(&expr_lit.lit),
+            syn::Expr::Group(g) => Self::from_expr(&g.expr),
+            _ => Err(Error::unexpected_expr_type(expr)),
+        }
+    }
+}
+
+#[derive(Debug, FromMeta)]
+struct MacroArgs {
+    serializers: Option<MyVec>,
+}
+
+#[proc_macro_attribute]
+pub fn kek(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+
+    eprintln!("{}", attr);
+
+    return TokenStream::from(quote! {#input});
+}
+
+#[proc_macro_attribute]
+pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => { return TokenStream::from(Error::from(e).write_errors()); }
+    };
+
+    let _args = match MacroArgs::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => { return TokenStream::from(e.write_errors()); }
+    };
+
+    let mut has_borsh = false;
+    let mut has_json = false;
+    let mut has_bindgen = false;
+
+    match _args.serializers {
+        Some(serializers) => {
+            for arg in serializers.vec {
+                if arg.to_string() == "borsh" {
+                    has_borsh = true;
+                } else if arg.to_string() == "json" {
+                    has_json = true;
+                } else if arg.to_string() == "bindgen" {
+                    has_bindgen = true;
+                } else {
+                    eprintln!("baaad");
+                    return TokenStream::new();
+                }
+            }
+        },
+        None    => {
+            has_borsh = true;
+        },
+    }
+
+    let borsh = if has_borsh {quote!{
+        #[derive(near_sdk::borsh::BorshSerialize, near_sdk::borsh::BorshDeserialize)]
+        #[borsh(crate = "near_sdk::borsh")]
+    }} else {quote!{}};
+    let json = if has_json {quote!{
+        #[derive(near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
+        #[serde(crate = "near_sdk::serde")]
+    }} else {quote!{}};
+    let bindgen = if has_bindgen {quote!{
+        #[near_sdk::near_bindgen]
+    }} else {quote!{}};
+
+    let mut abis = quote!{};
+    if has_borsh && has_json {
+        abis = quote! { #[abi(borsh, json)] };
+    } else if has_borsh {
+        abis = quote! { #[abi(borsh)] };
+    } else if has_json {
+        abis = quote! { #[abi(json)] };
+    }
+
+    let theitem = item.clone();
+
+    let mut expanded;
+    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        expanded = quote! {
+            #[derive(near_sdk::NearSchema)]
+            #borsh
+            #json
+            #abis
+            #bindgen
+            #input
+        };
+    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone())  {
+        expanded = quote! {
+            #[derive(near_sdk::NearSchema)]
+            #borsh
+            #json
+            #abis
+            #bindgen
+            #input
+        };
+    } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
+        expanded = quote! {
+            #bindgen
+            #input
+        };
+    } else {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "near macro can only be used on struct or enum definition and impl sections.",
+            )
+            .to_compile_error(),
+        );
+    }
+
+    // if let Ok(input) = syn::parse::<ItemImpl>(item) {
+    //     let expanded = quote! {
+    //         #[near_bindgen]
+    //         #input
+    //     };
+    //     return TokenStream::from(expanded);
+    // }
+
+    
+
+    eprintln!("{}", expanded);
+    eprintln!("mynear");
+
+    TokenStream::from(expanded)
+}
 
 /// This attribute macro is used on a struct and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
@@ -139,6 +304,13 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_embedded = abi::embed();
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
+
+        eprintln!("ext structs:\n {}", ext_gen);
+        eprintln!("abi embedded:\n {}", abi_embedded);
+        eprintln!("metadata:\n {}", metadata);
+        eprintln!("metadata_impl_gen:\n {}", metadata_impl_gen);
+        eprintln!("finish");
+
         TokenStream::from(quote! {
             #input
             #ext_gen
@@ -167,7 +339,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
             #metadata_impl_gen
         })
-    } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
+    } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
                 let ident = &m.sig.ident;
@@ -182,11 +354,58 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        match process_impl_block(input) {
+        let x: proc_macro2::TokenStream = (match process_impl_block(input.clone()) {
             Ok(output) => output,
             Err(output) => output,
         }
-        .into()
+        .into());
+
+        let the_indent: Ident;
+
+        if let Ok(x) = ItemImplInfo::new(& mut input) {
+            if let Ok(n) = syn::parse::<Ident>(x.ty.to_token_stream().into()) {
+                the_indent = n;
+            } else {
+                return TokenStream::from(
+                    syn::Error::new(
+                        Span::call_site(),
+                        "bad",
+                    )
+                    .to_compile_error(),
+                );
+            }
+        } else {
+                return TokenStream::from(
+                    syn::Error::new(
+                        Span::call_site(),
+                        "bad",
+                    )
+                    .to_compile_error(),
+                );
+        }
+
+        let metadata = core_impl::contract_source_metadata_const(attr);
+        let metadata_impl_gen = generate_metadata(&the_indent, &input.generics);
+
+        let metadata_impl_gen = match metadata_impl_gen {
+            Ok(metadata) => metadata,
+            Err(err) => return err.into(),
+        };
+
+        #[cfg(feature = "__abi-embed-checked")]
+        let abi_embedded = abi::embed();
+        #[cfg(not(feature = "__abi-embed-checked"))]
+        let abi_embedded = quote! {};
+
+        eprintln!("impl is: {}", x);
+        eprintln!("finish impl");
+        TokenStream::from(quote! {
+            #x
+            // #abi_embedded
+            // #metadata
+            // #metadata_impl_gen
+        })
+
     } else {
         TokenStream::from(
             syn::Error::new(
@@ -221,6 +440,11 @@ fn process_impl_block(
 
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
+
+    eprintln!("{}", quote! {
+        #ext_generated_code
+    });
+    eprintln!("process_impl_block");
 
     Ok(TokenStream::from(quote! {
         #ext_generated_code
