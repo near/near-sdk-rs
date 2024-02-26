@@ -4,7 +4,6 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops;
-use near_sdk::NearSchema;
 
 use near_sdk::near;
 
@@ -16,7 +15,6 @@ use near_sdk::near;
     Clone,
     Copy,
     Debug,
-    NearSchema,
 )]
 #[near(serializers = [json, borsh])]
 pub struct Quantity(pub i32);
@@ -24,7 +22,7 @@ pub struct Quantity(pub i32);
 #[near]
 pub struct X;
 
-#[derive(Clone, NearSchema)]
+#[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct Account(pub HashMap<Asset, Quantity>);
 

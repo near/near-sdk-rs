@@ -1,12 +1,12 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, json_types::U128, near_bindgen, AccountId, PanicOnDefault};
+use near_sdk::{env, json_types::U128, near, AccountId, PanicOnDefault};
 use std::collections::HashMap;
 
 type Balance = u128;
 
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(Default)]
+#[near(serializers=[borsh])]
 pub struct Account {
     /// Current unlocked balance
     pub balance: Balance,
@@ -46,9 +46,8 @@ impl Account {
     }
 }
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(PanicOnDefault)]
+#[near(serializers=[borsh, bindgen])]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,
@@ -57,7 +56,7 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-#[near_bindgen]
+#[near(serializers=[bindgen])]
 impl FunToken {
     #[init]
     #[handle_result]

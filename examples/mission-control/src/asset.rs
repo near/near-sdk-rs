@@ -1,4 +1,3 @@
-use near_sdk::NearSchema;
 use near_sdk::near;
 
 #[derive(
@@ -9,7 +8,6 @@ use near_sdk::near;
     Hash,
     Clone,
     Copy,
-    NearSchema,
 )]
 #[near(serializers = [json, borsh])]
 pub enum Resource {
@@ -27,7 +25,6 @@ pub enum Resource {
     Hash,
     Clone,
     Copy,
-    NearSchema,
 )]
 #[near(serializers = [json, borsh])]
 pub enum Reward {
@@ -46,7 +43,6 @@ pub enum Reward {
     Hash,
     Clone,
     Copy,
-    NearSchema,
 )]
 #[near(serializers = [json, borsh])]
 pub enum Asset {
@@ -62,7 +58,6 @@ pub enum Asset {
     Hash,
     PartialOrd,
     Ord,
-    NearSchema
 )]
 #[near(serializers = [json, borsh])]
 pub enum Exchange {

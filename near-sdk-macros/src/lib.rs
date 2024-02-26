@@ -171,8 +171,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     
 
-    eprintln!("{}", expanded);
-    eprintln!("mynear");
+    // eprintln!("{}", expanded);
+    // eprintln!("mynear");
 
     TokenStream::from(expanded)
 }
@@ -305,11 +305,11 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
 
-        eprintln!("ext structs:\n {}", ext_gen);
-        eprintln!("abi embedded:\n {}", abi_embedded);
-        eprintln!("metadata:\n {}", metadata);
-        eprintln!("metadata_impl_gen:\n {}", metadata_impl_gen);
-        eprintln!("finish");
+        // eprintln!("ext structs:\n {}", ext_gen);
+        // eprintln!("abi embedded:\n {}", abi_embedded);
+        // eprintln!("metadata:\n {}", metadata);
+        // eprintln!("metadata_impl_gen:\n {}", metadata_impl_gen);
+        // eprintln!("finish");
 
         TokenStream::from(quote! {
             #input
@@ -397,8 +397,8 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
 
-        eprintln!("impl is: {}", x);
-        eprintln!("finish impl");
+        // eprintln!("impl is: {}", x);
+        // eprintln!("finish impl");
         TokenStream::from(quote! {
             #x
             // #abi_embedded
@@ -441,10 +441,10 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
-    eprintln!("{}", quote! {
-        #ext_generated_code
-    });
-    eprintln!("process_impl_block");
+    // eprintln!("{}", quote! {
+    //     #ext_generated_code
+    // });
+    // eprintln!("process_impl_block");
 
     Ok(TokenStream::from(quote! {
         #ext_generated_code

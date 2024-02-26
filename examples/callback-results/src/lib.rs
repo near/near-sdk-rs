@@ -1,12 +1,12 @@
 use near_sdk::require;
-use near_sdk::{env, near_bindgen, Promise, PromiseError};
+use near_sdk::{env, near, Promise, PromiseError};
 
 const A_VALUE: u8 = 8;
 
-#[near_bindgen]
+#[near(serializers=[bindgen])]
 pub struct Callback;
 
-#[near_bindgen]
+#[near(serializers=[bindgen])]
 impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
