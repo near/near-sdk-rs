@@ -1,13 +1,11 @@
-use near_sdk::{near, AccountId, NearSchema, NearToken};
+use near_sdk::{near, AccountId, NearToken};
 
-#[derive(NearSchema)]
 #[near(serializers=[borsh, json])]
 pub struct StorageBalance {
     pub total: NearToken,
     pub available: NearToken,
 }
 
-#[derive(NearSchema)]
 #[near(serializers=[borsh, json])]
 pub struct StorageBalanceBounds {
     pub min: NearToken,

@@ -1,9 +1,9 @@
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::{ext_contract, near, require, NearSchema};
+use near_sdk::{ext_contract, near, require};
 
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
-#[derive(Clone, NearSchema)]
+#[derive(Clone)]
 #[near(serializers=[borsh, json])]
 pub struct FungibleTokenMetadata {
     pub spec: String,

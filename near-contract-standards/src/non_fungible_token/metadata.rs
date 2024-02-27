@@ -1,11 +1,11 @@
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::{near, require, NearSchema};
+use near_sdk::{near, require};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
 /// Metadata for the NFT contract itself.
-#[derive(Clone, Debug, PartialEq, Eq, NearSchema)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[near(serializers=[borsh, json])]
 pub struct NFTContractMetadata {
     pub spec: String,              // required, essentially a version like "nft-1.0.0"
@@ -18,7 +18,7 @@ pub struct NFTContractMetadata {
 }
 
 /// Metadata on the individual token level.
-#[derive(Debug, Clone, Default, PartialEq, Eq, NearSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[near(serializers=[borsh, json])]
 pub struct TokenMetadata {
     pub title: Option<String>, // ex. "Arch Nemesis: Mail Carrier" or "Parcel #5055"
