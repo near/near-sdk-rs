@@ -8,14 +8,15 @@ use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_
 use proc_macro::TokenStream;
 
 use self::core_impl::*;
+use darling::ast::NestedMeta;
+use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse_quote, parse_macro_input, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause, DeriveInput};
-use darling::{Error, FromMeta};
-use darling::ast::NestedMeta;
-use darling;
+use syn::{
+    parse_macro_input, parse_quote, DeriveInput, ImplItem, ItemEnum, ItemImpl, ItemStruct,
+    ItemTrait, WhereClause,
+};
 // use syn::Meta;
-
 
 #[derive(Debug)]
 struct MyVec {
@@ -24,12 +25,11 @@ struct MyVec {
 impl FromMeta for MyVec {
     fn from_list(items: &[NestedMeta]) -> Result<Self, darling::Error> {
         Ok(MyVec {
-            vec:
-            items
-            .iter()
-            .map(<Ident as FromMeta>::from_nested_meta)
-            .map(|x| x.unwrap())
-            .collect()
+            vec: items
+                .iter()
+                .map(<Ident as FromMeta>::from_nested_meta)
+                .map(|x| x.unwrap())
+                .collect(),
         })
     }
 
@@ -40,12 +40,13 @@ impl FromMeta for MyVec {
 
     fn from_expr(expr: &syn::Expr) -> Result<Self, darling::Error> {
         match expr {
-            syn::Expr::Array(expr_array) => Ok(MyVec {vec: expr_array
-                .elems
-                .iter()
-                .map(<Ident as FromMeta>::from_expr)
-                .map(|x| x.unwrap())
-                .collect::<Vec<_>>()
+            syn::Expr::Array(expr_array) => Ok(MyVec {
+                vec: expr_array
+                    .elems
+                    .iter()
+                    .map(<Ident as FromMeta>::from_expr)
+                    .map(|x| x.unwrap())
+                    .collect::<Vec<_>>(),
             }),
             syn::Expr::Lit(expr_lit) => Self::from_value(&expr_lit.lit),
             syn::Expr::Group(g) => Self::from_expr(&g.expr),
@@ -65,19 +66,23 @@ pub fn kek(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     eprintln!("{}", attr);
 
-    return TokenStream::from(quote! {#input});
+    TokenStream::from(quote! {#input})
 }
 
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
-        Err(e) => { return TokenStream::from(Error::from(e).write_errors()); }
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
     };
 
     let _args = match MacroArgs::from_list(&attr_args) {
         Ok(v) => v,
-        Err(e) => { return TokenStream::from(e.write_errors()); }
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
+        }
     };
 
     let mut has_borsh = false;
@@ -87,36 +92,48 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     match _args.serializers {
         Some(serializers) => {
             for arg in serializers.vec {
-                if arg.to_string() == "borsh" {
+                if arg == "borsh" {
                     has_borsh = true;
-                } else if arg.to_string() == "json" {
+                } else if arg == "json" {
                     has_json = true;
-                } else if arg.to_string() == "bindgen" {
+                } else if arg == "bindgen" {
                     has_bindgen = true;
                 } else {
                     eprintln!("baaad");
                     return TokenStream::new();
                 }
             }
-        },
-        None    => {
+        }
+        None => {
             has_borsh = true;
-        },
+        }
     }
 
-    let borsh = if has_borsh {quote!{
-        #[derive(near_sdk::borsh::BorshSerialize, near_sdk::borsh::BorshDeserialize)]
-        #[borsh(crate = "near_sdk::borsh")]
-    }} else {quote!{}};
-    let json = if has_json {quote!{
-        #[derive(near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
-        #[serde(crate = "near_sdk::serde")]
-    }} else {quote!{}};
-    let bindgen = if has_bindgen {quote!{
-        #[near_sdk::near_bindgen]
-    }} else {quote!{}};
+    let borsh = if has_borsh {
+        quote! {
+            #[derive(near_sdk::borsh::BorshSerialize, near_sdk::borsh::BorshDeserialize)]
+            #[borsh(crate = "near_sdk::borsh")]
+        }
+    } else {
+        quote! {}
+    };
+    let json = if has_json {
+        quote! {
+            #[derive(near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
+            #[serde(crate = "near_sdk::serde")]
+        }
+    } else {
+        quote! {}
+    };
+    let bindgen = if has_bindgen {
+        quote! {
+            #[near_sdk::near_bindgen]
+        }
+    } else {
+        quote! {}
+    };
 
-    let mut abis = quote!{};
+    let mut abis = quote! {};
     if has_borsh && has_json {
         abis = quote! { #[abi(borsh, json)] };
     } else if has_borsh {
@@ -137,7 +154,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             #bindgen
             #input
         };
-    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone())  {
+    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         expanded = quote! {
             #[derive(near_sdk::NearSchema)]
             #borsh
@@ -168,8 +185,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     //     };
     //     return TokenStream::from(expanded);
     // }
-
-    
 
     // eprintln!("{}", expanded);
     // eprintln!("mynear");
@@ -357,31 +372,20 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let x: proc_macro2::TokenStream = match process_impl_block(input.clone()) {
             Ok(output) => output,
             Err(output) => output,
-        }
-        .into();
+        };
 
         let the_indent: Ident;
 
-        if let Ok(x) = ItemImplInfo::new(& mut input) {
+        if let Ok(x) = ItemImplInfo::new(&mut input) {
             if let Ok(n) = syn::parse::<Ident>(x.ty.to_token_stream().into()) {
                 the_indent = n;
             } else {
                 return TokenStream::from(
-                    syn::Error::new(
-                        Span::call_site(),
-                        "bad",
-                    )
-                    .to_compile_error(),
+                    syn::Error::new(Span::call_site(), "bad").to_compile_error(),
                 );
             }
         } else {
-                return TokenStream::from(
-                    syn::Error::new(
-                        Span::call_site(),
-                        "bad",
-                    )
-                    .to_compile_error(),
-                );
+            return TokenStream::from(syn::Error::new(Span::call_site(), "bad").to_compile_error());
         }
 
         let _metadata = core_impl::contract_source_metadata_const(attr);
@@ -405,7 +409,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             // #metadata
             // #metadata_impl_gen
         })
-
     } else {
         TokenStream::from(
             syn::Error::new(
