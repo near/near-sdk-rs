@@ -72,6 +72,10 @@ pub fn kek(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if attr.to_string().contains("event_json") {
+        return core_impl::near_events(attr, item);
+    }
+    
     let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
         Err(e) => {
@@ -85,7 +89,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             return TokenStream::from(e.write_errors());
         }
     };
-
 
     let mut has_borsh = false;
     let mut has_json = false;
