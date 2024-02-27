@@ -3,7 +3,7 @@ use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
 use near_sdk::AccountId;
-use near_sdk::{env, near_bindgen};
+use near_sdk::env;
 use std::collections::HashMap;
 use near_sdk::near;
 

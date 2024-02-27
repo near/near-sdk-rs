@@ -1,4 +1,3 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
 use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 

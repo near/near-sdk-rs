@@ -1,4 +1,3 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::PromiseError;
 use near_sdk::{env, ext_contract, near, AccountId, NearToken, Promise};
 

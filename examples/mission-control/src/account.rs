@@ -1,7 +1,5 @@
 use crate::asset::*;
 use crate::rate::*;
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops;
 

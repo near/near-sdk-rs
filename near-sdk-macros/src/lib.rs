@@ -125,9 +125,9 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         abis = quote! { #[abi(json)] };
     }
 
-    let theitem = item.clone();
+    let _theitem = item.clone();
 
-    let mut expanded;
+    let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         expanded = quote! {
             #[derive(near_sdk::NearSchema)]
@@ -354,11 +354,11 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        let x: proc_macro2::TokenStream = (match process_impl_block(input.clone()) {
+        let x: proc_macro2::TokenStream = match process_impl_block(input.clone()) {
             Ok(output) => output,
             Err(output) => output,
         }
-        .into());
+        .into();
 
         let the_indent: Ident;
 
@@ -384,18 +384,18 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 );
         }
 
-        let metadata = core_impl::contract_source_metadata_const(attr);
+        let _metadata = core_impl::contract_source_metadata_const(attr);
         let metadata_impl_gen = generate_metadata(&the_indent, &input.generics);
 
-        let metadata_impl_gen = match metadata_impl_gen {
+        let _metadata_impl_gen = match metadata_impl_gen {
             Ok(metadata) => metadata,
             Err(err) => return err.into(),
         };
 
         #[cfg(feature = "__abi-embed-checked")]
-        let abi_embedded = abi::embed();
+        let _abi_embedded = abi::embed();
         #[cfg(not(feature = "__abi-embed-checked"))]
-        let abi_embedded = quote! {};
+        let _abi_embedded = quote! {};
 
         // eprintln!("impl is: {}", x);
         // eprintln!("finish impl");
