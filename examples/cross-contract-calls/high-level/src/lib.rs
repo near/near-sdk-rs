@@ -2,10 +2,10 @@ use near_sdk::env;
 use near_sdk::{log, near, PromiseOrValue};
 
 #[derive(Default)]
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct CrossContract {}
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl CrossContract {
     pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
         if n <= 1 {

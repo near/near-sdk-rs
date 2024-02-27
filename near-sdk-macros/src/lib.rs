@@ -58,6 +58,7 @@ impl FromMeta for MyVec {
 #[derive(Debug, FromMeta)]
 struct MacroArgs {
     serializers: Option<MyVec>,
+    contract_state: Option<bool>,
 }
 
 #[proc_macro_attribute]
@@ -85,9 +86,16 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+
     let mut has_borsh = false;
     let mut has_json = false;
     let mut has_bindgen = false;
+
+    if let Some(x) = _args.contract_state {
+        if x {
+            has_bindgen = true;
+        }
+    }
 
     match _args.serializers {
         Some(serializers) => {
@@ -96,8 +104,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                     has_borsh = true;
                 } else if arg == "json" {
                     has_json = true;
-                } else if arg == "bindgen" {
-                    has_bindgen = true;
                 } else {
                     eprintln!("baaad");
                     return TokenStream::new();

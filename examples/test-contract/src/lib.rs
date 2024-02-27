@@ -1,6 +1,6 @@
 use near_sdk::{env, near};
 
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct TestContract {}
 
 impl Default for TestContract {
@@ -9,7 +9,7 @@ impl Default for TestContract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl TestContract {
     #[init]
     pub fn new() -> Self {

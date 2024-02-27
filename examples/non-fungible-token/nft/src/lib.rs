@@ -33,7 +33,7 @@ use near_sdk::{
 use std::collections::HashMap;
 
 #[derive(PanicOnDefault)]
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct Contract {
     tokens: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,
@@ -51,7 +51,7 @@ enum StorageKey {
     Approval,
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl Contract {
     /// Initializes the contract owned by `owner_id` with
     /// default metadata (for example purposes only).
@@ -107,7 +107,7 @@ impl Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl NonFungibleTokenCore for Contract {
     #[payable]
     fn nft_transfer(
@@ -137,7 +137,7 @@ impl NonFungibleTokenCore for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl NonFungibleTokenResolver for Contract {
     #[private]
     fn nft_resolve_transfer(
@@ -156,7 +156,7 @@ impl NonFungibleTokenResolver for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl NonFungibleTokenApproval for Contract {
     #[payable]
     fn nft_approve(
@@ -188,7 +188,7 @@ impl NonFungibleTokenApproval for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl NonFungibleTokenEnumeration for Contract {
     fn nft_total_supply(&self) -> U128 {
         self.tokens.nft_total_supply()
@@ -212,7 +212,7 @@ impl NonFungibleTokenEnumeration for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl NonFungibleTokenMetadataProvider for Contract {
     fn nft_metadata(&self) -> NFTContractMetadata {
         self.metadata.get().unwrap()

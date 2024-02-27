@@ -6,7 +6,7 @@ use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 
 struct RecordsKey;
 
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct StatusMessage {
     records: LookupMap<AccountId, String>,
 }
@@ -17,7 +17,7 @@ impl Default for StatusMessage {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl StatusMessage {
     #[payable]
     pub fn set_status(&mut self, message: String) {

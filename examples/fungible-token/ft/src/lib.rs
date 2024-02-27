@@ -32,7 +32,7 @@ use near_sdk::{
 };
 
 #[derive(PanicOnDefault)]
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct Contract {
     token: FungibleToken,
     metadata: LazyOption<FungibleTokenMetadata>,
@@ -47,7 +47,7 @@ enum StorageKey {
     Metadata,
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
@@ -92,7 +92,7 @@ impl Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl FungibleTokenCore for Contract {
     #[payable]
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
@@ -119,7 +119,7 @@ impl FungibleTokenCore for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl FungibleTokenResolver for Contract {
     #[private]
     fn ft_resolve_transfer(
@@ -137,7 +137,7 @@ impl FungibleTokenResolver for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl StorageManagement for Contract {
     #[payable]
     fn storage_deposit(
@@ -173,7 +173,7 @@ impl StorageManagement for Contract {
     }
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
         self.metadata.get().unwrap()

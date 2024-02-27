@@ -6,10 +6,10 @@ use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 
 #[derive(Default)]
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct FactoryContract {}
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);

@@ -46,7 +46,7 @@ impl Account {
 }
 
 #[derive(PanicOnDefault)]
-#[near(serializers=[borsh, bindgen])]
+#[near(serializers=[borsh], contract_state)]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,
@@ -55,7 +55,7 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-#[near(serializers=[bindgen])]
+#[near(contract_state)]
 impl FunToken {
     #[init]
     #[handle_result]
