@@ -4,7 +4,7 @@ use near_sdk::{ext_contract, near, require, NearSchema};
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
 #[derive(Clone, NearSchema)]
-#[near]
+#[near(serializers=[borsh, json])]
 pub struct FungibleTokenMetadata {
     pub spec: String,
     pub name: String,

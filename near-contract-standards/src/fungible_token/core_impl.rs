@@ -5,7 +5,7 @@ use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    near, assert_one_yocto, env, log, require, AccountId, Gas, IntoStorageKey, PromiseOrValue,
+    assert_one_yocto, env, log, near, require, AccountId, Gas, IntoStorageKey, PromiseOrValue,
     PromiseResult, StorageUsage,
 };
 
