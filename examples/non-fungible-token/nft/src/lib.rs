@@ -33,7 +33,7 @@ use near_sdk::{
 use std::collections::HashMap;
 
 #[derive(PanicOnDefault)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct Contract {
     tokens: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,

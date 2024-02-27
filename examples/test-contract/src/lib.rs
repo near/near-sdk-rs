@@ -1,6 +1,6 @@
 use near_sdk::{env, near};
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct TestContract {}
 
 impl Default for TestContract {

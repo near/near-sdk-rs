@@ -4,7 +4,7 @@ use near_sdk::{env, log, near, AccountId, NearToken};
 /// An example of a versioned contract. This is a simple contract that tracks how much
 /// each account deposits into the contract. In v1, a nonce is added to state which increments
 /// after each successful deposit.
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub enum VersionedContract {
     V0(ContractV0),
     V1(Contract),

@@ -2,11 +2,10 @@ use near_sdk::store::LookupMap;
 use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 
 #[derive(BorshStorageKey)]
-#[near(serializers=[borsh])]
-
+#[near]
 struct RecordsKey;
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct StatusMessage {
     records: LookupMap<AccountId, String>,
 }

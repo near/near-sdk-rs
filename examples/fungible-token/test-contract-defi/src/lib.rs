@@ -10,7 +10,7 @@ const PROMISE_CALL: u64 = 5_000_000_000_000;
 const GAS_FOR_FT_ON_TRANSFER: Gas = Gas::from_gas(BASE_GAS + PROMISE_CALL);
 
 #[derive(PanicOnDefault)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct DeFi {
     fungible_token_account_id: AccountId,
 }
@@ -60,7 +60,7 @@ impl FungibleTokenReceiver for DeFi {
     }
 }
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 impl ValueReturnTrait for DeFi {
     fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128> {
         log!("in value_please, amount_to_return = {}", amount_to_return);

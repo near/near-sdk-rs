@@ -8,7 +8,7 @@ use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseO
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
 const GAS_FOR_NFT_ON_APPROVE: Gas = Gas::from_tgas(10);
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct ApprovalReceiver {
     non_fungible_token_account_id: AccountId,

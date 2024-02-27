@@ -8,7 +8,7 @@ const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
 const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
 
 #[derive(Default)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct CrossContract {}
 
 #[near(contract_state)]

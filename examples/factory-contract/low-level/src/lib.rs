@@ -6,7 +6,7 @@ use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 
 #[derive(Default)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct FactoryContract {}
 
 #[near(contract_state)]

@@ -8,7 +8,7 @@ use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseO
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct TokenReceiver {
     non_fungible_token_account_id: AccountId,
@@ -19,7 +19,7 @@ trait ValueReturnTrait {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 impl TokenReceiver {
     #[init]
     pub fn new(non_fungible_token_account_id: AccountId) -> Self {
@@ -79,7 +79,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
     }
 }
 
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 impl ValueReturnTrait for TokenReceiver {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
         log!("in ok_go, return_it={}", return_it);

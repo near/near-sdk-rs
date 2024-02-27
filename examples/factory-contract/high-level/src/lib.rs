@@ -2,7 +2,7 @@ use near_sdk::PromiseError;
 use near_sdk::{env, ext_contract, near, AccountId, NearToken, Promise};
 
 #[derive(Default)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct FactoryContract {}
 
 // If the `ext_contract` name is not provided explicitly, the namespace for generated methods is

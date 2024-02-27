@@ -2,7 +2,7 @@ use near_sdk::env;
 use near_sdk::{log, near, PromiseOrValue};
 
 #[derive(Default)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct CrossContract {}
 
 #[near(contract_state)]

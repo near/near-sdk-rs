@@ -5,7 +5,7 @@ use std::collections::HashMap;
 type Balance = u128;
 
 #[derive(Default)]
-#[near(serializers=[borsh])]
+#[near]
 pub struct Account {
     /// Current unlocked balance
     pub balance: Balance,
@@ -46,7 +46,7 @@ impl Account {
 }
 
 #[derive(PanicOnDefault)]
-#[near(serializers=[borsh], contract_state)]
+#[near(contract_state)]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,
