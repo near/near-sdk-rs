@@ -1,5 +1,4 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk_macros::NearSchema;
+use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
 use std::ops::Bound;
 
 use crate::collections::LookupMap;
@@ -15,7 +14,7 @@ use crate::{env, IntoStorageKey};
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
 ///
-#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
 pub struct TreeMap<K, V> {
     root: u64,
     val: LookupMap<K, V>,
