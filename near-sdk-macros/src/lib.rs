@@ -55,6 +55,16 @@ impl FromMeta for MyVec {
     }
 }
 
+#[proc_macro_derive(NearStorageKey)]
+pub fn near_storage_key(item: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(item as DeriveInput);
+    TokenStream::from(quote!{
+        #[derive(BorshStorageKey, BorshSerialize)]
+        #[borsh(crate = "near_sdk::borsh")]
+        #ast
+    })
+}
+
 #[derive(Debug, FromMeta)]
 struct MacroArgs {
     serializers: Option<MyVec>,
