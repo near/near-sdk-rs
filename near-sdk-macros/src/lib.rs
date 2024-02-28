@@ -60,11 +60,30 @@ pub fn near_storage_key(item: TokenStream) -> TokenStream {
     // let x = borsh_storage_key(item.clone());
     let ast = parse_macro_input!(item as DeriveInput);
 
-    // let y =
+    let input_ident = &ast.ident;
+
+    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);    
+    
     TokenStream::from(quote! {
-        // #[derive(near_sdk::BorshStorageKey, near_sdk::borsh::BorshSerialize)]
-        // #[borsh(crate = "near_sdk::borsh")]
-        #ast
+        const _: () = {
+            #[allow(non_camel_case_types)]
+            type #input_ident_proxy = #input_ident;
+            {
+                #[derive(::near_sdk::borsh::BorshSerialize, ::near_sdk::BorshStorageKey)]
+                #[borsh(crate = "near_sdk::borsh")]
+                #ast
+                #[automatically_derived]
+                impl ::near_sdk::__private::BorshIntoStorageKey for #input_ident_proxy {
+                }
+        
+                impl BorshSerialize for #input_ident_proxy {
+                    fn serialize<W: ::near_sdk::borsh::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+                        Ok(())
+                    }
+                }
+            };
+        };
+        
     })
 }
 
