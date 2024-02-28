@@ -1,6 +1,8 @@
 mod entry;
 mod impls;
 
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
 use std::borrow::Borrow;
 use std::fmt;
 
@@ -75,6 +77,23 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
+
+#[cfg(feature = "abi")]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
+pub struct LookupMap<K, V, H = Identity>
+where
+    K: BorshSerialize + Ord,
+    V: BorshSerialize,
+    H: ToKey,
+{
+    prefix: Box<[u8]>,
+    /// Cache for loads and intermediate changes to the underlying vector.
+    /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
+    /// invalidated.
+    #[borsh(skip, bound(deserialize = ""))]
+    cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
+}
+#[cfg(not(feature = "abi"))]
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V, H = Identity>
 where
