@@ -7,7 +7,6 @@ use std::marker::PhantomData;
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
-use near_sdk_macros::NearSchema;
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
