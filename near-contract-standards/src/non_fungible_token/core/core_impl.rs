@@ -6,6 +6,7 @@ use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
+use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
@@ -49,8 +50,9 @@ pub struct NonFungibleToken {
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
 }
 
-#[derive(BorshStorageKey)]
-#[near]
+// TODO
+#[derive(BorshStorageKey, BorshSerialize)]
+#[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
     TokensPerOwner { account_hash: Vec<u8> },
 }
