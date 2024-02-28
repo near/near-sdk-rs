@@ -3,9 +3,9 @@
 //! makes this map more efficient in the number of reads and writes.
 use std::marker::PhantomData;
 
-use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
+use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use near_sdk_macros::NearSchema;
 
 use crate::collections::append_slice;

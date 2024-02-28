@@ -58,8 +58,10 @@ impl FromMeta for MyVec {
 #[proc_macro_derive(NearStorageKey)]
 pub fn near_storage_key(item: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(item as DeriveInput);
+    // let x = borsh_storage_key(item.clone());
+    // let y = 
     TokenStream::from(quote! {
-        #[derive(BorshStorageKey, BorshSerialize)]
+        #[derive(near_sdk::BorshStorageKey, near_sdk::borsh::BorshSerialize)]
         #[borsh(crate = "near_sdk::borsh")]
         #ast
     })
@@ -709,7 +711,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        TokenStream::from(quote! {
+        let x = quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
@@ -722,7 +724,12 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                     #borsh_impl
                 };
             };
-        })
+        };
+
+        eprintln!("hello proxy");
+        eprintln!("{}", x);
+
+        TokenStream::from(x)
     }
 }
 

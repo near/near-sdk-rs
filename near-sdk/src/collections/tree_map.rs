@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use std::ops::Bound;
 use near_sdk_macros::NearSchema;
+use std::ops::Bound;
 
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};

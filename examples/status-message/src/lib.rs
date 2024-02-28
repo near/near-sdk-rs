@@ -1,8 +1,7 @@
 use near_sdk::store::LookupMap;
 use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 
-#[derive(BorshStorageKey)]
-#[near]
+#[derive(NearStorageKey)]
 struct RecordsKey;
 
 #[near(contract_state)]
