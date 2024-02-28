@@ -6,7 +6,6 @@ use std::marker::PhantomData;
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
-use near_sdk_macros::NearSchema;
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -17,7 +16,16 @@ const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.
 
-#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+#[cfg(feature = "abi")]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
+pub struct LookupMap<K, V> {
+    key_prefix: Vec<u8>,
+    #[borsh(skip)]
+    el: PhantomData<(K, V)>,
+}
+
+#[cfg(not(feature = "abi"))]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V> {
     key_prefix: Vec<u8>,
     #[borsh(skip)]

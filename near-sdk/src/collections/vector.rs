@@ -23,7 +23,17 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
-#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+#[cfg(feature = "abi")]
+#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
+pub struct Vector<T> {
+    len: u64,
+    prefix: Vec<u8>,
+    #[borsh(skip)]
+    el: PhantomData<T>,
+}
+
+#[cfg(not(feature = "abi"))]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,

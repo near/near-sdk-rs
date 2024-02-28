@@ -1,7 +1,14 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(feature = "abi")]
+use borsh::BorshSchema;
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
+#[cfg(feature = "abi")]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, BorshSerialize, BorshSchema)]
+pub struct Base64VecU8(#[serde(with = "base64_bytes")] pub Vec<u8>);
+
+#[cfg(not(feature = "abi"))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 pub struct Base64VecU8(#[serde(with = "base64_bytes")] pub Vec<u8>);
 
