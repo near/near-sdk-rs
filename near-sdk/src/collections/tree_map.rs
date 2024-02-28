@@ -1,6 +1,6 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;
 
 use crate::collections::LookupMap;

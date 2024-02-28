@@ -59,7 +59,7 @@ impl FromMeta for MyVec {
 pub fn near_storage_key(item: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(item as DeriveInput);
     // let x = borsh_storage_key(item.clone());
-    // let y = 
+    // let y =
     TokenStream::from(quote! {
         #[derive(near_sdk::BorshStorageKey, near_sdk::borsh::BorshSerialize)]
         #[borsh(crate = "near_sdk::borsh")]
