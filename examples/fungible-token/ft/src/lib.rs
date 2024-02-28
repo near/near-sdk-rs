@@ -27,7 +27,7 @@ use near_contract_standards::storage_management::{
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near, require, AccountId, BorshStorageKey, NearToken, NearStorageKey, PanicOnDefault, PromiseOrValue,
+    env, log, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue,
 };
 
 #[derive(PanicOnDefault)]
