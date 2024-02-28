@@ -1,4 +1,4 @@
-name: Test Small Examples
+name: Test Examples
 on:
   push:
     branches:
