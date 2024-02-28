@@ -1,4 +1,4 @@
-name: Test Examples
+name: Test Small Examples
 on:
   push:
     branches:
@@ -9,39 +9,83 @@ env:
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.example }} - ${{ matrix.platform }}"
+    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
-        example:
-          [
-            adder,
-            callback-results,
-            cross-contract-calls,
-            factory-contract,
-            fungible-token,
-            lockable-fungible-token,
-            mission-control,
-            non-fungible-token,
-            status-message,
-            test-contract,
-            versioned,
-          ]
     steps:
       - uses: actions/checkout@v3
-      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
+      - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-        with:
-          working-directory: ./examples/${{ matrix.example }}
-      - name: Build
+      - name: Build lockable-fungible-token
         env:
           RUSTFLAGS: "-C link-arg=-s"
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
-      - name: Test
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --all
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/lockable-fungible-token/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/lockable-fungible-token/target/wasm32-unknown-unknown/release/*.wasm ./examples/lockable-fungible-token/res/
+      - name: Test lockable-fungible-token
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/lockable-fungible-token/Cargo.toml --all
+      - name: Build status-message
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/status-message/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/status-message/target/wasm32-unknown-unknown/release/*.wasm ./examples/status-message/res/
+      - name: Test status-message
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/status-message/Cargo.toml --all
+      - name: Build mission-control
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/mission-control/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/mission-control/target/wasm32-unknown-unknown/release/*.wasm ./examples/mission-control/res/
+      - name: Test mission-control
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/mission-control/Cargo.toml --all
+      - name: Build test-contract
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/test-contract/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/test-contract/target/wasm32-unknown-unknown/release/*.wasm ./examples/test-contract/res/
+      - name: Test test-contract
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --all
+      - name: Build adder
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/adder/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/adder/target/wasm32-unknown-unknown/release/*.wasm ./examples/adder/res/
+      - name: Test adder
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/adder/Cargo.toml --all
+      - name: Build callback-results
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/callback-results/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/callback-results/target/wasm32-unknown-unknown/release/*.wasm ./examples/callback-results/res/
+      - name: Test callback-results
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/callback-results/Cargo.toml --all
+      - name: Build cross-contract-calls
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/cross-contract-calls/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/cross-contract-calls/target/wasm32-unknown-unknown/release/*.wasm ./examples/cross-contract-calls/res/
+      - name: Test cross-contract-calls
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/cross-contract-calls/Cargo.toml --all
+      - name: Build factory-contract
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/factory-contract/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/factory-contract/target/wasm32-unknown-unknown/release/*.wasm ./examples/factory-contract/res/
+      - name: Test factory-contract
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/factory-contract/Cargo.toml --all
+      - name: Build fungible-token
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/fungible-token/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/fungible-token/target/wasm32-unknown-unknown/release/*.wasm ./examples/fungible-token/res/
+      - name: Test fungible-token
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/fungible-token/Cargo.toml --all
+      - name: Build non-fungible-token
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/non-fungible-token/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/non-fungible-token/target/wasm32-unknown-unknown/release/*.wasm ./examples/non-fungible-token/res/
+      - name: Test non-fungible-token
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/non-fungible-token/Cargo.toml --all
+      - name: Build versioned
+        env:
+          RUSTFLAGS: "-C link-arg=-s"
+        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/versioned/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/versioned/target/wasm32-unknown-unknown/release/*.wasm ./examples/versioned/res/
+      - name: Test versioned
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/versioned/Cargo.toml --all
