@@ -289,7 +289,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_embedded = abi::embed();
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
-
         TokenStream::from(quote! {
             #input
             #ext_gen
@@ -333,41 +332,11 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        let x: proc_macro2::TokenStream = match process_impl_block(input.clone()) {
+        match process_impl_block(input) {
             Ok(output) => output,
             Err(output) => output,
-        };
-
-        let the_indent: Ident;
-
-        if let Ok(x) = ItemImplInfo::new(&mut input) {
-            if let Ok(n) = syn::parse::<Ident>(x.ty.to_token_stream().into()) {
-                the_indent = n;
-            } else {
-                return TokenStream::from(
-                    syn::Error::new(Span::call_site(), "bad").to_compile_error(),
-                );
-            }
-        } else {
-            return TokenStream::from(syn::Error::new(Span::call_site(), "bad").to_compile_error());
         }
-
-        let _metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_metadata(&the_indent, &input.generics);
-
-        let _metadata_impl_gen = match metadata_impl_gen {
-            Ok(metadata) => metadata,
-            Err(err) => return err.into(),
-        };
-
-        #[cfg(feature = "__abi-embed-checked")]
-        let _abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed-checked"))]
-        let _abi_embedded = quote! {};
-
-        TokenStream::from(quote! {
-            #x
-        })
+        .into()
     } else {
         TokenStream::from(
             syn::Error::new(
