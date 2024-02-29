@@ -13,34 +13,19 @@ use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{
-    parse_macro_input, parse_quote, DeriveInput, ImplItem, ItemEnum, ItemImpl, ItemStruct,
+    parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct,
     ItemTrait, WhereClause,
 };
-// use syn::Meta;
 
 #[derive(Debug)]
-struct MyVec {
+struct IdentsVector {
     vec: Vec<Ident>,
 }
-impl FromMeta for MyVec {
-    fn from_list(items: &[NestedMeta]) -> Result<Self, darling::Error> {
-        Ok(MyVec {
-            vec: items
-                .iter()
-                .map(<Ident as FromMeta>::from_nested_meta)
-                .map(|x| x.unwrap())
-                .collect(),
-        })
-    }
 
-    fn from_value(value: &syn::Lit) -> Result<Self, darling::Error> {
-        let expr_array = syn::ExprArray::from_value(value)?;
-        Self::from_expr(&syn::Expr::Array(expr_array))
-    }
-
+impl FromMeta for IdentsVector {
     fn from_expr(expr: &syn::Expr) -> Result<Self, darling::Error> {
         match expr {
-            syn::Expr::Array(expr_array) => Ok(MyVec {
+            syn::Expr::Array(expr_array) => Ok(IdentsVector {
                 vec: expr_array
                     .elems
                     .iter()
@@ -48,58 +33,15 @@ impl FromMeta for MyVec {
                     .map(|x| x.unwrap())
                     .collect::<Vec<_>>(),
             }),
-            syn::Expr::Lit(expr_lit) => Self::from_value(&expr_lit.lit),
-            syn::Expr::Group(g) => Self::from_expr(&g.expr),
             _ => Err(Error::unexpected_expr_type(expr)),
         }
     }
 }
 
-#[proc_macro_derive(NearStorageKey)]
-pub fn near_storage_key(item: TokenStream) -> TokenStream {
-    // let x = borsh_storage_key(item.clone());
-    let ast = parse_macro_input!(item as DeriveInput);
-
-    let input_ident = &ast.ident;
-
-    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
-
-    TokenStream::from(quote! {
-        const _: () = {
-            #[allow(non_camel_case_types)]
-            type #input_ident_proxy = #input_ident;
-            {
-                #[derive(::near_sdk::borsh::BorshSerialize, ::near_sdk::BorshStorageKey)]
-                #[borsh(crate = "near_sdk::borsh")]
-                #ast
-                #[automatically_derived]
-                impl ::near_sdk::__private::BorshIntoStorageKey for #input_ident_proxy {
-                }
-
-                impl BorshSerialize for #input_ident_proxy {
-                    fn serialize<W: ::near_sdk::borsh::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-                        Ok(())
-                    }
-                }
-            };
-        };
-
-    })
-}
-
 #[derive(Debug, FromMeta)]
-struct MacroArgs {
-    serializers: Option<MyVec>,
+struct NearMacroArgs {
+    serializers: Option<IdentsVector>,
     contract_state: Option<bool>,
-}
-
-#[proc_macro_attribute]
-pub fn kek(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
-
-    eprintln!("{}", attr);
-
-    TokenStream::from(quote! {#input})
 }
 
 #[proc_macro_attribute]
@@ -108,14 +50,14 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         return core_impl::near_events(attr, item);
     }
 
-    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+    let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
         Err(e) => {
             return TokenStream::from(Error::from(e).write_errors());
         }
     };
 
-    let _args = match MacroArgs::from_list(&attr_args) {
+    let near_macro_args = match NearMacroArgs::from_list(&meta_list) {
         Ok(v) => v,
         Err(e) => {
             return TokenStream::from(e.write_errors());
@@ -124,15 +66,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut has_borsh = false;
     let mut has_json = false;
-    let mut has_bindgen = false;
 
-    if let Some(x) = _args.contract_state {
-        if x {
-            has_bindgen = true;
-        }
-    }
-
-    match _args.serializers {
+    match near_macro_args.serializers {
         Some(serializers) => {
             for arg in serializers.vec {
                 if arg == "borsh" {
@@ -140,8 +75,13 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 } else if arg == "json" {
                     has_json = true;
                 } else {
-                    eprintln!("baaad");
-                    return TokenStream::new();
+                    return TokenStream::from(
+                        syn::Error::new(
+                            Span::call_site(),
+                            format!("Serializer of near macro is invalid: {}", arg),
+                        )
+                        .to_compile_error(),
+                    );
                 }
             }
         }
@@ -166,13 +106,15 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {}
     };
-    let bindgen = if has_bindgen {
-        quote! {
-            #[near_sdk::near_bindgen]
+
+    let mut near_bindgen_annotation = quote! {};
+    if let Some(is_contract_state) = near_macro_args.contract_state {
+        if is_contract_state {
+            near_bindgen_annotation = quote! {
+                #[near_sdk::near_bindgen]
+            }
         }
-    } else {
-        quote! {}
-    };
+    }
 
     let mut abis = quote! {};
     if has_borsh && has_json {
@@ -183,8 +125,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         abis = quote! { #[abi(json)] };
     }
 
-    let _theitem = item.clone();
-
     let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         expanded = quote! {
@@ -192,7 +132,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             #borsh
             #json
             #abis
-            #bindgen
+            #near_bindgen_annotation
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
@@ -201,12 +141,12 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             #borsh
             #json
             #abis
-            #bindgen
+            #near_bindgen_annotation
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         expanded = quote! {
-            #bindgen
+            #[near_sdk::near_bindgen]
             #input
         };
     } else {
@@ -218,17 +158,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error(),
         );
     }
-
-    // if let Ok(input) = syn::parse::<ItemImpl>(item) {
-    //     let expanded = quote! {
-    //         #[near_bindgen]
-    //         #input
-    //     };
-    //     return TokenStream::from(expanded);
-    // }
-
-    // eprintln!("{}", expanded);
-    // eprintln!("mynear");
 
     TokenStream::from(expanded)
 }
@@ -361,12 +290,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
 
-        // eprintln!("ext structs:\n {}", ext_gen);
-        // eprintln!("abi embedded:\n {}", abi_embedded);
-        // eprintln!("metadata:\n {}", metadata);
-        // eprintln!("metadata_impl_gen:\n {}", metadata_impl_gen);
-        // eprintln!("finish");
-
         TokenStream::from(quote! {
             #input
             #ext_gen
@@ -442,13 +365,8 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(not(feature = "__abi-embed-checked"))]
         let _abi_embedded = quote! {};
 
-        // eprintln!("impl is: {}", x);
-        // eprintln!("finish impl");
         TokenStream::from(quote! {
             #x
-            // #abi_embedded
-            // #metadata
-            // #metadata_impl_gen
         })
     } else {
         TokenStream::from(
@@ -484,11 +402,6 @@ fn process_impl_block(
 
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
-
-    // eprintln!("{}", quote! {
-    //     #ext_generated_code
-    // });
-    // eprintln!("process_impl_block");
 
     Ok(TokenStream::from(quote! {
         #ext_generated_code
@@ -731,7 +644,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        let x = quote! {
+        TokenStream::from(quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
@@ -744,12 +657,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                     #borsh_impl
                 };
             };
-        };
-
-        eprintln!("hello proxy");
-        eprintln!("{}", x);
-
-        TokenStream::from(x)
+        })
     }
 }
 
