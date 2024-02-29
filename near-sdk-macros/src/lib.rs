@@ -62,8 +62,8 @@ pub fn near_storage_key(item: TokenStream) -> TokenStream {
 
     let input_ident = &ast.ident;
 
-    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);    
-    
+    let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
+
     TokenStream::from(quote! {
         const _: () = {
             #[allow(non_camel_case_types)]
@@ -75,7 +75,7 @@ pub fn near_storage_key(item: TokenStream) -> TokenStream {
                 #[automatically_derived]
                 impl ::near_sdk::__private::BorshIntoStorageKey for #input_ident_proxy {
                 }
-        
+
                 impl BorshSerialize for #input_ident_proxy {
                     fn serialize<W: ::near_sdk::borsh::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
                         Ok(())
@@ -83,7 +83,7 @@ pub fn near_storage_key(item: TokenStream) -> TokenStream {
                 }
             };
         };
-        
+
     })
 }
 
