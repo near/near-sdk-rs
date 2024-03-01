@@ -146,9 +146,9 @@ extern "C" {
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     );
-    // #######################
-    // # Promise API await/submit #
-    // #######################
+    // ########################
+    // # Promise yield/resume #
+    // ########################
     pub fn promise_yield_create(
         function_name_len: u64,
         function_name_ptr: u64,
@@ -163,7 +163,7 @@ extern "C" {
         data_id_ptr: u64,
         payload_len: u64,
         payload_ptr: u64,
-    );
+    ) -> u32;
     // #######################
     // # Promise API results #
     // #######################

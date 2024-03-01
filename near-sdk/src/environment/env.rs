@@ -512,14 +512,14 @@ pub fn promise_yield_create(
 }
 
 // TODO: return some kind of success/failure result
-pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) {
+pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
     unsafe {
         sys::promise_yield_resume(
             data_id.len() as _,
             data_id.as_ptr() as _,
             data.len() as _,
             data.as_ptr() as _,
-        )
+        ) != 0
     }
 }
 
