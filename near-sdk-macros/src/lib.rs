@@ -12,10 +12,7 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{
-    parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct,
-    ItemTrait, WhereClause,
-};
+use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 #[derive(Debug)]
 struct IdentsVector {
@@ -317,7 +314,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
             #metadata_impl_gen
         })
-    } else if let Ok(mut input) = syn::parse::<ItemImpl>(item) {
+    } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
                 let ident = &m.sig.ident;

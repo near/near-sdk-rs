@@ -8,8 +8,8 @@
 extern crate quickcheck;
 
 pub use near_sdk_macros::{
-    ext_contract, near, near_bindgen, BorshStorageKey, EventMetadata, FunctionError,
-    NearSchema, PanicOnDefault,
+    ext_contract, near, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, NearSchema,
+    PanicOnDefault,
 };
 
 pub mod store;
