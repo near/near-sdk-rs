@@ -9,23 +9,15 @@ use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::env;
 use crate::IntoStorageKey;
-#[cfg(feature = "abi")]
-use borsh::BorshSchema;
+use near_sdk_macros::NearSchema;
 
 const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 
 /// An persistent lazy option, that stores a value in the storage.
-#[cfg(feature = "abi")]
-#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
-pub struct LazyOption<T> {
-    storage_key: Vec<u8>,
-    #[borsh(skip)]
-    el: PhantomData<T>,
-}
-
-#[cfg(not(feature = "abi"))]
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+#[inside_nearsdk]
+#[abi(borsh)]
 pub struct LazyOption<T> {
     storage_key: Vec<u8>,
     #[borsh(skip)]

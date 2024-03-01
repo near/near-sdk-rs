@@ -476,7 +476,7 @@ struct DeriveNearSchema {
     borsh: Option<bool>,
 }
 
-#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate))]
+#[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate, inside_nearsdk))]
 pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
     #[cfg(not(feature = "abi"))]
     {
@@ -488,6 +488,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         use darling::FromDeriveInput;
 
         let derive_input = syn::parse_macro_input!(input as syn::DeriveInput);
+        let generics = derive_input.generics.clone();
         let args = match DeriveNearSchema::from_derive_input(&derive_input) {
             Ok(v) => v,
             Err(e) => {
@@ -497,7 +498,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
 
         if args.borsh.is_none()
             && args.json.is_none()
-            && derive_input.attrs.iter().any(|attr| attr.path().is_ident("abi"))
+            && derive_input.clone().attrs.iter().any(|attr| attr.path().is_ident("abi"))
         {
             return TokenStream::from(
                 syn::Error::new_spanned(
@@ -510,7 +511,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
 
         // #[abi(json, borsh)]
         let (json_schema, borsh_schema) = (args.json.unwrap_or(false), args.borsh.unwrap_or(false));
-        let mut input = derive_input;
+        let mut input = derive_input.clone();
         input.attrs = args.attrs;
 
         let strip_unknown_attr = |attrs: &mut Vec<syn::Attribute>| {
@@ -546,6 +547,15 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             }
         }
 
+        let near_sdk_crate =
+            if derive_input.attrs.iter().any(|attr| attr.path().is_ident("inside_nearsdk")) {
+                quote! {crate}
+            } else {
+                quote! {::near_sdk}
+            };
+        let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
+        let string_schemars_crate = quote! {#near_sdk_crate::schemars}.to_string();
+
         // <unspecified> or #[abi(json)]
         let json_schema = json_schema || !borsh_schema;
 
@@ -553,15 +563,15 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             let mut derive = quote! {};
             if borsh_schema {
                 derive = quote! {
-                    #[derive(::near_sdk::borsh::BorshSchema)]
-                    #[borsh(crate = "::near_sdk::borsh")]
+                    #[derive(#near_sdk_crate::borsh::BorshSchema)]
+                    #[borsh(crate = #string_borsh_crate)]
                 };
             }
             if json_schema {
                 derive = quote! {
                     #derive
-                    #[derive(::near_sdk::schemars::JsonSchema)]
-                    #[schemars(crate = "::near_sdk::schemars")]
+                    #[derive(#near_sdk_crate::schemars::JsonSchema)]
+                    #[schemars(crate = #string_schemars_crate)]
                 };
             }
             derive
@@ -574,13 +584,13 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         let json_impl = if json_schema {
             quote! {
                 #[automatically_derived]
-                impl ::near_sdk::schemars::JsonSchema for #input_ident_proxy {
+                impl #generics #near_sdk_crate::schemars::JsonSchema for #input_ident_proxy #generics {
                     fn schema_name() -> ::std::string::String {
-                        stringify!(#input_ident).to_string()
+                        stringify!(#input_ident #generics).to_string()
                     }
 
-                    fn json_schema(gen: &mut ::near_sdk::schemars::gen::SchemaGenerator) -> ::near_sdk::schemars::schema::Schema {
-                        <#input_ident as ::near_sdk::schemars::JsonSchema>::json_schema(gen)
+                    fn json_schema(gen: &mut #near_sdk_crate::schemars::gen::SchemaGenerator) -> #near_sdk_crate::schemars::schema::Schema {
+                        <#input_ident #generics as #near_sdk_crate::schemars::JsonSchema>::json_schema(gen)
                     }
                 }
             }
@@ -591,18 +601,18 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         let borsh_impl = if borsh_schema {
             quote! {
                 #[automatically_derived]
-                impl ::near_sdk::borsh::BorshSchema for #input_ident_proxy {
-                    fn declaration() -> ::near_sdk::borsh::schema::Declaration {
-                        stringify!(#input_ident).to_string()
+                impl #generics #near_sdk_crate::borsh::BorshSchema for #input_ident_proxy #generics {
+                    fn declaration() -> #near_sdk_crate::borsh::schema::Declaration {
+                        stringify!(#input_ident #generics).to_string()
                     }
 
                     fn add_definitions_recursively(
-                        definitions: &mut ::near_sdk::borsh::__private::maybestd::collections::BTreeMap<
-                            ::near_sdk::borsh::schema::Declaration,
-                            ::near_sdk::borsh::schema::Definition
+                        definitions: &mut #near_sdk_crate::borsh::__private::maybestd::collections::BTreeMap<
+                            #near_sdk_crate::borsh::schema::Declaration,
+                            #near_sdk_crate::borsh::schema::Definition
                         >,
                     ) {
-                        <#input_ident as ::near_sdk::borsh::BorshSchema>::add_definitions_recursively(definitions);
+                        <#input_ident #generics as #near_sdk_crate::borsh::BorshSchema>::add_definitions_recursively(definitions);
                     }
                 }
             }
@@ -614,7 +624,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
-                type #input_ident_proxy = #input_ident;
+                type #input_ident_proxy #generics = #input_ident #generics;
                 {
                     #derive
                     #input
