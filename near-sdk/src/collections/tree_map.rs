@@ -6,6 +6,7 @@ use std::ops::Bound;
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};
 use crate::{env, IntoStorageKey};
+use near_sdk_macros::NearSchema;
 
 /// TreeMap based on AVL-tree
 ///
@@ -17,21 +18,49 @@ use crate::{env, IntoStorageKey};
 /// - `range` of K elements:    O(Klog(N))
 ///
 
-#[cfg(feature = "abi")]
-#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
+// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+// #[inside_nearsdk]
+// #[abi(borsh)]
+#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+#[inside_nearsdk]
+#[abi(borsh)]
 pub struct TreeMap<K, V> {
     root: u64,
     val: LookupMap<K, V>,
     tree: Vector<Node<K>>,
 }
 
-#[cfg(not(feature = "abi"))]
-#[derive(BorshSerialize, BorshDeserialize)]
-pub struct TreeMap<K, V> {
-    root: u64,
-    val: LookupMap<K, V>,
-    tree: Vector<Node<K>>,
-}
+// #[cfg(not(target_arch = "wasm32"))] const _ : () =
+//   {
+//     use borsh::BorshSchema;
+
+//       #[allow(non_camel_case_types)] type TreeMap__NEAR_SCHEMA_PROXY < K, V > =
+//       TreeMap < K, V > ;
+//       {
+//           #[derive(crate :: borsh :: BorshSchema)]
+//           #[borsh(crate = "crate :: borsh")]
+//           pub struct TreeMapJ < K: BorshSchema, V: BorshSchema >
+//           {
+//               root : u64, val : LookupMap < K, V >, tree : Vector < Node < K >
+//               >,
+//           } #[automatically_derived] impl < K: BorshSchema, V: BorshSchema > crate :: borsh :: BorshSchema
+//           for TreeMap__NEAR_SCHEMA_PROXY < K, V >
+//           {
+//               fn declaration() -> crate :: borsh :: schema :: Declaration
+//               { stringify! (TreeMap < K, V >).to_string() }
+
+//               fn
+//               add_definitions_recursively(definitions : & mut crate :: borsh ::
+//               __private :: maybestd :: collections :: BTreeMap < crate :: borsh
+//               :: schema :: Declaration, crate :: borsh :: schema :: Definition
+//               >,)
+//               {
+//                   < TreeMapJ < K, V > as crate :: borsh :: BorshSchema > ::
+//                   add_definitions_recursively(definitions) ;
+//               }
+//           }
+//       } ;
+//   } ;
 
 #[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
 pub struct Node<K> {

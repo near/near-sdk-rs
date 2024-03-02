@@ -582,9 +582,14 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         let input_ident_proxy = quote::format_ident!("{}__NEAR_SCHEMA_PROXY", input_ident);
 
         let json_impl = if json_schema {
+            let where_clause = get_where_clause(
+                &generics,
+                input_ident,
+                quote! {#near_sdk_crate::schemars::JsonSchema},
+            );
             quote! {
                 #[automatically_derived]
-                impl #generics #near_sdk_crate::schemars::JsonSchema for #input_ident_proxy #generics {
+                impl #generics #near_sdk_crate::schemars::JsonSchema for #input_ident_proxy #generics #where_clause {
                     fn schema_name() -> ::std::string::String {
                         stringify!(#input_ident #generics).to_string()
                     }
@@ -599,9 +604,14 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         };
 
         let borsh_impl = if borsh_schema {
+            let where_clause = get_where_clause(
+                &generics,
+                input_ident,
+                quote! {#near_sdk_crate::borsh::BorshSchema},
+            );
             quote! {
                 #[automatically_derived]
-                impl #generics #near_sdk_crate::borsh::BorshSchema for #input_ident_proxy #generics {
+                impl #generics #near_sdk_crate::borsh::BorshSchema for #input_ident_proxy #generics #where_clause {
                     fn declaration() -> #near_sdk_crate::borsh::schema::Declaration {
                         stringify!(#input_ident #generics).to_string()
                     }
@@ -620,7 +630,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        TokenStream::from(quote! {
+        let x = quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
@@ -633,8 +643,29 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                     #borsh_impl
                 };
             };
-        })
+        };
+
+        TokenStream::from(x)
     }
+}
+
+#[cfg(feature = "abi")]
+fn get_where_clause(
+    generics: &syn::Generics,
+    input_ident: &syn::Ident,
+    trait_name: proc_macro2::TokenStream,
+) -> WhereClause {
+    let (_, ty_generics, where_clause) = generics.split_for_impl();
+
+    let predicate = parse_quote!(#input_ident #ty_generics: #trait_name);
+
+    let where_clause: WhereClause = if let Some(mut w) = where_clause.cloned() {
+        w.predicates.push(predicate);
+        w
+    } else {
+        parse_quote!(where #predicate)
+    };
+    where_clause
 }
 
 /// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
