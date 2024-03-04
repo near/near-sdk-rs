@@ -3,13 +3,13 @@
 use near_sdk::near_bindgen;
 use serde::{Deserialize, Serialize};
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(Default, Serialize, Deserialize)]
 pub struct Ident {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Ident {
     #[init]
     pub fn plain_arg(_a: Self) -> Self {

@@ -6,11 +6,11 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{near_bindgen, PanicOnDefault};
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
 struct Storage {}
 
-#[near_bindgen]
+#[near]
 impl Storage {
     pub fn faulty_method(&mut self, #[serializer(SomeNonExistentSerializer)] _a: *mut u32) {}
     pub fn faulty_method1(&mut self, #[serializer(SomeNonExistentSerializer)] (a, b): (u8, u32)) {}

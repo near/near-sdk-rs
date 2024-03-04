@@ -21,7 +21,7 @@ where
     SubAccounts { account_id: &'a T },
 }
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(BorshDeserialize, BorshSerialize)]
 struct Contract {
     map1: LookupMap<u64, u64>,
@@ -38,7 +38,7 @@ impl Default for Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {}
 
 fn main() {}

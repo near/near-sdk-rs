@@ -4,13 +4,13 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(BorshDeserialize, BorshSerialize)]
 struct Incrementer {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Incrementer {
     #[private]
     #[init]

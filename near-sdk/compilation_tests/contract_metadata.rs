@@ -9,7 +9,7 @@ use near_sdk::near_bindgen;
 ))]
 struct Contract {}
 
-#[near_bindgen]
+#[near]
 impl Contract {}
 
 fn main() {}

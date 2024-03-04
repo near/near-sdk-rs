@@ -30,11 +30,11 @@ impl fmt::Display for ErrorEnum {
     }
 }
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(BorshDeserialize, BorshSerialize, Default)]
 struct Contract {}
 
-#[near_bindgen]
+#[near]
 impl Contract {
     #[handle_result]
     pub fn set(&self, value: String) -> Result<String, ErrorStruct> {

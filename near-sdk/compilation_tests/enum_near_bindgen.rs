@@ -3,7 +3,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(BorshDeserialize, BorshSerialize)]
 enum StateMachine {
     StateA,
@@ -16,7 +16,7 @@ impl Default for StateMachine {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl StateMachine {
     pub fn swap_state(&mut self) {
         *self = match self {

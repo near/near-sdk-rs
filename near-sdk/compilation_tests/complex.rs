@@ -21,13 +21,13 @@ pub enum TypeB {
     Var2,
 }
 
-#[near_bindgen]
+#[near(contract_state)]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Storage {
     map: HashMap<TypeA, TypeB>,
 }
 
-#[near_bindgen]
+#[near]
 impl Storage {
     pub fn insert(&mut self, key: TypeA, value: TypeB) -> Option<TypeB> {
         self.map.insert(key, value)
