@@ -9,7 +9,7 @@ const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 #[near(contract_state)]
 pub struct FactoryContract {}
 
-#[near(contract_state)]
+#[near]
 impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);

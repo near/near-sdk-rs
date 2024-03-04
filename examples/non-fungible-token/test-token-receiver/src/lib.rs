@@ -19,7 +19,7 @@ trait ValueReturnTrait {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 
-#[near(contract_state)]
+#[near]
 impl TokenReceiver {
     #[init]
     pub fn new(non_fungible_token_account_id: AccountId) -> Self {
@@ -27,7 +27,7 @@ impl TokenReceiver {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenReceiver for TokenReceiver {
     /// Returns true if token should be returned to `sender_id`
     /// Four supported `msg`s:
@@ -79,7 +79,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl ValueReturnTrait for TokenReceiver {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
         log!("in ok_go, return_it={}", return_it);

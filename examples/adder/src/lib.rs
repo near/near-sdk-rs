@@ -13,7 +13,7 @@ pub struct DoublePair {
 #[near(serializers=[borsh, json], contract_state)]
 pub struct Adder {}
 
-#[near(contract_state)]
+#[near]
 impl Adder {
     /// Adds two pairs point-wise.
     pub fn add(&self, a: Pair, b: Pair) -> Pair {

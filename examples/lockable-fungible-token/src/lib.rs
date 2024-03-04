@@ -46,7 +46,7 @@ impl Account {
 }
 
 #[derive(PanicOnDefault)]
-#[near(contract_state)]
+#[near]
 pub struct FunToken {
     /// AccountID -> Account details.
     pub accounts: UnorderedMap<AccountId, Account>,
@@ -55,7 +55,7 @@ pub struct FunToken {
     pub total_supply: Balance,
 }
 
-#[near(contract_state)]
+#[near]
 impl FunToken {
     #[init]
     #[handle_result]

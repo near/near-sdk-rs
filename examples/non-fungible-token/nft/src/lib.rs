@@ -51,7 +51,7 @@ enum StorageKey {
     Approval,
 }
 
-#[near(contract_state)]
+#[near]
 impl Contract {
     /// Initializes the contract owned by `owner_id` with
     /// default metadata (for example purposes only).
@@ -107,7 +107,7 @@ impl Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenCore for Contract {
     #[payable]
     fn nft_transfer(
@@ -137,7 +137,7 @@ impl NonFungibleTokenCore for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenResolver for Contract {
     #[private]
     fn nft_resolve_transfer(
@@ -156,7 +156,7 @@ impl NonFungibleTokenResolver for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenApproval for Contract {
     #[payable]
     fn nft_approve(
@@ -188,7 +188,7 @@ impl NonFungibleTokenApproval for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenEnumeration for Contract {
     fn nft_total_supply(&self) -> U128 {
         self.tokens.nft_total_supply()
@@ -212,7 +212,7 @@ impl NonFungibleTokenEnumeration for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenMetadataProvider for Contract {
     fn nft_metadata(&self) -> NFTContractMetadata {
         self.metadata.get().unwrap()

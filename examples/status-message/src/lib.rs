@@ -16,7 +16,7 @@ impl Default for StatusMessage {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl StatusMessage {
     #[payable]
     pub fn set_status(&mut self, message: String) {

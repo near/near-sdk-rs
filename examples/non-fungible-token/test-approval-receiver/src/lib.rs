@@ -19,7 +19,7 @@ trait ValueReturnTrait {
     fn ok_go(&self, msg: String) -> PromiseOrValue<String>;
 }
 
-#[near(contract_state)]
+#[near]
 impl ApprovalReceiver {
     #[init]
     pub fn new(non_fungible_token_account_id: AccountId) -> Self {
@@ -27,7 +27,7 @@ impl ApprovalReceiver {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
     /// Could do anything useful to the approval-receiving contract, such as store the given
     /// approval_id for use later when calling the NFT contract. Can also return whatever it wants,
@@ -68,7 +68,7 @@ impl NonFungibleTokenApprovalReceiver for ApprovalReceiver {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl ValueReturnTrait for ApprovalReceiver {
     fn ok_go(&self, msg: String) -> PromiseOrValue<String> {
         log!("in ok_go, msg={}", msg);

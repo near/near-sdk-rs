@@ -5,7 +5,7 @@ use near_sdk::{log, near, PromiseOrValue};
 #[near(contract_state)]
 pub struct CrossContract {}
 
-#[near(contract_state)]
+#[near]
 impl CrossContract {
     pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
         if n <= 1 {

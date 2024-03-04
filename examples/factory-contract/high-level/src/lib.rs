@@ -13,7 +13,7 @@ pub trait ExtStatusMessage {
     fn get_status(&self, account_id: AccountId) -> Option<String>;
 }
 
-#[near(contract_state)]
+#[near]
 impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: NearToken) {
         Promise::new(account_id)

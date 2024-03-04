@@ -20,7 +20,7 @@ trait ValueReturnTrait {
     fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128>;
 }
 
-#[near(contract_state)]
+#[near]
 impl DeFi {
     #[init]
     pub fn new(fungible_token_account_id: AccountId) -> Self {
@@ -29,7 +29,7 @@ impl DeFi {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl FungibleTokenReceiver for DeFi {
     /// If given `msg: "take-my-money", immediately returns U128::From(0)
     /// Otherwise, makes a cross-contract call to own `value_please` function, passing `msg`
@@ -60,7 +60,7 @@ impl FungibleTokenReceiver for DeFi {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl ValueReturnTrait for DeFi {
     fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128> {
         log!("in value_please, amount_to_return = {}", amount_to_return);

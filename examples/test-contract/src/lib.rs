@@ -9,7 +9,7 @@ impl Default for TestContract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl TestContract {
     #[init]
     pub fn new() -> Self {

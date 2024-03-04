@@ -11,7 +11,7 @@ const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
 #[near(contract_state)]
 pub struct CrossContract {}
 
-#[near(contract_state)]
+#[near]
 impl CrossContract {
     pub fn factorial(&self, n: u32) {
         if n <= 1 {

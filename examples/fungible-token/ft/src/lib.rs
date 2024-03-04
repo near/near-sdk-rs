@@ -47,7 +47,7 @@ enum StorageKey {
     Metadata,
 }
 
-#[near(contract_state)]
+#[near]
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
@@ -92,7 +92,7 @@ impl Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl FungibleTokenCore for Contract {
     #[payable]
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
@@ -119,7 +119,7 @@ impl FungibleTokenCore for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl FungibleTokenResolver for Contract {
     #[private]
     fn ft_resolve_transfer(
@@ -137,7 +137,7 @@ impl FungibleTokenResolver for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl StorageManagement for Contract {
     #[payable]
     fn storage_deposit(
@@ -173,7 +173,7 @@ impl StorageManagement for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
         self.metadata.get().unwrap()

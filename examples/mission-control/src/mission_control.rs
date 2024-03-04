@@ -7,10 +7,7 @@ use near_sdk::env;
 use std::collections::HashMap;
 use near_sdk::near;
 
-// #[near(contract_state)]
-// #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
-// #[serde(crate = "near_sdk::serde")]
-// #[borsh(crate = "near_sdk::borsh")]
+
 #[near(serializers=[json, borsh], contract_state)]
 pub struct MissionControl {
     account: Account,
@@ -18,8 +15,7 @@ pub struct MissionControl {
     rates: HashMap<Exchange, Rate>,
 }
 
-// #[near]
-#[near(contract_state)]
+#[near]
 impl MissionControl {
     pub fn add_agent(&mut self) {
         let account_id = env::signer_account_id();

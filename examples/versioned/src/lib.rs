@@ -67,7 +67,7 @@ impl Default for Contract {
     }
 }
 
-#[near(contract_state)]
+#[near]
 impl VersionedContract {
     #[payable]
     pub fn deposit(&mut self) {

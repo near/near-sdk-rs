@@ -6,7 +6,7 @@ const A_VALUE: u8 = 8;
 #[near(contract_state)]
 pub struct Callback;
 
-#[near(contract_state)]
+#[near]
 impl Callback {
     /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
     pub fn call_all(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
