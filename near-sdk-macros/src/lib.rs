@@ -637,6 +637,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                 type #input_ident_proxy #generics = #input_ident #generics;
                 {
                     #derive
+                    #[allow(dead_code)]
                     #input
 
                     #json_impl

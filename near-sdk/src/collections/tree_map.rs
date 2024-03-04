@@ -1,5 +1,3 @@
-#[cfg(feature = "abi")]
-use borsh::BorshSchema;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::ops::Bound;
 

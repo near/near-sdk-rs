@@ -4,9 +4,8 @@ use core::ops::Range;
 use std::iter::FusedIterator;
 use std::marker::PhantomData;
 
-#[cfg(feature = "abi")]
-use borsh::BorshSchema;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use near_sdk_macros::NearSchema;
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -22,17 +21,9 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
-#[cfg(feature = "abi")]
-#[derive(BorshSerialize, BorshDeserialize, BorshSchema)]
-pub struct Vector<T> {
-    len: u64,
-    prefix: Vec<u8>,
-    #[borsh(skip)]
-    el: PhantomData<T>,
-}
-
-#[cfg(not(feature = "abi"))]
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+#[inside_nearsdk]
+#[abi(borsh)]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
