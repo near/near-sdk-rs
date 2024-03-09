@@ -1,5 +1,5 @@
 use crate::fungible_token::{Balance, FungibleToken};
-use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
+use near_storage_standard::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::{assert_one_yocto, env, log, AccountId, NearToken, Promise};
 
 impl FungibleToken {
