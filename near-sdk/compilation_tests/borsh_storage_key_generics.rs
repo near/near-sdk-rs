@@ -4,7 +4,7 @@ use near_sdk::borsh::{self, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::BorshStorageKey;
 
-#[derive(BorshStorageKey, BorshSerialize)]
+#[dere(BorshStorageKey, BorshSerialize)]
 struct StorageKeyStruct<'a, T>
 where
     T: ?Sized,
