@@ -1,5 +1,3 @@
-#[cfg(feature = "abi")]
-use borsh::BorshSchema;
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::NearSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

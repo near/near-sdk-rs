@@ -1,7 +1,6 @@
 //! Complex smart contract.
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

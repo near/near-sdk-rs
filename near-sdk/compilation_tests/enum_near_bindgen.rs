@@ -1,7 +1,6 @@
 //! Testing that state with enum compiles correctly
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
 
 #[near(contract_state)]
 #[derive(BorshDeserialize, BorshSerialize)]

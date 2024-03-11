@@ -1,6 +1,5 @@
 //! Method signature uses Self.
 
-use near_sdk::near_bindgen;
 use serde::{Deserialize, Serialize};
 
 #[near(contract_state)]

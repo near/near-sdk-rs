@@ -2,7 +2,6 @@
 //! See: https://github.com/near/near-sdk-rs/issues/1040#issuecomment-1687126452
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
 
 #[near(contract_state)]
 #[derive(BorshDeserialize, BorshSerialize)]

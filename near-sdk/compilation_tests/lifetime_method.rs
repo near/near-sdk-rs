@@ -1,6 +1,5 @@
 //! Method signature uses lifetime.
 
-use near_sdk::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 #[near(contract_state)]

@@ -1,6 +1,5 @@
 //! Method with non-deserializable argument type.
 
-use near_sdk::near_bindgen;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};

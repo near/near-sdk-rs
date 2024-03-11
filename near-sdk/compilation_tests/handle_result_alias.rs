@@ -1,5 +1,4 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
 
 type MyResult = Result<u32, &'static str>;
 

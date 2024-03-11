@@ -1,7 +1,7 @@
 //! Testing FunctionError macro.
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{near_bindgen, FunctionError};
+use near_sdk::FunctionError;
 use std::fmt;
 
 #[derive(FunctionError, BorshSerialize)]

@@ -1,7 +1,7 @@
 //! Smart contract with initialization function.
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{near_bindgen, PanicOnDefault};
+use near_sdk::PanicOnDefault;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault, BorshDeserialize, BorshSerialize)]

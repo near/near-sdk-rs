@@ -4,7 +4,7 @@
 //faulty_method1 checks a combination of serialiser and only Identity pattern allowed.
 //It is not possible to check Identity pattern and Type not supported together.
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{near_bindgen, PanicOnDefault};
+use near_sdk::PanicOnDefault;
 
 #[near(contract_state)]
 #[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]

@@ -2,7 +2,7 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
-use near_sdk::{near_bindgen, BorshStorageKey};
+use near_sdk::BorshStorageKey;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 struct StorageKeyStruct {
