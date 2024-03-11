@@ -1,8 +1,6 @@
 mod entry;
 mod impls;
 
-#[cfg(feature = "abi")]
-use borsh::BorshSchema;
 use std::borrow::Borrow;
 use std::fmt;
 
