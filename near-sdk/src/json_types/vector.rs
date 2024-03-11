@@ -1,7 +1,7 @@
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
-use near_sdk_macros::NearSchema;
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::NearSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
@@ -19,10 +19,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 )]
 #[inside_nearsdk]
 #[abi(borsh, json)]
-pub struct Base64VecU8(#[serde(
-    serialize_with = "base64_bytes::serialize",
-    deserialize_with = "base64_bytes::deserialize"
-)] pub Vec<u8>);
+pub struct Base64VecU8(
+    #[serde(
+        serialize_with = "base64_bytes::serialize",
+        deserialize_with = "base64_bytes::deserialize"
+    )]
+    pub Vec<u8>,
+);
 
 impl From<Vec<u8>> for Base64VecU8 {
     fn from(v: Vec<u8>) -> Self {
