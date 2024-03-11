@@ -3,8 +3,9 @@
 use near_sdk::borsh::{self, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::BorshStorageKey;
+use near_sdk::near;
 
-#[dere(BorshStorageKey, BorshSerialize)]
+#[derive(BorshStorageKey, BorshSerialize)]
 struct StorageKeyStruct<'a, T>
 where
     T: ?Sized,
@@ -22,7 +23,6 @@ where
 }
 
 #[near(contract_state)]
-#[derive(BorshDeserialize, BorshSerialize)]
 struct Contract {
     map1: LookupMap<u64, u64>,
     map2: LookupMap<String, String>,

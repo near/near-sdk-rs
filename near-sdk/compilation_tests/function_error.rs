@@ -1,7 +1,8 @@
 //! Testing FunctionError macro.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshSerialize;
 use near_sdk::FunctionError;
+use near_sdk::near;
 use std::fmt;
 
 #[derive(FunctionError, BorshSerialize)]
@@ -30,8 +31,8 @@ impl fmt::Display for ErrorEnum {
     }
 }
 
+#[derive(Default)]
 #[near(contract_state)]
-#[derive(BorshDeserialize, BorshSerialize, Default)]
 struct Contract {}
 
 #[near]

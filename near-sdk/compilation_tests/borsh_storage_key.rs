@@ -1,6 +1,7 @@
 //! Testing BorshStorageKey macro.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshSerialize;
+use near_sdk::near;
 use near_sdk::collections::LookupMap;
 use near_sdk::BorshStorageKey;
 
@@ -16,7 +17,6 @@ enum StorageKeyEnum {
 }
 
 #[near(contract_state)]
-#[derive(BorshDeserialize, BorshSerialize)]
 struct Contract {
     map1: LookupMap<u64, u64>,
     map2: LookupMap<String, String>,

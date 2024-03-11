@@ -1,27 +1,28 @@
 //! Complex smart contract.
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{Deserialize, Serialize};
+use near_sdk::near;
 use std::collections::HashMap;
 
 #[derive(
-    BorshDeserialize, BorshSerialize, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+    Eq, PartialEq, Hash, PartialOrd, Ord,
 )]
+#[near(serializers=[borsh, json])]
 pub enum TypeA {
     Var1,
     Var2,
 }
 
 #[derive(
-    BorshDeserialize, BorshSerialize, Eq, PartialEq, Hash, PartialOrd, Serialize, Deserialize,
+    Eq, PartialEq, Hash, PartialOrd,
 )]
+#[near(serializers=[borsh, json])]
 pub enum TypeB {
     Var1,
     Var2,
 }
 
 #[near(contract_state)]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(Default)]
 struct Storage {
     map: HashMap<TypeA, TypeB>,
 }

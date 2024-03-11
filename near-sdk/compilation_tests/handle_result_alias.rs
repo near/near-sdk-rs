@@ -1,9 +1,9 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 
 type MyResult = Result<u32, &'static str>;
 
+#[derive(Default)]
 #[near(contract_state)]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Contract {
     value: u32,
 }

@@ -1,4 +1,5 @@
 use near_account_id::AccountIdRef;
+use near_sdk::near;
 
 #[near(contract_state)]
 struct Contract {}

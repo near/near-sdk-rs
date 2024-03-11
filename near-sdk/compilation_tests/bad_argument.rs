@@ -1,23 +1,24 @@
 //! Method with non-deserializable argument type.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 
-#[derive(BorshSerialize, BorshDeserialize, Eq, PartialEq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Hash, PartialOrd, Ord)]
+#[near(serializers=[borsh, json])]
 enum TypeA {
     Var1,
     Var2
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Eq, PartialEq, Hash, PartialOrd, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Hash, PartialOrd)]
+#[near(serializers=[borsh, json])]
 enum TypeB {
     Var1,
     Var2
 }
 
 #[near(contract_state)]
-#[derive(Default, BorshSerialize, BorshDeserialize)]
+#[derive(Default)]
 struct Storage {
     map: HashMap<TypeA, TypeB>
 }

@@ -1,9 +1,9 @@
 //! Method signature uses Self.
 
-use serde::{Deserialize, Serialize};
+use near_sdk::near;
 
-#[near(contract_state)]
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default)]
+#[near(contract_state, serializers=[json])]
 pub struct Ident {
     value: u32,
 }

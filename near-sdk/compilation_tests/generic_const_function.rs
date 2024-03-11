@@ -1,9 +1,10 @@
 //! Functions can't use const generics.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 
+
+#[derive(Default)]
 #[near(contract_state)]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Ident {
     value: u32,
 }

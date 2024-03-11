@@ -1,11 +1,11 @@
 //! Impl block has type parameters.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 #[allow(unused_imports)]
 use std::marker::PhantomData;
 
+#[derive(Default)]
 #[near(contract_state)]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
 struct Incrementer<T> {
     value: u32,
     data: PhantomData<T>,

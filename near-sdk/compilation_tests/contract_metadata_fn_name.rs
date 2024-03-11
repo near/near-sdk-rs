@@ -1,3 +1,5 @@
+use near_sdk::near;
+
 #[near(contract_state)]
 struct Contract {}
 

@@ -1,9 +1,8 @@
 //! Testing that state with enum compiles correctly
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 
 #[near(contract_state)]
-#[derive(BorshDeserialize, BorshSerialize)]
 enum StateMachine {
     StateA,
     StateB,

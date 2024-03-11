@@ -1,9 +1,9 @@
 //! Method signature uses lifetime.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 
 #[near(contract_state)]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(Default)]
 struct Ident {
     value: u32,
 }

@@ -3,11 +3,11 @@
 //faulty_method checks a combination of serialiser and type not not supported
 //faulty_method1 checks a combination of serialiser and only Identity pattern allowed.
 //It is not possible to check Identity pattern and Type not supported together.
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 use near_sdk::PanicOnDefault;
 
 #[near(contract_state)]
-#[derive(BorshSerialize, BorshDeserialize, PanicOnDefault)]
+#[derive(PanicOnDefault)]
 struct Storage {}
 
 #[near]
