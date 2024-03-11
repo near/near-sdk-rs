@@ -26,8 +26,8 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Downgrade dependencies
         run: |
-          cargo update -p clap --precise 4.4.18
-          cd examples/adder && cargo update -p clap --precise 4.4.18
+          cargo update -p clap@4.5 --precise 4.4.18
+          cd examples/adder && cargo update -p clap@4.5 --precise 4.4.18
       - name: test
         run: cargo test --all --features unstable,legacy
   lint:
