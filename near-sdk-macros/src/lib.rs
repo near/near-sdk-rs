@@ -111,11 +111,36 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut near_bindgen_annotation = quote! {};
     if let Some(is_contract_state) = near_macro_args.contract_state {
         if is_contract_state {
-            near_bindgen_annotation = quote! {
-                #[near_sdk::near_bindgen]
+            if let Some(metadata) = near_macro_args.contract_metadata {
+                let version = metadata.version;
+                let link = metadata.link;
+                let mut standards = quote! {};
+                let standards_vec = metadata.standards;
+                for standard in standards_vec {
+                    let standard_name = standard.standard;
+                    let standard_version = standard.version;
+                    standards = quote! {
+                        #standards
+                        standard(standard = #standard_name, version = #standard_version),
+                    };
+                }
+                near_bindgen_annotation = quote! {
+                    #[near_sdk::near_bindgen(contract_metadata(
+                        version = #version,
+                        link = #link,
+                        #standards
+                        // standard(standard = #metadata.standards.standard, version = #metadata.standards.version),
+                    ))]
+                }
+            } else {
+                near_bindgen_annotation = quote! {
+                    #[near_sdk::near_bindgen]
+                }
             }
         }
     }
+
+    eprintln!("{}", near_bindgen_annotation);
 
     let mut abis = quote! {};
     if has_borsh && has_json {
@@ -126,11 +151,19 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         abis = quote! { #[abi(json)] };
     }
 
-    let tstr = xx(fun_name(near_macro_args.contract_metadata), item.clone());
-
     let expanded;
-    if let Some(input) = tstr {
+    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         expanded = quote! {
+            #[derive(near_sdk::NearSchema)]
+            #borsh
+            #json
+            #abis
+            #near_bindgen_annotation
+            #input
+        };
+    } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
+        expanded = quote! {
+            #[derive(near_sdk::NearSchema)]
             #borsh
             #json
             #abis

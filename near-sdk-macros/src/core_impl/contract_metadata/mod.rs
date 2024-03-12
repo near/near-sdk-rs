@@ -10,16 +10,16 @@ struct MacroConfig {
 
 #[derive(serde::Serialize, Default, FromMeta)]
 pub(crate) struct ContractMetadata {
-    version: Option<String>,
-    link: Option<String>,
+    pub(crate) version: Option<String>,
+    pub(crate) link: Option<String>,
     #[darling(multiple, rename = "standard")]
-    standards: Vec<Standard>,
+    pub(crate) standards: Vec<Standard>,
 }
 
 #[derive(FromMeta, serde::Serialize)]
-struct Standard {
-    standard: String,
-    version: String,
+pub(crate) struct Standard {
+    pub(crate) standard: String,
+    pub(crate) version: String,
 }
 
 impl ContractMetadata {
