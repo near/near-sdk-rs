@@ -15,7 +15,6 @@ pub(crate) struct ContractMetadata {
     standards: Vec<Standard>,
 }
 
-
 impl quote::ToTokens for ContractMetadata {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let version = &self.version;
