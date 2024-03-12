@@ -112,25 +112,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Some(is_contract_state) = near_macro_args.contract_state {
         if is_contract_state {
             if let Some(metadata) = near_macro_args.contract_metadata {
-                let version = metadata.version;
-                let link = metadata.link;
-                let mut standards = quote! {};
-                let standards_vec = metadata.standards;
-                for standard in standards_vec {
-                    let standard_name = standard.standard;
-                    let standard_version = standard.version;
-                    standards = quote! {
-                        #standards
-                        standard(standard = #standard_name, version = #standard_version),
-                    };
-                }
                 near_bindgen_annotation = quote! {
-                    #[near_sdk::near_bindgen(contract_metadata(
-                        version = #version,
-                        link = #link,
-                        #standards
-                        // standard(standard = #metadata.standards.standard, version = #metadata.standards.version),
-                    ))]
+                    #[near_sdk::near_bindgen(#metadata)]
                 }
             } else {
                 near_bindgen_annotation = quote! {

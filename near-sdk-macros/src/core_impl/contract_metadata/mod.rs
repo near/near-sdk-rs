@@ -16,6 +16,40 @@ pub(crate) struct ContractMetadata {
     pub(crate) standards: Vec<Standard>,
 }
 
+
+impl quote::ToTokens for ContractMetadata {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        // Generate the code to represent the struct as tokens
+        // Here you can use the quote crate to generate the desired code
+        // For example, if you want to generate a struct definition, you can use:
+        // tokens.extend(quote! {
+        //     struct ContractMetadata {
+        //         // fields
+        //     }
+        // });
+        let version = &self.version;
+        let link = &self.link;
+        let mut standards = quote! {};
+        let standards_vec = &self.standards;
+        for standard in standards_vec {
+            let standard_name = &standard.standard;
+            let standard_version = &standard.version;
+            standards = quote! {
+                #standards
+                standard(standard = #standard_name, version = #standard_version),
+            };
+        }
+        tokens.extend(quote! {
+            contract_metadata(
+                version = #version,
+                link = #link,
+                #standards
+                // standard(standard = #metadata.standards.standard, version = #metadata.standards.version),
+            )
+        })
+    }
+}
+
 #[derive(FromMeta, serde::Serialize)]
 pub(crate) struct Standard {
     pub(crate) standard: String,
