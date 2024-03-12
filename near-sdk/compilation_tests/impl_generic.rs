@@ -4,8 +4,8 @@ use near_sdk::near;
 #[allow(unused_imports)]
 use std::marker::PhantomData;
 
-#[derive(Default)]
 #[near(contract_state)]
+#[derive(Default)]
 struct Incrementer<T> {
     value: u32,
     data: PhantomData<T>,

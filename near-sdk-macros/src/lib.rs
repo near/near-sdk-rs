@@ -128,20 +128,20 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         expanded = quote! {
+            #near_bindgen_annotation
             #[derive(near_sdk::NearSchema)]
             #borsh
             #json
             #abis
-            #near_bindgen_annotation
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         expanded = quote! {
+            #near_bindgen_annotation
             #[derive(near_sdk::NearSchema)]
             #borsh
             #json
             #abis
-            #near_bindgen_annotation
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
