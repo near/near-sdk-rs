@@ -15,13 +15,13 @@ NOTES:
   - To prevent the deployed contract from being modified or deleted, it should not have any access
     keys on its account.
 */
-use near_ft_standard::fungible_token::metadata::{
+use near_ft_standard::metadata::{
     FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
 };
-use near_ft_standard::fungible_token::{
+use near_ft_standard::{
     FungibleToken, FungibleTokenCore, FungibleTokenResolver,
 };
-use near_storage_standard::storage_management::{
+use near_storage_standard::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
@@ -83,7 +83,7 @@ impl Contract {
         this.token.internal_register_account(&owner_id);
         this.token.internal_deposit(&owner_id, total_supply.into());
 
-        near_ft_standard::fungible_token::events::FtMint {
+        near_ft_standard::events::FtMint {
             owner_id: &owner_id,
             amount: total_supply,
             memo: Some("new tokens are minted"),
@@ -184,7 +184,7 @@ impl FungibleTokenMetadataProvider for Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
-    use near_contract_standards::fungible_token::Balance;
+    use near_ft_standard::Balance;
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::testing_env;
 

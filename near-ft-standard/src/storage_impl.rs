@@ -1,6 +1,6 @@
-use crate::fungible_token::{Balance, FungibleToken};
-use near_storage_standard::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
+use crate::{Balance, FungibleToken};
 use near_sdk::{assert_one_yocto, env, log, AccountId, NearToken, Promise};
+use near_storage_standard::{StorageBalance, StorageBalanceBounds, StorageManagement};
 
 impl FungibleToken {
     /// Internal method that returns the Account ID and the balance in case the account was

@@ -6,8 +6,8 @@
 )]
 macro_rules! impl_fungible_token_core {
     ($contract: ident, $token: ident $(, $on_tokens_burned_fn:ident)?) => {
-        use $crate::fungible_token::core::FungibleTokenCore;
-        use $crate::fungible_token::resolver::FungibleTokenResolver;
+        use $crate::core::FungibleTokenCore;
+        use $crate::resolver::FungibleTokenResolver;
 
         #[near_bindgen]
         impl FungibleTokenCore for $contract {

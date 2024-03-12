@@ -1,7 +1,7 @@
-use crate::fungible_token::core::FungibleTokenCore;
-use crate::fungible_token::events::{FtBurn, FtTransfer};
-use crate::fungible_token::receiver::ext_ft_receiver;
-use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
+use crate::core::FungibleTokenCore;
+use crate::events::{FtBurn, FtTransfer};
+use crate::receiver::ext_ft_receiver;
+use crate::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
