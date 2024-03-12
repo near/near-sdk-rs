@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
-near-contract-standards = { path = "../../../near-contract-standards" }
+near-ft-standard = { path = "../../../near-ft-standard" }

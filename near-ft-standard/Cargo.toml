@@ -1,0 +1,16 @@
+[package]
+name = "near-ft-standard"
+edition = "2021"
+version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+near-sdk = { path = "../near-sdk", version = "~5.0.0", default-features = false, features = ["legacy"] }
+near-storage-standard = { path = "../near-storage-standard"}
+
+[dev-dependencies]
+near-sdk = { path = "../near-sdk", default-features = false, features = ["unit-testing"] }
+
+[features]
+default = []
+abi = ["near-sdk/abi"]

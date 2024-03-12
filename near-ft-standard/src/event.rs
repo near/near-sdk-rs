@@ -8,7 +8,7 @@ use near_sdk::serde_json;
 #[must_use = "don't forget to `.emit()` this event"]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum NearEvent<'a> {
-    Nep171(crate::non_fungible_token::events::Nep171Event<'a>),
+    Nep141(crate::events::Nep141Event<'a>),
 }
 
 impl<'a> NearEvent<'a> {
