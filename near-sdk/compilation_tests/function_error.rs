@@ -11,7 +11,7 @@ struct ErrorStruct {
 
 impl fmt::Display for ErrorStruct {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "error ocurred: {}", self.message)
+        write!(f, "error occurred: {}", self.message)
     }
 }
 
