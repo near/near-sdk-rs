@@ -47,7 +47,7 @@ jobs:
         run: cargo fmt -- --check
       - run: cargo clippy --tests --all-features -- -Dclippy::all
   compilation:
-    name: Compilation
+    name: Compilation tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -57,9 +57,7 @@ jobs:
           profile: minimal
           toolchain: stable
           default: true
-          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
-      - name: Compilation tests
         run: cargo test --package near-sdk --test compilation_tests --features abi --features unstable -- compilation_tests --exact --nocapture
   windows:
     name: Windows

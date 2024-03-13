@@ -39,7 +39,6 @@ impl FromMeta for IdentsVector {
 struct NearMacroArgs {
     serializers: Option<IdentsVector>,
     contract_state: Option<bool>,
-    #[darling(default)]
     contract_metadata: Option<core_impl::ContractMetadata>,
 }
 
@@ -633,7 +632,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        let x = quote! {
+        TokenStream::from(quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
@@ -647,9 +646,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                     #borsh_impl
                 };
             };
-        };
-
-        TokenStream::from(x)
+        })
     }
 }
 
