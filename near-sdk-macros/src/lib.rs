@@ -92,6 +92,7 @@ struct NearMacroArgs {
 /// ```
 ///
 /// As well, the macro supports arguments like `event_json` and `contract_metadata`.
+/// 
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
