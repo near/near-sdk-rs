@@ -181,7 +181,6 @@ The general workflow is the following:
 2. Crate needs to have one `pub` struct that will represent the smart contract itself:
     * The struct needs to implement `Default` trait which
     NEAR will use to create the initial state of the contract upon its first usage;
-    * The struct also needs to implement `BorshSerialize` and `BorshDeserialize` traits which NEAR will use to save/load contract's internal state;
 
    Here is an example of a smart contract struct:
    ```rust
