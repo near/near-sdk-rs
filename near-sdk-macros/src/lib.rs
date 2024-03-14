@@ -42,6 +42,53 @@ struct NearMacroArgs {
     contract_metadata: Option<core_impl::ContractMetadata>,
 }
 
+/// This attribute macro is used to reduce enhance near_bindgen macro. 
+/// It is used to add Borsh and Serde derives for serialization and deserialization.
+/// It also adds `BorshSchema` and `JsonSchema` if needed
+/// 
+/// If you would like to add Borsh or Serde serialization and deserialization to your contract, 
+/// you can use the abi attribute and pass in the serializers you would like to use.
+/// 
+/// # Example
+/// 
+/// ```ignore
+/// #[near(serializers=[borsh, json])]
+/// struct MyStruct {
+///    pub name: String,
+/// }
+/// ```
+/// effectively becomes:
+/// ```ignore
+/// use borsh::{BorshSerialize, BorshDeserialize};
+/// use serde::{Serialize, Deserialize};
+/// use near_sdk_macro::NearSchema;
+/// #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
+/// struct MyStruct {
+///   pub name: String,
+/// }
+/// ```
+/// Please note that `BorshSchema` and `JsonSchema` are added inside NearSchema whenever you use near macro for struct or enum.
+/// By default, if no serializers are passed, Borsh is used.
+/// 
+/// If you want this struct to be a contract state, you can pass in the contract_state argument.
+/// 
+/// # Example
+/// ```ignore
+/// #[near(contract_state)]
+/// struct MyStruct {
+///     pub name: String,
+/// }
+/// ```
+/// becomes:
+/// ```ignore
+/// #[near_bindgen]
+/// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+/// struct MyStruct {
+///    pub name: String,
+/// }
+/// ```
+/// 
+/// As well, the macro supports arguments like `event_json` and `contract_metadata`.
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
