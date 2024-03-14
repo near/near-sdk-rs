@@ -63,6 +63,8 @@ struct NearMacroArgs {
 /// use serde::{Serialize, Deserialize};
 /// use near_sdk_macro::NearSchema;
 /// #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
+/// #[borsh(crate = "near_sdk::borsh")]
+/// #[serde(crate = "near_sdk::serde")]
 /// struct MyStruct {
 ///   pub name: String,
 /// }
@@ -83,6 +85,7 @@ struct NearMacroArgs {
 /// ```ignore
 /// #[near_bindgen]
 /// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+/// #[borsh(crate = "near_sdk::borsh")]
 /// struct MyStruct {
 ///    pub name: String,
 /// }

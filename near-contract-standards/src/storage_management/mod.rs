@@ -21,8 +21,7 @@ pub struct StorageBalanceBounds {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, NearToken, log};
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+/// use near_sdk::{near, PanicOnDefault, AccountId, NearToken, log};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::FungibleToken;
@@ -31,15 +30,14 @@ pub struct StorageBalanceBounds {
 /// };
 /// use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
 ///
-/// #[near_bindgen]
-/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "near_sdk::borsh")]
+/// #[near(contract_state)]
+/// #[derive(PanicOnDefault)]
 /// pub struct Contract {
 ///     token: FungibleToken,
 ///     metadata: LazyOption<FungibleTokenMetadata>,
 /// }
 ///
-/// #[near_bindgen]
+/// #[near]
 /// impl StorageManagement for Contract {
 ///     #[payable]
 ///     fn storage_deposit(

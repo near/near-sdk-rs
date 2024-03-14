@@ -5,22 +5,20 @@ use near_sdk::{ext_contract, json_types::U128, AccountId};
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, log};
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+/// use near_sdk::{near, PanicOnDefault, AccountId, log};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenResolver};
 /// use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
 ///
-/// #[near_bindgen]
-/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "near_sdk::borsh")]
+/// #[near(contract_state)]
+/// #[derive(PanicOnDefault)]
 /// pub struct Contract {
 ///     token: FungibleToken,
 ///     metadata: LazyOption<FungibleTokenMetadata>,
 /// }
 ///
-///#[near_bindgen]
+///#[near]
 /// impl FungibleTokenResolver for Contract {
 ///     #[private]
 ///     fn ft_resolve_transfer(
