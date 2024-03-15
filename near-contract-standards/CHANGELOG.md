@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0...near-contract-standards-v5.1.0) - 2024-03-15
+
+### Added
+- Introduce `#[near]` macro to further streamline contracts development reducing the boilerplate! ([#1142](https://github.com/near/near-sdk-rs/pull/1142))
+
 ## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0-alpha.2...near-contract-standards-v5.0.0-alpha.3) - 2024-02-19
 
 ### Fixed
