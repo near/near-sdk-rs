@@ -50,7 +50,6 @@ pub struct NonFungibleToken {
     pub next_approval_id_by_id: Option<LookupMap<TokenId, u64>>,
 }
 
-// TODO
 #[derive(BorshStorageKey, BorshSerialize)]
 #[borsh(crate = "near_sdk::borsh")]
 pub enum StorageKey {
