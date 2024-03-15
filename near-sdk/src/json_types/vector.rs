@@ -1,6 +1,5 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk_macros::NearSchema;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use near_sdk_macros::near;
+use serde::{Deserialize, Deserializer, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
 
@@ -9,14 +8,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
     Clone,
     PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
-    BorshDeserialize,
-    BorshSerialize,
-    NearSchema,
 )]
-#[inside_nearsdk]
-#[abi(borsh, json)]
+#[near(inside_nearsdk, serializers=[borsh, json])]
 pub struct Base64VecU8(
     #[serde(
         serialize_with = "base64_bytes::serialize",

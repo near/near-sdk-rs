@@ -40,6 +40,7 @@ struct NearMacroArgs {
     serializers: Option<IdentsVector>,
     contract_state: Option<bool>,
     contract_metadata: Option<core_impl::ContractMetadata>,
+    inside_nearsdk: Option<bool>,
 }
 
 /// This attribute macro is used to reduce enhance near_bindgen macro.
@@ -139,18 +140,32 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    let near_sdk_crate = if near_macro_args.inside_nearsdk.unwrap_or(false) {
+        quote! {crate}
+    } else {
+        quote! {::near_sdk}
+    };
+    let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
+    let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
+
+    let inside_nearsdk_attr = if near_macro_args.inside_nearsdk.unwrap_or(false) {
+        quote! {#[inside_nearsdk]}
+    } else {
+        quote! {}
+    };
+
     let borsh = if has_borsh {
         quote! {
-            #[derive(near_sdk::borsh::BorshSerialize, near_sdk::borsh::BorshDeserialize)]
-            #[borsh(crate = "near_sdk::borsh")]
+            #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
+            #[borsh(crate = #string_borsh_crate)]
         }
     } else {
         quote! {}
     };
     let json = if has_json {
         quote! {
-            #[derive(near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
-            #[serde(crate = "near_sdk::serde")]
+            #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
+            #[serde(crate = #string_serde_crate)]
         }
     } else {
         quote! {}
@@ -158,9 +173,9 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let near_bindgen_annotation = if near_macro_args.contract_state.unwrap_or(false) {
         if let Some(metadata) = near_macro_args.contract_metadata {
-            quote! {#[near_sdk::near_bindgen(#metadata)]}
+            quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
         } else {
-            quote! {#[near_sdk::near_bindgen]}
+            quote! {#[#near_sdk_crate::near_bindgen]}
         }
     } else {
         quote! {}
@@ -179,7 +194,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         expanded = quote! {
             #near_bindgen_annotation
-            #[derive(near_sdk::NearSchema)]
+            #[derive(#near_sdk_crate::NearSchema)]
+            #inside_nearsdk_attr
             #borsh
             #json
             #abis
@@ -188,7 +204,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         expanded = quote! {
             #near_bindgen_annotation
-            #[derive(near_sdk::NearSchema)]
+            #[derive(#near_sdk_crate::NearSchema)]
+            #inside_nearsdk_attr
             #borsh
             #json
             #abis
@@ -196,7 +213,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         };
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         expanded = quote! {
-            #[near_sdk::near_bindgen]
+            #[#near_sdk_crate::near_bindgen]
             #input
         };
     } else {

@@ -4,7 +4,7 @@ use std::ops::Bound;
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};
 use crate::{env, IntoStorageKey};
-use near_sdk_macros::NearSchema;
+use near_sdk_macros::near;
 
 /// TreeMap based on AVL-tree
 ///
@@ -16,9 +16,7 @@ use near_sdk_macros::NearSchema;
 /// - `range` of K elements:    O(Klog(N))
 ///
 
-#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub struct TreeMap<K, V> {
     root: u64,
     val: LookupMap<K, V>,

@@ -9,15 +9,13 @@ use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::env;
 use crate::IntoStorageKey;
-use near_sdk_macros::NearSchema;
+use near_sdk_macros::near;
 
 const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 
 /// An persistent lazy option, that stores a value in the storage.
-#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub struct LazyOption<T> {
     storage_key: Vec<u8>,
     #[borsh(skip)]

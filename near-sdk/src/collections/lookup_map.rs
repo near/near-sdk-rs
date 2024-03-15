@@ -7,7 +7,7 @@ use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
-use near_sdk_macros::NearSchema;
+use near_sdk_macros::near;
 
 const ERR_KEY_SERIALIZATION: &str = "Cannot serialize key with Borsh";
 const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
@@ -15,9 +15,7 @@ const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.
 
-#[derive(BorshSerialize, BorshDeserialize, NearSchema)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub struct LookupMap<K, V> {
     key_prefix: Vec<u8>,
     #[borsh(skip)]
