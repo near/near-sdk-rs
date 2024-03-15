@@ -1,10 +1,8 @@
 //! Testing that state with enum compiles correctly
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(contract_state)]
 enum StateMachine {
     StateA,
     StateB,
@@ -16,7 +14,7 @@ impl Default for StateMachine {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl StateMachine {
     pub fn swap_state(&mut self) {
         *self = match self {

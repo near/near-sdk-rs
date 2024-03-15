@@ -1,14 +1,11 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
-use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey};
+use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 
-#[derive(BorshSerialize, BorshStorageKey)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(BorshStorageKey)]
+#[near]
 struct RecordsKey;
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
 pub struct StatusMessage {
     records: LookupMap<AccountId, String>,
 }
@@ -19,7 +16,7 @@ impl Default for StatusMessage {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl StatusMessage {
     #[payable]
     pub fn set_status(&mut self, message: String) {

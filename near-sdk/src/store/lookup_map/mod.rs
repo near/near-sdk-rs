@@ -75,6 +75,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
+
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct LookupMap<K, V, H = Identity>
 where

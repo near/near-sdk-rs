@@ -2,11 +2,10 @@ use crate::fungible_token::core::FungibleTokenCore;
 use crate::fungible_token::events::{FtBurn, FtTransfer};
 use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, log, require, AccountId, Gas, IntoStorageKey, PromiseOrValue,
+    assert_one_yocto, env, log, near, require, AccountId, Gas, IntoStorageKey, PromiseOrValue,
     PromiseResult, StorageUsage,
 };
 
@@ -26,8 +25,7 @@ pub type Balance = u128;
 ///     - AccountRegistrar -- interface for an account to register and unregister
 ///
 /// For example usage, see examples/fungible-token/src/lib.rs.
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near]
 pub struct FungibleToken {
     /// AccountID -> Account balance.
     pub accounts: LookupMap<AccountId, Balance>,

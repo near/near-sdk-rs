@@ -9,7 +9,7 @@ macro_rules! impl_fungible_token_core {
         use $crate::fungible_token::core::FungibleTokenCore;
         use $crate::fungible_token::resolver::FungibleTokenResolver;
 
-        #[near_bindgen]
+        #[near]
         impl FungibleTokenCore for $contract {
             #[payable]
             fn ft_transfer(
@@ -41,7 +41,7 @@ macro_rules! impl_fungible_token_core {
             }
         }
 
-        #[near_bindgen]
+        #[near]
         impl FungibleTokenResolver for $contract {
             #[private]
             fn ft_resolve_transfer(
@@ -76,7 +76,7 @@ macro_rules! impl_fungible_token_storage {
             StorageManagement, StorageBalance, StorageBalanceBounds
         };
 
-        #[near_bindgen]
+        #[near]
         impl StorageManagement for $contract {
             #[payable]
             fn storage_deposit(

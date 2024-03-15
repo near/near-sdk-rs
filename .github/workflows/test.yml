@@ -26,8 +26,8 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Downgrade dependencies
         run: |
-          cargo update -p clap@4.5.1 --precise 4.4.18
-          cd examples/adder && cargo update -p clap@4.5.1 --precise 4.4.18
+          cargo update -p clap@4.5.3 --precise 4.4.18
+          cd examples/adder && cargo update -p clap@4.5.3 --precise 4.4.18
       - name: test
         run: cargo test --all --features unstable,legacy
   lint:
@@ -46,6 +46,20 @@ jobs:
       - name: Test Format
         run: cargo fmt -- --check
       - run: cargo clippy --tests --all-features -- -Dclippy::all
+  compilation:
+    name: Compilation tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          default: true
+      - uses: Swatinem/rust-cache@v1
+      - name: Compilation tests
+        run: cargo test --package near-sdk --test compilation_tests --features abi --features unstable -- compilation_tests --exact --nocapture
   windows:
     name: Windows
     runs-on: windows-latest

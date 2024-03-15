@@ -24,17 +24,15 @@ use near_contract_standards::fungible_token::{
 use near_contract_standards::storage_management::{
     StorageBalance, StorageBalanceBounds, StorageManagement,
 };
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault,
-    PromiseOrValue,
+    env, log, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue,
 };
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(PanicOnDefault)]
+#[near(contract_state)]
 pub struct Contract {
     token: FungibleToken,
     metadata: LazyOption<FungibleTokenMetadata>,
@@ -49,7 +47,7 @@ enum StorageKey {
     Metadata,
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// default metadata (for example purposes only).
@@ -94,7 +92,7 @@ impl Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl FungibleTokenCore for Contract {
     #[payable]
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
@@ -121,7 +119,7 @@ impl FungibleTokenCore for Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl FungibleTokenResolver for Contract {
     #[private]
     fn ft_resolve_transfer(
@@ -139,7 +137,7 @@ impl FungibleTokenResolver for Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl StorageManagement for Contract {
     #[payable]
     fn storage_deposit(
@@ -175,7 +173,7 @@ impl StorageManagement for Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
         self.metadata.get().unwrap()

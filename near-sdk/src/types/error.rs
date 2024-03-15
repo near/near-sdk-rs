@@ -37,14 +37,13 @@ where
 /// abort without a custom message.
 ///
 /// ```
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-/// use near_sdk::{Abort, near_bindgen};
+/// use near_sdk::{Abort, near};
 ///
-/// #[near_bindgen]
-/// #[derive(Default, BorshDeserialize, BorshSerialize)]
+/// #[near(contract_state)]
+/// #[derive(Default)]
 /// pub struct Contract;
 ///
-/// #[near_bindgen]
+/// #[near]
 /// impl Contract {
 ///     #[handle_result]
 ///     pub fn foo(&self, text: &str) -> Result<String, Abort> {

@@ -1,6 +1,6 @@
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
-#[near_bindgen(contract_metadata(
+#[near(contract_state, contract_metadata(
     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
     link = "https://github.com/near-examples/nft-tutorial",
     standard(standard = "nep330", version = "1.1.0"),
@@ -9,7 +9,7 @@ use near_sdk::near_bindgen;
 ))]
 struct Contract {}
 
-#[near_bindgen]
+#[near]
 impl Contract {}
 
 fn main() {}

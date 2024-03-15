@@ -40,18 +40,17 @@
 
 ## Example
 
-Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
+Wrap a struct in `#[near]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
-use near_sdk::{near_bindgen, env};
+use near_sdk::{near, env};
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
+#[derive(Default)]
 pub struct StatusMessage {
     records: HashMap<AccountId, String>,
 }
 
-#[near_bindgen]
+#[near]
 impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         let account_id = env::signer_account_id();
@@ -97,7 +96,7 @@ to see various usages of cross contract calls, including **system-level actions*
 We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
 
 ```rust
-#[near_bindgen]
+#[near]
 impl StatusMessage {
     #[init]
     pub fn new(user: String, status: String) -> Self {
@@ -119,9 +118,8 @@ impl Default for StatusMessage {
 ```
 You can also prohibit `Default` trait initialization by using `near_sdk::PanicOnDefault` helper macro. E.g.:
 ```rust
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
+#[derive(PanicOnDefault)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
@@ -183,15 +181,13 @@ The general workflow is the following:
 2. Crate needs to have one `pub` struct that will represent the smart contract itself:
     * The struct needs to implement `Default` trait which
     NEAR will use to create the initial state of the contract upon its first usage;
-    * The struct also needs to implement `BorshSerialize` and `BorshDeserialize` traits which NEAR will use to save/load contract's internal state;
 
    Here is an example of a smart contract struct:
    ```rust
-   use near_sdk::{near_bindgen, env};
+   use near_sdk::{near, env};
 
-   #[near_bindgen]
-   #[derive(Default, BorshSerialize, BorshDeserialize)]
-   #[borsh(crate = "near_sdk::borsh")]
+   #[near(contract_state)]
+   #[derive(Default)]
    pub struct MyContract {
        data: HashMap<u64, u64>
    }
@@ -200,12 +196,12 @@ The general workflow is the following:
 3. Define methods that NEAR will expose as smart contract methods:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
-    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) happens;
+    * Decorate the `impl` section with `#[near]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) happens;
     * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
 
     Here is an example of smart contract methods:
     ```rust
-    #[near_bindgen]
+    #[near]
     impl MyContract {
         pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
             self.data.insert(key)
