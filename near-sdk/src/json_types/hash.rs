@@ -1,11 +1,12 @@
 use crate::CryptoHash;
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use bs58::decode::Error as B58Error;
 use serde::{de, ser, Deserialize};
 use std::convert::TryFrom;
 
+#[near(inside_nearsdk)]
 #[derive(
-    Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
+    Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default,
 )]
 pub struct Base58CryptoHash(CryptoHash);
 

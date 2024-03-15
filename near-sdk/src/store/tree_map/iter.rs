@@ -998,7 +998,8 @@ impl<K> Find<K> {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, Copy, Clone)]
+#[near(inside_nearsdk)]
+#[derive(Debug, Copy, Clone)]
 enum FindUnbounded {
     /// Find the first element in the given root
     First,

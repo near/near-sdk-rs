@@ -92,7 +92,7 @@ where
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 struct Tree<K>
 where
     K: BorshSerialize,
@@ -114,7 +114,8 @@ where
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
+#[near(inside_nearsdk)]
+#[derive(Clone, Debug)]
 struct Node<K> {
     key: K,                     // key stored in a node
     lft: Option<FreeListIndex>, // left link of a node

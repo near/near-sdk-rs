@@ -59,7 +59,7 @@ where
 /// *a = "new string".to_string();
 /// assert_eq!(a.get(), "new string");
 /// ```
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct Lazy<T>
 where
     T: BorshSerialize,

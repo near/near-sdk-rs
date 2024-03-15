@@ -6,6 +6,7 @@ pub use iter::Iter;
 
 use crate::collections::{append, append_slice, Vector};
 use crate::{env, IntoStorageKey};
+use near_sdk_macros::near;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
@@ -15,7 +16,7 @@ const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An iterable implementation of a map that stores its content directly on the trie.
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct UnorderedMap<K, V> {
     key_index_prefix: Vec<u8>,
     keys: Vector<K>,

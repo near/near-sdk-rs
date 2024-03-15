@@ -31,7 +31,7 @@ use crate::IntoStorageKey;
 /// assert_eq!(a.get(), &Some("new new value".to_owned()));
 /// ```
 /// [`Deref`]: std::ops::Deref
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct LazyOption<T>
 where
     T: BorshSerialize,
