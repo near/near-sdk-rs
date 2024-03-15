@@ -3,12 +3,7 @@ use serde::{Deserialize, Deserializer, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[near(inside_nearsdk, serializers=[borsh, json])]
 pub struct Base64VecU8(
     #[serde(
