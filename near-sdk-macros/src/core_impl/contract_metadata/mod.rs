@@ -73,7 +73,7 @@ impl ContractMetadata {
     }
 }
 
-/// Allows for the injection of the contract source metadata infomation into the contract code as
+/// Allows for the injection of the contract source metadata information into the contract code as
 /// a constant.
 pub(crate) fn contract_source_metadata_const(attr: proc_macro::TokenStream) -> TokenStream {
     if attr.to_string().is_empty() {
