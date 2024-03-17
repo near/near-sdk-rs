@@ -190,7 +190,7 @@ async fn test_storage_deposit_refunds_excessive_deposit() -> anyhow::Result<()> 
     }
     let storage_balance_bounds: Option<StorageBalanceOf> = contract
         .call("storage_balance_of")
-        .args_json(near_sdk::serde_json::json!({"account_id": "non-registerred-account"}))
+        .args_json(near_sdk::serde_json::json!({"account_id": "non-registered-account"}))
         .view()
         .await?
         .json()?;
