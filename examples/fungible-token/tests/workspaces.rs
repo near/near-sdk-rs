@@ -180,7 +180,7 @@ async fn test_storage_deposit_refunds_excessive_deposit() -> anyhow::Result<()> 
     assert_eq!(storage_balance_bounds.min, minimal_deposit.as_yoctonear().into());
     assert_eq!(storage_balance_bounds.max, minimal_deposit.as_yoctonear().into());
 
-    // Check that a non-registerred account does not have storage balance
+    // Check that a non-registered account does not have storage balance
     //
     #[derive(near_sdk::serde::Serialize, near_sdk::serde::Deserialize)]
     #[serde(crate = "near_sdk::serde")]
