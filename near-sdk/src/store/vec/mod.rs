@@ -193,7 +193,7 @@ where
         self.len == 0
     }
 
-    /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
+    /// Create new vector with zero elements. Prefixes storage access with the prefix provided.
     ///
     /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
     /// storing and looking up values in storage to ensure no collisions with other collections.

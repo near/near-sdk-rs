@@ -35,7 +35,7 @@ pub struct ArgInfo {
     pub bindgen_ty: BindgenArgType,
     /// Type of serializer that we use for this argument.
     pub serializer_ty: SerializerType,
-    /// Spans of all occurences of the `Self` token, if any.
+    /// Spans of all occurrences of the `Self` token, if any.
     pub self_occurrences: Vec<Span>,
     /// The original `PatType` of the argument.
     pub original: PatType,

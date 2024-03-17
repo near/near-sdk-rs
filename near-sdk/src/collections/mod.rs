@@ -32,7 +32,7 @@
 //! ```
 //!
 //! The efficiency of `LookupMap` comes at the cost, since it has fewer methods than `HashMap` and is not
-//! that seemlessly integrated with the rest of the Rust standard library.
+//! that seamlessly integrated with the rest of the Rust standard library.
 
 mod legacy_tree_map;
 #[allow(deprecated)]
