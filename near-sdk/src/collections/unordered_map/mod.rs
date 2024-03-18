@@ -6,8 +6,8 @@ pub use iter::Iter;
 
 use crate::collections::{append, append_slice, Vector};
 use crate::{env, IntoStorageKey};
-use near_sdk_macros::near;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use std::mem::size_of;
 
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";

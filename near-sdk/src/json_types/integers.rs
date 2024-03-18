@@ -9,16 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
         #[near(inside_nearsdk)]
-        #[derive(
-            Debug,
-            Clone,
-            Copy,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            Default,
-        )]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {

@@ -4,6 +4,7 @@
 use std::marker::PhantomData;
 
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use borsh;
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -15,12 +16,59 @@ const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.
 
+// #[cfg(feature = "abi")]
+// #[derive(crate::borsh::BorshSchema)]
+// #[derive(crate::borsh::BorshSerialize,crate::borsh::BorshDeserialize)]
+// #[borsh(crate = "crate :: borsh")]
+// pub struct LookupMap<K, V> {
+//     key_prefix: Vec<u8>,
+//     #[borsh(skip)]
+//     el: PhantomData<(K, V)>,
+// }
+
+// #[cfg(not(feature = "abi"))]
+// #[derive(BorshSerialize,BorshDeserialize)]
+// #[borsh(crate = "crate :: borsh")]
+
 #[near(inside_nearsdk)]
 pub struct LookupMap<K, V> {
     key_prefix: Vec<u8>,
     #[borsh(skip)]
     el: PhantomData<(K, V)>,
 }
+
+
+// #[derive(crate :: NearSchema)]
+// #[derive(
+//     crate :: borsh :: BorshSerialize,
+//     crate :: borsh ::
+//  BorshDeserialize,
+// )]
+// #[inside_nearsdk]
+// #[borsh(crate = "crate :: borsh")]
+// #[abi(borsh)]
+// #[doc = " An non-iterable implementation of a map that stores its content directly on the trie."]
+// pub struct LookupMap<K, V> {
+//     key_prefix: Vec<u8>,
+//     #[borsh(skip)]
+//     el: PhantomData<(K, V)>,
+// }
+
+// #[derive(crate :: borsh :: BorshSchema)]
+// #[borsh(crate = "crate :: borsh")]
+// #[allow(dead_code)]
+// pub struct LookupMap<K, V> {
+//     key_prefix: Vec<u8>,
+//     #[borsh(skip)]
+//     el: PhantomData<(K, V)>,
+// }
+
+// #[near(inside_nearsdk)]
+// pub struct LookupMap<K, V> {
+//     key_prefix: Vec<u8>,
+//     #[borsh(skip)]
+//     el: PhantomData<(K, V)>,
+// }
 
 impl<K, V> LookupMap<K, V> {
     /// Create a new map. Use `key_prefix` as a unique prefix for keys.
