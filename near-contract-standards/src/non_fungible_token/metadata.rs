@@ -1,14 +1,16 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{require, near, NearSchema, MyNearSchema};
+use near_sdk::{require, near, NearSchema};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
 /// Metadata for the NFT contract itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[near(serializers=[borsh, json])]
+#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
 pub struct NFTContractMetadata {
     pub spec: String,              // required, essentially a version like "nft-1.0.0"
     pub name: String,              // required, ex. "Mosaics"
@@ -19,37 +21,7 @@ pub struct NFTContractMetadata {
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 }
 
-#[cfg(feature = "abi")]
-#[derive(
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    BorshDeserialize,
-    BorshSerialize,
-    MyNearSchema,
-)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct TokenMetadata {
-    pub title: Option<String>,
-    pub description: Option<String>,
-    pub media: Option<String>,
-    pub media_hash: Option<Base64VecU8>,
-    pub copies: Option<u64>,
-    pub issued_at: Option<String>,
-    pub expires_at: Option<String>,
-    pub starts_at: Option<String>,
-    pub updated_at: Option<String>,
-    pub extra: Option<String>,
-    pub reference: Option<String>,
-    pub reference_hash: Option<Base64VecU8>,
-}
-
-#[cfg(not(feature = "abi"))]
+#[cfg_attr(feature = "abi", derive(JsonSchema))]
 #[derive(
     Debug,
     Clone,
