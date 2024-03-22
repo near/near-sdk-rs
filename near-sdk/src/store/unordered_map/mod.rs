@@ -11,6 +11,8 @@ use std::{fmt, mem};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use near_sdk_macros::near;
+use near_sdk_macros::NearSchema;
+use near_sdk_macros::my_tmp_macro;
 
 use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
@@ -100,11 +102,40 @@ where
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
-#[near(inside_nearsdk)]
+#[my_tmp_macro]
 struct ValueAndIndex<V> {
     value: V,
     key_index: FreeListIndex,
 }
+
+// #[cfg(feature = "abi")]
+// #[derive(crate::borsh::BorshSchema)]              
+// #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+// #[borsh(crate = "crate :: borsh")]
+// // #[derive(crate :: borsh :: BorshSerialize, crate :: borsh :: BorshDeserialize)] 
+// struct ValueAndIndex<V> {
+//     value: V,
+//     key_index: FreeListIndex,
+// }
+
+// #[cfg(not(feature = "abi"))]             
+// #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+// #[borsh(crate = "crate :: borsh")]
+// // #[derive(crate :: borsh :: BorshSerialize, crate :: borsh :: BorshDeserialize)] 
+// struct ValueAndIndex<V> {
+//     value: V,
+//     key_index: FreeListIndex,
+// }
+
+// #[cfg(not(feature = "abi"))]
+// // #[derive(crate :: borsh :: BorshSchema)]
+// // #[derive(crate::borsh::BorshSchema, crate :: borsh :: BorshSerialize, crate :: borsh ::BorshDeserialize)] 
+// // #[borsh(crate = "crate::borsh")]
+// #[derive(BorshSerialize, BorshDeserialize)] 
+// struct ValueAndIndex<V> {
+//     value: V,
+//     key_index: FreeListIndex,
+// }
 
 //? Manual implementations needed only because borsh derive is leaking field types
 // https://github.com/near/borsh-rs/issues/41

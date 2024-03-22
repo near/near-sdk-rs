@@ -35,6 +35,55 @@ impl FromMeta for IdentsVector {
     }
 }
 
+#[proc_macro_attribute]
+pub fn my_tmp_macro(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let expanded;
+    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        if (input.ident.eq("ValueAndIndex")) {
+            // #[cfg(feature = "abi")]
+            {
+                expanded = quote! {
+                    #[cfg(feature = "abi")]
+                    #[derive(crate :: borsh :: BorshSchema)]              
+                    #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+                    #[borsh(crate = "crate :: borsh")]
+                    #input
+
+                    #[cfg(not(feature = "abi"))]          
+                    #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+                    #[borsh(crate = "crate :: borsh")]
+                    #input
+                };
+            }
+            // #[cfg(not(feature = "abi"))]
+            // {
+            //     expanded = quote! {   
+            //         #[cfg(not(feature = "abi"))]          
+            //         #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+            //         #[borsh(crate = "crate :: borsh")]
+            //         #input
+            //     };
+            // }
+        } else if (input.ident.eq("TokenMetadata")) {
+            expanded = quote! {
+                // #[cfg(feature = "abi")]
+                // #[derive(crate::schemars::JsonSchema)] 
+                #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, near_sdk::NearSchema)]
+                #[serde(crate = "near_sdk::serde")]
+                #[borsh(crate = "near_sdk::borsh")]
+                // #[schemars(crate = "near_sdk::schemars")]
+                #input
+            };
+        } else {
+            expanded = quote! {};
+        }
+        TokenStream::from(expanded)
+    } else {
+        TokenStream::from(quote! {})
+    }
+
+}
+
 #[derive(FromMeta)]
 struct NearMacroArgs {
     serializers: Option<IdentsVector>,
