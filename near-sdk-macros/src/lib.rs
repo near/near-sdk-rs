@@ -190,7 +190,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         abis = quote! { #[abi(json)] };
     }
 
-    // let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+    let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
 
     let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
@@ -665,23 +665,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
         // <unspecified> or #[abi(json)]
         let json_schema = json_schema || !borsh_schema;
 
-        let derive = {
-            let mut derive = quote! {};
-            if borsh_schema {
-                derive = quote! {
-                    #[derive(#near_sdk_crate::borsh::BorshSchema)]
-                    #[borsh(crate = #string_borsh_crate)]
-                };
-            }
-            if json_schema {
-                derive = quote! {
-                    #derive
-                    #[derive(#near_sdk_crate::schemars::JsonSchema)]
-                    #[schemars(crate = #string_schemars_crate)]
-                };
-            }
-            derive
-        };
+        let derive = get_schema_derive(json_schema, borsh_schema, near_sdk_crate.clone(), true);
 
         let input_ident = &input.ident;
 
