@@ -190,30 +190,46 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         abis = quote! { #[abi(json)] };
     }
 
-    let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+    // let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
 
-    let mut expanded;
+    let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        expanded = quote! {
-            #near_bindgen_annotation
-            #schema_derive
-            #borsh
-            #json
-            #input
-        };
+        #[cfg(feature = "abi")]
+        {
+            expanded = quote! {
+                #near_bindgen_annotation
+                #[derive(#near_sdk_crate::NearSchema)]
+                #inside_nearsdk_attr
+                #borsh
+                #json
+                #abis
+                #input
+            };
+        }
+        
+        #[cfg(not(feature = "abi"))]
+        {
+            expanded = quote! {
+                #near_bindgen_annotation
+                #borsh
+                #json
+                #input
+            };
+        }
 
         // eprintln!("expanded: {}", expanded.to_string());
+        // eprintln!("")
 
-        expanded = quote! {
-            #near_bindgen_annotation
-            // #schema_derive
-            #[derive(#near_sdk_crate::NearSchema)]
-            #inside_nearsdk_attr
-            #borsh
-            #json
-            #abis
-            #input
-        };
+        // expanded = quote! {
+        //     #near_bindgen_annotation
+        //     // #schema_derive
+        //     #[derive(#near_sdk_crate::NearSchema)]
+        //     #inside_nearsdk_attr
+        //     #borsh
+        //     #json
+        //     #abis
+        //     #input
+        // };
 
         // eprintln!("expanded: {}", expanded.to_string());
 
@@ -739,6 +755,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
 }
 
 
+#[allow(dead_code)]
 fn get_schema_derive(json_schema: bool, borsh_schema: bool, near_sdk_crate: proc_macro2::TokenStream, need_borsh_crate: bool) -> proc_macro2::TokenStream {
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_schemars_crate = quote! {#near_sdk_crate::schemars}.to_string();
@@ -747,12 +764,12 @@ fn get_schema_derive(json_schema: bool, borsh_schema: bool, near_sdk_crate: proc
         let mut derive = quote! {};
         if borsh_schema {
             derive = quote! {
-                #[cfg_attr(feature = "abi", derive(#near_sdk_crate::borsh::BorshSchema))]
+                #[derive(#near_sdk_crate::borsh::BorshSchema)]
             };
             if need_borsh_crate {
                 derive = quote! {
                     #derive
-                    #[cfg_attr(feature = "abi", borsh(crate = #string_borsh_crate))]
+                    #[borsh(crate = #string_borsh_crate)]
                 };
             
             }
@@ -760,8 +777,8 @@ fn get_schema_derive(json_schema: bool, borsh_schema: bool, near_sdk_crate: proc
         if json_schema {
             derive = quote! {
                 #derive
-                #[cfg_attr(feature = "abi", derive(#near_sdk_crate::schemars::JsonSchema))]
-                #[cfg_attr(feature = "abi", schemars(crate = #string_schemars_crate))]
+                #[derive(#near_sdk_crate::schemars::JsonSchema)]
+                #[schemars(crate = #string_schemars_crate)]
             };
         }
         derive
