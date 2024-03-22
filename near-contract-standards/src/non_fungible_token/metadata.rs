@@ -1,7 +1,7 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{my_tmp_macro, near, require};
+use near_sdk::{near, require};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
@@ -21,7 +21,7 @@ pub struct NFTContractMetadata {
     pub reference_hash: Option<Base64VecU8>, // Base64-encoded sha256 hash of JSON from reference field. Required if `reference` is included.
 }
 
-#[my_tmp_macro]
+#[near(serializers=[borsh, json])]
 #[derive(
     Debug,
     Clone,
@@ -43,6 +43,7 @@ pub struct TokenMetadata {
     pub reference: Option<String>,
     pub reference_hash: Option<Base64VecU8>,
 }
+
 
 /// Metadata on the individual token level.
 // #[derive(Debug, Clone, Default, PartialEq, Eq)]

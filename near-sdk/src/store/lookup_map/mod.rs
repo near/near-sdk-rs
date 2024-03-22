@@ -6,6 +6,7 @@ use std::fmt;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
+use near_sdk_macros::near;
 
 use super::ERR_NOT_EXIST;
 use crate::store::key::{Identity, ToKey};
@@ -76,7 +77,7 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 ///
 /// [`with_hasher`]: Self::with_hasher
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct LookupMap<K, V, H = Identity>
 where
     K: BorshSerialize + Ord,

@@ -11,8 +11,6 @@ use std::{fmt, mem};
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use near_sdk_macros::near;
-use near_sdk_macros::NearSchema;
-use near_sdk_macros::my_tmp_macro;
 
 use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
@@ -102,7 +100,7 @@ where
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
-#[my_tmp_macro]
+#[near(inside_nearsdk)]
 struct ValueAndIndex<V> {
     value: V,
     key_index: FreeListIndex,

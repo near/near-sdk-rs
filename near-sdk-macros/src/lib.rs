@@ -35,55 +35,6 @@ impl FromMeta for IdentsVector {
     }
 }
 
-#[proc_macro_attribute]
-pub fn my_tmp_macro(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let expanded;
-    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        if (input.ident.eq("ValueAndIndex")) {
-            // #[cfg(feature = "abi")]
-            {
-                expanded = quote! {
-                    #[cfg(feature = "abi")]
-                    #[derive(crate :: borsh :: BorshSchema)]              
-                    #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
-                    #[borsh(crate = "crate :: borsh")]
-                    #input
-
-                    #[cfg(not(feature = "abi"))]          
-                    #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
-                    #[borsh(crate = "crate :: borsh")]
-                    #input
-                };
-            }
-            // #[cfg(not(feature = "abi"))]
-            // {
-            //     expanded = quote! {   
-            //         #[cfg(not(feature = "abi"))]          
-            //         #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
-            //         #[borsh(crate = "crate :: borsh")]
-            //         #input
-            //     };
-            // }
-        } else if (input.ident.eq("TokenMetadata")) {
-            expanded = quote! {
-                // #[cfg(feature = "abi")]
-                // #[derive(crate::schemars::JsonSchema)] 
-                #[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize, near_sdk::NearSchema)]
-                #[serde(crate = "near_sdk::serde")]
-                #[borsh(crate = "near_sdk::borsh")]
-                // #[schemars(crate = "near_sdk::schemars")]
-                #input
-            };
-        } else {
-            expanded = quote! {};
-        }
-        TokenStream::from(expanded)
-    } else {
-        TokenStream::from(quote! {})
-    }
-
-}
-
 #[derive(FromMeta)]
 struct NearMacroArgs {
     serializers: Option<IdentsVector>,
@@ -246,13 +197,19 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(feature = "abi")]
         {
             expanded = quote! {
+                #[cfg(not(target_arch = "wasm32"))]
                 #near_bindgen_annotation
-                #[derive(#near_sdk_crate::NearSchema)]
-                #inside_nearsdk_attr
+                #schema_derive
                 #borsh
                 #json
-                #abis
                 #input
+
+                #[cfg(target_arch = "wasm32")]
+                #near_bindgen_annotation
+                #borsh
+                #json
+                #input
+                
             };
         }
         
@@ -265,35 +222,35 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #input
             };
         }
-
-        // eprintln!("expanded: {}", expanded.to_string());
-        // eprintln!("")
-
-        // expanded = quote! {
-        //     #near_bindgen_annotation
-        //     // #schema_derive
-        //     #[derive(#near_sdk_crate::NearSchema)]
-        //     #inside_nearsdk_attr
-        //     #borsh
-        //     #json
-        //     #abis
-        //     #input
-        // };
-
-        // eprintln!("expanded: {}", expanded.to_string());
-
-
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        expanded = quote! {
-            #near_bindgen_annotation
-            // #schema_derive
-            #[derive(#near_sdk_crate::NearSchema)]
-            #inside_nearsdk_attr
-            #borsh
-            #json
-            #abis
-            #input
-        };
+        #[cfg(feature = "abi")]
+        {
+            expanded = quote! {
+                #[cfg(not(target_arch = "wasm32"))]
+                #near_bindgen_annotation
+                #schema_derive
+                #borsh
+                #json
+                #input
+
+                #[cfg(target_arch = "wasm32")]
+                #near_bindgen_annotation
+                #borsh
+                #json
+                #input
+                
+            };
+        }
+        
+        #[cfg(not(feature = "abi"))]
+        {
+            expanded = quote! {
+                #near_bindgen_annotation
+                #borsh
+                #json
+                #input
+            };
+        }
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         expanded = quote! {
             #[#near_sdk_crate::near_bindgen]
@@ -708,8 +665,6 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             } else {
                 quote! {::near_sdk}
             };
-        let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
-        let string_schemars_crate = quote! {#near_sdk_crate::schemars}.to_string();
 
         // <unspecified> or #[abi(json)]
         let json_schema = json_schema || !borsh_schema;
@@ -769,7 +724,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        TokenStream::from(quote! {
+        let x = quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
@@ -783,7 +738,9 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                     #borsh_impl
                 };
             };
-        })
+        };
+        // eprintln!("x: {}", x.to_string());
+        TokenStream::from(x)
     }
 }
 
