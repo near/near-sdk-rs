@@ -547,7 +547,7 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+    use borsh::{to_vec, BorshDeserialize};
     use rand::{Rng, RngCore, SeedableRng};
 
     use super::Vector;
@@ -686,8 +686,10 @@ mod tests {
         // * The storage is reused in the second part of this test, need to flush
         vec.flush();
 
-        use borsh::{BorshDeserialize, BorshSerialize};
-        #[derive(Debug, BorshSerialize, BorshDeserialize)]
+        use near_sdk_macros::near;
+
+        #[near(inside_nearsdk)]
+        #[derive(Debug)]
         struct TestType(u64);
 
         let deserialize_only_vec =
