@@ -1,6 +1,7 @@
 mod impls;
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
 use crate::env;

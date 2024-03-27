@@ -1,3 +1,4 @@
+use near_sdk_macros::near;
 use std::ops::Bound;
 use std::vec::Vec;
 use std::{borrow::Borrow, iter::FusedIterator};

@@ -14,6 +14,8 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::ops::RangeBounds;
 
+use near_sdk_macros::near;
+
 type NodeAndIndex<'a, K> = (FreeListIndex, &'a Node<K>);
 
 fn expect<T>(val: Option<T>) -> T {

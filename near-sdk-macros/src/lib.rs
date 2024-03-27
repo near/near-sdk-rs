@@ -136,35 +136,28 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let new_expr = &mut old_expr.clone();
                 match &mut *new_expr {
                     Expr::Call(ref mut call_expr) => {
-                        match &mut *call_expr.func {
-                            Expr::Path(ref mut path) => {
-                                if let Some(ident) = path.path.get_ident() {
-                                    if ident.to_string() == "json" {
-                                        has_json = true;
-                                        path.path =
-                                            syn::Path::from(Ident::new("serde", Span::call_site()));
-                                        call_expr
-                                            .args
-                                            .push(parse_quote! {crate=#string_serde_crate});
-                                    } else if ident.to_string() == "borsh" {
-                                        has_borsh = true;
-                                        call_expr
-                                            .args
-                                            .push(parse_quote! {crate=#string_borsh_crate});
-                                    }
+                        if let Expr::Path(ref mut path) = &mut *call_expr.func {
+                            if let Some(ident) = path.path.get_ident() {
+                                if *ident == "json" {
+                                    has_json = true;
+                                    path.path =
+                                        syn::Path::from(Ident::new("serde", Span::call_site()));
+                                    call_expr.args.push(parse_quote! {crate=#string_serde_crate});
+                                } else if *ident == "borsh" {
+                                    has_borsh = true;
+                                    call_expr.args.push(parse_quote! {crate=#string_borsh_crate});
                                 }
                             }
-                            _ => (),
                         }
                         borsh_attr = quote! {#[#new_expr]};
                     }
                     Expr::Path(ref mut path_expr) => {
                         if let Some(ident) = path_expr.path.get_ident() {
-                            if ident.to_string() == "json" {
+                            if *ident == "json" {
                                 json_attr = quote! {serde(crate=#string_serde_crate)};
                                 has_json = true;
                             }
-                            if ident.to_string() == "borsh" {
+                            if *ident == "borsh" {
                                 has_borsh = true;
                                 borsh_attr = quote! {#[borsh(crate=#string_borsh_crate)]};
                             }
@@ -772,28 +765,25 @@ fn get_schema_derive(
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_schemars_crate = quote! {#near_sdk_crate::schemars}.to_string();
 
-    let derive = {
-        let mut derive = quote! {};
-        if borsh_schema {
-            derive = quote! {
-                #[derive(#near_sdk_crate::borsh::BorshSchema)]
-            };
-            if need_borsh_crate {
-                derive = quote! {
-                    #derive
-                    #[borsh(crate = #string_borsh_crate)]
-                };
-            }
-        }
-        if json_schema {
+    let mut derive = quote! {};
+    if borsh_schema {
+        derive = quote! {
+            #[derive(#near_sdk_crate::borsh::BorshSchema)]
+        };
+        if need_borsh_crate {
             derive = quote! {
                 #derive
-                #[derive(#near_sdk_crate::schemars::JsonSchema)]
-                #[schemars(crate = #string_schemars_crate)]
+                #[borsh(crate = #string_borsh_crate)]
             };
         }
-        derive
-    };
+    }
+    if json_schema {
+        derive = quote! {
+            #derive
+            #[derive(#near_sdk_crate::schemars::JsonSchema)]
+            #[schemars(crate = #string_schemars_crate)]
+        };
+    }
     derive
 }
 
