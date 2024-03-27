@@ -14,22 +14,24 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
-#[derive(Debug)]
-struct IdentsVector {
-    vec: Vec<Ident>,
+#[derive(Debug, Clone)]
+struct Serializers {
+    vec: Vec<Expr>,
 }
 
-impl FromMeta for IdentsVector {
+impl FromMeta for Serializers {
     fn from_expr(expr: &syn::Expr) -> Result<Self, darling::Error> {
         match expr {
-            syn::Expr::Array(expr_array) => Ok(IdentsVector {
+
+            syn::Expr::Array(expr_array) => {
+                Ok(Serializers {
                 vec: expr_array
                     .elems
                     .iter()
-                    .map(<Ident as FromMeta>::from_expr)
+                    .map(<Expr as FromMeta>::from_expr)
                     .map(|x| x.unwrap())
                     .collect::<Vec<_>>(),
-            }),
+            })},
             _ => Err(Error::unexpected_expr_type(expr)),
         }
     }
@@ -37,7 +39,7 @@ impl FromMeta for IdentsVector {
 
 #[derive(FromMeta)]
 struct NearMacroArgs {
-    serializers: Option<IdentsVector>,
+    serializers: Option<Serializers>,
     contract_state: Option<bool>,
     contract_metadata: Option<core_impl::ContractMetadata>,
     inside_nearsdk: Option<bool>,
@@ -115,32 +117,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let mut has_borsh = false;
-    let mut has_json = false;
-
-    match near_macro_args.serializers {
-        Some(serializers) => {
-            for arg in serializers.vec {
-                if arg == "borsh" {
-                    has_borsh = true;
-                } else if arg == "json" {
-                    has_json = true;
-                } else {
-                    return TokenStream::from(
-                        syn::Error::new(
-                            Span::call_site(),
-                            format!("Serializer of near macro is invalid: {}", arg),
-                        )
-                        .to_compile_error(),
-                    );
-                }
-            }
-        }
-        None => {
-            has_borsh = true;
-        }
-    }
-
     let near_sdk_crate = if near_macro_args.inside_nearsdk.unwrap_or(false) {
         quote! {crate}
     } else {
@@ -149,13 +125,91 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
 
+    let mut has_borsh = false;
+    let mut has_json = false;
+
+    let mut borsh_attr = quote!{};
+    let mut json_attr = quote!{};
+
+    // eprintln!("baza: {}", quote!{#attr2});    
+
+    match near_macro_args.serializers {
+        Some(serializers) => {
+            let attr2 = serializers.clone();
+
+            
+    attr2.vec.iter().for_each(|x| {
+        // eprintln!("x: {:?}", x);
+        let mut t_obj = x.clone();
+        let t = &mut t_obj;
+
+        match &mut *t {
+            Expr::Call(ref mut call_expr) => {
+                match &mut *call_expr.func {
+                    Expr::Path(ref mut path) => {
+                        if let Some(ident) = path.path.get_ident() {
+                            if ident.to_string() == "json" {
+                                has_json = true;
+                                path.path = syn::Path::from(Ident::new("serde", Span::call_site()));
+                            } else if ident.to_string() == "borsh" {
+                                has_borsh = true;
+                                call_expr.args.push(parse_quote!{crate=#string_borsh_crate});
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+                borsh_attr = quote!{#[#t]};
+            },
+            Expr::Path(ref mut path_expr) => {
+                if let Some(ident) = path_expr.path.get_ident() {
+                    if ident.to_string() == "json" {
+                        json_attr = quote!{serde(crate=#string_serde_crate)};
+                        has_json = true;
+                    }
+                    if ident.to_string() == "borsh" {
+                        has_borsh = true;
+                        borsh_attr = quote!{#[borsh(crate=#string_borsh_crate)]};
+                    }
+                }
+            },
+            _ => {
+                // eprintln!("not call: {:?}", t);
+            }
+        }
+        // eprintln!("baza: {}", quote!{#borsh_attr});
+        // eprintln!("baza: {}", quote!{#json_attr});
+
+    });
+            // for arg in serializers.vec {
+            //     if arg == "borsh" {
+            //         has_borsh = true;
+            //     } else if arg == "json" {
+            //         has_json = true;
+            //     } else {
+            //         return TokenStream::from(
+            //             syn::Error::new(
+            //                 Span::call_site(),
+            //                 format!("Serializer of near macro is invalid: {}", arg),
+            //             )
+            //             .to_compile_error(),
+            //         );
+            //     }
+            // }
+        }
+        None => {
+            has_borsh = true;
+            borsh_attr = quote!{#[borsh(crate = #string_borsh_crate)]};
+        }
+    }
+
     let use_borsh_crate = near_macro_args.use_borsh_crate.unwrap_or(true);
 
     let borsh = if has_borsh {
         if use_borsh_crate {
             quote! {
                 #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
-                #[borsh(crate = #string_borsh_crate)]
+                #borsh_attr
             }
         } else {
             quote! {

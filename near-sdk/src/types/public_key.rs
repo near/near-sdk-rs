@@ -4,10 +4,9 @@ use std::{convert::TryFrom, io};
 use near_sdk_macros::near;
 
 /// PublicKey curve
-#[near(inside_nearsdk, use_borsh_crate=false)]
+#[near(inside_nearsdk, use_borsh_crate=true, serializers=[borsh(use_discriminant = true)])]
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
 #[repr(u8)]
-#[borsh(use_discriminant = true)]
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
