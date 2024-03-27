@@ -4,7 +4,7 @@ use std::{convert::TryFrom, io};
 use near_sdk_macros::near;
 
 /// PublicKey curve
-#[near(inside_nearsdk, use_borsh_crate=true, serializers=[borsh(use_discriminant = true)])]
+#[near(inside_nearsdk, serializers=[borsh(use_discriminant = true)])]
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
 #[repr(u8)]
 pub enum CurveType {

@@ -43,7 +43,6 @@ struct NearMacroArgs {
     contract_state: Option<bool>,
     contract_metadata: Option<core_impl::ContractMetadata>,
     inside_nearsdk: Option<bool>,
-    use_borsh_crate: Option<bool>,
 }
 
 /// This attribute macro is used to enhance the near_bindgen macro.
@@ -203,18 +202,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let use_borsh_crate = near_macro_args.use_borsh_crate.unwrap_or(true);
-
     let borsh = if has_borsh {
-        if use_borsh_crate {
-            quote! {
-                #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
-                #borsh_attr
-            }
-        } else {
-            quote! {
-                #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
-            }
+        quote! {
+            #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
+            #borsh_attr
         }
     } else {
         quote! {}
