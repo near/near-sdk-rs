@@ -830,7 +830,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
             .to_compile_error(),
         )
     }
-}
+} 
 
 /// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
 /// It allows the type to be passed as a unique prefix for persistent collections.
