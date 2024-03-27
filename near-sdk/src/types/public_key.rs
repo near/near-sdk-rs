@@ -4,7 +4,7 @@ use std::{convert::TryFrom, io};
 use near_sdk_macros::near;
 
 /// PublicKey curve
-#[near(inside_nearsdk)]
+#[near(inside_nearsdk, use_borsh_crate=false)]
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
 #[repr(u8)]
 #[borsh(use_discriminant = true)]

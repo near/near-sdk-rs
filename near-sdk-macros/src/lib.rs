@@ -12,7 +12,7 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse_quote, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
 #[derive(Debug)]
 struct IdentsVector {
@@ -41,6 +41,7 @@ struct NearMacroArgs {
     contract_state: Option<bool>,
     contract_metadata: Option<core_impl::ContractMetadata>,
     inside_nearsdk: Option<bool>,
+    use_borsh_crate: Option<bool>,
 }
 
 /// This attribute macro is used to enhance the near_bindgen macro.
@@ -148,16 +149,18 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
 
-    let inside_nearsdk_attr = if near_macro_args.inside_nearsdk.unwrap_or(false) {
-        quote! {#[inside_nearsdk]}
-    } else {
-        quote! {}
-    };
+    let use_borsh_crate = near_macro_args.use_borsh_crate.unwrap_or(true);
 
     let borsh = if has_borsh {
-        quote! {
-            #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
-            #[borsh(crate = #string_borsh_crate)]
+        if use_borsh_crate {
+            quote! {
+                #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
+                #[borsh(crate = #string_borsh_crate)]
+            }
+        } else {
+            quote! {
+                #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
+            }
         }
     } else {
         quote! {}
@@ -180,15 +183,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {}
     };
-
-    let mut abis = quote! {};
-    if has_borsh && has_json {
-        abis = quote! { #[abi(borsh, json)] };
-    } else if has_borsh {
-        abis = quote! { #[abi(borsh)] };
-    } else if has_json {
-        abis = quote! { #[abi(json)] };
-    }
 
     let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
 
