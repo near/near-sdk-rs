@@ -1,7 +1,7 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
-use std::{convert::TryFrom, io};
 use near_sdk_macros::near;
+use std::{convert::TryFrom, io};
 
 /// PublicKey curve
 #[near(inside_nearsdk, serializers=[borsh(use_discriminant = true)])]

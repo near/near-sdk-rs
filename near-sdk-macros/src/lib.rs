@@ -22,16 +22,14 @@ struct Serializers {
 impl FromMeta for Serializers {
     fn from_expr(expr: &syn::Expr) -> Result<Self, darling::Error> {
         match expr {
-
-            syn::Expr::Array(expr_array) => {
-                Ok(Serializers {
+            syn::Expr::Array(expr_array) => Ok(Serializers {
                 vec: expr_array
                     .elems
                     .iter()
                     .map(<Expr as FromMeta>::from_expr)
                     .map(|x| x.unwrap())
                     .collect::<Vec<_>>(),
-            })},
+            }),
             _ => Err(Error::unexpected_expr_type(expr)),
         }
     }
@@ -127,78 +125,58 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut has_borsh = false;
     let mut has_json = false;
 
-    let mut borsh_attr = quote!{};
-    let mut json_attr = quote!{};
-
-    // eprintln!("baza: {}", quote!{#attr2});    
+    let mut borsh_attr = quote! {};
+    let mut json_attr = quote! {};
 
     match near_macro_args.serializers {
         Some(serializers) => {
             let attr2 = serializers.clone();
 
-            
-    attr2.vec.iter().for_each(|x| {
-        // eprintln!("x: {:?}", x);
-        let mut t_obj = x.clone();
-        let t = &mut t_obj;
-
-        match &mut *t {
-            Expr::Call(ref mut call_expr) => {
-                match &mut *call_expr.func {
-                    Expr::Path(ref mut path) => {
-                        if let Some(ident) = path.path.get_ident() {
+            attr2.vec.iter().for_each(|old_expr| {
+                let new_expr = &mut old_expr.clone();
+                match &mut *new_expr {
+                    Expr::Call(ref mut call_expr) => {
+                        match &mut *call_expr.func {
+                            Expr::Path(ref mut path) => {
+                                if let Some(ident) = path.path.get_ident() {
+                                    if ident.to_string() == "json" {
+                                        has_json = true;
+                                        path.path =
+                                            syn::Path::from(Ident::new("serde", Span::call_site()));
+                                        call_expr
+                                            .args
+                                            .push(parse_quote! {crate=#string_serde_crate});
+                                    } else if ident.to_string() == "borsh" {
+                                        has_borsh = true;
+                                        call_expr
+                                            .args
+                                            .push(parse_quote! {crate=#string_borsh_crate});
+                                    }
+                                }
+                            }
+                            _ => (),
+                        }
+                        borsh_attr = quote! {#[#new_expr]};
+                    }
+                    Expr::Path(ref mut path_expr) => {
+                        if let Some(ident) = path_expr.path.get_ident() {
                             if ident.to_string() == "json" {
+                                json_attr = quote! {serde(crate=#string_serde_crate)};
                                 has_json = true;
-                                path.path = syn::Path::from(Ident::new("serde", Span::call_site()));
-                            } else if ident.to_string() == "borsh" {
+                            }
+                            if ident.to_string() == "borsh" {
                                 has_borsh = true;
-                                call_expr.args.push(parse_quote!{crate=#string_borsh_crate});
+                                borsh_attr = quote! {#[borsh(crate=#string_borsh_crate)]};
                             }
                         }
                     }
-                    _ => (),
+                    _ => {}
                 }
-                borsh_attr = quote!{#[#t]};
-            },
-            Expr::Path(ref mut path_expr) => {
-                if let Some(ident) = path_expr.path.get_ident() {
-                    if ident.to_string() == "json" {
-                        json_attr = quote!{serde(crate=#string_serde_crate)};
-                        has_json = true;
-                    }
-                    if ident.to_string() == "borsh" {
-                        has_borsh = true;
-                        borsh_attr = quote!{#[borsh(crate=#string_borsh_crate)]};
-                    }
-                }
-            },
-            _ => {
-                // eprintln!("not call: {:?}", t);
-            }
-        }
-        // eprintln!("baza: {}", quote!{#borsh_attr});
-        // eprintln!("baza: {}", quote!{#json_attr});
-
-    });
-            // for arg in serializers.vec {
-            //     if arg == "borsh" {
-            //         has_borsh = true;
-            //     } else if arg == "json" {
-            //         has_json = true;
-            //     } else {
-            //         return TokenStream::from(
-            //             syn::Error::new(
-            //                 Span::call_site(),
-            //                 format!("Serializer of near macro is invalid: {}", arg),
-            //             )
-            //             .to_compile_error(),
-            //         );
-            //     }
-            // }
+            });
         }
         None => {
             has_borsh = true;
-            borsh_attr = quote!{#[borsh(crate = #string_borsh_crate)]};
+            borsh_attr = quote! {#[borsh(crate = #string_borsh_crate)]};
         }
     }
 
@@ -229,6 +207,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    #[cfg(feature = "abi")]
     let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
 
     let expanded;
@@ -248,10 +227,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #borsh
                 #json
                 #input
-                
+
             };
         }
-        
+
         #[cfg(not(feature = "abi"))]
         {
             expanded = quote! {
@@ -277,10 +256,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #borsh
                 #json
                 #input
-                
+
             };
         }
-        
+
         #[cfg(not(feature = "abi"))]
         {
             expanded = quote! {
@@ -783,9 +762,13 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
     }
 }
 
-
 #[allow(dead_code)]
-fn get_schema_derive(json_schema: bool, borsh_schema: bool, near_sdk_crate: proc_macro2::TokenStream, need_borsh_crate: bool) -> proc_macro2::TokenStream {
+fn get_schema_derive(
+    json_schema: bool,
+    borsh_schema: bool,
+    near_sdk_crate: proc_macro2::TokenStream,
+    need_borsh_crate: bool,
+) -> proc_macro2::TokenStream {
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_schemars_crate = quote! {#near_sdk_crate::schemars}.to_string();
 
@@ -800,7 +783,6 @@ fn get_schema_derive(json_schema: bool, borsh_schema: bool, near_sdk_crate: proc
                     #derive
                     #[borsh(crate = #string_borsh_crate)]
                 };
-            
             }
         }
         if json_schema {

@@ -107,19 +107,19 @@ struct ValueAndIndex<V> {
 }
 
 // #[cfg(feature = "abi")]
-// #[derive(crate::borsh::BorshSchema)]              
-// #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+// #[derive(crate::borsh::BorshSchema)]
+// #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)]
 // #[borsh(crate = "crate :: borsh")]
-// // #[derive(crate :: borsh :: BorshSerialize, crate :: borsh :: BorshDeserialize)] 
+// // #[derive(crate :: borsh :: BorshSerialize, crate :: borsh :: BorshDeserialize)]
 // struct ValueAndIndex<V> {
 //     value: V,
 //     key_index: FreeListIndex,
 // }
 
-// #[cfg(not(feature = "abi"))]             
-// #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)] 
+// #[cfg(not(feature = "abi"))]
+// #[derive(crate :: borsh :: BorshSerialize, crate::borsh::BorshDeserialize)]
 // #[borsh(crate = "crate :: borsh")]
-// // #[derive(crate :: borsh :: BorshSerialize, crate :: borsh :: BorshDeserialize)] 
+// // #[derive(crate :: borsh :: BorshSerialize, crate :: borsh :: BorshDeserialize)]
 // struct ValueAndIndex<V> {
 //     value: V,
 //     key_index: FreeListIndex,
@@ -127,9 +127,9 @@ struct ValueAndIndex<V> {
 
 // #[cfg(not(feature = "abi"))]
 // // #[derive(crate :: borsh :: BorshSchema)]
-// // #[derive(crate::borsh::BorshSchema, crate :: borsh :: BorshSerialize, crate :: borsh ::BorshDeserialize)] 
+// // #[derive(crate::borsh::BorshSchema, crate :: borsh :: BorshSerialize, crate :: borsh ::BorshDeserialize)]
 // // #[borsh(crate = "crate::borsh")]
-// #[derive(BorshSerialize, BorshDeserialize)] 
+// #[derive(BorshSerialize, BorshDeserialize)]
 // struct ValueAndIndex<V> {
 //     value: V,
 //     key_index: FreeListIndex,

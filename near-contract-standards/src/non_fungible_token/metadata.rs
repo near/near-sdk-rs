@@ -7,8 +7,7 @@ use near_sdk::{near, require};
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
 
 /// Metadata for the NFT contract itself.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
 #[serde(crate = "near_sdk::serde")]
 #[borsh(crate = "near_sdk::borsh")]
 pub struct NFTContractMetadata {
@@ -22,13 +21,7 @@ pub struct NFTContractMetadata {
 }
 
 #[near(serializers=[borsh, json])]
-#[derive(
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Eq,
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TokenMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
@@ -43,7 +36,6 @@ pub struct TokenMetadata {
     pub reference: Option<String>,
     pub reference_hash: Option<Base64VecU8>,
 }
-
 
 /// Metadata on the individual token level.
 // #[derive(Debug, Clone, Default, PartialEq, Eq)]
