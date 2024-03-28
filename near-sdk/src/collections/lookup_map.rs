@@ -15,7 +15,6 @@ const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
 const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
 
 /// An non-iterable implementation of a map that stores its content directly on the trie.
-
 #[near(inside_nearsdk)]
 pub struct LookupMap<K, V> {
     key_prefix: Vec<u8>,
