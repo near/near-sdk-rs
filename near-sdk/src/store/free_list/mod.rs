@@ -56,7 +56,8 @@ where
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug)]
+#[near(inside_nearsdk)]
+#[derive(Debug)]
 enum Slot<T> {
     /// Represents a filled cell of a value in the collection.
     Occupied(T),
