@@ -126,7 +126,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut has_json = false;
 
     let mut borsh_attr = quote! {};
-    let mut json_attr = quote! {};
 
     match near_macro_args.serializers {
         Some(serializers) => {
@@ -154,7 +153,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Expr::Path(ref mut path_expr) => {
                         if let Some(ident) = path_expr.path.get_ident() {
                             if *ident == "json" {
-                                json_attr = quote! {serde(crate=#string_serde_crate)};
                                 has_json = true;
                             }
                             if *ident == "borsh" {
@@ -173,21 +171,25 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let borsh = if has_borsh {
-        quote! {
+    let mut prev = quote! {};
+    if has_borsh {
+        prev = quote! {
+            #prev
             #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
             #borsh_attr
-        }
-    } else {
-        quote! {}
-    };
-    let json = if has_json {
-        quote! {
+        };
+    }
+
+    if has_json {
+        prev = quote! {
+            #prev
             #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
             #[serde(crate = #string_serde_crate)]
-        }
-    } else {
-        quote! {}
+        };
+    }
+
+    prev = quote! {
+        #prev
     };
 
     let near_bindgen_annotation = if near_macro_args.contract_state.unwrap_or(false) {
@@ -211,14 +213,12 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #[cfg(not(target_arch = "wasm32"))]
                 #near_bindgen_annotation
                 #schema_derive
-                #borsh
-                #json
+                #prev
                 #input
 
                 #[cfg(target_arch = "wasm32")]
                 #near_bindgen_annotation
-                #borsh
-                #json
+                #prev
                 #input
 
             };
@@ -228,8 +228,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         {
             expanded = quote! {
                 #near_bindgen_annotation
-                #borsh
-                #json
+                #prev
                 #input
             };
         }
@@ -240,14 +239,12 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #[cfg(not(target_arch = "wasm32"))]
                 #near_bindgen_annotation
                 #schema_derive
-                #borsh
-                #json
+                #prev
                 #input
 
                 #[cfg(target_arch = "wasm32")]
                 #near_bindgen_annotation
-                #borsh
-                #json
+                #prev
                 #input
 
             };
@@ -257,8 +254,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         {
             expanded = quote! {
                 #near_bindgen_annotation
-                #borsh
-                #json
+                #prev
                 #input
             };
         }
