@@ -183,7 +183,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     #[cfg(feature = "abi")]
     {
-        let schema_derive: proc_macro2::TokenStream = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+        let schema_derive: proc_macro2::TokenStream =
+            get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
         expanded = quote! {
             #expanded
             #schema_derive
