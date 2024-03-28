@@ -3,6 +3,7 @@
 //! makes this map more efficient in the number of reads and writes.
 use std::marker::PhantomData;
 
+use borsh;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::collections::append_slice;
