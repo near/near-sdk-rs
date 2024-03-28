@@ -232,8 +232,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         );
     }
 
-    // eprintln!("expanded: {}", expanded.to_string());
-
     TokenStream::from(expanded)
 }
 
@@ -690,7 +688,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
             quote! {}
         };
 
-        let x = quote! {
+        TokenStream::from(quote! {
             #[cfg(not(target_arch = "wasm32"))]
             const _: () = {
                 #[allow(non_camel_case_types)]
@@ -704,9 +702,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                     #borsh_impl
                 };
             };
-        };
-        // eprintln!("x: {}", x.to_string());
-        TokenStream::from(x)
+        })
     }
 }
 
