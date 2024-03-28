@@ -181,6 +181,15 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    #[cfg(feature = "abi")]
+    {
+        let schema_derive: proc_macro2::TokenStream = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+        expanded = quote! {
+            #expanded
+            #schema_derive
+        };
+    }
+
     if has_borsh {
         expanded = quote! {
             #expanded
@@ -194,16 +203,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
             #expanded
             #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
             #[serde(crate = #string_serde_crate)]
-        };
-    }
-
-    #[cfg(feature = "abi")]
-    {
-        let schema_derive: proc_macro2::TokenStream =
-            get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
-        expanded = quote! {
-            #schema_derive
-            #expanded
         };
     }
 
