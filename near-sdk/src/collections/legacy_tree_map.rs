@@ -5,7 +5,6 @@
 #![allow(deprecated)]
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk_macros::near;
 use std::ops::Bound;
 
 use crate::collections::UnorderedMap;
@@ -22,14 +21,14 @@ use crate::IntoStorageKey;
 /// - `range` of K elements:    O(Klog(N))
 ///
 #[deprecated(since = "4.1.0", note = "Use near_sdk::collections::TreeMap")]
-#[near(inside_nearsdk)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct LegacyTreeMap<K, V> {
     root: u64,
     val: UnorderedMap<K, V>,
     tree: Vector<Node<K>>,
 }
 
-#[near(inside_nearsdk)]
+#[derive(Clone, BorshSerialize, BorshDeserialize)]
 pub struct Node<K> {
     id: u64,
     key: K,           // key stored in a node
