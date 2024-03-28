@@ -3,18 +3,23 @@ pub use self::iter::{Drain, Iter, IterMut};
 
 use super::{Vector, ERR_INCONSISTENT_STATE};
 use crate::{env, IntoStorageKey};
+use near_sdk_macros::{near, NearSchema};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use std::{fmt, mem};
 
 /// Index for value within a bucket.
-#[derive(BorshSerialize, BorshDeserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[near(inside_nearsdk)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct FreeListIndex(pub(crate) u32);
 
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
+#[derive(NearSchema)]
+#[inside_nearsdk]
+#[abi(borsh)]
 pub(crate) struct FreeList<T>
 where
     T: BorshSerialize,
@@ -51,7 +56,8 @@ where
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug)]
+#[near(inside_nearsdk)]
+#[derive(Debug)]
 enum Slot<T> {
     /// Represents a filled cell of a value in the collection.
     Occupied(T),

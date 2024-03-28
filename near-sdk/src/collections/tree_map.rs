@@ -23,7 +23,8 @@ pub struct TreeMap<K, V> {
     tree: Vector<Node<K>>,
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
+#[near(inside_nearsdk)]
+#[derive(Clone, Debug)]
 pub struct Node<K> {
     id: u64,
     key: K,           // key stored in a node
