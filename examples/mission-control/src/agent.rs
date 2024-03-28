@@ -1,13 +1,11 @@
 use crate::account::*;
 use crate::asset::*;
 use crate::rate::*;
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use near_sdk::near;
 
-#[derive(Clone, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(Clone)]
+#[near(serializers=[json, borsh])]
 pub struct Agent {
     pub account: Account,
     pub is_alive: bool,

@@ -1,18 +1,12 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{AccountId, NearSchema, NearToken};
+use near_sdk::{near, AccountId, NearToken};
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, NearSchema)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(serializers=[borsh, json])]
 pub struct StorageBalance {
     pub total: NearToken,
     pub available: NearToken,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, NearSchema)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(serializers=[borsh, json])]
 pub struct StorageBalanceBounds {
     pub min: NearToken,
     pub max: Option<NearToken>,
@@ -27,8 +21,7 @@ pub struct StorageBalanceBounds {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, NearToken, log};
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+/// use near_sdk::{near, PanicOnDefault, AccountId, NearToken, log};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::FungibleToken;
@@ -37,15 +30,14 @@ pub struct StorageBalanceBounds {
 /// };
 /// use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
 ///
-/// #[near_bindgen]
-/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "near_sdk::borsh")]
+/// #[near(contract_state)]
+/// #[derive(PanicOnDefault)]
 /// pub struct Contract {
 ///     token: FungibleToken,
 ///     metadata: LazyOption<FungibleTokenMetadata>,
 /// }
 ///
-/// #[near_bindgen]
+/// #[near]
 /// impl StorageManagement for Contract {
 ///     #[payable]
 ///     fn storage_deposit(

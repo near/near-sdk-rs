@@ -1,7 +1,7 @@
 use near_sdk::test_utils::get_logs;
-use near_sdk::{near_bindgen, AccountId};
+use near_sdk::{near, AccountId};
 
-#[near_bindgen(event_json(standard = "test_standard"))]
+#[near(event_json(standard = "test_standard"))]
 pub enum TestEvents<'a, 'b, T>
 where
     T: near_sdk::serde::Serialize,
@@ -25,7 +25,7 @@ where
 mod private {
     use super::*;
 
-    #[near_bindgen(event_json(standard = "another_standard"))]
+    #[near(event_json(standard = "another_standard"))]
     pub enum AnotherEvent {
         #[event_version("1.0.0")]
         Test,

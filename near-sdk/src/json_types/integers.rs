@@ -3,23 +3,13 @@
 //! NOTE: JSON standard can only work with integer up to 53 bits. So we need helper classes for
 //! 64-bit and 128-bit integers.
 
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 macro_rules! impl_str_type {
     ($iden: ident, $ty: tt) => {
-        #[derive(
-            Debug,
-            Clone,
-            Copy,
-            PartialEq,
-            Eq,
-            PartialOrd,
-            Ord,
-            BorshDeserialize,
-            BorshSerialize,
-            Default,
-        )]
+        #[near(inside_nearsdk)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
         pub struct $iden(pub $ty);
 
         impl From<$ty> for $iden {

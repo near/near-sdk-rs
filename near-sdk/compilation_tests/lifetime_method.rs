@@ -1,15 +1,14 @@
 //! Method signature uses lifetime.
 
-use near_sdk::near_bindgen;
-use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[near(contract_state)]
+#[derive(Default)]
 struct Ident {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Ident {
     pub fn is_ident<'a>(&self, other: &'a u32) -> Option<&'a u32> {
         if *other == self.value {

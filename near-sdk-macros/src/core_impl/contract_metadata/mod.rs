@@ -8,11 +8,35 @@ struct MacroConfig {
 }
 
 #[derive(serde::Serialize, Default, FromMeta)]
-struct ContractMetadata {
+pub(crate) struct ContractMetadata {
     version: Option<String>,
     link: Option<String>,
     #[darling(multiple, rename = "standard")]
     standards: Vec<Standard>,
+}
+
+impl quote::ToTokens for ContractMetadata {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let version = &self.version;
+        let link = &self.link;
+        let mut standards = quote! {};
+        let standards_vec = &self.standards;
+        for standard in standards_vec {
+            let standard_name = &standard.standard;
+            let standard_version = &standard.version;
+            standards = quote! {
+                #standards
+                standard(standard = #standard_name, version = #standard_version),
+            };
+        }
+        tokens.extend(quote! {
+            contract_metadata(
+                version = #version,
+                link = #link,
+                #standards
+            )
+        })
+    }
 }
 
 #[derive(FromMeta, serde::Serialize)]

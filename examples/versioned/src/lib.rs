@@ -1,13 +1,10 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::UnorderedMap;
-use near_sdk::{env, log, near_bindgen, AccountId, NearToken};
+use near_sdk::{env, log, near, AccountId, NearToken};
 
 /// An example of a versioned contract. This is a simple contract that tracks how much
 /// each account deposits into the contract. In v1, a nonce is added to state which increments
 /// after each successful deposit.
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
 pub enum VersionedContract {
     V0(ContractV0),
     V1(Contract),
@@ -47,8 +44,7 @@ impl Default for VersionedContract {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near]
 pub struct ContractV0 {
     funders: UnorderedMap<AccountId, NearToken>,
 }
@@ -59,8 +55,7 @@ impl Default for ContractV0 {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near]
 pub struct Contract {
     funders: UnorderedMap<AccountId, NearToken>,
     nonce: u64,
@@ -72,7 +67,7 @@ impl Default for Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl VersionedContract {
     #[payable]
     pub fn deposit(&mut self) {
