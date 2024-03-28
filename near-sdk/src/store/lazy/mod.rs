@@ -9,6 +9,8 @@ mod impls;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
+use near_sdk_macros::near;
+
 use crate::env;
 use crate::store::ERR_INCONSISTENT_STATE;
 use crate::utils::{CacheEntry, EntryState};
@@ -59,7 +61,7 @@ where
 /// *a = "new string".to_string();
 /// assert_eq!(a.get(), "new string");
 /// ```
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct Lazy<T>
 where
     T: BorshSerialize,

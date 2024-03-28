@@ -1,3 +1,4 @@
+use near_sdk_macros::near;
 use std::ops::Bound;
 use std::vec::Vec;
 use std::{borrow::Borrow, iter::FusedIterator};
@@ -998,7 +999,8 @@ impl<K> Find<K> {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, Copy, Clone)]
+#[near(inside_nearsdk)]
+#[derive(Debug, Copy, Clone)]
 enum FindUnbounded {
     /// Find the first element in the given root
     First,

@@ -3,13 +3,14 @@
 use crate::collections::{append, append_slice, Vector};
 use crate::{env, IntoStorageKey};
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use std::mem::size_of;
 
 const ERR_INCONSISTENT_STATE: &str = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
 const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// An iterable implementation of a set that stores its content directly on the trie.
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct UnorderedSet<T> {
     element_index_prefix: Vec<u8>,
     elements: Vector<T>,
