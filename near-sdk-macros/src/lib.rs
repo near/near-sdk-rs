@@ -122,7 +122,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
 
-    let mut expanded: proc_macro2::TokenStream = quote!{};
+    let mut expanded: proc_macro2::TokenStream = quote! {};
 
     if near_macro_args.contract_state.unwrap_or(false) {
         if let Some(metadata) = near_macro_args.contract_metadata {
@@ -199,7 +199,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     #[cfg(feature = "abi")]
     {
-        let schema_derive: proc_macro2::TokenStream = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+        let schema_derive: proc_macro2::TokenStream =
+            get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
         expanded = quote! {
             #schema_derive
             #expanded
@@ -207,12 +208,12 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        expanded = quote!{
+        expanded = quote! {
             #expanded
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        expanded = quote!{
+        expanded = quote! {
             #expanded
             #input
         };
