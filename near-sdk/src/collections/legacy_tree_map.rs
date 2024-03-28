@@ -30,7 +30,6 @@ pub struct LegacyTreeMap<K, V> {
 }
 
 #[near(inside_nearsdk)]
-#[derive(Clone)]
 pub struct Node<K> {
     id: u64,
     key: K,           // key stored in a node
