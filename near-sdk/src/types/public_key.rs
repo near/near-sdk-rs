@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_public_key_borsh_format_change() {
         // Original struct to reference Borsh serialization from
-        #[near]
+        #[derive(BorshSerialize, BorshDeserialize)]
         struct PublicKeyRef(Vec<u8>);
 
         let mut data = vec![CurveType::ED25519 as u8];
