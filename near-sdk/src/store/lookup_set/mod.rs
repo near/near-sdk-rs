@@ -2,10 +2,12 @@ mod impls;
 
 use crate::store::key::{Identity, ToKey};
 use crate::{env, IntoStorageKey};
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshSerialize;
 use std::borrow::Borrow;
 use std::fmt;
 use std::marker::PhantomData;
+
+use near_sdk_macros::near;
 
 /// A non-iterable implementation of a set that stores its content directly on the storage trie.
 ///
@@ -44,7 +46,7 @@ use std::marker::PhantomData;
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct LookupSet<T, H = Identity>
 where
     T: BorshSerialize,
