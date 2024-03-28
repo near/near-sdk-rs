@@ -122,6 +122,16 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
 
+    let mut expanded: proc_macro2::TokenStream = quote!{};
+
+    if near_macro_args.contract_state.unwrap_or(false) {
+        if let Some(metadata) = near_macro_args.contract_metadata {
+            expanded = quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
+        } else {
+            expanded = quote! {#[#near_sdk_crate::near_bindgen]}
+        }
+    };
+
     let mut has_borsh = false;
     let mut has_json = false;
 
@@ -171,53 +181,39 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let mut prev = quote! {};
     if has_borsh {
-        prev = quote! {
-            #prev
+        expanded = quote! {
+            #expanded
             #[derive(#near_sdk_crate::borsh::BorshSerialize, #near_sdk_crate::borsh::BorshDeserialize)]
             #borsh_attr
         };
     }
 
     if has_json {
-        prev = quote! {
-            #prev
+        expanded = quote! {
+            #expanded
             #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
             #[serde(crate = #string_serde_crate)]
         };
     }
 
-    let near_bindgen_annotation = if near_macro_args.contract_state.unwrap_or(false) {
-        if let Some(metadata) = near_macro_args.contract_metadata {
-            quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
-        } else {
-            quote! {#[#near_sdk_crate::near_bindgen]}
-        }
-    } else {
-        quote! {}
-    };
-
     #[cfg(feature = "abi")]
     {
         let schema_derive: proc_macro2::TokenStream = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
-        prev = quote! {
+        expanded = quote! {
             #schema_derive
-            #prev
+            #expanded
         };
     }
 
-    let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
         expanded = quote!{
-            #near_bindgen_annotation
-            #prev
+            #expanded
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         expanded = quote!{
-            #near_bindgen_annotation
-            #prev
+            #expanded
             #input
         };
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
