@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub type TokenId = String;
 
 /// In this implementation, the Token struct takes two extensions standards (metadata and approval) as optional fields, as they are frequently used in modern NFTs.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, NearSchema)]
+#[derive(NearSchema, Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Token {
     pub token_id: TokenId,
