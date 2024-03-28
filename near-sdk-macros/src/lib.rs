@@ -199,54 +199,27 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     #[cfg(feature = "abi")]
-    let schema_derive = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+    {
+        let schema_derive: proc_macro2::TokenStream = get_schema_derive(has_json, has_borsh, near_sdk_crate.clone(), false);
+        prev = quote! {
+            #schema_derive
+            #prev
+        };
+    }
 
     let expanded;
     if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        #[cfg(feature = "abi")]
-        {
-            expanded = quote! {
-                #near_bindgen_annotation
-                #schema_derive
-                #prev
-                #input
-            };
-        }
-
-        #[cfg(not(feature = "abi"))]
-        {
-            expanded = quote! {
-                #near_bindgen_annotation
-                #prev
-                #input
-            };
-        }
+        expanded = quote!{
+            #near_bindgen_annotation
+            #prev
+            #input
+        };
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        #[cfg(feature = "abi")]
-        {
-            expanded = quote! {
-                #[cfg(not(target_arch = "wasm32"))]
-                #near_bindgen_annotation
-                #schema_derive
-                #prev
-                #input
-
-                #[cfg(target_arch = "wasm32")]
-                #near_bindgen_annotation
-                #prev
-                #input
-
-            };
-        }
-
-        #[cfg(not(feature = "abi"))]
-        {
-            expanded = quote! {
-                #near_bindgen_annotation
-                #prev
-                #input
-            };
-        }
+        expanded = quote!{
+            #near_bindgen_annotation
+            #prev
+            #input
+        };
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         expanded = quote! {
             #[#near_sdk_crate::near_bindgen]
