@@ -188,10 +188,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         };
     }
 
-    prev = quote! {
-        #prev
-    };
-
     let near_bindgen_annotation = if near_macro_args.contract_state.unwrap_or(false) {
         if let Some(metadata) = near_macro_args.contract_metadata {
             quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
@@ -210,17 +206,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg(feature = "abi")]
         {
             expanded = quote! {
-                #[cfg(not(target_arch = "wasm32"))]
                 #near_bindgen_annotation
                 #schema_derive
                 #prev
                 #input
-
-                #[cfg(target_arch = "wasm32")]
-                #near_bindgen_annotation
-                #prev
-                #input
-
             };
         }
 
@@ -764,20 +753,20 @@ fn get_schema_derive(
     let mut derive = quote! {};
     if borsh_schema {
         derive = quote! {
-            #[derive(#near_sdk_crate::borsh::BorshSchema)]
+            #[cfg_attr(not(target_arch = "wasm32"), derive(#near_sdk_crate::borsh::BorshSchema))]
         };
         if need_borsh_crate {
             derive = quote! {
                 #derive
-                #[borsh(crate = #string_borsh_crate)]
+                #[cfg_attr(not(target_arch = "wasm32"), borsh(crate = #string_borsh_crate))]
             };
         }
     }
     if json_schema {
         derive = quote! {
             #derive
-            #[derive(#near_sdk_crate::schemars::JsonSchema)]
-            #[schemars(crate = #string_schemars_crate)]
+            #[cfg_attr(not(target_arch = "wasm32"), derive(#near_sdk_crate::schemars::JsonSchema))]
+            #[cfg_attr(not(target_arch = "wasm32"), schemars(crate = #string_schemars_crate))]
         };
     }
     derive
