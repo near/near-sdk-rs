@@ -780,7 +780,7 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
             )
             .to_compile_error(),
         );
-    };
+    }; // hello
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let predicate = parse_quote!(#name #ty_generics: ::near_sdk::borsh::BorshSerialize);
     let where_clause: WhereClause = if let Some(mut w) = where_clause.cloned() {
