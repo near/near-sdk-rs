@@ -686,8 +686,10 @@ mod tests {
         // * The storage is reused in the second part of this test, need to flush
         vec.flush();
 
-        use borsh::{BorshDeserialize, BorshSerialize};
-        #[derive(Debug, BorshSerialize, BorshDeserialize)]
+        use near_sdk_macros::near;
+
+        #[near(inside_nearsdk)]
+        #[derive(Debug)]
         struct TestType(u64);
 
         let deserialize_only_vec =

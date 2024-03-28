@@ -1,11 +1,12 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
+use near_sdk_macros::near;
 use std::{convert::TryFrom, io};
 
 /// PublicKey curve
-#[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq, BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk, serializers=[borsh(use_discriminant = true)])]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, Eq, PartialEq)]
 #[repr(u8)]
-#[borsh(use_discriminant = true)]
 pub enum CurveType {
     ED25519 = 0,
     SECP256K1 = 1,
