@@ -45,6 +45,7 @@ fn sum_pair(a: &Pair, b: &Pair) -> Pair {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use near_abi::*;
+    use near_sdk::serde_json;
     use tokio::fs;
 
     #[ignore]
