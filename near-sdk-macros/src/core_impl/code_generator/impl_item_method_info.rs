@@ -3,6 +3,7 @@ use crate::core_impl::{MethodKind, ReturnKind};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use serde::de::value;
+use syn::token::Token;
 use syn::Receiver;
 use crate::core_impl::utils;
 
@@ -30,7 +31,8 @@ impl ImplItemMethodInfo {
             // here.
             ReturnKind::Default => self.void_return_body_tokens(),
             ReturnKind::General(_) => self.value_return_body_tokens(),
-            ReturnKind::HandlesResult { .. } => self.result_return_body_tokens(),
+            ReturnKind::HandlesResult { .. } => self.result_return_body_tokens(false),
+            ReturnKind::ResultWithStatus { .. } => self.result_return_body_tokens(true),
         };
 
         quote! {
@@ -69,7 +71,7 @@ impl ImplItemMethodInfo {
         let contract_init = self.contract_init_tokens();
         let method_invocation_with_return = self.method_invocation_with_return_tokens();
         let contract_ser = self.contract_ser_tokens();
-        let value_ser = self.value_ser_tokens();
+        let value_ser = self.value_ser_tokens(false);
         let value_return = self.value_return_tokens();
 
         eprintln!("general returnkind");
@@ -84,14 +86,14 @@ impl ImplItemMethodInfo {
         }
     }
 
-    fn result_return_body_tokens(&self) -> TokenStream2 {
+    fn result_return_body_tokens(&self, with_status: bool) -> TokenStream2 {
         let contract_init = self.contract_init_tokens();
         let method_invocation_with_return = self.method_invocation_with_return_tokens();
         let contract_ser = self.contract_ser_tokens();
-        let value_ser = self.value_ser_tokens();
+        let value_ser = self.value_ser_tokens(with_status);
         let value_return = self.value_return_tokens();
         let result_identifier = self.result_identifier();
-
+        let handle_error = self.error_handling_tokens();
 
         eprintln!("handles result returnkind");
 
@@ -104,8 +106,29 @@ impl ImplItemMethodInfo {
                     #value_return
                     #contract_ser
                 }
-                ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err)
+                ::std::result::Result::Err(err) => {
+                    #handle_error
+                }
             }
+        }
+    }
+
+    fn error_handling_tokens(&self) -> TokenStream2 {
+        if let ReturnKind::ResultWithStatus(status_result) = &self.attr_signature_info.returns.kind {
+            if status_result.persist_on_error {
+                quote! {
+                    ::near_sdk::env::value_return(&::near_sdk::serde_json::to_vec(&::near_sdk::serde_json::json!({
+                        "status": "error",
+                        "error": err,
+                    })).expect("Failed to serialize the error message using JSON."));
+                }
+            } else {
+                quote! {
+                    ::near_sdk::FunctionError::panic(&err)
+                }
+            }
+        } else {
+            quote! {}
         }
     }
 
@@ -344,24 +367,24 @@ impl ImplItemMethodInfo {
         }
     }
 
-    fn value_ser_tokens(&self) -> TokenStream2 {
+    fn value_ser_tokens(&self, with_status: bool) -> TokenStream2 {
         use MethodKind::*;
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => {
-                eprintln!("{}", quote!{
-                    let result = ::near_sdk::serde_json::json!({
-                        "status": "Success",
-                        "result": result,
+                let mut value_ser = quote!{};
+                if with_status {
+                    value_ser.extend(quote! {
+                        let result = ::near_sdk::serde_json::json!({
+                            "status": "success",
+                            "result": result,
+                        });
                     });
-                });
-                quote! {
-                    let result = ::near_sdk::serde_json::json!({
-                        "status": "Success",
-                        "result": result,
-                    });
-                    let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
                 }
+                value_ser.extend(quote! {
+                    let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                });
+                value_ser
             },
             SerializerType::Borsh => quote! {
                 let result = ::near_sdk::borsh::to_vec(&result).expect("Failed to serialize the return value using Borsh.");

@@ -88,4 +88,12 @@ pub enum ReturnKind {
     Default,
     General(Type),
     HandlesResult(Type),
+    ResultWithStatus(StatusResult),
+}
+
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct StatusResult {
+    pub result_type: Type,
+    pub persist_on_error: bool,
 }

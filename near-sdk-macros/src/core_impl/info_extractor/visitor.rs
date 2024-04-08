@@ -14,6 +14,7 @@ struct ParsedData {
     handles_result: ResultHandling,
     is_payable: bool,
     is_private: bool,
+    persist_on_error: bool,
     ignores_state: bool,
     result_serializer: SerializerType,
     receiver: Option<Receiver>,
@@ -41,6 +42,7 @@ impl Default for ParsedData {
             handles_result: Default::default(),
             is_payable: Default::default(),
             is_private: Default::default(),
+            persist_on_error:Default::default(),
             ignores_state: Default::default(),
             result_serializer: SerializerType::JSON,
             receiver: Default::default(),
@@ -131,6 +133,11 @@ impl Visitor {
             if params.check { ResultHandling::NoCheck } else { ResultHandling::Check }
     }
 
+    pub fn visit_persist_on_error_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.persist_on_error = true;
+        Ok(())
+    }
+
     pub fn visit_receiver(&mut self, receiver: &Receiver) -> syn::Result<()> {
         use VisitorKind::*;
 
@@ -163,7 +170,7 @@ impl Visitor {
             },
             ReturnType::Type(_, typ) => Ok(Returns {
                 original: self.return_type.clone(),
-                kind: parse_return_kind(typ, self.parsed_data.handles_result)?,
+                kind: parse_return_kind(typ, self.parsed_data.handles_result, self.parsed_data.persist_on_error)?,
             }),
         }
     }
@@ -209,7 +216,7 @@ fn is_view(sig: &Signature) -> bool {
     }
 }
 
-fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<ReturnKind> {
+fn parse_return_kind(typ: &Type, handles_result: ResultHandling, persist_on_error: bool) -> syn::Result<ReturnKind> {
     match handles_result {
         ResultHandling::NoCheck => Ok(ReturnKind::HandlesResult(typ.clone())),
         ResultHandling::Check => {
@@ -221,7 +228,7 @@ fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<
         }
         ResultHandling::None => {
             if utils::type_is_result(typ) {
-                Ok(ReturnKind::HandlesResult(typ.clone()))
+                Ok(ReturnKind::ResultWithStatus(crate::StatusResult { result_type: typ.clone(), persist_on_error: persist_on_error }))
             } else {
                 Ok(ReturnKind::General(typ.clone()))
             }

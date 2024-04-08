@@ -23,6 +23,7 @@ impl Incrementer {
         Ok("ok".to_string())
     }
 
+    #[persist_on_error]
     pub fn get(&mut self) -> Result<String, MyError> {
         self.value += 1;
         Ok("hey".to_string())
