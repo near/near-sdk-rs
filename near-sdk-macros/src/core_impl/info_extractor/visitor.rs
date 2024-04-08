@@ -221,14 +221,7 @@ fn parse_return_kind(typ: &Type, handles_result: ResultHandling) -> syn::Result<
         }
         ResultHandling::None => {
             if utils::type_is_result(typ) {
-                Err(Error::new(
-                    typ.span(),
-                    "Serializing Result<T, E> has been deprecated. Consider marking your method \
-                    with #[handle_result] if the second generic represents a panicable error or \
-                replacing Result with another two type sum enum otherwise. If you really want \
-                to keep the legacy behavior, mark the method with #[handle_result] and make \
-                it return Result<Result<T, E>, near_sdk::Abort>.",
-                ))
+                Ok(ReturnKind::HandlesResult(typ.clone()))
             } else {
                 Ok(ReturnKind::General(typ.clone()))
             }

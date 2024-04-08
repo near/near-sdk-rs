@@ -3,7 +3,7 @@ extern crate proc_macro;
 
 mod core_impl;
 
-use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method};
+use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method, extract_error_type};
 
 use proc_macro::TokenStream;
 
@@ -13,6 +13,60 @@ use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+
+
+#[proc_macro_derive(MyContractError)]
+pub fn derive_contract_error(input: TokenStream) -> TokenStream {
+    let item: ItemEnum = syn::parse(input).unwrap();
+    
+    let enum_name = &item.ident;
+    
+    let expanded = quote! {
+        impl near_sdk::MyContractErrorTrait for #enum_name {
+            // fn my_fn(&self) -> u64 {
+            //     1
+            // }
+        }
+    };
+    
+    expanded.into()
+}
+
+
+#[proc_macro_attribute]
+pub fn check_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input = syn::parse_macro_input!(item as syn::ItemImpl);
+
+    let self_ty = &input.self_ty;
+
+    let mut checks = quote!{};
+
+    for item in input.clone().items {
+        if let syn::ImplItem::Fn(method) = item {
+            let return_type = match &method.sig.output {
+                syn::ReturnType::Default => quote! { () },
+                syn::ReturnType::Type(_, ty) => {
+                    let x = extract_error_type(&ty);
+                    quote! { #x }
+                },
+            };
+
+            checks.extend(quote! {
+                        let _ = check_trait as fn(&#return_type);
+            });
+        }
+    }
+
+    return TokenStream::from(quote!{
+        #input
+        impl #self_ty {
+            fn assert_implements_my_trait() {
+                #checks
+            }
+        }
+    });
+}
+
 
 #[derive(Debug, Clone)]
 struct Serializers {
@@ -362,13 +416,15 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_embedded = abi::embed();
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
-        TokenStream::from(quote! {
+        let x = quote! {
             #input
             #ext_gen
             #abi_embedded
             #metadata
             #metadata_impl_gen
-        })
+        };
+        // eprintln!("x: {}", x);
+        TokenStream::from(x)
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
         let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
@@ -383,6 +439,14 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_embedded = abi::embed();
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
+        let x = quote! {
+            #input
+            #ext_gen
+            #abi_embedded
+            #metadata
+            #metadata_impl_gen
+        };
+        // eprintln!("x: {}", x);
         TokenStream::from(quote! {
             #input
             #ext_gen
@@ -405,11 +469,13 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        match process_impl_block(input) {
+        let x = match process_impl_block(input) {
             Ok(output) => output,
             Err(output) => output,
         }
-        .into()
+        .into();
+    eprintln!("x: {}", x);
+        x
     } else {
         TokenStream::from(
             syn::Error::new(
@@ -445,6 +511,13 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
+    let x = quote! {
+        #ext_generated_code
+        #input
+        #generated_code
+        #abi_generated
+    };
+    // eprintln!("x: {}", x);
     Ok(TokenStream::from(quote! {
         #ext_generated_code
         #input
@@ -494,6 +567,11 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
         };
         let ext_api = item_trait_info.wrap_trait_ext();
 
+        let x = quote! {
+            #input
+            #ext_api
+        };
+        // eprintln!("ext: {}", x);
         TokenStream::from(quote! {
             #input
             #ext_api

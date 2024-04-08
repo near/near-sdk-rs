@@ -2,7 +2,9 @@ use crate::core_impl::info_extractor::{ImplItemMethodInfo, SerializerType};
 use crate::core_impl::{MethodKind, ReturnKind};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
+use serde::de::value;
 use syn::Receiver;
+use crate::core_impl::utils;
 
 impl ImplItemMethodInfo {
     /// Generate wrapper method for the given method of the contract.
@@ -54,6 +56,8 @@ impl ImplItemMethodInfo {
         let method_invocation = self.method_invocation_tokens();
         let contract_ser = self.contract_ser_tokens();
 
+        eprintln!("default returnkind");
+
         quote! {
             #contract_init
             #method_invocation;
@@ -67,6 +71,9 @@ impl ImplItemMethodInfo {
         let contract_ser = self.contract_ser_tokens();
         let value_ser = self.value_ser_tokens();
         let value_return = self.value_return_tokens();
+
+        eprintln!("general returnkind");
+
 
         quote! {
             #contract_init
@@ -84,6 +91,9 @@ impl ImplItemMethodInfo {
         let value_ser = self.value_ser_tokens();
         let value_return = self.value_return_tokens();
         let result_identifier = self.result_identifier();
+
+
+        eprintln!("handles result returnkind");
 
         quote! {
             #contract_init
@@ -291,6 +301,8 @@ impl ImplItemMethodInfo {
             }
         };
 
+        // self.attr_signature_info.returns.original
+
         match &self.attr_signature_info.method_kind {
             Call(call_method) => {
                 if call_method.receiver.is_some() {
@@ -336,8 +348,20 @@ impl ImplItemMethodInfo {
         use MethodKind::*;
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
-            SerializerType::JSON => quote! {
-                let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+            SerializerType::JSON => {
+                eprintln!("{}", quote!{
+                    let result = ::near_sdk::serde_json::json!({
+                        "status": "Success",
+                        "result": result,
+                    });
+                });
+                quote! {
+                    let result = ::near_sdk::serde_json::json!({
+                        "status": "Success",
+                        "result": result,
+                    });
+                    let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                }
             },
             SerializerType::Borsh => quote! {
                 let result = ::near_sdk::borsh::to_vec(&result).expect("Failed to serialize the return value using Borsh.");

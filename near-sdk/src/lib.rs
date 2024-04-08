@@ -8,11 +8,17 @@
 extern crate quickcheck;
 
 pub use near_sdk_macros::{
-    ext_contract, near, near_bindgen, BorshStorageKey, EventMetadata, FunctionError, NearSchema,
+    ext_contract, near, near_bindgen, MyContractError, BorshStorageKey, EventMetadata, FunctionError, NearSchema,
     PanicOnDefault,
 };
 
 pub mod store;
+
+pub trait MyContractErrorTrait {
+}
+
+pub fn check_trait<T: MyContractErrorTrait>(_: &T) {}
+
 
 #[cfg(feature = "legacy")]
 pub mod collections;
