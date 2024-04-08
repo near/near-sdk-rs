@@ -77,6 +77,8 @@ pub use self::lookup_map::LookupMap;
 mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
+pub mod iterable_map;
+pub use self::iterable_map::IterableMap;
 pub mod unordered_map;
 #[allow(deprecated)]
 pub use self::unordered_map::UnorderedMap;
