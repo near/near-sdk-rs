@@ -370,7 +370,7 @@ where
     /// assert_eq!(map["poneyland"], 15);
     /// ```
     pub fn insert(&mut self, value: V) -> V {
-        core::mem::replace(&mut self.get_mut(), value)
+        core::mem::replace(self.get_mut(), value)
     }
 
     /// Takes the value out of the entry, and returns it.
