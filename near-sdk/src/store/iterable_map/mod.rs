@@ -601,7 +601,7 @@ where
         let last_index = self.keys.len() - 1;
         let key = self.keys.swap_remove(old_value.key_index);
 
-        match last_index {
+        match old_value.key_index {
             // If it's the last/only element - do nothing.
             x if x == last_index => {}
             // Otherwise update it's index.
@@ -790,5 +790,602 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+// Hashbrown-like tests.
+#[cfg(test)]
+mod test_map {
+    use super::Entry::{Occupied, Vacant};
+    use crate::store::IterableMap;
+    use borsh::{BorshDeserialize, BorshSerialize};
+    use rand::{rngs::SmallRng, Rng, SeedableRng};
+    use std::cell::RefCell;
+    use std::usize;
+    use std::vec::Vec;
+
+    #[test]
+    fn test_insert() {
+        let mut m = IterableMap::new(b"b");
+        assert_eq!(m.len(), 0);
+        assert!(m.insert(1, 2).is_none());
+        assert_eq!(m.len(), 1);
+        assert!(m.insert(2, 4).is_none());
+        assert_eq!(m.len(), 2);
+        assert_eq!(*m.get(&1).unwrap(), 2);
+        assert_eq!(*m.get(&2).unwrap(), 4);
+    }
+
+    thread_local! { static DROP_VECTOR: RefCell<Vec<i32>> = RefCell::new(Vec::new()) }
+
+    #[derive(Hash, PartialEq, Eq, BorshSerialize, BorshDeserialize, PartialOrd, Ord)]
+    struct Droppable {
+        k: usize,
+    }
+
+    impl Droppable {
+        fn new(k: usize) -> Droppable {
+            DROP_VECTOR.with(|slot| {
+                slot.borrow_mut()[k] += 1;
+            });
+
+            Droppable { k }
+        }
+    }
+
+    impl Drop for Droppable {
+        fn drop(&mut self) {
+            DROP_VECTOR.with(|slot| {
+                slot.borrow_mut()[self.k] -= 1;
+            });
+        }
+    }
+
+    impl Clone for Droppable {
+        fn clone(&self) -> Self {
+            Droppable::new(self.k)
+        }
+    }
+
+    #[test]
+    fn test_drops() {
+        DROP_VECTOR.with(|slot| {
+            *slot.borrow_mut() = vec![0; 200];
+        });
+
+        {
+            let mut m = IterableMap::new(b"b");
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..200 {
+                    assert_eq!(v.borrow()[i], 0);
+                }
+            });
+
+            for i in 0..100 {
+                let d1 = Droppable::new(i);
+                let d2 = Droppable::new(i + 100);
+                m.insert(d1, d2);
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..100 {
+                    assert_eq!(v.borrow()[i], 2);
+                }
+            });
+
+            for i in 0..50 {
+                let k = Droppable::new(i);
+                let v = m.remove(&k);
+
+                assert!(v.is_some());
+
+                DROP_VECTOR.with(|v| {
+                    assert_eq!(v.borrow()[i], 2);
+                    assert_eq!(v.borrow()[i + 100], 1);
+                });
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..50 {
+                    assert_eq!(v.borrow()[i], 1);
+                    assert_eq!(v.borrow()[i + 100], 0);
+                }
+
+                for i in 50..100 {
+                    assert_eq!(v.borrow()[i], 2);
+                    assert_eq!(v.borrow()[i + 100], 1);
+                }
+            });
+        }
+
+        DROP_VECTOR.with(|v| {
+            for i in 0..200 {
+                assert_eq!(v.borrow()[i], 0);
+            }
+        });
+    }
+
+    #[test]
+    fn test_into_iter_drops() {
+        DROP_VECTOR.with(|v| {
+            *v.borrow_mut() = vec![0; 200];
+        });
+
+        let hm = {
+            let mut hm = IterableMap::new(b"b");
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..200 {
+                    assert_eq!(v.borrow()[i], 0);
+                }
+            });
+
+            for i in 0..100 {
+                let d1 = Droppable::new(i);
+                let d2 = Droppable::new(i + 100);
+                hm.insert(d1, d2);
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..100 {
+                    assert_eq!(v.borrow()[i], 2);
+                }
+                for i in 101..200 {
+                    assert_eq!(v.borrow()[i], 1);
+                }
+            });
+
+            hm
+        };
+
+        {
+            let mut half = hm.into_iter().take(50);
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..100 {
+                    assert_eq!(v.borrow()[i], 2);
+                }
+                for i in 101..200 {
+                    assert_eq!(v.borrow()[i], 1);
+                }
+            });
+
+            #[allow(clippy::let_underscore_drop)] // kind-of a false positive
+            for _ in half.by_ref() {}
+
+            DROP_VECTOR.with(|v| {
+                let nk = (0..100).filter(|&i| v.borrow()[i] == 2).count();
+
+                let nv = (0..100).filter(|&i| v.borrow()[i + 100] == 1).count();
+
+                assert_eq!(nk, 100);
+                assert_eq!(nv, 100);
+            });
+        };
+
+        drop(hm);
+
+        DROP_VECTOR.with(|v| {
+            for i in 0..200 {
+                assert_eq!(v.borrow()[i], 0);
+            }
+        });
+    }
+
+    #[test]
+    fn test_empty_remove() {
+        let mut m: IterableMap<i32, bool> = IterableMap::new(b"b");
+        assert_eq!(m.remove(&0), None);
+    }
+
+    #[test]
+    fn test_empty_entry() {
+        let mut m: IterableMap<i32, bool> = IterableMap::new(b"b");
+        match m.entry(0) {
+            Occupied(_) => panic!(),
+            Vacant(_) => {}
+        }
+        assert!(*m.entry(0).or_insert(true));
+        assert_eq!(m.len(), 1);
+    }
+
+    #[test]
+    fn test_empty_iter() {
+        let mut m: IterableMap<i32, bool> = IterableMap::new(b"b");
+        assert_eq!(m.drain().next(), None);
+        assert_eq!(m.keys().next(), None);
+        assert_eq!(m.values().next(), None);
+        assert_eq!(m.values_mut().next(), None);
+        assert_eq!(m.iter().next(), None);
+        assert_eq!(m.iter_mut().next(), None);
+        assert_eq!(m.len(), 0);
+        assert!(m.is_empty());
+        assert_eq!(m.into_iter().next(), None);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)] // FIXME: takes too long
+    fn test_lots_of_insertions() {
+        let mut m = IterableMap::new(b"b");
+
+        // Try this a few times to make sure we never screw up the IterableMap's
+        // internal state.
+        for _ in 0..10 {
+            assert!(m.is_empty());
+
+            for i in 1..1001 {
+                assert!(m.insert(i, i).is_none());
+
+                for j in 1..=i {
+                    let r = m.get(&j);
+                    assert_eq!(r, Some(&j));
+                }
+
+                for j in i + 1..1001 {
+                    let r = m.get(&j);
+                    assert_eq!(r, None);
+                }
+            }
+
+            for i in 1001..2001 {
+                assert!(!m.contains_key(&i));
+            }
+
+            // remove forwards
+            for i in 1..1001 {
+                assert!(m.remove(&i).is_some());
+
+                for j in 1..=i {
+                    assert!(!m.contains_key(&j));
+                }
+
+                for j in i + 1..1001 {
+                    assert!(m.contains_key(&j));
+                }
+            }
+
+            for i in 1..1001 {
+                assert!(!m.contains_key(&i));
+            }
+
+            for i in 1..1001 {
+                assert!(m.insert(i, i).is_none());
+            }
+
+            // remove backwards
+            for i in (1..1001).rev() {
+                assert!(m.remove(&i).is_some());
+
+                for j in i..1001 {
+                    assert!(!m.contains_key(&j));
+                }
+
+                for j in 1..i {
+                    assert!(m.contains_key(&j));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_find_mut() {
+        let mut m = IterableMap::new(b"b");
+        assert!(m.insert(1, 12).is_none());
+        assert!(m.insert(2, 8).is_none());
+        assert!(m.insert(5, 14).is_none());
+        let new = 100;
+        match m.get_mut(&5) {
+            None => panic!(),
+            Some(x) => *x = new,
+        }
+        assert_eq!(m.get(&5), Some(&new));
+    }
+
+    #[test]
+    fn test_insert_overwrite() {
+        let mut m = IterableMap::new(b"b");
+        assert!(m.insert(1, 2).is_none());
+        assert_eq!(*m.get(&1).unwrap(), 2);
+        assert!(m.insert(1, 3).is_some());
+        assert_eq!(*m.get(&1).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let mut m = IterableMap::new(b"b");
+        assert!(m.insert(1, 2).is_none());
+        assert!(!m.is_empty());
+        assert!(m.remove(&1).is_some());
+        assert!(m.is_empty());
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut m = IterableMap::new(b"b");
+        m.insert(1, 2);
+        assert_eq!(m.remove(&1), Some(2));
+        assert_eq!(m.remove(&1), None);
+    }
+
+    #[test]
+    fn test_remove_entry() {
+        let mut m = IterableMap::new(b"b");
+        m.insert(1, 2);
+        assert_eq!(m.remove_entry(&1), Some((1, 2)));
+        assert_eq!(m.remove(&1), None);
+    }
+
+    #[test]
+    fn test_iterate() {
+        let mut m = IterableMap::new(b"b");
+        for i in 0..32 {
+            assert!(m.insert(i, i * 2).is_none());
+        }
+        assert_eq!(m.len(), 32);
+
+        let mut observed: u32 = 0;
+
+        for (k, v) in &m {
+            assert_eq!(*v, *k * 2);
+            observed |= 1 << *k;
+        }
+        assert_eq!(observed, 0xFFFF_FFFF);
+    }
+
+    #[test]
+    fn test_find() {
+        let mut m = IterableMap::new(b"b");
+        assert!(m.get(&1).is_none());
+        m.insert(1, 2);
+        match m.get(&1) {
+            None => panic!(),
+            Some(v) => assert_eq!(*v, 2),
+        }
+    }
+
+    #[test]
+    fn test_show() {
+        let mut map = IterableMap::new(b"b");
+        let empty: IterableMap<i32, i32> = IterableMap::new(b"c");
+
+        map.insert(1, 2);
+        map.insert(3, 4);
+
+        let map_str = format!("{:?}", map);
+
+        assert_eq!(map_str, "UnorderedMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }");
+        assert_eq!(format!("{:?}", empty), "UnorderedMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }");
+    }
+
+    #[test]
+    fn test_size_hint() {
+        let mut map = IterableMap::new(b"b");
+
+        let xs = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6)];
+
+        for v in xs {
+            map.insert(v.0, v.1);
+        }
+
+        let mut iter = map.iter();
+
+        for _ in iter.by_ref().take(3) {}
+
+        assert_eq!(iter.size_hint(), (3, Some(3)));
+    }
+
+    #[test]
+    fn test_iter_len() {
+        let mut map = IterableMap::new(b"b");
+
+        let xs = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6)];
+
+        for v in xs {
+            map.insert(v.0, v.1);
+        }
+
+        let mut iter = map.iter();
+
+        for _ in iter.by_ref().take(3) {}
+
+        assert_eq!(iter.len(), 3);
+    }
+
+    #[test]
+    fn test_mut_size_hint() {
+        let mut map = IterableMap::new(b"b");
+
+        let xs = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6)];
+
+        for v in xs {
+            map.insert(v.0, v.1);
+        }
+
+        let mut iter = map.iter_mut();
+
+        for _ in iter.by_ref().take(3) {}
+
+        assert_eq!(iter.size_hint(), (3, Some(3)));
+    }
+
+    #[test]
+    fn test_iter_mut_len() {
+        let mut map = IterableMap::new(b"b");
+
+        let xs = [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6)];
+
+        for v in xs {
+            map.insert(v.0, v.1);
+        }
+
+        let mut iter = map.iter_mut();
+
+        for _ in iter.by_ref().take(3) {}
+
+        assert_eq!(iter.len(), 3);
+    }
+
+    #[test]
+    fn test_index() {
+        let mut map = IterableMap::new(b"b");
+
+        map.insert(1, 2);
+        map.insert(2, 1);
+        map.insert(3, 4);
+
+        assert_eq!(map[&2], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_nonexistent() {
+        let mut map = IterableMap::new(b"b");
+
+        map.insert(1, 2);
+        map.insert(2, 1);
+        map.insert(3, 4);
+
+        #[allow(clippy::no_effect)] // false positive lint
+        map[&4];
+    }
+
+    #[test]
+    fn test_entry() {
+        let mut map = IterableMap::new(b"b");
+
+        let xs = [(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)];
+
+        for v in xs {
+            map.insert(v.0, v.1);
+        }
+
+        // Existing key (insert)
+        match map.entry(1) {
+            Vacant(_) => unreachable!(),
+            Occupied(mut view) => {
+                assert_eq!(view.get(), &10);
+                assert_eq!(view.insert(100), 10);
+            }
+        }
+        assert_eq!(map.get(&1).unwrap(), &100);
+        assert_eq!(map.len(), 6);
+
+        // Existing key (update)
+        match map.entry(2) {
+            Vacant(_) => unreachable!(),
+            Occupied(mut view) => {
+                let v = view.get_mut();
+                let new_v = (*v) * 10;
+                *v = new_v;
+            }
+        }
+        assert_eq!(map.get(&2).unwrap(), &200);
+        assert_eq!(map.len(), 6);
+
+        // Existing key (take)
+        match map.entry(3) {
+            Vacant(_) => unreachable!(),
+            Occupied(view) => {
+                assert_eq!(view.remove(), 30);
+            }
+        }
+        assert_eq!(map.get(&3), None);
+        assert_eq!(map.len(), 5);
+
+        // Inexistent key (insert)
+        match map.entry(10) {
+            Occupied(_) => unreachable!(),
+            Vacant(view) => {
+                assert_eq!(*view.insert(1000), 1000);
+            }
+        }
+        assert_eq!(map.get(&10).unwrap(), &1000);
+        assert_eq!(map.len(), 6);
+    }
+
+    #[test]
+    fn test_entry_take_doesnt_corrupt() {
+        fn check(m: &IterableMap<i32, ()>) {
+            for k in m.keys() {
+                assert!(m.contains_key(k), "{} is in keys() but not in the map?", k);
+            }
+        }
+
+        let mut m = IterableMap::new(b"b");
+
+        let mut rng = {
+            let seed = u64::from_le_bytes(*b"testseed");
+            SmallRng::seed_from_u64(seed)
+        };
+
+        // Populate the map with some items.
+        for _ in 0..50 {
+            let x = rng.gen_range(-10..10);
+            m.insert(x, ());
+        }
+
+        for _ in 0..1000 {
+            let x = rng.gen_range(-10..10);
+            match m.entry(x) {
+                Vacant(_) => {}
+                Occupied(e) => {
+                    e.remove();
+                }
+            }
+
+            check(&m);
+        }
+    }
+
+    #[test]
+    fn test_extend_ref_kv_tuple() {
+        let mut a = IterableMap::new(b"b");
+        a.insert(0, 0);
+
+        let for_iter: Vec<(i32, i32)> = (0..100).map(|i| (i, i)).collect();
+        a.extend(for_iter);
+
+        assert_eq!(a.len(), 100);
+
+        for item in 0..100 {
+            assert_eq!(a[&item], item);
+        }
+    }
+
+    #[test]
+    fn test_occupied_entry_key() {
+        let mut a = IterableMap::new(b"b");
+        let key = "hello there";
+        let value = "value goes here";
+        assert!(a.is_empty());
+        a.insert(key.to_string(), value.to_string());
+        assert_eq!(a.len(), 1);
+        assert_eq!(a[key], value);
+
+        match a.entry(key.to_string()) {
+            Vacant(_) => panic!(),
+            Occupied(e) => assert_eq!(key, *e.key()),
+        }
+        assert_eq!(a.len(), 1);
+        assert_eq!(a[key], value);
+    }
+
+    #[test]
+    fn test_vacant_entry_key() {
+        let mut a = IterableMap::new(b"b");
+        let key = "hello there";
+        let value = "value goes here".to_string();
+
+        assert!(a.is_empty());
+        match a.entry(key.to_string()) {
+            Occupied(_) => panic!(),
+            Vacant(e) => {
+                assert_eq!(key, *e.key());
+                e.insert(value.clone());
+            }
+        }
+        assert_eq!(a.len(), 1);
+        assert_eq!(a[key], value);
     }
 }

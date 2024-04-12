@@ -245,7 +245,7 @@ where
         let last_index = self.keys.len() - 1;
         self.keys.swap_remove(old_value.key_index);
 
-        match last_index {
+        match old_value.key_index {
             // If it's the last/only element - do nothing
             x if x == last_index => {}
             // Otherwise update swapped element.
