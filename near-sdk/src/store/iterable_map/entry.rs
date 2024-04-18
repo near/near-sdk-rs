@@ -3,7 +3,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::ValueAndIndex;
 use crate::store::key::ToKey;
-use crate::store::{LookupMap, Vector, ERR_INCONSISTENT_STATE};
+use crate::store::{IterableMap, LookupMap, Vector, ERR_INCONSISTENT_STATE};
 
 /// A view into a single entry in the map, which can be vacant or occupied.
 pub enum Entry<'a, K: 'a, V: 'a, H: 'a>
@@ -241,28 +241,10 @@ where
     {
         let old_value =
             self.values.remove(&self.key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-
         let last_index = self.keys.len() - 1;
         self.keys.swap_remove(old_value.key_index);
 
-        match old_value.key_index {
-            // If it's the last/only element - do nothing
-            x if x == last_index => {}
-            // Otherwise update swapped element.
-            _ => {
-                let swapped_key = self
-                    .keys
-                    .get(old_value.key_index)
-                    .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-
-                let value = self
-                    .values
-                    .get_mut(swapped_key)
-                    .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-
-                value.key_index = old_value.key_index;
-            }
-        }
+        IterableMap::remove_entry_helper(self.keys, self.values, old_value.key_index, last_index);
 
         (self.key, old_value.value)
     }

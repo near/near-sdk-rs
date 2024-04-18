@@ -605,25 +605,33 @@ where
         let last_index = self.keys.len() - 1;
         let key = self.keys.swap_remove(old_value.key_index);
 
-        match old_value.key_index {
+        Self::remove_entry_helper(&self.keys, &mut self.values, old_value.key_index, last_index);
+
+        // Return removed value
+        Some((key, old_value.value))
+    }
+
+    fn remove_entry_helper(
+        keys: &Vector<K>,
+        values: &mut LookupMap<K, ValueAndIndex<V>, H>,
+        key_index: u32,
+        last_index: u32,
+    ) where
+        K: BorshDeserialize + Clone,
+    {
+        match key_index {
             // If it's the last/only element - do nothing.
             x if x == last_index => {}
             // Otherwise update it's index.
             _ => {
-                let swapped_key = self
-                    .keys
-                    .get(old_value.key_index)
-                    .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-                let value = self
-                    .values
+                let swapped_key =
+                    keys.get(key_index).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                let value = values
                     .get_mut(swapped_key)
                     .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
-                value.key_index = old_value.key_index;
+                value.key_index = key_index;
             }
-        };
-
-        // Return removed value
-        Some((key, old_value.value))
+        }
     }
 
     /// Gets the given key's corresponding entry in the map for in-place manipulation.
