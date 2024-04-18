@@ -87,6 +87,10 @@ where
     V: BorshSerialize,
     H: ToKey,
 {
+    // NOTE: It's important that the `keys` collection  is one that's optimized for iteration, e.g.
+    // not skipping empty/unoccupied entries white trying to get to the next element.
+    // See https://github.com/near/near-sdk-rs/issues/1134 to understand the difference between
+    // `store::UnorderedMap` and `store::IterableMap`.
     keys: Vector<K>,
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
@@ -716,6 +720,7 @@ mod tests {
         map.insert(2, 2);
         map.insert(3, 3);
         map.remove(&1);
+
         let iter = map.iter();
         assert_eq!(iter.len(), 3);
         assert_eq!(iter.collect::<Vec<_>>(), [(&0, &0), (&3, &3), (&2, &2)]);
