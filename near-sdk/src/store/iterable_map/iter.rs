@@ -157,7 +157,7 @@ where
         //*         during the iteration, and there is no overlap. This operates under the
         //*         assumption that all elements in the bucket are unique and no hash collisions.
         //*         Because we use 32 byte hashes and all keys are verified unique based on the
-        //*         `UnorderedMap` API, this is safe.
+        //*         `IterableMap` API, this is safe.
         let value = unsafe { &mut *(&mut entry.value as *mut V) };
         (key, value)
     }

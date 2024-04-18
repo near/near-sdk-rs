@@ -36,11 +36,11 @@ use super::{LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 ///
 /// # Examples
 /// ```
-/// use near_sdk::store::UnorderedMap;
+/// use near_sdk::store::IterableMap;
 ///
-/// // Initializes a map, the generic types can be inferred to `UnorderedMap<String, u8, Sha256>`
+/// // Initializes a map, the generic types can be inferred to `IterableMap<String, u8, Sha256>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
-/// let mut map = UnorderedMap::new(b"a");
+/// let mut map = IterableMap::new(b"a");
 ///
 /// map.insert("test".to_string(), 7u8);
 /// assert!(map.contains_key("test"));
@@ -59,7 +59,7 @@ use super::{LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// use near_sdk::store::IterableMap;
 ///
 /// // type inference lets us omit an explicit type signature (which
-/// // would be `UnorderedMap<String, u8>` in this example).
+/// // would be `IterableMap<String, u8>` in this example).
 /// let mut player_stats = IterableMap::new(b"m");
 ///
 /// fn random_stat_buff() -> u8 {
@@ -144,7 +144,7 @@ where
     H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnorderedMap")
+        f.debug_struct("IterableMap")
             .field("keys", &self.keys)
             .field("values", &self.values)
             .finish()
@@ -164,9 +164,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -187,9 +187,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::{UnorderedMap, key::Keccak256};
+    /// use near_sdk::store::{IterableMap, key::Keccak256};
     ///
-    /// let map = UnorderedMap::<String, String, Keccak256>::with_hasher(b"m");
+    /// let map = IterableMap::<String, String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -205,9 +205,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// assert_eq!(map.len(), 0);
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
@@ -221,9 +221,9 @@ where
     ///
     /// # Example
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// assert!(map.is_empty());
     /// map.insert("a".to_string(), 1);
     /// assert!(!map.is_empty());
@@ -238,9 +238,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// map.insert("a".to_string(), 1);
     ///
     /// map.clear();
@@ -264,9 +264,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = IterableMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -289,9 +289,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = IterableMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -318,9 +318,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = IterableMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -342,9 +342,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = IterableMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -366,9 +366,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = IterableMap::new(b"m");
     /// map.insert("a".to_string(), 1);
     /// map.insert("b".to_string(), 2);
     /// map.insert("c".to_string(), 3);
@@ -395,9 +395,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut a = UnorderedMap::new(b"m");
+    /// let mut a = IterableMap::new(b"m");
     /// a.insert(1, "a".to_string());
     /// a.insert(2, "b".to_string());
     ///
@@ -431,9 +431,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     /// assert_eq!(map.get("test"), Some(&5));
     /// ```
@@ -454,9 +454,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// assert!(map.insert("test".to_string(), 5u8).is_none());
     ///
     /// *map.get_mut("test").unwrap() = 6;
@@ -481,9 +481,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// assert!(map.is_empty());
     ///
     /// map.insert("a".to_string(), 1);
@@ -517,9 +517,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     ///
     /// assert!(map.contains_key("test"));
@@ -548,9 +548,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map: UnorderedMap<String, u8> = UnorderedMap::new(b"b");
+    /// let mut map: IterableMap<String, u8> = IterableMap::new(b"b");
     /// map.insert("test".to_string(), 7u8);
     /// assert_eq!(map.len(), 1);
     ///
@@ -582,9 +582,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut map = UnorderedMap::new(b"m");
+    /// let mut map = IterableMap::new(b"m");
     /// map.insert(1, "a".to_string());
     /// assert_eq!(map.remove(&1), Some("a".to_string()));
     /// assert_eq!(map.remove(&1), None);
@@ -628,9 +628,9 @@ where
     /// Note that due to the fact that we need to potentially re-arrange `keys` and update `values`,
     /// `Entry` API actually operates on those two collections as opposed to an actual `Entry`
     /// ```
-    /// use near_sdk::store::UnorderedMap;
+    /// use near_sdk::store::IterableMap;
     ///
-    /// let mut count = UnorderedMap::new(b"m");
+    /// let mut count = IterableMap::new(b"m");
     ///
     /// for ch in [7, 2, 4, 7, 4, 1, 7] {
     ///     let counter = count.entry(ch).or_insert(0);
@@ -1154,8 +1154,8 @@ mod test_map {
 
         let map_str = format!("{:?}", map);
 
-        assert_eq!(map_str, "UnorderedMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }");
-        assert_eq!(format!("{:?}", empty), "UnorderedMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }");
+        assert_eq!(map_str, "IterableMap { keys: Vector { len: 2, prefix: [98, 118] }, values: LookupMap { prefix: [98, 109] } }");
+        assert_eq!(format!("{:?}", empty), "IterableMap { keys: Vector { len: 0, prefix: [99, 118] }, values: LookupMap { prefix: [99, 109] } }");
     }
 
     #[test]
