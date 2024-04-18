@@ -222,7 +222,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
@@ -273,7 +273,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
@@ -297,7 +297,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
@@ -332,7 +332,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
@@ -358,7 +358,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
@@ -379,7 +379,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     /// map.entry("poneyland".to_string()).or_insert(12);
@@ -429,7 +429,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     ///
@@ -448,7 +448,7 @@ where
     ///
     /// ```
     /// use near_sdk::store::IterableMap;
-    /// use near_sdk::store::unordered_map::Entry;
+    /// use near_sdk::store::iterable_map::Entry;
     ///
     /// let mut map: IterableMap<String, u32> = IterableMap::new(b"m");
     ///
