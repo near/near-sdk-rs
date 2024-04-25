@@ -163,7 +163,7 @@ where
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32")))]
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use super::IndexMap;
