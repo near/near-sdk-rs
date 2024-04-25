@@ -792,7 +792,7 @@ mod tests {
         let mut x: u32 = 0;
         assert_eq!(v[x], 10);
         assert_eq!(v[x + 1], 20);
-        x = x + 1;
+        x += 1;
         assert_eq!(v[x], 20);
         assert_eq!(v[x - 1], 10);
     }
