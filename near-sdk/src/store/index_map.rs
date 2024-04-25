@@ -163,10 +163,15 @@ where
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "unstable"))]
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use super::IndexMap;
+    use crate::test_utils::test_env::setup_free;
+    use arbitrary::{Arbitrary, Unstructured};
+    use rand::RngCore;
+    use rand::SeedableRng;
+    use std::collections::HashMap;
 
     #[test]
     fn basic_usage() {
@@ -186,5 +191,272 @@ mod tests {
 
         map.flush();
         assert_eq!(map.get(0), Some(&1));
+    }
+
+    #[derive(Arbitrary, Debug)]
+    enum Op {
+        Insert(u8, u8),
+        Remove(u8),
+        Flush,
+        Get(u8),
+    }
+
+    #[test]
+    fn arbitrary() {
+        setup_free();
+
+        let mut rng = rand_xorshift::XorShiftRng::seed_from_u64(0);
+        let mut buf = vec![0; 4096];
+        for _ in 0..512 {
+            // Clear storage in-between runs
+            crate::mock::with_mocked_blockchain(|b| b.take_storage());
+            rng.fill_bytes(&mut buf);
+
+            let mut im = IndexMap::new(b"l");
+            let mut hm = HashMap::new();
+            let u = Unstructured::new(&buf);
+            if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
+                for op in ops {
+                    match op {
+                        Op::Insert(k, v) => {
+                            let r1 = im.insert(k as u32, v);
+                            let r2 = hm.insert(k, v);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Remove(k) => {
+                            let r1 = im.remove(k as u32);
+                            let r2 = hm.remove(&k);
+                            assert_eq!(r1, r2)
+                        }
+                        Op::Flush => {
+                            im.flush();
+                        }
+                        Op::Get(k) => {
+                            let r1 = im.get(k as u32);
+                            let r2 = hm.get(&k);
+                            assert_eq!(r1, r2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Hashbrown-like tests.
+#[cfg(test)]
+mod test_map {
+    use crate::store::IndexMap;
+    use borsh::{BorshDeserialize, BorshSerialize};
+    use std::cell::RefCell;
+    use std::vec::Vec;
+
+    thread_local! { static DROP_VECTOR: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) }}
+
+    #[derive(Hash, PartialEq, Eq, BorshSerialize, BorshDeserialize, PartialOrd, Ord)]
+    struct Droppable {
+        k: usize,
+    }
+
+    impl Droppable {
+        fn new(k: usize) -> Droppable {
+            DROP_VECTOR.with(|slot| {
+                slot.borrow_mut()[k] += 1;
+            });
+
+            Droppable { k }
+        }
+    }
+
+    impl Drop for Droppable {
+        fn drop(&mut self) {
+            DROP_VECTOR.with(|slot| {
+                slot.borrow_mut()[self.k] -= 1;
+            });
+        }
+    }
+
+    impl Clone for Droppable {
+        fn clone(&self) -> Self {
+            Droppable::new(self.k)
+        }
+    }
+
+    #[test]
+    fn test_drops() {
+        DROP_VECTOR.with(|slot| {
+            *slot.borrow_mut() = vec![0; 100];
+        });
+
+        {
+            let mut m = IndexMap::new(b"b");
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..100 {
+                    assert_eq!(v.borrow()[i], 0);
+                }
+            });
+
+            for i in 0..100usize {
+                let d1 = Droppable::new(i);
+                m.insert(i as u32, d1);
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..100 {
+                    assert_eq!(v.borrow()[i], 1);
+                }
+            });
+
+            for i in 0..50 {
+                let v = m.remove(i as u32);
+
+                assert!(v.is_some());
+
+                DROP_VECTOR.with(|v| {
+                    assert_eq!(v.borrow()[i], 1);
+                });
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..50 {
+                    assert_eq!(v.borrow()[i], 0);
+                }
+
+                for i in 50..100 {
+                    assert_eq!(v.borrow()[i], 1);
+                }
+            });
+        }
+
+        DROP_VECTOR.with(|v| {
+            for i in 0..100 {
+                assert_eq!(v.borrow()[i], 0);
+            }
+        });
+    }
+
+    #[test]
+    fn test_empty_remove() {
+        let mut m: IndexMap<bool> = IndexMap::new(b"b");
+        assert_eq!(m.remove(0), None);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)] // FIXME: takes too long
+    fn test_lots_of_insertions() {
+        let mut m = IndexMap::new(b"b");
+
+        // Try this a few times to make sure we never screw up the IndexMap's
+        // internal state.
+        for _ in 0..10 {
+            for i in 1..1001 {
+                assert!(m.insert(i, i).is_none());
+
+                for j in 1..=i {
+                    let r = m.get(j);
+                    assert_eq!(r, Some(&j));
+                }
+
+                for j in i + 1..1001 {
+                    let r = m.get(j);
+                    assert!(r.is_none());
+                }
+            }
+
+            for i in 1001..2001 {
+                assert!(m.get(i).is_none());
+            }
+
+            // remove forwards
+            for i in 1..1001 {
+                assert!(m.remove(i).is_some());
+
+                for j in 1..=i {
+                    assert!(m.get(j).is_none());
+                }
+
+                for j in i + 1..1001 {
+                    assert!(m.get(j).is_some());
+                }
+            }
+
+            for i in 1..1001 {
+                assert!(m.get(i).is_none());
+            }
+
+            for i in 1..1001 {
+                assert!(m.insert(i, i).is_none());
+            }
+
+            // remove backwards
+            for i in (1..1001).rev() {
+                assert!(m.remove(i).is_some());
+
+                for j in i..1001 {
+                    assert!(m.get(j).is_none());
+                }
+
+                for j in 1..i {
+                    assert!(m.get(j).is_some());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_find_mut() {
+        let mut m = IndexMap::new(b"b");
+        assert!(m.insert(1, 12).is_none());
+        assert!(m.insert(2, 8).is_none());
+        assert!(m.insert(5, 14).is_none());
+        let new = 100;
+        match m.get_mut(5) {
+            None => panic!(),
+            Some(x) => *x = new,
+        }
+        assert_eq!(m.get(5), Some(&new));
+    }
+
+    #[test]
+    fn test_insert_overwrite() {
+        let mut m = IndexMap::new(b"b");
+        assert!(m.insert(1, 2).is_none());
+        assert_eq!(*m.get(1).unwrap(), 2);
+        assert!(m.insert(1, 3).is_some());
+        assert_eq!(*m.get(1).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut m = IndexMap::new(b"b");
+        m.insert(1, 2);
+        assert_eq!(m.remove(1), Some(2));
+        assert_eq!(m.remove(1), None);
+    }
+
+    #[test]
+    fn test_find() {
+        let mut m = IndexMap::new(b"b");
+        assert!(m.get(1).is_none());
+        m.insert(1, 2);
+        match m.get(1) {
+            None => panic!(),
+            Some(v) => assert_eq!(*v, 2),
+        }
+    }
+
+    #[test]
+    fn test_show() {
+        let mut map = IndexMap::new(b"b");
+        let empty: IndexMap<i32> = IndexMap::new(b"c");
+
+        map.insert(1, 2);
+        map.insert(3, 4);
+
+        let map_str = format!("{:?}", map);
+
+        assert_eq!(map_str, "IndexMap { prefix: [98] }");
+        assert_eq!(format!("{:?}", empty), "IndexMap { prefix: [99] }");
     }
 }
