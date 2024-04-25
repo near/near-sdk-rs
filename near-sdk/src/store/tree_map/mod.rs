@@ -30,6 +30,7 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
@@ -62,35 +63,6 @@ where
             .field("root", &self.tree.root)
             .field("tree", &self.tree.nodes)
             .finish()
-    }
-}
-
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for TreeMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.values, writer)?;
-        BorshSerialize::serialize(&self.tree, writer)?;
-        Ok(())
-    }
-}
-
-impl<K, V, H> BorshDeserialize for TreeMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            values: BorshDeserialize::deserialize_reader(reader)?,
-            tree: BorshDeserialize::deserialize_reader(reader)?,
-        })
     }
 }
 

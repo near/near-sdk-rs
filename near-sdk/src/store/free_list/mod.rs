@@ -17,7 +17,7 @@ pub struct FreeListIndex(pub(crate) u32);
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
-#[derive(NearSchema)]
+#[derive(NearSchema, BorshDeserialize, BorshSerialize)]
 #[inside_nearsdk]
 #[abi(borsh)]
 pub(crate) struct FreeList<T>
@@ -27,33 +27,6 @@ where
     first_free: Option<FreeListIndex>,
     occupied_count: u32,
     elements: Vector<Slot<T>>,
-}
-
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<T> BorshSerialize for FreeList<T>
-where
-    T: BorshSerialize,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.first_free, writer)?;
-        BorshSerialize::serialize(&self.occupied_count, writer)?;
-        BorshSerialize::serialize(&self.elements, writer)?;
-        Ok(())
-    }
-}
-
-impl<T> BorshDeserialize for FreeList<T>
-where
-    T: BorshSerialize,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            first_free: BorshDeserialize::deserialize_reader(reader)?,
-            occupied_count: BorshDeserialize::deserialize_reader(reader)?,
-            elements: BorshDeserialize::deserialize_reader(reader)?,
-        })
-    }
 }
 
 #[near(inside_nearsdk)]

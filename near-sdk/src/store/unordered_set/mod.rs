@@ -87,14 +87,14 @@ use std::fmt;
 ///
 /// [`with_hasher`]: Self::with_hasher
 /// [`LookupSet`]: crate::store::LookupSet
-#[derive(BorshDeserialize, BorshSerialize)]
 #[deprecated(
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct UnorderedSet<T, H = Sha256>
 where
-    T: BorshSerialize + Ord,
+    T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,
 {
     #[borsh(bound(serialize = "", deserialize = ""))]
@@ -105,7 +105,7 @@ where
 
 impl<T, H> Drop for UnorderedSet<T, H>
 where
-    T: BorshSerialize + Ord,
+    T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,
 {
     fn drop(&mut self) {
@@ -128,7 +128,7 @@ where
 
 impl<T> UnorderedSet<T, Sha256>
 where
-    T: BorshSerialize + Ord,
+    T: BorshSerialize + BorshDeserialize + Ord,
 {
     /// Create a new iterable set. Use `prefix` as a unique prefix for keys.
     ///
@@ -153,7 +153,7 @@ where
 
 impl<T, H> UnorderedSet<T, H>
 where
-    T: BorshSerialize + Ord,
+    T: BorshSerialize + BorshDeserialize + Ord,
     H: ToKey,
 {
     /// Initialize a [`UnorderedSet`] with a custom hash function.
