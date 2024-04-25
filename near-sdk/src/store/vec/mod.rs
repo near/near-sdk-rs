@@ -782,6 +782,21 @@ mod tests {
         crate::mock::with_mocked_blockchain(|m| assert!(m.take_storage().is_empty()));
     }
 
+    #[test]
+    fn test_indexing() {
+        let mut v: Vector<i32> = Vector::new(b"b");
+        v.push(10);
+        v.push(20);
+        assert_eq!(v[0], 10);
+        assert_eq!(v[1], 20);
+        let mut x: u32 = 0;
+        assert_eq!(v[x], 10);
+        assert_eq!(v[x + 1], 20);
+        x = x + 1;
+        assert_eq!(v[x], 20);
+        assert_eq!(v[x - 1], 10);
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Push(u8),

@@ -53,3 +53,52 @@ impl<K, V> StableMap<K, V> {
         self.map.borrow().get(k).map(|s| f(s))
     }
 }
+#[cfg(test)]
+mod test {
+    use crate::utils::StableMap;
+
+    #[test]
+    fn get() {
+        let mut map: StableMap<i32, i32> = StableMap::default();
+
+        // Vacant entry is being initialized with a default.
+        assert_eq!(map.inner().len(), 0);
+        assert_eq!(map.get(1), &0);
+        assert_eq!(map.inner().len(), 1);
+
+        // Mutated value persisted.
+        *map.get_mut(1) += 1;
+        assert_eq!(map.get(1), &1);
+    }
+
+    #[test]
+    fn get_mut() {
+        let mut map: StableMap<i32, i32> = StableMap::default();
+
+        // Vacant entry is being initialized with a default.
+        assert_eq!(map.inner().len(), 0);
+        assert_eq!(map.get_mut(1), &0);
+        assert_eq!(map.inner().len(), 1);
+
+        // Mutated value persisted.
+        *map.get_mut(1) += 1;
+        assert_eq!(map.get_mut(1), &1);
+
+        // Vacant entry persisted as modified.
+        assert_eq!(map.inner().len(), 1);
+        *map.get_mut(2) += 1;
+        assert_eq!(map.get_mut(2), &1);
+        assert_eq!(map.inner().len(), 2);
+    }
+
+    #[test]
+    fn map_value_ref() {
+        // Returns none if the value does not exist.
+        let mut map: StableMap<i32, i32> = StableMap::default();
+        assert!(map.map_value_ref(&1, |v| v.is_negative()).is_none());
+
+        // Successfully executes a callback if the value is found.
+        *map.get_mut(1) -= 1;
+        assert!(map.map_value_ref(&1, |v| v.is_negative()).unwrap());
+    }
+}
