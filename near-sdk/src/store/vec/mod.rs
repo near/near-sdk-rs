@@ -533,15 +533,17 @@ impl<T> fmt::Debug for Vector<T>
 where
     T: BorshSerialize + BorshDeserialize + fmt::Debug,
 {
+    #[cfg(feature = "expensive-debug")]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if cfg!(feature = "expensive-debug") {
-            fmt::Debug::fmt(&self.iter().collect::<Vec<_>>(), f)
-        } else {
-            f.debug_struct("Vector")
-                .field("len", &self.len)
-                .field("prefix", &self.values.prefix)
-                .finish()
-        }
+        fmt::Debug::fmt(&self.iter().collect::<Vec<_>>(), f)
+    }
+
+    #[cfg(not(feature = "expensive-debug"))]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Vector")
+            .field("len", &self.len)
+            .field("prefix", &self.values.prefix)
+            .finish()
     }
 }
 
