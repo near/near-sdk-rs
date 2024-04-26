@@ -507,8 +507,6 @@ where
         R: RangeBounds<u32>,
     {
         let start = match range.start_bound() {
-            // Note that Rust does not support excluded start bounds, so this is both not
-            // testable nor should it be reachable.
             Bound::Excluded(i) => {
                 i.checked_add(1).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
             }
