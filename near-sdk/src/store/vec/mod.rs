@@ -881,7 +881,7 @@ mod tests {
     #[should_panic]
     fn test_index_panic() {
         let v: Vector<bool> = Vector::new(b"b");
-        v[1];
+        let _ = v[1];
     }
 
     #[test]
