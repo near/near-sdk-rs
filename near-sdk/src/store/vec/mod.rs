@@ -507,6 +507,8 @@ where
         R: RangeBounds<u32>,
     {
         let start = match range.start_bound() {
+            // Note that Rust does not support excluded start bounds, so this is both not
+            // testable nor should it be reachable.
             Bound::Excluded(i) => {
                 i.checked_add(1).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS))
             }
@@ -549,6 +551,7 @@ mod tests {
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{to_vec, BorshDeserialize};
     use rand::{Rng, RngCore, SeedableRng};
+    use std::ops::IndexMut;
 
     use super::Vector;
     use crate::{store::IndexMap, test_utils::test_env::setup_free};
@@ -568,6 +571,41 @@ mod tests {
         for _ in 0..501 {
             assert_eq!(baseline.pop(), vec.pop());
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_set_panic() {
+        let mut vec = Vector::new(b"b");
+        vec.set(2, 0);
+    }
+
+    #[test]
+    fn test_get_mut_none() {
+        let mut vec: Vector<bool> = Vector::new(b"b");
+        assert!(vec.get_mut(2).is_none());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_drain_panic() {
+        let mut vec: Vector<bool> = Vector::new(b"b");
+        vec.drain(..=u32::MAX);
+    }
+
+    #[test]
+    fn test_replace_method() {
+        let mut vec = Vector::new(b"b");
+        vec.push(10);
+        vec.replace(0, 2);
+        assert_eq!(vec[0], 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_replace_method_panic() {
+        let mut vec = Vector::new(b"b");
+        vec.replace(0, 2);
     }
 
     #[test]
@@ -617,6 +655,20 @@ mod tests {
         }
         let actual: Vec<_> = vec.iter().cloned().collect();
         assert_eq!(actual, baseline);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_swap_remove_panic() {
+        let mut vec: Vector<bool> = Vector::new(b"v".to_vec());
+        vec.swap_remove(1);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_swap_panic() {
+        let mut vec: Vector<bool> = Vector::new(b"v".to_vec());
+        vec.swap(1, 2);
     }
 
     #[test]
@@ -733,6 +785,33 @@ mod tests {
     }
 
     #[test]
+    pub fn iterator_mut_checks() {
+        let mut vec = Vector::new(b"v");
+        let mut baseline = vec![];
+        for i in 0..10 {
+            vec.push(i);
+            baseline.push(i);
+        }
+
+        let mut vec_iter = vec.iter_mut();
+        let mut bl_iter = baseline.iter_mut();
+        assert_eq!(vec_iter.next(), bl_iter.next());
+        assert_eq!(vec_iter.next_back(), bl_iter.next_back());
+        assert_eq!(vec_iter.nth(3), bl_iter.nth(3));
+        assert_eq!(vec_iter.nth_back(2), bl_iter.nth_back(2));
+
+        // Check to make sure indexing overflow is handled correctly
+        assert!(vec_iter.nth(5).is_none());
+        assert!(bl_iter.nth(5).is_none());
+
+        assert!(vec_iter.next().is_none());
+        assert!(bl_iter.next().is_none());
+
+        // Count check
+        assert_eq!(vec.iter().count(), baseline.len());
+    }
+
+    #[test]
     fn drain_iterator() {
         let mut vec = Vector::new(b"v");
         let mut baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -747,6 +826,7 @@ mod tests {
             let mut b_drain = baseline.drain(0..3);
             assert_eq!(drain.next(), b_drain.next());
             assert_eq!(drain.next(), b_drain.next());
+            assert_eq!(drain.count(), 1);
         }
 
         // 7 elements, drained 3
@@ -797,6 +877,29 @@ mod tests {
         assert_eq!(v[x - 1], 10);
     }
 
+    #[test]
+    #[should_panic]
+    fn test_index_panic() {
+        let v: Vector<bool> = Vector::new(b"b");
+        v[1];
+    }
+
+    #[test]
+    fn test_index_mut() {
+        let mut v: Vector<i32> = Vector::new(b"b");
+        v.push(10);
+        v.push(20);
+        *v.index_mut(0) += 1;
+        assert_eq!(v[0], 11);
+        assert_eq!(v[1], 20);
+        let mut x: u32 = 0;
+        assert_eq!(v[x], 11);
+        assert_eq!(v[x + 1], 20);
+        x += 1;
+        assert_eq!(v[x], 20);
+        assert_eq!(v[x - 1], 11);
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Push(u8),
@@ -807,6 +910,13 @@ mod tests {
         Reset,
         Get(u32),
         Swap(u32, u32),
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_mut_panic() {
+        let mut v: Vector<bool> = Vector::new(b"b");
+        v.index_mut(1);
     }
 
     #[test]
