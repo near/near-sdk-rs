@@ -553,7 +553,7 @@ mod tests {
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{to_vec, BorshDeserialize};
     use rand::{Rng, RngCore, SeedableRng};
-    use std::ops::IndexMut;
+    use std::ops::{Bound, IndexMut};
 
     use super::Vector;
     use crate::{store::IndexMap, test_utils::test_env::setup_free};
@@ -593,6 +593,13 @@ mod tests {
     fn test_drain_panic() {
         let mut vec: Vector<bool> = Vector::new(b"b");
         vec.drain(..=u32::MAX);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_drain_panic_2() {
+        let mut vec: Vector<bool> = Vector::new(b"b");
+        vec.drain((Bound::Excluded(u32::MAX), Bound::Included(u32::MAX)));
     }
 
     #[test]
