@@ -37,7 +37,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// Note that this collection is optimized for fast removes at the expense of key management.
 /// If the amount of removes is significantly higher than the amount of inserts the iteration
 /// becomes more costly. See [`remove`](UnorderedMap::remove) for details.
-/// If this is the use-case - see ['UnorderedMap`](crate::collections::UnorderedMap).
+/// If this is the use-case - see ['IterableMap`](crate::store::IterableMap).
 ///
 /// # Examples
 /// ```

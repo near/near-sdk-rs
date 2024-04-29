@@ -1,23 +1,25 @@
-// This suppresses the depreciation warnings for uses of UnorderedSet in this module
+// This suppresses the depreciation warnings for uses of IterableSet in this module
 #![allow(deprecated)]
 
 mod impls;
 mod iter;
 
 pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference, Union};
-use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE};
-use crate::store::free_list::FreeListIndex;
+use super::{LookupMap, ERR_INCONSISTENT_STATE};
 use crate::store::key::{Sha256, ToKey};
+use crate::store::Vector;
 use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
 use std::fmt;
 
+type VecIndex = u32;
+
 /// A lazily loaded storage set that stores its content directly on the storage trie.
 /// This structure is similar to [`near_sdk::store::LookupSet`](crate::store::LookupSet), except
-/// that it keeps track of the elements so that [`UnorderedSet`] can be iterable among other things.
+/// that it keeps track of the elements so that [`IterableSet`] can be iterable among other things.
 ///
-/// As with the [`LookupSet`] type, an `UnorderedSet` requires that the elements
+/// As with the [`LookupSet`] type, an `IterableSet` requires that the elements
 /// implement the [`BorshSerialize`] and [`Ord`] traits. This can frequently be achieved by
 /// using `#[derive(BorshSerialize, Ord)]`. Some functions also require elements to implement the
 /// [`BorshDeserialize`] trait.
@@ -25,44 +27,38 @@ use std::fmt;
 /// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
 /// element using the set's [`ToKey`] implementation.
 ///
-/// The default hash function for [`UnorderedSet`] is [`Sha256`] which uses a syscall
+/// The default hash function for [`IterableSet`] is [`Sha256`] which uses a syscall
 /// (or host function) built into the NEAR runtime to hash the element. To use a custom function,
 /// use [`with_hasher`]. Alternative builtin hash functions can be found at
 /// [`near_sdk::store::key`](crate::store::key).
 ///
-/// # Performance considerations
-/// Note that this collection is optimized for fast removes at the expense of key management.
-/// If the amount of removes is significantly higher than the amount of inserts the iteration
-/// becomes more costly. See [`remove`](UnorderedSet::remove) for details.
-/// If this is the use-case - see ['IterableSet`](crate::store::IterableSet).
-///
 /// # Examples
 ///
 /// ```
-/// use near_sdk::store::UnorderedSet;
+/// use near_sdk::store::IterableSet;
 ///
-/// // Initializes a set, the generic types can be inferred to `UnorderedSet<String, Sha256>`
+/// // Initializes a set, the generic types can be inferred to `IterableSet<String, Sha256>`
 /// // The `b"a"` parameter is a prefix for the storage keys of this data structure.
-/// let mut set = UnorderedSet::new(b"a");
+/// let mut set = IterableSet::new(b"a");
 ///
 /// set.insert("test".to_string());
 /// assert!(set.contains("test"));
 /// assert!(set.remove("test"));
 /// ```
 ///
-/// [`UnorderedSet`] also implements various binary operations, which allow
+/// [`IterableSet`] also implements various binary operations, which allow
 /// for iterating various combinations of two sets.
 ///
 /// ```
-/// use near_sdk::store::UnorderedSet;
+/// use near_sdk::store::IterableSet;
 /// use std::collections::HashSet;
 ///
-/// let mut set1 = UnorderedSet::new(b"m");
+/// let mut set1 = IterableSet::new(b"m");
 /// set1.insert(1);
 /// set1.insert(2);
 /// set1.insert(3);
 ///
-/// let mut set2 = UnorderedSet::new(b"n");
+/// let mut set2 = IterableSet::new(b"n");
 /// set2.insert(2);
 /// set2.insert(3);
 /// set2.insert(4);
@@ -88,22 +84,18 @@ use std::fmt;
 /// [`with_hasher`]: Self::with_hasher
 /// [`LookupSet`]: crate::store::LookupSet
 #[derive(BorshDeserialize, BorshSerialize)]
-#[deprecated(
-    since = "5.0.0",
-    note = "Suboptimal iteration performance. See performance considerations doc for details."
-)]
-pub struct UnorderedSet<T, H = Sha256>
+pub struct IterableSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
     #[borsh(bound(serialize = "", deserialize = ""))]
-    elements: FreeList<T>,
+    elements: Vector<T>,
     #[borsh(bound(serialize = "", deserialize = ""))]
-    index: LookupMap<T, FreeListIndex, H>,
+    index: LookupMap<T, VecIndex, H>,
 }
 
-impl<T, H> Drop for UnorderedSet<T, H>
+impl<T, H> Drop for IterableSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
@@ -113,20 +105,20 @@ where
     }
 }
 
-impl<T, H> fmt::Debug for UnorderedSet<T, H>
+impl<T, H> fmt::Debug for IterableSet<T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + fmt::Debug,
     H: ToKey,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnorderedSet")
+        f.debug_struct("IterableSet")
             .field("elements", &self.elements)
             .field("index", &self.index)
             .finish()
     }
 }
 
-impl<T> UnorderedSet<T, Sha256>
+impl<T> IterableSet<T, Sha256>
 where
     T: BorshSerialize + Ord,
 {
@@ -138,9 +130,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut map: UnorderedSet<String> = UnorderedSet::new(b"b");
+    /// let mut map: IterableSet<String> = IterableSet::new(b"b");
     /// ```
     #[inline]
     pub fn new<S>(prefix: S) -> Self
@@ -151,19 +143,19 @@ where
     }
 }
 
-impl<T, H> UnorderedSet<T, H>
+impl<T, H> IterableSet<T, H>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
-    /// Initialize a [`UnorderedSet`] with a custom hash function.
+    /// Initialize a [`IterableSet`] with a custom hash function.
     ///
     /// # Example
     /// ```
     /// use near_sdk::store::key::Keccak256;
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let map = UnorderedSet::<String, Keccak256>::with_hasher(b"m");
+    /// let map = IterableSet::<String, Keccak256>::with_hasher(b"m");
     /// ```
     pub fn with_hasher<S>(prefix: S) -> Self
     where
@@ -172,7 +164,7 @@ where
         let mut vec_key = prefix.into_storage_key();
         let map_key = [vec_key.as_slice(), b"m"].concat();
         vec_key.push(b'v');
-        Self { elements: FreeList::new(vec_key), index: LookupMap::with_hasher(map_key) }
+        Self { elements: Vector::new(vec_key), index: LookupMap::with_hasher(map_key) }
     }
 
     /// Returns the number of elements in the set.
@@ -190,7 +182,7 @@ where
     where
         T: BorshDeserialize + Clone,
     {
-        for e in self.elements.drain() {
+        for e in self.elements.drain(..) {
             self.index.set(e, None);
         }
     }
@@ -201,14 +193,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = IterableSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = IterableSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -218,7 +210,7 @@ where
     ///     println!("{}", x); // Prints "a"
     /// }
     /// ```
-    pub fn difference<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Difference<'a, T, H>
+    pub fn difference<'a>(&'a self, other: &'a IterableSet<T, H>) -> Difference<'a, T, H>
     where
         T: BorshDeserialize,
     {
@@ -231,14 +223,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = IterableSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = IterableSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -250,7 +242,7 @@ where
     /// ```
     pub fn symmetric_difference<'a>(
         &'a self,
-        other: &'a UnorderedSet<T, H>,
+        other: &'a IterableSet<T, H>,
     ) -> SymmetricDifference<'a, T, H>
     where
         T: BorshDeserialize + Clone,
@@ -264,14 +256,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = IterableSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = IterableSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -281,7 +273,7 @@ where
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn intersection<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Intersection<'a, T, H>
+    pub fn intersection<'a>(&'a self, other: &'a IterableSet<T, H>) -> Intersection<'a, T, H>
     where
         T: BorshDeserialize,
     {
@@ -294,14 +286,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = IterableSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = IterableSet::new(b"n");
     /// set2.insert("b".to_string());
     /// set2.insert("c".to_string());
     /// set2.insert("d".to_string());
@@ -311,7 +303,7 @@ where
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn union<'a>(&'a self, other: &'a UnorderedSet<T, H>) -> Union<'a, T, H>
+    pub fn union<'a>(&'a self, other: &'a IterableSet<T, H>) -> Union<'a, T, H>
     where
         T: BorshDeserialize + Clone,
     {
@@ -324,14 +316,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut set1 = UnorderedSet::new(b"m");
+    /// let mut set1 = IterableSet::new(b"m");
     /// set1.insert("a".to_string());
     /// set1.insert("b".to_string());
     /// set1.insert("c".to_string());
     ///
-    /// let mut set2 = UnorderedSet::new(b"n");
+    /// let mut set2 = IterableSet::new(b"n");
     ///
     /// assert_eq!(set1.is_disjoint(&set2), true);
     /// set2.insert("d".to_string());
@@ -339,7 +331,7 @@ where
     /// set2.insert("a".to_string());
     /// assert_eq!(set1.is_disjoint(&set2), false);
     /// ```
-    pub fn is_disjoint(&self, other: &UnorderedSet<T, H>) -> bool
+    pub fn is_disjoint(&self, other: &IterableSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -356,14 +348,14 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut sup = UnorderedSet::new(b"m");
+    /// let mut sup = IterableSet::new(b"m");
     /// sup.insert("a".to_string());
     /// sup.insert("b".to_string());
     /// sup.insert("c".to_string());
     ///
-    /// let mut set = UnorderedSet::new(b"n");
+    /// let mut set = IterableSet::new(b"n");
     ///
     /// assert_eq!(set.is_subset(&sup), true);
     /// set.insert("b".to_string());
@@ -371,7 +363,7 @@ where
     /// set.insert("d".to_string());
     /// assert_eq!(set.is_subset(&sup), false);
     /// ```
-    pub fn is_subset(&self, other: &UnorderedSet<T, H>) -> bool
+    pub fn is_subset(&self, other: &IterableSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -388,13 +380,13 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut sub = UnorderedSet::new(b"m");
+    /// let mut sub = IterableSet::new(b"m");
     /// sub.insert("a".to_string());
     /// sub.insert("b".to_string());
     ///
-    /// let mut set = UnorderedSet::new(b"n");
+    /// let mut set = IterableSet::new(b"n");
     ///
     /// assert_eq!(set.is_superset(&sub), false);
     /// set.insert("b".to_string());
@@ -403,7 +395,7 @@ where
     /// set.insert("a".to_string());
     /// assert_eq!(set.is_superset(&sub), true);
     /// ```
-    pub fn is_superset(&self, other: &UnorderedSet<T, H>) -> bool
+    pub fn is_superset(&self, other: &IterableSet<T, H>) -> bool
     where
         T: BorshDeserialize + Clone,
     {
@@ -416,9 +408,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut set = UnorderedSet::new(b"m");
+    /// let mut set = IterableSet::new(b"m");
     /// set.insert("a".to_string());
     /// set.insert("b".to_string());
     /// set.insert("c".to_string());
@@ -439,9 +431,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// use near_sdk::store::UnorderedSet;
+    /// use near_sdk::store::IterableSet;
     ///
-    /// let mut a = UnorderedSet::new(b"m");
+    /// let mut a = IterableSet::new(b"m");
     /// a.insert(1);
     /// a.insert(2);
     ///
@@ -484,7 +476,8 @@ where
         if entry.value_mut().is_some() {
             false
         } else {
-            let element_index = self.elements.insert(value);
+            self.elements.push(value);
+            let element_index = self.elements.len() - 1;
             entry.replace(Some(element_index));
             true
         }
@@ -498,23 +491,32 @@ where
     ///
     /// # Performance
     ///
-    /// When elements are removed, the underlying vector of values isn't
-    /// rearranged; instead, the removed value is replaced with a placeholder value. These
-    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
-    ///
-    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
-    /// placeholders might make iteration more costly, driving higher gas costs. If you need to
-    /// remedy this, take a look at [`defrag`](Self::defrag).
+    /// When elements are removed, the underlying vector of keys is rearranged by means of swapping
+    /// an obsolete key with the last element in the list and deleting that. Note that that requires
+    /// updating the `index` map due to the fact that it holds `elements` vector indices.
     pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> bool
     where
-        T: Borrow<Q> + BorshDeserialize,
+        T: Borrow<Q> + BorshDeserialize + Clone,
         Q: BorshSerialize + ToOwned<Owned = T> + Ord,
     {
         match self.index.remove(value) {
             Some(element_index) => {
-                self.elements
-                    .remove(element_index)
-                    .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                let last_index = self.elements.len() - 1;
+                let _ = self.elements.swap_remove(element_index);
+
+                match element_index {
+                    // If it's the last/only element - do nothing.
+                    x if x == last_index => {}
+                    // Otherwise update it's index.
+                    _ => {
+                        let element = self
+                            .elements
+                            .get(element_index)
+                            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+                        self.index.set(element.clone(), Some(element_index));
+                    }
+                }
+
                 true
             }
             None => false,
@@ -530,50 +532,10 @@ where
     }
 }
 
-impl<T, H> UnorderedSet<T, H>
-where
-    T: BorshSerialize + BorshDeserialize + Ord,
-    H: ToKey,
-{
-    /// Remove empty placeholders leftover from calling [`remove`](Self::remove).
-    ///
-    /// When elements are removed using [`remove`](Self::remove), the underlying vector isn't
-    /// rearranged; instead, the removed element is replaced with a placeholder value. These
-    /// empty slots are reused on subsequent [`insert`](Self::insert) operations.
-    ///
-    /// In cases where there are a lot of removals and not a lot of insertions, these leftover
-    /// placeholders might make iteration more costly, driving higher gas costs. This method is meant
-    /// to remedy that by removing all empty slots from the underlying vector and compacting it.
-    ///
-    /// Note that this might exceed the available gas amount depending on the amount of free slots,
-    /// therefore has to be used with caution.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use near_sdk::store::UnorderedSet;
-    ///
-    /// let mut set = UnorderedSet::new(b"b");
-    ///
-    /// for i in 0..4 {
-    ///     set.insert(i);
-    /// }
-    ///
-    /// set.remove(&1);
-    /// set.remove(&3);
-    ///
-    /// set.defrag();
-    /// ```
-    pub fn defrag(&mut self) {
-        self.elements.defrag(|_, _| {});
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    use crate::store::free_list::FreeListIndex;
-    use crate::store::UnorderedSet;
+    use crate::store::IterableSet;
     use crate::test_utils::test_env::setup_free;
     use arbitrary::{Arbitrary, Unstructured};
     use borsh::{to_vec, BorshDeserialize};
@@ -583,7 +545,7 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let mut set = UnorderedSet::new(b"b");
+        let mut set = IterableSet::new(b"b");
         assert!(set.is_empty());
         assert!(set.insert("test".to_string()));
         assert!(set.contains("test"));
@@ -595,7 +557,7 @@ mod tests {
 
     #[test]
     fn set_iterator() {
-        let mut set = UnorderedSet::new(b"b");
+        let mut set = IterableSet::new(b"b");
 
         set.insert(0u8);
         set.insert(1);
@@ -604,21 +566,21 @@ mod tests {
         set.remove(&1);
         let iter = set.iter();
         assert_eq!(iter.len(), 3);
-        assert_eq!(iter.collect::<Vec<_>>(), [(&0), (&2), (&3)]);
+        assert_eq!(iter.collect::<Vec<_>>(), [(&0), (&3), (&2)]);
 
         let mut iter = set.iter();
-        assert_eq!(iter.nth(2), Some(&3));
+        assert_eq!(iter.nth(2), Some(&2));
         // Check fused iterator assumption that each following one will be None
         assert_eq!(iter.next(), None);
 
         // Drain
-        assert_eq!(set.drain().collect::<Vec<_>>(), [0, 2, 3]);
+        assert_eq!(set.drain().collect::<Vec<_>>(), [0, 3, 2]);
         assert!(set.is_empty());
     }
 
     #[test]
     fn test_drain() {
-        let mut s = UnorderedSet::new(b"m");
+        let mut s = IterableSet::new(b"m");
         s.extend(1..100);
 
         // Drain the set a few times to make sure that it does have any random residue
@@ -641,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_extend() {
-        let mut a = UnorderedSet::<u64>::new(b"m");
+        let mut a = IterableSet::<u64>::new(b"m");
         a.insert(1);
 
         a.extend([2, 3, 4]);
@@ -655,13 +617,13 @@ mod tests {
 
     #[test]
     fn test_difference() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
         set1.insert("d".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("e".to_string());
@@ -680,12 +642,12 @@ mod tests {
 
     #[test]
     fn test_difference_empty() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert(1);
         set1.insert(2);
         set1.insert(3);
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert(3);
         set2.insert(1);
         set2.insert(2);
@@ -696,12 +658,12 @@ mod tests {
 
     #[test]
     fn test_symmetric_difference() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("d".to_string());
@@ -718,12 +680,12 @@ mod tests {
 
     #[test]
     fn test_symmetric_difference_empty() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert(1);
         set1.insert(2);
         set1.insert(3);
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert(3);
         set2.insert(1);
         set2.insert(2);
@@ -733,12 +695,12 @@ mod tests {
 
     #[test]
     fn test_intersection() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("d".to_string());
@@ -757,12 +719,12 @@ mod tests {
 
     #[test]
     fn test_intersection_empty() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert(1);
         set1.insert(2);
         set1.insert(3);
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert(4);
         set2.insert(6);
         set2.insert(5);
@@ -772,12 +734,12 @@ mod tests {
 
     #[test]
     fn test_union() {
-        let mut set1 = UnorderedSet::new(b"m");
+        let mut set1 = IterableSet::new(b"m");
         set1.insert("a".to_string());
         set1.insert("b".to_string());
         set1.insert("c".to_string());
 
-        let mut set2 = UnorderedSet::new(b"n");
+        let mut set2 = IterableSet::new(b"n");
         set2.insert("b".to_string());
         set2.insert("c".to_string());
         set2.insert("d".to_string());
@@ -798,21 +760,21 @@ mod tests {
 
     #[test]
     fn test_union_empty() {
-        let set1 = UnorderedSet::<u64>::new(b"m");
-        let set2 = UnorderedSet::<u64>::new(b"n");
+        let set1 = IterableSet::<u64>::new(b"m");
+        let set2 = IterableSet::<u64>::new(b"n");
 
         assert_eq!(set1.union(&set2).collect::<HashSet<_>>(), HashSet::new());
     }
 
     #[test]
     fn test_subset_and_superset() {
-        let mut a = UnorderedSet::new(b"m");
+        let mut a = IterableSet::new(b"m");
         assert!(a.insert(0));
         assert!(a.insert(50));
         assert!(a.insert(110));
         assert!(a.insert(70));
 
-        let mut b = UnorderedSet::new(b"n");
+        let mut b = IterableSet::new(b"n");
         assert!(b.insert(0));
         assert!(b.insert(70));
         assert!(b.insert(190));
@@ -835,8 +797,8 @@ mod tests {
 
     #[test]
     fn test_disjoint() {
-        let mut xs = UnorderedSet::new(b"m");
-        let mut ys = UnorderedSet::new(b"n");
+        let mut xs = IterableSet::new(b"m");
+        let mut ys = IterableSet::new(b"n");
 
         assert!(xs.is_disjoint(&ys));
         assert!(ys.is_disjoint(&xs));
@@ -879,7 +841,7 @@ mod tests {
             crate::mock::with_mocked_blockchain(|b| b.take_storage());
             rng.fill_bytes(&mut buf);
 
-            let mut us = UnorderedSet::new(b"l");
+            let mut us = IterableSet::new(b"l");
             let mut hs = HashSet::new();
             let u = Unstructured::new(&buf);
             if let Ok(ops) = Vec::<Op>::arbitrary_take_rest(u) {
@@ -900,7 +862,7 @@ mod tests {
                         }
                         Op::Restore => {
                             let serialized = to_vec(&us).unwrap();
-                            us = UnorderedSet::deserialize(&mut serialized.as_slice()).unwrap();
+                            us = IterableSet::deserialize(&mut serialized.as_slice()).unwrap();
                         }
                         Op::Contains(v) => {
                             let r1 = us.contains(&v);
@@ -911,40 +873,5 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[test]
-    fn defrag() {
-        let mut set = UnorderedSet::new(b"b");
-
-        let all_values = 0..=8;
-
-        for i in all_values {
-            set.insert(i);
-        }
-
-        let removed = [2, 4, 6];
-        let existing = [0, 1, 3, 5, 7, 8];
-
-        for id in removed {
-            set.remove(&id);
-        }
-
-        set.defrag();
-
-        for i in removed {
-            assert!(!set.contains(&i));
-        }
-        for i in existing {
-            assert!(set.contains(&i));
-        }
-
-        // Check that 8 and 7 moved from the front of the list to the smallest removed indices that
-        // correspond to removed values.
-        assert_eq!(*set.elements.get(FreeListIndex(2)).unwrap(), 8);
-        assert_eq!(*set.elements.get(FreeListIndex(4)).unwrap(), 7);
-
-        // Check the last removed value.
-        assert_eq!(set.elements.get(FreeListIndex(6)), None);
     }
 }
