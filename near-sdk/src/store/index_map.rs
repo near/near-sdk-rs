@@ -22,7 +22,7 @@ where
     ///
     /// Note: u32 indices are used over usize to have consistent functionality across architectures.
     /// Some functionality would be different from tests to Wasm if exceeding 32-bit length.
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` bound from T
     pub(crate) cache: StableMap<u32, OnceCell<CacheEntry<T>>>,
 }
 

@@ -30,13 +30,18 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
+    #[borsh(bound(serialize = "", deserialize = ""))]
     values: LookupMap<K, V, H>,
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
+    #[borsh(bound(serialize = "", deserialize = ""))]
     tree: Tree<K>,
 }
 
@@ -65,42 +70,18 @@ where
     }
 }
 
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for TreeMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.values, writer)?;
-        BorshSerialize::serialize(&self.tree, writer)?;
-        Ok(())
-    }
-}
-
-impl<K, V, H> BorshDeserialize for TreeMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            values: BorshDeserialize::deserialize_reader(reader)?,
-            tree: BorshDeserialize::deserialize_reader(reader)?,
-        })
-    }
-}
-
 #[near(inside_nearsdk)]
 struct Tree<K>
 where
     K: BorshSerialize,
 {
     root: Option<FreeListIndex>,
-    #[borsh(bound(deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     nodes: FreeList<Node<K>>,
 }
 
