@@ -19,7 +19,19 @@ use near_sdk_macros::near;
 #[near(inside_nearsdk)]
 pub struct TreeMap<K, V> {
     root: u64,
+    // ser/de is independent of `K`,`V` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     val: LookupMap<K, V>,
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     tree: Vector<Node<K>>,
 }
 

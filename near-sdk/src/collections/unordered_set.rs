@@ -13,6 +13,12 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 #[near(inside_nearsdk)]
 pub struct UnorderedSet<T> {
     element_index_prefix: Vec<u8>,
+    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     elements: Vector<T>,
 }
 

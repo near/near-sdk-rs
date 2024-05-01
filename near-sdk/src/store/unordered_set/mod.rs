@@ -97,8 +97,10 @@ where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
+    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
     #[borsh(bound(serialize = "", deserialize = ""))]
     elements: FreeList<T>,
+    // ser/de is independent of `T`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
     #[borsh(bound(serialize = "", deserialize = ""))]
     index: LookupMap<T, FreeListIndex, H>,
 }
