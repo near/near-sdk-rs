@@ -41,7 +41,7 @@ where
     prefix: Box<[u8]>,
 
     /// Cached value which is lazily loaded and deserialized from storage.
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` bound from T
     cache: OnceCell<CacheEntry<T>>,
 }
 

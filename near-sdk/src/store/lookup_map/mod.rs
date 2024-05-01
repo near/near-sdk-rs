@@ -88,7 +88,7 @@ where
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` from `K`/`V`
     cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
 }
 

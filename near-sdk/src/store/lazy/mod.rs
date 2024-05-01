@@ -68,7 +68,7 @@ where
 {
     /// Key bytes to index the contract's storage.
     storage_key: Box<[u8]>,
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` bound from T
     /// Cached value which is lazily loaded and deserialized from storage.
     cache: OnceCell<CacheEntry<T>>,
 }

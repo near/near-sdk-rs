@@ -90,13 +90,18 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
+    #[borsh(bound(serialize = "", deserialize = ""))]
     keys: FreeList<K>,
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
+    #[borsh(bound(serialize = "", deserialize = ""))]
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
@@ -104,35 +109,6 @@ where
 struct ValueAndIndex<V> {
     value: V,
     key_index: FreeListIndex,
-}
-
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.keys, writer)?;
-        BorshSerialize::serialize(&self.values, writer)?;
-        Ok(())
-    }
-}
-
-impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            keys: BorshDeserialize::deserialize_reader(reader)?,
-            values: BorshDeserialize::deserialize_reader(reader)?,
-        })
-    }
 }
 
 impl<K, V, H> Drop for UnorderedMap<K, V, H>
