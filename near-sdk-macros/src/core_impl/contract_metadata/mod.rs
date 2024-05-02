@@ -2,6 +2,8 @@ use darling::{ast::NestedMeta, Error, FromMeta};
 use proc_macro2::TokenStream;
 use quote::quote;
 
+mod build_info;
+
 #[derive(FromMeta)]
 struct MacroConfig {
     contract_metadata: Option<ContractMetadata>,
@@ -11,13 +13,12 @@ struct MacroConfig {
 pub(crate) struct ContractMetadata {
     version: Option<String>,
     link: Option<String>,
-    build_env: Option<String>,
-    build_cmd: Option<String>,
-    contract_path: Option<String>,
-    source_commit: Option<String>,
-    source_git_url: Option<String>,
+
     #[darling(multiple, rename = "standard")]
     standards: Vec<Standard>,
+
+    #[darling(skip)]
+    build_info: Option<build_info::BuildInfo>,
 }
 
 impl quote::ToTokens for ContractMetadata {
@@ -53,30 +54,32 @@ struct Standard {
 impl ContractMetadata {
     fn populate(mut self) -> Self {
         macro_rules! env_field {
-            ($field: ident, $key: expr) => {
-                if self.$field.is_none() {
+            ($field: expr, $key: expr) => {
+                if $field.is_none() {
                     let field_val = std::env::var($key).unwrap_or(String::from(""));
                     if !field_val.is_empty() {
-                        self.$field = Some(field_val);
+                        $field = Some(field_val);
                     }
                 }
             };
         }
 
-        env_field!(version, "CARGO_PKG_VERSION");
-        env_field!(link, "CARGO_PKG_REPOSITORY");
-        env_field!(build_env, "CARGO_NEAR_BUILD_ENVIRONMENT");
-        env_field!(build_cmd, "CARGO_NEAR_BUILD_COMMAND");
-        env_field!(contract_path, "CARGO_NEAR_CONTRACT_PATH");
-        env_field!(source_commit, "CARGO_NEAR_SOURCE_CODE_COMMIT");
-        env_field!(source_git_url, "CARGO_NEAR_SOURCE_CODE_GIT_URL");
+        env_field!(self.version, "CARGO_PKG_VERSION");
+        env_field!(self.link, "CARGO_PKG_REPOSITORY");
 
         // adding nep330 if it is not present
         if self.standards.is_empty()
             || self.standards.iter().all(|s| s.standard.to_ascii_lowercase() != "nep330")
         {
             self.standards
-                .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
+                .push(Standard { standard: "nep330".to_string(), version: "1.2.0".to_string() });
+        }
+
+        if std::env::var("CARGO_NEAR_BUILD_ENVIRONMENT").is_ok() {
+            self.build_info = Some(
+                build_info::BuildInfo::from_env()
+                    .expect("Build Details Extension field not provided"),
+            );
         }
 
         self
