@@ -3,9 +3,7 @@ pub(crate) struct BuildInfo {
     build_environment: String,
     build_command: Vec<String>,
     contract_path: Option<String>,
-    // pub source_code_snapshot: String,
-    source_commit: String,
-    source_git_url: String,
+    source_code_snapshot: String,
 }
 
 /// basic parsing errors
@@ -50,35 +48,44 @@ impl std::fmt::Display for BuildInfoError {
 
 impl BuildInfo {
     pub(super) fn from_env() -> Result<Self, BuildInfoError> {
-        let build_environment = std::env::var("CARGO_NEAR_BUILD_ENVIRONMENT")
-            .map_err(|_| BuildInfoError::EmptyBuildEnvironment)?;
-        if build_environment.is_empty() {
-            return Err(BuildInfoError::EmptyBuildEnvironment);
+        macro_rules! env_field {
+            ($field: ident, $env_key: expr, $error: expr) => {
+                let $field = std::env::var($env_key).map_err(|_| $error)?;
+                if $field.is_empty() {
+                    return Err($error);
+                }
+            };
         }
-        let build_command = std::env::var("CARGO_NEAR_BUILD_COMMAND")
-            .map_err(|_| BuildInfoError::EmptyBuildCommand)?;
-        if build_command.is_empty() {
-            return Err(BuildInfoError::EmptyBuildCommand);
-        }
-        let build_command =
-            build_command.split_whitespace().map(|st| st.to_string()).collect::<Vec<_>>();
-        if build_command.is_empty() {
-            return Err(BuildInfoError::EmptyBuildCommand);
-        }
+
+        env_field!(
+            build_environment,
+            "CARGO_NEAR_BUILD_ENVIRONMENT",
+            BuildInfoError::EmptyBuildEnvironment
+        );
+        let build_command = {
+            env_field!(
+                build_command,
+                "CARGO_NEAR_BUILD_COMMAND",
+                BuildInfoError::EmptyBuildCommand
+            );
+            let build_command =
+                build_command.split_whitespace().map(|st| st.to_string()).collect::<Vec<_>>();
+            if build_command.is_empty() {
+                return Err(BuildInfoError::EmptyBuildCommand);
+            }
+            build_command
+        };
+        env_field!(
+            source_code_snapshot,
+            "CARGO_NEAR_SOURCE_CODE_SNAPSHOT",
+            BuildInfoError::EmptySourceSnapshot
+        );
         let contract_path = std::env::var("CARGO_NEAR_CONTRACT_PATH").ok();
 
         if contract_path.as_ref().is_some_and(|path| path.is_empty()) {
             return Err(BuildInfoError::EmptyContractPath);
         }
-        let source_git_url = std::env::var("CARGO_NEAR_SOURCE_CODE_GIT_URL")
-            .map_err(|_| BuildInfoError::EmptySourceSnapshot)?;
-        if source_git_url.is_empty() {
-            return Err(BuildInfoError::EmptySourceSnapshot);
-        }
-        let source_commit =
-            std::env::var("CARGO_NEAR_SOURCE_CODE_COMMIT").unwrap_or("".to_string());
 
-        Ok(Self { build_environment, build_command, contract_path, source_git_url, source_commit })
-        // env_field!(self.source_commit, "CARGO_NEAR_SOURCE_CODE_COMMIT");
+        Ok(Self { build_environment, build_command, contract_path, source_code_snapshot })
     }
 }
