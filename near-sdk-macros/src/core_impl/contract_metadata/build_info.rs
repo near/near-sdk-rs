@@ -18,6 +18,36 @@ pub(super) enum BuildInfoError {
     EmptySourceSnapshot,
 }
 
+impl std::fmt::Display for BuildInfoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyBuildEnvironment => {
+                write!(f, "`CARGO_NEAR_BUILD_ENVIRONMENT` is set, but it's set to empty string!")
+            }
+            Self::EmptyBuildCommand => {
+                write!(f, "{}{}",
+                    "`CARGO_NEAR_BUILD_COMMAND` is required, when `CARGO_NEAR_BUILD_ENVIRONMENT` is set,",
+                    "but it's empty!"
+                )
+            }
+            Self::EmptyContractPath => {
+                write!(
+                    f,
+                    "{}{}",
+                    "`CARGO_NEAR_CONTRACT_PATH` was provided,",
+                    "but it's empty! It's required to be non-empty, when present!"
+                )
+            }
+            Self::EmptySourceSnapshot => {
+                write!(f, "{}{}",
+                    "`CARGO_NEAR_SOURCE_CODE_GIT_URL` is required, when `CARGO_NEAR_BUILD_ENVIRONMENT` is set,",
+                    "but it's empty!"
+                )
+            }
+        }
+    }
+}
+
 impl BuildInfo {
     pub(super) fn from_env() -> Result<Self, BuildInfoError> {
         let build_environment = std::env::var("CARGO_NEAR_BUILD_ENVIRONMENT")
