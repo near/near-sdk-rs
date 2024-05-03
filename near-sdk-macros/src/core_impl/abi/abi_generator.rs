@@ -208,6 +208,9 @@ impl ImplItemMethodInfo {
                 // extract the `Ok` type from the result
                 let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
                 self.abi_result_tokens_with_return_value(&ty)
+            },
+            ResultWithStatus(ty) => {
+                quote! { ::std::option::Option::None }
             }
         }
     }
