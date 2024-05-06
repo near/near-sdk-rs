@@ -107,6 +107,7 @@ impl ImplItemMethodInfo {
                     #contract_ser
                 }
                 ::std::result::Result::Err(err) => {
+                    #contract_ser
                     #handle_error
                 }
             }
