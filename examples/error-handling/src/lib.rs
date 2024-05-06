@@ -5,7 +5,7 @@ use near_sdk::check_trait;
 use near_sdk::MyContractError;
 
 #[derive(MyContractError)]
-enum MyError {}
+enum MyError {X}
 
 impl AsRef<str> for MyError {
     fn as_ref(&self) -> &str {
@@ -24,25 +24,45 @@ pub struct Contract {
 #[near]
 impl Contract {
     #[handle_result]
-    pub fn inc(&mut self) -> Result<String, MyError> {
+    pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, MyError> {
         self.value += 1;
-        // let _ = check_trait as fn(& String) ;
-        Ok("ok".to_string())
+        if is_error {
+            return Err(MyError::X);
+        } else {
+            return Ok(self.value);
+        }
     }
 
     #[persist_on_error]
-    pub fn get_my(&mut self) -> Result<String, MyError> {
+    pub fn inc_persist_on_error(&mut self, is_error: bool) -> Result<u32, MyError> {
         self.value += 1;
-        Ok("hey".to_string())
+        if is_error {
+            return Err(MyError::X);
+        } else {
+            return Ok(self.value);
+        }
     }
 
-    pub fn get_value(&self) -> Result<String, MyError> {
-        self.value;
-        Ok("ok".to_string())
+    pub fn inc_just_result(&mut self, is_error: bool) -> Result<u32, MyError> {
+        self.value += 1;
+        if is_error {
+            return Err(MyError::X);
+        } else {
+            return Ok(self.value);
+        }
     }
 
-    pub fn top(&mut self) {
+    pub fn inc_just_simple(&mut self, is_error: bool) -> u32 {
         self.value += 1;
+        if is_error {
+            ::near_sdk::env::panic_str("Error");
+        } else {
+            return self.value;
+        }
     }
+
+    pub fn get_value(&self) -> u32 {
+        self.value
+    }   
 }
 

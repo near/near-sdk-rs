@@ -1,0 +1,26 @@
+ExecutionFinalResult { total_gas_burnt: NearGas { inner: 10323989139158
+    }, transaction: ExecutionOutcome { transaction_hash: UKWgzhJqJQrdLjn8fxB7kye2Fi1AaZiVzPMuNZJDq6U, block_hash: FeUmVLpLwT9g52iRcytCrxXH9CAtxobRroyTPEuZSU5r, logs: [], receipt_ids: [DZvNd7LdG3ZyvXZUCHDkRLHjWi2ESJ9YW3D6Z73HPD8g
+        ], gas_burnt: NearGas { inner: 2428003729558
+        }, tokens_burnt: NearToken { inner: 242800372955800000000
+        }, executor_id: AccountId("dev-20240506060804-59550245138953"), status: SuccessReceiptId(DZvNd7LdG3ZyvXZUCHDkRLHjWi2ESJ9YW3D6Z73HPD8g)
+    }, receipts: [
+        ExecutionOutcome { transaction_hash: DZvNd7LdG3ZyvXZUCHDkRLHjWi2ESJ9YW3D6Z73HPD8g, block_hash: FeUmVLpLwT9g52iRcytCrxXH9CAtxobRroyTPEuZSU5r, logs: [], receipt_ids: [Hr4eEdmkGWFsTuy7qUua2DLtRu1xYnouv1iqtyoXjHBg, FipWavpwekbWnNZnzvDXCJJ85JkMBq7DywJCWrBazJPb
+            ], gas_burnt: NearGas { inner: 4992829014043
+            }, tokens_burnt: NearToken { inner: 499282901404300000000
+            }, executor_id: AccountId("dev-20240506060804-59550245138953"), status: SuccessReceiptId(Hr4eEdmkGWFsTuy7qUua2DLtRu1xYnouv1iqtyoXjHBg)
+        }, ExecutionOutcome { transaction_hash: Hr4eEdmkGWFsTuy7qUua2DLtRu1xYnouv1iqtyoXjHBg, block_hash: 5f7sBH5ueMtwmrDSKHy5uLGUagkBXAFAp9nzV65cSHJA, logs: [], receipt_ids: [
+                9yn4xdETir3o4MnryfA8rJMMBjLhtWdJ4AgQNuu4j6oZ
+            ], gas_burnt: NearGas { inner: 2456791270557
+            }, tokens_burnt: NearToken { inner: 245679127055700000000
+            }, executor_id: AccountId("dev-20240506060804-59550245138953"), status: Failure(ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError("Smart contract panicked: error inside extern C"))
+            }))
+        }, ExecutionOutcome { transaction_hash: 9yn4xdETir3o4MnryfA8rJMMBjLhtWdJ4AgQNuu4j6oZ, block_hash: CJcUCJaViu6ro7hbnc8ykkQNxMzzn2MSjQfYbsd6Yat3, logs: [], receipt_ids: [], gas_burnt: NearGas { inner: 223182562500
+            }, tokens_burnt: NearToken { inner: 0
+            }, executor_id: AccountId("dev-20240506060804-59550245138953"), status: SuccessValue('')
+        }, ExecutionOutcome { transaction_hash: FipWavpwekbWnNZnzvDXCJJ85JkMBq7DywJCWrBazJPb, block_hash: 5f7sBH5ueMtwmrDSKHy5uLGUagkBXAFAp9nzV65cSHJA, logs: [], receipt_ids: [], gas_burnt: NearGas { inner: 223182562500
+            }, tokens_burnt: NearToken { inner: 0
+            }, executor_id: AccountId("dev-20240506060804-59550245138953"), status: SuccessValue('')
+        }
+    ], status: Failure(ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError("Smart contract panicked: error inside extern C"))
+    }))
+}

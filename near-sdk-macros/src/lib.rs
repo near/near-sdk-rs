@@ -520,7 +520,7 @@ fn process_impl_block(
             #[cfg(target_arch = "wasm32")]
             #[no_mangle]
             pub extern "C" fn #new_method_name () {
-                ::near_sdk::env::panic_str("hello");
+                ::near_sdk::env::panic_str("error inside extern C");
             }
         });
     });
