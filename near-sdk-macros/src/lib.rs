@@ -511,18 +511,34 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
+    let mut other_code = quote! {};
+
+    item_impl_info.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
+        let new_method_name = quote::format_ident!("{}_error", method.ident);
+
+        other_code.extend(quote! {
+            #[cfg(target_arch = "wasm32")]
+            #[no_mangle]
+            pub extern "C" fn #new_method_name () {
+                ::near_sdk::env::panic_str("hello");
+            }
+        });
+    });
+
     let x = quote! {
         #ext_generated_code
         #input
         #generated_code
         #abi_generated
+        #other_code
     };
-    // eprintln!("x: {}", x);
+
     Ok(TokenStream::from(quote! {
         #ext_generated_code
         #input
         #generated_code
         #abi_generated
+        #other_code
     })
     .into())
 }

@@ -29,6 +29,10 @@ impl Incrementer {
         Ok("hey".to_string())
     }
 
+    pub fn get_value(&self) -> Result<String, MyError> {
+        self.value
+    }
+
     pub fn top(&mut self) {
         self.value += 1;
     }

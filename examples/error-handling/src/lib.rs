@@ -1,35 +1,48 @@
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{near_bindgen};
+use near_sdk::near;
+use near_sdk::check_trait;
+use near_sdk::MyContractError;
 
-// Define the contract structure
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct Contract {
-    greeting: String,
+#[derive(MyContractError)]
+enum MyError {}
+
+impl AsRef<str> for MyError {
+    fn as_ref(&self) -> &str {
+        "Not enough balance"
+    }
 }
 
-// Define the default, which automatically initializes the contract
-impl Default for Contract {
-    fn default() -> Self {
-        Self {
-            greeting: "Hello".to_string(),
-        }
-    }
+// Define the contract structure
+#[near(contract_state)]
+#[derive(Default)]
+pub struct Contract {
+    value: u32,
 }
 
 // Implement the contract structure
-#[near_bindgen]
+#[near]
 impl Contract {
-    // Public method - returns the greeting saved, defaulting to DEFAULT_GREETING
-    pub fn get_greeting(&self) -> String {
-        self.greeting.clone()
+    #[handle_result]
+    pub fn inc(&mut self) -> Result<String, MyError> {
+        self.value += 1;
+        // let _ = check_trait as fn(& String) ;
+        Ok("ok".to_string())
     }
 
-    // Public method - accepts a greeting, such as "howdy", and records it
-    pub fn set_greeting(&mut self, greeting: String) {
-        self.greeting = greeting;
+    #[persist_on_error]
+    pub fn get_my(&mut self) -> Result<String, MyError> {
+        self.value += 1;
+        Ok("hey".to_string())
+    }
+
+    pub fn get_value(&self) -> Result<String, MyError> {
+        self.value;
+        Ok("ok".to_string())
+    }
+
+    pub fn top(&mut self) {
+        self.value += 1;
     }
 }
 

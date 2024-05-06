@@ -116,9 +116,19 @@ impl ImplItemMethodInfo {
     fn error_handling_tokens(&self) -> TokenStream2 {
         if let ReturnKind::ResultWithStatus(status_result) = &self.attr_signature_info.returns.kind {
             if status_result.persist_on_error {
+                let new_method_name = quote::format_ident!("{}_error", self.attr_signature_info.ident);
+                let string_method_name = new_method_name.to_string();
                 quote! {
-                    Promise::new(self.account_id).add_post_error(err);
-                    ::near_sdk::env::promise_return(0);
+                    let x = ::near_sdk::env::promise_create(
+                        ::near_sdk::env::current_account_id().clone(),
+                        #string_method_name,
+                        &::near_sdk::serde_json::to_vec(&("",)).unwrap(),
+                        ::near_sdk::NearToken::from_near(0),
+                        ::near_sdk::Gas::from_tgas(20),
+                    );
+                    // let x = Contract::ext(::near_sdk::env::current_account_id()). #new_method_name ();
+                    // ::near_sdk::Promise::new(::near_sdk::env::current_account_id()). #new_method_name ();
+                    ::near_sdk::env::promise_return(x);
                 }
             } else {
                 quote! {
