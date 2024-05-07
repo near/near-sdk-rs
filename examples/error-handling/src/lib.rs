@@ -5,6 +5,13 @@ use near_sdk::contract_error;
 
 #[contract_error]
 enum MyErrorEnum {X}
+impl AsRef<str> for MyErrorEnum {
+    fn as_ref(&self) -> &str {
+        match self {
+            MyErrorEnum::X => "X",
+        }
+    }
+}
 
 #[contract_error]
 struct MyErrorStruct {
@@ -12,11 +19,13 @@ struct MyErrorStruct {
 }
 
 #[derive(Debug)]
-#[contract_error]
+#[near(serializers=[json])]
 enum AnotherError {X}
 impl AsRef<str> for AnotherError {
     fn as_ref(&self) -> &str {
-        "Not enough balance"
+        match self {
+            AnotherError::X => "X",
+        }
     }
 }
 
@@ -53,7 +62,7 @@ impl Contract {
     pub fn inc_just_result(&mut self, is_error: bool) -> Result<u32, MyErrorStruct> {
         self.value += 1;
         if is_error {
-            return Err(MyErrorStruct {x: 5});
+            return Err(MyErrorStruct { x: 5 });
         } else {
             return Ok(self.value);
         }
