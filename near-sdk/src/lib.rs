@@ -3,6 +3,7 @@
 #![allow(clippy::redundant_closure)]
 // We want to enable all clippy lints, but some of them generate false positives.
 #![allow(clippy::missing_const_for_fn, clippy::redundant_pub_crate)]
+#![allow(clippy::multiple_bound_locations)]
 
 #[cfg(test)]
 extern crate quickcheck;
