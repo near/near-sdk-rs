@@ -136,6 +136,10 @@ impl ImplItemMethodInfo {
                     ::near_sdk::FunctionError::panic(&err)
                 }
             }
+        } else if let ReturnKind::HandlesResult { .. } = &self.attr_signature_info.returns.kind {
+            quote! {
+                ::near_sdk::FunctionError::panic(&err)
+            }
         } else {
             quote! {}
         }

@@ -37,9 +37,10 @@ async fn test_factorial() -> anyhow::Result<()> {
     assert!(res.is_success());
     assert_eq!(get_value(&contract).await.unwrap(), 4);
 
-    // let res = contract.call("inc_handle_result").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
-    // assert!(res.is_failure());
-    // assert_eq!(get_value(&contract).await.unwrap(), 4);    
+    let res = contract.call("inc_handle_result").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
+    println!("res: {:?}", res);
+    assert!(res.is_failure());
+    assert_eq!(get_value(&contract).await.unwrap(), 4);    
 
     let res = contract.call("inc_persist_on_error").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
     assert!(res.is_failure());
