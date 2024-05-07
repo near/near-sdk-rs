@@ -127,13 +127,15 @@ impl ImplItemMethodInfo {
                         ::near_sdk::NearToken::from_near(0),
                         ::near_sdk::Gas::from_tgas(20),
                     );
-                    // let x = Contract::ext(::near_sdk::env::current_account_id()). #new_method_name ();
-                    // ::near_sdk::Promise::new(::near_sdk::env::current_account_id()). #new_method_name ();
                     ::near_sdk::env::promise_return(x);
                 }
             } else {
+                eprintln!("Error handling tokens {}", quote!{::near_sdk::env::panic_str(&err);});
                 quote! {
-                    ::near_sdk::FunctionError::panic(&err)
+                    let err = ::near_sdk::serde_json::json!{{"error": err}};
+                    ::near_sdk::env::panic_str(&err.to_string());
+                    // ::near_sdk::FunctionError::panic(&err)
+
                 }
             }
         } else if let ReturnKind::HandlesResult { .. } = &self.attr_signature_info.returns.kind {

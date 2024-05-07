@@ -38,28 +38,22 @@ async fn test_factorial() -> anyhow::Result<()> {
     assert_eq!(get_value(&contract).await.unwrap(), 4);
 
     let res = contract.call("inc_handle_result").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
-    println!("res: {:?}", res);
     assert!(res.is_failure());
     assert_eq!(get_value(&contract).await.unwrap(), 4);    
 
     let res = contract.call("inc_persist_on_error").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
     assert!(res.is_failure());
-    println!("res: {:?}", res);
     assert_eq!(get_value(&contract).await.unwrap(), 5);    
 
     let res = contract.call("inc_just_result").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
     assert!(res.is_failure());
-    assert_eq!(get_value(&contract).await.unwrap(), 5);    
+    let string_error = format!("{:?}",res.failures()[0].clone().into_result().unwrap_err());
+    assert_eq!(string_error, "Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":\\\"X\\\"}\")) }) } }");
+    assert_eq!(get_value(&contract).await.unwrap(), 5);
 
     let res = contract.call("inc_just_simple").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
     assert!(res.is_failure());
-    assert_eq!(get_value(&contract).await.unwrap(), 5);    
-
-
-    // let n = 10;
-    // let res = contract.call("factorial").args_json((n,)).max_gas().transact().await?;
-    // assert!(res.is_success());
-    // assert_eq!(res.json::<u32>()?, (1..n + 1).product::<u32>());
+    assert_eq!(get_value(&contract).await.unwrap(), 5);
 
     Ok(())
 }

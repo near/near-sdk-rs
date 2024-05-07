@@ -5,9 +5,12 @@ use near_sdk::check_trait;
 use near_sdk::MyContractError;
 
 #[derive(MyContractError)]
+#[near(serializers=[json])]
 enum MyError {X}
 
-impl AsRef<str> for MyError {
+#[derive(MyContractError, Debug)]
+enum AnotherError {X}
+impl AsRef<str> for AnotherError {
     fn as_ref(&self) -> &str {
         "Not enough balance"
     }
@@ -24,10 +27,10 @@ pub struct Contract {
 #[near]
 impl Contract {
     #[handle_result]
-    pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, MyError> {
+    pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, AnotherError> {
         self.value += 1;
         if is_error {
-            return Err(MyError::X);
+            return Err(AnotherError::X);
         } else {
             return Ok(self.value);
         }
