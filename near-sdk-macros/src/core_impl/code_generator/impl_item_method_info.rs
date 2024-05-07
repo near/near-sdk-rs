@@ -119,15 +119,37 @@ impl ImplItemMethodInfo {
             if status_result.persist_on_error {
                 let new_method_name = quote::format_ident!("{}_error", self.attr_signature_info.ident);
                 let string_method_name = new_method_name.to_string();
+
+                // eprintln!("nearbindgen impl {}", quote! {
+                //     #[near]
+                //     impl Contract {
+                //         pub fn #new_method_name(&self, error: String) {
+                //             env::panic_str(&error);
+                //         }
+                //     }
+                // });
+
                 quote! {
-                    let x = ::near_sdk::env::promise_create(
-                        ::near_sdk::env::current_account_id().clone(),
-                        #string_method_name,
-                        &::near_sdk::serde_json::to_vec(&("",)).unwrap(),
-                        ::near_sdk::NearToken::from_near(0),
-                        ::near_sdk::Gas::from_tgas(20),
-                    );
-                    ::near_sdk::env::promise_return(x);
+                    // let __args =
+                    // {
+                    //     #[derive(:: near_sdk :: serde :: Serialize)]
+                    //     #[serde(crate = "::near_sdk::serde")] struct Input < 'nearinput >
+                    //     { is_error : & 'nearinput bool, } let __args = Input
+                    //     { is_error : & is_error, } ; :: near_sdk :: serde_json ::
+                    //     to_vec(&
+                    //     __args).expect("Failed to serialize the cross contract args using JSON.")
+                    // } ;
+
+                    let promise = Contract::ext(::near_sdk::env::current_account_id()).#new_method_name(String::from("passing this error")).as_return();
+
+                    // let x = ::near_sdk::env::promise_create(
+                    //     ::near_sdk::env::current_account_id().clone(),
+                    //     #string_method_name,
+                    //     &::near_sdk::serde_json::to_vec(&("",)).unwrap(),
+                    //     ::near_sdk::NearToken::from_near(0),
+                    //     ::near_sdk::Gas::from_tgas(20),
+                    // );
+                    // ::near_sdk::env::promise_return(x);
                 }
             } else {
                 eprintln!("Error handling tokens {}", quote!{::near_sdk::env::panic_str(&err);});

@@ -104,23 +104,23 @@ pub(crate) fn generate_ext_function_wrappers<'a>(
     for method in methods {
         res.extend(generate_ext_function(method));
 
-        let new_method_name = quote::format_ident!("{}_error", method.ident);
-        let new_method_ident_str = new_method_name.to_string();
+        // let new_method_name = quote::format_ident!("{}_error", method.ident);
+        // let new_method_ident_str = new_method_name.to_string();
 
-        res.extend(quote! {
-            pub fn #new_method_name (self) -> ::near_sdk::Promise {
-                let __args = ::std::vec![];
-                ::near_sdk::Promise::new(self.account_id)
-                    .function_call_weight(
-                        ::std::string::String::from(#new_method_ident_str),
-                        __args,
-                        self.deposit.clone(),
-                        self.static_gas,
-                        self.gas_weight,
-                    )
-            }
+        // res.extend(quote! {
+        //     pub fn #new_method_name (self) -> ::near_sdk::Promise {
+        //         let __args = ::std::vec![];
+        //         ::near_sdk::Promise::new(self.account_id)
+        //             .function_call_weight(
+        //                 ::std::string::String::from(#new_method_ident_str),
+        //                 __args,
+        //                 self.deposit.clone(),
+        //                 self.static_gas,
+        //                 self.gas_weight,
+        //             )
+        //     }
         
-        })
+        // })
     }
     quote! {
         impl #ext_ident {

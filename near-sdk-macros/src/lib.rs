@@ -530,13 +530,27 @@ fn process_impl_block(
     item_impl_info.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
         let new_method_name = quote::format_ident!("{}_error", method.ident);
 
-        other_code.extend(quote! {
-            #[cfg(target_arch = "wasm32")]
-            #[no_mangle]
-            pub extern "C" fn #new_method_name () {
-                ::near_sdk::env::panic_str("error inside extern C");
-            }
-        });
+        if let ReturnKind::ResultWithStatus(..) = method.returns.kind {
+            other_code.extend(quote! {
+                #[near]
+                impl Contract {
+                    pub fn #new_method_name(&self, error: String) {
+                        ::near_sdk::env::panic_str(&error);
+                    }
+                }
+                // #[cfg(target_arch = "wasm32")]
+                // #[no_mangle]
+                // pub extern "C" fn #new_method_name () {
+                //     #[derive(:: near_sdk :: serde :: Deserialize)]
+                //     #[serde(crate = "::near_sdk::serde")]
+                //     struct Input { is_error : bool, }
+                //     let Input { is_error, } : Input = :: near_sdk :: serde_json ::
+                //     from_slice(& :: near_sdk :: env ::
+                //     input().expect("Expected input since method has arguments.")).expect("Failed to deserialize input from JSON.");
+                //     ::near_sdk::env::panic_str("error inside extern C");
+                // }
+            });
+        }
     });
 
     let x = quote! {
