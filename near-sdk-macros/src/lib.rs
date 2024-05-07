@@ -530,12 +530,17 @@ fn process_impl_block(
     item_impl_info.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
         let new_method_name = quote::format_ident!("{}_error", method.ident);
 
-        if let ReturnKind::ResultWithStatus(..) = method.returns.kind {
+        if let ReturnKind::ResultWithStatus(status) = &method.returns.kind {
+            let ty = status.result_type.clone();
+            let another: syn::Type = parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
+            eprintln!("another: {}", quote!{#another});
+
             other_code.extend(quote! {
                 #[near]
                 impl Contract {
-                    pub fn #new_method_name(&self, error: String) {
-                        ::near_sdk::env::panic_str(&error);
+                    pub fn #new_method_name(&self, err: #another) {
+                        let err = ::near_sdk::serde_json::json!{{"error": err}};
+                        ::near_sdk::env::panic_str(&err.to_string());
                     }
                 }
                 // #[cfg(target_arch = "wasm32")]

@@ -33,7 +33,7 @@ impl Contract {
     }
 
     #[persist_on_error]
-    pub fn inc_persist_on_error(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
+    pub fn inc_persist_on_e(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
         self.value += 1;
         if is_error {
             return Err(MyErrorEnum::X);

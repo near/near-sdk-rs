@@ -19,6 +19,15 @@ pub trait MyContractErrorTrait {
 
 pub fn check_trait<T: MyContractErrorTrait>(_: &T) {}
 
+pub trait ResultTypeExtMy {
+    type Okay;
+    type Error;
+}
+
+impl<T, E> ResultTypeExtMy for Result<T, E> {
+    type Okay = T;
+    type Error = E;
+}
 
 #[cfg(feature = "legacy")]
 pub mod collections;

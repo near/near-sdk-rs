@@ -25,7 +25,7 @@ async fn test_factorial() -> anyhow::Result<()> {
     assert!(res.is_success());
     assert_eq!(get_value(&contract).await.unwrap(), 1);    
 
-    let res = contract.call("inc_persist_on_error").args_json(::near_sdk::serde_json::json!{{"is_error": false}}).max_gas().transact().await?;
+    let res = contract.call("inc_persist_on_e").args_json(::near_sdk::serde_json::json!{{"is_error": false}}).max_gas().transact().await?;
     assert!(res.is_success());
     assert_eq!(get_value(&contract).await.unwrap(), 2);    
 
@@ -41,10 +41,10 @@ async fn test_factorial() -> anyhow::Result<()> {
     assert!(res.is_failure());
     assert_eq!(get_value(&contract).await.unwrap(), 4);    
 
-    let res = contract.call("inc_persist_on_error").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
+    let res = contract.call("inc_persist_on_e").args_json(::near_sdk::serde_json::json!{{"is_error": true}}).max_gas().transact().await?;
     assert!(res.is_failure());
     let string_error = format!("{:?}",res.failures()[0].clone().into_result().unwrap_err());
-    // assert_eq!(string_error, "Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":{\\\"x\\\":5}}\")) }) } }");
+    assert_eq!(string_error, "Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":\\\"X\\\"}\")) }) } }");
     
     assert_eq!(get_value(&contract).await.unwrap(), 5);    
 

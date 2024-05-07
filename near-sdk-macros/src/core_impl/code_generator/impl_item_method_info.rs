@@ -140,7 +140,7 @@ impl ImplItemMethodInfo {
                     //     __args).expect("Failed to serialize the cross contract args using JSON.")
                     // } ;
 
-                    let promise = Contract::ext(::near_sdk::env::current_account_id()).#new_method_name(String::from("passing this error")).as_return();
+                    let promise = Contract::ext(::near_sdk::env::current_account_id()).#new_method_name(err).as_return();
 
                     // let x = ::near_sdk::env::promise_create(
                     //     ::near_sdk::env::current_account_id().clone(),
