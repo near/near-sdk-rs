@@ -4,7 +4,12 @@ use near_sdk::near;
 use near_sdk::contract_error;
 
 #[contract_error]
-enum MyError {X}
+enum MyErrorEnum {X}
+
+#[contract_error]
+struct MyErrorStruct {
+    x: u32,
+}
 
 #[derive(Debug)]
 #[contract_error]
@@ -36,19 +41,19 @@ impl Contract {
     }
 
     #[persist_on_error]
-    pub fn inc_persist_on_error(&mut self, is_error: bool) -> Result<u32, MyError> {
+    pub fn inc_persist_on_error(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
         self.value += 1;
         if is_error {
-            return Err(MyError::X);
+            return Err(MyErrorEnum::X);
         } else {
             return Ok(self.value);
         }
     }
 
-    pub fn inc_just_result(&mut self, is_error: bool) -> Result<u32, MyError> {
+    pub fn inc_just_result(&mut self, is_error: bool) -> Result<u32, MyErrorStruct> {
         self.value += 1;
         if is_error {
-            return Err(MyError::X);
+            return Err(MyErrorStruct {x: 5});
         } else {
             return Ok(self.value);
         }
