@@ -6,6 +6,7 @@ mod core_impl;
 use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method, extract_error_type};
 
 use proc_macro::TokenStream;
+use syn::token::Token;
 
 use self::core_impl::*;
 use darling::ast::NestedMeta;
@@ -22,14 +23,27 @@ pub fn derive_contract_error(input: TokenStream) -> TokenStream {
     let enum_name = &item.ident;
     
     let expanded = quote! {
-        impl near_sdk::MyContractErrorTrait for #enum_name {
+        
+    };
+    
+    expanded.into()
+}
+
+#[proc_macro_attribute]
+pub fn contract_error(att: TokenStream, item: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(item as syn::DeriveInput);
+    let ident = &input.ident;
+    let expanded = quote! {
+        #[near(serializers=[json])]
+        #input
+
+        impl near_sdk::MyContractErrorTrait for #ident {
             // fn my_fn(&self) -> u64 {
             //     1
             // }
         }
     };
-    
-    expanded.into()
+    TokenStream::from(expanded)
 }
 
 

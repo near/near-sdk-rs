@@ -1,14 +1,13 @@
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::near;
-use near_sdk::check_trait;
-use near_sdk::MyContractError;
+use near_sdk::contract_error;
 
-#[derive(MyContractError)]
-#[near(serializers=[json])]
+#[contract_error]
 enum MyError {X}
 
-#[derive(MyContractError, Debug)]
+#[derive(Debug)]
+#[contract_error]
 enum AnotherError {X}
 impl AsRef<str> for AnotherError {
     fn as_ref(&self) -> &str {

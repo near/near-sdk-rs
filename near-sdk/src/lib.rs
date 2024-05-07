@@ -8,7 +8,7 @@
 extern crate quickcheck;
 
 pub use near_sdk_macros::{
-    ext_contract, near, near_bindgen, MyContractError, BorshStorageKey, EventMetadata, FunctionError, NearSchema,
+    ext_contract, near, near_bindgen, contract_error, MyContractError, BorshStorageKey, EventMetadata, FunctionError, NearSchema,
     PanicOnDefault,
 };
 
