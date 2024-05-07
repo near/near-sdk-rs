@@ -2,31 +2,14 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::near;
 use near_sdk::contract_error;
+use near_sdk::FunctionError;
 
 #[contract_error]
 enum MyErrorEnum {X}
-impl AsRef<str> for MyErrorEnum {
-    fn as_ref(&self) -> &str {
-        match self {
-            MyErrorEnum::X => "X",
-        }
-    }
-}
 
 #[contract_error]
 struct MyErrorStruct {
     x: u32,
-}
-
-#[derive(Debug)]
-#[near(serializers=[json])]
-enum AnotherError {X}
-impl AsRef<str> for AnotherError {
-    fn as_ref(&self) -> &str {
-        match self {
-            AnotherError::X => "X",
-        }
-    }
 }
 
 // Define the contract structure
@@ -40,10 +23,10 @@ pub struct Contract {
 #[near]
 impl Contract {
     #[handle_result]
-    pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, AnotherError> {
+    pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, &'static str> {
         self.value += 1;
         if is_error {
-            return Err(AnotherError::X);
+            return Err("error in inc_handle_result");
         } else {
             return Ok(self.value);
         }
