@@ -8,27 +8,28 @@ pub(crate) struct BuildInfo {
 
 /// basic parsing errors
 #[derive(Debug)]
-pub(super) enum BuildInfoError {
-    EmptyBuildEnvironment,
-    EmptyBuildCommand,
+pub(super) enum FieldEmptyError {
+    BuildEnvironment,
+    BuildCommand,
     /// `None` value should be used instead for `contract_path`
-    EmptyContractPath,
-    EmptySourceSnapshot,
+    ContractPath,
+    SourceSnapshot,
 }
 
-impl std::fmt::Display for BuildInfoError {
+#[allow(clippy::write_literal)]
+impl std::fmt::Display for FieldEmptyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::EmptyBuildEnvironment => {
+            Self::BuildEnvironment => {
                 write!(f, "`CARGO_NEAR_BUILD_ENVIRONMENT` is set, but it's set to empty string!")
             }
-            Self::EmptyBuildCommand => {
+            Self::BuildCommand => {
                 write!(f, "{}{}",
                     "`CARGO_NEAR_BUILD_COMMAND` is required, when `CARGO_NEAR_BUILD_ENVIRONMENT` is set,",
                     "but it's empty!"
                 )
             }
-            Self::EmptyContractPath => {
+            Self::ContractPath => {
                 write!(
                     f,
                     "{}{}",
@@ -36,7 +37,7 @@ impl std::fmt::Display for BuildInfoError {
                     "but it's empty! It's required to be non-empty, when present!"
                 )
             }
-            Self::EmptySourceSnapshot => {
+            Self::SourceSnapshot => {
                 write!(f, "{}{}",
                     "`CARGO_NEAR_SOURCE_CODE_GIT_URL` is required, when `CARGO_NEAR_BUILD_ENVIRONMENT` is set,",
                     "but it's empty!"
@@ -47,7 +48,7 @@ impl std::fmt::Display for BuildInfoError {
 }
 
 impl BuildInfo {
-    pub(super) fn from_env() -> Result<Self, BuildInfoError> {
+    pub(super) fn from_env() -> Result<Self, FieldEmptyError> {
         macro_rules! env_field {
             ($field: ident, $env_key: expr, $error: expr) => {
                 let $field = std::env::var($env_key).map_err(|_| $error)?;
@@ -60,30 +61,26 @@ impl BuildInfo {
         env_field!(
             build_environment,
             "CARGO_NEAR_BUILD_ENVIRONMENT",
-            BuildInfoError::EmptyBuildEnvironment
+            FieldEmptyError::BuildEnvironment
         );
         let build_command = {
-            env_field!(
-                build_command,
-                "CARGO_NEAR_BUILD_COMMAND",
-                BuildInfoError::EmptyBuildCommand
-            );
+            env_field!(build_command, "CARGO_NEAR_BUILD_COMMAND", FieldEmptyError::BuildCommand);
             let build_command =
                 build_command.split_whitespace().map(|st| st.to_string()).collect::<Vec<_>>();
             if build_command.is_empty() {
-                return Err(BuildInfoError::EmptyBuildCommand);
+                return Err(FieldEmptyError::BuildCommand);
             }
             build_command
         };
         env_field!(
             source_code_snapshot,
             "CARGO_NEAR_SOURCE_CODE_SNAPSHOT",
-            BuildInfoError::EmptySourceSnapshot
+            FieldEmptyError::SourceSnapshot
         );
         let contract_path = std::env::var("CARGO_NEAR_CONTRACT_PATH").ok();
 
         if contract_path.as_ref().is_some_and(|path| path.is_empty()) {
-            return Err(BuildInfoError::EmptyContractPath);
+            return Err(FieldEmptyError::ContractPath);
         }
 
         Ok(Self { build_environment, build_command, contract_path, source_code_snapshot })
