@@ -531,30 +531,20 @@ fn process_impl_block(
         let new_method_name = quote::format_ident!("{}_error", method.ident);
 
         if let ReturnKind::ResultWithStatus(status) = &method.returns.kind {
-            let ty = status.result_type.clone();
-            let another: syn::Type = parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
-            eprintln!("another: {}", quote!{#another});
-
-            other_code.extend(quote! {
-                #[near]
-                impl Contract {
-                    pub fn #new_method_name(&self, err: #another) {
-                        let err = ::near_sdk::serde_json::json!{{"error": err}};
-                        ::near_sdk::env::panic_str(&err.to_string());
+            if status.persist_on_error {
+                let ty = status.result_type.clone();
+                let another: syn::Type = parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
+    
+                other_code.extend(quote! {
+                    #[near]
+                    impl Contract {
+                        pub fn #new_method_name(&self, err: #another) {
+                            let err = ::near_sdk::serde_json::json!{{"error": err}};
+                            ::near_sdk::env::panic_str(&err.to_string());
+                        }
                     }
-                }
-                // #[cfg(target_arch = "wasm32")]
-                // #[no_mangle]
-                // pub extern "C" fn #new_method_name () {
-                //     #[derive(:: near_sdk :: serde :: Deserialize)]
-                //     #[serde(crate = "::near_sdk::serde")]
-                //     struct Input { is_error : bool, }
-                //     let Input { is_error, } : Input = :: near_sdk :: serde_json ::
-                //     from_slice(& :: near_sdk :: env ::
-                //     input().expect("Expected input since method has arguments.")).expect("Failed to deserialize input from JSON.");
-                //     ::near_sdk::env::panic_str("error inside extern C");
-                // }
-            });
+                });
+            }
         }
     });
 
