@@ -33,9 +33,18 @@ pub fn derive_contract_error(input: TokenStream) -> TokenStream {
 pub fn contract_error(att: TokenStream, item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let ident = &input.ident;
+
+    let wrapper_name: Ident = Ident::new(&format!("{}Wrapper", ident), Span::call_site());
+
     let expanded = quote! {
         #[near(serializers=[json])]
         #input
+
+        #[near(serializers=[json])]
+        struct #wrapper_name {
+            error_type: &'static str,
+            value: #ident,
+        }
 
         impl near_sdk::MyContractErrorTrait for #ident {
             // fn my_fn(&self) -> u64 {
@@ -437,7 +446,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
             #metadata_impl_gen
         };
-        // eprintln!("x: {}", x);
         TokenStream::from(x)
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
@@ -460,7 +468,6 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             #metadata
             #metadata_impl_gen
         };
-        // eprintln!("x: {}", x);
         TokenStream::from(quote! {
             #input
             #ext_gen
@@ -488,7 +495,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
             Err(output) => output,
         }
         .into();
-    eprintln!("x: {}", x);
+        eprintln!("x: {}", x);
         x
     } else {
         TokenStream::from(
@@ -534,11 +541,23 @@ fn process_impl_block(
             if status.persist_on_error {
                 let ty = status.result_type.clone();
                 let another: syn::Type = parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
-    
+
+                let another_string = quote!{another}.to_string();
+
                 other_code.extend(quote! {
                     #[near]
                     impl Contract {
                         pub fn #new_method_name(&self, err: #another) {
+                            #[near(serializers=[json])]
+                            struct ErrorWrapper {
+                                error_type: &'static str,
+                                value: #another,
+                            };
+
+                            let err = ErrorWrapper {
+                                error_type: std::any::type_name::<#another>(),
+                                value: err,
+                            };
                             let err = ::near_sdk::serde_json::json!{{"error": err}};
                             ::near_sdk::env::panic_str(&err.to_string());
                         }

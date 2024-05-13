@@ -123,7 +123,19 @@ impl ImplItemMethodInfo {
                 }
             } else {
                 eprintln!("Error handling tokens {}", quote!{::near_sdk::env::panic_str(&err);});
+                let ty = status_result.result_type.clone();
+                let another: syn::Type = syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
                 quote! {
+                    #[near(serializers=[json])]
+                    struct ErrorWrapper {
+                        error_type: &'static str,
+                        value: #another,
+                    };
+
+                    let err = ErrorWrapper {
+                        error_type: std::any::type_name::<#another>(),
+                        value: err,
+                    };
                     let err = ::near_sdk::serde_json::json!{{"error": err}};
                     ::near_sdk::env::panic_str(&err.to_string());
                 }
