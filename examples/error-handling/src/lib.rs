@@ -12,14 +12,12 @@ struct MyErrorStruct {
     x: u32,
 }
 
-// Define the contract structure
 #[near(contract_state)]
 #[derive(Default)]
 pub struct Contract {
     value: u32,
 }
 
-// Implement the contract structure
 #[near]
 impl Contract {
     #[handle_result]
@@ -33,7 +31,7 @@ impl Contract {
     }
 
     #[persist_on_error]
-    pub fn inc_persist_on_e(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
+    pub fn inc_persist_on_err(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
         self.value += 1;
         if is_error {
             return Err(MyErrorEnum::X);

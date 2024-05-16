@@ -15,9 +15,6 @@ near-workspaces = { version = "0.9.0", default-features = false, features = ["in
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
-near-abi = "0.4.0"
-zstd = "0.11"
-serde_json = { version = "1.0", features = ["preserve_order"] }
 
 [profile.release]
 codegen-units = 1
