@@ -210,7 +210,8 @@ impl ImplItemMethodInfo {
                 self.abi_result_tokens_with_return_value(&ty)
             },
             ResultWithStatus(ty) => {
-                quote! { ::std::option::Option::None }
+                let ty = parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Okay };
+                self.abi_result_tokens_with_return_value(&ty)
             }
         }
     }
