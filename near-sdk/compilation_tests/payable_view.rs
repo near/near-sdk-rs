@@ -1,13 +1,13 @@
 //! Payable view are not valid
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+
+#[derive(Default)]
+#[near(contract_state)]
 struct Test {}
 
-#[near_bindgen]
+#[near]
 impl Test {
     #[payable]
     pub fn pay(&self) {}

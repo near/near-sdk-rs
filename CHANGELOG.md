@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0...near-sdk-v5.1.0) - 2024-03-28
+
+### Added
+- Finalize `#[near]` attribute-macro implementation with the support for custom parameters passing to serializer attributes `#[near(serializers = [borsh(...)])]` ([#1158](https://github.com/near/near-sdk-rs/pull/1158))
+- Introduce `#[near]` macro to further streamline contracts development reducing the boilerplate! ([#1142](https://github.com/near/near-sdk-rs/pull/1142))
+
+### Other
+- add typo checker in ci ([#1159](https://github.com/near/near-sdk-rs/pull/1159))
+
 ## [5.0.0](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sdk-v5.0.0) - 2024-02-21
 
 ### Highlights
@@ -326,7 +335,7 @@ Get your fully configured development environment in under 1 minute using [GitHu
 * Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
 * Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
 * fix(promise): `PromiseOrValue` now correctly sets `should_return` flag correctly on serialization. [PR 407](https://github.com/near/near-sdk-rs/pull/407).
-* fix(tree_map): Correctly panic when range indices are exluded and `start > end`. [PR 392](https://github.com/near/near-sdk-rs/pull/392).
+* fix(tree_map): Correctly panic when range indices are excluded and `start > end`. [PR 392](https://github.com/near/near-sdk-rs/pull/392).
 * Implement `FromStr` for json types to allow calling `.parse()` to convert them.
   * `ValidAccountId` [PR 391](https://github.com/near/near-sdk-rs/pull/391).
   * `Base58CryptoHash` [PR 398](https://github.com/near/near-sdk-rs/pull/398).
@@ -338,7 +347,7 @@ Get your fully configured development environment in under 1 minute using [GitHu
 * Update syscall interface to no longer go through `BLOCKCHAIN_INTERFACE`. Instead uses `near_sdk::sys` which is under the `unstable` feature flag if needed. [PR 417](https://github.com/near/near-sdk-rs/pull/417).
 * Set up global allocator by default for WASM architectures. [PR 429](https://github.com/near/near-sdk-rs/pull/429).
   * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.
-  * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overriden to a custom one or set manually if intended.
+  * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overridden to a custom one or set manually if intended.
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
 * Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`. [PR 448](https://github.com/near/near-sdk-rs/pull/448)
   * Removes `ValidAccountId` to avoid having multiple types for account IDs.

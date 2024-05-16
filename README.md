@@ -36,22 +36,21 @@
 
 ## Release notes
 
-**Release notes and unreleased changes can be found in the [CHANGELOG](CHANGELOG.md)**
+**Release notes and unreleased changes can be found in the [CHANGELOG](https://github.com/near/near-sdk-rs/blob/master/CHANGELOG.md)**
 
 ## Example
 
-Wrap a struct in `#[near_bindgen]` and it generates a smart contract compatible with the NEAR blockchain:
+Wrap a struct in `#[near]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
-use near_sdk::{near_bindgen, env};
+use near_sdk::{near, env};
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
+#[derive(Default)]
 pub struct StatusMessage {
     records: HashMap<AccountId, String>,
 }
 
-#[near_bindgen]
+#[near]
 impl StatusMessage {
     pub fn set_status(&mut self, message: String) {
         let account_id = env::signer_account_id();
@@ -79,7 +78,7 @@ fn set_get_message() {
 ```
 
 Run unit test the usual way:
-```bash
+```sh
 cargo test --package status-message
 ```
 
@@ -90,14 +89,14 @@ Asynchronous cross-contract calls allow parallel execution of multiple contracts
 * `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
 * `promise_return` -- treats the result of execution of the promise as the result of the current function.
 
-Follow [examples/cross-contract-high-level](examples/cross-contract-calls/high-level)
+Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/high-level)
 to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).
 
 ### Initialization methods
 We can define an initialization method that can be used to initialize the state of the contract. `#[init]` verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
 
 ```rust
-#[near_bindgen]
+#[near]
 impl StatusMessage {
     #[init]
     pub fn new(user: String, status: String) -> Self {
@@ -119,16 +118,15 @@ impl Default for StatusMessage {
 ```
 You can also prohibit `Default` trait initialization by using `near_sdk::PanicOnDefault` helper macro. E.g.:
 ```rust
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
+#[derive(PanicOnDefault)]
 pub struct StatusMessage {
     records: HashMap<String, String>,
 }
 ```
 
 ### Payable methods
-We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be payed when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
+We can allow methods to accept token transfer together with the function call. This is done so that contracts can define a fee in tokens that needs to be paid when they are used. By the default the methods are not payable and they will panic if someone will attempt to transfer tokens to them during the invocation. This is done for safety reason, in case someone accidentally transfers tokens during the function call.
 
 To declare a payable method simply use `#[payable]` decorator:
 ```rust
@@ -167,31 +165,29 @@ Now, only the account of the contract itself can call this method, either direct
 ## Pre-requisites
 To develop Rust contracts you would need to:
 * Install [Rustup](https://rustup.rs/):
-```bash
+```sh
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 * Add wasm target to your toolchain:
-```bash
+```sh
 rustup target add wasm32-unknown-unknown
 ```
 
 ## Writing Rust Contract
-You can follow the [examples/status-message](examples/status-message) crate that shows a simple Rust contract.
+You can follow the [examples/status-message](https://github.com/near/near-sdk-rs/tree/master/examples/status-message) crate that shows a simple Rust contract.
 
 The general workflow is the following:
-1. Create a crate and configure the `Cargo.toml` similarly to how it is configured in [examples/status-message/Cargo.toml](examples/status-message/Cargo.toml);
+1. Create a crate and configure the `Cargo.toml` similarly to how it is configured in [examples/status-message/Cargo.toml](https://github.com/near/near-sdk-rs/tree/master/examples/status-message/Cargo.toml);
 2. Crate needs to have one `pub` struct that will represent the smart contract itself:
     * The struct needs to implement `Default` trait which
     NEAR will use to create the initial state of the contract upon its first usage;
-    * The struct also needs to implement `BorshSerialize` and `BorshDeserialize` traits which NEAR will use to save/load contract's internal state;
 
    Here is an example of a smart contract struct:
    ```rust
-   use near_sdk::{near_bindgen, env};
+   use near_sdk::{near, env};
 
-   #[near_bindgen]
-   #[derive(Default, BorshSerialize, BorshDeserialize)]
-   #[borsh(crate = "near_sdk::borsh")]
+   #[near(contract_state)]
+   #[derive(Default)]
    pub struct MyContract {
        data: HashMap<u64, u64>
    }
@@ -200,12 +196,12 @@ The general workflow is the following:
 3. Define methods that NEAR will expose as smart contract methods:
     * You are free to define any methods for the struct but only public methods will be exposed as smart contract methods;
     * Methods need to use either `&self`, `&mut self`, or `self`;
-    * Decorate the `impl` section with `#[near_bindgen]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) happens;
+    * Decorate the `impl` section with `#[near]` macro. That is where all the M.A.G.I.C. (Macros-Auto-Generated Injected Code) happens;
     * If you need to use blockchain interface, e.g. to get the current account id then you can access it with `env::*`;
 
     Here is an example of smart contract methods:
     ```rust
-    #[near_bindgen]
+    #[near]
     impl MyContract {
         pub fn insert_data(&mut self, key: u64, value: u64) -> Option<u64> {
             self.data.insert(key)
@@ -220,19 +216,81 @@ The general workflow is the following:
 
 ### [cargo-near](https://github.com/near/cargo-near)
 
-This can be used as an alternative, to allow building while also generating an [abi](https://github.com/near/abi)
+`cargo-near` is an easy and recommended way to build and deploy Rust contracts.
 
-```bash
-# Install the near extension if you haven't already
-cargo install cargo-near
+#### Installation
 
-# Builds the wasm contract and ABI into `target/near`
-cargo near build --release
+<details>
+  <summary>Install prebuilt binaries via shell script (Linux, macOS)</summary>
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
 ```
+</details>
+
+<details>
+  <summary>Install prebuilt binaries via powershell script (Windows)</summary>
+
+```sh
+irm https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.ps1 | iex
+```
+</details>
+
+<details>
+  <summary>Install prebuilt binaries into your Node.js application</summary>
+
+```sh
+npm install cargo-near
+```
+</details>
+
+<details>
+  <summary>Compile and install from source code (Cargo)</summary>
+
+```sh
+cargo install cargo-near
+```
+
+or, install the most recent version from git repository:
+
+```sh
+$ git clone https://github.com/near/cargo-near
+$ cargo install --path cargo-near
+```
+</details>
+
+#### Usage
+
+See `cargo near --help` for a complete list of available commands or run `cargo near` to dive into interactive mode.
+Help is also available for each individual command with a `--help` flag, e.g. `cargo near build --help`.
+
+```sh
+cargo near
+```
+
+Starts interactive mode that will allow to explore all the available commands.
+
+```sh
+cargo near build
+```
+
+Builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml).
+
+```sh
+cargo near create-dev-account
+```
+
+Guides you through creation of a new NEAR account on [testnet](https://explorer.testnet.near.org).
+
+```sh
+cargo near deploy
+```
+
+Builds the smart contract (equivalent to `cargo near build`) and guides you to deploy it to the blockchain.
 
 ### Using cargo build
 
-```bash
+```sh
 RUSTFLAGS='-C link-arg=-s' cargo build --target wasm32-unknown-unknown --release
 ```
 
@@ -249,8 +307,8 @@ that allows to compile the binary.
 [`near-contract-standards` crate](https://github.com/near/near-sdk-rs/tree/master/near-contract-standards) provides a set of interfaces and implementations for NEAR's contract standards:
 
 - Upgradability
-- Fungible Token (NEP-141). See [example usage](examples/fungible-token)
-- Non-Fungible Token (NEP-171). See [example usage](examples/non-fungible-token)
+- Fungible Token (NEP-141). See [example usage](https://github.com/near/near-sdk-rs/tree/master/examples/fungible-token)
+- Non-Fungible Token (NEP-171). See [example usage](https://github.com/near/near-sdk-rs/tree/master/examples/non-fungible-token)
 
 
 ## Versioning

@@ -9,6 +9,8 @@ mod impls;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
+use near_sdk_macros::near;
+
 use crate::env;
 use crate::store::ERR_INCONSISTENT_STATE;
 use crate::utils::{CacheEntry, EntryState};
@@ -59,14 +61,14 @@ where
 /// *a = "new string".to_string();
 /// assert_eq!(a.get(), "new string");
 /// ```
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct Lazy<T>
 where
     T: BorshSerialize,
 {
     /// Key bytes to index the contract's storage.
     storage_key: Box<[u8]>,
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` bound from T
     /// Cached value which is lazily loaded and deserialized from storage.
     cache: OnceCell<CacheEntry<T>>,
 }

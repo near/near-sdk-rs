@@ -1,15 +1,14 @@
 //! Method signature uses Self.
 
-use near_sdk::near_bindgen;
-use serde::{Deserialize, Serialize};
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default)]
+#[near(contract_state, serializers=[json])]
 pub struct Ident {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Ident {
     #[init]
     pub fn plain_arg(_a: Self) -> Self {

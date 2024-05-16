@@ -1,11 +1,11 @@
 error: Impl type parameters are not supported for smart contracts.
-  --> compilation_tests/impl_generic.rs:10:20
-   |
-10 | struct Incrementer<T> {
-   |                    ^
+ --> compilation_tests/impl_generic.rs:9:20
+  |
+9 | struct Incrementer<T> {
+  |                    ^
 
 error: Impl type parameters are not supported for smart contracts.
-  --> compilation_tests/impl_generic.rs:16:6
+  --> compilation_tests/impl_generic.rs:15:6
    |
-16 | impl<'a, T: 'a + std::fmt::Display> Incrementer<T> {
+15 | impl<'a, T: 'a + std::fmt::Display> Incrementer<T> {
    |      ^^

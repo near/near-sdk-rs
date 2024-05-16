@@ -10,6 +10,8 @@ use std::{fmt, mem};
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
+use near_sdk_macros::near;
+
 use crate::store::key::{Sha256, ToKey};
 use crate::{env, IntoStorageKey};
 
@@ -35,7 +37,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// Note that this collection is optimized for fast removes at the expense of key management.
 /// If the amount of removes is significantly higher than the amount of inserts the iteration
 /// becomes more costly. See [`remove`](UnorderedMap::remove) for details.
-/// If this is the use-case - see ['UnorderedMap`](crate::collections::UnorderedMap).
+/// If this is the use-case - see ['IterableMap`](crate::store::IterableMap).
 ///
 /// # Examples
 /// ```
@@ -88,49 +90,25 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
+    #[borsh(bound(serialize = "", deserialize = ""))]
     keys: FreeList<K>,
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
+    #[borsh(bound(serialize = "", deserialize = ""))]
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 struct ValueAndIndex<V> {
     value: V,
     key_index: FreeListIndex,
-}
-
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for UnorderedMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.keys, writer)?;
-        BorshSerialize::serialize(&self.values, writer)?;
-        Ok(())
-    }
-}
-
-impl<K, V, H> BorshDeserialize for UnorderedMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            keys: BorshDeserialize::deserialize_reader(reader)?,
-            values: BorshDeserialize::deserialize_reader(reader)?,
-        })
-    }
 }
 
 impl<K, V, H> Drop for UnorderedMap<K, V, H>

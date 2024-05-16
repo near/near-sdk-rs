@@ -34,7 +34,7 @@ use std::fmt;
 /// Note that this collection is optimized for fast removes at the expense of key management.
 /// If the amount of removes is significantly higher than the amount of inserts the iteration
 /// becomes more costly. See [`remove`](UnorderedSet::remove) for details.
-/// If this is the use-case - see ['UnorderedSet`](crate::collections::UnorderedSet).
+/// If this is the use-case - see ['IterableSet`](crate::store::IterableSet).
 ///
 /// # Examples
 ///
@@ -97,8 +97,10 @@ where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
+    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
     #[borsh(bound(serialize = "", deserialize = ""))]
     elements: FreeList<T>,
+    // ser/de is independent of `T`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
     #[borsh(bound(serialize = "", deserialize = ""))]
     index: LookupMap<T, FreeListIndex, H>,
 }

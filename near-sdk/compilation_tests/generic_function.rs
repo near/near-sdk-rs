@@ -1,15 +1,15 @@
 //! Functions can't use generics.
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+
+#[derive(Default)]
+#[near(contract_state)]
 struct Ident {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Ident {
     pub fn is_ident<T>(&self, val: T) -> T {
         val

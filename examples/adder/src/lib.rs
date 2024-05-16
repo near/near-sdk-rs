@@ -1,27 +1,19 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{near_bindgen, NearSchema};
+use near_sdk::near;
 
-#[derive(NearSchema, Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-#[serde(crate = "near_sdk::serde")]
-#[abi(json, borsh)]
+#[near(serializers=[borsh, json])]
 pub struct Pair(u32, u32);
 
-#[derive(NearSchema, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[abi(json, borsh)]
+#[near(serializers=[borsh, json])]
 pub struct DoublePair {
     first: Pair,
     second: Pair,
 }
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(Default)]
+#[near(serializers=[borsh, json], contract_state)]
 pub struct Adder {}
 
-#[near_bindgen]
+#[near]
 impl Adder {
     /// Adds two pairs point-wise.
     pub fn add(&self, a: Pair, b: Pair) -> Pair {
@@ -53,6 +45,7 @@ fn sum_pair(a: &Pair, b: &Pair) -> Pair {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use near_abi::*;
+    use near_sdk::serde_json;
     use tokio::fs;
 
     #[ignore]

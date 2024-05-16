@@ -77,6 +77,10 @@ pub use self::lookup_map::LookupMap;
 mod lookup_set;
 pub use self::lookup_set::LookupSet;
 
+pub mod iterable_map;
+pub use self::iterable_map::IterableMap;
+pub mod iterable_set;
+pub use self::iterable_set::IterableSet;
 pub mod unordered_map;
 #[allow(deprecated)]
 pub use self::unordered_map::UnorderedMap;
@@ -100,7 +104,7 @@ pub(crate) use self::free_list::FreeList;
 pub mod key;
 
 pub(crate) const ERR_INCONSISTENT_STATE: &str =
-    "The collection is an inconsistent state. Did previous smart \
+    "The collection is in an inconsistent state. Did previous smart \
         contract execution terminate unexpectedly?";
 
 pub(crate) const ERR_NOT_EXIST: &str = "Key does not exist in map";

@@ -5,6 +5,7 @@ use std::borrow::Borrow;
 use std::fmt;
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
 use super::ERR_NOT_EXIST;
@@ -75,7 +76,8 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element";
 /// ```
 ///
 /// [`with_hasher`]: Self::with_hasher
-#[derive(BorshSerialize, BorshDeserialize)]
+
+#[near(inside_nearsdk)]
 pub struct LookupMap<K, V, H = Identity>
 where
     K: BorshSerialize + Ord,
@@ -86,7 +88,7 @@ where
     /// Cache for loads and intermediate changes to the underlying vector.
     /// The cached entries are wrapped in a [`Box`] to avoid existing pointers from being
     /// invalidated.
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` from `K`/`V`
     cache: StableMap<K, EntryAndHash<V, H::KeyType>>,
 }
 
@@ -722,5 +724,368 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+// Hashbrown-like tests.
+#[cfg(test)]
+mod test_map {
+    use super::Entry::{Occupied, Vacant};
+    use crate::store::LookupMap;
+    use borsh::{BorshDeserialize, BorshSerialize};
+    use std::cell::RefCell;
+    use std::usize;
+    use std::vec::Vec;
+
+    #[test]
+    fn test_insert() {
+        let mut m = LookupMap::new(b"b");
+        assert!(m.insert(1, 2).is_none());
+        assert!(m.insert(2, 4).is_none());
+        assert_eq!(*m.get(&1).unwrap(), 2);
+        assert_eq!(*m.get(&2).unwrap(), 4);
+    }
+
+    thread_local! { static DROP_VECTOR: RefCell<Vec<i32>> = const { RefCell::new(Vec::new()) }}
+
+    #[derive(Hash, PartialEq, Eq, BorshSerialize, BorshDeserialize, PartialOrd, Ord)]
+    struct Droppable {
+        k: usize,
+    }
+
+    impl Droppable {
+        fn new(k: usize) -> Droppable {
+            DROP_VECTOR.with(|slot| {
+                slot.borrow_mut()[k] += 1;
+            });
+
+            Droppable { k }
+        }
+    }
+
+    impl Drop for Droppable {
+        fn drop(&mut self) {
+            DROP_VECTOR.with(|slot| {
+                slot.borrow_mut()[self.k] -= 1;
+            });
+        }
+    }
+
+    impl Clone for Droppable {
+        fn clone(&self) -> Self {
+            Droppable::new(self.k)
+        }
+    }
+
+    #[test]
+    fn test_drops() {
+        DROP_VECTOR.with(|slot| {
+            *slot.borrow_mut() = vec![0; 200];
+        });
+
+        {
+            let mut m = LookupMap::new(b"b");
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..200 {
+                    assert_eq!(v.borrow()[i], 0);
+                }
+            });
+
+            for i in 0..100 {
+                let d1 = Droppable::new(i);
+                let d2 = Droppable::new(i + 100);
+                m.insert(d1, d2);
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..100 {
+                    assert_eq!(v.borrow()[i], 1);
+                }
+            });
+
+            for i in 0..50 {
+                let k = Droppable::new(i);
+                let v = m.remove(&k);
+
+                assert!(v.is_some());
+
+                DROP_VECTOR.with(|v| {
+                    assert_eq!(v.borrow()[i], 2);
+                    assert_eq!(v.borrow()[i + 100], 1);
+                });
+            }
+
+            DROP_VECTOR.with(|v| {
+                for i in 0..50 {
+                    assert_eq!(v.borrow()[i], 1);
+                    assert_eq!(v.borrow()[i + 100], 0);
+                }
+
+                for i in 50..100 {
+                    assert_eq!(v.borrow()[i], 1);
+                    assert_eq!(v.borrow()[i + 100], 1);
+                }
+            });
+        }
+
+        DROP_VECTOR.with(|v| {
+            for i in 0..200 {
+                assert_eq!(v.borrow()[i], 0);
+            }
+        });
+    }
+
+    #[test]
+    fn test_empty_remove() {
+        let mut m: LookupMap<i32, bool> = LookupMap::new(b"b");
+        assert_eq!(m.remove(&0), None);
+    }
+
+    #[test]
+    fn test_empty_entry() {
+        let mut m: LookupMap<i32, bool> = LookupMap::new(b"b");
+        match m.entry(0) {
+            Occupied(_) => panic!(),
+            Vacant(_) => {}
+        }
+        assert!(*m.entry(0).or_insert(true));
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)] // FIXME: takes too long
+    fn test_lots_of_insertions() {
+        let mut m = LookupMap::new(b"b");
+
+        // Try this a few times to make sure we never screw up the LookupMap's
+        // internal state.
+        for _ in 0..10 {
+            for i in 1..1001 {
+                assert!(m.insert(i, i).is_none());
+
+                for j in 1..=i {
+                    let r = m.get(&j);
+                    assert_eq!(r, Some(&j));
+                }
+
+                for j in i + 1..1001 {
+                    let r = m.get(&j);
+                    assert_eq!(r, None);
+                }
+            }
+
+            for i in 1001..2001 {
+                assert!(!m.contains_key(&i));
+            }
+
+            // remove forwards
+            for i in 1..1001 {
+                assert!(m.remove(&i).is_some());
+
+                for j in 1..=i {
+                    assert!(!m.contains_key(&j));
+                }
+
+                for j in i + 1..1001 {
+                    assert!(m.contains_key(&j));
+                }
+            }
+
+            for i in 1..1001 {
+                assert!(!m.contains_key(&i));
+            }
+
+            for i in 1..1001 {
+                assert!(m.insert(i, i).is_none());
+            }
+
+            // remove backwards
+            for i in (1..1001).rev() {
+                assert!(m.remove(&i).is_some());
+
+                for j in i..1001 {
+                    assert!(!m.contains_key(&j));
+                }
+
+                for j in 1..i {
+                    assert!(m.contains_key(&j));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_find_mut() {
+        let mut m = LookupMap::new(b"b");
+        assert!(m.insert(1, 12).is_none());
+        assert!(m.insert(2, 8).is_none());
+        assert!(m.insert(5, 14).is_none());
+        let new = 100;
+        match m.get_mut(&5) {
+            None => panic!(),
+            Some(x) => *x = new,
+        }
+        assert_eq!(m.get(&5), Some(&new));
+    }
+
+    #[test]
+    fn test_insert_overwrite() {
+        let mut m = LookupMap::new(b"b");
+        assert!(m.insert(1, 2).is_none());
+        assert_eq!(*m.get(&1).unwrap(), 2);
+        assert!(m.insert(1, 3).is_some());
+        assert_eq!(*m.get(&1).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut m = LookupMap::new(b"b");
+        m.insert(1, 2);
+        assert_eq!(m.remove(&1), Some(2));
+        assert_eq!(m.remove(&1), None);
+    }
+
+    #[test]
+    fn test_find() {
+        let mut m = LookupMap::new(b"b");
+        assert!(m.get(&1).is_none());
+        m.insert(1, 2);
+        match m.get(&1) {
+            None => panic!(),
+            Some(v) => assert_eq!(*v, 2),
+        }
+    }
+
+    #[test]
+    fn test_show() {
+        let mut map = LookupMap::new(b"b");
+        let empty: LookupMap<i32, i32> = LookupMap::new(b"c");
+
+        map.insert(1, 2);
+        map.insert(3, 4);
+
+        let map_str = format!("{:?}", map);
+
+        assert_eq!(map_str, "LookupMap { prefix: [98] }");
+        assert_eq!(format!("{:?}", empty), "LookupMap { prefix: [99] }");
+    }
+
+    #[test]
+    fn test_index() {
+        let mut map = LookupMap::new(b"b");
+
+        map.insert(1, 2);
+        map.insert(2, 1);
+        map.insert(3, 4);
+
+        assert_eq!(map[&2], 1);
+    }
+
+    #[test]
+    #[should_panic]
+    #[allow(clippy::unnecessary_operation)]
+    fn test_index_nonexistent() {
+        let mut map = LookupMap::new(b"b");
+
+        map.insert(1, 2);
+        map.insert(2, 1);
+        map.insert(3, 4);
+
+        #[allow(clippy::no_effect)] // false positive lint
+        map[&4];
+    }
+
+    #[test]
+    fn test_entry() {
+        let mut map = LookupMap::new(b"b");
+
+        let xs = [(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)];
+
+        for v in xs {
+            map.insert(v.0, v.1);
+        }
+
+        // Existing key (insert)
+        match map.entry(1) {
+            Vacant(_) => unreachable!(),
+            Occupied(mut view) => {
+                assert_eq!(view.get(), &10);
+                assert_eq!(view.insert(100), 10);
+            }
+        }
+        assert_eq!(map.get(&1).unwrap(), &100);
+
+        // Existing key (update)
+        match map.entry(2) {
+            Vacant(_) => unreachable!(),
+            Occupied(mut view) => {
+                let v = view.get_mut();
+                let new_v = (*v) * 10;
+                *v = new_v;
+            }
+        }
+        assert_eq!(map.get(&2).unwrap(), &200);
+
+        // Existing key (take)
+        match map.entry(3) {
+            Vacant(_) => unreachable!(),
+            Occupied(view) => {
+                assert_eq!(view.remove(), 30);
+            }
+        }
+        assert_eq!(map.get(&3), None);
+
+        // Inexistent key (insert)
+        match map.entry(10) {
+            Occupied(_) => unreachable!(),
+            Vacant(view) => {
+                assert_eq!(*view.insert(1000), 1000);
+            }
+        }
+        assert_eq!(map.get(&10).unwrap(), &1000);
+    }
+
+    #[test]
+    fn test_extend_ref_kv_tuple() {
+        let mut a = LookupMap::new(b"b");
+        a.insert(0, 0);
+
+        let for_iter: Vec<(i32, i32)> = (0..100).map(|i| (i, i)).collect();
+        a.extend(for_iter);
+
+        for item in 0..100 {
+            assert_eq!(a[&item], item);
+        }
+    }
+
+    #[test]
+    fn test_occupied_entry_key() {
+        let mut a = LookupMap::new(b"b");
+        let key = "hello there";
+        let value = "value goes here";
+        a.insert(key.to_string(), value.to_string());
+        assert_eq!(a[key], value);
+
+        match a.entry(key.to_string()) {
+            Vacant(_) => panic!(),
+            Occupied(e) => assert_eq!(key, *e.key()),
+        }
+        assert_eq!(a[key], value);
+    }
+
+    #[test]
+    fn test_vacant_entry_key() {
+        let mut a = LookupMap::new(b"b");
+        let key = "hello there";
+        let value = "value goes here".to_string();
+
+        match a.entry(key.to_string()) {
+            Occupied(_) => panic!(),
+            Vacant(e) => {
+                assert_eq!(key, *e.key());
+                e.insert(value.clone());
+            }
+        }
+        assert_eq!(a[key], value);
     }
 }

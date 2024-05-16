@@ -269,13 +269,13 @@ pub fn random_seed() -> Vec<u8> {
 /// ```rust
 /// use rand::{Rng, SeedableRng};
 /// use rand_chacha::ChaCha20Rng;
-/// use near_sdk::near_bindgen;
+/// use near_sdk::near;
 /// use near_sdk::env;
-/// #[near_bindgen]
+/// #[near(contract_state)]
 /// struct RngExample {
 ///    val: i32,
 /// }
-/// #[near_bindgen]
+/// #[near]
 /// impl RngExample {
 ///     pub fn increment(&mut self) {
 ///         let mut rng = ChaCha20Rng::from_seed(env::random_seed_array());
@@ -292,13 +292,13 @@ pub fn random_seed() -> Vec<u8> {
 ///
 /// ```rust
 /// use near_rng::Rng;
-/// use near_sdk::near_bindgen;
+/// use near_sdk::near;
 /// use near_sdk::env;
-/// #[near_bindgen]
+/// #[near(contract_state)]
 /// struct NearRngExample {
 ///    val: i32,
 /// }
-/// #[near_bindgen]
+/// #[near]
 /// impl NearRngExample {
 ///     pub fn increment(&mut self) {
 ///         let mut rng = Rng::new(&env::random_seed());

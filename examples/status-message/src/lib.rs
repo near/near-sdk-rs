@@ -1,14 +1,11 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
-use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey};
+use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 
-#[derive(BorshSerialize, BorshStorageKey)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(BorshStorageKey)]
+#[near]
 struct RecordsKey;
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
 pub struct StatusMessage {
     records: LookupMap<AccountId, String>,
 }
@@ -19,7 +16,7 @@ impl Default for StatusMessage {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl StatusMessage {
     #[payable]
     pub fn set_status(&mut self, message: String) {
@@ -54,7 +51,7 @@ mod tests {
         testing_env!(context);
         let mut contract = StatusMessage::default();
         contract.set_status("hello".to_string());
-        // Flush the pending changes to avoid panic in the view method below due to the pending non-commited changes to the `store::LookupMap`:
+        // Flush the pending changes to avoid panic in the view method below due to the pending non-committed changes to the `store::LookupMap`:
         // HostError(ProhibitedInView { method_name: "storage_write" })
         contract.records.flush();
         assert_eq!(get_logs(), vec!["bob_near set_status with message hello"]);

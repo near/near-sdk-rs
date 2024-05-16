@@ -1,7 +1,8 @@
 //! Testing FunctionError macro.
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{near_bindgen, FunctionError};
+use borsh::BorshSerialize;
+use near_sdk::FunctionError;
+use near_sdk::near;
 use std::fmt;
 
 #[derive(FunctionError, BorshSerialize)]
@@ -11,7 +12,7 @@ struct ErrorStruct {
 
 impl fmt::Display for ErrorStruct {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "error ocurred: {}", self.message)
+        write!(f, "error occurred: {}", self.message)
     }
 }
 
@@ -30,11 +31,11 @@ impl fmt::Display for ErrorEnum {
     }
 }
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, Default)]
+#[derive(Default)]
+#[near(contract_state)]
 struct Contract {}
 
-#[near_bindgen]
+#[near]
 impl Contract {
     #[handle_result]
     pub fn set(&self, value: String) -> Result<String, ErrorStruct> {
