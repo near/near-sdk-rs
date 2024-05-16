@@ -31,8 +31,8 @@ impl ImplItemMethodInfo {
             // here.
             ReturnKind::Default => self.void_return_body_tokens(),
             ReturnKind::General(_) => self.value_return_body_tokens(),
-            ReturnKind::HandlesResult { .. } => self.result_return_body_tokens(),
-            ReturnKind::ResultWithStatus { .. } => self.result_return_body_tokens(),
+            ReturnKind::HandlesResultExplicit { .. } => self.result_return_body_tokens(),
+            ReturnKind::HandlesResultImplicit { .. } => self.result_return_body_tokens(),
         };
 
         quote! {
@@ -58,8 +58,6 @@ impl ImplItemMethodInfo {
         let method_invocation = self.method_invocation_tokens();
         let contract_ser = self.contract_ser_tokens();
 
-        eprintln!("default returnkind");
-
         quote! {
             #contract_init
             #method_invocation;
@@ -73,9 +71,6 @@ impl ImplItemMethodInfo {
         let contract_ser = self.contract_ser_tokens();
         let value_ser = self.value_ser_tokens();
         let value_return = self.value_return_tokens();
-
-        eprintln!("general returnkind");
-
 
         quote! {
             #contract_init
@@ -95,8 +90,6 @@ impl ImplItemMethodInfo {
         let result_identifier = self.result_identifier();
         let handle_error = self.error_handling_tokens();
 
-        eprintln!("handles result returnkind");
-
         quote! {
             #contract_init
             #method_invocation_with_return
@@ -115,14 +108,13 @@ impl ImplItemMethodInfo {
     }
 
     fn error_handling_tokens(&self) -> TokenStream2 {
-        if let ReturnKind::ResultWithStatus(status_result) = &self.attr_signature_info.returns.kind {
+        if let ReturnKind::HandlesResultImplicit(status_result) = &self.attr_signature_info.returns.kind {
             if status_result.persist_on_error {
                 let new_method_name = quote::format_ident!("{}_error", self.attr_signature_info.ident);
                 quote! {
                     let promise = Contract::ext(::near_sdk::env::current_account_id()).#new_method_name(err).as_return();
                 }
             } else {
-                eprintln!("Error handling tokens {}", quote!{::near_sdk::env::panic_str(&err);});
                 let ty = status_result.result_type.clone();
                 let another: syn::Type = syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
                 quote! {
@@ -140,7 +132,7 @@ impl ImplItemMethodInfo {
                     ::near_sdk::env::panic_str(&err.to_string());
                 }
             }
-        } else if let ReturnKind::HandlesResult { .. } = &self.attr_signature_info.returns.kind {
+        } else if let ReturnKind::HandlesResultExplicit { .. } = &self.attr_signature_info.returns.kind {
             quote! {
                 ::near_sdk::FunctionError::panic(&err)
             }
@@ -340,8 +332,6 @@ impl ImplItemMethodInfo {
                 #struct_type::#ident(#arg_list)
             }
         };
-
-        // self.attr_signature_info.returns.original
 
         match &self.attr_signature_info.method_kind {
             Call(call_method) => {

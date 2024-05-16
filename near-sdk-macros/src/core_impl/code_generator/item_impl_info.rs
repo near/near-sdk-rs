@@ -14,7 +14,7 @@ impl ItemImplInfo {
         for method in &self.methods {
             res.extend(method.method_wrapper());
             match method.attr_signature_info.returns.kind {
-                ReturnKind::ResultWithStatus {..} => {
+                ReturnKind::HandlesResultImplicit {..} => {
                     let error_type = match &method.attr_signature_info.returns.original {
                         syn::ReturnType::Default => quote! { () },
                         syn::ReturnType::Type(_, ty) => {

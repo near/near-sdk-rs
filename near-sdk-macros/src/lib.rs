@@ -537,12 +537,10 @@ fn process_impl_block(
     item_impl_info.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
         let new_method_name = quote::format_ident!("{}_error", method.ident);
 
-        if let ReturnKind::ResultWithStatus(status) = &method.returns.kind {
+        if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
             if status.persist_on_error {
                 let ty = status.result_type.clone();
                 let another: syn::Type = parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
-
-                let another_string = quote!{another}.to_string();
 
                 other_code.extend(quote! {
                     #[near]
