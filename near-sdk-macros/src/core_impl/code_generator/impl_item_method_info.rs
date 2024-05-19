@@ -110,27 +110,13 @@ impl ImplItemMethodInfo {
     fn error_handling_tokens(&self) -> TokenStream2 {
         if let ReturnKind::HandlesResultImplicit(status_result) = &self.attr_signature_info.returns.kind {
             if status_result.persist_on_error {
-                let new_method_name = quote::format_ident!("{}_error", self.attr_signature_info.ident);
+                let error_method_name = quote::format_ident!("{}_error", self.attr_signature_info.ident);
                 quote! {
-                    let promise = Contract::ext(::near_sdk::env::current_account_id()).#new_method_name(err).as_return();
+                    let promise = Contract::ext(::near_sdk::env::current_account_id()).#error_method_name(err).as_return();
                 }
             } else {
-                let ty = status_result.result_type.clone();
-                let another: syn::Type = syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
-                quote! {
-                    #[near(serializers=[json])]
-                    struct ErrorWrapper {
-                        error_type: &'static str,
-                        value: #another,
-                    };
-
-                    let err = ErrorWrapper {
-                        error_type: std::any::type_name::<#another>(),
-                        value: err,
-                    };
-                    let err = ::near_sdk::serde_json::json!{{"error": err}};
-                    ::near_sdk::env::panic_str(&err.to_string());
-                }
+                let error_type = utils::get_error_type_from_status(status_result);
+                utils::standartized_error_panic_tokens(&error_type)
             }
         } else if let ReturnKind::HandlesResultExplicit { .. } = &self.attr_signature_info.returns.kind {
             quote! {

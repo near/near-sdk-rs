@@ -15,7 +15,6 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
-
 #[proc_macro_derive(MyContractError)]
 pub fn derive_contract_error(input: TokenStream) -> TokenStream {
     let item: ItemEnum = syn::parse(input).unwrap();
@@ -539,25 +538,14 @@ fn process_impl_block(
 
         if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
             if status.persist_on_error {
-                let ty = status.result_type.clone();
-                let another: syn::Type = parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error };
+                let error_type = crate::get_error_type_from_status(status);
+                let panic_tokens = crate::standartized_error_panic_tokens(&error_type);
 
                 other_code.extend(quote! {
                     #[near]
                     impl Contract {
-                        pub fn #new_method_name(&self, err: #another) {
-                            #[near(serializers=[json])]
-                            struct ErrorWrapper {
-                                error_type: &'static str,
-                                value: #another,
-                            };
-
-                            let err = ErrorWrapper {
-                                error_type: std::any::type_name::<#another>(),
-                                value: err,
-                            };
-                            let err = ::near_sdk::serde_json::json!{{"error": err}};
-                            ::near_sdk::env::panic_str(&err.to_string());
+                        pub fn #new_method_name(&self, err: #error_type) {
+                            #panic_tokens
                         }
                     }
                 });
