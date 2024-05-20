@@ -4,6 +4,7 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::token::{And, Mut};
 use syn::{GenericArgument, Path, PathArguments, Signature, Type};
+
 #[cfg(test)]
 pub mod test_helpers;
 

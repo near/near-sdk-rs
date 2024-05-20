@@ -1,7 +1,6 @@
 use near_sdk::serde_json;
 use near_workspaces::Contract;
 use serde_json::json;
-use test_case::test_case;
 
 async fn get_value(contract: &Contract) -> anyhow::Result<u64> {
     let get_value: serde_json::Value =

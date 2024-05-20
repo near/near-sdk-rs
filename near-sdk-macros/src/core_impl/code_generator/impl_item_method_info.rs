@@ -3,8 +3,6 @@ use crate::core_impl::utils;
 use crate::core_impl::{MethodKind, ReturnKind};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use serde::de::value;
-use syn::token::Token;
 use syn::Receiver;
 
 impl ImplItemMethodInfo {
@@ -108,27 +106,23 @@ impl ImplItemMethodInfo {
     }
 
     fn error_handling_tokens(&self) -> TokenStream2 {
-        if let ReturnKind::HandlesResultImplicit(status_result) =
-            &self.attr_signature_info.returns.kind
-        {
-            if status_result.persist_on_error {
-                let error_method_name =
-                    quote::format_ident!("{}_error", self.attr_signature_info.ident);
-                quote! {
-                    let promise = Contract::ext(::near_sdk::env::current_account_id()).#error_method_name(err).as_return();
+        match &self.attr_signature_info.returns.kind {
+            ReturnKind::HandlesResultImplicit(status_result) => {
+                if status_result.persist_on_error {
+                    let error_method_name =
+                        quote::format_ident!("{}_error", self.attr_signature_info.ident);
+                    quote! {
+                        let promise = Contract::ext(::near_sdk::env::current_account_id()).#error_method_name(err).as_return();
+                    }
+                } else {
+                    let error_type = utils::get_error_type_from_status(status_result);
+                    utils::standardized_error_panic_tokens(&error_type)
                 }
-            } else {
-                let error_type = utils::get_error_type_from_status(status_result);
-                utils::standardized_error_panic_tokens(&error_type)
             }
-        } else if let ReturnKind::HandlesResultExplicit { .. } =
-            &self.attr_signature_info.returns.kind
-        {
-            quote! {
+            ReturnKind::HandlesResultExplicit { .. } => quote! {
                 ::near_sdk::FunctionError::panic(&err)
-            }
-        } else {
-            quote! {}
+            },
+            _ => quote! {},
         }
     }
 

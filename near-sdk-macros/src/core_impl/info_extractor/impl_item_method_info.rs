@@ -87,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn init_result_without_w() {
+    fn init_result_without_handle_result() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
             #[init]

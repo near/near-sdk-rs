@@ -18,8 +18,8 @@ impl ItemImplInfo {
                     let error_type = match &method.attr_signature_info.returns.original {
                         syn::ReturnType::Default => quote! { () },
                         syn::ReturnType::Type(_, ty) => {
-                            let x = utils::extract_error_type(&ty);
-                            quote! { #x }
+                            let error_type = utils::extract_error_type(&ty);
+                            quote! { #error_type }
                         }
                     };
                     let method_name = &method.attr_signature_info.ident;
@@ -27,7 +27,7 @@ impl ItemImplInfo {
 
                     checks.extend(quote! {
                         fn #concatenated() {
-                            let _ = near_sdk::check_trait as fn(&#error_type);
+                            let _ = near_sdk::check_contract_error_trait as fn(&#error_type);
                         }
                     });
                 }

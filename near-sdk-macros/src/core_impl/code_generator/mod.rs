@@ -6,8 +6,6 @@ mod item_trait_info;
 
 mod item_impl_info;
 
-mod error_generation;
-
 pub(crate) mod ext;
 pub(crate) mod metadata;
 
