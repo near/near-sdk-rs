@@ -1,29 +1,38 @@
-use test_case::test_case;
-use serde_json::json;
-use near_workspaces::Contract;
 use near_sdk::serde_json;
+use near_workspaces::Contract;
+use serde_json::json;
+use test_case::test_case;
 
 async fn get_value(contract: &Contract) -> anyhow::Result<u64> {
-    let get_value: serde_json::Value = contract
-        .call("get_value")
-        .args_json(json!({}))
-        .view()
-        .await?
-        .json()?;
+    let get_value: serde_json::Value =
+        contract.call("get_value").args_json(json!({})).view().await?.json()?;
 
     println!("get_value: {:?}", get_value);
 
     get_value.as_u64().ok_or_else(|| anyhow::anyhow!("get_value is not a u64"))
 }
 
-async fn check_call(contract: &Contract, method: &str, is_error: bool, expected_value: u64, expected_error: Option<String>) {
-    let res = contract.call(method).args_json(json!({ "is_error": is_error })).max_gas().transact().await.unwrap();
+async fn check_call(
+    contract: &Contract,
+    method: &str,
+    is_error: bool,
+    expected_value: u64,
+    expected_error: Option<String>,
+) {
+    let res = contract
+        .call(method)
+        .args_json(json!({ "is_error": is_error }))
+        .max_gas()
+        .transact()
+        .await
+        .unwrap();
     if is_error {
         assert!(res.is_failure());
         if let Some(expected_error) = expected_error {
-            let string_error = format!("{:?}",res.failures()[0].clone().into_result().unwrap_err());
+            let string_error =
+                format!("{:?}", res.failures()[0].clone().into_result().unwrap_err());
             assert_eq!(string_error, expected_error);
-        } 
+        }
     } else {
         assert!(res.is_success());
     }

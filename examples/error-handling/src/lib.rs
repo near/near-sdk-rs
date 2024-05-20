@@ -1,11 +1,13 @@
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near;
 use near_sdk::contract_error;
+use near_sdk::near;
 use near_sdk::FunctionError;
 
 #[contract_error]
-enum MyErrorEnum {X}
+enum MyErrorEnum {
+    X,
+}
 
 #[contract_error]
 struct MyErrorStruct {
@@ -60,6 +62,5 @@ impl Contract {
 
     pub fn get_value(&self) -> u32 {
         self.value
-    }   
+    }
 }
-

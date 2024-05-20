@@ -91,7 +91,6 @@ pub enum ReturnKind {
     HandlesResultImplicit(StatusResult),
 }
 
-
 #[derive(Clone, PartialEq, Eq)]
 pub struct StatusResult {
     pub result_type: Type,

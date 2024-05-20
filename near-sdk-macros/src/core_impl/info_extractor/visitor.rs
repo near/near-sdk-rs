@@ -42,7 +42,7 @@ impl Default for ParsedData {
             handles_result: Default::default(),
             is_payable: Default::default(),
             is_private: Default::default(),
-            persist_on_error:Default::default(),
+            persist_on_error: Default::default(),
             ignores_state: Default::default(),
             result_serializer: SerializerType::JSON,
             receiver: Default::default(),
@@ -170,7 +170,11 @@ impl Visitor {
             },
             ReturnType::Type(_, typ) => Ok(Returns {
                 original: self.return_type.clone(),
-                kind: parse_return_kind(typ, self.parsed_data.handles_result, self.parsed_data.persist_on_error)?,
+                kind: parse_return_kind(
+                    typ,
+                    self.parsed_data.handles_result,
+                    self.parsed_data.persist_on_error,
+                )?,
             }),
         }
     }
@@ -216,7 +220,11 @@ fn is_view(sig: &Signature) -> bool {
     }
 }
 
-fn parse_return_kind(typ: &Type, handles_result: ResultHandling, persist_on_error: bool) -> syn::Result<ReturnKind> {
+fn parse_return_kind(
+    typ: &Type,
+    handles_result: ResultHandling,
+    persist_on_error: bool,
+) -> syn::Result<ReturnKind> {
     match handles_result {
         ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(typ.clone())),
         ResultHandling::Check => {
@@ -228,7 +236,10 @@ fn parse_return_kind(typ: &Type, handles_result: ResultHandling, persist_on_erro
         }
         ResultHandling::None => {
             if utils::type_is_result(typ) {
-                Ok(ReturnKind::HandlesResultImplicit(crate::StatusResult { result_type: typ.clone(), persist_on_error: persist_on_error }))
+                Ok(ReturnKind::HandlesResultImplicit(crate::StatusResult {
+                    result_type: typ.clone(),
+                    persist_on_error: persist_on_error,
+                }))
             } else {
                 Ok(ReturnKind::General(typ.clone()))
             }

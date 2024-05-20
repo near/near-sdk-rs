@@ -3,7 +3,9 @@ extern crate proc_macro;
 
 mod core_impl;
 
-use core_impl::{ext::generate_ext_structs, metadata::generate_contract_metadata_method, extract_error_type};
+use core_impl::{
+    ext::generate_ext_structs, extract_error_type, metadata::generate_contract_metadata_method,
+};
 
 use proc_macro::TokenStream;
 use syn::token::Token;
@@ -18,13 +20,11 @@ use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait
 #[proc_macro_derive(MyContractError)]
 pub fn derive_contract_error(input: TokenStream) -> TokenStream {
     let item: ItemEnum = syn::parse(input).unwrap();
-    
+
     let enum_name = &item.ident;
-    
-    let expanded = quote! {
-        
-    };
-    
+
+    let expanded = quote! {};
+
     expanded.into()
 }
 
@@ -54,14 +54,13 @@ pub fn contract_error(att: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
 #[proc_macro_attribute]
 pub fn check_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = syn::parse_macro_input!(item as syn::ItemImpl);
 
     let self_ty = &input.self_ty;
 
-    let mut checks = quote!{};
+    let mut checks = quote! {};
 
     for item in input.clone().items {
         if let syn::ImplItem::Fn(method) = item {
@@ -70,7 +69,7 @@ pub fn check_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 syn::ReturnType::Type(_, ty) => {
                     let x = extract_error_type(&ty);
                     quote! { #x }
-                },
+                }
             };
 
             checks.extend(quote! {
@@ -79,7 +78,7 @@ pub fn check_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    return TokenStream::from(quote!{
+    return TokenStream::from(quote! {
         #input
         impl #self_ty {
             fn assert_implements_my_trait() {
@@ -88,7 +87,6 @@ pub fn check_trait(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     });
 }
-
 
 #[derive(Debug, Clone)]
 struct Serializers {

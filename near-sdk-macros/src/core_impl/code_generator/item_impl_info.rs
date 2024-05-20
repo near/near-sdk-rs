@@ -1,41 +1,41 @@
 use crate::core_impl::ext::generate_ext_function_wrappers;
+use crate::core_impl::utils;
+use crate::core_impl::ReturnKind;
 use crate::ItemImplInfo;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{ToTokens, quote, format_ident};
+use quote::{format_ident, quote, ToTokens};
 use syn::{spanned::Spanned, Ident};
-use crate::core_impl::utils;
-use crate::core_impl::{ReturnKind};
 
 impl ItemImplInfo {
     /// Generate the code that wraps
     pub fn wrapper_code(&self) -> TokenStream2 {
         let mut res = TokenStream2::new();
-        let mut checks = quote!{};
+        let mut checks = quote! {};
         for method in &self.methods {
             res.extend(method.method_wrapper());
             match method.attr_signature_info.returns.kind {
-                ReturnKind::HandlesResultImplicit {..} => {
+                ReturnKind::HandlesResultImplicit { .. } => {
                     let error_type = match &method.attr_signature_info.returns.original {
                         syn::ReturnType::Default => quote! { () },
                         syn::ReturnType::Type(_, ty) => {
                             let x = utils::extract_error_type(&ty);
                             quote! { #x }
-                        },
+                        }
                     };
                     let method_name = &method.attr_signature_info.ident;
                     let concatenated = format_ident!("assert_implements_my_trait{}", method_name);
-        
+
                     checks.extend(quote! {
                         fn #concatenated() {
                             let _ = near_sdk::check_trait as fn(&#error_type);
                         }
                     });
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
         let current_type = &self.ty;
-        res.extend(quote!{
+        res.extend(quote! {
             impl #current_type {
                 #checks
             }
