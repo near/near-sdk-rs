@@ -385,14 +385,13 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
         let abi_embedded = abi::embed();
         #[cfg(not(feature = "__abi-embed-checked"))]
         let abi_embedded = quote! {};
-        let x = quote! {
+        TokenStream::from(quote! {
             #input
             #ext_gen
             #abi_embedded
             #metadata
             #metadata_impl_gen
-        };
-        TokenStream::from(x)
+        })
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
         let metadata = core_impl::contract_source_metadata_const(attr);
         let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
@@ -470,20 +469,20 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
-    let mut other_code = quote! {};
+    let mut error_methods = quote! {};
 
     item_impl_info.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
-        let new_method_name = quote::format_ident!("{}_error", method.ident);
+        let error_method_name = quote::format_ident!("{}_error", method.ident);
 
         if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
             if status.persist_on_error {
                 let error_type = crate::get_error_type_from_status(status);
                 let panic_tokens = crate::standardized_error_panic_tokens(&error_type);
 
-                other_code.extend(quote! {
+                error_methods.extend(quote! {
                     #[near]
                     impl Contract {
-                        pub fn #new_method_name(&self, err: #error_type) {
+                        pub fn #error_method_name(&self, err: #error_type) {
                             #panic_tokens
                         }
                     }
@@ -497,7 +496,7 @@ fn process_impl_block(
         #input
         #generated_code
         #abi_generated
-        #other_code
+        #error_methods
     })
     .into())
 }

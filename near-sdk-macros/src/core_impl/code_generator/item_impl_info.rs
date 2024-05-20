@@ -23,10 +23,10 @@ impl ItemImplInfo {
                         }
                     };
                     let method_name = &method.attr_signature_info.ident;
-                    let concatenated = format_ident!("assert_implements_my_trait{}", method_name);
+                    let check_trait_method_name = format_ident!("assert_implements_my_trait{}", method_name);
 
                     checks.extend(quote! {
-                        fn #concatenated() {
+                        fn #check_trait_method_name() {
                             let _ = near_sdk::check_contract_error_trait as fn(&#error_type);
                         }
                     });

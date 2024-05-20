@@ -13,7 +13,7 @@ pub fn generate_serializer(
     let struct_decl = attr_sig_info.input_struct_ser();
     let constructor_call = attr_sig_info.constructor_expr_ref();
     let constructor = quote! { let __args = #constructor_call; };
-    let value_ser: TokenStream2 = match serializer {
+    let value_ser = match serializer {
         SerializerType::JSON => quote! {
             ::near_sdk::serde_json::to_vec(&__args).expect("Failed to serialize the cross contract args using JSON.")
         },
