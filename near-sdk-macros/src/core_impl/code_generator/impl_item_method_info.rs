@@ -98,7 +98,6 @@ impl ImplItemMethodInfo {
                     #contract_ser
                 }
                 ::std::result::Result::Err(err) => {
-                    #contract_ser
                     #handle_error
                 }
             }
@@ -111,7 +110,9 @@ impl ImplItemMethodInfo {
                 if status_result.persist_on_error {
                     let error_method_name =
                         quote::format_ident!("{}_error", self.attr_signature_info.ident);
+                    let contract_ser = self.contract_ser_tokens();
                     quote! {
+                        #contract_ser
                         let promise = Contract::ext(::near_sdk::env::current_account_id()).#error_method_name(err).as_return();
                     }
                 } else {
@@ -120,7 +121,7 @@ impl ImplItemMethodInfo {
                 }
             }
             ReturnKind::HandlesResultExplicit { .. } => quote! {
-                ::near_sdk::FunctionError::panic(&err)
+                ::near_sdk::FunctionError::panic(&err);
             },
             _ => quote! {},
         }
