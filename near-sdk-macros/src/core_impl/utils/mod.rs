@@ -173,6 +173,29 @@ pub struct SanitizeSelfResult {
     pub self_occurrences: Vec<Span>,
 }
 
+pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
+    let ty = status_result.result_type.clone();
+    syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error }
+}
+
+pub fn standardized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {
+    quote! {
+        // Initial error is wrapped into a struct to be able to serialize the type of it.
+        #[near(serializers=[json])]
+        struct ErrorWrapper {
+            error_type: &'static str,
+            value: #error_type,
+        };
+
+        let err = ErrorWrapper {
+            error_type: std::any::type_name::<#error_type>(),
+            value: err,
+        };
+        let err = ::near_sdk::serde_json::json!{{"error": err}};
+        ::near_sdk::env::panic_str(&err.to_string());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,28 +239,5 @@ mod tests {
         let typ: Type = syn::parse_str("Option<[(Self, Result<Self, ()>); 2]>").unwrap();
         let replace_with: TokenStream2 = syn::parse_str("MyType").unwrap();
         assert_eq!(sanitize_self(&typ, &replace_with).unwrap().self_occurrences.len(), 2);
-    }
-}
-
-pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
-    let ty = status_result.result_type.clone();
-    syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error }
-}
-
-pub fn standardized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {
-    quote! {
-        // Initial error is wrapped into a struct to be able to serialize the type of it.
-        #[near(serializers=[json])]
-        struct ErrorWrapper {
-            error_type: &'static str,
-            value: #error_type,
-        };
-
-        let err = ErrorWrapper {
-            error_type: std::any::type_name::<#error_type>(),
-            value: err,
-        };
-        let err = ::near_sdk::serde_json::json!{{"error": err}};
-        ::near_sdk::env::panic_str(&err.to_string());
     }
 }
