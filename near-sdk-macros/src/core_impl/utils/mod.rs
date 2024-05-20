@@ -175,7 +175,7 @@ pub struct SanitizeSelfResult {
 
 pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
     let ty = status_result.result_type.clone();
-    syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error }
+    syn::parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Error }
 }
 
 pub fn standardized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {

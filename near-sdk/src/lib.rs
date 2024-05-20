@@ -15,20 +15,6 @@ pub use near_sdk_macros::{
 
 pub mod store;
 
-pub trait ContractErrorTrait {}
-
-pub fn check_contract_error_trait<T: ContractErrorTrait>(_: &T) {}
-
-pub trait ResultTypeExtMy {
-    type Okay;
-    type Error;
-}
-
-impl<T, E> ResultTypeExtMy for Result<T, E> {
-    type Okay = T;
-    type Error = E;
-}
-
 #[cfg(feature = "legacy")]
 pub mod collections;
 mod environment;
