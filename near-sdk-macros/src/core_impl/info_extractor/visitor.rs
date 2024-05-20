@@ -238,7 +238,7 @@ fn parse_return_kind(
             if utils::type_is_result(typ) {
                 Ok(ReturnKind::HandlesResultImplicit(crate::StatusResult {
                     result_type: typ.clone(),
-                    persist_on_error: persist_on_error,
+                    persist_on_error,
                 }))
             } else {
                 Ok(ReturnKind::General(typ.clone()))
