@@ -1,0 +1,42 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+assertion_line: 383
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+pub extern "C" fn method() {
+    ::near_sdk::env::setup_panic_hook();
+    let contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
+    let result = contract.method();
+    match result {
+        ::std::result::Result::Ok(result) => {
+            let result = ::near_sdk::serde_json::to_vec(&result)
+                .expect("Failed to serialize the return value using JSON.");
+            ::near_sdk::env::value_return(&result);
+        }
+        ::std::result::Result::Err(err) => {
+            #[near(serializers = [json])]
+            struct ErrorWrapper {
+                error_type: &'static str,
+                value: <Result<
+                    u64,
+                    &'static str,
+                > as near_sdk::__private::ResultTypeExt>::Error,
+            }
+            let err = ErrorWrapper {
+                error_type: std::any::type_name::<
+                    <Result<
+                        u64,
+                        &'static str,
+                    > as near_sdk::__private::ResultTypeExt>::Error,
+                >(),
+                value: err,
+            };
+            let err = ::near_sdk::serde_json::json! {
+                { "error" : err }
+            };
+            ::near_sdk::env::panic_str(&err.to_string());
+        }
+    }
+}

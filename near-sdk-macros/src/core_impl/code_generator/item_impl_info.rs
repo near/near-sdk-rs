@@ -371,4 +371,27 @@ mod tests {
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
+
+    #[test]
+    fn result_implicit() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            pub fn method(&self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+    fn persist_on_error() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[persist_on_error]
+            pub fn method(&mut self) -> Result<u64, &'static str> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
 }
