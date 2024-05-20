@@ -23,7 +23,8 @@ impl ItemImplInfo {
                         }
                     };
                     let method_name = &method.attr_signature_info.ident;
-                    let check_trait_method_name = format_ident!("assert_implements_my_trait{}", method_name);
+                    let check_trait_method_name =
+                        format_ident!("assert_implements_my_trait{}", method_name);
 
                     checks.extend(quote! {
                         fn #check_trait_method_name() {
