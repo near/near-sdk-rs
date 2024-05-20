@@ -223,7 +223,7 @@ pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
     syn::parse_quote! { <#ty as near_sdk::ResultTypeExtMy>::Error }
 }
 
-pub fn standartized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {
+pub fn standardized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {
     quote! {
         // Initial error is wrapped into a struct to be able to serialize the type of it.
         #[near(serializers=[json])]

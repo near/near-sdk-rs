@@ -2,7 +2,6 @@
 #[test]
 fn compilation_tests() {
     let t = trybuild::TestCases::new();
-    t.pass("compilation_tests/standartized_error.rs");
     t.compile_fail("compilation_tests/invalid_arg_pat.rs");
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");

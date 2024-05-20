@@ -537,7 +537,7 @@ fn process_impl_block(
         if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
             if status.persist_on_error {
                 let error_type = crate::get_error_type_from_status(status);
-                let panic_tokens = crate::standartized_error_panic_tokens(&error_type);
+                let panic_tokens = crate::standardized_error_panic_tokens(&error_type);
 
                 other_code.extend(quote! {
                     #[near]

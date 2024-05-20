@@ -11,5 +11,5 @@ pub(crate) use contract_metadata::ContractMetadata;
 pub(crate) use event::{get_event_version, near_events};
 pub(crate) use info_extractor::*;
 pub(crate) use utils::{
-    extract_error_type, get_error_type_from_status, standartized_error_panic_tokens,
+    extract_error_type, get_error_type_from_status, standardized_error_panic_tokens,
 };

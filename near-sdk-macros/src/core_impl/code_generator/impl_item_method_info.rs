@@ -119,7 +119,7 @@ impl ImplItemMethodInfo {
                 }
             } else {
                 let error_type = utils::get_error_type_from_status(status_result);
-                utils::standartized_error_panic_tokens(&error_type)
+                utils::standardized_error_panic_tokens(&error_type)
             }
         } else if let ReturnKind::HandlesResultExplicit { .. } =
             &self.attr_signature_info.returns.kind
