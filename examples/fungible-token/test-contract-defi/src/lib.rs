@@ -16,6 +16,7 @@ pub struct DeFi {
 }
 
 // Have to repeat the same trait for our own implementation.
+#[allow(dead_code)]
 trait ValueReturnTrait {
     fn value_please(&self, amount_to_return: String) -> PromiseOrValue<U128>;
 }
