@@ -165,7 +165,7 @@ impl AttrSigInfo {
 
         self_occurrences.extend(args.iter().flat_map(|arg| arg.self_occurrences.clone()));
 
-        *original_attrs = non_bindgen_attrs.clone();
+        original_attrs.clone_from(&non_bindgen_attrs);
 
         if matches!(method_kind, MethodKind::Call(_) | MethodKind::View(_)) {
             report_spans(
