@@ -195,7 +195,7 @@ pub fn standardized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {
         };
 
         let err = ErrorWrapper {
-            name: String::from("CUSTOM_CONTRACT_ERROR"),
+            name: String::from(<#error_type as near_sdk::ContractErrorTrait>::error_type(&err)),
             cause: ErrorCause {
                 name: String::from(std::any::type_name::<#error_type>()),
                 info: err,

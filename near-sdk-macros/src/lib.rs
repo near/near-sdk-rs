@@ -14,24 +14,43 @@ use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
 
+#[derive(FromMeta)]
+struct ContractErrorArgs {
+    sdk: Option<bool>,
+}
 #[proc_macro_attribute]
-pub fn contract_error(_: TokenStream, item: TokenStream) -> TokenStream {
+pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let meta_list = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
+    };
+
+    let contract_error_args = match ContractErrorArgs::from_list(&meta_list) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(e.write_errors());
+        }
+    };
+
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let ident = &input.ident;
 
-    let wrapper_name: Ident = Ident::new(&format!("{}Wrapper", ident), Span::call_site());
+    let error_type = if contract_error_args.sdk.unwrap_or(false) {
+        quote! {"SDK_CONTRACT_ERROR"}
+    } else {
+        quote! {"CUSTOM_CONTRACT_ERROR"}
+    };
 
     let expanded = quote! {
         #[near(serializers=[json])]
         #input
-
-        #[near(serializers=[json])]
-        struct #wrapper_name {
-            error_type: &'static str,
-            value: #ident,
-        }
-
+        
         impl near_sdk::ContractErrorTrait for #ident {
+            fn error_type(&self) -> &'static str {
+                #error_type
+            }
         }
     };
     TokenStream::from(expanded)

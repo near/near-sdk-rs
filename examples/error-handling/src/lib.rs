@@ -7,7 +7,7 @@ pub enum MyErrorEnum {
     X,
 }
 
-#[contract_error]
+#[contract_error(sdk)]
 pub struct MyErrorStruct {
     x: u32,
 }
