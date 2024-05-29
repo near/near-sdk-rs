@@ -3,6 +3,7 @@ use super::{
     ArgInfo, BindgenArgType, HandleResultAttr, InitAttr, MethodKind, SerializerAttr, SerializerType,
 };
 use crate::core_impl::{utils, Returns};
+use near_attribute_str::{handle_result, init, payable, private, result_serializer};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::ToTokens;
 use syn::spanned::Spanned;
@@ -102,20 +103,24 @@ impl AttrSigInfo {
         for attr in original_attrs.iter() {
             let attr_str = attr.path().to_token_stream().to_string();
             match attr_str.as_str() {
-                "init" => {
+                #[allow(non_upper_case_globals)]
+                init => {
                     let mut init_attr = InitAttr { ignore_state: false };
                     if let Some(state) = args.ignore_state {
                         init_attr.ignore_state = state;
                     }
                     visitor.visit_init_attr(attr, &init_attr)?;
                 }
-                "payable" => {
+                #[allow(non_upper_case_globals)]
+                payable => {
                     visitor.visit_payable_attr(attr)?;
                 }
-                "private" => {
+                #[allow(non_upper_case_globals)]
+                private => {
                     visitor.visit_private_attr(attr)?;
                 }
-                "result_serializer" => {
+                #[allow(non_upper_case_globals)]
+                result_serializer => {
                     if args.borsh.is_some() && args.json.is_some() {
                         return Err(Error::new(
                             attr.span(),
@@ -135,13 +140,14 @@ impl AttrSigInfo {
                     }
                     visitor.visit_result_serializer_attr(attr, &serializer)?;
                 }
-                "handle_result" => {
+                #[allow(non_upper_case_globals)]
+                handle_result => {
                     if let Some(value) = args.aliased {
-                        let handle_result = HandleResultAttr { check: value };
-                        visitor.visit_handle_result_attr(&handle_result);
+                        let handle_result_attr = HandleResultAttr { check: value };
+                        visitor.visit_handle_result_attr(&handle_result_attr);
                     } else {
-                        let handle_result = HandleResultAttr { check: false };
-                        visitor.visit_handle_result_attr(&handle_result);
+                        let handle_result_attr = HandleResultAttr { check: false };
+                        visitor.visit_handle_result_attr(&handle_result_attr);
                     }
                 }
                 _ => {

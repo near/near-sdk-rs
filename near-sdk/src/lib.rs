@@ -63,6 +63,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub use base64;
 pub use borsh;
 pub use bs58;
+pub use near_attribute_str::*;
 #[cfg(feature = "abi")]
 pub use schemars;
 pub use serde;
