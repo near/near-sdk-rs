@@ -85,7 +85,7 @@ impl ItemImplInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{parse_quote, ImplItem, ImplItemFn, Type};
+    use syn::{parse_quote, ImplItemFn, Type};
     use crate::core_impl::info_extractor::{ImplItemMethodInfo, ItemImplInfo};
     use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
