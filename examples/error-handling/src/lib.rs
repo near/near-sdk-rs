@@ -35,7 +35,7 @@ impl Contract {
     //
     // is_error = true
     // Failed transaction
-    // Error: 
+    // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     // ExecutionError("Smart contract panicked: error in inc_handle_result")
     // (does not change value)
@@ -58,7 +58,7 @@ impl Contract {
     //
     // is_error = true
     // Failed transaction
-    // Error: 
+    // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     // ExecutionError("Smart contract panicked: {\"error\":{\"error_type\":\"error_handling::MyErrorEnum\",\"value\":\"X\"}}")
     // (changes value from 2 to 3)
@@ -81,7 +81,7 @@ impl Contract {
     //
     // is_error = true
     // Failed transaction
-    // Error: 
+    // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     //  ExecutionError("Smart contract panicked: {\"error\":{\"error_type\":\"error_handling::MyErrorStruct\",\"value\":{\"x\":5}}}")
     // (does not change value)
@@ -103,7 +103,7 @@ impl Contract {
     //
     // is_error = true
     // Failed transaction
-    // Error: 
+    // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     //  ExecutionError("Smart contract panicked: Error")
     // (does not change value)
@@ -125,7 +125,7 @@ impl Contract {
     //
     // is_error = true
     // Failed transaction
-    // Error: 
+    // Error:
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     //  ExecutionError("Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{\\\"error\\\":{\\\"x\\\":5}},\\\"name\\\":\\\"near_sdk::utils::contract_error::BaseError\\\"},\\\"name\\\":\\\"CUSTOM_CONTRACT_ERROR\\\"}}")
     // (does not change value)

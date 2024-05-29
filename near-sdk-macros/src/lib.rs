@@ -46,7 +46,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[near(serializers=[json])]
         #input
-        
+
         impl near_sdk::ContractErrorTrait for #ident {
             fn error_type(&self) -> &'static str {
                 #error_type
@@ -54,7 +54,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl From<#ident> for near_sdk::BaseError {
-            fn from(err: #ident) -> Self { 
+            fn from(err: #ident) -> Self {
                 near_sdk::BaseError{
                     error: near_sdk::serde_json::json!{err},
                 }
