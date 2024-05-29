@@ -20,7 +20,7 @@ pub struct Contract {
 
 #[near]
 impl Contract {
-    pub fn inc_incorrect_result_type(&mut self, is_error: bool) -> Result<u32, u64> {
+    pub fn inc_incorrect_result_type(&mut self) -> Result<u32, u64> {
         Err(0)
     }
 }
