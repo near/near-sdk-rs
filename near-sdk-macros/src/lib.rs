@@ -496,27 +496,7 @@ fn process_impl_block(
     // Add wrapper methods for ext call API
     let ext_generated_code = item_impl_info.generate_ext_wrapper_code();
 
-    let mut error_methods = quote! {};
-
-    item_impl_info.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
-        let error_method_name = quote::format_ident!("{}_error", method.ident);
-
-        if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
-            if status.persist_on_error {
-                let error_type = crate::get_error_type_from_status(status);
-                let panic_tokens = crate::standardized_error_panic_tokens(&error_type);
-
-                error_methods.extend(quote! {
-                    #[near]
-                    impl Contract {
-                        pub fn #error_method_name(&self, err: #error_type) {
-                            #panic_tokens
-                        }
-                    }
-                });
-            }
-        }
-    });
+    let error_methods = item_impl_info.generate_error_methods();
 
     Ok(TokenStream::from(quote! {
         #ext_generated_code

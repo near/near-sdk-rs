@@ -52,13 +52,41 @@ impl ItemImplInfo {
             Err(e) => syn::Error::new(self.ty.span(), e).to_compile_error(),
         }
     }
+
+    pub fn generate_error_methods(&self) -> TokenStream2 {
+        let mut error_methods = quote! {};
+
+        self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
+            let error_method_name = quote::format_ident!("{}_error", method.ident);
+
+            if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
+                if status.persist_on_error {
+                    let error_type = crate::get_error_type_from_status(status);
+                    let panic_tokens = crate::standardized_error_panic_tokens(&error_type);
+
+                    let ty = self.ty.to_token_stream();
+
+                    error_methods.extend(quote! {
+                        #[near]
+                        impl #ty {
+                            pub fn #error_method_name(&self, err: #error_type) {
+                                #panic_tokens
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        error_methods
+    }
 }
 // Rustfmt removes comas.
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{Type, ImplItemFn, parse_quote};
-    use crate::core_impl::info_extractor::ImplItemMethodInfo;
+    use syn::{parse_quote, ImplItem, ImplItemFn, Type};
+    use crate::core_impl::info_extractor::{ImplItemMethodInfo, ItemImplInfo};
     use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
 
@@ -392,6 +420,19 @@ mod tests {
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+    fn generated_method_error() {
+        let mut impl_contract: syn::ItemImpl = parse_quote! {
+            impl Contract {
+                #[persist_on_error]
+                pub fn method(&mut self) -> Result<u64, &'static str> { }
+            }
+        };
+        let impl_contract_info = ItemImplInfo::new(&mut impl_contract).unwrap();
+        let actual = impl_contract_info.generate_error_methods();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
 }

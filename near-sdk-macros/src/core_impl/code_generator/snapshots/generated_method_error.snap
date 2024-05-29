@@ -1,0 +1,51 @@
+---
+source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+assertion_line: 439
+expression: pretty_print_syn_str(&actual).unwrap()
+---
+#[near]
+impl Contract {
+    pub fn method_error(
+        &self,
+        err: <Result<u64, &'static str> as near_sdk::__private::ResultTypeExt>::Error,
+    ) {
+        #[near(serializers = [json])]
+        struct ErrorCause {
+            name: String,
+            info: <Result<
+                u64,
+                &'static str,
+            > as near_sdk::__private::ResultTypeExt>::Error,
+        }
+        #[near(serializers = [json])]
+        struct ErrorWrapper {
+            name: String,
+            cause: ErrorCause,
+        }
+        let err = ErrorWrapper {
+            name: String::from(
+                <<Result<
+                    u64,
+                    &'static str,
+                > as near_sdk::__private::ResultTypeExt>::Error as near_sdk::ContractErrorTrait>::error_type(
+                    &err,
+                ),
+            ),
+            cause: ErrorCause {
+                name: String::from(
+                    std::any::type_name::<
+                        <Result<
+                            u64,
+                            &'static str,
+                        > as near_sdk::__private::ResultTypeExt>::Error,
+                    >(),
+                ),
+                info: err,
+            },
+        };
+        let err = ::near_sdk::serde_json::json! {
+            { "error" : err }
+        };
+        ::near_sdk::env::panic_str(&err.to_string());
+    }
+}
