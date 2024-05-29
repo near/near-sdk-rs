@@ -52,6 +52,14 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #error_type
             }
         }
+
+        impl From<#ident> for near_sdk::BaseError {
+            fn from(err: #ident) -> Self { 
+                near_sdk::BaseError{
+                    error: near_sdk::serde_json::json!{err},
+                }
+            }
+        }
     };
     TokenStream::from(expanded)
 }

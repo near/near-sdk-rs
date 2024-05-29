@@ -1,6 +1,7 @@
 // Find all our documentation at https://docs.near.org
 use near_sdk::contract_error;
 use near_sdk::near;
+use near_sdk::BaseError;
 
 #[contract_error]
 pub enum MyErrorEnum {
@@ -114,6 +115,39 @@ impl Contract {
             self.value
         }
     }
+
+    // Examples of RPC response for function call:
+    // is_error = false
+    // --- Result -------------------------
+    // 6
+    // ------------------------------------
+    // (changes value from 5 to 6)
+    //
+    // is_error = true
+    // Failed transaction
+    // Error: 
+    // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
+    //  ExecutionError("Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{\\\"error\\\":{\\\"x\\\":5}},\\\"name\\\":\\\"near_sdk::utils::contract_error::BaseError\\\"},\\\"name\\\":\\\"CUSTOM_CONTRACT_ERROR\\\"}}")
+    // (does not change value)
+    pub fn inc_base_error(&mut self, is_error: bool) -> Result<u32, BaseError> {
+        self.value += 1;
+        if is_error {
+            Err(MyErrorStruct { x: 5 }.into())
+        } else {
+            Ok(self.value)
+        }
+    }
+
+    // Does not compile as u64 is not marked with contract_error
+    // > the trait `ContractErrorTrait` is not implemented for `u64`
+    // pub fn inc_incorrect_result_type(&mut self, is_error: bool) -> Result<u32, u64> {
+    //     self.value += 1;
+    //     if is_error {
+    //         Err(0)
+    //     } else {
+    //         Ok(self.value)
+    //     }
+    // }
 
     pub fn get_value(&self) -> u32 {
         self.value
