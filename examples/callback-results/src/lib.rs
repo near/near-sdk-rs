@@ -25,11 +25,11 @@ impl Callback {
 
     /// Returns a static string if fail is false, return
     #[private]
-    pub fn b(fail: bool) -> &'static str {
+    pub fn b(fail: bool) -> Result<&'static str, BaseError> {
         if fail {
-            env::panic_str("failed within function b");
+            Err(InvalidArgument {message: "Failed within function b".to_string()})
         }
-        "Some string"
+        Ok("Some string")
     }
 
     /// Panics if value is 0, returns the value passed in otherwise.
@@ -41,7 +41,7 @@ impl Callback {
 
     /// Panics if value is 0.
     #[private]
-    pub fn d(value: u8) {
+    pub fn d(value: u8) Result<(), BaseError> {
         require!(value > 0, "Value must be positive");
     }
 
