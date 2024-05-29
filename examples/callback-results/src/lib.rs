@@ -1,5 +1,5 @@
 use near_sdk::require;
-use near_sdk::{env, near, Promise, PromiseError};
+use near_sdk::{env, near, standard_errors, BaseError, Promise, PromiseError};
 
 const A_VALUE: u8 = 8;
 
@@ -27,7 +27,10 @@ impl Callback {
     #[private]
     pub fn b(fail: bool) -> Result<&'static str, BaseError> {
         if fail {
-            Err(InvalidArgument {message: "Failed within function b".to_string()})
+            return Err(standard_errors::InvalidArgument {
+                message: "Failed within function b".to_string(),
+            }
+            .into());
         }
         Ok("Some string")
     }
@@ -41,7 +44,7 @@ impl Callback {
 
     /// Panics if value is 0.
     #[private]
-    pub fn d(value: u8) Result<(), BaseError> {
+    pub fn d(value: u8) {
         require!(value > 0, "Value must be positive");
     }
 

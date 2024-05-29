@@ -17,6 +17,7 @@ use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait
 #[derive(FromMeta)]
 struct ContractErrorArgs {
     sdk: Option<bool>,
+    inside_nearsdk: Option<bool>,
 }
 #[proc_macro_attribute]
 pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -43,20 +44,30 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {"CUSTOM_CONTRACT_ERROR"}
     };
 
+    let mut near_sdk_crate: proc_macro2::TokenStream;
+    let mut bool_inside_nearsdk_for_macro = quote!{false};
+
+    if contract_error_args.inside_nearsdk.unwrap_or(false) {
+        near_sdk_crate = quote! {crate};
+        bool_inside_nearsdk_for_macro = quote!{true};
+    } else {
+        near_sdk_crate = quote! {::near_sdk};
+    };
+
     let expanded = quote! {
-        #[near(serializers=[json])]
+        #[crate::near(serializers=[json], inside_nearsdk=#bool_inside_nearsdk_for_macro)]
         #input
 
-        impl near_sdk::ContractErrorTrait for #ident {
+        impl #near_sdk_crate ::ContractErrorTrait for #ident {
             fn error_type(&self) -> &'static str {
                 #error_type
             }
         }
 
-        impl From<#ident> for near_sdk::BaseError {
+        impl From<#ident> for #near_sdk_crate ::BaseError {
             fn from(err: #ident) -> Self {
-                near_sdk::BaseError{
-                    error: near_sdk::serde_json::json!{err},
+                #near_sdk_crate ::BaseError{
+                    error: #near_sdk_crate ::serde_json::json!{err},
                 }
             }
         }
