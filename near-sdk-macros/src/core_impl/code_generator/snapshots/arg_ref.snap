@@ -17,6 +17,6 @@ pub extern "C" fn method() {
         )
         .expect("Failed to deserialize input from JSON.");
     let contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    contract.method(&k);
+    Hello::method(&contract, &k);
 }
 

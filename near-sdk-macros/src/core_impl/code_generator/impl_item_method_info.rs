@@ -277,24 +277,41 @@ impl ImplItemMethodInfo {
 
         let ident = &self.attr_signature_info.ident;
         let arg_list = self.attr_signature_info.arg_list();
+        let struct_type = &self.struct_type;
 
-        let method_invocation = || {
+        let method_fqdn = if let Some(impl_trait) = &self.impl_trait {
             quote! {
-                contract.#ident(#arg_list)
+                <#struct_type as #impl_trait>::#ident
+            }
+        } else {
+            quote! {
+                #struct_type::#ident
+            }
+        };
+
+        let method_invocation = |receiver: &Receiver| {
+            if receiver.reference.is_some() {
+                let mutability = receiver.mutability;
+                quote! {
+                    #method_fqdn(&#mutability contract, #arg_list)
+                }
+            } else {
+                quote! {
+                    #method_fqdn(contract, #arg_list)
+                }
             }
         };
 
         let static_invocation = || {
-            let struct_type = &self.struct_type;
             quote! {
-                #struct_type::#ident(#arg_list)
+                #method_fqdn(#arg_list)
             }
         };
 
         match &self.attr_signature_info.method_kind {
             Call(call_method) => {
-                if call_method.receiver.is_some() {
-                    method_invocation()
+                if let Some(receiver) = call_method.receiver.as_ref() {
+                    method_invocation(receiver)
                 } else {
                     static_invocation()
                 }
@@ -304,8 +321,8 @@ impl ImplItemMethodInfo {
             Init(_) => quote! {},
 
             View(view_method) => {
-                if view_method.receiver.is_some() {
-                    method_invocation()
+                if let Some(receiver) = view_method.receiver.as_ref() {
+                    method_invocation(receiver)
                 } else {
                     static_invocation()
                 }
