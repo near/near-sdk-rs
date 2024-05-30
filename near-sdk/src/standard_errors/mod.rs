@@ -82,6 +82,15 @@ impl InvalidPromiseReturn {
 
 #[contract_error(inside_nearsdk)]
 pub struct InsufficientBalance {
+    message: Option<String>
+}
+
+impl InsufficientBalance {
+    pub fn new(message: Option<&str>) -> Self {
+        Self {
+            message: message.map(|s| s.to_string()),
+        }
+    }
 }
 
 #[contract_error(inside_nearsdk)]

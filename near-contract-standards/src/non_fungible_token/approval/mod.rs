@@ -4,8 +4,7 @@ mod approval_receiver;
 pub use approval_receiver::*;
 
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::AccountId;
-use near_sdk::Promise;
+use near_sdk::{AccountId, Promise, BaseError};
 
 /// Trait used when it's desired to have a non-fungible token that has a
 /// traditional escrow or approval system. This allows Alice to allow Bob
@@ -82,7 +81,7 @@ pub trait NonFungibleTokenApproval {
         token_id: TokenId,
         account_id: AccountId,
         msg: Option<String>,
-    ) -> Option<Promise>;
+    ) -> Result<Option<Promise>, BaseError>;
 
     /// Revoke an approved account for a specific token.
     ///
@@ -96,7 +95,7 @@ pub trait NonFungibleTokenApproval {
     /// Arguments:
     /// * `token_id`: the token for which to revoke an approval
     /// * `account_id`: the account to remove from `approvals`
-    fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId);
+    fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) -> Result<(), BaseError>;
 
     /// Revoke all approved accounts for a specific token.
     ///
@@ -109,7 +108,7 @@ pub trait NonFungibleTokenApproval {
     ///
     /// Arguments:
     /// * `token_id`: the token with approvals to revoke
-    fn nft_revoke_all(&mut self, token_id: TokenId);
+    fn nft_revoke_all(&mut self, token_id: TokenId) -> Result<(), BaseError>;
 
     /// Check if a token is approved for transfer by a given account, optionally
     /// checking an approval_id
@@ -127,5 +126,5 @@ pub trait NonFungibleTokenApproval {
         token_id: TokenId,
         approved_account_id: AccountId,
         approval_id: Option<u64>,
-    ) -> bool;
+    ) -> Result<bool, BaseError>;
 }

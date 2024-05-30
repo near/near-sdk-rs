@@ -11,6 +11,7 @@ pub use self::resolver::NonFungibleTokenResolver;
 use crate::non_fungible_token::token::{Token, TokenId};
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
+use near_sdk::BaseError;
 
 /// Used for all non-fungible tokens. The specification for the
 /// [core non-fungible token standard] lays out the reasoning for each method.
@@ -78,7 +79,7 @@ pub trait NonFungibleTokenCore {
         token_id: TokenId,
         approval_id: Option<u64>,
         memo: Option<String>,
-    );
+    ) -> Result<(), BaseError>;
 
     /// Transfer token and call a method on a receiver contract. A successful
     /// workflow will end in a success execution outcome to the callback on the NFT

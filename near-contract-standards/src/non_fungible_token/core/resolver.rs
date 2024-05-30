@@ -1,5 +1,5 @@
 use crate::non_fungible_token::token::TokenId;
-use near_sdk::{ext_contract, AccountId};
+use near_sdk::{ext_contract, AccountId, BaseError};
 use std::collections::HashMap;
 
 /// Used when an NFT is transferred using `nft_transfer_call`. This is the method that's called after `nft_on_transfer`. This trait is implemented on the NFT contract.
@@ -59,5 +59,5 @@ pub trait NonFungibleTokenResolver {
         receiver_id: AccountId,
         token_id: TokenId,
         approved_account_ids: Option<HashMap<AccountId, u64>>,
-    ) -> bool;
+    ) -> Result<bool, BaseError>;
 }

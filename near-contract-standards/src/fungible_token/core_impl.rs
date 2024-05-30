@@ -110,7 +110,7 @@ impl FungibleToken {
                 None => { Err(TotalSupplyOverflow{}.into()) }
             }
         } else {
-            Err(InsufficientBalance{}.into())
+            Err(InsufficientBalance::new(None).into())
         }
     }
 
@@ -231,7 +231,7 @@ impl FungibleToken {
                     if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
                         self.accounts.insert(sender_id, &new_sender_balance);
                     } else {
-                        return Err(InsufficientBalance{}.into());
+                        return Err(InsufficientBalance::new(None).into());
                     }
 
                     FtTransfer {

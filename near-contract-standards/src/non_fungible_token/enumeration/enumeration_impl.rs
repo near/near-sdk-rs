@@ -2,7 +2,8 @@ use super::NonFungibleTokenEnumeration;
 use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::U128;
-use near_sdk::{env, require, AccountId};
+use near_sdk::{require, unwrap_or_err, AccountId, BaseError};
+use near_sdk::standard_errors::AnyError;
 
 type TokenId = String;
 
@@ -45,17 +46,15 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             .collect()
     }
 
-    fn nft_supply_for_owner(&self, account_id: AccountId) -> U128 {
-        let tokens_per_owner = self.tokens_per_owner.as_ref().unwrap_or_else(|| {
-            env::panic_str(
-                "Could not find tokens_per_owner when calling a method on the \
-                enumeration standard.",
-            )
-        });
-        tokens_per_owner
+    fn nft_supply_for_owner(&self, account_id: AccountId) -> Result<U128, BaseError> {
+        let tokens_per_owner = unwrap_or_err!(
+            self.tokens_per_owner.as_ref(), 
+            AnyError::new("Could not find tokens_per_owner when calling a method on the \
+        enumeration standard."));
+        Ok(tokens_per_owner
             .get(&account_id)
             .map(|account_tokens| U128::from(account_tokens.len() as u128))
-            .unwrap_or(U128(0))
+            .unwrap_or(U128(0)))
     }
 
     fn nft_tokens_for_owner(
@@ -63,21 +62,21 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         account_id: AccountId,
         from_index: Option<U128>,
         limit: Option<u64>,
-    ) -> Vec<Token> {
-        let tokens_per_owner = self.tokens_per_owner.as_ref().unwrap_or_else(|| {
-            env::panic_str(
+    ) -> Result<Vec<Token>, BaseError> {
+        let tokens_per_owner = unwrap_or_err!(self.tokens_per_owner.as_ref(),
+            AnyError::new(
                 "Could not find tokens_per_owner when calling a method on the \
                 enumeration standard.",
             )
-        });
+        );
         let token_set = if let Some(token_set) = tokens_per_owner.get(&account_id) {
             token_set
         } else {
-            return vec![];
+            return Ok(vec![]);
         };
 
         if token_set.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
@@ -87,11 +86,11 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             token_set.len() as u128 > start_index,
             "Out of bounds, please use a smaller from_index."
         );
-        token_set
+        Ok(token_set
             .iter()
             .skip(start_index as usize)
             .take(limit)
             .map(|token_id| self.enum_get_token(account_id.clone(), token_id))
-            .collect()
+            .collect())
     }
 }

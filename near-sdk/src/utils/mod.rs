@@ -80,6 +80,26 @@ macro_rules! require {
     };
 }
 
+#[macro_export]
+macro_rules! unwrap_or_err {
+    ( $exp:expr, $err:expr ) => {
+        match $exp {
+            Some(x) => x,
+            None => {return Err($err.into());},
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! unwrap_or_return {
+    ( $exp:expr ) => {
+        match $exp {
+            Ok(x) => x,
+            Err(err) => {return Err(err.into());},
+        }
+    }
+}
+
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
     require!(env::predecessor_account_id() == env::current_account_id(), "Method is private");

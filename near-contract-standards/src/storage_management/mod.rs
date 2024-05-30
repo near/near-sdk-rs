@@ -98,7 +98,7 @@ pub trait StorageManagement {
     /// function-call access-key call (UX wallet security)
     ///
     /// Returns the StorageBalance structure showing updated balances.
-    fn storage_withdraw(&mut self, amount: Option<NearToken>) -> StorageBalance;
+    fn storage_withdraw(&mut self, amount: Option<NearToken>) -> Result<StorageBalance, BaseError>;
 
     /// Unregisters the predecessor account and returns the storage NEAR deposit back.
     ///
