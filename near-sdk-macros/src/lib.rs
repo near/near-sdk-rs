@@ -62,20 +62,21 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn error_type(&self) -> &'static str {
                 #error_type
             }
+
             fn wrap(&self) -> String {
-                #[#near_sdk_crate ::near(inside_nearsdk, serializers = [json])]
+                #[#near_sdk_crate ::near(inside_nearsdk=#bool_inside_nearsdk_for_macro, serializers = [json])]
                 struct ErrorWrapper<T> {
                     name: String,
                     cause: ErrorCause<T>,
                 }
 
-                #[#near_sdk_crate ::near(inside_nearsdk, serializers = [json])]
+                #[#near_sdk_crate ::near(inside_nearsdk=#bool_inside_nearsdk_for_macro, serializers = [json])]
                 struct ErrorCause<T> {
                     name: String,
                     info: T
                 }
 
-                serde_json::json! {
+                #near_sdk_crate ::serde_json::json! {
                     { "error" : ErrorWrapper {
                         name: String::from(self.error_type()),
                         cause: ErrorCause {

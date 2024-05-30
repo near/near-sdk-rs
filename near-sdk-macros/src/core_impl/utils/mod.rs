@@ -178,31 +178,10 @@ pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
     syn::parse_quote! { <#ty as near_sdk::__private::ResultTypeExt>::Error }
 }
 
-pub fn standardized_error_panic_tokens(error_type: &syn::Type) -> TokenStream2 {
+pub fn standardized_error_panic_tokens() -> TokenStream2 {
     quote! {
         // Initial error is wrapped into a struct to be able to serialize the type of it.
-
-        #[near(serializers=[json])]
-        struct ErrorCause {
-            name: String,
-            info: #error_type,
-        }
-
-        #[near(serializers=[json])]
-        struct ErrorWrapper {
-            name: String,
-            cause: ErrorCause,
-        };
-
-        let err = ErrorWrapper {
-            name: String::from(<#error_type as near_sdk::ContractErrorTrait>::error_type(&err)),
-            cause: ErrorCause {
-                name: String::from(std::any::type_name::<#error_type>()),
-                info: err,
-            }
-        };
-        let err = ::near_sdk::serde_json::json!{{"error": err}};
-        ::near_sdk::env::panic_str(&err.to_string());
+        ::near_sdk::env::panic_str(&::near_sdk::wrap_error(err).to_string());
     }
 }
 

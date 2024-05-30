@@ -39,7 +39,7 @@ async fn check_call(
 }
 
 #[tokio::test]
-async fn test_factorial() -> anyhow::Result<()> {
+async fn test_error_handling() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let contract =
         worker.dev_deploy(&std::fs::read(format!("res/{}.wasm", "error_handling"))?).await?;

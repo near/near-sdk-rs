@@ -116,8 +116,7 @@ impl ImplItemMethodInfo {
                         let promise = Contract::ext(::near_sdk::env::current_account_id()).#error_method_name(err).as_return();
                     }
                 } else {
-                    let error_type = utils::get_error_type_from_status(status_result);
-                    utils::standardized_error_panic_tokens(&error_type)
+                    utils::standardized_error_panic_tokens()
                 }
             }
             ReturnKind::HandlesResultExplicit { .. } => quote! {
