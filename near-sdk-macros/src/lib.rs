@@ -866,7 +866,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl ::std::default::Default for #name {
                 fn default() -> Self {
-                    ::near_sdk::env::panic_str(&String::from(::near_sdk::standard_errors::ContractNotInitialized::new()));
+                    ::near_sdk::env::panic_str(&String::from(::near_sdk::standard_errors::ContractNotInitialized{}));
                 }
             }
         })

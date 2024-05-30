@@ -5,15 +5,31 @@ pub struct InvalidArgument {
     pub message: String,
 }
 
-#[contract_error(inside_nearsdk, sdk)]
-pub struct ContractNotInitialized {
-    pub message: String,
+impl InvalidArgument {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
 }
 
-impl ContractNotInitialized {
-    pub fn new() -> Self {
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ContractNotInitialized {
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ContractAlreadyInitialized {
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct PermissionDenied {
+    message: Option<String>,
+}
+
+impl PermissionDenied {
+    pub fn new(message: Option<&str>) -> Self {
         Self {
-            message: "The contract is not initialized".to_string(),
+            message: message.map(|s| s.to_string()),
         }
     }
 }
@@ -33,15 +49,33 @@ impl RequireFailed {
 
 #[contract_error(inside_nearsdk)]
 pub struct PromiseFailed {
-    pub message: String,
     pub promise_index: Option<u64>,
+    pub message: Option<String>,
 }
 
 impl PromiseFailed {
-    pub fn new(promise_index: Option<u64>) -> Self {
+    pub fn new(promise_index: Option<u64>, message: Option<&str>) -> Self {
         Self {
-            message: "Promise failed".to_string(),
             promise_index,
+            message: message.map(|s| s.to_string()),
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct UnexpectedFailure {
+    pub message: String,
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct InvalidPromiseReturn {
+    pub message: String,
+}
+
+impl InvalidPromiseReturn {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
         }
     }
 }

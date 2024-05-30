@@ -1,5 +1,6 @@
 use near_sdk::require;
-use near_sdk::{env, near, contract_error, BaseError, Promise, PromiseError};
+use near_sdk::{env, near, BaseError, Promise, PromiseError};
+use near_sdk::standard_errors::{InvalidArgument, UnexpectedFailure, InvalidPromiseReturn};
 
 const A_VALUE: u8 = 8;
 
@@ -27,7 +28,7 @@ impl Callback {
     #[private]
     pub fn b(fail: bool) -> Result<&'static str, BaseError> {
         if fail {
-            return Err(UnexpectedFail {
+            return Err(UnexpectedFailure {
                 message: "Failed within function b".to_string(),
             }
             .into());
@@ -38,14 +39,14 @@ impl Callback {
     /// Panics if value is 0, returns the value passed in otherwise.
     #[private]
     pub fn c(value: u8) -> u8 {
-        require!(value > 0, "Value must be positive");
+        require!(value > 0, &String::from(InvalidArgument::new("Value must be positive")));
         value
     }
 
     /// Panics if value is 0.
     #[private]
     pub fn d(value: u8) {
-        require!(value > 0, "Value must be positive");
+        require!(value > 0, &String::from(InvalidArgument::new("Value must be positive")));
     }
 
     /// Receives the callbacks from the other promises called.
@@ -56,17 +57,12 @@ impl Callback {
         #[callback_result] c: Result<u8, PromiseError>,
         #[callback_result] d: Result<(), PromiseError>,
     ) -> (bool, bool, bool) {
-        require!(a == A_VALUE, "Promise returned incorrect value");
+        require!(a == A_VALUE, &String::from(InvalidPromiseReturn::new("Promise returned incorrect value")));
         if let Ok(s) = b.as_ref() {
             require!(s == "Some string");
         }
         (b.is_err(), c.is_err(), d.is_err())
     }
-}
-
-#[contract_error]
-pub struct UnexpectedFail {
-    message: String
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
