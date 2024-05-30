@@ -44,7 +44,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {"CUSTOM_CONTRACT_ERROR"}
     };
 
-    let mut near_sdk_crate: proc_macro2::TokenStream;
+    let near_sdk_crate: proc_macro2::TokenStream;
     let mut bool_inside_nearsdk_for_macro = quote!{false};
 
     if contract_error_args.inside_nearsdk.unwrap_or(false) {
@@ -833,7 +833,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl ::std::default::Default for #name {
                 fn default() -> Self {
-                    ::near_sdk::env::panic_str("The contract is not initialized");
+                    ::near_sdk::env::panic_str(::near_sdk::standard_errors::wrap_error(::near_sdk::standard_errors::ContractNotInitialized::new()).as_str());
                 }
             }
         })

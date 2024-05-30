@@ -1,5 +1,5 @@
 use near_sdk::require;
-use near_sdk::{env, near, standard_errors, BaseError, Promise, PromiseError};
+use near_sdk::{env, near, contract_error, BaseError, Promise, PromiseError};
 
 const A_VALUE: u8 = 8;
 
@@ -27,7 +27,7 @@ impl Callback {
     #[private]
     pub fn b(fail: bool) -> Result<&'static str, BaseError> {
         if fail {
-            return Err(standard_errors::InvalidArgument {
+            return Err(UnexpectedFail {
                 message: "Failed within function b".to_string(),
             }
             .into());
@@ -62,6 +62,11 @@ impl Callback {
         }
         (b.is_err(), c.is_err(), d.is_err())
     }
+}
+
+#[contract_error]
+pub struct UnexpectedFail {
+    message: String
 }
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
