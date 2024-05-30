@@ -4,7 +4,7 @@ use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::BaseError;
+use near_sdk::{require_or_err, BaseError};
 use near_sdk::standard_errors::{InvalidArgument, InsufficientBalance, TotalSupplyOverflow, InsufficientGas, AnyError};
 use near_sdk::{
     assert_one_yocto, contract_error, env, log, near, require, AccountId, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage
@@ -122,7 +122,7 @@ impl FungibleToken {
         memo: Option<String>,
     ) -> Result<(), BaseError> {
         require!(sender_id != receiver_id, "Sender and receiver should be different");
-        require!(amount > 0, &String::from(InvalidArgument::new("The amount should be a positive number")));
+        require_or_err!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
         let error = self.internal_withdraw(sender_id, amount);
         if error.is_err() {
             return Err(error.unwrap_err().into());

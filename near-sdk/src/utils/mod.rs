@@ -81,23 +81,33 @@ macro_rules! require {
 }
 
 #[macro_export]
+macro_rules! require_or_err {
+    ($cond:expr $(,)?) => {
+        if !$cond {
+            return ::near_sdk::standard_errors::RequireFailed::new();
+        }
+    };
+    ($cond:expr, $err:expr $(,)?) => {
+        if !$cond {
+            return Err($err.into());
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! unwrap_or_err {
     ( $exp:expr, $err:expr ) => {
         match $exp {
             Some(x) => x,
             None => {return Err($err.into());},
         }
-    }
-}
-
-#[macro_export]
-macro_rules! unwrap_or_return {
+    };
     ( $exp:expr ) => {
         match $exp {
             Ok(x) => x,
             Err(err) => {return Err(err.into());},
         }
-    }
+    };
 }
 
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
