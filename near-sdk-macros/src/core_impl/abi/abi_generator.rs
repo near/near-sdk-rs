@@ -324,7 +324,7 @@ mod tests {
             #[handle_result]
             pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -339,7 +339,7 @@ mod tests {
             #[handle_result]
             pub fn f3(&mut self, #[serializer(borsh)] arg0: FancyStruct) -> Result<IsOk, Error> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -355,7 +355,7 @@ mod tests {
                 #[callback_vec] x: Vec<String>, 
             ) -> bool { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
        
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -367,7 +367,7 @@ mod tests {
         let mut method = parse_quote! {
             pub fn method(&self, #[callback_unwrap] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: String, #[callback_unwrap] #[serializer(json)] z: Vec<u8>) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -380,7 +380,7 @@ mod tests {
             #[init(ignore_state)]
             pub fn new() -> u64 { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
@@ -392,7 +392,7 @@ mod tests {
         let mut method = parse_quote! {
             pub fn method() { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.abi_struct();
 
         local_insta_assert_snapshot!(pretty_print_fn_body_syn_str(actual));
