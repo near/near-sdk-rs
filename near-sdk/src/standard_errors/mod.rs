@@ -30,3 +30,18 @@ impl RequireFailed {
         }
     }
 }
+
+#[contract_error(inside_nearsdk)]
+pub struct PromiseFailed {
+    pub message: String,
+    pub promise_index: Option<u64>,
+}
+
+impl PromiseFailed {
+    pub fn new(promise_index: Option<u64>) -> Self {
+        Self {
+            message: "Promise failed".to_string(),
+            promise_index,
+        }
+    }
+}

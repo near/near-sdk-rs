@@ -87,6 +87,12 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }.to_string()
             }
         }
+
+        impl From<#ident> for String {
+            fn from(err: #ident) -> Self {
+                #near_sdk_crate ::wrap_error(err)
+            }
+        }
     };
     if ident.to_string() != "BaseError" {
         expanded.extend(quote!{
@@ -860,7 +866,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl ::std::default::Default for #name {
                 fn default() -> Self {
-                    ::near_sdk::env::panic_str(::near_sdk::wrap_error(::near_sdk::standard_errors::ContractNotInitialized::new()).as_str());
+                    ::near_sdk::env::panic_str(&String::from(::near_sdk::standard_errors::ContractNotInitialized::new()));
                 }
             }
         })
