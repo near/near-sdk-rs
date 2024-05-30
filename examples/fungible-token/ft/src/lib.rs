@@ -235,7 +235,7 @@ mod tests {
             .predecessor_account_id(accounts(1))
             .build());
         // Paying for account registration, aka storage deposit
-        contract.storage_deposit(None, None);
+        let _ = contract.storage_deposit(None, None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())
@@ -243,7 +243,7 @@ mod tests {
             .predecessor_account_id(accounts(2))
             .build());
         let transfer_amount = TOTAL_SUPPLY / 3;
-        contract.ft_transfer(accounts(1), transfer_amount.into(), None);
+        let _ = contract.ft_transfer(accounts(1), transfer_amount.into(), None);
 
         testing_env!(context
             .storage_usage(env::storage_usage())

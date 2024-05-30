@@ -29,6 +29,7 @@ impl PermissionDenied {
 }
 
 #[contract_error(inside_nearsdk)]
+#[derive(Default)]
 pub struct RequireFailed {
     pub message: String,
 }
