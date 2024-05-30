@@ -8,8 +8,11 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::{contract_error, assert_one_yocto, env, require, unwrap_or_err, AccountId, Gas, Promise, BaseError};
 use near_sdk::standard_errors::AnyError;
+use near_sdk::{
+    assert_one_yocto, contract_error, env, require, unwrap_or_err, AccountId, BaseError, Gas,
+    Promise,
+};
 
 const GAS_FOR_NFT_APPROVE: Gas = Gas::from_tgas(10);
 
@@ -17,12 +20,12 @@ const GAS_FOR_NFT_APPROVE: Gas = Gas::from_tgas(10);
 pub struct TokenNotFound {}
 
 fn expect_token_found<T>(option: Option<T>) -> Result<T, TokenNotFound> {
-    Ok(unwrap_or_err!(option, TokenNotFound{}))
+    Ok(unwrap_or_err!(option, TokenNotFound {}))
 }
 
 #[contract_error]
 pub struct TokenNotApproved {
-    message: String
+    message: String,
 }
 
 impl TokenNotApproved {
@@ -32,12 +35,15 @@ impl TokenNotApproved {
 }
 
 fn expect_approval<T>(option: Option<T>) -> Result<T, TokenNotApproved> {
-    Ok(unwrap_or_err!(option, TokenNotApproved::new("next_approval_by_id must be set for approval ext")))
+    Ok(unwrap_or_err!(
+        option,
+        TokenNotApproved::new("next_approval_by_id must be set for approval ext")
+    ))
 }
 
 #[contract_error]
 pub struct ApprovalNotSupported {
-    message: String
+    message: String,
 }
 
 impl ApprovalNotSupported {
@@ -54,16 +60,17 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         msg: Option<String>,
     ) -> Result<Option<Promise>, BaseError> {
         assert_at_least_one_yocto();
-        let approvals_by_id = unwrap_or_err!(self
-            .approvals_by_id
-            .as_mut(),
-            ApprovalNotSupported::new("NFT does not support Approval Management"));
+        let approvals_by_id = unwrap_or_err!(
+            self.approvals_by_id.as_mut(),
+            ApprovalNotSupported::new("NFT does not support Approval Management")
+        );
 
         let owner_id = unwrap_or_err!(expect_token_found(self.owner_by_id.get(&token_id)));
 
         require!(env::predecessor_account_id() == owner_id, "Predecessor must be token owner.");
 
-        let next_approval_id_by_id = unwrap_or_err!(expect_approval(self.next_approval_id_by_id.as_mut()));
+        let next_approval_id_by_id =
+            unwrap_or_err!(expect_approval(self.next_approval_id_by_id.as_mut()));
         // update HashMap of approvals for this token
         let approved_account_ids = &mut approvals_by_id.get(&token_id).unwrap_or_default();
         let approval_id: u64 = next_approval_id_by_id.get(&token_id).unwrap_or(1u64);
@@ -92,7 +99,8 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) -> Result<(), BaseError> {
         assert_one_yocto();
-        let approvals_by_id = unwrap_or_err!(self.approvals_by_id.as_mut(),
+        let approvals_by_id = unwrap_or_err!(
+            self.approvals_by_id.as_mut(),
             AnyError::new("NFT does not support Approval Management")
         );
 
@@ -123,8 +131,10 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
     fn nft_revoke_all(&mut self, token_id: TokenId) -> Result<(), BaseError> {
         assert_one_yocto();
-        let approvals_by_id = unwrap_or_err!(self.approvals_by_id.as_mut(),
-            ApprovalNotSupported::new("NFT does not support Approval Management"));
+        let approvals_by_id = unwrap_or_err!(
+            self.approvals_by_id.as_mut(),
+            ApprovalNotSupported::new("NFT does not support Approval Management")
+        );
 
         let owner_id = unwrap_or_err!(expect_token_found(self.owner_by_id.get(&token_id)));
         let predecessor_account_id = env::predecessor_account_id();

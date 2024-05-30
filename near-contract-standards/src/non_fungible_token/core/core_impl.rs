@@ -9,10 +9,11 @@ use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_depos
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
+use near_sdk::standard_errors::{AnyError, PermissionDenied};
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require, AccountId, BaseError, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage
+    assert_one_yocto, contract_error, env, near, require, AccountId, BaseError, BorshStorageKey,
+    Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
-use near_sdk::standard_errors::{PermissionDenied, AnyError};
 use std::collections::HashMap;
 use std::ops::Deref;
 
@@ -181,7 +182,7 @@ impl NonFungibleToken {
                     } else {
                         tokens_per_owner.insert(from, &owner_tokens);
                     }
-                },
+                }
                 None => {
                     return Err(PermissionDenied::new(Some("Owner does not have token")).into());
                 }
@@ -210,15 +211,12 @@ impl NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> Result<(AccountId, Option<HashMap<AccountId, u64>>), BaseError> {
-        let owner_id_option =
-            self.owner_by_id.get(token_id);
+        let owner_id_option = self.owner_by_id.get(token_id);
 
         let owner_id: AccountId;
-        
+
         match owner_id_option {
-            Some(owner_id_some) => {
-                owner_id = owner_id_some
-            },
+            Some(owner_id_some) => owner_id = owner_id_some,
             None => {
                 return Err(TokenNotFound {}.into());
             }
@@ -232,16 +230,13 @@ impl NonFungibleToken {
         // check if authorized
         let sender_id = if sender_id != &owner_id {
             // Panic if approval extension is NOT being used
-            let app_acc_ids_option = approved_account_ids
-                .as_ref();
+            let app_acc_ids_option = approved_account_ids.as_ref();
 
             let app_acc_ids;
             match app_acc_ids_option {
-                Some(app_acc_ids_some) => {
-                    app_acc_ids = app_acc_ids_some
-                },
-                None => { 
-                    return Err(AnyError::new("Approval extension is disabled").into()); 
+                Some(app_acc_ids_some) => app_acc_ids = app_acc_ids_some,
+                None => {
+                    return Err(AnyError::new("Approval extension is disabled").into());
                 }
             };
 
@@ -339,13 +334,14 @@ impl NonFungibleToken {
 
         match token {
             Ok(token) => {
-                NftMint { owner_id: &token.owner_id, token_ids: &[&token.token_id], memo: None }.emit();
+                NftMint { owner_id: &token.owner_id, token_ids: &[&token.token_id], memo: None }
+                    .emit();
                 Ok(token)
-            },
+            }
             Err(err) => {
                 return Err(err);
             }
-        }        
+        }
     }
 
     /// Mint a new token without checking:
@@ -422,7 +418,8 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> Result<(), BaseError> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let transfer = self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
+        let transfer =
+            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         if let Err(err) = transfer {
             return Err(err);
         }
@@ -440,8 +437,9 @@ impl NonFungibleTokenCore for NonFungibleToken {
         assert_one_yocto();
         require!(env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
-        let (old_owner, old_approvals) =
-            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo).unwrap_or_else(|err| env::panic_err(err));
+        let (old_owner, old_approvals) = self
+            .internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)
+            .unwrap_or_else(|err| env::panic_err(err));
         // Initiating receiver's call and the callback
         ext_nft_receiver::ext(receiver_id.clone())
             .with_static_gas(env::prepaid_gas().saturating_sub(GAS_FOR_NFT_TRANSFER_CALL))
@@ -508,7 +506,8 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             return Ok(true);
         };
 
-        let transfer = self.internal_transfer_unguarded(&token_id, &receiver_id, &previous_owner_id);
+        let transfer =
+            self.internal_transfer_unguarded(&token_id, &receiver_id, &previous_owner_id);
         if let Err(err) = transfer {
             return Err(err);
         }

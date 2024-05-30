@@ -4,11 +4,14 @@ use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::{require_or_err, BaseError};
-use near_sdk::standard_errors::{InvalidArgument, InsufficientBalance, TotalSupplyOverflow, InsufficientGas, AnyError};
-use near_sdk::{
-    assert_one_yocto, contract_error, env, log, near, require, AccountId, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage
+use near_sdk::standard_errors::{
+    AnyError, InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
 };
+use near_sdk::{
+    assert_one_yocto, contract_error, env, log, near, require, AccountId, Gas, IntoStorageKey,
+    PromiseOrValue, PromiseResult, StorageUsage,
+};
+use near_sdk::{require_or_err, BaseError};
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
@@ -55,16 +58,21 @@ impl FungibleToken {
         self.accounts.remove(&tmp_account_id);
     }
 
-    pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Result<Balance, AccountNotRegistered> {
+    pub fn internal_unwrap_balance_of(
+        &self,
+        account_id: &AccountId,
+    ) -> Result<Balance, AccountNotRegistered> {
         match self.accounts.get(account_id) {
             Some(balance) => Ok(balance),
-            None => {
-                Err(AccountNotRegistered::new(account_id.clone()).into())
-            }
+            None => Err(AccountNotRegistered::new(account_id.clone()).into()),
         }
     }
 
-    pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) -> Result<(), BaseError> {
+    pub fn internal_deposit(
+        &mut self,
+        account_id: &AccountId,
+        amount: Balance,
+    ) -> Result<(), BaseError> {
         let balance_result = self.internal_unwrap_balance_of(account_id);
         let balance: u128;
         if let Ok(unwrapped_balance) = balance_result {
@@ -74,22 +82,24 @@ impl FungibleToken {
         }
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            let checked = self
-                .total_supply
-                .checked_add(amount);
+            let checked = self.total_supply.checked_add(amount);
             match checked {
                 Some(new_total_supply) => {
                     self.total_supply = new_total_supply;
                     Ok(())
-                },
-                None => { Err(TotalSupplyOverflow{}.into()) }
+                }
+                None => Err(TotalSupplyOverflow {}.into()),
             }
         } else {
-            Err(BalanceOverflow{}.into())
+            Err(BalanceOverflow {}.into())
         }
     }
 
-    pub fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) -> Result<(), BaseError> {
+    pub fn internal_withdraw(
+        &mut self,
+        account_id: &AccountId,
+        amount: Balance,
+    ) -> Result<(), BaseError> {
         let balance_result = self.internal_unwrap_balance_of(account_id);
         let balance: u128;
         if let Ok(unwrapped_balance) = balance_result {
@@ -99,15 +109,13 @@ impl FungibleToken {
         }
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            let checked = self
-                .total_supply
-                .checked_sub(amount);
+            let checked = self.total_supply.checked_sub(amount);
             match checked {
                 Some(new_total_supply) => {
                     self.total_supply = new_total_supply;
                     Ok(())
-                },
-                None => { Err(TotalSupplyOverflow{}.into()) }
+                }
+                None => Err(TotalSupplyOverflow {}.into()),
             }
         } else {
             Err(InsufficientBalance::new(None).into())
@@ -141,7 +149,10 @@ impl FungibleToken {
         Ok(())
     }
 
-    pub fn internal_register_account(&mut self, account_id: &AccountId) -> Result<(), AccountAlreadyRegistered> {
+    pub fn internal_register_account(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<(), AccountAlreadyRegistered> {
         if self.accounts.insert(account_id, &0).is_some() {
             return Err(AccountAlreadyRegistered {}.into());
         }
@@ -150,7 +161,12 @@ impl FungibleToken {
 }
 
 impl FungibleTokenCore for FungibleToken {
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) -> Result<(), BaseError> {
+    fn ft_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    ) -> Result<(), BaseError> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
@@ -168,10 +184,11 @@ impl FungibleTokenCore for FungibleToken {
         require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, &receiver_id, amount, memo).unwrap_or_else(|err| env::panic_err(err));
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo)
+            .unwrap_or_else(|err| env::panic_err(err));
         let receiver_gas = env::prepaid_gas()
             .checked_sub(GAS_FOR_FT_TRANSFER_CALL)
-            .unwrap_or_else(|| env::panic_err(InsufficientGas{}.into()));
+            .unwrap_or_else(|| env::panic_err(InsufficientGas {}.into()));
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
             .with_static_gas(receiver_gas)
@@ -224,7 +241,9 @@ impl FungibleToken {
                 if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
                     self.accounts.insert(&receiver_id, &new_receiver_balance);
                 } else {
-                    return Err(AnyError::new("The receiver account doesn't have enough balance").into());
+                    return Err(
+                        AnyError::new("The receiver account doesn't have enough balance").into()
+                    );
                 }
 
                 if let Some(sender_balance) = self.accounts.get(sender_id) {
@@ -241,15 +260,14 @@ impl FungibleToken {
                         memo: Some("refund"),
                     }
                     .emit();
-                    let used_amount = amount
-                        .checked_sub(refund_amount);
-                    let Some(used_amount) = used_amount else { return Err(TotalSupplyOverflow{}.into()); };
+                    let used_amount = amount.checked_sub(refund_amount);
+                    let Some(used_amount) = used_amount else {
+                        return Err(TotalSupplyOverflow {}.into());
+                    };
                     return Ok((used_amount, 0));
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
-                    let checked = self
-                        .total_supply
-                        .checked_sub(refund_amount);
+                    let checked = self.total_supply.checked_sub(refund_amount);
                     match checked {
                         Some(new_total_supply) => {
                             self.total_supply = new_total_supply;
@@ -261,8 +279,10 @@ impl FungibleToken {
                             }
                             .emit();
                             return Ok((amount, refund_amount));
-                        },
-                        None => { return Err(TotalSupplyOverflow{}.into()); }
+                        }
+                        None => {
+                            return Err(TotalSupplyOverflow {}.into());
+                        }
                     }
                 }
             }
@@ -298,9 +318,7 @@ impl AccountNotRegistered {
 }
 
 #[contract_error]
-pub struct AccountAlreadyRegistered {
-}
+pub struct AccountAlreadyRegistered {}
 
 #[contract_error]
-pub struct BalanceOverflow {
-}
+pub struct BalanceOverflow {}

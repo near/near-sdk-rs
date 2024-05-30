@@ -45,11 +45,11 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let near_sdk_crate: proc_macro2::TokenStream;
-    let mut bool_inside_nearsdk_for_macro = quote!{false};
+    let mut bool_inside_nearsdk_for_macro = quote! {false};
 
     if contract_error_args.inside_nearsdk.unwrap_or(false) {
         near_sdk_crate = quote! {crate};
-        bool_inside_nearsdk_for_macro = quote!{true};
+        bool_inside_nearsdk_for_macro = quote! {true};
     } else {
         near_sdk_crate = quote! {::near_sdk};
     };
@@ -95,7 +95,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
     if ident.to_string() != "BaseError" {
-        expanded.extend(quote!{
+        expanded.extend(quote! {
             impl From<#ident> for #near_sdk_crate ::BaseError {
                 fn from(err: #ident) -> Self {
                     #near_sdk_crate ::BaseError{

@@ -1,7 +1,7 @@
 use crate::fungible_token::{Balance, FungibleToken};
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
-use near_sdk::{assert_one_yocto, env, log, AccountId, NearToken, Promise, BaseError};
 use near_sdk::standard_errors::{AnyError, InsufficientBalance};
+use near_sdk::{assert_one_yocto, env, log, AccountId, BaseError, NearToken, Promise};
 
 use super::core_impl::AccountNotRegistered;
 
@@ -24,7 +24,10 @@ impl FungibleToken {
                 );
                 Ok(Some((account_id, balance)))
             } else {
-                Err(AnyError::new("Can't unregister the account with the positive balance without force").into())
+                Err(AnyError::new(
+                    "Can't unregister the account with the positive balance without force",
+                )
+                .into())
             }
         } else {
             log!("The account {} is not registered", &account_id);
@@ -62,7 +65,10 @@ impl StorageManagement for FungibleToken {
         } else {
             let min_balance = self.storage_balance_bounds().min;
             if amount < min_balance {
-                return Err(InsufficientBalance::new(Some("The attached deposit is less than the minimum storage balance")).into());
+                return Err(InsufficientBalance::new(Some(
+                    "The attached deposit is less than the minimum storage balance",
+                ))
+                .into());
             }
 
             let register_acc = self.internal_register_account(&account_id);
@@ -88,9 +94,10 @@ impl StorageManagement for FungibleToken {
         let predecessor_account_id = env::predecessor_account_id();
         if let Some(storage_balance) = self.internal_storage_balance_of(&predecessor_account_id) {
             match amount {
-                Some(amount) if amount > NearToken::from_near(0) => {
-                    Err(InsufficientBalance::new(Some("The amount is greater than the available storage balance")).into())
-                }
+                Some(amount) if amount > NearToken::from_near(0) => Err(InsufficientBalance::new(
+                    Some("The amount is greater than the available storage balance"),
+                )
+                .into()),
                 _ => Ok(storage_balance),
             }
         } else {

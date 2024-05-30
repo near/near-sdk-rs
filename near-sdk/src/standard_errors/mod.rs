@@ -7,19 +7,15 @@ pub struct InvalidArgument {
 
 impl InvalidArgument {
     pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
+        Self { message: message.to_string() }
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct ContractNotInitialized {
-}
+pub struct ContractNotInitialized {}
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct ContractAlreadyInitialized {
-}
+pub struct ContractAlreadyInitialized {}
 
 #[contract_error(inside_nearsdk)]
 pub struct PermissionDenied {
@@ -28,9 +24,7 @@ pub struct PermissionDenied {
 
 impl PermissionDenied {
     pub fn new(message: Option<&str>) -> Self {
-        Self {
-            message: message.map(|s| s.to_string()),
-        }
+        Self { message: message.map(|s| s.to_string()) }
     }
 }
 
@@ -41,9 +35,7 @@ pub struct RequireFailed {
 
 impl RequireFailed {
     pub fn new() -> Self {
-        Self {
-            message: "require! assertion failed".to_string(),
-        }
+        Self { message: "require! assertion failed".to_string() }
     }
 }
 
@@ -55,10 +47,7 @@ pub struct PromiseFailed {
 
 impl PromiseFailed {
     pub fn new(promise_index: Option<u64>, message: Option<&str>) -> Self {
-        Self {
-            promise_index,
-            message: message.map(|s| s.to_string()),
-        }
+        Self { promise_index, message: message.map(|s| s.to_string()) }
     }
 }
 
@@ -74,28 +63,23 @@ pub struct InvalidPromiseReturn {
 
 impl InvalidPromiseReturn {
     pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
+        Self { message: message.to_string() }
     }
 }
 
 #[contract_error(inside_nearsdk)]
 pub struct InsufficientBalance {
-    message: Option<String>
+    message: Option<String>,
 }
 
 impl InsufficientBalance {
     pub fn new(message: Option<&str>) -> Self {
-        Self {
-            message: message.map(|s| s.to_string()),
-        }
+        Self { message: message.map(|s| s.to_string()) }
     }
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct InsufficientGas {
-}
+pub struct InsufficientGas {}
 
 #[contract_error(inside_nearsdk)]
 pub struct TotalSupplyOverflow {}
@@ -107,8 +91,6 @@ pub struct AnyError {
 
 impl AnyError {
     pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
+        Self { message: message.to_string() }
     }
 }

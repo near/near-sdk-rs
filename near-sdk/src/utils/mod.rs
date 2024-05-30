@@ -7,7 +7,7 @@ pub(crate) use self::stable_map::StableMap;
 mod cache_entry;
 pub(crate) use cache_entry::{CacheEntry, EntryState};
 mod contract_error;
-pub use contract_error::{check_contract_error_trait, BaseError, ContractErrorTrait, wrap_error};
+pub use contract_error::{check_contract_error_trait, wrap_error, BaseError, ContractErrorTrait};
 
 use crate::{env, NearToken, PromiseResult};
 
@@ -66,7 +66,9 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_str(&String::from(::near_sdk::standard_errors::RequireFailed::new()));
+            $crate::env::panic_str(
+                &String::from(::near_sdk::standard_errors::RequireFailed::new()),
+            );
         }
     };
     ($cond:expr, $message:expr $(,)?) => {
@@ -99,13 +101,17 @@ macro_rules! unwrap_or_err {
     ( $exp:expr, $err:expr ) => {
         match $exp {
             Some(x) => x,
-            None => {return Err($err.into());},
+            None => {
+                return Err($err.into());
+            }
         }
     };
     ( $exp:expr ) => {
         match $exp {
             Ok(x) => x,
-            Err(err) => {return Err(err.into());},
+            Err(err) => {
+                return Err(err.into());
+            }
         }
     };
 }

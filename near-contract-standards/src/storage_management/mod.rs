@@ -1,4 +1,4 @@
-use near_sdk::{near, AccountId, NearToken, BaseError};
+use near_sdk::{near, AccountId, BaseError, NearToken};
 
 #[near(serializers=[borsh, json])]
 pub struct StorageBalance {

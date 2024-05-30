@@ -1,8 +1,8 @@
 use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
 use near_sdk::AccountId;
-use near_sdk::PromiseOrValue;
 use near_sdk::BaseError;
+use near_sdk::PromiseOrValue;
 /// The core methods for a basic fungible token. Extension standards may be
 /// added in addition to this trait.
 ///
@@ -62,7 +62,12 @@ pub trait FungibleTokenCore {
     /// - `receiver_id` - the account ID of the receiver.
     /// - `amount` - the amount of tokens to transfer. Must be a positive number in decimal string representation.
     /// - `memo` - an optional string field in a free form to associate a memo with this transfer.
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) -> Result<(), BaseError>;
+    fn ft_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    ) -> Result<(), BaseError>;
 
     /// Transfers positive `amount` of tokens from the `env::predecessor_account_id` to `receiver_id` account. Then
     /// calls `ft_on_transfer` method on `receiver_id` contract and attaches a callback to resolve this transfer.
