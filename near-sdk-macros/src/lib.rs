@@ -94,7 +94,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
     };
-    if ident.to_string() != "BaseError" {
+    if *ident != "BaseError" {
         expanded.extend(quote! {
             impl From<#ident> for #near_sdk_crate ::BaseError {
                 fn from(err: #ident) -> Self {
