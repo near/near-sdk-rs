@@ -5,7 +5,6 @@ members = [
     "near-sdk-macros",
     "near-contract-standards",
     "near-sys",
-    "near-attribute-str",
 ]
 exclude = ["examples/"]
 

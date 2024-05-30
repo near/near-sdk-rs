@@ -50,6 +50,8 @@ pub mod utils;
 pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
+pub mod near;
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub mod test_utils;
 
@@ -63,7 +65,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub use base64;
 pub use borsh;
 pub use bs58;
-pub use near_attribute_str::*;
 #[cfg(feature = "abi")]
 pub use schemars;
 pub use serde;
