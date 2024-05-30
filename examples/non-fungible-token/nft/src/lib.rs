@@ -266,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "The contract is not initialized")]
+    #[should_panic(expected = "ContractNotInitialized")]
     fn test_default() {
         let context = get_context(accounts(1));
         testing_env!(context.build());

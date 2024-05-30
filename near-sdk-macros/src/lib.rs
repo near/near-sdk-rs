@@ -99,7 +99,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
             impl From<#ident> for #near_sdk_crate ::BaseError {
                 fn from(err: #ident) -> Self {
                     #near_sdk_crate ::BaseError{
-                        error: #near_sdk_crate ::serde_json::json!{err},
+                        error: #near_sdk_crate ::serde_json::json!{String::from(err)},
                     }
                 }
             }
@@ -866,7 +866,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl ::std::default::Default for #name {
                 fn default() -> Self {
-                    ::near_sdk::env::panic_str(&String::from(::near_sdk::standard_errors::ContractNotInitialized{}));
+                    ::near_sdk::env::panic_err(::near_sdk::standard_errors::ContractNotInitialized{}.into());
                 }
             }
         })
