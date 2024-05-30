@@ -54,7 +54,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
         near_sdk_crate = quote! {::near_sdk};
     };
 
-    let expanded = quote! {
+    let mut expanded = quote! {
         #[crate::near(serializers=[json], inside_nearsdk=#bool_inside_nearsdk_for_macro)]
         #input
 
@@ -62,16 +62,42 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn error_type(&self) -> &'static str {
                 #error_type
             }
-        }
-
-        impl From<#ident> for #near_sdk_crate ::BaseError {
-            fn from(err: #ident) -> Self {
-                #near_sdk_crate ::BaseError{
-                    error: #near_sdk_crate ::serde_json::json!{err},
+            fn wrap(&self) -> String {
+                #[#near_sdk_crate ::near(inside_nearsdk, serializers = [json])]
+                struct ErrorWrapper<T> {
+                    name: String,
+                    cause: ErrorCause<T>,
                 }
+
+                #[#near_sdk_crate ::near(inside_nearsdk, serializers = [json])]
+                struct ErrorCause<T> {
+                    name: String,
+                    info: T
+                }
+
+                serde_json::json! {
+                    { "error" : ErrorWrapper {
+                        name: String::from(self.error_type()),
+                        cause: ErrorCause {
+                            name: std::any::type_name::<#ident>().to_string(),
+                            info: self
+                        }
+                    } }
+                }.to_string()
             }
         }
     };
+    if ident.to_string() != "BaseError" {
+        expanded.extend(quote!{
+            impl From<#ident> for #near_sdk_crate ::BaseError {
+                fn from(err: #ident) -> Self {
+                    #near_sdk_crate ::BaseError{
+                        error: #near_sdk_crate ::serde_json::json!{err},
+                    }
+                }
+            }
+        });
+    }
     TokenStream::from(expanded)
 }
 
@@ -833,7 +859,7 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
         TokenStream::from(quote! {
             impl ::std::default::Default for #name {
                 fn default() -> Self {
-                    ::near_sdk::env::panic_str(::near_sdk::standard_errors::wrap_error(::near_sdk::standard_errors::ContractNotInitialized::new()).as_str());
+                    ::near_sdk::env::panic_str(::near_sdk::wrap_error(::near_sdk::standard_errors::ContractNotInitialized::new()).as_str());
                 }
             }
         })

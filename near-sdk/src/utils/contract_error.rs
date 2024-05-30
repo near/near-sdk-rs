@@ -1,16 +1,15 @@
 pub trait ContractErrorTrait {
     fn error_type(&self) -> &'static str;
+    fn wrap(&self) -> String;
 }
 
 pub fn check_contract_error_trait<T: ContractErrorTrait>(_: &T) {}
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[crate::contract_error(inside_nearsdk)]
 pub struct BaseError {
     pub error: serde_json::Value,
 }
 
-impl ContractErrorTrait for BaseError {
-    fn error_type(&self) -> &'static str {
-        "CUSTOM_CONTRACT_ERROR"
-    }
+pub fn wrap_error<T: ContractErrorTrait>(error: T) -> String {
+    error.wrap()
 }

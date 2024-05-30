@@ -7,7 +7,7 @@ pub(crate) use self::stable_map::StableMap;
 mod cache_entry;
 pub(crate) use cache_entry::{CacheEntry, EntryState};
 mod contract_error;
-pub use contract_error::{check_contract_error_trait, BaseError, ContractErrorTrait};
+pub use contract_error::{check_contract_error_trait, BaseError, ContractErrorTrait, wrap_error};
 
 use crate::{env, NearToken, PromiseResult};
 
@@ -66,7 +66,7 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_str("require! assertion failed");
+            $crate::env::panic_str(::near_sdk::wrap_error(::near_sdk::standard_errors::RequireFailed::new()).as_str());
         }
     };
     ($cond:expr, $message:expr $(,)?) => {
