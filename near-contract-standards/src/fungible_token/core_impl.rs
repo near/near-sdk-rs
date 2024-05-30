@@ -8,8 +8,8 @@ use near_sdk::standard_errors::{
     AnyError, InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
 };
 use near_sdk::{
-    assert_one_yocto, contract_error, env, log, near, require, AccountId, Gas, IntoStorageKey,
-    PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, contract_error, env, log, near, require, unwrap_or_err, AccountId, Gas,
+    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use near_sdk::{require_or_err, BaseError};
 
@@ -64,7 +64,7 @@ impl FungibleToken {
     ) -> Result<Balance, AccountNotRegistered> {
         match self.accounts.get(account_id) {
             Some(balance) => Ok(balance),
-            None => Err(AccountNotRegistered::new(account_id.clone()).into()),
+            None => Err(AccountNotRegistered::new(account_id.clone())),
         }
     }
 
@@ -131,14 +131,8 @@ impl FungibleToken {
     ) -> Result<(), BaseError> {
         require!(sender_id != receiver_id, "Sender and receiver should be different");
         require_or_err!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
-        let error = self.internal_withdraw(sender_id, amount);
-        if error.is_err() {
-            return Err(error.unwrap_err().into());
-        }
-        let error = self.internal_deposit(receiver_id, amount);
-        if error.is_err() {
-            return Err(error.unwrap_err().into());
-        }
+        unwrap_or_err!(self.internal_withdraw(sender_id, amount));
+        unwrap_or_err!(self.internal_deposit(receiver_id, amount));
         FtTransfer {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,
@@ -154,7 +148,7 @@ impl FungibleToken {
         account_id: &AccountId,
     ) -> Result<(), AccountAlreadyRegistered> {
         if self.accounts.insert(account_id, &0).is_some() {
-            return Err(AccountAlreadyRegistered {}.into());
+            return Err(AccountAlreadyRegistered {});
         }
         Ok(())
     }
@@ -170,7 +164,7 @@ impl FungibleTokenCore for FungibleToken {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        return self.internal_transfer(&sender_id, &receiver_id, amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo)
     }
 
     fn ft_transfer_call(

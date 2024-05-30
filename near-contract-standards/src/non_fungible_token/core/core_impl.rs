@@ -11,8 +11,8 @@ use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::standard_errors::{AnyError, PermissionDenied};
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require, AccountId, BaseError, BorshStorageKey,
-    Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, contract_error, env, near, require, unwrap_or_err, AccountId, BaseError,
+    BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -211,16 +211,7 @@ impl NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> Result<(AccountId, Option<HashMap<AccountId, u64>>), BaseError> {
-        let owner_id_option = self.owner_by_id.get(token_id);
-
-        let owner_id: AccountId;
-
-        match owner_id_option {
-            Some(owner_id_some) => owner_id = owner_id_some,
-            None => {
-                return Err(TokenNotFound {}.into());
-            }
-        }
+        let owner_id = unwrap_or_err!(self.owner_by_id.get(token_id), TokenNotFound {});
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
@@ -230,15 +221,10 @@ impl NonFungibleToken {
         // check if authorized
         let sender_id = if sender_id != &owner_id {
             // Panic if approval extension is NOT being used
-            let app_acc_ids_option = approved_account_ids.as_ref();
-
-            let app_acc_ids;
-            match app_acc_ids_option {
-                Some(app_acc_ids_some) => app_acc_ids = app_acc_ids_some,
-                None => {
-                    return Err(AnyError::new("Approval extension is disabled").into());
-                }
-            };
+            let app_acc_ids = unwrap_or_err!(
+                approved_account_ids.as_ref(),
+                AnyError::new("Approval extension is disabled")
+            );
 
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = app_acc_ids.get(sender_id);
@@ -263,10 +249,7 @@ impl NonFungibleToken {
 
         require!(&owner_id != receiver_id, "Current and next owner must differ");
 
-        let transfer = self.internal_transfer_unguarded(token_id, &owner_id, receiver_id);
-        if let Err(err) = transfer {
-            return Err(err);
-        }
+        unwrap_or_err!(self.internal_transfer_unguarded(token_id, &owner_id, receiver_id));
 
         NonFungibleToken::emit_transfer(&owner_id, receiver_id, token_id, sender_id, memo);
 
@@ -338,9 +321,7 @@ impl NonFungibleToken {
                     .emit();
                 Ok(token)
             }
-            Err(err) => {
-                return Err(err);
-            }
+            Err(err) => Err(err),
         }
     }
 
@@ -418,11 +399,13 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> Result<(), BaseError> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        let transfer =
-            self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
-        if let Err(err) = transfer {
-            return Err(err);
-        }
+        unwrap_or_err!(self.internal_transfer(
+            &sender_id,
+            &receiver_id,
+            &token_id,
+            approval_id,
+            memo
+        ));
         Ok(())
     }
 
@@ -506,11 +489,11 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             return Ok(true);
         };
 
-        let transfer =
-            self.internal_transfer_unguarded(&token_id, &receiver_id, &previous_owner_id);
-        if let Err(err) = transfer {
-            return Err(err);
-        }
+        unwrap_or_err!(self.internal_transfer_unguarded(
+            &token_id,
+            &receiver_id,
+            &previous_owner_id
+        ));
 
         // If using Approval Management extension,
         // 1. revert any approvals receiver already set, refunding storage costs
