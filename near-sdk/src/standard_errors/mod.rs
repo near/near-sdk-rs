@@ -79,3 +79,27 @@ impl InvalidPromiseReturn {
         }
     }
 }
+
+#[contract_error(inside_nearsdk)]
+pub struct InsufficientBalance {
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct InsufficientGas {
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct TotalSupplyOverflow {}
+
+#[contract_error(inside_nearsdk)]
+pub struct AnyError {
+    pub message: String,
+}
+
+impl AnyError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}

@@ -858,6 +858,10 @@ pub fn panic_str(message: &str) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
+pub fn panic_err(err: crate::BaseError) -> ! {
+    panic_str(&String::from(err))
+}
+
 /// Aborts the current contract execution without a custom message.
 /// To include a message, use [`panic_str`].
 pub fn abort() -> ! {

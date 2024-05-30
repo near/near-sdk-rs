@@ -1,4 +1,4 @@
-use near_sdk::{near, AccountId, NearToken};
+use near_sdk::{near, AccountId, NearToken, BaseError};
 
 #[near(serializers=[borsh, json])]
 pub struct StorageBalance {
@@ -82,7 +82,7 @@ pub trait StorageManagement {
         &mut self,
         account_id: Option<AccountId>,
         registration_only: Option<bool>,
-    ) -> StorageBalance;
+    ) -> Result<StorageBalance, BaseError>;
 
     /// Withdraw specified amount of available Ⓝ for predecessor account.
     ///
@@ -111,7 +111,7 @@ pub trait StorageManagement {
     /// (UX wallet security)
     /// Returns `true` iff the account was unregistered.
     /// Returns `false` iff account was not registered before.
-    fn storage_unregister(&mut self, force: Option<bool>) -> bool;
+    fn storage_unregister(&mut self, force: Option<bool>) -> Result<bool, BaseError>;
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds;
 

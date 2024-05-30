@@ -46,7 +46,7 @@ impl CrossContract {
         require!(env::promise_results_count() == 1);
         let cur = match env::promise_result(0) {
             PromiseResult::Successful(x) => serde_json::from_slice::<u32>(&x).unwrap(),
-            _ => env::panic_str(&String::from(PromiseFailed::new(Some(0), None))),
+            _ => env::panic_err(PromiseFailed::new(Some(0), None).into()),
         };
         env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
     }
