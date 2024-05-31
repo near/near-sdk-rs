@@ -933,7 +933,7 @@ pub fn function_error(item: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl ::near_sdk::FunctionError for #name {
             fn panic(&self) -> ! {
-                ::near_sdk::env::panic_err(::near_sdk::errors::AnyError::new(&::std::string::ToString::to_string(&self)).into())
+                ::near_sdk::env::panic_err(::near_sdk::errors::Error::new(&::std::string::ToString::to_string(&self)).into())
             }
         }
     })

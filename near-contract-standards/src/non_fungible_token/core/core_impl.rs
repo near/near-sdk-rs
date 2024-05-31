@@ -9,7 +9,7 @@ use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_depos
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::errors::{AnyError, PermissionDenied};
+use near_sdk::errors::{ApprovalNotSupported, InvalidArgument, PermissionDenied};
 use near_sdk::{
     assert_one_yocto, contract_error, env, near, require, unwrap_or_err, AccountId, BaseError,
     BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
@@ -223,7 +223,7 @@ impl NonFungibleToken {
             // Panic if approval extension is NOT being used
             let app_acc_ids = unwrap_or_err!(
                 approved_account_ids.as_ref(),
-                AnyError::new("Approval extension is disabled")
+                ApprovalNotSupported::new("Approval extension is disabled")
             );
 
             // Approval extension is being used; get approval_id for sender.
@@ -343,10 +343,10 @@ impl NonFungibleToken {
         let initial_storage_usage = refund_id.map(|account_id| (account_id, env::storage_usage()));
 
         if self.token_metadata_by_id.is_some() && token_metadata.is_none() {
-            return Err(AnyError::new("Must provide metadata").into());
+            return Err(InvalidArgument::new("Must provide metadata").into());
         }
         if self.owner_by_id.get(&token_id).is_some() {
-            return Err(AnyError::new("token_id must be unique").into());
+            return Err(InvalidArgument::new("token_id must be unique").into());
         }
 
         let owner_id: AccountId = token_owner_id;

@@ -2,8 +2,7 @@ use super::NonFungibleTokenEnumeration;
 use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::U128;
-use near_sdk::errors::AnyError;
-use near_sdk::{require, unwrap_or_err, AccountId, BaseError};
+use near_sdk::{contract_error, require, unwrap_or_err, AccountId, BaseError};
 
 type TokenId = String;
 
@@ -49,10 +48,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
     fn nft_supply_for_owner(&self, account_id: AccountId) -> Result<U128, BaseError> {
         let tokens_per_owner = unwrap_or_err!(
             self.tokens_per_owner.as_ref(),
-            AnyError::new(
-                "Could not find tokens_per_owner when calling a method on the \
-        enumeration standard."
-            )
+            TokensNotFound::new()
         );
         Ok(tokens_per_owner
             .get(&account_id)
@@ -68,10 +64,7 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
     ) -> Result<Vec<Token>, BaseError> {
         let tokens_per_owner = unwrap_or_err!(
             self.tokens_per_owner.as_ref(),
-            AnyError::new(
-                "Could not find tokens_per_owner when calling a method on the \
-                enumeration standard.",
-            )
+            TokensNotFound::new()
         );
         let token_set = if let Some(token_set) = tokens_per_owner.get(&account_id) {
             token_set
@@ -96,5 +89,23 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
             .take(limit)
             .map(|token_id| self.enum_get_token(account_id.clone(), token_id))
             .collect())
+    }
+}
+
+#[contract_error]
+pub struct TokensNotFound {
+    pub message: String,
+}
+
+impl TokensNotFound {
+    pub fn new() -> Self {
+        Self { message: "Could not find tokens_per_owner when calling a method on the \
+        enumeration standard.".to_string() }
+    }
+}
+
+impl Default for TokensNotFound {
+    fn default() -> Self {
+        Self::new()
     }
 }

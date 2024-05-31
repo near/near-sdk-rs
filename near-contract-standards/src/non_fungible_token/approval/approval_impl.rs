@@ -8,7 +8,6 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::errors::AnyError;
 use near_sdk::{
     assert_one_yocto, contract_error, env, require, unwrap_or_err, AccountId, BaseError, Gas,
     Promise,
@@ -101,7 +100,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         assert_one_yocto();
         let approvals_by_id = unwrap_or_err!(
             self.approvals_by_id.as_mut(),
-            AnyError::new("NFT does not support Approval Management")
+            ApprovalNotSupported::new("NFT does not support Approval Management")
         );
 
         let owner_id = unwrap_or_err!(expect_token_found(self.owner_by_id.get(&token_id)));

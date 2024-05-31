@@ -1,22 +1,5 @@
 use near_sdk_macros::contract_error;
 
-#[contract_error(inside_nearsdk, sdk)]
-pub struct ContractNotInitialized {}
-
-#[contract_error(inside_nearsdk, sdk)]
-pub struct ContractAlreadyInitialized {}
-
-#[contract_error(inside_nearsdk, sdk)]
-pub struct DepositNotAccepted {
-    pub method: String,
-}
-
-impl DepositNotAccepted {
-    pub fn new(method: &str) -> Self {
-        Self { method: method.to_string() }
-    }
-}
-
 #[contract_error(inside_nearsdk)]
 pub struct InvalidArgument {
     pub message: String,
@@ -40,6 +23,17 @@ impl PermissionDenied {
 }
 
 #[contract_error(inside_nearsdk)]
+pub struct ContractUpgradeError {
+    pub message: String,
+}
+
+impl ContractUpgradeError {
+    pub fn new(message: &str) -> Self {
+        Self { message: message.to_string() }
+    }
+}
+
+#[contract_error(inside_nearsdk)]
 #[derive(Default)]
 pub struct RequireFailed {
     pub message: String,
@@ -48,6 +42,23 @@ pub struct RequireFailed {
 impl RequireFailed {
     pub fn new() -> Self {
         Self { message: "require! assertion failed".to_string() }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ContractNotInitialized {}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ContractAlreadyInitialized {}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct DepositNotAccepted {
+    pub method: String,
+}
+
+impl DepositNotAccepted {
+    pub fn new(method: &str) -> Self {
+        Self { method: method.to_string() }
     }
 }
 
@@ -242,11 +253,11 @@ pub struct UnexpectedFailure {
 }
 
 #[contract_error(inside_nearsdk)]
-pub struct AnyError {
+pub struct ContractError {
     pub message: String,
 }
 
-impl AnyError {
+impl ContractError {
     pub fn new(message: &str) -> Self {
         Self { message: message.to_string() }
     }

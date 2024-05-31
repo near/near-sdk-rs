@@ -1,6 +1,6 @@
 use near_sdk::json_types::U64;
-use near_sdk::errors::AnyError;
-use near_sdk::{env, near, require, AccountId, Duration, Promise, Timestamp};
+use near_sdk::errors::ContractUpgradeError;
+use near_sdk::{contract_error, env, near, require, AccountId, Duration, Promise, Timestamp};
 
 type WrappedDuration = U64;
 
@@ -68,7 +68,7 @@ impl Upgradable for Upgrade {
     fn deploy_code(&mut self) -> Promise {
         if self.staging_timestamp < env::block_timestamp() {
             env::panic_err(
-                AnyError::new(
+                ContractUpgradeError::new(
                     format!(
                         "Deploy code too early: staging ends on {}",
                         self.staging_timestamp + self.staging_duration
@@ -79,7 +79,7 @@ impl Upgradable for Upgrade {
             );
         }
         let code = env::storage_read(b"upgrade")
-            .unwrap_or_else(|| env::panic_err(AnyError::new("No upgrade code available").into()));
+            .unwrap_or_else(|| env::panic_err(ContractUpgradeError::new("No upgrade code available").into()));
         env::storage_remove(b"upgrade");
         Promise::new(env::current_account_id()).deploy_contract(code)
     }

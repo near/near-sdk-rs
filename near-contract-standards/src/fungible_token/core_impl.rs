@@ -5,7 +5,7 @@ use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::errors::{
-    AnyError, InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
+    InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
 };
 use near_sdk::{
     assert_one_yocto, contract_error, env, log, near, require, unwrap_or_err, AccountId, Gas,
@@ -236,7 +236,7 @@ impl FungibleToken {
                     self.accounts.insert(&receiver_id, &new_receiver_balance);
                 } else {
                     return Err(
-                        AnyError::new("The receiver account doesn't have enough balance").into()
+                        InsufficientBalance::new(Some("The receiver account doesn't have enough balance")).into()
                     );
                 }
 

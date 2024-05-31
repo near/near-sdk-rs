@@ -31,7 +31,7 @@ where
     T: AsRef<str>,
 {
     fn panic(&self) -> ! {
-        crate::env::panic_err(errors::AnyError::new(self.as_ref()).into())
+        crate::env::panic_err(errors::Error::new(self.as_ref()).into())
     }
 }
 
