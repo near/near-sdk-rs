@@ -2,7 +2,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use core::{iter::FusedIterator, ops::Range};
 
 use super::Vector;
-use crate::{env, standard_errors};
+use crate::{env, errors};
 
 /// An iterator over references to each element in the stored vector.
 #[derive(Debug)]
@@ -54,7 +54,7 @@ where
         Some(
             self.vec
                 .get(idx)
-                .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into())),
+                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }
@@ -75,7 +75,7 @@ where
         Some(
             self.vec
                 .get(idx)
-                .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into())),
+                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }
@@ -146,7 +146,7 @@ where
         let idx = self.range.nth(n)?;
         Some(
             self.get_mut(idx)
-                .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into())),
+                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }
@@ -166,7 +166,7 @@ where
         let idx = self.range.nth_back(n)?;
         Some(
             self.get_mut(idx)
-                .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into())),
+                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }

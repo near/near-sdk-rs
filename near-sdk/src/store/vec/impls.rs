@@ -2,7 +2,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::iter::{Iter, IterMut};
 use super::Vector;
-use crate::{env, standard_errors};
+use crate::{env, errors};
 
 impl<T> Drop for Vector<T>
 where
@@ -59,7 +59,7 @@ where
 
     fn index(&self, index: u32) -> &Self::Output {
         self.get(index)
-            .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into()))
+            .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into()))
     }
 }
 
@@ -69,6 +69,6 @@ where
 {
     fn index_mut(&mut self, index: u32) -> &mut Self::Output {
         self.get_mut(index)
-            .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into()))
+            .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into()))
     }
 }

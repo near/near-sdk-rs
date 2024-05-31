@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{IterableMap, ToKey};
-use crate::{env, standard_errors};
+use crate::{env, errors};
 
 impl<K, V, H> Extend<(K, V)> for IterableMap<K, V, H>
 where
@@ -36,6 +36,6 @@ where
     ///
     /// Panics if the key does not exist in the map
     fn index(&self, index: &Q) -> &Self::Output {
-        self.get(index).unwrap_or_else(|| env::panic_err(standard_errors::KeyNotFound {}.into()))
+        self.get(index).unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}.into()))
     }
 }

@@ -1,7 +1,7 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::{append, append_slice, Vector};
-use crate::{env, standard_errors, IntoStorageKey};
+use crate::{env, errors, IntoStorageKey};
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::mem::size_of;
@@ -113,7 +113,7 @@ impl<T> UnorderedSet<T> {
                     // element.
                     let last_element_raw = match self.elements.get_raw(self.len() - 1) {
                         Some(x) => x,
-                        None => env::panic_err(standard_errors::InconsistentState::new().into()),
+                        None => env::panic_err(errors::InconsistentCollectionState::new().into()),
                     };
                     env::storage_remove(&index_lookup);
                     // If the removed element was the last element from keys, then we don't need to
@@ -140,7 +140,7 @@ where
     fn serialize_element(element: &T) -> Vec<u8> {
         match to_vec(element) {
             Ok(x) => x,
-            Err(_) => env::panic_err(standard_errors::BorshSerializeError::new("element").into()),
+            Err(_) => env::panic_err(errors::BorshSerializeError::new("element").into()),
         }
     }
 

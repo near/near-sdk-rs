@@ -8,7 +8,7 @@ pub use self::iter::{Difference, Drain, Intersection, Iter, SymmetricDifference,
 use super::LookupMap;
 use crate::store::key::{Sha256, ToKey};
 use crate::store::Vector;
-use crate::{env, standard_errors, IntoStorageKey};
+use crate::{env, errors, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::Borrow;
 use std::fmt;
@@ -510,7 +510,7 @@ where
                     // Otherwise update it's index.
                     _ => {
                         let element = self.elements.get(element_index).unwrap_or_else(|| {
-                            env::panic_err(standard_errors::InconsistentState::new().into())
+                            env::panic_err(errors::InconsistentCollectionState::new().into())
                         });
                         self.index.set(element.clone(), Some(element_index));
                     }

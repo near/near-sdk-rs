@@ -1,6 +1,6 @@
 use near_sdk::require_or_err;
 use near_sdk::{env, near, BaseError, Promise, PromiseError};
-use near_sdk::standard_errors::{InvalidArgument, UnexpectedFailure, InvalidPromiseReturn};
+use near_sdk::errors::{InvalidArgument, UnexpectedFailure, InvalidPromiseReturn};
 
 const A_VALUE: u8 = 8;
 

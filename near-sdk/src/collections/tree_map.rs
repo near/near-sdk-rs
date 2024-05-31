@@ -3,7 +3,7 @@ use std::ops::Bound;
 
 use crate::collections::LookupMap;
 use crate::collections::{append, Vector};
-use crate::{env, standard_errors, IntoStorageKey};
+use crate::{env, errors, IntoStorageKey};
 use near_sdk_macros::near;
 
 /// TreeMap based on AVL-tree
@@ -371,16 +371,16 @@ where
     pub fn range(&self, r: (Bound<K>, Bound<K>)) -> impl Iterator<Item = (K, V)> + '_ {
         let (lo, hi) = match r {
             (Bound::Included(a), Bound::Included(b)) if a > b => {
-                env::panic_err(standard_errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {}.into())
             }
             (Bound::Excluded(a), Bound::Included(b)) if a > b => {
-                env::panic_err(standard_errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {}.into())
             }
             (Bound::Included(a), Bound::Excluded(b)) if a > b => {
-                env::panic_err(standard_errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {}.into())
             }
             (Bound::Excluded(a), Bound::Excluded(b)) if a >= b => {
-                env::panic_err(standard_errors::InvalidTreeMapRange {}.into())
+                env::panic_err(errors::InvalidTreeMapRange {}.into())
             }
             (lo, hi) => (lo, hi),
         };

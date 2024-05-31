@@ -8,7 +8,7 @@ use crate::non_fungible_token::utils::{
     refund_approved_account_ids_iter, refund_deposit,
 };
 use crate::non_fungible_token::NonFungibleToken;
-use near_sdk::standard_errors::AnyError;
+use near_sdk::errors::AnyError;
 use near_sdk::{
     assert_one_yocto, contract_error, env, require, unwrap_or_err, AccountId, BaseError, Gas,
     Promise,

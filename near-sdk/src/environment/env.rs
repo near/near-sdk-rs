@@ -14,7 +14,7 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{standard_errors, CryptoHash, GasWeight, PromiseError};
+use crate::{errors, CryptoHash, GasWeight, PromiseError};
 use near_sys as sys;
 
 /// Register used internally for atomic operations. This register is safe to use by the user,
@@ -33,7 +33,7 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
 fn expect_register<T>(option: Option<T>) -> T {
-    option.unwrap_or_else(|| panic_err(standard_errors::RegisterEmpty::new().into()))
+    option.unwrap_or_else(|| panic_err(errors::RegisterEmpty::new().into()))
 }
 
 /// A simple macro helper to read blob value coming from host's method.

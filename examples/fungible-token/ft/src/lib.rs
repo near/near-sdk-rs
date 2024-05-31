@@ -27,7 +27,7 @@ use near_contract_standards::storage_management::{
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
-use near_sdk::standard_errors::ContractAlreadyInitialized;
+use near_sdk::errors::ContractAlreadyInitialized;
 use near_sdk::{
     env, log, near, require, unwrap_or_err, AccountId, BaseError, BorshStorageKey, NearToken,
     PanicOnDefault, PromiseOrValue,

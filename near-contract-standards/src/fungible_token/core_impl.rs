@@ -4,7 +4,7 @@ use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::standard_errors::{
+use near_sdk::errors::{
     AnyError, InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
 };
 use near_sdk::{

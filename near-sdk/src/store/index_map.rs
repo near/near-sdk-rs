@@ -5,7 +5,7 @@ use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
 use crate::utils::StableMap;
-use crate::{env, standard_errors, CacheEntry, EntryState, IntoStorageKey};
+use crate::{env, errors, CacheEntry, EntryState, IntoStorageKey};
 
 #[near(inside_nearsdk)]
 pub(crate) struct IndexMap<T>
@@ -58,7 +58,7 @@ where
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf).unwrap_or_else(|_| {
                                 env::panic_err(
-                                    standard_errors::BorshSerializeError::new("element").into(),
+                                    errors::BorshSerializeError::new("element").into(),
                                 )
                             });
                             env::storage_write(&key_buf, &buf);
@@ -96,7 +96,7 @@ where
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
         T::try_from_slice(raw_element).unwrap_or_else(|_| {
-            env::panic_err(standard_errors::BorshDeserializeError::new("element").into())
+            env::panic_err(errors::BorshDeserializeError::new("element").into())
         })
     }
 

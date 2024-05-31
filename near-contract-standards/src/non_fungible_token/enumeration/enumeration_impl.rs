@@ -2,7 +2,7 @@ use super::NonFungibleTokenEnumeration;
 use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::json_types::U128;
-use near_sdk::standard_errors::AnyError;
+use near_sdk::errors::AnyError;
 use near_sdk::{require, unwrap_or_err, AccountId, BaseError};
 
 type TokenId = String;

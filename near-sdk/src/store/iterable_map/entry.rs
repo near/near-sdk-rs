@@ -2,7 +2,7 @@ use crate::env;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::ValueAndIndex;
-use crate::standard_errors;
+use crate::errors;
 use crate::store::key::ToKey;
 use crate::store::{IterableMap, LookupMap, Vector};
 
@@ -243,7 +243,7 @@ where
         let old_value = self
             .values
             .remove(&self.key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
         let last_index = self.keys.len() - 1;
         self.keys.swap_remove(old_value.key_index);
 
@@ -271,7 +271,7 @@ where
         &self
             .values
             .get(&self.key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
             .value
     }
 
@@ -306,7 +306,7 @@ where
         &mut self
             .values
             .get_mut(&self.key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
             .value
     }
 
@@ -337,7 +337,7 @@ where
         &mut self
             .values
             .get_mut(&self.key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
             .value
     }
 

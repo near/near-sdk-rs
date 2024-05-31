@@ -1,7 +1,7 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json;
 use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
-use near_sdk::standard_errors::PromiseFailed;
+use near_sdk::errors::PromiseFailed;
 use near_sdk::BaseError;
 
 // Prepaid gas for making a single simple call.

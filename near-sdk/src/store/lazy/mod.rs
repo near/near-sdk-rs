@@ -12,14 +12,14 @@ use once_cell::unsync::OnceCell;
 use near_sdk_macros::near;
 
 use crate::utils::{CacheEntry, EntryState};
-use crate::{env, standard_errors, IntoStorageKey};
+use crate::{env, errors, IntoStorageKey};
 
 fn expect_key_exists<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_err(standard_errors::KeyNotFound {}.into()))
+    val.unwrap_or_else(|| env::panic_err(errors::KeyNotFound {}.into()))
 }
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
+    val.unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
 }
 
 pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
@@ -28,7 +28,7 @@ where
 {
     let bytes = expect_key_exists(env::storage_read(key));
     let val = T::try_from_slice(&bytes).unwrap_or_else(|_| {
-        env::panic_err(standard_errors::BorshDeserializeError::new("value").into())
+        env::panic_err(errors::BorshDeserializeError::new("value").into())
     });
     CacheEntry::new_cached(Some(val))
 }
@@ -38,7 +38,7 @@ where
     T: BorshSerialize,
 {
     let serialized = to_vec(value).unwrap_or_else(|_| {
-        env::panic_err(standard_errors::BorshSerializeError::new("value").into())
+        env::panic_err(errors::BorshSerializeError::new("value").into())
     });
     env::storage_write(key, &serialized);
 }
@@ -96,7 +96,7 @@ where
         } else {
             self.cache.set(CacheEntry::new_modified(Some(value))).unwrap_or_else(|_| {
                 env::panic_err(
-                    standard_errors::AnyError::new("cache is checked to not be filled above")
+                    errors::AnyError::new("cache is checked to not be filled above")
                         .into(),
                 )
             })

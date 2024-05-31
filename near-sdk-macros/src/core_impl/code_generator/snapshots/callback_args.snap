@@ -9,7 +9,7 @@ pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id()
     {
-        ::near_sdk::standard_errors::PrivateMethod::new("method");
+        ::near_sdk::errors::PrivateMethod::new("method");
     }
     #[derive(::near_sdk::serde::Deserialize)]
     #[serde(crate = "::near_sdk::serde")]
@@ -25,7 +25,7 @@ pub extern "C" fn method() {
         ::near_sdk::PromiseResult::Successful(x) => x,
         _ => {
             ::near_sdk::env::panic_err(
-                ::near_sdk::standard_errors::CallbackComputationUnsuccessful::new(0u64)
+                ::near_sdk::errors::CallbackComputationUnsuccessful::new(0u64)
                     .into(),
             )
         }
@@ -36,7 +36,7 @@ pub extern "C" fn method() {
         ::near_sdk::PromiseResult::Successful(x) => x,
         _ => {
             ::near_sdk::env::panic_err(
-                ::near_sdk::standard_errors::CallbackComputationUnsuccessful::new(1u64)
+                ::near_sdk::errors::CallbackComputationUnsuccessful::new(1u64)
                     .into(),
             )
         }

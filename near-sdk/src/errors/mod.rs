@@ -1,5 +1,22 @@
 use near_sdk_macros::contract_error;
 
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ContractNotInitialized {}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ContractAlreadyInitialized {}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct DepositNotAccepted {
+    pub method: String,
+}
+
+impl DepositNotAccepted {
+    pub fn new(method: &str) -> Self {
+        Self { method: method.to_string() }
+    }
+}
+
 #[contract_error(inside_nearsdk)]
 pub struct InvalidArgument {
     pub message: String,
@@ -10,12 +27,6 @@ impl InvalidArgument {
         Self { message: message.to_string() }
     }
 }
-
-#[contract_error(inside_nearsdk, sdk)]
-pub struct ContractNotInitialized {}
-
-#[contract_error(inside_nearsdk, sdk)]
-pub struct ContractAlreadyInitialized {}
 
 #[contract_error(inside_nearsdk)]
 pub struct PermissionDenied {
@@ -40,6 +51,17 @@ impl RequireFailed {
     }
 }
 
+#[contract_error(inside_nearsdk, sdk)]
+pub struct CallbackComputationUnsuccessful {
+    pub index: u64,
+}
+
+impl CallbackComputationUnsuccessful {
+    pub fn new(index: u64) -> Self {
+        Self { index }
+    }
+}
+
 #[contract_error(inside_nearsdk)]
 pub struct PromiseFailed {
     pub promise_index: Option<u64>,
@@ -49,61 +71,6 @@ pub struct PromiseFailed {
 impl PromiseFailed {
     pub fn new(promise_index: Option<u64>, message: Option<&str>) -> Self {
         Self { promise_index, message: message.map(|s| s.to_string()) }
-    }
-}
-
-#[contract_error(inside_nearsdk)]
-pub struct UnexpectedFailure {
-    pub message: String,
-}
-
-#[contract_error(inside_nearsdk)]
-pub struct InvalidPromiseReturn {
-    pub message: String,
-}
-
-impl InvalidPromiseReturn {
-    pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
-    }
-}
-
-#[contract_error(inside_nearsdk)]
-pub struct InsufficientBalance {
-    message: Option<String>,
-}
-
-impl InsufficientBalance {
-    pub fn new(message: Option<&str>) -> Self {
-        Self { message: message.map(|s| s.to_string()) }
-    }
-}
-
-#[contract_error(inside_nearsdk)]
-pub struct InsufficientGas {}
-
-#[contract_error(inside_nearsdk)]
-pub struct TotalSupplyOverflow {}
-
-#[contract_error(inside_nearsdk)]
-pub struct AnyError {
-    pub message: String,
-}
-
-impl AnyError {
-    pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
-    }
-}
-
-#[contract_error(inside_nearsdk, sdk)]
-pub struct PrivateMethod {
-    pub method_name: String,
-}
-
-impl PrivateMethod {
-    pub fn new(method_name: &str) -> Self {
-        Self { method_name: method_name.to_string() }
     }
 }
 
@@ -160,6 +127,45 @@ impl Default for CallbackJointPromise {
     }
 }
 
+#[contract_error(inside_nearsdk)]
+pub struct InvalidPromiseReturn {
+    pub message: String,
+}
+
+impl InvalidPromiseReturn {
+    pub fn new(message: &str) -> Self {
+        Self { message: message.to_string() }
+    }
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct InsufficientBalance {
+    message: Option<String>,
+}
+
+impl InsufficientBalance {
+    pub fn new(message: Option<&str>) -> Self {
+        Self { message: message.map(|s| s.to_string()) }
+    }
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct InsufficientGas {}
+
+#[contract_error(inside_nearsdk)]
+pub struct TotalSupplyOverflow {}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct PrivateMethod {
+    pub method_name: String,
+}
+
+impl PrivateMethod {
+    pub fn new(method_name: &str) -> Self {
+        Self { method_name: method_name.to_string() }
+    }
+}
+
 #[contract_error(inside_nearsdk, sdk)]
 pub struct BorshSerializeError {
     subject: String,
@@ -186,11 +192,11 @@ impl BorshDeserializeError {
 pub struct InvalidTreeMapRange {}
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct InconsistentState {
+pub struct InconsistentCollectionState {
     pub message: String,
 }
 
-impl InconsistentState {
+impl InconsistentCollectionState {
     pub fn new() -> Self {
         Self {
             message: "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?".to_string()
@@ -198,7 +204,7 @@ impl InconsistentState {
     }
 }
 
-impl Default for InconsistentState {
+impl Default for InconsistentCollectionState {
     fn default() -> Self {
         Self::new()
     }
@@ -230,24 +236,18 @@ impl Default for RegisterEmpty {
     }
 }
 
-#[contract_error(inside_nearsdk, sdk)]
-pub struct CallbackComputationUnsuccessful {
-    pub index: u64,
+#[contract_error(inside_nearsdk)]
+pub struct UnexpectedFailure {
+    pub message: String,
 }
 
-impl CallbackComputationUnsuccessful {
-    pub fn new(index: u64) -> Self {
-        Self { index }
-    }
+#[contract_error(inside_nearsdk)]
+pub struct AnyError {
+    pub message: String,
 }
 
-#[contract_error(inside_nearsdk, sdk)]
-pub struct DepositNotAccepted {
-    pub method: String,
-}
-
-impl DepositNotAccepted {
-    pub fn new(method: &str) -> Self {
-        Self { method: method.to_string() }
+impl AnyError {
+    pub fn new(message: &str) -> Self {
+        Self { message: message.to_string() }
     }
 }

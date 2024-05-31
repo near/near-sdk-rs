@@ -3,7 +3,7 @@ use std::iter::FusedIterator;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{LookupMap, ToKey, UnorderedMap, ValueAndIndex};
-use crate::{env, standard_errors, store::free_list};
+use crate::{env, errors, store::free_list};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
 where
@@ -76,7 +76,7 @@ where
         let entry = self
             .values
             .get(key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
 
         Some((key, &entry.value))
     }
@@ -120,7 +120,7 @@ where
         let entry = self
             .values
             .get(key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
 
         Some((key, &entry.value))
     }
@@ -158,7 +158,7 @@ where
         let entry = self
             .values
             .get_mut(key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
         //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
         //*         will only give out one mutable reference for every individual key in the bucket
         //*         during the iteration, and there is no overlap. This operates under the
@@ -472,7 +472,7 @@ where
         let value = self
             .values
             .remove(&key)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
             .value;
 
         (key, value)

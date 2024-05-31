@@ -27,7 +27,7 @@ use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
-use near_sdk::standard_errors::ContractAlreadyInitialized;
+use near_sdk::errors::ContractAlreadyInitialized;
 use near_sdk::{
     env, near, require, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
 };

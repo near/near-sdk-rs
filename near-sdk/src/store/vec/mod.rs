@@ -64,12 +64,12 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::NearSchema;
 
 pub use self::iter::{Drain, Iter, IterMut};
-use crate::{env, standard_errors, IntoStorageKey};
+use crate::{env, errors, IntoStorageKey};
 
 use super::IndexMap;
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
+    val.unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()))
 }
 
 /// An iterable implementation of vector that stores its content on the trie. This implementation
@@ -249,7 +249,7 @@ where
     /// ```
     pub fn set(&mut self, index: u32, value: T) {
         if index >= self.len() {
-            env::panic_err(standard_errors::IndexOutOfBounds {}.into());
+            env::panic_err(errors::IndexOutOfBounds {}.into());
         }
 
         self.values.set(index, Some(value));
@@ -276,7 +276,7 @@ where
         self.len = self
             .len
             .checked_add(1)
-            .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into()));
+            .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into()));
         self.set(last_idx, element)
     }
 }
@@ -332,7 +332,7 @@ where
 
     pub(crate) fn swap(&mut self, a: u32, b: u32) {
         if a >= self.len() || b >= self.len() {
-            env::panic_err(standard_errors::IndexOutOfBounds {}.into());
+            env::panic_err(errors::IndexOutOfBounds {}.into());
         }
 
         self.values.swap(a, b);
@@ -362,7 +362,7 @@ where
     /// ```
     pub fn swap_remove(&mut self, index: u32) -> T {
         if self.is_empty() {
-            env::panic_err(standard_errors::IndexOutOfBounds {}.into());
+            env::panic_err(errors::IndexOutOfBounds {}.into());
         }
 
         self.swap(index, self.len() - 1);
@@ -409,7 +409,7 @@ where
     /// ```
     pub fn replace(&mut self, index: u32, element: T) -> T {
         if index >= self.len {
-            env::panic_err(standard_errors::IndexOutOfBounds {}.into());
+            env::panic_err(errors::IndexOutOfBounds {}.into());
         }
         self.values.insert(index, element).unwrap()
     }
@@ -489,7 +489,7 @@ where
         let start = match range.start_bound() {
             Bound::Excluded(i) => i
                 .checked_add(1)
-                .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into())),
+                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
             Bound::Included(i) => *i,
             Bound::Unbounded => 0,
         };
@@ -497,7 +497,7 @@ where
             Bound::Excluded(i) => *i,
             Bound::Included(i) => i
                 .checked_add(1)
-                .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into())),
+                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
             Bound::Unbounded => self.len(),
         };
 

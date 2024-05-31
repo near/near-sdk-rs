@@ -1,5 +1,5 @@
 use near_sdk::json_types::U64;
-use near_sdk::standard_errors::AnyError;
+use near_sdk::errors::AnyError;
 use near_sdk::{env, near, require, AccountId, Duration, Promise, Timestamp};
 
 type WrappedDuration = U64;

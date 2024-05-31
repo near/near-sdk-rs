@@ -10,7 +10,7 @@ use once_cell::unsync::OnceCell;
 
 use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
-use crate::{env, standard_errors, CacheEntry, IntoStorageKey};
+use crate::{env, errors, CacheEntry, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
@@ -207,7 +207,7 @@ where
 {
     fn deserialize_element(bytes: &[u8]) -> V {
         V::try_from_slice(bytes).unwrap_or_else(|_| {
-            env::panic_err(standard_errors::BorshDeserializeError::new("element").into())
+            env::panic_err(errors::BorshDeserializeError::new("element").into())
         })
     }
 
@@ -441,7 +441,7 @@ where
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf).unwrap_or_else(|_| {
                                 env::panic_err(
-                                    standard_errors::BorshSerializeError::new("element").into(),
+                                    errors::BorshSerializeError::new("element").into(),
                                 )
                             });
                             env::storage_write(key.as_ref(), &buf);

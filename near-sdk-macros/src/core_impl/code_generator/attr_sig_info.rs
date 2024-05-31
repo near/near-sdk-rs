@@ -225,7 +225,7 @@ impl AttrSigInfo {
                         let read_data = quote! {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_err(::near_sdk::standard_errors::CallbackComputationUnsuccessful::new(#idx).into()),
+                                _ => ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(#idx).into()),
                             };
                         };
                         let invocation = deserialize_data(serializer_ty);
@@ -297,7 +297,7 @@ impl AttrSigInfo {
                         |i| {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_err(::near_sdk::standard_errors::CallbackComputationUnsuccessful::new(i).into()),
+                                _ => ::near_sdk::env::panic_err(::near_sdk::errors::CallbackComputationUnsuccessful::new(i).into()),
                             };
                             #invocation
                         }));

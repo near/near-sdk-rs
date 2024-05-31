@@ -9,11 +9,11 @@ pub extern "C" fn private_method() {
     ::near_sdk::env::setup_panic_hook();
     if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id()
     {
-        ::near_sdk::standard_errors::PrivateMethod::new("private_method");
+        ::near_sdk::errors::PrivateMethod::new("private_method");
     }
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
         ::near_sdk::env::panic_err(
-            ::near_sdk::standard_errors::DepositNotAccepted::new("private_method").into(),
+            ::near_sdk::errors::DepositNotAccepted::new("private_method").into(),
         );
     }
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();

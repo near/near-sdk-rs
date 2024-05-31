@@ -13,7 +13,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 
 use crate::store::key::{Sha256, ToKey};
-use crate::{env, standard_errors, IntoStorageKey};
+use crate::{env, errors, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
@@ -593,7 +593,7 @@ where
         let key = self
             .keys
             .remove(old_value.key_index)
-            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+            .unwrap_or_else(|| env::panic_err(errors::InconsistentCollectionState::new().into()));
 
         // Return removed value
         Some((key, old_value.value))

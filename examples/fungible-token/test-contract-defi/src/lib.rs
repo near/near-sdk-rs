@@ -3,7 +3,7 @@ Some hypothetical DeFi contract that will do smart things with the transferred t
 */
 use near_contract_standards::fungible_token::{receiver::FungibleTokenReceiver, Balance};
 use near_sdk::json_types::U128;
-use near_sdk::standard_errors::{ContractAlreadyInitialized, PermissionDenied};
+use near_sdk::errors::{ContractAlreadyInitialized, PermissionDenied};
 use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
 const BASE_GAS: u64 = 5_000_000_000_000;

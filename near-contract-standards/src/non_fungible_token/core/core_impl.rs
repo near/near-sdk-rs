@@ -9,7 +9,7 @@ use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_depos
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::standard_errors::{AnyError, PermissionDenied};
+use near_sdk::errors::{AnyError, PermissionDenied};
 use near_sdk::{
     assert_one_yocto, contract_error, env, near, require, unwrap_or_err, AccountId, BaseError,
     BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,

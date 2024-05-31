@@ -19,7 +19,7 @@ pub extern "C" fn method() {
         .expect("Failed to deserialize input from JSON.");
     if ::near_sdk::env::state_exists() {
         ::near_sdk::env::panic_err(
-            ::near_sdk::standard_errors::ContractAlreadyInitialized {
+            ::near_sdk::errors::ContractAlreadyInitialized {
             }
                 .into(),
         );

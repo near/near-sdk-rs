@@ -36,7 +36,7 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
-pub mod standard_errors;
+pub mod errors;
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;

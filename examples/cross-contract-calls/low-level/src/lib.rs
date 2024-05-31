@@ -1,6 +1,6 @@
 use near_sdk::serde_json;
 use near_sdk::{env, near, require, Gas, NearToken, PromiseResult};
-use near_sdk::standard_errors::PromiseFailed;
+use near_sdk::errors::PromiseFailed;
 
 // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
 const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);

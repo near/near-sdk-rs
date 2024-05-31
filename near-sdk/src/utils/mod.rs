@@ -66,7 +66,7 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_err(::near_sdk::standard_errors::RequireFailed::new().into());
+            $crate::env::panic_err(::near_sdk::errors::RequireFailed::new().into());
         }
     };
     ($cond:expr, $message:expr $(,)?) => {
@@ -84,7 +84,7 @@ macro_rules! require {
 macro_rules! require_or_err {
     ($cond:expr $(,)?) => {
         if !$cond {
-            return Err(::near_sdk::standard_errors::RequireFailed::new().into());
+            return Err(::near_sdk::errors::RequireFailed::new().into());
         }
     };
     ($cond:expr, $err:expr $(,)?) => {
