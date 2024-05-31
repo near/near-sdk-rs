@@ -96,7 +96,7 @@ where
         } else {
             self.cache.set(CacheEntry::new_modified(Some(value))).unwrap_or_else(|_| {
                 env::panic_err(
-                    errors::Error::new("cache is checked to not be filled above")
+                    errors::ContractError::new("cache is checked to not be filled above")
                         .into(),
                 )
             })
