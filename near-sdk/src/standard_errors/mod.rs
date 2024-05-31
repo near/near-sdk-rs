@@ -118,6 +118,12 @@ impl ActionInJointPromise {
     }
 }
 
+impl Default for ActionInJointPromise {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[contract_error(inside_nearsdk, sdk)]
 pub struct PromiseAlreadyScheduled {
     pub message: String,
@@ -131,6 +137,12 @@ impl PromiseAlreadyScheduled {
     }
 }
 
+impl Default for PromiseAlreadyScheduled {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[contract_error(inside_nearsdk, sdk)]
 pub struct CallbackJointPromise {
     pub message: String,
@@ -139,6 +151,12 @@ pub struct CallbackJointPromise {
 impl CallbackJointPromise {
     pub fn new() -> Self {
         Self { message: "Cannot callback joint promise".to_string() }
+    }
+}
+
+impl Default for CallbackJointPromise {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -180,6 +198,12 @@ impl InconsistentState {
     }
 }
 
+impl Default for InconsistentState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[contract_error(inside_nearsdk, sdk)]
 pub struct IndexOutOfBounds {}
 
@@ -197,6 +221,12 @@ impl RegisterEmpty {
             message: "Register was expected to have data because we just wrote it into it."
                 .to_string(),
         }
+    }
+}
+
+impl Default for RegisterEmpty {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -1740,35 +1740,35 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_same_excluded() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(1), Bound::Excluded(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_incl_exlc() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Excluded(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_excl_incl() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Included(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_incl_incl() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Included(2), Bound::Included(1)));
     }
 
     #[test]
-    #[should_panic(expected = "Invalid range.")]
+    #[should_panic(expected = "InvalidTreeMapRange")]
     fn test_range_panics_non_overlap_excl_excl() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
         let _ = map.range((Bound::Excluded(2), Bound::Excluded(1)));
