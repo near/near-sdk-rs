@@ -56,8 +56,11 @@ where
                     match v.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
-                            BorshSerialize::serialize(modified, &mut buf)
-                                .unwrap_or_else(|_| env::panic_err(standard_errors::BorshSerializeError::new("element").into()));
+                            BorshSerialize::serialize(modified, &mut buf).unwrap_or_else(|_| {
+                                env::panic_err(
+                                    standard_errors::BorshSerializeError::new("element").into(),
+                                )
+                            });
                             env::storage_write(&key_buf, &buf);
                         }
                         None => {
@@ -92,8 +95,9 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     fn deserialize_element(raw_element: &[u8]) -> T {
-        T::try_from_slice(raw_element)
-            .unwrap_or_else(|_| env::panic_err(standard_errors::BorshDeserializeError::new("element").into()))
+        T::try_from_slice(raw_element).unwrap_or_else(|_| {
+            env::panic_err(standard_errors::BorshDeserializeError::new("element").into())
+        })
     }
 
     /// Returns the element by index or `None` if it is not present.

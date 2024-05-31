@@ -8,7 +8,7 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey, standard_errors};
+use crate::{standard_errors, AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -452,13 +452,13 @@ impl Promise {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
                 if after.is_some() {
-                    crate::env::panic_err(
-                        standard_errors::PromiseAlreadyScheduled::new().into(),
-                    );
+                    crate::env::panic_err(standard_errors::PromiseAlreadyScheduled::new().into());
                 }
                 *after = Some(self)
             }
-            PromiseSubtype::Joint(_) => crate::env::panic_err(standard_errors::CallbackJointPromise::new().into()),
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_err(standard_errors::CallbackJointPromise::new().into())
+            }
         }
         other
     }

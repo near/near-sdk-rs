@@ -10,7 +10,7 @@ use once_cell::unsync::OnceCell;
 
 use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
-use crate::{env, CacheEntry, IntoStorageKey, standard_errors};
+use crate::{env, standard_errors, CacheEntry, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 
@@ -206,7 +206,9 @@ where
     H: ToKey,
 {
     fn deserialize_element(bytes: &[u8]) -> V {
-        V::try_from_slice(bytes).unwrap_or_else(|_| env::panic_err(standard_errors::BorshDeserializeError::new("element").into()))
+        V::try_from_slice(bytes).unwrap_or_else(|_| {
+            env::panic_err(standard_errors::BorshDeserializeError::new("element").into())
+        })
     }
 
     fn load_element<Q: ?Sized>(prefix: &[u8], key: &Q) -> (H::KeyType, Option<V>)
@@ -437,8 +439,11 @@ where
                     match val.value().as_ref() {
                         Some(modified) => {
                             buf.clear();
-                            BorshSerialize::serialize(modified, &mut buf)
-                                .unwrap_or_else(|_| env::panic_err(standard_errors::BorshSerializeError::new("element").into()));
+                            BorshSerialize::serialize(modified, &mut buf).unwrap_or_else(|_| {
+                                env::panic_err(
+                                    standard_errors::BorshSerializeError::new("element").into(),
+                                )
+                            });
                             env::storage_write(key.as_ref(), &buf);
                         }
                         None => {

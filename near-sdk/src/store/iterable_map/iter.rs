@@ -3,8 +3,8 @@ use std::iter::FusedIterator;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 use super::{IterableMap, LookupMap, ToKey, ValueAndIndex};
-use crate::{env, standard_errors};
 use crate::store::vec;
+use crate::{env, standard_errors};
 
 impl<'a, K, V, H> IntoIterator for &'a IterableMap<K, V, H>
 where
@@ -74,7 +74,10 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        let entry = self.values.get(key).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+        let entry = self
+            .values
+            .get(key)
+            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
 
         Some((key, &entry.value))
     }
@@ -115,7 +118,10 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        let entry = self.values.get(key).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+        let entry = self
+            .values
+            .get(key)
+            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
 
         Some((key, &entry.value))
     }
@@ -150,8 +156,10 @@ where
         K: Clone,
         V: BorshDeserialize,
     {
-        let entry =
-            self.values.get_mut(key).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+        let entry = self
+            .values
+            .get_mut(key)
+            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
         //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
         //*         will only give out one mutable reference for every individual key in the bucket
         //*         during the iteration, and there is no overlap. This operates under the

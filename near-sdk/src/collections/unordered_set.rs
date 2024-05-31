@@ -1,7 +1,7 @@
 //! A set implemented on a trie. Unlike `std::collections::HashSet` the elements in this set are not
 //! hashed but are instead serialized.
 use crate::collections::{append, append_slice, Vector};
-use crate::{env, IntoStorageKey, standard_errors};
+use crate::{env, standard_errors, IntoStorageKey};
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use std::mem::size_of;

@@ -8,8 +8,8 @@ use std::marker::PhantomData;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 
 use crate::env;
-use crate::IntoStorageKey;
 use crate::standard_errors;
+use crate::IntoStorageKey;
 use near_sdk_macros::near;
 
 /// An persistent lazy option, that stores a value in the storage.

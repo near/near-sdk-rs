@@ -514,9 +514,9 @@ where
     {
         match self.index.remove(value) {
             Some(element_index) => {
-                self.elements
-                    .remove(element_index)
-                    .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+                self.elements.remove(element_index).unwrap_or_else(|| {
+                    env::panic_err(standard_errors::InconsistentState::new().into())
+                });
                 true
             }
             None => false,

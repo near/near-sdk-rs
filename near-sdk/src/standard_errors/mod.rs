@@ -114,9 +114,7 @@ pub struct ActionInJointPromise {
 
 impl ActionInJointPromise {
     pub fn new() -> Self {
-        Self {
-            message: "Cannot add action to a joint promise.".to_string(),
-        }
+        Self { message: "Cannot add action to a joint promise.".to_string() }
     }
 }
 
@@ -140,41 +138,34 @@ pub struct CallbackJointPromise {
 
 impl CallbackJointPromise {
     pub fn new() -> Self {
-        Self {
-            message: "Cannot callback joint promise".to_string(),
-        }
+        Self { message: "Cannot callback joint promise".to_string() }
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
 pub struct BorshSerializeError {
-    subject: String
+    subject: String,
 }
 
 impl BorshSerializeError {
     pub fn new(subject: &str) -> Self {
-        Self {
-            subject: subject.to_string()
-        }
+        Self { subject: subject.to_string() }
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
 pub struct BorshDeserializeError {
-    subject: String
+    subject: String,
 }
 
 impl BorshDeserializeError {
     pub fn new(subject: &str) -> Self {
-        Self {
-            subject: subject.to_string()
-        }
+        Self { subject: subject.to_string() }
     }
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct InvalidTreeMapRange {
-}
+pub struct InvalidTreeMapRange {}
 
 #[contract_error(inside_nearsdk, sdk)]
 pub struct InconsistentState {
@@ -190,8 +181,7 @@ impl InconsistentState {
 }
 
 #[contract_error(inside_nearsdk, sdk)]
-pub struct IndexOutOfBounds {
-}
+pub struct IndexOutOfBounds {}
 
 #[contract_error(inside_nearsdk, sdk)]
 pub struct KeyNotFound {}
@@ -204,7 +194,8 @@ pub struct RegisterEmpty {
 impl RegisterEmpty {
     pub fn new() -> Self {
         Self {
-            message: "Register was expected to have data because we just wrote it into it.".to_string()
+            message: "Register was expected to have data because we just wrote it into it."
+                .to_string(),
         }
     }
 }
@@ -216,9 +207,7 @@ pub struct CallbackComputationUnsuccessful {
 
 impl CallbackComputationUnsuccessful {
     pub fn new(index: u64) -> Self {
-        Self {
-            index
-        }
+        Self { index }
     }
 }
 
@@ -229,8 +218,6 @@ pub struct DepositNotAccepted {
 
 impl DepositNotAccepted {
     pub fn new(method: &str) -> Self {
-        Self {
-            method: method.to_string()
-        }
+        Self { method: method.to_string() }
     }
 }

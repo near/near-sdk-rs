@@ -13,7 +13,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 
 use crate::store::key::{Sha256, ToKey};
-use crate::{env, IntoStorageKey, standard_errors};
+use crate::{env, standard_errors, IntoStorageKey};
 
 use crate::store::Vector;
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
@@ -601,11 +601,12 @@ where
             x if x == last_index => {}
             // Otherwise update it's index.
             _ => {
-                let swapped_key =
-                    keys.get(key_index).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
-                let value = values
-                    .get_mut(swapped_key)
-                    .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+                let swapped_key = keys.get(key_index).unwrap_or_else(|| {
+                    env::panic_err(standard_errors::InconsistentState::new().into())
+                });
+                let value = values.get_mut(swapped_key).unwrap_or_else(|| {
+                    env::panic_err(standard_errors::InconsistentState::new().into())
+                });
                 value.key_index = key_index;
             }
         }

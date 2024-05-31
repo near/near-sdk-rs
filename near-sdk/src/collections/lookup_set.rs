@@ -7,7 +7,7 @@ use borsh::{to_vec, BorshSerialize};
 use near_sdk_macros::near;
 
 use crate::collections::append_slice;
-use crate::{env, IntoStorageKey, standard_errors};
+use crate::{env, standard_errors, IntoStorageKey};
 
 /// A non-iterable implementation of a set that stores its content directly on the storage trie.
 ///

@@ -30,7 +30,9 @@ where
 }
 
 fn decrement_count(count: &mut u32) {
-    *count = count.checked_sub(1).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
+    *count = count
+        .checked_sub(1)
+        .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
 }
 
 /// An iterator over elements in the storage bucket. This only yields the occupied entries.

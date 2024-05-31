@@ -13,7 +13,7 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 
 use crate::store::key::{Sha256, ToKey};
-use crate::{env, IntoStorageKey, standard_errors};
+use crate::{env, standard_errors, IntoStorageKey};
 
 pub use entry::{Entry, OccupiedEntry, VacantEntry};
 

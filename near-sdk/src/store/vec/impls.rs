@@ -58,7 +58,8 @@ where
     type Output = T;
 
     fn index(&self, index: u32) -> &Self::Output {
-        self.get(index).unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds{}.into()))
+        self.get(index)
+            .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into()))
     }
 }
 
@@ -67,6 +68,7 @@ where
     T: BorshSerialize + BorshDeserialize,
 {
     fn index_mut(&mut self, index: u32) -> &mut Self::Output {
-        self.get_mut(index).unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds{}.into()))
+        self.get_mut(index)
+            .unwrap_or_else(|| env::panic_err(standard_errors::IndexOutOfBounds {}.into()))
     }
 }
