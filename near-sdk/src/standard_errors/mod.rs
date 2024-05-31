@@ -192,3 +192,19 @@ impl InconsistentState {
 #[contract_error(inside_nearsdk, sdk)]
 pub struct IndexOutOfBounds {
 }
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct KeyNotFound {}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct RegisterEmpty {
+    pub message: String,
+}
+
+impl RegisterEmpty {
+    pub fn new() -> Self {
+        Self {
+            message: "Register was expected to have data because we just wrote it into it.".to_string()
+        }
+    }
+}

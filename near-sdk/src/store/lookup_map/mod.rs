@@ -8,7 +8,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
-use super::ERR_NOT_EXIST;
 use crate::store::key::{Identity, ToKey};
 use crate::utils::{EntryState, StableMap};
 use crate::{env, CacheEntry, IntoStorageKey, standard_errors};

@@ -11,17 +11,11 @@ use once_cell::unsync::OnceCell;
 
 use near_sdk_macros::near;
 
-use crate::env;
-use crate::store::ERR_INCONSISTENT_STATE;
 use crate::utils::{CacheEntry, EntryState};
-use crate::IntoStorageKey;
-
-const ERR_VALUE_SERIALIZATION: &str = "Cannot serialize value with Borsh";
-const ERR_VALUE_DESERIALIZATION: &str = "Cannot deserialize value with Borsh";
-const ERR_NOT_FOUND: &str = "No value found for the given key";
+use crate::{env, IntoStorageKey, standard_errors};
 
 fn expect_key_exists<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_str(ERR_NOT_FOUND))
+    val.unwrap_or_else(|| env::panic_err(standard_errors::KeyNotFound{}.into()))
 }
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {

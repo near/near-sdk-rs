@@ -102,5 +102,3 @@ pub(crate) use self::free_list::FreeList;
 
 /// Storage key hash function types and trait to override map hash functions.
 pub mod key;
-
-pub(crate) const ERR_NOT_EXIST: &str = "Key does not exist in map";
