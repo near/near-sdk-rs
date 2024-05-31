@@ -92,12 +92,14 @@ macro_rules! require {
 ///
 /// ```no_run
 /// use near_sdk::require_or_err;
+/// use near_sdk::BaseError;
 /// use near_sdk::errors::ContractError;
 ///
-/// # fn main() {
+/// # fn f() -> Result<(), BaseError> {
 /// let a = 2;
 /// require_or_err!(a > 0);
-/// require_or_err!("test" != "other", near_sdk::error::Error("Some custom error message if false"));
+/// require_or_err!("test" != "other", ContractError::new("Some custom error message if false"));
+/// Ok(())
 /// # }
 /// ```
 #[macro_export]
@@ -128,17 +130,16 @@ macro_rules! require_or_err {
 /// use near_sdk::unwrap_or_err;
 /// use near_sdk::errors::ContractError;
 ///
-/// # fn main() -> Result<u64, ContractError> {
-/// let error = ContractError("Some error");
+/// # fn method() -> Result<u64, ContractError> {
 ///
 /// let option_some: Option<u64> = Some(5);
 /// let option_none: Option<u64> = None;
 ///
 /// let result_ok: Result<u64, ContractError> = Ok(5);
-/// let result_err: Result<u64, ContractError> = Err(error);
+/// let result_err: Result<u64, ContractError> = Err(ContractError::new("Some error"));
 ///
-/// let option_success: u64 = unwrap_or_err!(option_some, error); // option_success == 5
-/// let option_error: u64 = unwrap_or_err!(option_none, error); // error is returned from main
+/// let option_success: u64 = unwrap_or_err!(option_some, ContractError::new("Some error")); // option_success == 5
+/// let option_error: u64 = unwrap_or_err!(option_none, ContractError::new("Some error")); // error is returned from main
 ///
 /// let result_success: u64 = unwrap_or_err!(result_ok); // result_success == 5
 /// let result_error: u64 = unwrap_or_err!(result_err); // error is returned from main
@@ -146,7 +147,6 @@ macro_rules! require_or_err {
 /// Ok(0)
 /// # }
 ///```
-
 #[macro_export]
 macro_rules! unwrap_or_err {
     ( $exp:expr, $err:expr ) => {
