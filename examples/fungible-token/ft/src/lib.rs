@@ -75,7 +75,10 @@ impl Contract {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128, metadata: FungibleTokenMetadata) -> Self {
         require!(!env::state_exists(), &String::from(ContractAlreadyInitialized {}));
-        metadata.assert_valid();
+        let error = metadata.assert_valid();
+        if let Err(e) = error {
+            env::panic_err(e.into())
+        }
         let mut this = Self {
             token: FungibleToken::new(StorageKey::FungibleToken),
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),

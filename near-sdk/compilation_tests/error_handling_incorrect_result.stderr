@@ -8,9 +8,9 @@ error[E0277]: the trait bound `u64: ContractErrorTrait` is not satisfied
              MyErrorEnum
              MyErrorStruct
              InvalidArgument
-             ContractNotInitialized
-             ContractAlreadyInitialized
+             InvalidContractState
              near_sdk::errors::PermissionDenied
+             ContractUpgradeError
              RequireFailed
              PromiseFailed
            and $N others

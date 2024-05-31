@@ -75,7 +75,10 @@ impl Contract {
     #[init]
     pub fn new(owner_id: AccountId, metadata: NFTContractMetadata) -> Self {
         require!(!env::state_exists(), &String::from(ContractAlreadyInitialized {}));
-        metadata.assert_valid();
+        let error = metadata.assert_valid();
+        if let Err(e) = error {
+            env::panic_err(e.into())
+        }
         Self {
             tokens: NonFungibleToken::new(
                 StorageKey::NonFungibleToken,
