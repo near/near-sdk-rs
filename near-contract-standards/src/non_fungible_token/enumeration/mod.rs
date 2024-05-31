@@ -57,7 +57,7 @@ pub trait NonFungibleTokenEnumeration {
         &self,
         from_index: Option<U128>, // default: "0"
         limit: Option<u64>,       // default: unlimited (could fail due to gas limit)
-    ) -> Vec<Token>;
+    ) -> Result<Vec<Token>, BaseError>;
 
     /// Get number of tokens owned by a given account
     ///

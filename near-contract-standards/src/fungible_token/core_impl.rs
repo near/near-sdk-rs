@@ -129,7 +129,7 @@ impl FungibleToken {
         amount: Balance,
         memo: Option<String>,
     ) -> Result<(), BaseError> {
-        require!(sender_id != receiver_id, "Sender and receiver should be different");
+        require_or_err!(sender_id != receiver_id, ReceiverIsSender::new());
         require_or_err!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
         unwrap_or_err!(self.internal_withdraw(sender_id, amount));
         unwrap_or_err!(self.internal_deposit(receiver_id, amount));
@@ -154,6 +154,23 @@ impl FungibleToken {
     }
 }
 
+#[contract_error]
+pub struct ReceiverIsSender {
+    pub message: String,
+}
+
+impl ReceiverIsSender {
+    pub fn new() -> Self {
+        Self { message: "The receiver should be different from the sender".to_string() }
+    }
+}
+
+impl Default for ReceiverIsSender {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FungibleTokenCore for FungibleToken {
     fn ft_transfer(
         &mut self,
@@ -175,7 +192,7 @@ impl FungibleTokenCore for FungibleToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
-        require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
+        require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, &String::from(InsufficientGas {}));
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo)

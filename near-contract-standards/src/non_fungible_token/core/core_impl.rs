@@ -6,13 +6,14 @@ use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
+use crate::non_fungible_token::ApprovalNotSupported;
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::errors::{ApprovalNotSupported, InvalidArgument, PermissionDenied};
+use near_sdk::errors::{InsufficientGas, InvalidArgument, PermissionDenied};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require, unwrap_or_err, AccountId, BaseError,
-    BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, contract_error, env, near, require, require_or_err, unwrap_or_err, AccountId,
+    BaseError, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -235,19 +236,22 @@ impl NonFungibleToken {
             }
 
             // If approval_id included, check that it matches
-            require!(
+            require_or_err!(
                 approval_id.is_none() || actual_approval_id == approval_id.as_ref(),
-                format!(
-                    "The actual approval_id {:?} is different from the given approval_id {:?}",
-                    actual_approval_id, approval_id
-                )
+                PermissionDenied::new(Some(
+                    format!(
+                        "The actual approval_id {:?} is different from the given approval_id {:?}",
+                        actual_approval_id, approval_id
+                    )
+                    .as_str()
+                ))
             );
             Some(sender_id)
         } else {
             None
         };
 
-        require!(&owner_id != receiver_id, "Current and next owner must differ");
+        require_or_err!(&owner_id != receiver_id, ReceiverIsSender::new());
 
         unwrap_or_err!(self.internal_transfer_unguarded(token_id, &owner_id, receiver_id));
 
@@ -377,12 +381,29 @@ impl NonFungibleToken {
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
         if let Some((id, storage_usage)) = initial_storage_usage {
-            refund_deposit_to_account(env::storage_usage() - storage_usage, id)
+            unwrap_or_err!(refund_deposit_to_account(env::storage_usage() - storage_usage, id))
         }
 
         // Return any extra attached deposit not used for storage
 
         Ok(Token { token_id, owner_id, metadata: token_metadata, approved_account_ids })
+    }
+}
+
+#[contract_error]
+pub struct ReceiverIsSender {
+    pub message: String,
+}
+
+impl ReceiverIsSender {
+    pub fn new() -> Self {
+        Self { message: "Current and next owner must differ".to_string() }
+    }
+}
+
+impl Default for ReceiverIsSender {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -418,7 +439,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
-        require!(env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL, "More gas is required");
+        require!(env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL, &String::from(InsufficientGas {}));
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) = self
             .internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)

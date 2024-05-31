@@ -12,6 +12,17 @@ impl InvalidArgument {
 }
 
 #[contract_error(inside_nearsdk)]
+pub struct InvalidContractState {
+    pub message: String,
+}
+
+impl InvalidContractState {
+    pub fn new(message: &str) -> Self {
+        Self { message: message.to_string() }
+    }
+}
+
+#[contract_error(inside_nearsdk)]
 pub struct PermissionDenied {
     message: Option<String>,
 }
@@ -97,5 +108,16 @@ pub struct ContractError {
 impl ContractError {
     pub fn new(message: &str) -> Self {
         Self { message: message.to_string() }
+    }
+}
+
+#[contract_error(inside_nearsdk)]
+pub struct InvalidHashLength {
+    pub expected: usize,
+}
+
+impl InvalidHashLength {
+    pub fn new(expected: usize) -> Self {
+        Self { expected }
     }
 }
