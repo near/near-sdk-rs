@@ -87,15 +87,15 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-
-        impl From<#ident> for String {
-            fn from(err: #ident) -> Self {
-                #near_sdk_crate ::serde_json::json!{#near_sdk_crate ::wrap_error(err)}.to_string()
-            }
-        }
     };
     if *ident != "BaseError" {
         expanded.extend(quote! {
+            impl From<#ident> for String {
+                fn from(err: #ident) -> Self {
+                    #near_sdk_crate ::serde_json::json!{#near_sdk_crate ::wrap_error(err)}.to_string()
+                }
+            }
+
             impl From<#ident> for #near_sdk_crate ::BaseError {
                 fn from(err: #ident) -> Self {
                     #near_sdk_crate ::BaseError{

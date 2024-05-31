@@ -11,6 +11,12 @@ pub struct BaseError {
     pub error: serde_json::Value,
 }
 
+impl From<BaseError> for String {
+    fn from(value: BaseError) -> Self {
+        value.error.to_string()
+    }
+}
+
 pub fn wrap_error<T: ContractErrorTrait>(error: T) -> serde_json::Value {
     error.wrap()
 }
