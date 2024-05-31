@@ -26,7 +26,7 @@ use near_sdk::{AccountId, BaseError};
 ///         self.tokens.nft_total_supply()
 ///     }
 ///
-///     fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token> {
+///     fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Result<Vec<Token>, BaseError> {
 ///         self.tokens.nft_tokens(from_index, limit)
 ///     }
 ///

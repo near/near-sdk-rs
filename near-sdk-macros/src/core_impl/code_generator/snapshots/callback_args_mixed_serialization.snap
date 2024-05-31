@@ -35,8 +35,7 @@ pub extern "C" fn method() {
         ::near_sdk::PromiseResult::Successful(x) => x,
         _ => {
             ::near_sdk::env::panic_err(
-                ::near_sdk::errors::CallbackComputationUnsuccessful::new(1u64)
-                    .into(),
+                ::near_sdk::errors::CallbackComputationUnsuccessful::new(1u64).into(),
             )
         }
     };
