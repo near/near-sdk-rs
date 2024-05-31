@@ -28,7 +28,6 @@ impl CallbackComputationUnsuccessful {
     }
 }
 
-
 #[contract_error(inside_nearsdk, sdk)]
 pub struct ActionInJointPromise {
     pub message: String,

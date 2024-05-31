@@ -46,10 +46,8 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
     }
 
     fn nft_supply_for_owner(&self, account_id: AccountId) -> Result<U128, BaseError> {
-        let tokens_per_owner = unwrap_or_err!(
-            self.tokens_per_owner.as_ref(),
-            TokensNotFound::new()
-        );
+        let tokens_per_owner =
+            unwrap_or_err!(self.tokens_per_owner.as_ref(), TokensNotFound::new());
         Ok(tokens_per_owner
             .get(&account_id)
             .map(|account_tokens| U128::from(account_tokens.len() as u128))
@@ -62,10 +60,8 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Result<Vec<Token>, BaseError> {
-        let tokens_per_owner = unwrap_or_err!(
-            self.tokens_per_owner.as_ref(),
-            TokensNotFound::new()
-        );
+        let tokens_per_owner =
+            unwrap_or_err!(self.tokens_per_owner.as_ref(), TokensNotFound::new());
         let token_set = if let Some(token_set) = tokens_per_owner.get(&account_id) {
             token_set
         } else {
@@ -99,8 +95,11 @@ pub struct TokensNotFound {
 
 impl TokensNotFound {
     pub fn new() -> Self {
-        Self { message: "Could not find tokens_per_owner when calling a method on the \
-        enumeration standard.".to_string() }
+        Self {
+            message: "Could not find tokens_per_owner when calling a method on the \
+        enumeration standard."
+                .to_string(),
+        }
     }
 }
 

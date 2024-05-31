@@ -27,9 +27,8 @@ where
     T: BorshDeserialize,
 {
     let bytes = expect_key_exists(env::storage_read(key));
-    let val = T::try_from_slice(&bytes).unwrap_or_else(|_| {
-        env::panic_err(errors::BorshDeserializeError::new("value").into())
-    });
+    let val = T::try_from_slice(&bytes)
+        .unwrap_or_else(|_| env::panic_err(errors::BorshDeserializeError::new("value").into()));
     CacheEntry::new_cached(Some(val))
 }
 
@@ -37,9 +36,8 @@ pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = to_vec(value).unwrap_or_else(|_| {
-        env::panic_err(errors::BorshSerializeError::new("value").into())
-    });
+    let serialized = to_vec(value)
+        .unwrap_or_else(|_| env::panic_err(errors::BorshSerializeError::new("value").into()));
     env::storage_write(key, &serialized);
 }
 
@@ -96,8 +94,7 @@ where
         } else {
             self.cache.set(CacheEntry::new_modified(Some(value))).unwrap_or_else(|_| {
                 env::panic_err(
-                    errors::ContractError::new("cache is checked to not be filled above")
-                        .into(),
+                    errors::ContractError::new("cache is checked to not be filled above").into(),
                 )
             })
         }

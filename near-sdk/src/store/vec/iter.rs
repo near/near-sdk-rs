@@ -52,9 +52,7 @@ where
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let idx = self.range.nth(n)?;
         Some(
-            self.vec
-                .get(idx)
-                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
+            self.vec.get(idx).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }
@@ -73,9 +71,7 @@ where
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let idx = self.range.nth_back(n)?;
         Some(
-            self.vec
-                .get(idx)
-                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
+            self.vec.get(idx).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }
@@ -145,8 +141,7 @@ where
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let idx = self.range.nth(n)?;
         Some(
-            self.get_mut(idx)
-                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
+            self.get_mut(idx).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }
@@ -165,8 +160,7 @@ where
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let idx = self.range.nth_back(n)?;
         Some(
-            self.get_mut(idx)
-                .unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
+            self.get_mut(idx).unwrap_or_else(|| env::panic_err(errors::IndexOutOfBounds {}.into())),
         )
     }
 }

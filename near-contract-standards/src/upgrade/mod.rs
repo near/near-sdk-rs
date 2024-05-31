@@ -1,5 +1,5 @@
-use near_sdk::json_types::U64;
 use near_sdk::errors::ContractUpgradeError;
+use near_sdk::json_types::U64;
 use near_sdk::{contract_error, env, near, require, AccountId, Duration, Promise, Timestamp};
 
 type WrappedDuration = U64;
@@ -78,8 +78,9 @@ impl Upgradable for Upgrade {
                 .into(),
             );
         }
-        let code = env::storage_read(b"upgrade")
-            .unwrap_or_else(|| env::panic_err(ContractUpgradeError::new("No upgrade code available").into()));
+        let code = env::storage_read(b"upgrade").unwrap_or_else(|| {
+            env::panic_err(ContractUpgradeError::new("No upgrade code available").into())
+        });
         env::storage_remove(b"upgrade");
         Promise::new(env::current_account_id()).deploy_contract(code)
     }

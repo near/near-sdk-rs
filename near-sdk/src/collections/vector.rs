@@ -176,9 +176,8 @@ where
     T: BorshSerialize,
 {
     fn serialize_element(element: &T) -> Vec<u8> {
-        to_vec(element).unwrap_or_else(|_| {
-            env::panic_err(errors::BorshSerializeError::new("element").into())
-        })
+        to_vec(element)
+            .unwrap_or_else(|_| env::panic_err(errors::BorshSerializeError::new("element").into()))
     }
 
     /// Appends an element to the back of the collection.

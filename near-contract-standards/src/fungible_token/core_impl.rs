@@ -3,10 +3,10 @@ use crate::fungible_token::events::{FtBurn, FtTransfer};
 use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
-use near_sdk::json_types::U128;
 use near_sdk::errors::{
     InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
 };
+use near_sdk::json_types::U128;
 use near_sdk::{
     assert_one_yocto, contract_error, env, log, near, require, unwrap_or_err, AccountId, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
@@ -235,9 +235,10 @@ impl FungibleToken {
                 if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
                     self.accounts.insert(&receiver_id, &new_receiver_balance);
                 } else {
-                    return Err(
-                        InsufficientBalance::new(Some("The receiver account doesn't have enough balance")).into()
-                    );
+                    return Err(InsufficientBalance::new(Some(
+                        "The receiver account doesn't have enough balance",
+                    ))
+                    .into());
                 }
 
                 if let Some(sender_balance) = self.accounts.get(sender_id) {

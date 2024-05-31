@@ -57,9 +57,7 @@ where
                         Some(modified) => {
                             buf.clear();
                             BorshSerialize::serialize(modified, &mut buf).unwrap_or_else(|_| {
-                                env::panic_err(
-                                    errors::BorshSerializeError::new("element").into(),
-                                )
+                                env::panic_err(errors::BorshSerializeError::new("element").into())
                             });
                             env::storage_write(&key_buf, &buf);
                         }

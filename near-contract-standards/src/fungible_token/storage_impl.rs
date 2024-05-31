@@ -2,7 +2,8 @@ use crate::fungible_token::{Balance, FungibleToken};
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::errors::InsufficientBalance;
 use near_sdk::{
-    assert_one_yocto, env, log, unwrap_or_err, contract_error, AccountId, BaseError, NearToken, Promise,
+    assert_one_yocto, contract_error, env, log, unwrap_or_err, AccountId, BaseError, NearToken,
+    Promise,
 };
 
 use super::core_impl::AccountNotRegistered;
@@ -53,7 +54,10 @@ pub struct PositiveBalanceUnregistering {
 
 impl PositiveBalanceUnregistering {
     pub fn new() -> Self {
-        Self { message: "Can't unregister the account with the positive balance without force".to_string() }
+        Self {
+            message: "Can't unregister the account with the positive balance without force"
+                .to_string(),
+        }
     }
 }
 
