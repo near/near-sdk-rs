@@ -29,7 +29,8 @@ use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::standard_errors::ContractAlreadyInitialized;
 use near_sdk::{
-    env, log, near, require, unwrap_or_err, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue, BaseError
+    env, log, near, require, unwrap_or_err, AccountId, BaseError, BorshStorageKey, NearToken,
+    PanicOnDefault, PromiseOrValue,
 };
 
 #[derive(PanicOnDefault)]
@@ -81,11 +82,11 @@ impl Contract {
         };
         let register = this.token.internal_register_account(&owner_id);
         if let Err(e) = register {
-            env::panic_str(&String::from(e))
+            env::panic_err(e.into())
         }
         let deposit = this.token.internal_deposit(&owner_id, total_supply.into());
         if let Err(e) = deposit {
-            env::panic_str(&String::from(e))
+            env::panic_err(e.into())
         }
 
         near_contract_standards::fungible_token::events::FtMint {
@@ -102,7 +103,12 @@ impl Contract {
 #[near]
 impl FungibleTokenCore for Contract {
     #[payable]
-    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) -> Result<(), BaseError> {
+    fn ft_transfer(
+        &mut self,
+        receiver_id: AccountId,
+        amount: U128,
+        memo: Option<String>,
+    ) -> Result<(), BaseError> {
         self.token.ft_transfer(receiver_id, amount, memo)
     }
 
@@ -135,8 +141,11 @@ impl FungibleTokenResolver for Contract {
         receiver_id: AccountId,
         amount: U128,
     ) -> Result<U128, BaseError> {
-        let (used_amount, burned_amount) = unwrap_or_err!(
-            self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount));
+        let (used_amount, burned_amount) = unwrap_or_err!(self.token.internal_ft_resolve_transfer(
+            &sender_id,
+            receiver_id,
+            amount
+        ));
         if burned_amount > 0 {
             log!("Account @{} burned {}", sender_id, burned_amount);
         }
@@ -163,7 +172,9 @@ impl StorageManagement for Contract {
     #[payable]
     fn storage_unregister(&mut self, force: Option<bool>) -> Result<bool, BaseError> {
         #[allow(unused_variables)]
-        if let Some((account_id, balance)) = unwrap_or_err!(self.token.internal_storage_unregister(force)) {
+        if let Some((account_id, balance)) =
+            unwrap_or_err!(self.token.internal_storage_unregister(force))
+        {
             log!("Closed @{} with {}", account_id, balance);
             Ok(true)
         } else {

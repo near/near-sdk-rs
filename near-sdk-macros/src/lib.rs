@@ -63,7 +63,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #error_type
             }
 
-            fn wrap(&self) -> String {
+            fn wrap(&self) -> #near_sdk_crate ::serde_json::Value {
                 #[#near_sdk_crate ::near(inside_nearsdk=#bool_inside_nearsdk_for_macro, serializers = [json])]
                 struct ErrorWrapper<T> {
                     name: String,
@@ -84,13 +84,13 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
                             info: self
                         }
                     } }
-                }.to_string()
+                }
             }
         }
 
         impl From<#ident> for String {
             fn from(err: #ident) -> Self {
-                #near_sdk_crate ::wrap_error(err)
+                #near_sdk_crate ::serde_json::json!{#near_sdk_crate ::wrap_error(err)}.to_string()
             }
         }
     };
@@ -99,7 +99,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
             impl From<#ident> for #near_sdk_crate ::BaseError {
                 fn from(err: #ident) -> Self {
                     #near_sdk_crate ::BaseError{
-                        error: #near_sdk_crate ::serde_json::json!{String::from(err)},
+                        error: #near_sdk_crate ::wrap_error(err),
                     }
                 }
             }

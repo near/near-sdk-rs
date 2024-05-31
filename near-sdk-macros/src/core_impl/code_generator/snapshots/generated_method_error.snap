@@ -9,6 +9,6 @@ impl Contract {
         &self,
         err: <Result<u64, &'static str> as near_sdk::__private::ResultTypeExt>::Error,
     ) {
-        ::near_sdk::env::panic_str(&String::from(err));
+        ::near_sdk::env::panic_str(err));
     }
 }

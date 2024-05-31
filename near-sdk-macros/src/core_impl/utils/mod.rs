@@ -181,7 +181,7 @@ pub fn get_error_type_from_status(status_result: &StatusResult) -> syn::Type {
 pub fn standardized_error_panic_tokens() -> TokenStream2 {
     quote! {
         // Initial error is wrapped into a struct to be able to serialize the type of it.
-        ::near_sdk::env::panic_str(&String::from(err));
+        ::near_sdk::env::panic_err(err.into());
     }
 }
 

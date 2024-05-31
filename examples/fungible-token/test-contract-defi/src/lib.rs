@@ -45,7 +45,9 @@ impl FungibleTokenReceiver for DeFi {
         // Verifying that we were called by fungible token contract that we expect.
         require!(
             env::predecessor_account_id() == self.fungible_token_account_id,
-            &String::from(PermissionDenied::new(Some("Only supports the one fungible token contract")))
+            &String::from(PermissionDenied::new(Some(
+                "Only supports the one fungible token contract"
+            )))
         );
         log!("in {} tokens from @{} ft_on_transfer, msg = {}", amount.0, sender_id, msg);
         match msg.as_str() {
