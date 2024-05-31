@@ -8,7 +8,7 @@ use std::collections::HashMap;
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near, BaseError};
 /// use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenResolver, TokenId};
 ///
 /// #[near(contract_state)]
@@ -19,7 +19,7 @@ use std::collections::HashMap;
 /// #[near]
 /// impl NonFungibleTokenResolver for Contract {
 ///     #[private]
-///     fn nft_resolve_transfer(&mut self, previous_owner_id: AccountId, receiver_id: AccountId, token_id: TokenId, approved_account_ids: Option<HashMap<AccountId, u64>>) -> bool {
+///     fn nft_resolve_transfer(&mut self, previous_owner_id: AccountId, receiver_id: AccountId, token_id: TokenId, approved_account_ids: Option<HashMap<AccountId, u64>>) -> Result<bool, BaseError> {
 ///         self.tokens.nft_resolve_transfer(previous_owner_id, receiver_id, token_id, approved_account_ids)
 ///     }
 /// }

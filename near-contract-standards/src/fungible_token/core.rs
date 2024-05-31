@@ -9,7 +9,7 @@ use near_sdk::PromiseOrValue;
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near, PanicOnDefault, AccountId, PromiseOrValue};
+/// use near_sdk::{near, PanicOnDefault, AccountId, PromiseOrValue, BaseError};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenCore};
@@ -25,7 +25,7 @@ use near_sdk::PromiseOrValue;
 /// #[near]
 /// impl FungibleTokenCore for Contract {
 ///     #[payable]
-///     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
+///     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) -> Result<(), BaseError> {
 ///         self.token.ft_transfer(receiver_id, amount, memo)
 ///     }
 ///

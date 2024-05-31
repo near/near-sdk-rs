@@ -24,7 +24,7 @@ use near_sdk::PromiseOrValue;
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near, BaseError};
 /// use near_contract_standards::non_fungible_token::{core::NonFungibleTokenCore, NonFungibleToken, TokenId, Token};
 ///
 /// #[near(contract_state)]
@@ -35,8 +35,8 @@ use near_sdk::PromiseOrValue;
 /// #[near]
 /// impl NonFungibleTokenCore for Contract {
 ///     #[payable]
-///    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, approval_id: Option<u64>, memo: Option<String>) {
-///        self.tokens.nft_transfer(receiver_id, token_id, approval_id, memo);
+///    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, approval_id: Option<u64>, memo: Option<String>) -> Result<(), BaseError> {
+///        self.tokens.nft_transfer(receiver_id, token_id, approval_id, memo)
 ///    }
 ///
 ///    #[payable]

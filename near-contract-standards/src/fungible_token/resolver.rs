@@ -5,7 +5,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId, BaseError};
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near, PanicOnDefault, AccountId, log};
+/// use near_sdk::{near, PanicOnDefault, AccountId, log, unwrap_or_err, BaseError};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenResolver};
@@ -26,13 +26,13 @@ use near_sdk::{ext_contract, json_types::U128, AccountId, BaseError};
 ///         sender_id: AccountId,
 ///         receiver_id: AccountId,
 ///         amount: U128,
-///     ) -> U128 {
-///         let (used_amount, burned_amount) =
-///             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
+///     ) -> Result<U128, BaseError> {
+///         let (used_amount, burned_amount) = unwrap_or_err!(
+///             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount));
 ///         if burned_amount > 0 {
 ///             log!("Account @{} burned {}", sender_id, burned_amount);
 ///         }
-///         used_amount.into()
+///         Ok(used_amount.into())
 ///     }
 /// }
 /// ```

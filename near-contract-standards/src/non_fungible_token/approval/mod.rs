@@ -20,7 +20,7 @@ use near_sdk::{AccountId, BaseError, Promise};
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near, Promise};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near, Promise, BaseError};
 /// use near_contract_standards::non_fungible_token::{TokenId, NonFungibleToken, NonFungibleTokenApproval};
 ///
 /// #[near(contract_state)]
@@ -32,22 +32,22 @@ use near_sdk::{AccountId, BaseError, Promise};
 /// #[near]
 /// impl NonFungibleTokenApproval for Contract {
 ///     #[payable]
-///     fn nft_approve(&mut self, token_id: TokenId, account_id: AccountId, msg: Option<String>) -> Option<Promise> {
+///     fn nft_approve(&mut self, token_id: TokenId, account_id: AccountId, msg: Option<String>) -> Result<Option<Promise>, BaseError> {
 ///         self.tokens.nft_approve(token_id, account_id, msg)
 ///     }
 ///
 ///     #[payable]
-///     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) {
-///         self.tokens.nft_revoke(token_id, account_id);
+///     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) -> Result<(), BaseError> {
+///         self.tokens.nft_revoke(token_id, account_id)
 ///     }
 ///
 ///     #[payable]
-///     fn nft_revoke_all(&mut self, token_id: TokenId) {
-///         self.tokens.nft_revoke_all(token_id);
+///     fn nft_revoke_all(&mut self, token_id: TokenId) -> Result<(), BaseError> {
+///         self.tokens.nft_revoke_all(token_id)
 ///
 ///     }
 ///
-///     fn nft_is_approved(&self, token_id: TokenId, approved_account_id: AccountId, approval_id: Option<u64>) -> bool {
+///     fn nft_is_approved(&self, token_id: TokenId, approved_account_id: AccountId, approval_id: Option<u64>) -> Result<bool, BaseError> {
 ///         self.tokens.nft_is_approved(token_id, approved_account_id, approval_id)
 ///     }
 /// }

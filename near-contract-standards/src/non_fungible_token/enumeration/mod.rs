@@ -10,7 +10,7 @@ use near_sdk::{AccountId, BaseError};
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near, Promise};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near, Promise, BaseError};
 /// use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenEnumeration, TokenId, Token};
 /// use near_sdk::json_types::U128;
 ///
@@ -30,11 +30,11 @@ use near_sdk::{AccountId, BaseError};
 ///         self.tokens.nft_tokens(from_index, limit)
 ///     }
 ///
-///     fn nft_supply_for_owner(&self, account_id: AccountId) -> U128 {
+///     fn nft_supply_for_owner(&self, account_id: AccountId) -> Result<U128, BaseError> {
 ///         self.tokens.nft_supply_for_owner(account_id)
 ///     }
 ///
-///     fn nft_tokens_for_owner(&self, account_id: AccountId, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token> {
+///     fn nft_tokens_for_owner(&self, account_id: AccountId, from_index: Option<U128>, limit: Option<u64>) -> Result<Vec<Token>, BaseError> {
 ///         self.tokens.nft_tokens_for_owner(account_id, from_index, limit)
 ///     }
 /// }
