@@ -208,3 +208,29 @@ impl RegisterEmpty {
         }
     }
 }
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct CallbackComputationUnsuccessful {
+    pub index: u64,
+}
+
+impl CallbackComputationUnsuccessful {
+    pub fn new(index: u64) -> Self {
+        Self {
+            index
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct DepositNotAccepted {
+    pub method: String,
+}
+
+impl DepositNotAccepted {
+    pub fn new(method: &str) -> Self {
+        Self {
+            method: method.to_string()
+        }
+    }
+}

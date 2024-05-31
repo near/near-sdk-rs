@@ -168,10 +168,10 @@ impl ImplItemMethodInfo {
 
         let reject_deposit_code = || {
             // If method is not payable, do a check to make sure that it doesn't consume deposit
-            let error = format!("Method {} doesn't accept deposit", self.attr_signature_info.ident);
+            let method_name = &self.attr_signature_info.ident;
             quote! {
                 if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
-                    ::near_sdk::env::panic_str(#error);
+                    ::near_sdk::env::panic_err(::near_sdk::standard_errors::DepositNotAccepted::new(#method_name).into());
                 }
             }
         };
@@ -222,7 +222,7 @@ impl ImplItemMethodInfo {
                 if !init_method.ignores_state {
                     quote! {
                         if ::near_sdk::env::state_exists() {
-                            ::near_sdk::env::panic_str("The contract has already been initialized");
+                            ::near_sdk::env::panic_err(::near_sdk::standard_errors::ContractAlreadyInitialized::new().into());
                         }
                     }
                 } else {

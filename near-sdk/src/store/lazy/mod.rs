@@ -93,7 +93,7 @@ where
         } else {
             self.cache
                 .set(CacheEntry::new_modified(Some(value)))
-                .unwrap_or_else(|_| env::panic_str("cache is checked to not be filled above"))
+                .unwrap_or_else(|_| env::panic_err(standard_errors::AnyError::new("cache is checked to not be filled above").into()))
         }
     }
 
