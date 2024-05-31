@@ -95,3 +95,80 @@ impl AnyError {
         Self { message: message.to_string() }
     }
 }
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct PrivateMethod {
+    pub method_name: String,
+}
+
+impl PrivateMethod {
+    pub fn new(method_name: &str) -> Self {
+        Self { method_name: method_name.to_string() }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct ActionInJointPromise {
+    pub message: String,
+}
+
+impl ActionInJointPromise {
+    pub fn new() -> Self {
+        Self {
+            message: "Cannot add action to a joint promise.".to_string(),
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct PromiseAlreadyScheduled {
+    pub message: String,
+}
+
+impl PromiseAlreadyScheduled {
+    pub fn new() -> Self {
+        Self {
+            message: "Cannot callback promise which is already scheduled after another".to_string(),
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct CallbackJointPromise {
+    pub message: String,
+}
+
+impl CallbackJointPromise {
+    pub fn new() -> Self {
+        Self {
+            message: "Cannot callback joint promise".to_string(),
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct BorshSerializeError {
+    subject: String
+}
+
+impl BorshSerializeError {
+    pub fn new(subject: &str) -> Self {
+        Self {
+            subject: subject.to_string()
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct BorshDeserializeError {
+    subject: String
+}
+
+impl BorshDeserializeError {
+    pub fn new(subject: &str) -> Self {
+        Self {
+            subject: subject.to_string()
+        }
+    }
+}
+

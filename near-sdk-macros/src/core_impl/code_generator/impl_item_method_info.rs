@@ -199,10 +199,10 @@ impl ImplItemMethodInfo {
 
     fn private_check_tokens(&self) -> TokenStream2 {
         if self.attr_signature_info.is_private() {
-            let error = format!("Method {} is private", self.attr_signature_info.ident);
+            let method_name = &self.attr_signature_info.ident;
             quote! {
                 if ::near_sdk::env::current_account_id() != ::near_sdk::env::predecessor_account_id() {
-                    ::near_sdk::env::panic_str(#error);
+                    ::near_sdk::standard_errors::PrivateMethod::new(#method_name);
                 }
             }
         } else {
