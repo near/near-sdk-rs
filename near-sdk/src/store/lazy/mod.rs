@@ -25,7 +25,7 @@ fn expect_key_exists<T>(val: Option<T>) -> T {
 }
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
+    val.unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
 }
 
 pub(crate) fn load_and_deserialize<T>(key: &[u8]) -> CacheEntry<T>
@@ -34,7 +34,7 @@ where
 {
     let bytes = expect_key_exists(env::storage_read(key));
     let val =
-        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_str(ERR_VALUE_DESERIALIZATION));
+        T::try_from_slice(&bytes).unwrap_or_else(|_| env::panic_err(standard_errors::BorshDeserializeError::new("value").into()));
     CacheEntry::new_cached(Some(val))
 }
 
@@ -42,7 +42,7 @@ pub(crate) fn serialize_and_store<T>(key: &[u8], value: &T)
 where
     T: BorshSerialize,
 {
-    let serialized = to_vec(value).unwrap_or_else(|_| env::panic_str(ERR_VALUE_SERIALIZATION));
+    let serialized = to_vec(value).unwrap_or_else(|_| env::panic_err(standard_errors::BorshSerializeError::new("value").into()));
     env::storage_write(key, &serialized);
 }
 

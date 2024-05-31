@@ -2,8 +2,8 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{LookupMap, ToKey, UnorderedMap, ValueAndIndex, ERR_INCONSISTENT_STATE};
-use crate::{env, store::free_list};
+use super::{LookupMap, ToKey, UnorderedMap, ValueAndIndex};
+use crate::{env, store::free_list, standard_errors};
 
 impl<'a, K, V, H> IntoIterator for &'a UnorderedMap<K, V, H>
 where
@@ -73,7 +73,7 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth(n)?;
-        let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        let entry = self.values.get(key).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
 
         Some((key, &entry.value))
     }
@@ -114,7 +114,7 @@ where
 
     fn nth_back(&mut self, n: usize) -> Option<Self::Item> {
         let key = self.keys.nth_back(n)?;
-        let entry = self.values.get(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+        let entry = self.values.get(key).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
 
         Some((key, &entry.value))
     }
@@ -150,7 +150,7 @@ where
         V: BorshDeserialize,
     {
         let entry =
-            self.values.get_mut(key).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+            self.values.get_mut(key).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
         //* SAFETY: The lifetime can be swapped here because we can assert that the iterator
         //*         will only give out one mutable reference for every individual key in the bucket
         //*         during the iteration, and there is no overlap. This operates under the
@@ -464,7 +464,7 @@ where
         let value = self
             .values
             .remove(&key)
-            .unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
+            .unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
             .value;
 
         (key, value)

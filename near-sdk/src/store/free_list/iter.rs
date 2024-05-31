@@ -2,8 +2,8 @@ use std::iter::FusedIterator;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use super::{FreeList, Slot, ERR_INCONSISTENT_STATE};
-use crate::{env, store::vec};
+use super::{FreeList, Slot};
+use crate::{env, standard_errors, store::vec};
 
 impl<'a, T> IntoIterator for &'a FreeList<T>
 where
@@ -30,7 +30,7 @@ where
 }
 
 fn decrement_count(count: &mut u32) {
-    *count = count.checked_sub(1).unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE));
+    *count = count.checked_sub(1).unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()));
 }
 
 /// An iterator over elements in the storage bucket. This only yields the occupied entries.
@@ -73,7 +73,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_str(ERR_INCONSISTENT_STATE)
+                    env::panic_err(standard_errors::InconsistentState::new().into())
                 }
             }
         }
@@ -110,7 +110,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_str(ERR_INCONSISTENT_STATE)
+                    env::panic_err(standard_errors::InconsistentState::new().into())
                 }
             }
         }
@@ -157,7 +157,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_str(ERR_INCONSISTENT_STATE)
+                    env::panic_err(standard_errors::InconsistentState::new().into())
                 }
             }
         }
@@ -194,7 +194,7 @@ where
                 None => {
                     // This should never be hit, because if 0 occupied elements, should have
                     // returned before the loop
-                    env::panic_str(ERR_INCONSISTENT_STATE)
+                    env::panic_err(standard_errors::InconsistentState::new().into())
                 }
             }
         }

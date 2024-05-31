@@ -172,3 +172,23 @@ impl BorshDeserializeError {
     }
 }
 
+#[contract_error(inside_nearsdk, sdk)]
+pub struct InvalidTreeMapRange {
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct InconsistentState {
+    pub message: String,
+}
+
+impl InconsistentState {
+    pub fn new() -> Self {
+        Self {
+            message: "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?".to_string()
+        }
+    }
+}
+
+#[contract_error(inside_nearsdk, sdk)]
+pub struct IndexOutOfBounds {
+}

@@ -64,15 +64,14 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk_macros::NearSchema;
 
 pub use self::iter::{Drain, Iter, IterMut};
-use super::ERR_INCONSISTENT_STATE;
-use crate::{env, IntoStorageKey};
+use crate::{env, IntoStorageKey, standard_errors};
 
 use super::IndexMap;
 
 const ERR_INDEX_OUT_OF_BOUNDS: &str = "Index out of bounds";
 
 fn expect_consistent_state<T>(val: Option<T>) -> T {
-    val.unwrap_or_else(|| env::panic_str(ERR_INCONSISTENT_STATE))
+    val.unwrap_or_else(|| env::panic_err(standard_errors::InconsistentState::new().into()))
 }
 
 /// An iterable implementation of vector that stores its content on the trie. This implementation
