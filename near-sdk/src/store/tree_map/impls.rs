@@ -2,8 +2,8 @@ use std::borrow::Borrow;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
-use crate::env;
-use crate::store::{key::ToKey, TreeMap, ERR_NOT_EXIST};
+use crate::{env, standard_errors};
+use crate::store::{key::ToKey, TreeMap};
 
 impl<K, V, H> Extend<(K, V)> for TreeMap<K, V, H>
 where
