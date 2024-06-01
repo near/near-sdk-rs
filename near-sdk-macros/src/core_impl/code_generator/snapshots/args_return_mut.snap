@@ -21,7 +21,7 @@ pub extern "C" fn method() {
         )
         .expect("Failed to deserialize input from JSON.");
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    let result = contract.method(k, m);
+    let result = Hello::method(&mut contract, k, m);
     let result = ::near_sdk::serde_json::to_vec(&result)
         .expect("Failed to serialize the return value using JSON.");
     ::near_sdk::env::value_return(&result);
