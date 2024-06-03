@@ -325,4 +325,4 @@ The minimum supported Rust version is currently `1.72`. There are no guarantees 
 
 ## Contributing
 
-If you are interested in contributing, please look at the [contributing guidelines](CONTRIBUTING.md).
+If you are interested in contributing, please look at the [contributing guidelines](https://github.com/near/near-sdk-rs/blob/master/CONTRIBUTING.md).
