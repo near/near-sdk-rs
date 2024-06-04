@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [5.2.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.1.0...near-sdk-v5.2.0) - 2024-06-04
+
+### Added
+- New `near_sdk::store::IterableSet` - a better alternative to `UnorderedSet`, which has performance limitations on iteration over elements ([#1175](https://github.com/near/near-sdk-rs/pull/1175))
+- New `near_sdk::store::IterableMap` that addresses the iteration performance issue of `store::UnorderedMap` ([#1164](https://github.com/near/near-sdk-rs/pull/1164))
+
+### Fixed
+- use FQDNs when calling contract methods to avoid method names collision ([#1186](https://github.com/near/near-sdk-rs/pull/1186))
+
+### Other
+- add yield execution host functions ([#1183](https://github.com/near/near-sdk-rs/pull/1183))
+- fix new lints, introduced in 1.78 ([#1181](https://github.com/near/near-sdk-rs/pull/1181))
+- *(store, collections)* replace manual `borsh` trait impl-s  with derives and correct bounds within ([#1176](https://github.com/near/near-sdk-rs/pull/1176))
+- Cover store::Vector fully + coverage for all the collections relevant to IterableMap implementation. ([#1173](https://github.com/near/near-sdk-rs/pull/1173))
+- Cover `store` collections with tests. ([#1172](https://github.com/near/near-sdk-rs/pull/1172))
+
 ## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0...near-sdk-v5.1.0) - 2024-03-28
 
 ### Added

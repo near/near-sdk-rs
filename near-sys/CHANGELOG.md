@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.1...near-sys-v0.2.2) - 2024-06-04
+
+### Other
+- add yield execution host functions ([#1183](https://github.com/near/near-sdk-rs/pull/1183))
+
 ## [0.2.1](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sys-v0.2.1) - 2023-11-18
 
 ### Other
