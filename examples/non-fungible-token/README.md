@@ -1,9 +1,9 @@
 Non-fungible Token (NFT)
 ===================
 
-Example implementation of a [non-fungible token] contract which uses [near-contract-standards].
+Example implementation of a [Non-Fungible Token] contract which uses [near-contract-standards].
 
-  [non-fungible token]: https://nomicon.io/Standards/NonFungibleToken/README.html
+  [Non-Fungible Token]: https://nomicon.io/Standards/NonFungibleToken
   [near-contract-standards]: https://github.com/near/near-sdk-rs/tree/master/near-contract-standards
 
 NOTES:
