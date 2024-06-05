@@ -1,4 +1,4 @@
-/// Initialization Methods inner #[near] annotation.
+/// Initialization Methods inner #[near] annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#initialization-methods)
 ///
 /// By default, the Default::default() implementation of a contract will be used to initialize a contract. There can be a custom initialization function which takes parameters or performs custom logic with the following #[init] annotation:
 /// # Examples
@@ -25,7 +25,7 @@
 /// ```
 pub fn init() {}
 
-/// Payable Methods inner #[near] annotation.
+/// Payable Methods inner #[near] annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#payable-methods)
 ///
 /// Methods can be annotated with #[payable] to allow tokens to be transferred with the method invocation. For more information, see payable methods.
 ///
@@ -53,7 +53,7 @@ pub fn init() {}
 /// ```
 pub fn payable() {}
 
-/// Private Methods inner #[near] annotation.
+/// Private Methods inner #[near] annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#private-methods)
 ///
 /// Some methods need to be exposed to allow the contract to call a method on itself through a promise, but want to disallow any other contract to call it. For this, use the #[private] annotation to panic when this method is called externally. See [private methods](https://docs.near.org/sdk/rust/contract-interface/private-methods) for more information.
 ///
