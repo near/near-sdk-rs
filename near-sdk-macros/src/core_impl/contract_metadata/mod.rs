@@ -79,7 +79,6 @@ impl ContractMetadata {
         if std::env::var("CARGO_NEAR_BUILD_ENVIRONMENT").is_ok() {
             self.build_info = Some(
                 build_info::BuildInfo::from_env()
-                    .map_err(|err| err.to_string())
                     .expect("Build Details Extension field not provided"),
             );
         }
