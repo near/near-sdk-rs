@@ -44,26 +44,18 @@ impl std::fmt::Display for FieldError {
 
 impl BuildInfo {
     pub(super) fn from_env() -> Result<Self, FieldError> {
-        macro_rules! env_field {
-            ($field: ident, $env_key: expr, $error: expr) => {
-                let $field = std::env::var($env_key).map_err(|_| $error)?;
-                if $field.is_empty() {
-                    return Err($error);
-                }
-            };
+        let build_environment = std::env::var("CARGO_NEAR_BUILD_ENVIRONMENT")
+            .map_err(|_| FieldError::EmptyBuildEnvironment)?;
+        if build_environment.is_empty() {
+            return Err(FieldError::EmptyBuildEnvironment);
         }
 
-        env_field!(
-            build_environment,
-            "CARGO_NEAR_BUILD_ENVIRONMENT",
-            FieldError::EmptyBuildEnvironment
-        );
         let build_command = {
-            env_field!(
-                build_command,
-                "CARGO_NEAR_BUILD_COMMAND",
-                FieldError::UnsetOrEmptyBuildCommand
-            );
+            let build_command = std::env::var("CARGO_NEAR_BUILD_COMMAND")
+                .map_err(|_| FieldError::UnsetOrEmptyBuildCommand)?;
+            if build_command.is_empty() {
+                return Err(FieldError::UnsetOrEmptyBuildCommand);
+            }
             let build_command =
                 build_command.split_whitespace().map(|st| st.to_string()).collect::<Vec<_>>();
             if build_command.is_empty() {
@@ -71,11 +63,11 @@ impl BuildInfo {
             }
             build_command
         };
-        env_field!(
-            source_code_snapshot,
-            "CARGO_NEAR_SOURCE_CODE_SNAPSHOT",
-            FieldError::UnsetOrEmptySourceSnapshot
-        );
+        let source_code_snapshot = std::env::var("CARGO_NEAR_SOURCE_CODE_SNAPSHOT")
+            .map_err(|_| FieldError::UnsetOrEmptySourceSnapshot)?;
+        if source_code_snapshot.is_empty() {
+            return Err(FieldError::UnsetOrEmptySourceSnapshot);
+        }
         let contract_path =
             std::env::var("CARGO_NEAR_CONTRACT_PATH").map_err(|_| FieldError::UnsetContractPath)?;
 
