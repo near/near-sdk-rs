@@ -53,22 +53,20 @@ struct Standard {
 
 impl ContractMetadata {
     fn populate(mut self) -> Self {
-        macro_rules! env_field {
-            ($field: expr, $env_result: expr) => {
-                if $field.is_none() {
-                    let field_val = $env_result.unwrap_or(String::from(""));
-                    if !field_val.is_empty() {
-                        $field = Some(field_val);
-                    }
-                }
-            };
+        if self.link.is_none() {
+            let field_val = std::env::var("CARGO_NEAR_REPO_LINK_HINT")
+                .or(std::env::var("CARGO_PKG_REPOSITORY"))
+                .unwrap_or(String::from(""));
+            if !field_val.is_empty() {
+                self.link = Some(field_val);
+            }
         }
-
-        env_field!(
-            self.link,
-            std::env::var("CARGO_NEAR_REPO_LINK_HINT").or(std::env::var("CARGO_PKG_REPOSITORY"))
-        );
-        env_field!(self.version, std::env::var("CARGO_PKG_VERSION"));
+        if self.version.is_none() {
+            let field_val = std::env::var("CARGO_PKG_VERSION").unwrap_or(String::from(""));
+            if !field_val.is_empty() {
+                self.version = Some(field_val);
+            }
+        }
 
         // adding nep330 if it is not present
         if self.standards.is_empty()
