@@ -14,7 +14,7 @@ pub extern "C" fn private_method() {
         ::near_sdk::env::panic_str("Method private_method doesn't accept deposit");
     }
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    contract.private_method();
+    Hello::private_method(&mut contract);
     ::near_sdk::env::state_write(&contract);
 }
 

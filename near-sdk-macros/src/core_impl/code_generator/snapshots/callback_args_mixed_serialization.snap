@@ -33,6 +33,6 @@ pub extern "C" fn method() {
     let z: ::std::vec::Vec<u8> = ::near_sdk::serde_json::from_slice(&data)
         .expect("Failed to deserialize callback using JSON");
     let contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    contract.method(&mut x, y, z);
+    Hello::method(&contract, &mut x, y, z);
 }
 
