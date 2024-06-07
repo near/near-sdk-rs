@@ -1,0 +1,12 @@
+[package]
+name = "store"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = { git = "https://github.com/near/near-sdk-rs.git", branch = "master", features = ["default", "unstable"]}
+
+[workspace]
