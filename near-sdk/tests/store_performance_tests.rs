@@ -60,6 +60,7 @@ async fn dev_generate(
     Ok((account.into_result()?, collection))
 }
 #[tokio::test]
+#[allow(clippy::needless_range_loop)]
 // Note that different types of tests are executed sequentially, as the previous tests are populating
 // the data.
 // Also, the tests for each collection are executed sequentially, as otherwise near-sandbox doesn't cope.
