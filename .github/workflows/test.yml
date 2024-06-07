@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable, 1.78.0]
+        toolchain: [stable, 1.76.0]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -24,10 +24,10 @@ jobs:
           default: true
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Downgrade dependencies
-        run: |
-          cargo update -p clap@4.5.4 --precise 4.4.18
-          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
+#      - name: Downgrade dependencies
+#        run: |
+#          cargo update -p clap@4.5.4 --precise 4.4.18
+#          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
       - name: test
         run: cargo test --all --features unstable,legacy
   lint:
