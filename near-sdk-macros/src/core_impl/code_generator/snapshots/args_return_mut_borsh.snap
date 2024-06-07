@@ -21,7 +21,7 @@ pub extern "C" fn method() {
         )
         .expect("Failed to deserialize input from Borsh.");
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    let result = contract.method(k, m);
+    let result = Hello::method(&mut contract, k, m);
     let result = ::near_sdk::borsh::to_vec(&result)
         .expect("Failed to serialize the return value using Borsh.");
     ::near_sdk::env::value_return(&result);

@@ -14,7 +14,7 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{GasWeight, PromiseError};
+use crate::{CryptoHash, GasWeight, PromiseError};
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -767,6 +767,55 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// function.
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
+}
+
+/// Creates a promise that will execute a method on the current account with given arguments.
+/// Writes a resumption token (data id) to the specified register. The callback method will execute
+/// after promise_yield_resume is called with the data id OR enough blocks have passed. The timeout
+/// length is specified as a protocol-level parameter yield_timeout_length_in_blocks = 200.
+///
+/// The callback method will execute with a single promise input. Input will either be a payload
+/// provided by the user when calling promise_yield_resume, or a PromiseError in case of timeout.
+///
+/// Resumption tokens are specific to the local account; promise_yield_resume must be called from
+/// a method of the same contract.
+pub fn promise_yield_create(
+    function_name: &str,
+    arguments: &[u8],
+    gas: Gas,
+    weight: GasWeight,
+    register_id: u64,
+) -> PromiseIndex {
+    unsafe {
+        PromiseIndex(sys::promise_yield_create(
+            function_name.len() as _,
+            function_name.as_ptr() as _,
+            arguments.len() as _,
+            arguments.as_ptr() as _,
+            gas.as_gas(),
+            weight.0,
+            register_id as _,
+        ))
+    }
+}
+
+/// Accepts a resumption token `data_id` created by promise_yield_create on the local account.
+/// `data` is a payload to be passed to the callback method as a promise input. Returns false if
+/// no promise yield with the specified `data_id` is found. Returns true otherwise, guaranteeing
+/// that the callback method will be executed with a user-provided payload.
+///
+/// If promise_yield_resume is called multiple times with the same `data_id`, it is possible to get
+/// back multiple 'true' results. The payload from the first successful call is passed to the
+/// callback.
+pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
+    unsafe {
+        sys::promise_yield_resume(
+            data_id.len() as _,
+            data_id.as_ptr() as _,
+            data.len() as _,
+            data.as_ptr() as _,
+        ) != 0
+    }
 }
 
 // ###############

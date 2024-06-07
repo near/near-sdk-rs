@@ -3,7 +3,7 @@ Fungible Token (FT)
 
 Example implementation of a [Fungible Token] contract which uses [near-contract-standards].
 
-  [Fungible Token]: https://nomicon.io/Standards/Tokens/FungibleTokenCore.html
+  [Fungible Token]: https://nomicon.io/Standards/Tokens/FungibleToken
   [near-contract-standards]: https://github.com/near/near-sdk-rs/tree/master/near-contract-standards
 
 NOTES:
