@@ -59,7 +59,7 @@ async fn dev_generate(
     let account = worker.create_tla(id.clone(), sk).await?;
     Ok((account.into_result()?, collection))
 }
-#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[allow(clippy::needless_range_loop)]
 // Note that different types of tests are executed sequentially, as the previous tests are populating
 // the data.
