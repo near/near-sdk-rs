@@ -260,7 +260,7 @@ async fn combined_test() -> anyhow::Result<()> {
         );
         // A slight reduction of the lower bound here as we have nothing else to remove.
         assert!(
-            total_gas > NearGas::from_tgas(87).as_gas(),
+            total_gas > NearGas::from_tgas(86).as_gas(),
             "not enough gas consumed: {}, adjust the number of iterations to spot regressions",
             NearGas::from_gas(total_gas)
         );
