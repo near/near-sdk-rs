@@ -76,7 +76,7 @@ async fn combined_test() -> anyhow::Result<()> {
     let mut account_set = JoinSet::new();
     for col in Collection::iter() {
         account_pool.insert(col, Vec::new());
-        for val in 0..=16 {
+        for val in 0..=17 {
             account_set.spawn(dev_generate(worker.clone(), col, val.to_string()));
         }
     }
@@ -233,10 +233,7 @@ async fn combined_test() -> anyhow::Result<()> {
     }
 
     // remove
-    for col in Collection::iter().filter(|col| {
-        // LookupSet is not flushable.
-        !matches!(col, Collection::LookupSet)
-    }) {
+    for col in Collection::iter() {
         let collection_account_pool = account_pool.get(&col).unwrap().clone();
         let contract_id = contract_id.clone();
         let mut total_gas: u64 = 0;
@@ -244,10 +241,10 @@ async fn combined_test() -> anyhow::Result<()> {
 
         // Can't use more than 15, because that's how much was inserted.
         for val in 0..15 {
-            let account: Account = collection_account_pool[0].clone();
+            let account: Account = collection_account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
-                .args_json((col, Op::Remove(val)))
+                .args_json((col, Op::Remove(val as u32)))
                 .max_gas()
                 .transact();
             futures.spawn(txn);
