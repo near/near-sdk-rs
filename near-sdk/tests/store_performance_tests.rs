@@ -137,8 +137,8 @@ async fn combined_test() -> anyhow::Result<()> {
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
-        for _ in 0..max_iterations {
-            let account: Account = collection_account_pool[0].clone();
+        for val in 0..max_iterations {
+            let account: Account = collection_account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Iter(15)))
@@ -172,8 +172,8 @@ async fn combined_test() -> anyhow::Result<()> {
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
-        for _ in 0..17 {
-            let account: Account = collection_account_pool[0].clone();
+        for val in 0..17 {
+            let account: Account = collection_account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Contains(3)))
@@ -207,8 +207,8 @@ async fn combined_test() -> anyhow::Result<()> {
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
-        for _ in 0..17 {
-            let account: Account = collection_account_pool[0].clone();
+        for val in 0..17 {
+            let account: Account = collection_account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Flush))
