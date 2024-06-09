@@ -72,11 +72,10 @@ async fn combined_test() -> anyhow::Result<()> {
     let mut account_pool = Vec::new();
 
     // Generate different accounts to avoid Nonce collisions when executing transactions in parallel.
-    for col in Collection::iter() {
-        for val in 0..=17 {
-            let (account, _) = dev_generate(worker.clone(), col, val.to_string()).await?;
-            account_pool.push(account);
-        }
+    for val in 0..=17 {
+        let (account, _) =
+            dev_generate(worker.clone(), Collection::TreeMap, val.to_string()).await?;
+        account_pool.push(account);
     }
 
     // insert
