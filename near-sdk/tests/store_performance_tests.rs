@@ -61,7 +61,7 @@ async fn dev_generate(
 #[tokio::test]
 #[allow(clippy::needless_range_loop)]
 // Note that different types of tests are executed sequentially, as the previous tests are populating
-// the data.
+// the data for the next ones.
 // Also, the tests for each collection are executed sequentially, as otherwise near-sandbox doesn't cope.
 async fn combined_test() -> anyhow::Result<()> {
     let worker = Arc::new(near_workspaces::sandbox().await?);
@@ -72,6 +72,8 @@ async fn combined_test() -> anyhow::Result<()> {
     let mut account_pool = Vec::new();
 
     // Generate different accounts to avoid Nonce collisions when executing transactions in parallel.
+    // We could generate this per collection as well, but parallel execution for those proved to be
+    // too much for the sandbox, so we're keeping it simple.
     for val in 0..=17 {
         let (account, _) =
             dev_generate(worker.clone(), Collection::TreeMap, val.to_string()).await?;
