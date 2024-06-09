@@ -5,7 +5,6 @@ use near_workspaces::types::{KeyType, SecretKey};
 use near_workspaces::{Account, Worker};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
@@ -70,13 +69,13 @@ async fn combined_test() -> anyhow::Result<()> {
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
     let contract_id = contract.id().clone();
-    let mut account_pool = HashMap::new();
+    let mut account_pool = Vec::new();
 
     // Generate different accounts to avoid Nonce collisions when executing transactions in parallel.
     for col in Collection::iter() {
         for val in 0..=17 {
-            let (account, col) = dev_generate(worker.clone(), col, val.to_string()).await?;
-            account_pool.get_mut(&col).unwrap().push(account);
+            let (account, _) = dev_generate(worker.clone(), col, val.to_string()).await?;
+            account_pool.push(account);
         }
     }
 
@@ -86,13 +85,13 @@ async fn combined_test() -> anyhow::Result<()> {
         Collection::TreeMap => (col, 15),
         _ => (col, 16),
     }) {
-        let collection_account_pool = account_pool.get(&col).unwrap().clone();
+        let account_pool = account_pool.clone();
         let contract_id = contract_id.clone();
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
         for val in 0..max_iterations {
-            let account: Account = collection_account_pool[val].clone();
+            let account: Account = account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Insert(val as u32)))
@@ -126,13 +125,13 @@ async fn combined_test() -> anyhow::Result<()> {
             _ => (col, 14),
         })
     {
-        let collection_account_pool = account_pool.get(&col).unwrap().clone();
+        let account_pool = account_pool.clone();
         let contract_id = contract_id.clone();
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
         for val in 0..max_iterations {
-            let account: Account = collection_account_pool[val].clone();
+            let account: Account = account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Iter(15)))
@@ -161,13 +160,13 @@ async fn combined_test() -> anyhow::Result<()> {
         // No `contains` in vector.
         !matches!(col, Collection::Vector)
     }) {
-        let collection_account_pool = account_pool.get(&col).unwrap().clone();
+        let account_pool = account_pool.clone();
         let contract_id = contract_id.clone();
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
         for val in 0..17 {
-            let account: Account = collection_account_pool[val].clone();
+            let account: Account = account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Contains(3)))
@@ -196,13 +195,13 @@ async fn combined_test() -> anyhow::Result<()> {
         // LookupSet is not flushable.
         !matches!(col, Collection::LookupSet)
     }) {
-        let collection_account_pool = account_pool.get(&col).unwrap().clone();
+        let account_pool = account_pool.clone();
         let contract_id = contract_id.clone();
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
         for val in 0..17 {
-            let account: Account = collection_account_pool[val].clone();
+            let account: Account = account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Flush))
@@ -228,14 +227,14 @@ async fn combined_test() -> anyhow::Result<()> {
 
     // remove
     for col in Collection::iter() {
-        let collection_account_pool = account_pool.get(&col).unwrap().clone();
+        let account_pool = account_pool.clone();
         let contract_id = contract_id.clone();
         let mut total_gas: u64 = 0;
         let mut futures = JoinSet::new();
 
         // Can't use more than 15, because that's how much was inserted.
         for val in 0..15 {
-            let account: Account = collection_account_pool[val].clone();
+            let account: Account = account_pool[val].clone();
             let txn = account
                 .call(&contract_id.clone(), "exec")
                 .args_json((col, Op::Remove(val as u32)))
