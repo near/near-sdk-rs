@@ -73,17 +73,11 @@ async fn combined_test() -> anyhow::Result<()> {
     let mut account_pool = HashMap::new();
 
     // Generate different accounts to avoid Nonce collisions when executing transactions in parallel.
-    let mut account_set = JoinSet::new();
     for col in Collection::iter() {
-        account_pool.insert(col, Vec::new());
         for val in 0..=17 {
-            account_set.spawn(dev_generate(worker.clone(), col, val.to_string()));
+            let (account, col) = dev_generate(worker.clone(), col, val.to_string()).await?;
+            account_pool.get_mut(&col).unwrap().push(account);
         }
-    }
-
-    while let Some(account) = account_set.join_next().await {
-        let (account, col) = account??;
-        account_pool.get_mut(&col).unwrap().push(account);
     }
 
     // insert
