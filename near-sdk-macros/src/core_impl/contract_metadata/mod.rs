@@ -54,7 +54,7 @@ struct Standard {
 impl ContractMetadata {
     fn populate(mut self) -> Self {
         if self.link.is_none() {
-            let field_val = std::env::var("CARGO_NEAR_REPO_LINK_HINT")
+            let field_val = std::env::var("NEP330_LINK")
                 .or(std::env::var("CARGO_PKG_REPOSITORY"))
                 .unwrap_or(String::from(""));
             if !field_val.is_empty() {
@@ -62,7 +62,9 @@ impl ContractMetadata {
             }
         }
         if self.version.is_none() {
-            let field_val = std::env::var("CARGO_PKG_VERSION").unwrap_or(String::from(""));
+            let field_val = std::env::var("NEP330_VERSION")
+                .or(std::env::var("CARGO_PKG_VERSION"))
+                .unwrap_or(String::from(""));
             if !field_val.is_empty() {
                 self.version = Some(field_val);
             }
@@ -76,7 +78,7 @@ impl ContractMetadata {
                 .push(Standard { standard: "nep330".to_string(), version: "1.2.0".to_string() });
         }
 
-        if std::env::var("CARGO_NEAR_BUILD_ENVIRONMENT").is_ok() {
+        if std::env::var("NEP330_BUILD_INFO_BUILD_ENVIRONMENT").is_ok() {
             self.build_info = Some(
                 build_info::BuildInfo::from_env()
                     .expect("Build Details Extension field not provided"),
