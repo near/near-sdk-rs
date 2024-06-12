@@ -62,9 +62,7 @@ impl ContractMetadata {
             }
         }
         if self.version.is_none() {
-            let field_val = std::env::var("NEP330_VERSION")
-                .or(std::env::var("CARGO_PKG_VERSION"))
-                .unwrap_or(String::from(""));
+            let field_val = std::env::var("NEP330_VERSION").unwrap_or(String::from(""));
             if !field_val.is_empty() {
                 self.version = Some(field_val);
             }
