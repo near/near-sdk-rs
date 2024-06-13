@@ -54,9 +54,7 @@ struct Standard {
 impl ContractMetadata {
     fn populate(mut self) -> Self {
         if self.link.is_none() {
-            let field_val = std::env::var("NEP330_LINK")
-                .or(std::env::var("CARGO_PKG_REPOSITORY"))
-                .unwrap_or(String::from(""));
+            let field_val = std::env::var("NEP330_LINK").unwrap_or(String::from(""));
             if !field_val.is_empty() {
                 self.link = Some(field_val);
             }
