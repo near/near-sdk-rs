@@ -11,6 +11,7 @@ const ERR_EMPTY_BUILD_ENVIRONMENT: &str = "`NEP330_BUILD_INFO_BUILD_ENVIRONMENT`
 const ERR_EMPTY_BUILD_COMMAND: &str = "`NEP330_BUILD_INFO_BUILD_COMMAND` is required, \
                                         when `NEP330_BUILD_INFO_BUILD_ENVIRONMENT` is set, \
                                         but it's either not set or empty!";
+const ERR_PARSE_BUILD_COMMAND: &str = "problem parsing `NEP330_BUILD_INFO_BUILD_COMMAND` value";
 
 const ERR_UNSET_CONTRACT_PATH: &str = "`NEP330_BUILD_INFO_CONTRACT_PATH` was provided, \
                                         but it's not set!";
@@ -29,11 +30,10 @@ impl BuildInfo {
         let build_command = std::env::var("NEP330_BUILD_INFO_BUILD_COMMAND")
             .ok()
             .filter(|build_command| !build_command.is_empty())
-            .map(|build_command| {
-                build_command.split_whitespace().map(|st| st.to_string()).collect::<Vec<_>>()
-            })
-            .filter(|build_command| !build_command.is_empty())
             .ok_or(ERR_EMPTY_BUILD_COMMAND.to_string())?;
+        let build_command: Vec<String> = serde_json::from_str(&build_command)
+            .map_err(|err| format!("{}: {}", ERR_PARSE_BUILD_COMMAND, err))?;
+
         let source_code_snapshot = std::env::var("NEP330_BUILD_INFO_SOURCE_CODE_SNAPSHOT")
             .ok()
             .filter(|source_code_snapshot| !source_code_snapshot.is_empty())

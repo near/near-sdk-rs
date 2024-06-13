@@ -77,7 +77,7 @@ impl ContractMetadata {
         if std::env::var("NEP330_BUILD_INFO_BUILD_ENVIRONMENT").is_ok() {
             self.build_info = Some(
                 build_info::BuildInfo::from_env()
-                    .expect("Build Details Extension field not provided"),
+                    .expect("Build Details Extension field not provided or malformed"),
             );
         }
 
