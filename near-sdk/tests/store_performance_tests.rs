@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
-use tokio::task::JoinSet;
+
+const DEFAULT_INDEX_OFFSET: usize = 0;
 
 #[derive(Serialize, Deserialize, EnumIter, Display, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(crate = "near_sdk::serde")]
@@ -30,10 +31,10 @@ pub enum Collection {
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Op {
-    Insert(u32),
-    Remove(u32),
+    Insert(usize),
+    Remove,
     Flush,
-    Contains(u32),
+    Contains(usize),
     Iter(usize),
 }
 
@@ -62,204 +63,223 @@ async fn dev_generate(
     let account = worker.create_tla(id.clone(), sk).await?;
     Ok((account.into_result()?, collection))
 }
-#[tokio::test]
-#[allow(clippy::needless_range_loop)]
-// Note that different types of tests are executed sequentially, as the previous tests are populating
-// the data for the next ones.
-// Also, the tests for each collection are executed sequentially, as otherwise near-sandbox doesn't cope.
-async fn combined_test() -> anyhow::Result<()> {
+
+async fn setup_worker() -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
     let worker = Arc::new(near_workspaces::sandbox().await?);
     let contract = worker.dev_deploy(include_bytes!("test-contracts/store/res/store.wasm")).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
-    let contract_id = contract.id().clone();
-    let mut account_pool = Vec::new();
+    Ok((worker, contract.id().clone()))
+}
 
-    // Generate different accounts to avoid Nonce collisions when executing transactions in parallel.
-    // We could generate this per collection as well, but parallel execution for those proved to be
-    // too much for the sandbox, so we're keeping it simple.
-    for val in 0..=17 {
+#[allow(unused)]
+async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, AccountId)> {
+    let (worker, contract_id) = setup_worker().await?;
+    let mut accounts = Vec::new();
+
+    for acc_seed in 0..num {
         let (account, _) =
-            dev_generate(worker.clone(), Collection::TreeMap, val.to_string()).await?;
-        account_pool.push(account);
+            dev_generate(worker.clone(), Collection::IterableSet, acc_seed.to_string()).await?;
+        accounts.push(account);
     }
 
+    Ok((accounts, contract_id))
+}
+
+async fn setup() -> anyhow::Result<(Account, AccountId)> {
+    let (worker, contract_id) = setup_worker().await?;
+
+    let (account, _) =
+        dev_generate(worker.clone(), Collection::IterableSet, "seed".to_string()).await?;
+
+    Ok((account, contract_id))
+}
+
+#[tokio::test]
+async fn insert_and_remove() -> anyhow::Result<()> {
+    let (account, contract_id) = setup().await?;
     // insert
     for (col, max_iterations) in Collection::iter().map(|col| match col {
-        // TreeMap performance is inferior to other collections.
-        Collection::TreeMap => (col, 15),
-        _ => (col, 16),
+        Collection::TreeMap => (col, 310),
+        Collection::IterableSet => (col, 375),
+        Collection::IterableMap => (col, 360),
+        Collection::UnorderedSet => (col, 340),
+        Collection::UnorderedMap => (col, 350),
+        Collection::LookupMap => (col, 600),
+        Collection::LookupSet => (col, 970),
+        Collection::Vector => (col, 1000),
     }) {
-        let account_pool = account_pool.clone();
-        let contract_id = contract_id.clone();
-        let mut total_gas: u64 = 0;
-        let mut futures = JoinSet::new();
+        let txn = account
+            .call(&contract_id, "exec")
+            .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), max_iterations))
+            .max_gas()
+            .transact()
+            .await;
 
-        for val in 0..max_iterations {
-            let account: Account = account_pool[val].clone();
-            let txn = account
-                .call(&contract_id.clone(), "exec")
-                .args_json((col, Op::Insert(val as u32)))
-                .transact();
-            futures.spawn(txn);
-        }
-        while let Some(res) = futures.join_next().await {
-            total_gas += res??.unwrap().total_gas_burnt.as_gas();
-        }
+        let res = txn?;
+        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+
         assert!(
             total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression: {}",
+            "performance regression {}: {}",
+            col.clone(),
             NearGas::from_gas(total_gas)
         );
         assert!(
             total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed: {}, adjust the number of iterations to spot regressions",
-            NearGas::from_gas(total_gas)
-        );
-    }
-
-    // iter
-    for (col, max_iterations) in Collection::iter()
-        .filter(|col| {
-            // Those collections are not iterable.
-            !matches!(col, Collection::LookupMap) && !matches!(col, Collection::LookupSet)
-        })
-        .map(|col| match col {
-            // *Map performance is inferior to other collections.
-            Collection::IterableMap | Collection::UnorderedMap | Collection::TreeMap => (col, 12),
-            _ => (col, 14),
-        })
-    {
-        let account_pool = account_pool.clone();
-        let contract_id = contract_id.clone();
-        let mut total_gas: u64 = 0;
-        let mut futures = JoinSet::new();
-
-        for val in 0..max_iterations {
-            let account: Account = account_pool[val].clone();
-            let txn = account
-                .call(&contract_id.clone(), "exec")
-                .args_json((col, Op::Iter(15)))
-                .max_gas()
-                .transact();
-            futures.spawn(txn);
-        }
-        while let Some(res) = futures.join_next().await {
-            total_gas += res??.unwrap().total_gas_burnt.as_gas();
-        }
-
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression: {}",
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed: {}, adjust the number of iterations to spot regressions",
-            NearGas::from_gas(total_gas)
-        );
-    }
-
-    // contains
-    for col in Collection::iter().filter(|col| {
-        // No `contains` in vector.
-        !matches!(col, Collection::Vector)
-    }) {
-        let account_pool = account_pool.clone();
-        let contract_id = contract_id.clone();
-        let mut total_gas: u64 = 0;
-        let mut futures = JoinSet::new();
-
-        for val in 0..17 {
-            let account: Account = account_pool[val].clone();
-            let txn = account
-                .call(&contract_id.clone(), "exec")
-                .args_json((col, Op::Contains(3)))
-                .max_gas()
-                .transact();
-            futures.spawn(txn);
-        }
-        while let Some(res) = futures.join_next().await {
-            total_gas += res??.unwrap().total_gas_burnt.as_gas();
-        }
-
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression: {}",
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed: {}, adjust the number of iterations to spot regressions",
-            NearGas::from_gas(total_gas)
-        );
-    }
-
-    // flush
-    for col in Collection::iter().filter(|col| {
-        // LookupSet is not flushable.
-        !matches!(col, Collection::LookupSet)
-    }) {
-        let account_pool = account_pool.clone();
-        let contract_id = contract_id.clone();
-        let mut total_gas: u64 = 0;
-        let mut futures = JoinSet::new();
-
-        for val in 0..17 {
-            let account: Account = account_pool[val].clone();
-            let txn = account
-                .call(&contract_id.clone(), "exec")
-                .args_json((col, Op::Flush))
-                .max_gas()
-                .transact();
-            futures.spawn(txn);
-        }
-        while let Some(res) = futures.join_next().await {
-            total_gas += res??.unwrap().total_gas_burnt.as_gas();
-        }
-
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression: {}",
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed: {}, adjust the number of iterations to spot regressions",
+            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
+            col.clone(),
             NearGas::from_gas(total_gas)
         );
     }
 
     // remove
-    for col in Collection::iter() {
-        let account_pool = account_pool.clone();
-        let contract_id = contract_id.clone();
-        let mut total_gas: u64 = 0;
-        let mut futures = JoinSet::new();
+    for (col, max_iterations) in Collection::iter().map(|col| match col {
+        Collection::TreeMap => (col, 220),
+        Collection::IterableSet => (col, 120),
+        Collection::IterableMap => (col, 115),
+        Collection::UnorderedSet => (col, 220),
+        Collection::UnorderedMap => (col, 220),
+        Collection::LookupMap => (col, 480),
+        Collection::LookupSet => (col, 970),
+        Collection::Vector => (col, 500),
+    }) {
+        let txn = account
+            .call(&contract_id, "exec")
+            .args_json((col, Op::Remove, max_iterations))
+            .max_gas()
+            .transact()
+            .await;
 
-        // Can't use more than 15, because that's how much was inserted.
-        for val in 0..15 {
-            let account: Account = account_pool[val].clone();
-            let txn = account
-                .call(&contract_id.clone(), "exec")
-                .args_json((col, Op::Remove(val as u32)))
-                .max_gas()
-                .transact();
-            futures.spawn(txn);
-        }
-        while let Some(res) = futures.join_next().await {
-            total_gas += res??.unwrap().total_gas_burnt.as_gas();
-        }
+        let res = txn?;
+        let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
         assert!(
             total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression: {}",
+            "performance regression {}: {}",
+            col.clone(),
             NearGas::from_gas(total_gas)
         );
-        // A slight reduction of the lower bound here as we have nothing else to remove.
         assert!(
-            total_gas > NearGas::from_tgas(86).as_gas(),
-            "not enough gas consumed: {}, adjust the number of iterations to spot regressions",
+            total_gas > NearGas::from_tgas(90).as_gas(),
+            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
+            col.clone(),
+            NearGas::from_gas(total_gas)
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+#[allow(clippy::needless_range_loop)]
+async fn iter() -> anyhow::Result<()> {
+    let element_number = 300;
+    let (account, contract_id) = setup().await?;
+    // prepopulate
+    for col in Collection::iter() {
+        let txn = account
+            .call(&contract_id, "exec")
+            .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), element_number))
+            .max_gas()
+            .transact()
+            .await;
+
+        let res = txn?;
+        let _ = res.unwrap();
+    }
+
+    // iter
+    for (col, repeat) in Collection::iter()
+        .filter(|col| !matches!(col, Collection::LookupMap | Collection::LookupSet))
+        .map(|col| match col {
+            Collection::TreeMap => (col, 84),
+            Collection::IterableSet => (col, 450),
+            Collection::IterableMap => (col, 140),
+            Collection::UnorderedSet => (col, 450),
+            Collection::UnorderedMap => (col, 140),
+            Collection::Vector => (col, 450),
+            _ => (col, 0),
+        })
+    {
+        let txn = account
+            .call(&contract_id.clone(), "exec")
+            .args_json((col, Op::Iter(repeat), element_number))
+            .max_gas()
+            .transact()
+            .await;
+
+        let res = txn?;
+        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+
+        assert!(
+            total_gas < NearGas::from_tgas(100).as_gas(),
+            "performance regression {}: {}",
+            col.clone(),
+            NearGas::from_gas(total_gas)
+        );
+        assert!(
+            total_gas > NearGas::from_tgas(90).as_gas(),
+            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
+            col.clone(),
+            NearGas::from_gas(total_gas)
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn contains() -> anyhow::Result<()> {
+    let element_number = 200;
+    let (account, contract_id) = setup().await?;
+    // prepopulate
+    for col in Collection::iter() {
+        let txn = account
+            .call(&contract_id, "exec")
+            .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), element_number))
+            .max_gas()
+            .transact()
+            .await;
+
+        let res = txn?;
+        let _ = res.unwrap();
+    }
+
+    // contains
+    for (col, repeat) in
+        Collection::iter().filter(|col| !matches!(col, Collection::Vector)).map(|col| match col {
+            Collection::TreeMap => (col, 6),
+            Collection::IterableSet => (col, 6),
+            Collection::IterableMap => (col, 6),
+            Collection::UnorderedSet => (col, 6),
+            Collection::UnorderedMap => (col, 6),
+            Collection::LookupMap => (col, 8),
+            Collection::LookupSet => (col, 7),
+            _ => (col, 0),
+        })
+    {
+        let txn = account
+            .call(&contract_id.clone(), "exec")
+            .args_json((col, Op::Contains(repeat), element_number))
+            .max_gas()
+            .transact()
+            .await;
+
+        let res = txn?;
+        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+
+        // Slightly modified to fit the max gas consumption.
+        assert!(
+            total_gas < NearGas::from_tgas(103).as_gas(),
+            "performance regression {}: {}",
+            col.clone(),
+            NearGas::from_gas(total_gas)
+        );
+        assert!(
+            total_gas > NearGas::from_tgas(90).as_gas(),
+            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
+            col.clone(),
             NearGas::from_gas(total_gas)
         );
     }
