@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -171,8 +171,11 @@ async fn insert_and_remove() -> anyhow::Result<()> {
 async fn iter() -> anyhow::Result<()> {
     let element_number = 300;
     let (account, contract_id) = setup().await?;
+    // LookupMap and LookupSet are not iterable.
+    let collection_filter =
+        |col: &Collection| !matches!(col, Collection::LookupMap | Collection::LookupSet);
     // pre-populate
-    for col in Collection::iter() {
+    for col in Collection::iter().filter(collection_filter) {
         let txn = account
             .call(&contract_id, "exec")
             .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), element_number))
@@ -186,18 +189,15 @@ async fn iter() -> anyhow::Result<()> {
 
     // iter, repeat here is the number that reflects how many times the iterator is consumed fully.
     // It's used to measure relative performance.
-    for (col, repeat) in Collection::iter()
-        .filter(|col| !matches!(col, Collection::LookupMap | Collection::LookupSet))
-        .map(|col| match col {
-            Collection::TreeMap => (col, 84),
-            Collection::IterableSet => (col, 450),
-            Collection::IterableMap => (col, 140),
-            Collection::UnorderedSet => (col, 450),
-            Collection::UnorderedMap => (col, 140),
-            Collection::Vector => (col, 450),
-            _ => (col, 0),
-        })
-    {
+    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+        Collection::TreeMap => (col, 84),
+        Collection::IterableSet => (col, 450),
+        Collection::IterableMap => (col, 140),
+        Collection::UnorderedSet => (col, 450),
+        Collection::UnorderedMap => (col, 140),
+        Collection::Vector => (col, 450),
+        _ => (col, 0),
+    }) {
         let txn = account
             .call(&contract_id.clone(), "exec")
             .args_json((col, Op::Iter(repeat), element_number))
@@ -219,8 +219,10 @@ async fn contains() -> anyhow::Result<()> {
     // Each collection gets the same number of elements.
     let element_number = 100;
     let (account, contract_id) = setup().await?;
+    // Vector does not implement contains.
+    let collection_filter = |col: &Collection| !matches!(col, Collection::Vector);
     // prepopulate
-    for col in Collection::iter() {
+    for col in Collection::iter().filter(collection_filter) {
         let txn = account
             .call(&contract_id, "exec")
             .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), element_number))
@@ -234,18 +236,16 @@ async fn contains() -> anyhow::Result<()> {
 
     // contains test, repeat here is the number of times we check all the elements in each collection.
     // It's used to measure relative performance.
-    for (col, repeat) in
-        Collection::iter().filter(|col| !matches!(col, Collection::Vector)).map(|col| match col {
-            Collection::TreeMap => (col, 12),
-            Collection::IterableSet => (col, 11),
-            Collection::IterableMap => (col, 12),
-            Collection::UnorderedSet => (col, 11),
-            Collection::UnorderedMap => (col, 12),
-            Collection::LookupMap => (col, 16),
-            Collection::LookupSet => (col, 14),
-            _ => (col, 0),
-        })
-    {
+    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+        Collection::TreeMap => (col, 12),
+        Collection::IterableSet => (col, 11),
+        Collection::IterableMap => (col, 12),
+        Collection::UnorderedSet => (col, 11),
+        Collection::UnorderedMap => (col, 12),
+        Collection::LookupMap => (col, 16),
+        Collection::LookupSet => (col, 14),
+        _ => (col, 0),
+    }) {
         let txn = account
             .call(&contract_id.clone(), "exec")
             .args_json((col, Op::Contains(repeat), element_number))
@@ -269,21 +269,22 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     let element_number = 300;
     let deleted_element_number = 299;
     let (account, contract_id) = setup().await?;
+
+    // We only care about Unordered* and Iterable* collections.
+    let collection_filter = |col: &Collection| {
+        matches!(
+            col,
+            Collection::UnorderedSet
+                | Collection::UnorderedMap
+                | Collection::IterableMap
+                | Collection::IterableSet
+        )
+    };
+
     // insert `element_number` elements.
-    for (col, max_iterations) in Collection::iter()
-        .filter(|col| {
-            matches!(
-                col,
-                Collection::UnorderedSet
-                    | Collection::UnorderedMap
-                    | Collection::IterableMap
-                    | Collection::IterableSet
-            )
-        })
-        .map(|col| match col {
-            _ => (col, element_number),
-        })
-    {
+    for (col, max_iterations) in Collection::iter().filter(collection_filter).map(|col| match col {
+        _ => (col, element_number),
+    }) {
         let txn = account
             .call(&contract_id, "exec")
             .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), max_iterations))
@@ -295,20 +296,9 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     }
 
     // remove `deleted_element_number` elements. This leaves only one element in each collection.
-    for (col, max_iterations) in Collection::iter()
-        .filter(|col| {
-            matches!(
-                col,
-                Collection::UnorderedSet
-                    | Collection::UnorderedMap
-                    | Collection::IterableMap
-                    | Collection::IterableSet
-            )
-        })
-        .map(|col| match col {
-            _ => (col, deleted_element_number),
-        })
-    {
+    for (col, max_iterations) in Collection::iter().filter(collection_filter).map(|col| match col {
+        _ => (col, deleted_element_number),
+    }) {
         let txn = account
             .call(&contract_id, "exec")
             .args_json((col, Op::Remove, max_iterations))
@@ -321,24 +311,13 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
 
     // iter, repeat here is the number of times we iterate through the whole collection. It's used to
     // measure relative performance.
-    for (col, repeat) in Collection::iter()
-        .filter(|col| {
-            matches!(
-                col,
-                Collection::UnorderedSet
-                    | Collection::UnorderedMap
-                    | Collection::IterableMap
-                    | Collection::IterableSet
-            )
-        })
-        .map(|col| match col {
-            Collection::IterableSet => (col, 380000),
-            Collection::IterableMap => (col, 200000),
-            Collection::UnorderedSet => (col, 490),
-            Collection::UnorderedMap => (col, 450),
-            _ => (col, 0),
-        })
-    {
+    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+        Collection::IterableSet => (col, 380000),
+        Collection::IterableMap => (col, 200000),
+        Collection::UnorderedSet => (col, 490),
+        Collection::UnorderedMap => (col, 450),
+        _ => (col, 0),
+    }) {
         let txn = account
             .call(&contract_id.clone(), "exec")
             .args_json((col, Op::Iter(repeat), element_number - deleted_element_number))
