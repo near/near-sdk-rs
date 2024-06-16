@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -72,6 +72,21 @@ async fn setup_worker() -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
     Ok((worker, contract.id().clone()))
 }
 
+fn perform_asserts(total_gas: u64, col: Collection) {
+    assert!(
+        total_gas < NearGas::from_tgas(100).as_gas(),
+        "performance regression {}: {}",
+        col.clone(),
+        NearGas::from_gas(total_gas)
+    );
+    assert!(
+        total_gas > NearGas::from_tgas(90).as_gas(),
+        "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
+        col,
+        NearGas::from_gas(total_gas)
+    );
+}
+
 #[allow(unused)]
 async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, AccountId)> {
     let (worker, contract_id) = setup_worker().await?;
@@ -98,7 +113,8 @@ async fn setup() -> anyhow::Result<(Account, AccountId)> {
 #[tokio::test]
 async fn insert_and_remove() -> anyhow::Result<()> {
     let (account, contract_id) = setup().await?;
-    // insert
+    // insert test, max_iterations here is the number of elements to insert. It's used to measure
+    // relative performance.
     for (col, max_iterations) in Collection::iter().map(|col| match col {
         Collection::TreeMap => (col, 310),
         Collection::IterableSet => (col, 375),
@@ -119,21 +135,11 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression {}: {}",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
+        perform_asserts(total_gas, col.clone());
     }
 
-    // remove
+    // remove test, max_iterations here is the number of elements to remove. It's used to measure
+    // relative performance.
     for (col, max_iterations) in Collection::iter().map(|col| match col {
         Collection::TreeMap => (col, 220),
         Collection::IterableSet => (col, 120),
@@ -154,18 +160,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression {}: {}",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
+        perform_asserts(total_gas, col.clone());
     }
 
     Ok(())
@@ -176,7 +171,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
 async fn iter() -> anyhow::Result<()> {
     let element_number = 300;
     let (account, contract_id) = setup().await?;
-    // prepopulate
+    // pre-populate
     for col in Collection::iter() {
         let txn = account
             .call(&contract_id, "exec")
@@ -189,7 +184,8 @@ async fn iter() -> anyhow::Result<()> {
         let _ = res.unwrap();
     }
 
-    // iter
+    // iter, repeat here is the number that reflects how many times the iterator is consumed fully.
+    // It's used to measure relative performance.
     for (col, repeat) in Collection::iter()
         .filter(|col| !matches!(col, Collection::LookupMap | Collection::LookupSet))
         .map(|col| match col {
@@ -212,18 +208,7 @@ async fn iter() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression {}: {}",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
+        perform_asserts(total_gas, col.clone());
     }
 
     Ok(())
@@ -231,7 +216,8 @@ async fn iter() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn contains() -> anyhow::Result<()> {
-    let element_number = 200;
+    // Each collection gets the same number of elements.
+    let element_number = 100;
     let (account, contract_id) = setup().await?;
     // prepopulate
     for col in Collection::iter() {
@@ -246,16 +232,17 @@ async fn contains() -> anyhow::Result<()> {
         let _ = res.unwrap();
     }
 
-    // contains
+    // contains test, repeat here is the number of times we check all the elements in each collection.
+    // It's used to measure relative performance.
     for (col, repeat) in
         Collection::iter().filter(|col| !matches!(col, Collection::Vector)).map(|col| match col {
-            Collection::TreeMap => (col, 6),
-            Collection::IterableSet => (col, 6),
-            Collection::IterableMap => (col, 6),
-            Collection::UnorderedSet => (col, 6),
-            Collection::UnorderedMap => (col, 6),
-            Collection::LookupMap => (col, 8),
-            Collection::LookupSet => (col, 7),
+            Collection::TreeMap => (col, 12),
+            Collection::IterableSet => (col, 11),
+            Collection::IterableMap => (col, 12),
+            Collection::UnorderedSet => (col, 11),
+            Collection::UnorderedMap => (col, 12),
+            Collection::LookupMap => (col, 16),
+            Collection::LookupSet => (col, 14),
             _ => (col, 0),
         })
     {
@@ -268,33 +255,22 @@ async fn contains() -> anyhow::Result<()> {
 
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
+        println!("{}: {}", col, NearGas::from_gas(total_gas));
 
-        // Slightly modified to fit the max gas consumption.
-        assert!(
-            total_gas < NearGas::from_tgas(103).as_gas(),
-            "performance regression {}: {}",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
+        perform_asserts(total_gas, col.clone());
     }
 
     Ok(())
 }
 
-// This test demonstrtes the difference in gas consumption between iterable and unordered collections,
+// This test demonstrates the difference in gas consumption between iterable and unordered collections,
 // when most of the elements have been deleted.
 #[tokio::test]
 async fn iterable_vs_unordered() -> anyhow::Result<()> {
     let element_number = 300;
     let deleted_element_number = 299;
     let (account, contract_id) = setup().await?;
-    // insert
+    // insert `element_number` elements.
     for (col, max_iterations) in Collection::iter()
         .filter(|col| {
             matches!(
@@ -319,7 +295,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
         let _ = txn?.unwrap();
     }
 
-    // remove
+    // remove `deleted_element_number` elements. This leaves only one element in each collection.
     for (col, max_iterations) in Collection::iter()
         .filter(|col| {
             matches!(
@@ -344,7 +320,8 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
         let _ = txn?.unwrap();
     }
 
-    // iter
+    // iter, repeat here is the number of times we iterate through the whole collection. It's used to
+    // measure relative performance.
     for (col, repeat) in Collection::iter()
         .filter(|col| {
             matches!(
@@ -373,18 +350,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        assert!(
-            total_gas < NearGas::from_tgas(100).as_gas(),
-            "performance regression {}: {}",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
-        assert!(
-            total_gas > NearGas::from_tgas(90).as_gas(),
-            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
-            col.clone(),
-            NearGas::from_gas(total_gas)
-        );
+        perform_asserts(total_gas, col.clone());
     }
 
     Ok(())
