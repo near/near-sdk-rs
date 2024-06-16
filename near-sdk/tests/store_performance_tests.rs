@@ -286,3 +286,106 @@ async fn contains() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// This test demonstrtes the difference in gas consumption between iterable and unordered collections,
+// when most of the elements have been deleted.
+#[tokio::test]
+async fn iterable_vs_unordered() -> anyhow::Result<()> {
+    let element_number = 300;
+    let deleted_element_number = 299;
+    let (account, contract_id) = setup().await?;
+    // insert
+    for (col, max_iterations) in Collection::iter()
+        .filter(|col| {
+            matches!(
+                col,
+                Collection::UnorderedSet
+                    | Collection::UnorderedMap
+                    | Collection::IterableMap
+                    | Collection::IterableSet
+            )
+        })
+        .map(|col| match col {
+            _ => (col, element_number),
+        })
+    {
+        let txn = account
+            .call(&contract_id, "exec")
+            .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), max_iterations))
+            .max_gas()
+            .transact()
+            .await;
+
+        let _ = txn?.unwrap();
+    }
+
+    // remove
+    for (col, max_iterations) in Collection::iter()
+        .filter(|col| {
+            matches!(
+                col,
+                Collection::UnorderedSet
+                    | Collection::UnorderedMap
+                    | Collection::IterableMap
+                    | Collection::IterableSet
+            )
+        })
+        .map(|col| match col {
+            _ => (col, deleted_element_number),
+        })
+    {
+        let txn = account
+            .call(&contract_id, "exec")
+            .args_json((col, Op::Remove, max_iterations))
+            .max_gas()
+            .transact()
+            .await;
+
+        let _ = txn?.unwrap();
+    }
+
+    // iter
+    for (col, repeat) in Collection::iter()
+        .filter(|col| {
+            matches!(
+                col,
+                Collection::UnorderedSet
+                    | Collection::UnorderedMap
+                    | Collection::IterableMap
+                    | Collection::IterableSet
+            )
+        })
+        .map(|col| match col {
+            Collection::IterableSet => (col, 380000),
+            Collection::IterableMap => (col, 200000),
+            Collection::UnorderedSet => (col, 490),
+            Collection::UnorderedMap => (col, 450),
+            _ => (col, 0),
+        })
+    {
+        let txn = account
+            .call(&contract_id.clone(), "exec")
+            .args_json((col, Op::Iter(repeat), element_number - deleted_element_number))
+            .max_gas()
+            .transact()
+            .await;
+
+        let res = txn?;
+        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+
+        assert!(
+            total_gas < NearGas::from_tgas(100).as_gas(),
+            "performance regression {}: {}",
+            col.clone(),
+            NearGas::from_gas(total_gas)
+        );
+        assert!(
+            total_gas > NearGas::from_tgas(90).as_gas(),
+            "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
+            col.clone(),
+            NearGas::from_gas(total_gas)
+        );
+    }
+
+    Ok(())
+}
