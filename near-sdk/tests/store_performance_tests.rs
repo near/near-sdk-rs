@@ -255,7 +255,6 @@ async fn contains() -> anyhow::Result<()> {
 
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
-        println!("{}: {}", col, NearGas::from_gas(total_gas));
 
         perform_asserts(total_gas, col.clone());
     }
