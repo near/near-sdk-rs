@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-// #![cfg(target_os = "linux")]
+#![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
