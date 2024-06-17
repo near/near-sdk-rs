@@ -76,7 +76,7 @@ fn perform_asserts(total_gas: u64, col: Collection) {
     assert!(
         total_gas < NearGas::from_tgas(100).as_gas(),
         "performance regression {}: {}",
-        col.clone(),
+        col,
         NearGas::from_gas(total_gas)
     );
     assert!(
@@ -135,7 +135,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col.clone());
+        perform_asserts(total_gas, col);
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
@@ -160,7 +160,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col.clone());
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -208,7 +208,7 @@ async fn iter() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col.clone());
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -256,7 +256,7 @@ async fn contains() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col.clone());
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -296,9 +296,9 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     }
 
     // remove `deleted_element_number` elements. This leaves only one element in each collection.
-    for (col, max_iterations) in Collection::iter().filter(collection_filter).map(|col| match col {
-        _ => (col, deleted_element_number),
-    }) {
+    for (col, max_iterations) in
+        Collection::iter().filter(collection_filter).map(|col| (col, deleted_element_number))
+    {
         let txn = account
             .call(&contract_id, "exec")
             .args_json((col, Op::Remove, max_iterations))
@@ -328,7 +328,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col.clone());
+        perform_asserts(total_gas, col);
     }
 
     Ok(())

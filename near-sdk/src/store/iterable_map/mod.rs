@@ -791,7 +791,6 @@ mod test_map {
     use borsh::{BorshDeserialize, BorshSerialize};
     use rand::{rngs::SmallRng, Rng, SeedableRng};
     use std::cell::RefCell;
-    use std::usize;
     use std::vec::Vec;
 
     #[test]
