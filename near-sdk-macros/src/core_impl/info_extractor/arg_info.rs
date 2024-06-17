@@ -16,6 +16,7 @@ pub enum BindgenArgType {
 }
 
 /// A single argument of a function after it was processed by the bindgen.
+#[allow(dead_code)]
 pub struct ArgInfo {
     /// Attributes not related to bindgen.
     pub non_bindgen_attrs: Vec<Attribute>,
