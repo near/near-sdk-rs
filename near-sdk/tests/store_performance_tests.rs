@@ -282,9 +282,9 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     };
 
     // insert `element_number` elements.
-    for (col, max_iterations) in Collection::iter().filter(collection_filter).map(|col| match col {
-        _ => (col, element_number),
-    }) {
+    for (col, max_iterations) in
+        Collection::iter().filter(collection_filter).map(|col| (col, element_number))
+    {
         let txn = account
             .call(&contract_id, "exec")
             .args_json((col, Op::Insert(DEFAULT_INDEX_OFFSET), max_iterations))
