@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [1.78.0, 1.76.0]
+        toolchain: [stable, 1.76.0]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -23,6 +23,7 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           default: true
           target: wasm32-unknown-unknown
+          components: clippy, rust-docs
       - uses: Swatinem/rust-cache@v1
 #      - name: Downgrade dependencies
 #        run: |
