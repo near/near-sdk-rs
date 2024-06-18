@@ -12,6 +12,9 @@ description = """
 Rust library for writing NEAR smart contracts.
 """
 
+[lib]
+doctest = false
+
 [[test]]
 name = "compilation_tests"
 path = "compilation_tests/all.rs"
