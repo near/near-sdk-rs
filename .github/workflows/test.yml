@@ -17,18 +17,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
+          # profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          default: true
-          target: wasm32-unknown-unknown
+          # default: true
+          targets: wasm32-unknown-unknown
           components: clippy, rust-docs
       # - uses: Swatinem/rust-cache@v1
 #      - name: Downgrade dependencies
 #        run: |
 #          cargo update -p clap@4.5.4 --precise 4.4.18
 #          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
+      - name: print rustc && rustdoc version
+        run: rustc --version && rustdoc --version
       - name: test
         run: cargo test --all --features unstable,legacy
   lint:
