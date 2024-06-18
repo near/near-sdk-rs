@@ -23,7 +23,7 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           default: true
           target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
+      #      - uses: Swatinem/rust-cache@v1
       #      - name: Downgrade dependencies
       #        run: |
       #          cargo update -p clap@4.5.4 --precise 4.4.18
