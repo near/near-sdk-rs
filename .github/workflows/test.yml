@@ -12,7 +12,7 @@ jobs:
     name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
     strategy:
       matrix:
-        platform: [ ubuntu-latest, macos-latest ]
+        platform: [ ubuntu-latest, macOS-14 ]
         toolchain: [ stable, 1.76.0 ]
     steps:
       - uses: actions/checkout@v3
@@ -23,7 +23,7 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           default: true
           target: wasm32-unknown-unknown
-      #      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v1
       #      - name: Downgrade dependencies
       #        run: |
       #          cargo update -p clap@4.5.4 --precise 4.4.18
