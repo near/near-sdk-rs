@@ -18,12 +18,15 @@ pub enum BindgenArgType {
 /// A single argument of a function after it was processed by the bindgen.
 pub struct ArgInfo {
     /// Attributes not related to bindgen.
+    #[allow(unused)]
     pub non_bindgen_attrs: Vec<Attribute>,
     /// The `binding` part of `ref mut binding @ SUBPATTERN: TYPE` argument.
     pub ident: Ident,
     /// Whether pattern has a preceded `ref`.
+    #[allow(unused)]
     pub pat_reference: Option<Token![ref]>,
     /// Whether pattern has a preceded `mut`.
+    #[allow(unused)]
     pub pat_mutability: Option<Token![mut]>,
     /// Whether the `TYPE` starts with `&`.
     pub reference: Option<Token![&]>,
