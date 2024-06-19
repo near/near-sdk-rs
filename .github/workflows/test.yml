@@ -12,7 +12,15 @@ jobs:
     name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }}"
     strategy:
       matrix:
-        platform: [{os: ubuntu-latest, rs: 1.76.0}, {os: ubuntu-latest, rs: stable}, {os: macos-latest, rs: 1.76.0}, {os: macos-latest, rs: 1.78.0}]
+        platform:
+          - os: ubuntu-latest
+            rs: 1.76.0
+          - os: ubuntu-latest
+            rs: stable
+          - os: macos-latest
+            rs: 1.76.0
+          - os: macos-latest
+            rs: 1.78.0
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
