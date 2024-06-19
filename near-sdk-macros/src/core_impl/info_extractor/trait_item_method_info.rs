@@ -9,8 +9,10 @@ pub struct TraitItemMethodInfo {
     /// Attributes and signature information.
     pub attr_sig_info: AttrSigInfo,
     /// The original AST of the trait item method.
+    #[allow(unused)]
     pub original: TraitItemFn,
     /// String representation of method name, e.g. `"my_method"`.
+    #[allow(unused)]
     pub ident_byte_str: LitStr,
 }
 

@@ -23,9 +23,9 @@ const REGISTER_EXPECTED_ERR: &str =
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
 /// guest code is not parallel.
-const ATOMIC_OP_REGISTER: u64 = std::u64::MAX - 2;
+const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 /// Register used to record evicted values from the storage.
-const EVICTED_REGISTER: u64 = std::u64::MAX - 1;
+const EVICTED_REGISTER: u64 = u64::MAX - 1;
 
 /// Key used to store the state of the contract.
 const STATE_KEY: &[u8] = b"STATE";
@@ -139,7 +139,7 @@ pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
     let len = unsafe { sys::register_len(register_id) };
-    if len == std::u64::MAX {
+    if len == u64::MAX {
         None
     } else {
         Some(len)

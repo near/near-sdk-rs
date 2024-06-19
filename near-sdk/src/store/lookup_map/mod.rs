@@ -734,7 +734,6 @@ mod test_map {
     use crate::store::LookupMap;
     use borsh::{BorshDeserialize, BorshSerialize};
     use std::cell::RefCell;
-    use std::usize;
     use std::vec::Vec;
 
     #[test]
