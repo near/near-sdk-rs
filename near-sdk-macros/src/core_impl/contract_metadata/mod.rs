@@ -1,6 +1,10 @@
+#![allow(clippy::manual_unwrap_or_default)]
+
 use darling::{ast::NestedMeta, Error, FromMeta};
 use proc_macro2::TokenStream;
 use quote::quote;
+
+mod build_info;
 
 #[derive(FromMeta)]
 struct MacroConfig {
@@ -11,8 +15,12 @@ struct MacroConfig {
 pub(crate) struct ContractMetadata {
     version: Option<String>,
     link: Option<String>,
+
     #[darling(multiple, rename = "standard")]
     standards: Vec<Standard>,
+
+    #[darling(skip)]
+    build_info: Option<build_info::BuildInfo>,
 }
 
 impl quote::ToTokens for ContractMetadata {
@@ -47,17 +55,16 @@ struct Standard {
 
 impl ContractMetadata {
     fn populate(mut self) -> Self {
-        if self.version.is_none() {
-            let version = std::env::var("CARGO_PKG_VERSION").unwrap_or(String::from(""));
-            if !version.is_empty() {
-                self.version = Some(version);
+        if self.link.is_none() {
+            let field_val = std::env::var("NEP330_LINK").unwrap_or(String::from(""));
+            if !field_val.is_empty() {
+                self.link = Some(field_val);
             }
         }
-
-        if self.link.is_none() {
-            let repo = std::env::var("CARGO_PKG_REPOSITORY").unwrap_or(String::from(""));
-            if !repo.is_empty() {
-                self.link = Some(repo);
+        if self.version.is_none() {
+            let field_val = std::env::var("NEP330_VERSION").unwrap_or(String::from(""));
+            if !field_val.is_empty() {
+                self.version = Some(field_val);
             }
         }
 
@@ -66,7 +73,14 @@ impl ContractMetadata {
             || self.standards.iter().all(|s| s.standard.to_ascii_lowercase() != "nep330")
         {
             self.standards
-                .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
+                .push(Standard { standard: "nep330".to_string(), version: "1.2.0".to_string() });
+        }
+
+        if std::env::var("NEP330_BUILD_INFO_BUILD_ENVIRONMENT").is_ok() {
+            self.build_info = Some(
+                build_info::BuildInfo::from_env()
+                    .expect("Build Details Extension field not provided or malformed"),
+            );
         }
 
         self
