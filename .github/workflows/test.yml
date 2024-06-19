@@ -8,19 +8,18 @@ env:
   RUSTFLAGS: -D warnings
 jobs:
   test:
-    runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
+    runs-on: ${{ matrix.platform.os }}
+    name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }}"
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
-        toolchain: [1.78.0, 1.76.0]
+        platform: [{os: ubuntu-latest, rs: 1.76.0}, {os: ubuntu-latest, rs: stable}, {os: macos-latest, rs: 1.76.0}, {os: macos-latest, rs: 1.78.0}]
     steps:
       - uses: actions/checkout@v3
-      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
+      - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: ${{ matrix.platform.rs }}
           default: true
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
