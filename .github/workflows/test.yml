@@ -17,9 +17,9 @@ jobs:
             rs: 1.76.0
           - os: ubuntu-latest
             rs: stable
-          - os: macos-latest
-            rs: 1.76.0
-          - os: macos-latest
+          - os: macos-13-xlarge
+            rs: stable
+          - os: macos-13-xlarge
             rs: 1.78.0
     steps:
       - uses: actions/checkout@v3
