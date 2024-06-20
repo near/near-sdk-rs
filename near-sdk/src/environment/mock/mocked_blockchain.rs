@@ -55,6 +55,7 @@ struct LogicFixture {
     promise_results: Box<Vec<VmPromiseResult>>,
     config: Box<near_parameters::vm::Config>,
     fees_config: Box<RuntimeFeesConfig>,
+    context: Box<near_vm_runner::logic::VMContext>,
 }
 
 impl MockedBlockchain {
@@ -68,7 +69,7 @@ impl MockedBlockchain {
         memory_opt: Option<Box<dyn MemoryLike>>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
-        let context = sdk_context_to_vm_context(context);
+        let context = Box::new(sdk_context_to_vm_context(context));
         ext.fake_trie = storage;
         ext.validators =
             validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v.as_yoctonear())).collect();
@@ -77,12 +78,13 @@ impl MockedBlockchain {
         let config = Box::new(config);
         let fees_config = Box::new(fees_config);
 
-        let mut logic_fixture = LogicFixture { ext, memory, promise_results, config, fees_config };
+        let mut logic_fixture =
+            LogicFixture { ext, memory, context, promise_results, config, fees_config };
 
         let logic = unsafe {
             VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
-                context,
+                &*(logic_fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
                 &*(logic_fixture.config.as_mut() as *const near_parameters::vm::Config),
                 &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
                 &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
