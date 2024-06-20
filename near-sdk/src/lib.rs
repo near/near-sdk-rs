@@ -50,6 +50,9 @@ pub mod utils;
 pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
+#[cfg(feature = "__macro-docs")]
+pub mod near;
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub mod test_utils;
 

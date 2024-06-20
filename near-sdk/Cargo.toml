@@ -89,5 +89,7 @@ unit-testing = [
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 
+__macro-docs = []
+
 [package.metadata.docs.rs]
-features = ["unstable", "legacy"]
+features = ["unstable", "legacy", "__macro-docs"]
