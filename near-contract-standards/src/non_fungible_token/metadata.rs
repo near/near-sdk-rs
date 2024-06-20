@@ -1,5 +1,5 @@
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::{near, require};
+use near_sdk::{ext_contract, near, require};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";
@@ -35,6 +35,7 @@ pub struct TokenMetadata {
 }
 
 /// Offers details on the contract-level metadata.
+#[ext_contract(ext_nft_metadata_provider)]
 pub trait NonFungibleTokenMetadataProvider {
     fn nft_metadata(&self) -> NFTContractMetadata;
 }
