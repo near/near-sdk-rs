@@ -40,16 +40,6 @@ pub enum Collection {
     Vector,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub enum Op {
-    Insert(usize),
-    Remove,
-    Flush,
-    Contains(usize),
-    Iter(usize),
-}
-
 #[near]
 impl StoreContract {
     #[init]
@@ -75,28 +65,59 @@ impl StoreContract {
         }
     }
 
+    fn insertable(&self) -> Insertable {
+        Insertable { index: 0, data: "scatter cinnamon wheel useless please rough situate iron eager noise try evolve runway neglect onion".to_string(), is_valid: true }
+    }
+
     #[payable]
-    pub fn exec(&mut self, col: Collection, op: Op, iterations: usize) {
-        let mut insertable = Insertable { index: 0, data: "scatter cinnamon wheel useless please rough situate iron eager noise try evolve runway neglect onion".to_string(), is_valid: true };
+    pub fn insert(&mut self, col: Collection, index_offset: usize, iterations: usize) {
+        let mut insertable = self.insertable();
         for iter in 0..=iterations {
             insertable.index = iter as u32;
-            match op {
-                Op::Insert(index_offset) => {
-                    insertable.index += index_offset as u32;
-                    self.insert(&col, insertable.clone())
-                }
-                Op::Remove => self.remove(&col, &insertable),
-                Op::Flush => self.flush(&col),
-                Op::Contains(repeat) => self.contains(&col, &insertable, repeat),
-                Op::Iter(repeat) => {
-                    self.iter(&col, iterations, repeat);
-                    break;
-                }
+            insertable.index += index_offset as u32;
+            self.insert_op(&col, insertable.clone())
+        }
+    }
+
+    #[payable]
+    pub fn remove(&mut self, col: Collection, iterations: usize) {
+        let mut insertable = self.insertable();
+        for iter in 0..=iterations {
+            insertable.index = iter as u32;
+            self.remove_op(&col, &insertable)
+        }
+    }
+
+    #[payable]
+    pub fn contains(&mut self, col: Collection, repeat: usize, iterations: usize) {
+        let mut insertable = self.insertable();
+        for iter in 0..=iterations {
+            insertable.index = iter as u32;
+            for _ in 0..repeat {
+                self.contains_op(&col, &insertable)
             }
         }
     }
 
-    fn insert(&mut self, col: &Collection, val: Insertable) {
+    #[payable]
+    pub fn iter(&mut self, col: Collection, repeat: usize, iterations: usize) {
+        for _ in 0..=iterations {
+            for _ in 0..repeat {
+                self.iter_op(&col, iterations)
+            }
+        }
+    }
+
+    #[payable]
+    pub fn nth(&mut self, col: Collection, repeat: usize, iterations: usize) {
+        for iter in 0..=iterations {
+            for _ in 0..repeat {
+                self.nth_op(&col, iter)
+            }
+        }
+    }
+
+    fn insert_op(&mut self, col: &Collection, val: Insertable) {
         match col {
             IterableSet => {
                 self.iterable_set.insert(val);
@@ -125,7 +146,7 @@ impl StoreContract {
         };
     }
 
-    fn remove(&mut self, col: &Collection, val: &Insertable) {
+    fn remove_op(&mut self, col: &Collection, val: &Insertable) {
         match col {
             IterableSet => {
                 self.iterable_set.remove(&val);
@@ -158,79 +179,87 @@ impl StoreContract {
         };
     }
 
-    fn flush(&mut self, col: &Collection) {
+    fn contains_op(&mut self, col: &Collection, val: &Insertable) {
         match col {
-            IterableSet => self.iterable_set.flush(),
-            IterableMap => self.iterable_map.flush(),
-            UnorderedMap => self.unordered_map.flush(),
-            UnorderedSet => self.unordered_set.flush(),
-            LookupMap => self.lookup_map.flush(),
-            TreeMap => self.tree_map.flush(),
-            Vector => self.vec.flush(),
-            // No flush method.
+            IterableSet => self.iterable_set.contains(val),
+            IterableMap => self.iterable_map.contains_key(&val.index),
+            UnorderedMap => self.unordered_map.contains_key(&val.index),
+            UnorderedSet => self.unordered_set.contains(val),
+            LookupMap => self.lookup_map.contains_key(&val.index),
+            LookupSet => self.lookup_set.contains(val),
+            TreeMap => self.tree_map.contains_key(&val.index),
+            // no contains method
+            Vector => unimplemented!(),
+        };
+    }
+
+    fn iter_op(&mut self, col: &Collection, take: usize) {
+        match col {
+            IterableSet => {
+                let mut iter = self.iterable_set.iter();
+                for _ in 0..take {
+                    iter.next();
+                }
+            }
+            IterableMap => {
+                let mut iter = self.iterable_map.iter();
+                for _ in 0..take {
+                    iter.next();
+                }
+            }
+            UnorderedMap => {
+                let mut iter = self.unordered_map.iter();
+                for _ in 0..take {
+                    iter.next();
+                }
+            }
+            UnorderedSet => {
+                let mut iter = self.unordered_set.iter();
+                for _ in 0..take {
+                    iter.next();
+                }
+            }
+            TreeMap => {
+                let mut iter = self.tree_map.iter();
+                for _ in 0..take {
+                    iter.next();
+                }
+            }
+            Vector => {
+                let mut iter = self.vec.iter();
+                for _ in 0..take {
+                    iter.next();
+                }
+            }
+            // Lookup* collections are not iterable.
+            LookupMap => unimplemented!(),
             LookupSet => unimplemented!(),
         };
     }
 
-    fn contains(&mut self, col: &Collection, val: &Insertable, repeat: usize) {
-        for _ in 0..repeat {
-            match col {
-                IterableSet => self.iterable_set.contains(val),
-                IterableMap => self.iterable_map.contains_key(&val.index),
-                UnorderedMap => self.unordered_map.contains_key(&val.index),
-                UnorderedSet => self.unordered_set.contains(val),
-                LookupMap => self.lookup_map.contains_key(&val.index),
-                LookupSet => self.lookup_set.contains(val),
-                TreeMap => self.tree_map.contains_key(&val.index),
-                // no contains method
-                Vector => unimplemented!(),
-            };
-        }
-    }
-
-    fn iter(&mut self, col: &Collection, take: usize, repeat: usize) {
-        for _ in 0..repeat {
-            match col {
-                IterableSet => {
-                    let mut iter = self.iterable_set.iter();
-                    for _ in 0..take {
-                        iter.next();
-                    }
-                }
-                IterableMap => {
-                    let mut iter = self.iterable_map.iter();
-                    for _ in 0..take {
-                        iter.next();
-                    }
-                }
-                UnorderedMap => {
-                    let mut iter = self.unordered_map.iter();
-                    for _ in 0..take {
-                        iter.next();
-                    }
-                }
-                UnorderedSet => {
-                    let mut iter = self.unordered_set.iter();
-                    for _ in 0..take {
-                        iter.next();
-                    }
-                }
-                TreeMap => {
-                    let mut iter = self.tree_map.iter();
-                    for _ in 0..take {
-                        iter.next();
-                    }
-                }
-                Vector => {
-                    let mut iter = self.vec.iter();
-                    for _ in 0..take {
-                        iter.next();
-                    }
-                }
-                // Lookup* collections are not iterable.
-                LookupMap => unimplemented!(),
-                LookupSet => unimplemented!(),
-            };
-        }
+    fn nth_op(&mut self, col: &Collection, element_idx: usize) {
+        match col {
+            IterableSet => {
+                self.iterable_set.iter().nth(element_idx);
+            }
+            IterableMap => {
+                self.iterable_map.iter().nth(element_idx);
+            }
+            UnorderedMap => {
+                self.unordered_map.iter().nth(element_idx);
+            }
+            UnorderedSet => {
+                self.unordered_set.iter().nth(element_idx);
+            }
+            TreeMap => {
+                self.tree_map.iter().nth(element_idx);
+            }
+            Vector => {
+                self.vec.iter().nth(element_idx);
+            }
+            // Lookup* collections are not iterable.
+            LookupMap => unimplemented!(),
+            LookupSet => unimplemented!(),
+        };
     }
 }
