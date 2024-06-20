@@ -1,6 +1,11 @@
-/// Initialization Methods inner #[near] annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#initialization-methods)
+//! `#[near]` and `#[near_bindgen]` documentation module
+//!
+//! This is not a real module; here we document the attributes that [`#[near]`](../attr.near.html)
+//! and [`#[near_bindgen]`](../attr.near_bindgen.html) macro use.
+
+/// Initialization Methods inner [`#[near]`](../attr.near.html) annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#initialization-methods)
 ///
-/// By default, the Default::default() implementation of a contract will be used to initialize a contract. There can be a custom initialization function which takes parameters or performs custom logic with the following #[init] annotation:
+/// By default, the `Default::default()` implementation of a contract will be used to initialize a contract. There can be a custom initialization function which takes parameters or performs custom logic with the following `#[init]` annotation:
 /// # Examples
 ///
 /// ## Basic example
@@ -25,11 +30,11 @@
 /// ```
 pub fn init() {}
 
-/// Payable Methods inner #[near] annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#payable-methods)
+/// Payable Methods inner [`#[near]`](../attr.near.html) annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#payable-methods)
 ///
-/// Methods can be annotated with #[payable] to allow tokens to be transferred with the method invocation. For more information, see payable methods.
+/// Methods can be annotated with `#[payable]` to allow tokens to be transferred with the method invocation. For more information, see payable methods.
 ///
-/// To declare a function as payable, use the #[payable] annotation as follows:
+/// To declare a function as payable, use the `#[payable]` annotation as follows:
 /// # Examples
 ///
 /// ## Basic example
@@ -53,9 +58,9 @@ pub fn init() {}
 /// ```
 pub fn payable() {}
 
-/// Private Methods inner #[near] annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#private-methods)
+/// Private Methods inner [`#[near]`](../attr.near.html) annotation. More details can be found [here](https://docs.near.org/sdk/rust/contract-structure/near-bindgen#private-methods)
 ///
-/// Some methods need to be exposed to allow the contract to call a method on itself through a promise, but want to disallow any other contract to call it. For this, use the #[private] annotation to panic when this method is called externally. See [private methods](https://docs.near.org/sdk/rust/contract-interface/private-methods) for more information.
+/// Some methods need to be exposed to allow the contract to call a method on itself through a promise, but want to disallow any other contract to call it. For this, use the `#[private]` annotation to panic when this method is called externally. See [private methods](https://docs.near.org/sdk/rust/contract-interface/private-methods) for more information.
 ///
 /// This annotation can be applied to any method through the following:
 /// # Examples
@@ -81,7 +86,7 @@ pub fn payable() {}
 /// ```
 pub fn private() {}
 
-/// Result serialization inner #[near] annotation..
+/// Result serialization inner [`#[near]`](../attr.near.html) annotation.
 ///
 /// Only one of `borsh` or `json` can be specified.
 ///
@@ -108,10 +113,10 @@ pub fn private() {}
 /// ```
 pub fn result_serializer() {}
 
-/// Support Result types regardless of how they're referred to inner #[near] annotation.
+/// Support Result types regardless of how they're referred to inner [`#[near]`](../attr.near.html) annotation.
 ///
-/// Have #[handle_result] to Support Result types regardless of how they're referred to
-/// Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]
+/// Have `#[handle_result]` to Support Result types regardless of how they're referred to
+/// Function marked with `#[handle_result]` should return `Result<T, E> (where E implements FunctionError)`. If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`
 ///
 /// # Examples
 ///
