@@ -5,7 +5,6 @@ use syn::spanned::Spanned;
 use syn::{Error, LitStr, TraitItemFn};
 
 /// Information extracted from trait method.
-#[allow(dead_code)]
 pub struct TraitItemMethodInfo {
     /// Attributes and signature information.
     pub attr_sig_info: AttrSigInfo,
