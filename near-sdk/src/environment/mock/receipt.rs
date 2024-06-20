@@ -68,6 +68,14 @@ pub enum MockAction {
         public_key: near_crypto::PublicKey,
         nonce: u64,
     },
+    YieldCreate {
+        data_id: near_primitives::hash::CryptoHash,
+        receiver_id: AccountId,
+    },
+    YieldResume {
+        data: Vec<u8>,
+        data_id: near_primitives::hash::CryptoHash,
+    },
 }
 
 impl MockAction {
@@ -82,7 +90,9 @@ impl MockAction {
             MockAction::DeleteAccount { receipt_index, .. } => Some(*receipt_index),
             MockAction::DeleteKey { receipt_index, .. } => Some(*receipt_index),
             MockAction::AddKeyWithFunctionCall { receipt_index, .. } => Some(*receipt_index),
-            Self::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
+            MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
+            MockAction::YieldCreate { .. } => None,
+            MockAction::YieldResume { .. } => None,
         }
     }
 }
@@ -156,6 +166,10 @@ impl From<LogicMockAction> for MockAction {
             LogicMockAction::AddKeyWithFullAccess { receipt_index, public_key, nonce } => {
                 Self::AddKeyWithFullAccess { receipt_index, public_key, nonce }
             }
+            LogicMockAction::YieldCreate { data_id, receiver_id } => {
+                Self::YieldCreate { data_id, receiver_id }
+            }
+            LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
         }
     }
 }
