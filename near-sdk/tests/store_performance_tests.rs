@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -10,12 +10,11 @@ use near_workspaces::{Account, Worker};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter};
+use strum_macros::Display;
 
 const DEFAULT_INDEX_OFFSET: usize = 0;
 
-#[derive(Serialize, Deserialize, EnumIter, Display, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Display, Copy, Clone, PartialEq, Eq, Hash)]
 #[serde(crate = "near_sdk::serde")]
 pub enum Collection {
     IterableSet,
@@ -103,35 +102,46 @@ async fn setup() -> anyhow::Result<(Account, AccountId)> {
 
 #[tokio::test]
 async fn insert_and_remove() -> anyhow::Result<()> {
+    let collection_types = &[
+        Collection::TreeMap,
+        Collection::IterableSet,
+        Collection::IterableMap,
+        Collection::UnorderedSet,
+        Collection::UnorderedMap,
+        Collection::LookupMap,
+        Collection::LookupSet,
+        Collection::Vector,
+    ];
+
     let (account, contract_id) = setup().await?;
     // insert test, max_iterations here is the number of elements to insert. It's used to measure
     // relative performance.
-    for (col, max_iterations) in Collection::iter().map(|col| match col {
-        Collection::TreeMap => (col, 310),
-        Collection::IterableSet => (col, 375),
-        Collection::IterableMap => (col, 360),
+    for (col, max_iterations) in collection_types.map(|col| match col {
+        Collection::TreeMap => (col, 340),
+        Collection::IterableSet => (col, 340),
+        Collection::IterableMap => (col, 350),
         Collection::UnorderedSet => (col, 340),
         Collection::UnorderedMap => (col, 350),
         Collection::LookupMap => (col, 600),
         Collection::LookupSet => (col, 970),
         Collection::Vector => (col, 1000),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id, "insert")
             .args_json((col, DEFAULT_INDEX_OFFSET, max_iterations))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
         perform_asserts(total_gas, &col);
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
     // relative performance.
-    for (col, max_iterations) in Collection::iter().map(|col| match col {
+    for (col, max_iterations) in collection_types.map(|col| match col {
         Collection::TreeMap => (col, 220),
         Collection::IterableSet => (col, 120),
         Collection::IterableMap => (col, 115),
@@ -141,15 +151,15 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         Collection::LookupSet => (col, 970),
         Collection::Vector => (col, 500),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id, "remove")
             .args_json((col, max_iterations))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
         perform_asserts(total_gas, &col);
     }
@@ -159,27 +169,33 @@ async fn insert_and_remove() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn iter() -> anyhow::Result<()> {
+    // LookupMap and LookupSet are not iterable.
+    let collection_types = &[
+        Collection::TreeMap,
+        Collection::IterableSet,
+        Collection::IterableMap,
+        Collection::UnorderedSet,
+        Collection::UnorderedMap,
+        Collection::Vector,
+    ];
+
     let element_number = 100;
     let (account, contract_id) = setup().await?;
-    // LookupMap and LookupSet are not iterable.
-    let collection_filter =
-        |col: &Collection| !matches!(col, Collection::LookupMap | Collection::LookupSet);
+
     // pre-populate
-    for col in Collection::iter().filter(collection_filter) {
-        let txn = account
+    for col in collection_types {
+        account
             .call(&contract_id, "insert")
             .args_json((col, DEFAULT_INDEX_OFFSET, element_number))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let _ = res.unwrap();
+            .await?
+            .unwrap();
     }
 
     // iter, repeat here is the number that reflects how many times the iterator is consumed fully.
     // It's used to measure relative performance.
-    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+    for (col, repeat) in collection_types.map(|col| match col {
         Collection::TreeMap => (col, 5),
         Collection::IterableSet => (col, 20),
         Collection::IterableMap => (col, 9),
@@ -188,15 +204,16 @@ async fn iter() -> anyhow::Result<()> {
         Collection::Vector => (col, 19),
         _ => (col, 0),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id.clone(), "iter")
             .args_json((col, repeat, element_number))
             .max_gas()
             .transact()
-            .await;
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
         perform_asserts(total_gas, &col);
     }
 
@@ -205,27 +222,32 @@ async fn iter() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn random_access() -> anyhow::Result<()> {
+    // LookupMap and LookupSet are not iterable.
+    let collection_types = &[
+        Collection::TreeMap,
+        Collection::IterableSet,
+        Collection::IterableMap,
+        Collection::UnorderedSet,
+        Collection::UnorderedMap,
+        Collection::Vector,
+    ];
     let element_number = 100;
     let (account, contract_id) = setup().await?;
-    // LookupMap and LookupSet are not iterable.
-    let collection_filter =
-        |col: &Collection| !matches!(col, Collection::LookupMap | Collection::LookupSet);
+
     // pre-populate
-    for col in Collection::iter().filter(collection_filter) {
-        let txn = account
+    for col in collection_types {
+        account
             .call(&contract_id, "insert")
             .args_json((col, DEFAULT_INDEX_OFFSET, element_number))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let _ = res.unwrap();
+            .await?
+            .unwrap();
     }
 
     // iter, repeat here is the number that reflects how many times we retrieve a random element.
     // It's used to measure relative performance.
-    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+    for (col, repeat) in collection_types.map(|col| match col {
         Collection::TreeMap => (col, 14),
         Collection::IterableSet => (col, 1600),
         Collection::IterableMap => (col, 720),
@@ -234,15 +256,16 @@ async fn random_access() -> anyhow::Result<()> {
         Collection::Vector => (col, 1600),
         _ => (col, 0),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id.clone(), "nth")
             .args_json((col, repeat, element_number))
             .max_gas()
             .transact()
-            .await;
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
         perform_asserts(total_gas, &col);
     }
 
@@ -251,27 +274,34 @@ async fn random_access() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn contains() -> anyhow::Result<()> {
+    // Vector does not implement contains.
+    let collection_types = &[
+        Collection::TreeMap,
+        Collection::IterableSet,
+        Collection::IterableMap,
+        Collection::UnorderedSet,
+        Collection::UnorderedMap,
+        Collection::LookupMap,
+        Collection::LookupSet,
+    ];
     // Each collection gets the same number of elements.
     let element_number = 100;
     let (account, contract_id) = setup().await?;
-    // Vector does not implement contains.
-    let collection_filter = |col: &Collection| !matches!(col, Collection::Vector);
+
     // prepopulate
-    for col in Collection::iter().filter(collection_filter) {
-        let txn = account
+    for col in collection_types {
+        account
             .call(&contract_id, "insert")
             .args_json((col, DEFAULT_INDEX_OFFSET, element_number))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let _ = res.unwrap();
+            .await?
+            .unwrap();
     }
 
     // contains test, repeat here is the number of times we check all the elements in each collection.
     // It's used to measure relative performance.
-    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+    for (col, repeat) in collection_types.map(|col| match col {
         Collection::TreeMap => (col, 12),
         Collection::IterableSet => (col, 11),
         Collection::IterableMap => (col, 12),
@@ -281,15 +311,15 @@ async fn contains() -> anyhow::Result<()> {
         Collection::LookupSet => (col, 14),
         _ => (col, 0),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id.clone(), "contains")
             .args_json((col, repeat, element_number))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
         perform_asserts(total_gas, &col);
     }
@@ -326,36 +356,35 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
 
     // remove `deleted_element_number` elements. This leaves only one element in each collection.
     for (col, max_iterations) in &collection_types.map(|col| (col, deleted_element_number)) {
-        let txn = account
+        account
             .call(&contract_id, "remove")
             .args_json((col, max_iterations))
             .max_gas()
             .transact()
-            .await;
-
-        let _ = txn?.unwrap();
+            .await?
+            .unwrap();
     }
 
     // iter, repeat here is the number of times we iterate through the whole collection. It's used to
     // measure relative performance.
-    for (col, repeat) in &collection_types.map(|col| match col {
+    for (col, repeat) in collection_types.map(|col| match col {
         Collection::IterableSet => (col, 240000),
         Collection::IterableMap => (col, 130000),
         Collection::UnorderedSet => (col, 260),
         Collection::UnorderedMap => (col, 260),
         _ => (col, 0),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id.clone(), "iter")
             .args_json((col, repeat, element_number - deleted_element_number))
             .max_gas()
             .transact()
-            .await;
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
-
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, &col);
     }
 
     // random access, repeat here is the number of times we try to access an element in the
@@ -367,15 +396,15 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
         Collection::UnorderedMap => (col, 255),
         _ => (col, 0),
     }) {
-        let txn = account
+        let total_gas = account
             .call(&contract_id.clone(), "nth")
             .args_json((col, repeat, element_number - deleted_element_number))
             .max_gas()
             .transact()
-            .await;
-
-        let res = txn?;
-        let total_gas = res.unwrap().total_gas_burnt.as_gas();
+            .await?
+            .unwrap()
+            .total_gas_burnt
+            .as_gas();
 
         perform_asserts(total_gas, col);
     }
