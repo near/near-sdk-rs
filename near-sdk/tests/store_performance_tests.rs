@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -56,7 +56,8 @@ async fn dev_generate(
 
 async fn setup_worker() -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
     let worker = Arc::new(near_workspaces::sandbox().await?);
-    let contract = worker.dev_deploy(include_bytes!("test-contracts/store/res/store.wasm")).await?;
+    let wasm = near_workspaces::compile_project("./tests/test-contracts/store").await?;
+    let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
     Ok((worker, contract.id().clone()))
