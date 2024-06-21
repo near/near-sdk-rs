@@ -306,28 +306,21 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     let (account, contract_id) = setup().await?;
 
     // We only care about Unordered* and Iterable* collections.
-    let collection_filter = |col: &Collection| {
-        matches!(
-            col,
-            Collection::UnorderedSet
-                | Collection::UnorderedMap
-                | Collection::IterableMap
-                | Collection::IterableSet
-        )
-    };
+    let collection_types = &[
+        Collection::UnorderedSet,
+        Collection::UnorderedMap,
+        Collection::IterableMap,
+        Collection::IterableSet,
+    ];
 
     // insert `element_number` elements.
-    for (col, max_iterations) in
-        Collection::iter().filter(collection_filter).map(|col| (col, element_number))
-    {
-        let txn = account
+    for col in &collection_types {
+        account
             .call(&contract_id, "insert")
-            .args_json((col, DEFAULT_INDEX_OFFSET, max_iterations))
+            .args_json((col, DEFAULT_INDEX_OFFSET, element_number))
             .max_gas()
             .transact()
-            .await;
-
-        let _ = txn?.unwrap();
+            .await??;
     }
 
     // remove `deleted_element_number` elements. This leaves only one element in each collection.
