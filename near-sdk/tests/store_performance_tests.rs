@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-// #![cfg(target_os = "linux")]
+#![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -63,7 +63,7 @@ async fn setup_worker() -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
     Ok((worker, contract.id().clone()))
 }
 
-fn perform_asserts(total_gas: u64, col: Collection) {
+fn perform_asserts(total_gas: u64, col: &Collection) {
     assert!(
         total_gas < NearGas::from_tgas(100).as_gas(),
         "performance regression {}: {}",
@@ -126,7 +126,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, &col);
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
@@ -151,7 +151,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, &col);
     }
 
     Ok(())
@@ -197,7 +197,7 @@ async fn iter() -> anyhow::Result<()> {
 
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, &col);
     }
 
     Ok(())
@@ -243,7 +243,7 @@ async fn random_access() -> anyhow::Result<()> {
 
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, &col);
     }
 
     Ok(())
@@ -291,7 +291,7 @@ async fn contains() -> anyhow::Result<()> {
         let res = txn?;
         let total_gas = res.unwrap().total_gas_burnt.as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, &col);
     }
 
     Ok(())
@@ -314,19 +314,18 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     ];
 
     // insert `element_number` elements.
-    for col in &collection_types {
+    for col in collection_types {
         account
             .call(&contract_id, "insert")
             .args_json((col, DEFAULT_INDEX_OFFSET, element_number))
             .max_gas()
             .transact()
-            .await??;
+            .await?
+            .unwrap();
     }
 
     // remove `deleted_element_number` elements. This leaves only one element in each collection.
-    for (col, max_iterations) in
-        Collection::iter().filter(collection_filter).map(|col| (col, deleted_element_number))
-    {
+    for (col, max_iterations) in &collection_types.map(|col| (col, deleted_element_number)) {
         let txn = account
             .call(&contract_id, "remove")
             .args_json((col, max_iterations))
@@ -339,7 +338,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
 
     // iter, repeat here is the number of times we iterate through the whole collection. It's used to
     // measure relative performance.
-    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+    for (col, repeat) in &collection_types.map(|col| match col {
         Collection::IterableSet => (col, 240000),
         Collection::IterableMap => (col, 130000),
         Collection::UnorderedSet => (col, 260),
@@ -361,7 +360,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
 
     // random access, repeat here is the number of times we try to access an element in the
     // collection. It's used to measure relative performance.
-    for (col, repeat) in Collection::iter().filter(collection_filter).map(|col| match col {
+    for (col, repeat) in &collection_types.map(|col| match col {
         Collection::IterableSet => (col, 540000),
         Collection::IterableMap => (col, 260000),
         Collection::UnorderedSet => (col, 255),
