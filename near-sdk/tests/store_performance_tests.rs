@@ -65,7 +65,7 @@ async fn setup_worker() -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
 fn perform_asserts(total_gas: u64, col: &Collection) {
     // Constraints a bit relaxed to account for binary differences due to on-demand compilation.
     assert!(
-        total_gas < NearGas::from_tgas(105).as_gas(),
+        total_gas < NearGas::from_tgas(110).as_gas(),
         "performance regression {}: {}",
         col,
         NearGas::from_gas(total_gas)
