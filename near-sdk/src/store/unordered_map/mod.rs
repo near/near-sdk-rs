@@ -90,18 +90,26 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     keys: FreeList<K>,
-    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
