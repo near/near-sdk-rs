@@ -9,7 +9,7 @@ env:
 jobs:
   test:
     runs-on: ${{ matrix.platform.os }}
-    name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }}"
+    name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }} ${{ matrix.features }}"
     strategy:
       matrix:
         platform:
@@ -21,6 +21,7 @@ jobs:
             rs: 1.76.0
           - os: macos-latest
             rs: 1.78.0
+        features: ['', '--features unstable,legacy']
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
@@ -38,7 +39,7 @@ jobs:
       - name: print rustc && rustdoc version
         run: rustc --version && rustdoc --version
       - name: test
-        run: cargo test --all --features unstable,legacy
+        run: cargo test --all ${{ matrix.features }}
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
