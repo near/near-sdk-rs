@@ -21,7 +21,7 @@ jobs:
             rs: 1.76.0
           - os: macos-latest
             rs: 1.78.0
-        features: ['', '--features unstable,legacy']
+        features: ['', '--features unstable,legacy,abi']
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
