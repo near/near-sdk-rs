@@ -13,6 +13,8 @@ fn compilation_tests() {
     t.pass("compilation_tests/init_function.rs");
     t.pass("compilation_tests/init_ignore_state.rs");
     t.pass("compilation_tests/no_default.rs");
+    // TODO: unignore upon resolution of https://github.com/near/near-sdk-rs/issues/1211
+    // t.pass("compilation_tests/lifetime_method_result.rs");
     t.pass("compilation_tests/lifetime_method.rs");
     t.pass("compilation_tests/cond_compilation.rs");
     t.compile_fail("compilation_tests/payable_view.rs");

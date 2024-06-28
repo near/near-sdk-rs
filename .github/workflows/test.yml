@@ -21,7 +21,7 @@ jobs:
             rs: 1.76.0
           - os: macos-latest
             rs: 1.78.0
-        features: ['', '--features unstable,legacy,abi']
+        features: ['', '--features unstable,legacy,__abi-generate']
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
@@ -69,7 +69,7 @@ jobs:
           default: true
       - uses: Swatinem/rust-cache@v1
       - name: Compilation tests
-        run: cargo test --package near-sdk --test compilation_tests --features abi --features unstable -- compilation_tests --exact --nocapture
+        run: cargo test --package near-sdk --test compilation_tests --features __abi-generate --features unstable -- compilation_tests --exact --nocapture
   windows:
     name: Windows
     runs-on: windows-latest
