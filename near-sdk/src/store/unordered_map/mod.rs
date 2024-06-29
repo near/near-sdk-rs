@@ -90,18 +90,26 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
     since = "5.0.0",
     note = "Suboptimal iteration performance. See performance considerations doc for details."
 )]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     keys: FreeList<K>,
-    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
@@ -840,5 +848,135 @@ mod tests {
         assert_eq!(map.remove_entry(&8).unwrap(), (8, 8));
         assert_eq!(map.remove_entry(&1).unwrap(), (1, 1));
         assert_eq!(map.remove_entry(&3).unwrap(), (3, 3));
+    }
+
+    #[allow(unused)]
+    macro_rules! schema_map(
+        () => { BTreeMap::new() };
+        { $($key:expr => $value:expr),+ } => {
+            {
+                let mut m = BTreeMap::new();
+                $(
+                    m.insert($key.to_string(), $value);
+                )+
+                m
+            }
+         };
+    );
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        use borsh::schema::{Definition, Fields};
+        use std::collections::BTreeMap;
+
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "UnorderedMap".to_string(),
+            <UnorderedMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <UnorderedMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        println!("{:#?}", defs);
+        assert_eq!(
+            schema_map! {
+                "UnorderedMap" => Definition::Struct {
+                    fields: Fields::NamedFields(vec![
+                        (
+                            "keys".to_string(),
+                            "FreeList".to_string(),
+                        ),
+                        (
+                            "values".to_string(),
+                            "LookupMap".to_string(),
+                        ),
+                    ]
+                )},
+                "FreeList" => Definition::Struct {
+                    fields: Fields::NamedFields(vec![
+                        (
+                            "first_free".to_string(),
+                            "Option<FreeListIndex>".to_string(),
+                        ),
+                        (
+                            "occupied_count".to_string(),
+                            "u32".to_string(),
+                        ),
+                        (
+                            "elements".to_string(),
+                            "Vector".to_string(),
+                        ),
+                    ]
+                )},
+                "Option<FreeListIndex>" => Definition::Enum {
+                    tag_width: 1,
+                    variants:  vec![
+                        (
+                            0,
+                            "None".to_string(),
+                            "()".to_string(),
+                        ),
+                        (
+                            1,
+                            "Some".to_string(),
+                            "FreeListIndex".to_string(),
+                        ),
+                ]},
+                "()" => Definition::Primitive(0),
+                "FreeListIndex" => Definition::Struct {
+                    fields: Fields::UnnamedFields(
+                        vec![
+                            "u32".to_string(),
+                        ],
+                    ),
+                },
+                "u32" => Definition::Primitive(4 ),
+                "Vector" => Definition::Struct {
+                    fields: Fields::NamedFields(
+                        vec![
+                            (
+                                "len".to_string(),
+                                "u32".to_string(),
+                            ),
+                            (
+                                "values".to_string(),
+                                "IndexMap".to_string(),
+                            ),
+                        ],
+                    ),
+                },
+                "IndexMap" => Definition::Struct {
+                    fields: Fields::NamedFields(
+                        vec![
+                            (
+                                "prefix".to_string(),
+                                "Vec<u8>".to_string(),
+                            ),
+                        ],
+                    ),
+                },
+                "Vec<u8>" => Definition::Sequence {
+                    length_width: 4,
+                    length_range: 0..=4294967295,
+                    elements: "u8".to_string(),
+                },
+                "u8" => Definition::Primitive(1),
+                "LookupMap" => Definition::Struct {
+                    fields: Fields::NamedFields(
+                        vec![
+                            (
+                                "prefix".to_string(),
+                                "Vec<u8>".to_string(),
+                            ),
+                        ],
+                    ),
+                }
+            },
+            defs
+        );
     }
 }

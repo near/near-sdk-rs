@@ -649,6 +649,8 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                 #[automatically_derived]
                 impl #generics #near_sdk_crate::schemars::JsonSchema for #input_ident_proxy #generics #where_clause {
                     fn schema_name() -> ::std::string::String {
+                        // TODO: consider replacing with
+                        // <#input_ident #generics as #near_sdk_crate::schemars::JsonSchema>::schema_name()
                         stringify!(#input_ident #generics).to_string()
                     }
 
@@ -671,7 +673,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                 #[automatically_derived]
                 impl #generics #near_sdk_crate::borsh::BorshSchema for #input_ident_proxy #generics #where_clause {
                     fn declaration() -> #near_sdk_crate::borsh::schema::Declaration {
-                        stringify!(#input_ident #generics).to_string()
+                        <#input_ident #generics as #near_sdk_crate::borsh::BorshSchema>::declaration()
                     }
 
                     fn add_definitions_recursively(

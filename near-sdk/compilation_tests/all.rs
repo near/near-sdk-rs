@@ -13,6 +13,8 @@ fn compilation_tests() {
     t.pass("compilation_tests/init_function.rs");
     t.pass("compilation_tests/init_ignore_state.rs");
     t.pass("compilation_tests/no_default.rs");
+    // TODO: unignore upon resolution of https://github.com/near/near-sdk-rs/issues/1211
+    // t.pass("compilation_tests/lifetime_method_result.rs");
     t.pass("compilation_tests/lifetime_method.rs");
     t.pass("compilation_tests/cond_compilation.rs");
     t.compile_fail("compilation_tests/payable_view.rs");
@@ -21,9 +23,9 @@ fn compilation_tests() {
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
     t.pass("compilation_tests/schema_derive.rs");
-    if rustversion::cfg!(since(1.72)) {
-        // The compilation error output has slightly changed in 1.72, so we
-        // snapshoted this new version
+    if rustversion::cfg!(since(1.78)) && std::env::consts::OS == "linux" {
+        // The compilation error output has slightly changed in 1.7x and between platforms,
+        // so we snapshoted this single version
         t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     }
     t.compile_fail("compilation_tests/generic_function.rs");
