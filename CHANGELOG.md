@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.1.0...near-sdk-v6.0.0) - 2024-06-29
+
+### Added
+- Added `BorshSchema` derive for `store::UnorderedMap` ([#1209](https://github.com/near/near-sdk-rs/pull/1209))
+- New `near_sdk::store::IterableSet` - a better alternative to `UnorderedSet`, which has performance limitations on iteration over elements ([#1175](https://github.com/near/near-sdk-rs/pull/1175))
+- New `near_sdk::store::IterableMap` that addresses the iteration performance issue of `store::UnorderedMap` ([#1164](https://github.com/near/near-sdk-rs/pull/1164))
+- nep330 build info field of contract metadata ([#1178](https://github.com/near/near-sdk-rs/pull/1178))
+
+### Fixed
+- [**breaking**] Make log macro fully compatible with std::format (string interpolation is now supported) ([#1189](https://github.com/near/near-sdk-rs/pull/1189))
+- use FQDNs when calling contract methods to avoid method names collision ([#1186](https://github.com/near/near-sdk-rs/pull/1186))
+
+### Other
+- Added performance tests for 'store' collections ([#1195](https://github.com/near/near-sdk-rs/pull/1195))
+- Enable `unit-testing` feature for docs.rs
+- Documented `#[init]`, `#[payable]`, `#[handle_result]`, `#[private]`, `#[result_serializer]` attributes for docs.rs discoverability ([#1185](https://github.com/near/near-sdk-rs/pull/1185))
+- Updated near-* dependencies to 0.23 version ([#1207](https://github.com/near/near-sdk-rs/pull/1207))
+- Rust 1.79 fixes ([#1202](https://github.com/near/near-sdk-rs/pull/1202))
+- add yield execution host functions ([#1183](https://github.com/near/near-sdk-rs/pull/1183))
+- fix new lints, introduced in 1.78 ([#1181](https://github.com/near/near-sdk-rs/pull/1181))
+- *(store, collections)* replace manual `borsh` trait impl-s  with derives and correct bounds within ([#1176](https://github.com/near/near-sdk-rs/pull/1176))
+- Cover store::Vector fully + coverage for all the collections relevant to IterableMap implementation. ([#1173](https://github.com/near/near-sdk-rs/pull/1173))
+- Cover `store` collections with tests. ([#1172](https://github.com/near/near-sdk-rs/pull/1172))
+- Proxy JsonSchema::schema_name to the original implementation ([#1210](https://github.com/near/near-sdk-rs/pull/1210))
+
 ## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0...near-sdk-v5.1.0) - 2024-03-28
 
 ### Added
