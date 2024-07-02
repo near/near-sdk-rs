@@ -61,7 +61,7 @@ use std::{
 };
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk_macros::NearSchema;
+use near_sdk_macros::near;
 
 pub use self::iter::{Drain, Iter, IterMut};
 use super::ERR_INCONSISTENT_STATE;
@@ -112,9 +112,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 /// vec.extend([1, 2, 3].iter().copied());
 /// assert!(Iterator::eq(vec.into_iter(), [7, 1, 2, 3].iter()));
 /// ```
-#[derive(NearSchema, BorshSerialize, BorshDeserialize)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub struct Vector<T>
 where
     T: BorshSerialize,
