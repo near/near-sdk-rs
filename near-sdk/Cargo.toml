@@ -68,6 +68,7 @@ anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
 strum_macros = "0.25.3"
+insta = "1.39.0"
 
 [features]
 default = ["wee_alloc"]

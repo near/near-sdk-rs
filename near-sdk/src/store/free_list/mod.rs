@@ -523,4 +523,21 @@ mod tests {
             }
         }
     }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "FreeList".to_string(),
+            <FreeList<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <FreeList<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        insta::assert_snapshot!(format!("{:#?}", defs));
+    }
 }

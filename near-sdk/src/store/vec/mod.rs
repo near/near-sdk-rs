@@ -1003,4 +1003,21 @@ mod tests {
         let vec = Vector::<String>::deserialize(&mut serialized.as_slice()).unwrap();
         assert_eq!(vec[0], "Some data");
     }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "Vector".to_string(),
+            <Vector<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <Vector<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        insta::assert_snapshot!(format!("{:#?}", defs));
+    }
 }

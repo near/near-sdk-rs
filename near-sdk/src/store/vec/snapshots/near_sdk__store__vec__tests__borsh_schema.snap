@@ -1,0 +1,41 @@
+---
+source: near-sdk/src/store/vec/mod.rs
+expression: "format!(\"{:#?}\", defs)"
+---
+{
+    "IndexMap": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "prefix",
+                    "Vec<u8>",
+                ),
+            ],
+        ),
+    },
+    "Vec<u8>": Sequence {
+        length_width: 4,
+        length_range: 0..=4294967295,
+        elements: "u8",
+    },
+    "Vector": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "len",
+                    "u32",
+                ),
+                (
+                    "values",
+                    "IndexMap",
+                ),
+            ],
+        ),
+    },
+    "u32": Primitive(
+        4,
+    ),
+    "u8": Primitive(
+        1,
+    ),
+}
