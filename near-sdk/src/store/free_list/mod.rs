@@ -3,7 +3,7 @@ pub use self::iter::{Drain, Iter, IterMut};
 
 use super::{Vector, ERR_INCONSISTENT_STATE};
 use crate::{env, IntoStorageKey};
-use near_sdk_macros::{near, NearSchema};
+use near_sdk_macros::near;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
@@ -17,9 +17,7 @@ pub struct FreeListIndex(pub(crate) u32);
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
-#[derive(NearSchema, BorshSerialize, BorshDeserialize)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub(crate) struct FreeList<T>
 where
     T: BorshSerialize,
@@ -522,5 +520,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "FreeList".to_string(),
+            <FreeList<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <FreeList<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

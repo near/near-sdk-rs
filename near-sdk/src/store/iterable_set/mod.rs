@@ -10,6 +10,7 @@ use crate::store::key::{Sha256, ToKey};
 use crate::store::Vector;
 use crate::{env, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use std::borrow::Borrow;
 use std::fmt;
 
@@ -83,15 +84,25 @@ type VecIndex = u32;
 ///
 /// [`with_hasher`]: Self::with_hasher
 /// [`LookupSet`]: crate::store::LookupSet
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 pub struct IterableSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     elements: Vector<T>,
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `T`,`H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     index: LookupMap<T, VecIndex, H>,
 }
 
@@ -873,5 +884,23 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "IterableSet".to_string(),
+            <IterableSet<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <IterableSet<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }
