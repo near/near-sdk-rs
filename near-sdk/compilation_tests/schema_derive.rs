@@ -247,6 +247,7 @@ pub fn json_borsh_schema_spec() {
     const_assert_impls!(StructNoSchemaSpec: near_sdk::borsh::BorshSchema);
 }
 
+// original comment by @miraclx
 // fixme! this should fail, since A__NEAR_SCHEMA_PROXY does not derive NearSchema
 // fixme! hygeinic macro expansion is required to make this work
 // fixme! or just explicit checks, making sure that no ident is suffixed with
@@ -255,6 +256,25 @@ pub fn json_borsh_schema_spec() {
 #[allow(non_camel_case_types)]
 struct A__NEAR_SCHEMA_PROXY {}
 
+/// additional comment by @dj8yfo
+/// FIXME: VERY LOW PRIORITY, as such a camel case type if unlikely to be used in practice
+/// derive should fail, since the real A__NEAR_SCHEMA_PROXY type does not derive NearSchema 
+/// but it compiles and results in recursive definition
+///
+/// ```
+/// 	definitions: {
+/// 	    "A": Object(
+/// 	        SchemaObject {
+/// 				...
+/// 	            reference: Some(
+/// 	                "#/definitions/A",
+/// 	            ),
+/// 				...			
+/// 	        },
+/// 	    ),
+/// ```
+/// It compiles due to mutually recursive implementations of `NearSchema` for outer `A`,
+/// present in source code, and *hidden* inner `A`, present in derive macro expansion.
 #[derive(NearSchema)]
 struct A(A__NEAR_SCHEMA_PROXY);
 
