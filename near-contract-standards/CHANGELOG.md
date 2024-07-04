@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.1.0...near-contract-standards-v5.2.0) - 2024-07-04
+
+### Added
+- Exported `ext_storage_management` Promise shortcuts, so Storage Management interfaces can be used in contracts to call external contracts using the high-level cross-contract call interfaces ([#1208](https://github.com/near/near-sdk-rs/pull/1208))
+- Exported `ext_nft_*` Promise shortcuts, so NFT interfaces can be re-used in contracts to call external NFT contracts using the high-level cross-contract call interfaces ([#1206](https://github.com/near/near-sdk-rs/pull/1206))
+
 ## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0...near-contract-standards-v5.1.0) - 2024-03-28
 
 ### Added
