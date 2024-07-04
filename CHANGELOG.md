@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+## [5.2.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.1.0...near-sdk-v5.2.0) - 2024-07-04
+
+### Added
+- New `near_sdk::store::IterableMap` and `near_sdk::store::IterableSet` that address the iteration performance issue of `store::UnorderedMap` ([#1164](https://github.com/near/near-sdk-rs/pull/1164)) ([#1175](https://github.com/near/near-sdk-rs/pull/1175))
+- Added `BorshSchema` trait impl to all `near_sdk::store` collections!
+  - `store::TreeMap<K, V, H>` and `UnorderedSet<T, H>` ([#1213](https://github.com/near/near-sdk-rs/pull/1213))
+  - `store::IterableSet` and `store::IterableMap` and refactored and added ABI defiintions tests ([#1212](https://github.com/near/near-sdk-rs/pull/1212))
+  - `store::UnorderedMap` ([#1209](https://github.com/near/near-sdk-rs/pull/1209))
+- Added yield execution host functions ([#1183](https://github.com/near/near-sdk-rs/pull/1183))
+- NEP-330 1.2.0 support - added build info field in contract metadata ([#1178](https://github.com/near/near-sdk-rs/pull/1178))
+
+### Fixed
+- [**technically breaking**] Make log macro fully compatible with std::format (string interpolation is now supported) ([#1189](https://github.com/near/near-sdk-rs/pull/1189))
+- use FQDNs when calling contract methods to avoid method names collision ([#1186](https://github.com/near/near-sdk-rs/pull/1186))
+
+### Other
+- Added performance tests for 'store' collections ([#1195](https://github.com/near/near-sdk-rs/pull/1195))
+- Full tests coverage for `store::Vector` + coverage for all the collections relevant to IterableMap implementation ([#1173](https://github.com/near/near-sdk-rs/pull/1173))
+- Full tests coverage for `store` collections ([#1172](https://github.com/near/near-sdk-rs/pull/1172))
+- Documented `#[init]`, `#[payable]`, `#[handle_result]`, `#[private]`, `#[result_serializer]` attributes for docs.rs discoverability ([#1185](https://github.com/near/near-sdk-rs/pull/1185))
+- Enabled `unit-testing` feature for docs.rs
+- Replaced manual `borsh` trait impl-s with derives and correct bounds in `near_sdk::store` and `near_sdk::collections` ([#1176](https://github.com/near/near-sdk-rs/pull/1176))
+- Proxy JsonSchema::schema_name to the original implementation ([#1210](https://github.com/near/near-sdk-rs/pull/1210))
+- Fixed Rust 1.79 linter warnings ([#1202](https://github.com/near/near-sdk-rs/pull/1202))
+- Fixed Rust 1.78 linter warnings ([#1181](https://github.com/near/near-sdk-rs/pull/1181))
+- Updated near-* dependencies to 0.23 version ([#1207](https://github.com/near/near-sdk-rs/pull/1207))
+
 ## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0...near-sdk-v5.1.0) - 2024-03-28
 
 ### Added
