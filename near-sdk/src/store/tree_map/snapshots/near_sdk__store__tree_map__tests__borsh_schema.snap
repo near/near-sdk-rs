@@ -1,0 +1,122 @@
+---
+source: near-sdk/src/store/tree_map/mod.rs
+expression: "format!(\"{:#?}\", defs)"
+---
+{
+    "()": Primitive(
+        0,
+    ),
+    "FreeList": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "first_free",
+                    "Option<FreeListIndex>",
+                ),
+                (
+                    "occupied_count",
+                    "u32",
+                ),
+                (
+                    "elements",
+                    "Vector",
+                ),
+            ],
+        ),
+    },
+    "FreeListIndex": Struct {
+        fields: UnnamedFields(
+            [
+                "u32",
+            ],
+        ),
+    },
+    "IndexMap": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "prefix",
+                    "Vec<u8>",
+                ),
+            ],
+        ),
+    },
+    "LookupMap": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "prefix",
+                    "Vec<u8>",
+                ),
+            ],
+        ),
+    },
+    "Option<FreeListIndex>": Enum {
+        tag_width: 1,
+        variants: [
+            (
+                0,
+                "None",
+                "()",
+            ),
+            (
+                1,
+                "Some",
+                "FreeListIndex",
+            ),
+        ],
+    },
+    "Tree": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "root",
+                    "Option<FreeListIndex>",
+                ),
+                (
+                    "nodes",
+                    "FreeList",
+                ),
+            ],
+        ),
+    },
+    "TreeMap": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "values",
+                    "LookupMap",
+                ),
+                (
+                    "tree",
+                    "Tree",
+                ),
+            ],
+        ),
+    },
+    "Vec<u8>": Sequence {
+        length_width: 4,
+        length_range: 0..=4294967295,
+        elements: "u8",
+    },
+    "Vector": Struct {
+        fields: NamedFields(
+            [
+                (
+                    "len",
+                    "u32",
+                ),
+                (
+                    "values",
+                    "IndexMap",
+                ),
+            ],
+        ),
+    },
+    "u32": Primitive(
+        4,
+    ),
+    "u8": Primitive(
+        1,
+    ),
+}

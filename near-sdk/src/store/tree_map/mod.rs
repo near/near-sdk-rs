@@ -30,18 +30,26 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     values: LookupMap<K, V, H>,
-    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     tree: Tree<K>,
 }
 
@@ -2128,5 +2136,23 @@ mod tests {
         // root.
         swap_set(&mut map);
         assert_eq!(map.tree.root, Some(FreeListIndex(0)));
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "TreeMap".to_string(),
+            <TreeMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <TreeMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }
