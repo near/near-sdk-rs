@@ -1,7 +1,6 @@
 #![allow(deprecated)]
 
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{near, store, PanicOnDefault};
 use Collection::*;
 
@@ -27,8 +26,7 @@ pub struct StoreContract {
     pub vec: store::Vector<Insertable>,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
+#[near(serializers=[json])]
 pub enum Collection {
     IterableSet,
     IterableMap,
