@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [5.2.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.2.0...near-sdk-v5.2.1) - 2024-07-05
+
+### Fixed
+- *(nep330)* Fallback to `CARGO_PKG_REPOSITORY` and `CARGO_PKG_VERSION` when `NEP330_*` variables are not provided ([#1215](https://github.com/near/near-sdk-rs/pull/1215))
+
 ## [5.2.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.1.0...near-sdk-v5.2.0) - 2024-07-04
 
 ### Added
