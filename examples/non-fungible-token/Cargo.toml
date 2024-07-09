@@ -9,7 +9,7 @@ anyhow = "1.0"
 near-contract-standards = { path = "../../near-contract-standards" }
 near-sdk = { path = "../../near-sdk" }
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = "0.10.1"
+near-workspaces = "0.11.0"
 
 [profile.release]
 codegen-units = 1
@@ -22,8 +22,4 @@ overflow-checks = true
 
 [workspace]
 # remember to include a member for each contract
-members = [
-  "nft",
-  "test-approval-receiver",
-  "test-token-receiver",
-]
+members = ["nft", "test-approval-receiver", "test-token-receiver"]
