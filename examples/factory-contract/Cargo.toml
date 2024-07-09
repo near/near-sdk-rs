@@ -8,7 +8,7 @@ edition = "2021"
 anyhow = "1.0"
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = "0.10.1"
+near-workspaces = "0.11.0"
 
 [profile.release]
 codegen-units = 1
@@ -19,7 +19,4 @@ debug = false
 panic = "abort"
 
 [workspace]
-members = [
-  "high-level",
-  "low-level",
-]
+members = ["high-level", "low-level"]

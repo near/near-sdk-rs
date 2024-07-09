@@ -11,11 +11,11 @@ crate-type = ["cdylib"]
 near-sdk = { path = "../../near-sdk" }
 
 [dev-dependencies]
-near-workspaces = "0.10.1"
+near-workspaces = "0.11.0"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-abi = "0.4.0"
-zstd = "0.11"
+zstd = "0.13"
 
 [profile.release]
 codegen-units = 1
