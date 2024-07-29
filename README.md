@@ -11,12 +11,12 @@
 
 
   <p>
+    <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg?style=flat-square" alt="Reference Documentation" /></a>
+    <a href="https://blog.rust-lang.org/2024/02/08/Rust-1.76.0.html"><img src="https://img.shields.io/badge/rustc-1.76+-lightgray.svg?style=flat-square" alt="MSRV" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
-    <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg" alt="Reference Documentation" /></a>
-    <a href="https://blog.rust-lang.org/2024/02/08/Rust-1.76.0.html"><img src="https://img.shields.io/badge/rustc-1.76+-lightgray.svg" alt="MSRV" /></a>
-    <a href="https://discord.gg/gBtUFKR"><img src="https://img.shields.io/discord/490367152054992913.svg" alt="Join the community on Discord" /></a>
-    <a href="https://github.com/near/near-sdk-rs/actions"><img src="https://github.com/near/near-sdk-rs/actions/workflows/test.yml/badge.svg" alt="GitHub Actions Build" /></a>
+    <a href="https://near.chat"><img src="https://img.shields.io/discord/490367152054992913?style=flat-square&label=discord&color=lightgreen" alt="Join the community on Discord" /></a>
+    <a href="https://t.me/NEAR_Tools_Community_Group"><img src="https://img.shields.io/badge/telegram-online-lightgreen?style=flat-square" alt="Join the community on Telegram" /></a>
   </p>
 
    <h3>
