@@ -354,11 +354,21 @@ impl ImplItemMethodInfo {
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-                let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
-            },
+            let result = match ::near_sdk::serde_json::to_vec(&result) {
+                Ok(vec) => vec,
+                Err(_) => {
+                    const MSG: &str = "Failed to serialize the return value using JSON.";
+                    env::panic_str(MSG);
+                }
+            };            },
             SerializerType::Borsh => quote! {
-                let result = ::near_sdk::borsh::to_vec(&result).expect("Failed to serialize the return value using Borsh.");
-            },
+            let result = match ::near_sdk::borsh::to_vec(&result) {
+                Ok(vec) => vec,
+                Err(_) => {
+                    const MSG: &str = "Failed to serialize the return value using Borsh.";
+                    env::panic_str("{}", MSG);
+                }
+            };            },
         };
 
         match &self.attr_signature_info.method_kind {
