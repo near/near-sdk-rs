@@ -13,12 +13,17 @@ pub extern "C" fn method() {
     let result = Hello::method(&mut contract);
     match result {
         ::std::result::Result::Ok(result) => {
-            let result = ::near_sdk::serde_json::to_vec(&result)
-                .expect("Failed to serialize the return value using JSON.");
+            let result = match near_sdk::serde_json::to_vec(&result) {
+                Ok(v) => v,
+                Err(_) => {
+                    std::panic::panic_any(
+                        "Failed to serialize the return value using JSON.",
+                    )
+                }
+            };
             ::near_sdk::env::value_return(&result);
             ::near_sdk::env::state_write(&contract);
         }
         ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
     }
 }
-
