@@ -208,6 +208,11 @@ impl AttrSigInfo {
 
     /// Create code that deserializes arguments that were decorated with `#[callback*]`
     pub fn callback_deserialization(&self) -> TokenStream2 {
+        let error_messages: Vec<proc_macro2::TokenStream> = (0..10).map(|i| {
+            let msg = format!("Callback computation {} was not successful", i);
+            quote! { #msg }
+        }).collect();
+    
         self.args
             .iter()
             .filter(|arg| {
@@ -222,11 +227,13 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
                     BindgenArgType::CallbackArg => {
-                        let error_msg = format!("Callback computation {} was not successful", idx);
                         let read_data = quote! {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_str(#error_msg)
+                                _ => ::near_sdk::env::panic_str(match #idx {
+                                    #(#idx => #error_messages,)*
+                                    _ => "Callback computation was not successful",
+                                })
                             };
                         };
                         let invocation = deserialize_data(serializer_ty);
@@ -245,16 +252,6 @@ impl AttrSigInfo {
                         };
                         let deserialize = deserialize_data(serializer_ty);
                         let deserialization_branch = match ok_type {
-                            // The unit type in this context is a bit special because functions
-                            // without an explicit return type do not serialize their response.
-                            // But when someone tries to refer to their callback result with
-                            // `#[callback_result]` they specify the callback type as
-                            // `Result<(), PromiseError>` which cannot be correctly deserialized from
-                            // an empty byte array.
-                            //
-                            // So instead of going through serde, we consider deserialization to be
-                            // successful if the byte array is empty or try the normal
-                            // deserialization otherwise.
                             syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
                                 quote! {
                                     ::near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
@@ -281,16 +278,21 @@ impl AttrSigInfo {
                 }
             })
     }
-
     /// Create code that deserializes arguments that were decorated with `#[callback_vec]`.
     pub fn callback_vec_deserialization(&self) -> TokenStream2 {
-        self
-            .args
+        self.args
             .iter()
             .filter(|arg| matches!(arg.bindgen_ty, BindgenArgType::CallbackArgVec))
             .fold(TokenStream2::new(), |acc, arg| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = deserialize_data(&arg.serializer_ty);
+                
+                // Pre-compute error strings for a reasonable number of callbacks
+                let error_strings: Vec<proc_macro2::TokenStream> = (0..10).map(|i| {
+                    let error_msg = format!("Callback computation {} was not successful", i);
+                    quote! { #error_msg }
+                }).collect();
+                
                 quote! {
                     #acc
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(
@@ -298,7 +300,13 @@ impl AttrSigInfo {
                         |i| {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)),
+                                _ => {
+                                    let error_msg = match i {
+                                        #(i => #error_strings,)*
+                                        _ => "Callback computation was not successful",
+                                    };
+                                    ::near_sdk::env::panic_str(error_msg)
+                                },
                             };
                             #invocation
                         }));
