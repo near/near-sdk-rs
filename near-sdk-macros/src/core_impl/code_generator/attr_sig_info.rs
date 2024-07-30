@@ -222,11 +222,12 @@ impl AttrSigInfo {
                 let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
                 match &bindgen_ty {
                     BindgenArgType::CallbackArg => {
-                        let error_msg = format!("Callback computation {} was not successful", idx);
                         let read_data = quote! {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_str(#error_msg)
+
+                                _ => ::near_sdk::env::panic_str(concat!("Callback computation ", stringify!(i), " was not successful")),
+
                             };
                         };
                         let invocation = deserialize_data(serializer_ty);
@@ -298,7 +299,7 @@ impl AttrSigInfo {
                         |i| {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ => ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)),
+                                _ =>  ::near_sdk::env::panic_str(concat!("Callback computation ", stringify!(i), " was not successful")),
                             };
                             #invocation
                         }));
