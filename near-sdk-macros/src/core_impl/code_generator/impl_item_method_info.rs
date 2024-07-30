@@ -358,12 +358,16 @@ impl ImplItemMethodInfo {
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-                let result = ::near_sdk::serde_json::to_vec(&result)
-                    .unwrap_or_else(|_| std::panic::panic_any("Failed to serialize the return value using JSON."));
+                let result = match ::near_sdk::serde_json::to_vec(&result){
+                    Ok(v) => v,
+                    Err(_) => std::panic::panic_any("Failed to serialize the return value using JSON."),
+                }
             },
             SerializerType::Borsh => quote! {
-                let result = ::near_sdk::borsh::to_vec(&result)
-                    .unwrap_or_else(|_| std::panic::panic_any("Failed to serialize the return value using Borsh."));
+                let result = match ::near_sdk::borsh::to_vec(&result){
+                    Ok(v) => v,
+                    Err(_) => std::panic::panic_any("Failed to serialize the return value using Borsh."),
+                }
             },
         };
 
