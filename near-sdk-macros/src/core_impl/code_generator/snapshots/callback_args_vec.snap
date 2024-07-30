@@ -35,20 +35,12 @@ pub extern "C" fn method() {
                 ) {
                     ::near_sdk::PromiseResult::Successful(x) => x,
                     _ => {
-                        let error_msg = match i {
-                            i => "Callback computation 0 was not successful",
-                            i => "Callback computation 1 was not successful",
-                            i => "Callback computation 2 was not successful",
-                            i => "Callback computation 3 was not successful",
-                            i => "Callback computation 4 was not successful",
-                            i => "Callback computation 5 was not successful",
-                            i => "Callback computation 6 was not successful",
-                            i => "Callback computation 7 was not successful",
-                            i => "Callback computation 8 was not successful",
-                            i => "Callback computation 9 was not successful",
-                            _ => "Callback computation was not successful",
-                        };
-                        ::near_sdk::env::panic_str(error_msg)
+                        ::near_sdk::env::panic_str(
+                            concat!(
+                                "Callback computation ", stringify!(i),
+                                " was not successful"
+                            ),
+                        )
                     }
                 };
                 match ::near_sdk::serde_json::from_slice(&data) {
