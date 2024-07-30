@@ -17,13 +17,13 @@ pub fn generate_serializer(
         SerializerType::JSON => quote! {
             match near_sdk::serde_json::to_vec(&__args) {
                 Ok(serialized) => serialized,
-                Err(_) => near_sdk::env::panic_str("Failed to serialize the cross contract args using JSON."),
+                Err(_) => ::near_sdk::env::panic_str("Failed to serialize the cross contract args using JSON."),
             }
         },
         SerializerType::Borsh => quote! {
             match near_sdk::borsh::to_vec(&__args) {
                 Ok(serialized) => serialized,
-                Err(_) => near_sdk::env::panic_str("Failed to serialize the cross contract args using Borsh."),
+                Err(_) => ::near_sdk::env::panic_str("Failed to serialize the cross contract args using Borsh."),
             }
         },
     };

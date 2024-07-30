@@ -121,18 +121,18 @@ impl ImplItemMethodInfo {
                     match ::near_sdk::env::input() {
                         Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
                             Ok(deserialized) => deserialized,
-                            Err(_) => near_sdk::env::panic_str("Failed to deserialize input from JSON.")
+                            Err(_) => ::near_sdk::env::panic_str("Failed to deserialize input from JSON.")
                         },
-                        None => near_sdk::env::panic_str("Expected input since method has arguments.")
+                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
                     };
                 },
                 SerializerType::Borsh => quote! {
                     match ::near_sdk::env::input() {
                         Some(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
                             Ok(deserialized) => deserialized,
-                            Err(_) => near_sdk::env::panic_str("Failed to deserialize input from Borsh.")
+                            Err(_) => ::near_sdk::env::panic_str("Failed to deserialize input from Borsh.")
                         },
-                        None => near_sdk::env::panic_str("Expected input since method has arguments.")
+                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
                     };
                 },
             };
@@ -364,13 +364,13 @@ impl ImplItemMethodInfo {
             SerializerType::JSON => quote! {
                 let result = match near_sdk::serde_json::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => std::panic::panic_any("Failed to serialize the return value using JSON."),
+                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using JSON."),
                 };
             },
             SerializerType::Borsh => quote! {
                 let result = match near_sdk::borsh::to_vec(&result) {
                     Ok(v) => v,
-                    Err(_) => std::panic::panic_any("Failed to serialize the return value using Borsh."),
+                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using Borsh."),
                 };
             },
         };

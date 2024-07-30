@@ -464,7 +464,7 @@ pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
     };
     match read_register(ATOMIC_OP_REGISTER) {
         Some(result) => result,
-        None => std::panic::panic_any(REGISTER_EXPECTED_ERR),
+        None => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
@@ -480,7 +480,7 @@ pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
     };
     match read_register(ATOMIC_OP_REGISTER) {
         Some(result) => result,
-        None => std::panic::panic_any(REGISTER_EXPECTED_ERR),
+        None => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 /// Compute pairing check
