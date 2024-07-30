@@ -118,14 +118,22 @@ impl ImplItemMethodInfo {
             let decomposition = self.attr_signature_info.decomposition_pattern();
             let serializer_invocation = match self.attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                    ::near_sdk::serde_json::from_slice(
-                        &::near_sdk::env::input().expect("Expected input since method has arguments.")
-                    ).expect("Failed to deserialize input from JSON.")
+                    match ::near_sdk::env::input() {
+                        Ok(input) => match ::near_sdk::serde_json::from_slice(&input) {
+                            Ok(deserialized) => deserialized,
+                            Err(_) => near_sdk::env::panic_str("Failed to deserialize input from JSON."),
+                        },
+                        Err(_) => near_sdk::env::panic_str("Expected input since method has arguments."),
+                    }
                 },
                 SerializerType::Borsh => quote! {
-                    ::near_sdk::borsh::BorshDeserialize::try_from_slice(
-                        &::near_sdk::env::input().expect("Expected input since method has arguments.")
-                    ).expect("Failed to deserialize input from Borsh.")
+                    match ::near_sdk::env::input() {
+                        Ok(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
+                            Ok(deserialized) => deserialized,
+                            Err(_) => near_sdk::env::panic_str("Failed to deserialize input from Borsh."),
+                        },
+                        Err(_) => near_sdk::env::panic_str("Expected input since method has arguments."),
+                    }
                 },
             };
             quote! {
@@ -354,21 +362,13 @@ impl ImplItemMethodInfo {
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-            let result = match ::near_sdk::serde_json::to_vec(&result) {
-                Ok(vec) => vec,
-                Err(_) => {
-                    const MSG: &str = "Failed to serialize the return value using JSON.";
-                    env::panic_str(MSG);
-                }
-            };            },
+                let result = ::near_sdk::serde_json::to_vec(&result)
+                    .unwrap_or_else(|_| std::panic::panic_any("Failed to serialize the return value using JSON."));
+            },
             SerializerType::Borsh => quote! {
-            let result = match ::near_sdk::borsh::to_vec(&result) {
-                Ok(vec) => vec,
-                Err(_) => {
-                    const MSG: &str = "Failed to serialize the return value using Borsh.";
-                    env::panic_str("{}", MSG);
-                }
-            };            },
+                let result = ::near_sdk::borsh::to_vec(&result)
+                    .unwrap_or_else(|_| std::panic::panic_any("Failed to serialize the return value using Borsh."));
+            },
         };
 
         match &self.attr_signature_info.method_kind {
