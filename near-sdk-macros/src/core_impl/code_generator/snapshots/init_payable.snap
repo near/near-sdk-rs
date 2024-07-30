@@ -16,11 +16,11 @@ pub extern "C" fn method() {
             match ::near_sdk::serde_json::from_slice(&input) {
                 Ok(deserialized) => deserialized,
                 Err(_) => {
-                    near_sdk::env::panic_str("Failed to deserialize input from JSON.")
+                    ::near_sdk::env::panic_str("Failed to deserialize input from JSON.")
                 }
             }
         }
-        None => near_sdk::env::panic_str("Expected input since method has arguments."),
+        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
     if ::near_sdk::env::state_exists() {
         ::near_sdk::env::panic_str("The contract has already been initialized");

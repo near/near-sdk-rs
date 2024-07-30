@@ -13,7 +13,7 @@ pub fn borsh_test(self, a: String) -> ::near_sdk::Promise {
         match near_sdk::borsh::to_vec(&__args) {
             Ok(serialized) => serialized,
             Err(_) => {
-                near_sdk::env::panic_str(
+                ::near_sdk::env::panic_str(
                     "Failed to serialize the cross contract args using Borsh.",
                 )
             }

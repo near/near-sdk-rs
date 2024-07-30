@@ -46,7 +46,7 @@ pub mod external_cross_contract {
                 match near_sdk::serde_json::to_vec(&__args) {
                     Ok(serialized) => serialized,
                     Err(_) => {
-                        near_sdk::env::panic_str(
+                        ::near_sdk::env::panic_str(
                             "Failed to serialize the cross contract args using JSON.",
                         )
                     }

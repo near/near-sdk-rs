@@ -208,11 +208,13 @@ impl AttrSigInfo {
 
     /// Create code that deserializes arguments that were decorated with `#[callback*]`
     pub fn callback_deserialization(&self) -> TokenStream2 {
-        let error_messages: Vec<proc_macro2::TokenStream> = (0..10).map(|i| {
-            let msg = format!("Callback computation {} was not successful", i);
-            quote! { #msg }
-        }).collect();
-    
+        let error_messages: Vec<proc_macro2::TokenStream> = (0..10)
+            .map(|i| {
+                let msg = format!("Callback computation {} was not successful", i);
+                quote! { #msg }
+            })
+            .collect();
+
         self.args
             .iter()
             .filter(|arg| {
@@ -286,13 +288,12 @@ impl AttrSigInfo {
             .fold(TokenStream2::new(), |acc, arg| {
                 let ArgInfo { mutability, ident, ty, .. } = arg;
                 let invocation = deserialize_data(&arg.serializer_ty);
-                
                 // Pre-compute error strings for a reasonable number of callbacks
                 let error_strings: Vec<proc_macro2::TokenStream> = (0..10).map(|i| {
                     let error_msg = format!("Callback computation {} was not successful", i);
                     quote! { #error_msg }
                 }).collect();
-                
+
                 quote! {
                     #acc
                     let #mutability #ident: #ty = ::std::iter::Iterator::collect(::std::iter::Iterator::map(

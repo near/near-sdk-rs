@@ -20,18 +20,20 @@ pub extern "C" fn method() {
             match ::near_sdk::serde_json::from_slice(&input) {
                 Ok(deserialized) => deserialized,
                 Err(_) => {
-                    near_sdk::env::panic_str("Failed to deserialize input from JSON.")
+                    ::near_sdk::env::panic_str("Failed to deserialize input from JSON.")
                 }
             }
         }
-        None => near_sdk::env::panic_str("Expected input since method has arguments."),
+        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
     let result = Hello::method(&mut contract, k, m);
     let result = match near_sdk::serde_json::to_vec(&result) {
         Ok(v) => v,
         Err(_) => {
-            std::panic::panic_any("Failed to serialize the return value using JSON.")
+            ::near_sdk::env::panic_str(
+                "Failed to serialize the return value using JSON.",
+            )
         }
     };
     ::near_sdk::env::value_return(&result);
