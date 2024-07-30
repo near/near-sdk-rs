@@ -118,22 +118,18 @@ impl ImplItemMethodInfo {
             let decomposition = self.attr_signature_info.decomposition_pattern();
             let serializer_invocation = match self.attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                    match ::near_sdk::env::input() {
-                        Ok(input) => match ::near_sdk::serde_json::from_slice(&input) {
-                            Ok(deserialized) => deserialized,
-                            Err(_) => near_sdk::env::panic_str("Failed to deserialize input from JSON."),
-                        },
-                        Err(_) => near_sdk::env::panic_str("Expected input since method has arguments."),
-                    }
+                    ::near_sdk::env::input().and_then(|input|
+                        ::near_sdk::serde_json::from_slice(&input)
+                            .ok()
+                            .or_else(|| near_sdk::env::panic_str("Failed to deserialize input from JSON."))
+                    ).unwrap_or_else(|| near_sdk::env::panic_str("Expected input since method has arguments."))
                 },
                 SerializerType::Borsh => quote! {
-                    match ::near_sdk::env::input() {
-                        Ok(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
-                            Ok(deserialized) => deserialized,
-                            Err(_) => near_sdk::env::panic_str("Failed to deserialize input from Borsh."),
-                        },
-                        Err(_) => near_sdk::env::panic_str("Expected input since method has arguments."),
-                    }
+                    ::near_sdk::env::input().and_then(|input|
+                        ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input)
+                            .ok()
+                            .or_else(|| near_sdk::env::panic_str("Failed to deserialize input from Borsh."))
+                    ).unwrap_or_else(|| near_sdk::env::panic_str("Expected input since method has arguments."))
                 },
             };
             quote! {

@@ -81,10 +81,12 @@ impl ContractMetadata {
         }
 
         if std::env::var("NEP330_BUILD_INFO_BUILD_ENVIRONMENT").is_ok() {
-            self.build_info = Some(
-                build_info::BuildInfo::from_env()
-                    .expect("Build Details Extension field not provided or malformed"),
-            );
+            self.build_info = Some(match build_info::BuildInfo::from_env() {
+                Ok(info) => info,
+                Err(_) => {
+                    std::panic::panic_any("Build Details Extension field not provided or malformed")
+                }
+            });
         }
 
         self
@@ -95,8 +97,10 @@ impl ContractMetadata {
 /// a constant.
 pub(crate) fn contract_source_metadata_const(attr: proc_macro::TokenStream) -> TokenStream {
     if attr.to_string().is_empty() {
-        let metadata = serde_json::to_string(&ContractMetadata::default().populate())
-            .expect("ContractMetadata implements Serialize");
+        let metadata = match serde_json::to_string(&ContractMetadata::default().populate()) {
+            Ok(metadata_string) => metadata_string,
+            Err(_) => std::panic::panic_any("ContractMetadata implements Serialize"),
+        };
 
         return quote! {
            pub const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
@@ -117,14 +121,15 @@ pub(crate) fn contract_source_metadata_const(attr: proc_macro::TokenStream) -> T
         }
     };
 
-    let metadata = serde_json::to_string(
-        &args
-            .contract_metadata
-            .expect("Attribute input must be present given standard was followed")
-            .populate(),
-    )
-    .expect("ContractMetadata implements Serialize");
-
+    let metadata = match args.contract_metadata {
+        Some(metadata) => match serde_json::to_string(&metadata.populate()) {
+            Ok(serialized) => serialized,
+            Err(_) => std::panic::panic_any("ContractMetadata implements Serialize"),
+        },
+        None => {
+            std::panic::panic_any("Attribute input must be present given standard was followed")
+        }
+    };
     quote! {
         const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
     }
