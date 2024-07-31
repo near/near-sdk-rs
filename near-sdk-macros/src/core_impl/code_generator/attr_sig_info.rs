@@ -209,78 +209,77 @@ impl AttrSigInfo {
     /// Create code that deserializes arguments that were decorated with `#[callback*]`
     pub fn callback_deserialization(&self) -> TokenStream2 {
         self.args
-            .iter()
-            .filter(|arg| {
-                matches!(
-                    arg.bindgen_ty,
-                    BindgenArgType::CallbackArg | BindgenArgType::CallbackResultArg
-                )
-            })
-            .enumerate()
-            .fold(TokenStream2::new(), |acc, (idx, arg)| {
-                let idx = idx as u64;
-                let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
-                match &bindgen_ty {
-                    BindgenArgType::CallbackArg => {
-                        let read_data = quote! {
-                            let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
-                                ::near_sdk::PromiseResult::Successful(x) => x,
-
-                                _ => ::near_sdk::env::panic_str(concat!("Callback computation ", stringify!(i), " was not successful")),
-
-                            };
+        .iter()
+        .filter(|arg| {
+            matches!(
+                arg.bindgen_ty,
+                BindgenArgType::CallbackArg | BindgenArgType::CallbackResultArg
+            )
+        })
+        .enumerate()
+        .fold(TokenStream2::new(), |acc, (idx, arg)| {
+            let idx = idx as u64;
+            let ArgInfo { mutability, ident, ty, bindgen_ty, serializer_ty, .. } = arg;
+            match &bindgen_ty {
+                BindgenArgType::CallbackArg => {
+                    let error_msg = format!("Callback computation {} was not successful", idx);
+                    let read_data = quote! {
+                        let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(#idx) {
+                            ::near_sdk::PromiseResult::Successful(x) => x,
+                            _ => ::near_sdk::env::panic_str(#error_msg)
                         };
-                        let invocation = deserialize_data(serializer_ty);
-                        quote! {
-                            #acc
-                            #read_data
-                            let #mutability #ident: #ty = #invocation;
-                        }
+                    };
+                    let invocation = deserialize_data(serializer_ty);
+                    quote! {
+                        #acc
+                        #read_data
+                        let #mutability #ident: #ty = #invocation;
                     }
-                    BindgenArgType::CallbackResultArg => {
-                        let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
-                            ok_type
-                        } else {
-                            return syn::Error::new_spanned(ty, "Function parameters marked with \
-                                #[callback_result] should have type Result<T, PromiseError>").into_compile_error()
-                        };
-                        let deserialize = deserialize_data(serializer_ty);
-                        let deserialization_branch = match ok_type {
-                            // The unit type in this context is a bit special because functions
-                            // without an explicit return type do not serialize their response.
-                            // But when someone tries to refer to their callback result with
-                            // `#[callback_result]` they specify the callback type as
-                            // `Result<(), PromiseError>` which cannot be correctly deserialized from
-                            // an empty byte array.
-                            //
-                            // So instead of going through serde, we consider deserialization to be
-                            // successful if the byte array is empty or try the normal
-                            // deserialization otherwise.
-                            syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
-                                quote! {
-                                    ::near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
-                                        ::std::result::Result::Ok(()),
-                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
-                                },
-                            _ =>
-                                quote! {
-                                    ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
-                                }
-                        };
-                        let result = quote! {
-                            match ::near_sdk::env::promise_result(#idx) {
-                                #deserialization_branch,
-                                ::near_sdk::PromiseResult::Failed => ::std::result::Result::Err(::near_sdk::PromiseError::Failed),
-                            }
-                        };
-                        quote! {
-                            #acc
-                            let #mutability #ident: #ty = #result;
-                        }
-                    }
-                    _ => unreachable!()
                 }
-            })
+                BindgenArgType::CallbackResultArg => {
+                    let ok_type = if let Some(ok_type) = utils::extract_ok_type(ty) {
+                        ok_type
+                    } else {
+                        return syn::Error::new_spanned(ty, "Function parameters marked with \
+                            #[callback_result] should have type Result<T, PromiseError>").into_compile_error()
+                    };
+                    let deserialize = deserialize_data(serializer_ty);
+                    let deserialization_branch = match ok_type {
+                        // The unit type in this context is a bit special because functions
+                        // without an explicit return type do not serialize their response.
+                        // But when someone tries to refer to their callback result with
+                        // `#[callback_result]` they specify the callback type as
+                        // `Result<(), PromiseError>` which cannot be correctly deserialized from
+                        // an empty byte array.
+                        //
+                        // So instead of going through serde, we consider deserialization to be
+                        // successful if the byte array is empty or try the normal
+                        // deserialization otherwise.
+                        syn::Type::Tuple(type_tuple) if type_tuple.elems.is_empty() =>
+                            quote! {
+                                ::near_sdk::PromiseResult::Successful(data) if data.is_empty() =>
+                                    ::std::result::Result::Ok(()),
+                                ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
+                            },
+                        _ =>
+                            quote! {
+                                ::near_sdk::PromiseResult::Successful(data) => ::std::result::Result::Ok(#deserialize)
+                            }
+                    };
+                    let result = quote! {
+                        match ::near_sdk::env::promise_result(#idx) {
+                            #deserialization_branch,
+                            ::near_sdk::PromiseResult::Failed => ::std::result::Result::Err(::near_sdk::PromiseError::Failed),
+                        }
+                    };
+                    quote! {
+                        #acc
+                        let #mutability #ident: #ty = #result;
+                    }
+                }
+                _ => unreachable!()
+            }
+        })
     }
 
     /// Create code that deserializes arguments that were decorated with `#[callback_vec]`.
@@ -299,7 +298,7 @@ impl AttrSigInfo {
                         |i| {
                             let data: ::std::vec::Vec<u8> = match ::near_sdk::env::promise_result(i) {
                                 ::near_sdk::PromiseResult::Successful(x) => x,
-                                _ =>  ::near_sdk::env::panic_str(concat!("Callback computation ", stringify!(i), " was not successful")),
+                                _ => ::near_sdk::env::panic_str(&::std::format!("Callback computation {} was not successful", i)),
                             };
                             #invocation
                         }));

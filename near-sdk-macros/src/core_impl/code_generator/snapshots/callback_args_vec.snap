@@ -36,9 +36,8 @@ pub extern "C" fn method() {
                     ::near_sdk::PromiseResult::Successful(x) => x,
                     _ => {
                         ::near_sdk::env::panic_str(
-                            concat!(
-                                "Callback computation ", stringify!(i),
-                                " was not successful"
+                            &::std::format!(
+                                "Callback computation {} was not successful", i
                             ),
                         )
                     }
