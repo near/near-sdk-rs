@@ -16,7 +16,7 @@ jobs:
         toolchain: [stable]
         example: [
           adder,
-          callback-result
+          callback-result,
           cross-contract-calls,
           factory-contract,
           fungible-token,
