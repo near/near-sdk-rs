@@ -43,8 +43,14 @@ pub mod external_cross_contract {
                     arr: &'nearinput Vec<u8>,
                 }
                 let __args = Input { arr: &arr };
-                ::near_sdk::serde_json::to_vec(&__args)
-                    .expect("Failed to serialize the cross contract args using JSON.")
+                match near_sdk::serde_json::to_vec(&__args) {
+                    Ok(serialized) => serialized,
+                    Err(_) => {
+                        ::near_sdk::env::panic_str(
+                            "Failed to serialize the cross contract args using JSON.",
+                        )
+                    }
+                }
             };
             ::near_sdk::Promise::new(self.account_id)
                 .function_call_weight(
@@ -68,4 +74,3 @@ pub mod external_cross_contract {
         }
     }
 }
-
