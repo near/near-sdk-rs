@@ -87,6 +87,20 @@ where
     }
 }
 
+impl<'a, K, V, H> Clone for Iter<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: ToKey,
+{
+    fn clone(&self) -> Self {
+        Self {
+            keys: self.keys.clone(),
+            values: self.values,
+        }
+    }
+}
+
 impl<'a, K, V, H> ExactSizeIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
@@ -262,6 +276,17 @@ where
     }
 }
 
+impl<'a, K> Clone for Keys<'a, K>
+where
+    K: BorshSerialize + BorshDeserialize + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
 impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
 impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
 
@@ -319,6 +344,19 @@ where
 
     fn count(self) -> usize {
         self.inner.count()
+    }
+}
+
+impl<'a, K, V, H> Clone for Values<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize + Clone,
+    H: ToKey,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
     }
 }
 

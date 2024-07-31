@@ -66,6 +66,17 @@ where
     }
 }
 
+impl<'a, T> Clone for Iter<'a, T>
+where
+    T: BorshSerialize + Ord + BorshDeserialize + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            elements: self.elements.clone(),
+        }
+    }
+}
+
 impl<'a, T> ExactSizeIterator for Iter<'a, T> where T: BorshSerialize + Ord + BorshDeserialize {}
 impl<'a, T> FusedIterator for Iter<'a, T> where T: BorshSerialize + Ord + BorshDeserialize {}
 

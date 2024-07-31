@@ -88,6 +88,20 @@ where
     }
 }
 
+impl<'a, K, V, H> Clone for Iter<'a, K, V, H>
+where
+    K: BorshSerialize + Ord + BorshDeserialize + Clone,
+    V: BorshSerialize + BorshDeserialize,
+    H: ToKey,
+{
+    fn clone(&self) -> Self {
+        Self {
+            keys: self.keys.clone(),
+            values: self.values,
+        }
+    }
+}
+
 impl<'a, K, V, H> ExactSizeIterator for Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
