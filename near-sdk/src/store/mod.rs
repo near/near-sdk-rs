@@ -33,30 +33,30 @@
 //! Maps:
 //!
 //! - [`LookupMap`]: Wrapper around key-value storage interactions, similar to
-//! [`UnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
-//! iterated over.
+//!   [`UnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
+//!   iterated over.
 //!
 //! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
-//! guarantees.
+//!   guarantees.
 //!
 //! - [`TreeMap`](TreeMap) (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
-//! which comes at the cost of more expensive lookups and iteration.
+//!   which comes at the cost of more expensive lookups and iteration.
 //!
 //! Sets:
 //!
 //! - [`LookupSet`]: Non-iterable storage version of [`std::collections::HashSet`].
 //!
 //! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
-//! version of [`LookupSet`] and persisted to storage.
+//!   version of [`LookupSet`] and persisted to storage.
 //!
 //! Basic Types:
 //!
 //! - [`Lazy<T>`](Lazy): Lazily loaded type that can be used in place of a type `T`.
-//! Will only be loaded when interacted with and will persist on [`Drop`].
+//!   Will only be loaded when interacted with and will persist on [`Drop`].
 //!
 //! - [`LazyOption<T>`](LazyOption): Lazily loaded, optional type that can be used in
-//! place of a type [`Option<T>`](Option). Will only be loaded when interacted with and will
-//! persist on [`Drop`].
+//!   place of a type [`Option<T>`](Option). Will only be loaded when interacted with and will
+//!   persist on [`Drop`].
 
 #[cfg(feature = "unstable")]
 mod lazy;
