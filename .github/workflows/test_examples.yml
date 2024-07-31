@@ -14,7 +14,14 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
-        example: [cross-contract-calls, fungible-token]
+        example: [
+          cross-contract-calls, 
+          fungible-token, 
+          non-fungible-token,
+          versioned,
+          oracle,
+          staking-pool
+        ]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
