@@ -15,12 +15,13 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
         example: [
-          cross-contract-calls, 
-          fungible-token, 
+          adder,
+          callback-result
+          cross-contract-calls,
+          factory-contract,
+          fungible-token,
           non-fungible-token,
-          versioned,
-          oracle,
-          staking-pool
+          versioned          
         ]
     steps:
       - uses: actions/checkout@v3
