@@ -96,10 +96,7 @@ where
     H: ToKey,
 {
     fn clone(&self) -> Self {
-        Self {
-            keys: self.keys.clone(),
-            values: self.values,
-        }
+        Self { keys: self.keys.clone(), values: self.values }
     }
 }
 

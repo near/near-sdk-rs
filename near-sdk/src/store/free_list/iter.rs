@@ -94,10 +94,7 @@ where
     T: BorshDeserialize + BorshSerialize + Clone,
 {
     fn clone(&self) -> Self {
-        Self {
-            values: self.values.clone(),
-            elements_left: self.elements_left,
-        }
+        Self { values: self.values.clone(), elements_left: self.elements_left }
     }
 }
 

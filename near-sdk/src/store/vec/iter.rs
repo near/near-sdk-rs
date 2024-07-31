@@ -55,15 +55,12 @@ where
     }
 }
 
-impl<'a, T> Clone for Iter<'a, T> 
-where 
-    T: BorshSerialize + BorshDeserialize 
+impl<'a, T> Clone for Iter<'a, T>
+where
+    T: BorshSerialize + BorshDeserialize,
 {
     fn clone(&self) -> Self {
-        Self {
-            vec: self.vec,
-            range: self.range.clone(),
-        }
+        Self { vec: self.vec, range: self.range.clone() }
     }
 }
 

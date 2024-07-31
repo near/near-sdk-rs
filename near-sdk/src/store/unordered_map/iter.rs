@@ -94,10 +94,7 @@ where
     H: ToKey,
 {
     fn clone(&self) -> Self {
-        Self {
-            keys: self.keys.clone(),
-            values: self.values,
-        }
+        Self { keys: self.keys.clone(), values: self.values }
     }
 }
 
@@ -281,9 +278,7 @@ where
     K: BorshSerialize + BorshDeserialize + Clone,
 {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+        Self { inner: self.inner.clone() }
     }
 }
 
@@ -354,9 +349,7 @@ where
     H: ToKey,
 {
     fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+        Self { inner: self.inner.clone() }
     }
 }
 
