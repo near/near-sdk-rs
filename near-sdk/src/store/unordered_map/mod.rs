@@ -88,7 +88,7 @@ use super::{FreeList, LookupMap, ERR_INCONSISTENT_STATE, ERR_NOT_EXIST};
 /// [`with_hasher`]: Self::with_hasher
 #[deprecated(
     since = "5.0.0",
-    note = "Suboptimal iteration performance. See performance considerations doc for details."
+    note = "Suboptimal iteration performance. See performance considerations doc for details. Consider using IterableMap instead (WARNING: manual storage migration is required if contract was previously deployed)"
 )]
 #[near(inside_nearsdk)]
 pub struct UnorderedMap<K, V, H = Sha256>

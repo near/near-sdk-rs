@@ -91,7 +91,7 @@ use std::fmt;
 #[near(inside_nearsdk)]
 #[deprecated(
     since = "5.0.0",
-    note = "Suboptimal iteration performance. See performance considerations doc for details."
+    note = "Suboptimal iteration performance. See performance considerations doc for details. Consider using IterableSet instead (WARNING: manual storage migration is required if contract was previously deployed)"
 )]
 pub struct UnorderedSet<T, H = Sha256>
 where
