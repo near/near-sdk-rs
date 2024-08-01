@@ -100,3 +100,18 @@ pub trait FungibleTokenCore {
     /// Returns the balance of the account. If the account doesn't exist must returns `"0"`.
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
+
+use near_sdk::test_utils::accounts;
+
+fn test_transfer_ok(contract: &mut impl FungibleTokenCore) {
+    assert_eq!(contract.ft_balance_of(accounts(2)), contract.ft_total_supply());
+    assert_eq!(contract.ft_balance_of(accounts(1)), U128::from(0));
+    let amount = contract.ft_total_supply().0 / 3;
+    contract.ft_transfer(accounts(1), amount.into(), None);
+    assert_eq!(contract.ft_balance_of(accounts(2)).0, contract.ft_total_supply().0 - amount);
+    assert_eq!(contract.ft_balance_of(accounts(1)).0, amount);
+}
+
+pub fn test(contract: &mut impl FungibleTokenCore) {
+    test_transfer_ok(contract);
+}
