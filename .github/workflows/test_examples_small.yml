@@ -46,4 +46,4 @@ jobs:
           RUSTFLAGS: '-C link-arg=-s'
         run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/test-contract/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/test-contract/target/wasm32-unknown-unknown/release/*.wasm ./examples/test-contract/res/
       - name: Test test-contract
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --all      
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --all
