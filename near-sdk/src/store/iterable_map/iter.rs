@@ -37,6 +37,7 @@ where
 /// An iterator over elements of a [`IterableMap`].
 ///
 /// This `struct` is created by the `iter` method on [`IterableMap`].
+#[derive(Clone)]
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -85,17 +86,6 @@ where
 
     fn count(self) -> usize {
         self.keys.count()
-    }
-}
-
-impl<'a, K, V, H> Clone for Iter<'a, K, V, H>
-where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
-    V: BorshSerialize + BorshDeserialize,
-    H: ToKey,
-{
-    fn clone(&self) -> Self {
-        Self { keys: self.keys.clone(), values: self.values }
     }
 }
 

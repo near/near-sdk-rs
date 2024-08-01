@@ -5,7 +5,7 @@ use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
 use crate::env;
 
 /// An iterator over references to each element in the stored vector.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
@@ -52,15 +52,6 @@ where
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         let idx = self.range.nth(n)?;
         Some(self.vec.get(idx).unwrap_or_else(|| env::panic_str(ERR_INDEX_OUT_OF_BOUNDS)))
-    }
-}
-
-impl<'a, T> Clone for Iter<'a, T>
-where
-    T: BorshSerialize + BorshDeserialize,
-{
-    fn clone(&self) -> Self {
-        Self { vec: self.vec, range: self.range.clone() }
     }
 }
 

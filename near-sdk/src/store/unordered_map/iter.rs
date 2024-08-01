@@ -36,6 +36,7 @@ where
 /// An iterator over elements of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `iter` method on [`UnorderedMap`].
+#[derive(Clone)]
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -84,17 +85,6 @@ where
 
     fn count(self) -> usize {
         self.keys.count()
-    }
-}
-
-impl<'a, K, V, H> Clone for Iter<'a, K, V, H>
-where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
-    V: BorshSerialize + BorshDeserialize,
-    H: ToKey,
-{
-    fn clone(&self) -> Self {
-        Self { keys: self.keys.clone(), values: self.values }
     }
 }
 
@@ -233,6 +223,7 @@ where
 /// An iterator over the keys of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `keys` method on [`UnorderedMap`].
+#[derive(Clone)]
 pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize,
@@ -273,15 +264,6 @@ where
     }
 }
 
-impl<'a, K> Clone for Keys<'a, K>
-where
-    K: BorshSerialize + BorshDeserialize + Clone,
-{
-    fn clone(&self) -> Self {
-        Self { inner: self.inner.clone() }
-    }
-}
-
 impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
 impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
 
@@ -297,6 +279,7 @@ where
 /// An iterator over the values of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `values` method on [`UnorderedMap`].
+#[derive(Clone)]
 pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -339,17 +322,6 @@ where
 
     fn count(self) -> usize {
         self.inner.count()
-    }
-}
-
-impl<'a, K, V, H> Clone for Values<'a, K, V, H>
-where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
-    V: BorshSerialize + BorshDeserialize + Clone,
-    H: ToKey,
-{
-    fn clone(&self) -> Self {
-        Self { inner: self.inner.clone() }
     }
 }
 
@@ -550,5 +522,49 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         let key = self.keys.next_back()?;
         Some(self.remove_value(key))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use borsh::{BorshDeserialize, BorshSerialize};
+
+    #[derive(BorshSerialize, BorshDeserialize, Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
+    struct Key(i32);
+
+    #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+    struct Value(String);
+
+    #[test]
+    fn test_unordered_map_iter_clone() {
+        let mut store = UnorderedMap::new(b'a');
+
+        store.insert(Key(1), Value("one".to_string()));
+        store.insert(Key(2), Value("two".to_string()));
+        store.insert(Key(3), Value("three".to_string()));
+
+        let mut iter = store.iter().cycle();
+
+        let mut collected = vec![];
+        for _ in 0..9 {
+            if let Some((key, value)) = iter.next() {
+                collected.push((key.clone(), value.clone()));
+            }
+        }
+
+        let expected = vec![
+            (Key(1), Value("one".to_string())),
+            (Key(2), Value("two".to_string())),
+            (Key(3), Value("three".to_string())),
+            (Key(1), Value("one".to_string())),
+            (Key(2), Value("two".to_string())),
+            (Key(3), Value("three".to_string())),
+            (Key(1), Value("one".to_string())),
+            (Key(2), Value("two".to_string())),
+            (Key(3), Value("three".to_string())),
+        ];
+
+        assert_eq!(collected, expected);
     }
 }

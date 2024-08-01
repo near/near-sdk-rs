@@ -40,6 +40,7 @@ where
 /// An iterator over elements of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `iter` method on [`TreeMap`].
+#[derive(Clone)]
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -86,17 +87,6 @@ where
 
     fn count(self) -> usize {
         self.keys.count()
-    }
-}
-
-impl<'a, K, V, H> Clone for Iter<'a, K, V, H>
-where
-    K: BorshSerialize + Ord + BorshDeserialize + Clone,
-    V: BorshSerialize + BorshDeserialize,
-    H: ToKey,
-{
-    fn clone(&self) -> Self {
-        Self { keys: self.keys.clone(), values: self.values }
     }
 }
 
@@ -419,6 +409,7 @@ where
 /// An iterator over the keys of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `keys` method on [`TreeMap`].
+#[derive(Clone)]
 pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize + Ord,
@@ -687,6 +678,7 @@ where
 /// An iterator over the values of a [`TreeMap`], in order by key.
 ///
 /// This `struct` is created by the `values` method on [`TreeMap`].
+#[derive(Clone)]
 pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,

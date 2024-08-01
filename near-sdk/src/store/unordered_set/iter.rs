@@ -24,6 +24,7 @@ where
 /// See its documentation for more.
 ///
 /// [`iter`]: UnorderedSet::iter
+#[derive(Clone)]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
@@ -63,15 +64,6 @@ where
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
         self.elements.nth(n)
-    }
-}
-
-impl<'a, T> Clone for Iter<'a, T>
-where
-    T: BorshSerialize + Ord + BorshDeserialize + Clone,
-{
-    fn clone(&self) -> Self {
-        Self { elements: self.elements.clone() }
     }
 }
 
