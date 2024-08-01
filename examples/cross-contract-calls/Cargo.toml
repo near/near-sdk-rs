@@ -6,7 +6,7 @@ edition = "2021"
 
 [dev-dependencies]
 anyhow = "1.0"
-near-sdk = { path = "../../near-sdk" }
+near-sdk = { path = "../../near-sdk", features = ["default", "unit-testing"] }
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
 near-workspaces = "0.11.0"
