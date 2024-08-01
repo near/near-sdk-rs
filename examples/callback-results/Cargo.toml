@@ -14,6 +14,7 @@ near-sdk = { path = "../../near-sdk" }
 near-workspaces = "0.11.0"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 
 [profile.release]
 codegen-units = 1
