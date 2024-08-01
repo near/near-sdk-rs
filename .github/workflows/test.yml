@@ -20,7 +20,7 @@ jobs:
           - os: macos-latest
             rs: 1.76.0
           - os: macos-latest
-            rs: 1.78.0
+            rs: stable
         features: ['', '--features unstable,legacy,__abi-generate']
     steps:
       - uses: actions/checkout@v3
