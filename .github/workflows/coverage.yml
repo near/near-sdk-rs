@@ -19,6 +19,11 @@ jobs:
         features: ['', '--features unstable,legacy,__abi-generate']
     steps:
       - uses: actions/checkout@v3
+      - name: Install Homebrew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      - name: Install LLVM
+        run: brew install llvm
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
