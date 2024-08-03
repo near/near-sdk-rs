@@ -13,7 +13,7 @@ jobs:
     name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
       matrix:
-        platform: [ubuntu-latest]
+        platform: [macos-latest]
         toolchain: [nightly-2024-05-01]
         package: [cross-contract-calls, fungible-token]
     steps:
@@ -30,8 +30,6 @@ jobs:
         run: cargo +${{ matrix.toolchain }} install wasmcov
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
-      - name: Add rust-src component ubuntu
-        run: rustup component add rust-src ubuntu --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Build
         env:
           RUSTFLAGS: '-C link-arg=-s '
