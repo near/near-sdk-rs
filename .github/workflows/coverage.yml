@@ -29,7 +29,7 @@ jobs:
       - name: Install wasmcov
         run: cargo +${{ matrix.toolchain }} install wasmcov
       - name: Add rust-src component
-        run: rustup component add rust-src --toolchain nightly-aarch64-apple-darwin
+        run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
       - name: Build
         env:
           RUSTFLAGS: '-C link-arg=-s '
