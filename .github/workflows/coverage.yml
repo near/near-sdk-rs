@@ -27,6 +27,10 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Rust version
         run: rustc --version --verbose
+      - name: Llvm version
+        run: llvm-config --version
+      - name: Clang version
+        run: clang --version
       - name: Install wasmcov
         run: cargo +${{ matrix.toolchain }} install wasmcov
       - name: Add rust-src component
