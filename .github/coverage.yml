@@ -1,0 +1,34 @@
+name: Test Core
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+env:
+  RUSTFLAGS: -D warnings
+
+jobs:
+  coverage:
+    runs-on: ${{ matrix.platform }}
+    name: "${{ matrix.example }} - ${{ matrix.platform }}"
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        toolchain: [nightly-2024-05-01]
+        package: [cross-contract-calls, fungible-token]
+    steps:
+      - uses: actions/checkout@v3
+      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+      - name: Rust version
+        run: rustc --version --verbose
+      - name: Install wasmcov
+        run: cargo +${{ matrix.toolchain }} install wasmcov
+      - name: Build
+        env:
+          RUSTFLAGS: '-C link-arg=-s '
+        run: cargo +${{ matrix.toolchain }} wasmcov build -- --all --target wasm32-unknown-unknown --release
