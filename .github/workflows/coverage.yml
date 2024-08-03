@@ -31,8 +31,6 @@ jobs:
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
       - name: Add rust-src component ubuntu
-        run: rustup component add rust-src apple --toolchain nightly-aarch64-apple-darwin
-      - name: Add rust-src component ubuntu
         run: rustup component add rust-src ubuntu --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Build
         env:
