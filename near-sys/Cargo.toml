@@ -12,4 +12,3 @@ Syscall definitions for builtin functions of the NEAR runtime.
 """
 
 [dependencies]
-wasmcov = "0.2"
