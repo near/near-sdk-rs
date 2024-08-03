@@ -28,7 +28,9 @@ jobs:
         run: rustc --version --verbose
       - name: Install wasmcov
         run: cargo +${{ matrix.toolchain }} install wasmcov
+      - name: Add rust-src component
+        run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
       - name: Build
         env:
           RUSTFLAGS: '-C link-arg=-s '
-        run: cargo +${{ matrix.toolchain }} wasmcov build -- --all --target wasm32-unknown-unknown --release
+        run: cargo +${{ matrix.toolchain }} wasmcov build -- -Z build-std --all --target wasm32-unknown-unknown --release
