@@ -928,3 +928,6 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         )
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

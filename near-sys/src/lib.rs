@@ -206,3 +206,6 @@ extern "C" {
 pub unsafe fn block_height() -> u64 {
     block_index()
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

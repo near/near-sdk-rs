@@ -70,3 +70,6 @@ pub use bs58;
 pub use schemars;
 pub use serde;
 pub use serde_json;
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();
