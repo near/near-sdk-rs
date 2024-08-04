@@ -18,6 +18,3 @@ pub mod upgrade;
 pub(crate) mod event;
 
 pub mod contract_metadata;
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();
