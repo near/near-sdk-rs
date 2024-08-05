@@ -1,6 +1,7 @@
 #!/bin/bash
 
 BASE_DIR="./examples"
+CARGO_VERSION = $1
 
 for dir in "$BASE_DIR"/*; do
     if [ -d "$dir" ]; then
