@@ -533,7 +533,7 @@ mod tests {
     #[derive(BorshSerialize, BorshDeserialize, Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
     struct Key(i32);
 
-    #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+    #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
     struct Value(String);
 
     #[test]
