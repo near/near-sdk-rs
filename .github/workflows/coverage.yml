@@ -45,4 +45,4 @@ jobs:
       - name: Run script
         env:
           RUSTFLAGS: '-C link-arg=-s'
-        run: bash ./build_wasm_test_all.sh
+        run: bash ./examples/build_wasm_test_all.sh
