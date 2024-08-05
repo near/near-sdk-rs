@@ -24,6 +24,7 @@ where
 /// See its documentation for more.
 ///
 /// [`iter`]: IterableSet::iter
+#[derive(Clone)]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
