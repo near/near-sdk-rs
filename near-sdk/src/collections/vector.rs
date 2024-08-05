@@ -100,7 +100,10 @@ impl<T> Vector<T> {
             expect_consistent_state(self.pop_raw())
         } else {
             let lookup_key = self.index_to_lookup_key(index);
-            let raw_last_value = self.pop_raw().expect("checked `index < len` above, so `len > 0`");
+            let raw_last_value = match self.pop_raw() {
+                Some(value) => value,
+                None => env::panic_str("checked `index < len` above, so `len > 0`"),
+            };
             if env::storage_write(&lookup_key, &raw_last_value) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {

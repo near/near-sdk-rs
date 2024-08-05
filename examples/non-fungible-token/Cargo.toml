@@ -7,7 +7,7 @@ edition = "2021"
 [dev-dependencies]
 anyhow = "1.0"
 near-contract-standards = { path = "../../near-contract-standards" }
-near-sdk = { path = "../../near-sdk" }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"]  }
 tokio = { version = "1.14", features = ["full"] }
 near-workspaces = "0.11.0"
 

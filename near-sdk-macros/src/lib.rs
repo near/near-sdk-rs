@@ -342,6 +342,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                              generics: &syn::Generics|
      -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
         let metadata_impl_gen = generate_contract_metadata_method(ident, generics).into();
+
         let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
             .expect("failed to generate contract metadata");
         process_impl_block(metadata_impl_gen)

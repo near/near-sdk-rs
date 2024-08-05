@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk", features = ["unstable"] }
+near-sdk = { path = "../../near-sdk", features = ["unstable", "unit-testing"] }
 
 [profile.release]
 codegen-units = 1
@@ -17,3 +17,6 @@ opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
+
+[dev-dependencies]
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
