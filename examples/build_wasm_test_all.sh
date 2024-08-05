@@ -7,17 +7,23 @@ for dir in "$BASE_DIR"/*; do
     if [ -d "$dir" ]; then
         cd "$dir" || exit
 
+        echo "Processing $dir"
+
         echo "Building $dir"
 
-        cargo nightly-aarch64-apple-darwin wasmcov build -- -Z build-std --all --target wasm32-unknown-unknown --release
+        cargo +CARGO_VERSION wasmcov build -- -Z build-std --all --target wasm32-unknown-unknown --release
 
         echo "Testing $dir"
 
-        cargo +nightly-2024-05-01 test -- --workspace
+        cargo +CARGO_VERSION test -- --workspace
 
         echo "Generating report"
 
-        cargo +nightly-2024-05-01 wasmcov report
+        cargo +CARGO_VERSION wasmcov report
+
+        ls -lha
+
+        echo "Ending $dir"
 
         cd - || exit
     fi
