@@ -144,3 +144,6 @@ mod tests {
         assert_eq!(contract.get_deposit(&bob()), Some(&NearToken::from_yoctonear(8)));
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

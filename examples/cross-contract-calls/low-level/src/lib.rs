@@ -50,3 +50,6 @@ impl CrossContract {
         env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

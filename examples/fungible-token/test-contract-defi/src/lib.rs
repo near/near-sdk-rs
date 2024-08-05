@@ -69,3 +69,6 @@ impl ValueReturnTrait for DeFi {
         PromiseOrValue::Value(amount.into())
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

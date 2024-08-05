@@ -42,9 +42,7 @@ jobs:
         run: cargo +${{ matrix.toolchain }} install wasmcov
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
-      - name: Build
+      - name: Run script
         env:
-          RUSTFLAGS: '-C link-arg=-s '
-        run: cargo +${{ matrix.toolchain }} wasmcov build -- -Z build-std --all --target wasm32-unknown-unknown --release
-      - name: Test
-        run: cargo wasmcov test -- --all ${{ matrix.features }}
+          RUSTFLAGS: '-C link-arg=-s'
+        run: bash ./build_wasm_test_all.sh
