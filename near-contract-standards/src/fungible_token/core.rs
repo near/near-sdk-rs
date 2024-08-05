@@ -101,17 +101,37 @@ pub trait FungibleTokenCore {
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
 }
 
-use near_sdk::test_utils::accounts;
+#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
+pub mod tests {
 
-fn test_transfer_ok(contract: &mut impl FungibleTokenCore) {
-    assert_eq!(contract.ft_balance_of(accounts(2)), contract.ft_total_supply());
-    assert_eq!(contract.ft_balance_of(accounts(1)), U128::from(0));
-    let amount = contract.ft_total_supply().0 / 3;
-    contract.ft_transfer(accounts(1), amount.into(), None);
-    assert_eq!(contract.ft_balance_of(accounts(2)).0, contract.ft_total_supply().0 - amount);
-    assert_eq!(contract.ft_balance_of(accounts(1)).0, amount);
-}
+    use near_sdk::test_utils::accounts;
 
-pub fn test(contract: &mut impl FungibleTokenCore) {
-    test_transfer_ok(contract);
+    use super::*;
+
+    fn test_transfer_ok(contract: &mut impl FungibleTokenCore) {
+        assert_eq!(contract.ft_balance_of(accounts(2)), U128(1_000_000_000_000_000));
+        assert_eq!(contract.ft_balance_of(accounts(1)), U128(0));
+        let amount = contract.ft_total_supply().0 / 4;
+        contract.ft_transfer(accounts(1), amount.into(), None);
+        assert_eq!(contract.ft_balance_of(accounts(2)).0, contract.ft_total_supply().0 - amount);
+        assert_eq!(contract.ft_balance_of(accounts(1)).0, amount);
+    }
+
+    fn test_transfer_call_ok(contract: &mut impl FungibleTokenCore) {
+        let amount = contract.ft_total_supply().0 / 4;
+        let result = contract.ft_transfer_call(accounts(1), amount.into(), None, "".to_string());
+        match result {
+            PromiseOrValue::Promise(_promise) => {
+                println!("Handle promise here");
+            }
+            _ => panic!("Expected Promise variant"),
+        }
+        assert_eq!(contract.ft_balance_of(accounts(2)).0, contract.ft_total_supply().0 / 2);
+        assert_eq!(contract.ft_balance_of(accounts(1)).0, contract.ft_total_supply().0 / 2);
+    }
+
+    pub fn test(contract: &mut impl FungibleTokenCore) {
+        test_transfer_ok(contract);
+        test_transfer_call_ok(contract);
+    }
 }

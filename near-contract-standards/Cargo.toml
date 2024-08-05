@@ -21,3 +21,4 @@ near-sdk = { path = "../near-sdk", default-features = false, features = ["unit-t
 [features]
 default = []
 abi = ["near-sdk/abi"]
+unit-testing = []

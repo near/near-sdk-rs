@@ -217,7 +217,13 @@ mod tests {
             .attached_deposit(NearToken::from_yoctonear(1))
             .predecessor_account_id(accounts(2))
             .build());
-        near_contract_standards::fungible_token::core::test(&mut contract);
+        near_contract_standards::fungible_token::core::tests::test(&mut contract);
+    }
+
+    #[test]
+    fn test_fungible_token_metadata() {
+        let mut contract = Contract::new_default_meta(accounts(2).into(), TOTAL_SUPPLY.into());
+        near_contract_standards::fungible_token::metadata::tests::test(&mut contract);
     }
 
     #[test]
