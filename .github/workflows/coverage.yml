@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         platform: [macos-latest]
-        toolchain: [nightly-2024-07-01]
+        toolchain: [nightly-aarch64-apple-darwin]
         package: [cross-contract-calls, fungible-token]
         features: ['', '--features unstable,legacy,__abi-generate']
     steps:
