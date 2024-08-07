@@ -5,15 +5,7 @@ use std::ops;
 
 use near_sdk::near;
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Hash,
-    Clone,
-    Copy,
-    Debug,
-)]
+#[derive(PartialEq, Eq, PartialOrd, Hash, Clone, Copy, Debug)]
 #[near(serializers = [json, borsh])]
 pub struct Quantity(pub i32);
 

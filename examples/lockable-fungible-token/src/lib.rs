@@ -480,3 +480,6 @@ mod tests {
         contract.lock(carol(), U128(lock_amount)).unwrap_err();
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

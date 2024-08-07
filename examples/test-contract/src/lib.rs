@@ -45,3 +45,6 @@ mod tests {
         contract.test_panic_macro();
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

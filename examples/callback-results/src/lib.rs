@@ -123,3 +123,6 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

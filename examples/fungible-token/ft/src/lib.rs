@@ -248,3 +248,6 @@ mod tests {
         assert_eq!(contract.ft_balance_of(accounts(1)).0, transfer_amount);
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

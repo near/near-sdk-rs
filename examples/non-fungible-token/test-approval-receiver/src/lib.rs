@@ -75,3 +75,6 @@ impl ValueReturnTrait for ApprovalReceiver {
         PromiseOrValue::Value(msg)
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

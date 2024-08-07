@@ -71,3 +71,6 @@ mod tests {
         assert_eq!(get_logs(), vec!["get_status for account_id francis.near"])
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();

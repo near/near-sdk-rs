@@ -1,8 +1,8 @@
 use crate::account::*;
 use crate::asset::*;
 use crate::rate::*;
-use std::collections::HashMap;
 use near_sdk::near;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 #[near(serializers=[json, borsh])]

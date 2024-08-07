@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
 near-contract-standards = { path = "../../../near-contract-standards" }
+wasmcov = "0.2"
 
 [dev-dependencies]
 near-sdk = { path = "../../../near-sdk", features = ["unit-testing"] }

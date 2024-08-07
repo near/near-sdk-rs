@@ -86,3 +86,6 @@ impl ValueReturnTrait for TokenReceiver {
         PromiseOrValue::Value(return_it)
     }
 }
+
+#[cfg(target_family = "wasm")]
+wasmcov::near::add_coverage!();
