@@ -18,7 +18,7 @@ cross-contract-low-level = { path = "./low-level" }
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.
 opt-level = "z"
-lto = true
+lto = false
 debug = false
 panic = "abort"
 

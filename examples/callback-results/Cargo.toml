@@ -21,6 +21,6 @@ near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.
 opt-level = "z"
-lto = true
+lto = false
 debug = false
 panic = "abort"
