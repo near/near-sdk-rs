@@ -26,9 +26,8 @@ jobs:
         run: brew install llvm
       - name: Add LLVM to PATH
         run: echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-hack
+      - uses: Install cargo-llvm-cov
+        run: brew install cargo-llvm-cov
       - name: Llvm version
         run: llvm-config --version
       - name: Clang version
