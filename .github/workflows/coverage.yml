@@ -26,10 +26,9 @@ jobs:
         run: brew install llvm
       - name: Add LLVM to PATH
         run: echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov@v2
-      - name: Add LLVM to PATH
-        run: echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
       - name: Llvm version
         run: llvm-config --version
       - name: Clang version
@@ -47,9 +46,9 @@ jobs:
       - name: Generate code coverage
         run: cargo llvm-cov --lcov --output-path llvm-cov-output.lcov
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
+        uses: codecov/codecov-action@v4
         with:
-          fail_ci_if_error: true # optional (default = false)
+          fail_ci_if_error: true
           files: ./llvm-cov-output.lcov
-          token: ${{ secrets.CODECOV_TOKEN }} # required
-          verbose: true # optional (default = false)
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
