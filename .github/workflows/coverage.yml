@@ -40,6 +40,8 @@ jobs:
         run: rustc --version --verbose
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
+      - name: Add target wasm32
+        run: rustup target add wasm32-unknown-unknown --toolchain ${{ matrix.toolchain }}
       - name: Verify targets
         run: rustup target list --installed
       - name: Test
