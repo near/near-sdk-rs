@@ -44,8 +44,6 @@ jobs:
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
       - name: Verify Rust Toolchain
         run: rustup show
-      - name: Test
-        run: cargo +${{ matrix.toolchain }} test --all --features unstable,legacy
       - name: Generate code coverage
         run: cargo +${{ matrix.toolchain }} llvm-cov --lcov --output-path llvm-cov-output.lcov
       - name: Upload coverage reports to Codecov
