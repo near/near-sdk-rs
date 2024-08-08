@@ -15,8 +15,6 @@ jobs:
       matrix:
         platform: [macos-latest]
         toolchain: [nightly-aarch64-apple-darwin]
-        package: [cross-contract-calls, fungible-token]
-        features: ['', '--features unstable,legacy,__abi-generate']
     steps:
       - uses: actions/checkout@v3
       - name: Install Homebrew
@@ -42,6 +40,10 @@ jobs:
         run: rustc --version --verbose
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
+      - name: Verify targets
+        run: rustup target list --installed
+      - name: Test
+        run: cargo test --all --features unstable,legacy
       - name: Generate code coverage
         run: cargo llvm-cov --lcov --output-path llvm-cov-output.lcov
       - name: Upload coverage reports to Codecov
