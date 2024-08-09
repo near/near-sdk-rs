@@ -259,6 +259,9 @@ $ cargo install --path cargo-near
 ```
 </details>
 
+Got it. Here is the entire section formatted as markdown:
+
+```markdown
 #### Usage
 
 See `cargo near --help` for a complete list of available commands or run `cargo near` to dive into interactive mode.
@@ -268,25 +271,51 @@ Help is also available for each individual command with a `--help` flag, e.g. `c
 cargo near
 ```
 
-Starts interactive mode that will allow to explore all the available commands.
+Starts interactive mode that will allow you to explore all the available commands.
+
+```sh
+cargo test
+```
+
+Runs the tests for your Rust contract.
 
 ```sh
 cargo near build
 ```
 
-Builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml).
+Builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing the contract's Cargo.toml).
 
 ```sh
 cargo near create-dev-account
 ```
 
-Guides you through creation of a new NEAR account on [testnet](https://explorer.testnet.near.org).
+Guides you through the creation of a new NEAR account on [testnet](https://explorer.testnet.near.org).
 
 ```sh
 cargo near deploy
 ```
 
 Builds the smart contract (equivalent to `cargo near build`) and guides you to deploy it to the blockchain.
+
+```sh
+cargo install near-cli-rs
+```
+
+Installs the NEAR CLI. To update the NEAR CLI, use the following command:
+
+```sh
+near extensions self-update
+```
+
+```sh
+near
+```
+
+Selects the contract and calls a function.
+
+For a more detailed visualization of building a Rust contract, you can watch this [video tutorial](https://www.loom.com/share/2b5b4e61d8704fdd8ed402b92033784d?sid=ec126de5-b488-4d5a-9f0c-f55c431bb575).  
+(Please note that in the video, the function call did not work due to insufficient gas fees.)
+
 
 ### Using cargo build
 
