@@ -33,13 +33,35 @@ To test run:
 cargo test --package factory-contract -- --nocapture
 ```
 
-### Usage
-
-```markdown
 ## Usage
 
-1. Deploy the factory contract.
-2. Use the factory contract to create instances of the target contract.
+## Usage
+
+1. Prerequisite: Install cargo-near:
+
+```bash
+cargo install cargo-near
+```
+
+2. Create a new testnet account:
+
+```bash
+cargo near create-dev-account
+```
+
+3. Deploy the factory contract:
+
+```bash
+cargo near deploy --wasmFile path/to/factory-contract.wasm --accountId your-account.testnet
+```
+
+4. Use the factory contract to create instances of the target contract:
+
+```bash
+near call your-factory-contract-account.testnet create_instance '{"args": "value"}' --accountId your-account.testnet
+```
+
+NOTE: Replace `path/to/factory-contract.wasm` with the actual path to your compiled WebAssembly file, and `your-account.testnet` with your actual NEAR testnet account ID.
 
 ## Dependencies
 
@@ -51,4 +73,3 @@ cargo test --package factory-contract -- --nocapture
 ### `1.0.0`
 
 - Initial implementation of factory contract functionality.
-```

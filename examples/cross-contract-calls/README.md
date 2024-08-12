@@ -33,17 +33,45 @@ To test run:
 cargo test --package cross-contract-call -- --nocapture
 ```
 
-### Usage
-
-```markdown
 ## Usage
 
-1. Deploy the contracts:
+1. Prerequisites:
 
-   - Deploy the high-level contract.
-   - Deploy the low-level contract.
+- Install cargo-near:
 
-2. Call the high-level contract to initiate a cross-contract call to the low-level contract.
+```bash
+cargo install cargo-near
+```
+
+- Create a new testnet account:
+
+```bash
+cargo near create-dev-account
+```
+
+2. Deploy the contracts:
+
+- Build and deploy the high-level contract:
+
+```bash
+cargo near deploy --wasmFile path/to/high-level-contract.wasm --accountId your-account.testnet
+```
+
+- Build and deploy the low-level contract:
+
+```bash
+cargo near deploy --wasmFile path/to/low-level-contract.wasm --accountId your-account.testnet
+```
+
+3. Initiate a cross-contract call:
+
+- Call the high-level contract to initiate a cross-contract call to the low-level contract:
+
+```bash
+near call your-high-level-contract-account.testnet call-function '{"args": "value"}' --accountId your-account.testnet
+```
+
+NOTE: Replace `path/to/high-level-contract.wasm` and `path/to/low-level-contract.wasm` with the actual paths to your compiled WebAssembly files, and `your-account.testnet` with your actual NEAR testnet account ID.
 
 ## Dependencies
 
@@ -55,4 +83,3 @@ cargo test --package cross-contract-call -- --nocapture
 ### `1.0.0`
 
 - Initial implementation of cross-contract call functionality.
-```
