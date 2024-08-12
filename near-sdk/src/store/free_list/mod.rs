@@ -34,7 +34,7 @@ where
 }
 
 #[near(inside_nearsdk)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Slot<T> {
     /// Represents a filled cell of a value in the collection.
     Occupied(T),
