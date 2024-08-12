@@ -138,7 +138,6 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .as_gas();
 
         perform_asserts(total_gas, &col);
-        println!("{}: {}", col, NearGas::from_gas(total_gas).as_tgas());
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
@@ -164,7 +163,6 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .as_gas();
 
         perform_asserts(total_gas, &col);
-        println!("{}: {}", col, NearGas::from_gas(total_gas).as_tgas());
     }
 
     Ok(())
