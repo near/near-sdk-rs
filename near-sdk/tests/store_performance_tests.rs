@@ -118,14 +118,14 @@ async fn insert_and_remove() -> anyhow::Result<()> {
     // insert test, max_iterations here is the number of elements to insert. It's used to measure
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 340),
-        Collection::IterableSet => (col, 340),
-        Collection::IterableMap => (col, 350),
-        Collection::UnorderedSet => (col, 340),
-        Collection::UnorderedMap => (col, 350),
-        Collection::LookupMap => (col, 600),
-        Collection::LookupSet => (col, 970),
-        Collection::Vector => (col, 1000),
+        Collection::TreeMap => (col, 350),
+        Collection::IterableSet => (col, 350),
+        Collection::IterableMap => (col, 360),
+        Collection::UnorderedSet => (col, 350),
+        Collection::UnorderedMap => (col, 360),
+        Collection::LookupMap => (col, 610),
+        Collection::LookupSet => (col, 980),
+        Collection::Vector => (col, 1010),
     }) {
         let total_gas = account
             .call(&contract_id, "insert")
@@ -138,19 +138,20 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .as_gas();
 
         perform_asserts(total_gas, &col);
+        println!("{}: {}", col, NearGas::from_gas(total_gas).as_tgas());
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 220),
-        Collection::IterableSet => (col, 120),
-        Collection::IterableMap => (col, 115),
-        Collection::UnorderedSet => (col, 220),
-        Collection::UnorderedMap => (col, 220),
-        Collection::LookupMap => (col, 480),
-        Collection::LookupSet => (col, 970),
-        Collection::Vector => (col, 500),
+        Collection::TreeMap => (col, 230),
+        Collection::IterableSet => (col, 130),
+        Collection::IterableMap => (col, 125),
+        Collection::UnorderedSet => (col, 230),
+        Collection::UnorderedMap => (col, 230),
+        Collection::LookupMap => (col, 490),
+        Collection::LookupSet => (col, 980),
+        Collection::Vector => (col, 510),
     }) {
         let total_gas = account
             .call(&contract_id, "remove")
@@ -163,6 +164,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .as_gas();
 
         perform_asserts(total_gas, &col);
+        println!("{}: {}", col, NearGas::from_gas(total_gas).as_tgas());
     }
 
     Ok(())
