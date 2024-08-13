@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [5.3.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.2.1...near-sdk-v5.3.0) - 2024-08-13
+
+### Added
+- Introduced 'remove' method for 'near_sdk::store::Lazy' collection ([#1238](https://github.com/near/near-sdk-rs/pull/1238))
+- Allow store collection iterators to be cloned (this enables standard Iterator methods like `cycle()`) ([#1224](https://github.com/near/near-sdk-rs/pull/1224))
+
+### Fixed
+- Fix storage management error message with proper amount ([#1222](https://github.com/near/near-sdk-rs/pull/1222))
+- Fixed compilation errors after Rust 1.80 latest stable release ([#1227](https://github.com/near/near-sdk-rs/pull/1227))
+
+### Other
+- updates near-* dependencies to 0.24.0 ([#1237](https://github.com/near/near-sdk-rs/pull/1237))
+- Include all examples into CI testing suite ([#1228](https://github.com/near/near-sdk-rs/pull/1228))
+- Optimized up to 10% contract binary size by using `near_sdk::env::panic_str` instead of `expect` calls ([#1220](https://github.com/near/near-sdk-rs/pull/1220))
+- Fixed Rust 1.80 new warning by adding `cargo:rustc-check-cfg` for `__abi-embed-checked` feature in `near-sdk-macros` build.rs ([#1225](https://github.com/near/near-sdk-rs/pull/1225))
+
 ## [5.2.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.2.0...near-sdk-v5.2.1) - 2024-07-05
 
 ### Fixed
