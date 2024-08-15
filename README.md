@@ -259,9 +259,6 @@ $ cargo install --path cargo-near
 ```
 </details>
 
-Got it. Here is the entire section formatted as markdown:
-
-```markdown
 #### Usage
 
 See `cargo near --help` for a complete list of available commands or run `cargo near` to dive into interactive mode.
@@ -313,9 +310,7 @@ near
 
 Selects the contract and calls a function.
 
-For a more detailed visualization of building a Rust contract, you can watch this [video tutorial](https://www.loom.com/share/2b5b4e61d8704fdd8ed402b92033784d?sid=ec126de5-b488-4d5a-9f0c-f55c431bb575).  
-(Please note that in the video, the function call did not work due to insufficient gas fees.)
-
+For a more detailed visualization of building a Rust contract, you can watch this [video tutorial](https://www.youtube.com/watch?v=W-DkRHYk40k)  
 
 ### Using cargo build
 
