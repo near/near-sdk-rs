@@ -12,7 +12,7 @@ near-sdk = { path = "../../near-sdk" }
 wasmcov = "0.2"
 
 [dev-dependencies]
-near-workspaces = "0.11.0"
+near-workspaces = "0.11.1"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }

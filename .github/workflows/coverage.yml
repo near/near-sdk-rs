@@ -5,7 +5,7 @@ on:
       - master
   pull_request:
 env:
-  RUSTFLAGS: -D warnings
+  RUSTFLAGS: "-D warnings"
 
 jobs:
   coverage:
@@ -14,9 +14,7 @@ jobs:
     strategy:
       matrix:
         platform: [macos-latest]
-        toolchain: [nightly-aarch64-apple-darwin]
-        package: [cross-contract-calls, fungible-token]
-        features: ['', '--features unstable,legacy,__abi-generate']
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v3
       - name: Install Homebrew
@@ -26,6 +24,8 @@ jobs:
         run: brew install llvm
       - name: Add LLVM to PATH
         run: echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+      - name: Install cargo-llvm-cov
+        run: brew install cargo-llvm-cov
       - name: Llvm version
         run: llvm-config --version
       - name: Clang version
@@ -36,13 +36,20 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
+      - name: Set Default Toolchain
+        run: rustup override set ${{ matrix.toolchain }}
       - name: Rust version
         run: rustc --version --verbose
-      - name: Install wasmcov
-        run: cargo +${{ matrix.toolchain }} install wasmcov
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
-      - name: Run script
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: bash ./examples/build_wasm_test_all.sh ${{ matrix.toolchain }}
+      - name: Verify Rust Toolchain
+        run: rustup show
+      - name: Generate code coverage
+        run: cargo +${{ matrix.toolchain }} llvm-cov --lcov --output-path llvm-cov-output.lcov
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          files: ./llvm-cov-output.lcov
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
