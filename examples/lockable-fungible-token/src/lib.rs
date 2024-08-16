@@ -2,6 +2,9 @@ use near_sdk::collections::UnorderedMap;
 use near_sdk::{env, json_types::U128, near, AccountId, PanicOnDefault};
 use std::collections::HashMap;
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 type Balance = u128;
 
 #[derive(Default)]
@@ -480,6 +483,3 @@ mod tests {
         contract.lock(carol(), U128(lock_amount)).unwrap_err();
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

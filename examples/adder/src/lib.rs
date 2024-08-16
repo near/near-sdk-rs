@@ -1,5 +1,8 @@
 use near_sdk::near;
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[near(serializers=[borsh, json])]
 pub struct Pair(u32, u32);
 
@@ -89,6 +92,3 @@ mod tests {
         Ok(())
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

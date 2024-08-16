@@ -5,6 +5,9 @@ use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);
 
@@ -86,6 +89,3 @@ impl ValueReturnTrait for TokenReceiver {
         PromiseOrValue::Value(return_it)
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

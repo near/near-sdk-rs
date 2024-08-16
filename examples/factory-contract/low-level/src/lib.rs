@@ -2,6 +2,9 @@ use near_sdk::json_types::U128;
 use near_sdk::serde_json;
 use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 
@@ -72,6 +75,3 @@ impl FactoryContract {
         };
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

@@ -1,14 +1,14 @@
 #!/bin/bash
-TARGET="${CARGO_TARGET_DIR:-../../target}"
+
+if [ -n "$WASMCOV_DIR" ]; then
+    TARGET="${WASMCOV_DIR}/target"
+    BUILD_COMMAND="cargo wasmcov build -- --features wasmcov"
+else
+    TARGET="${CARGO_TARGET_DIR:-../../target}"
+    BUILD_COMMAND="cargo build"
+fi
+
 set -e
 cd "$(dirname $0)"
-
-INCLUDE_COVERAGE="${1:-false}"
-
-if [ "$INCLUDE_COVERAGE" = "true" ]; then
-  cargo-wasmcov build  --wasmcov-dir /Users/jrmncos/forks/near-sdk-rs/examples/wasmcov -- --all --target wasm32-unknown-unknown --release
-  cp ../wasmcov/target/wasm32-unknown-unknown/release/versioned.wasm ./res/
-else
-  cargo build --target wasm32-unknown-unknown --release
-  cp $TARGET/wasm32-unknown-unknown/release/versioned.wasm ./res/
-fi
+$BUILD_COMMAND --target wasm32-unknown-unknown --release
+cp $TARGET/wasm32-unknown-unknown/release/versioned.wasm ./res/

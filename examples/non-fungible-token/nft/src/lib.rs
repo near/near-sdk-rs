@@ -32,6 +32,9 @@ use near_sdk::{
 };
 use std::collections::HashMap;
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[derive(PanicOnDefault)]
 #[near(contract_state)]
 pub struct Contract {
@@ -436,6 +439,3 @@ mod tests {
         assert!(!contract.nft_is_approved(token_id.clone(), accounts(1), Some(1)));
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

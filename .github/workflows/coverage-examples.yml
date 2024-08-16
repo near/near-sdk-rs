@@ -1,0 +1,60 @@
+name: Coverage
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+env:
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  coverage:
+    runs-on: ${{ matrix.platform }}
+    name: "${{ matrix.example }} - ${{ matrix.platform }}"
+    strategy:
+      matrix:
+        toolchain: [nightly-2024-07-01-aarch64-apple-darwin]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Homebrew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      - name: Install LLVM
+        run: brew install llvm
+      - name: Add LLVM to PATH
+        run: echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+      - name: Llvm version
+        run: llvm-config --version
+      - name: Clang version
+        run: clang --version
+      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+      - name: Set Default Toolchain
+        run: rustup override set ${{ matrix.toolchain }}
+      - name: Rust version
+        run: rustc --version --verbose
+      - name: Verify Rust Toolchain
+        run: rustup show
+      - name: Add rust-src component
+        run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
+      - name: Install wasmcov
+        run: cargo +${{ matrix.toolchain }} install wasmcov
+      - name: Create wasmcov directory
+        run: mkdir -p ${{ github.workspace }}/wasmcov
+      - name: Set WASMCOV_DIR environment variable
+        run: echo "WASMCOV_DIR=${{ github.workspace }}/wasmcov" >> $GITHUB_ENV
+      - name: Set up cache for near_sandbox directory
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/wasmcov/near_sandbox
+          key: ${{ runner.os }}-near-sandbox-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-near-sandbox-${{ github.sha }}
+      - name: Build examples
+        env:
+          RUSTFLAGS: '-C link-arg=-s'
+        run: bash ./examples/build_wasm_test_all.sh ${{ matrix.toolchain }}

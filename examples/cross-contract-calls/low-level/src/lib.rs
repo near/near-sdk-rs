@@ -1,6 +1,9 @@
 use near_sdk::serde_json;
 use near_sdk::{env, near, require, Gas, NearToken, PromiseResult};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
 const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
 
@@ -50,6 +53,3 @@ impl CrossContract {
         env::value_return(&serde_json::to_vec(&(cur * n)).unwrap());
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

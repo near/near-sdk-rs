@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk" }
-wasmcov = "0.2"
+wasmcov = { version = "0.2", optional = true }
 
 [dev-dependencies]
 near-workspaces = "0.11.1"
@@ -19,10 +19,13 @@ near-abi = "0.4.0"
 zstd = "0.13"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 
+[features]
+wasmcov = ["dep:wasmcov"]
+
 [profile.release]
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.
 opt-level = "z"
-lto = false
+lto = true
 debug = false
 panic = "abort"

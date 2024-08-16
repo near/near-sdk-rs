@@ -1,6 +1,9 @@
 use near_sdk::PromiseError;
 use near_sdk::{env, ext_contract, near, AccountId, NearToken, Promise};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[derive(Default)]
 #[near(contract_state)]
 pub struct FactoryContract {}
@@ -50,6 +53,3 @@ impl FactoryContract {
         }
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();

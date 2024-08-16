@@ -6,5 +6,5 @@ mod macros;
 mod mission_control;
 mod rate;
 
-#[cfg(target_family = "wasm")]
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
 wasmcov::near::add_coverage!();

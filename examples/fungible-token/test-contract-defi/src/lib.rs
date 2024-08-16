@@ -5,6 +5,9 @@ use near_contract_standards::fungible_token::{receiver::FungibleTokenReceiver, B
 use near_sdk::json_types::U128;
 use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 const BASE_GAS: u64 = 5_000_000_000_000;
 const PROMISE_CALL: u64 = 5_000_000_000_000;
 const GAS_FOR_FT_ON_TRANSFER: Gas = Gas::from_gas(BASE_GAS + PROMISE_CALL);
@@ -69,6 +72,3 @@ impl ValueReturnTrait for DeFi {
         PromiseOrValue::Value(amount.into())
     }
 }
-
-#[cfg(target_family = "wasm")]
-wasmcov::near::add_coverage!();
