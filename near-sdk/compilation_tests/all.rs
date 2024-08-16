@@ -27,7 +27,7 @@ fn compilation_tests() {
     if rustversion::cfg!(since(1.80)) && std::env::consts::OS == "linux" {
         // The compilation error output has slightly changed in 1.7x and 1.8x and between platforms,
         // so we snapshoted this single version
-        t.compile_fail("compilation_tests/schema_derive_invalids_180.rs");
+        t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     }
     t.compile_fail("compilation_tests/generic_function.rs");
     t.compile_fail("compilation_tests/generic_const_function.rs");
