@@ -91,6 +91,3 @@ note: required by a bound in `SchemaGenerator::subschema_for`
   |
   |     pub fn subschema_for<T: ?Sized + JsonSchema>(&mut self) -> Schema {
   |                                      ^^^^^^^^^^ required by this bound in `SchemaGenerator::subschema_for`
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
-note: If the actual output is the correct output you can bless it by rerunning
-      your test with the environment variable TRYBUILD=overwrite
