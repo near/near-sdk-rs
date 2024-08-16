@@ -1,49 +1,49 @@
 error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified
-  --> compilation_tests/schema_derive_invalids_180.rs:9:1
+  --> compilation_tests/schema_derive_invalids.rs:9:1
    |
 9  | / #[abi]
 10 | | struct Nada;
    | |____________^
 
 error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified
-  --> compilation_tests/schema_derive_invalids_180.rs:13:1
+  --> compilation_tests/schema_derive_invalids.rs:13:1
    |
 13 | / #[abi()]
 14 | | struct Empty;
    | |_____________^
 
 error: Unknown field: `serde`
-  --> compilation_tests/schema_derive_invalids_180.rs:17:7
+  --> compilation_tests/schema_derive_invalids.rs:17:7
    |
 17 | #[abi(serde)]
    |       ^^^^^
 
 error: Unknown field: `serde`
-  --> compilation_tests/schema_derive_invalids_180.rs:21:13
+  --> compilation_tests/schema_derive_invalids.rs:21:13
    |
 21 | #[abi(json, serde)]
    |             ^^^^^
 
 error: Unknown field: `serde`
-  --> compilation_tests/schema_derive_invalids_180.rs:25:13
+  --> compilation_tests/schema_derive_invalids.rs:25:13
    |
 25 | #[abi(json, serde, schemars)]
    |             ^^^^^
 
 error: Unknown field: `schemars`
-  --> compilation_tests/schema_derive_invalids_180.rs:25:20
+  --> compilation_tests/schema_derive_invalids.rs:25:20
    |
 25 | #[abi(json, serde, schemars)]
    |                    ^^^^^^^^
 
 error: Unknown field: `serde`
-  --> compilation_tests/schema_derive_invalids_180.rs:29:13
+  --> compilation_tests/schema_derive_invalids.rs:29:13
    |
 29 | #[abi(json, serde = "?")]
    |             ^^^^^
 
 error: `NearSchema` does not support derive for unions
-  --> compilation_tests/schema_derive_invalids_180.rs:33:1
+  --> compilation_tests/schema_derive_invalids.rs:33:1
    |
 33 | / union Unsupporteed {
 34 | |     a: u8,
@@ -52,7 +52,7 @@ error: `NearSchema` does not support derive for unions
    | |_^
 
 error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specified
-  --> compilation_tests/schema_derive_invalids_180.rs:39:1
+  --> compilation_tests/schema_derive_invalids.rs:39:1
    |
 39 | / #[abi()]
 40 | | union UnsupporteedWithoutArgs {
@@ -62,7 +62,7 @@ error: At least one of `json` or `borsh` inside of `#[abi(...)]` must be specifi
    | |_^
 
 error: `NearSchema` does not support derive for unions
-  --> compilation_tests/schema_derive_invalids_180.rs:47:1
+  --> compilation_tests/schema_derive_invalids.rs:47:1
    |
 47 | / union UnsupporteedWithArgs {
 48 | |     a: u8,
@@ -71,7 +71,7 @@ error: `NearSchema` does not support derive for unions
    | |_^
 
 error[E0277]: the trait bound `Inner: JsonSchema` is not satisfied
- --> compilation_tests/schema_derive_invalids_180.rs:6:14
+ --> compilation_tests/schema_derive_invalids.rs:6:14
   |
 6 | struct Outer(Inner);
   |              ^^^^^ the trait `JsonSchema` is not implemented for `Inner`
