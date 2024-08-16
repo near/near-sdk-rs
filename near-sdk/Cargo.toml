@@ -31,8 +31,8 @@ bs58 = "0.5"
 once_cell = { version = "1.17", default-features = false }
 
 near-account-id = { version = "1.0.0", features = ["serde", "borsh"] }
-near-gas = { version = "0.2.3", features = ["serde", "borsh"] }
-near-token = { version = "0.2.1", features = ["serde", "borsh"] }
+near-gas = { version = "0.3", features = ["serde", "borsh"] }
+near-token = { version = "0.3", features = ["serde", "borsh"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
@@ -63,7 +63,7 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.11.1", features = ["unstable"] }
+near-workspaces = { version = "0.12", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"

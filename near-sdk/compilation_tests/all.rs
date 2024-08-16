@@ -23,8 +23,9 @@ fn compilation_tests() {
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
     t.pass("compilation_tests/schema_derive.rs");
-    if rustversion::cfg!(since(1.78)) && std::env::consts::OS == "linux" {
-        // The compilation error output has slightly changed in 1.7x and between platforms,
+
+    if rustversion::cfg!(since(1.80)) && std::env::consts::OS == "linux" {
+        // The compilation error output has slightly changed in 1.7x and 1.8x and between platforms,
         // so we snapshoted this single version
         t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     }
