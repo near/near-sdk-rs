@@ -13,6 +13,7 @@ jobs:
     name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
       matrix:
+        platform: [macos-latest]
         toolchain: [nightly-2024-07-01-aarch64-apple-darwin]
     steps:
       - uses: actions/checkout@v3
