@@ -57,4 +57,4 @@ jobs:
       - name: Build examples
         env:
           RUSTFLAGS: '-C link-arg=-s'
-        run: bash ./examples/build_wasm_test_all.sh ${{ matrix.toolchain }}
+        run: cd ./examples && ./build_wasm_test_all.sh
