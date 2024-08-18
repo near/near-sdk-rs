@@ -42,6 +42,8 @@ jobs:
         run: rustup show
       - name: Add rust-src component
         run: rustup component add rust-src --toolchain ${{ matrix.toolchain }}
+      - name: Updating time
+        run: cargo +${{ matrix.toolchain }} update -p time
       - name: Install wasmcov
         run: cargo +${{ matrix.toolchain }} install wasmcov
       - name: Create wasmcov directory
