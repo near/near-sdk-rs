@@ -61,3 +61,7 @@ jobs:
         env:
           RUSTFLAGS: '-C link-arg=-s'
         run: cd ./examples && ./build_wasm_test_all.sh
+      - name: Merge profdata files
+        env:
+          RUSTFLAGS: '-C link-arg=-s'
+        run: cd ./examples && ./merge_profdata.sh
