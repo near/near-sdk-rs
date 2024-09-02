@@ -16,6 +16,8 @@ tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 
+near-sandbox-utils = "=0.10.0"
+
 [profile.release]
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.
