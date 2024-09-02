@@ -9,20 +9,26 @@ use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
 use near_primitives_core::version::PROTOCOL_VERSION;
 use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
-use near_vm_runner::logic::{External, MemoryLike, VMLogic};
+use near_vm_runner::logic::{ExecutionResultState, External, MemoryLike, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
 /// `VMLogic` to cause panic during the unit tests similarly to how errors of `VMLogic` would cause
 /// the termination of guest program execution. Unit tests can even assert the expected error
 /// message.
-pub struct MockedBlockchain {
+pub struct MockedBlockchain<Memory = MockedMemory>
+where
+    Memory: MemoryLike + Default + 'static,
+{
     logic: RefCell<VMLogic<'static>>,
     // We keep ownership over logic fixture so that references in `VMLogic` are valid.
     #[allow(dead_code)]
     logic_fixture: LogicFixture,
+    _memory: PhantomData<Memory>,
 }
 
 pub fn test_vm_config() -> near_parameters::vm::Config {
@@ -30,11 +36,14 @@ pub fn test_vm_config() -> near_parameters::vm::Config {
     let config = store.get_config(PROTOCOL_VERSION).wasm_config.clone();
     near_parameters::vm::Config {
         vm_kind: config.vm_kind.replace_with_wasmtime_if_unsupported(),
-        ..config
+        ..config.as_ref().to_owned()
     }
 }
 
-impl Default for MockedBlockchain {
+impl<T> Default for MockedBlockchain<T>
+where
+    T: MemoryLike + Default + 'static,
+{
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
@@ -50,15 +59,14 @@ impl Default for MockedBlockchain {
 
 struct LogicFixture {
     ext: Box<MockedExternal>,
-    memory: Box<dyn MemoryLike>,
-    #[allow(clippy::box_collection)]
-    promise_results: Box<Vec<VmPromiseResult>>,
-    config: Box<near_parameters::vm::Config>,
-    fees_config: Box<RuntimeFeesConfig>,
+    fees_config: Arc<RuntimeFeesConfig>,
     context: Box<near_vm_runner::logic::VMContext>,
 }
 
-impl MockedBlockchain {
+impl<Memory> MockedBlockchain<Memory>
+where
+    Memory: MemoryLike + Default + 'static,
+{
     pub fn new(
         context: VMContext,
         config: near_parameters::vm::Config,
@@ -66,34 +74,35 @@ impl MockedBlockchain {
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
         validators: HashMap<String, NearToken>,
-        memory_opt: Option<Box<dyn MemoryLike>>,
+        memory: Option<Memory>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
-        let context = Box::new(sdk_context_to_vm_context(context));
+        let promise_results: Arc<[VmPromiseResult]> =
+            promise_results.into_iter().map(Into::into).collect::<Vec<_>>().into();
+        let context: Box<near_vm_runner::logic::VMContext> =
+            Box::new(sdk_context_to_vm_context(context, promise_results));
         ext.fake_trie = storage;
         ext.validators =
             validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v.as_yoctonear())).collect();
-        let memory = memory_opt.unwrap_or_else(|| Box::<MockedMemory>::default());
-        let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
-        let config = Box::new(config);
-        let fees_config = Box::new(fees_config);
+        let config = Arc::new(config);
+        let fees_config = Arc::new(fees_config);
+        let result_state =
+            ExecutionResultState::new(&context, context.make_gas_counter(&config), config.clone());
 
-        let mut logic_fixture =
-            LogicFixture { ext, memory, context, promise_results, config, fees_config };
+        let mut logic_fixture = LogicFixture { ext, context, fees_config };
 
         let logic = unsafe {
             VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
                 &*(logic_fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
-                &*(logic_fixture.config.as_mut() as *const near_parameters::vm::Config),
-                &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
-                &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
-                &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
+                logic_fixture.fees_config.clone(),
+                result_state,
+                memory.unwrap_or_default(),
             )
         };
 
         let logic = RefCell::new(logic);
-        Self { logic, logic_fixture }
+        Self { logic, logic_fixture, _memory: PhantomData }
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
@@ -147,7 +156,10 @@ impl MockedBlockchain {
     }
 }
 
-fn sdk_context_to_vm_context(context: VMContext) -> near_vm_runner::logic::VMContext {
+fn sdk_context_to_vm_context(
+    context: VMContext,
+    promise_results: std::sync::Arc<[VmPromiseResult]>,
+) -> near_vm_runner::logic::VMContext {
     near_vm_runner::logic::VMContext {
         current_account_id: context.current_account_id.as_str().parse().unwrap(),
         signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
@@ -169,6 +181,7 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_runner::logic::VMCon
             .into_iter()
             .map(|a| a.as_str().parse().unwrap())
             .collect(),
+        promise_results,
     }
 }
 
