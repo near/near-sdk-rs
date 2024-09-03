@@ -33,10 +33,10 @@ where
 
 pub fn test_vm_config() -> near_parameters::vm::Config {
     let store = RuntimeConfigStore::test();
-    let config = store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let config = store.get_config(PROTOCOL_VERSION).wasm_config.as_ref().to_owned();
     near_parameters::vm::Config {
         vm_kind: config.vm_kind.replace_with_wasmtime_if_unsupported(),
-        ..config.as_ref().to_owned()
+        ..config
     }
 }
 
@@ -188,6 +188,7 @@ fn sdk_context_to_vm_context(
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
     use near_vm_runner::logic::{errors::VMLogicError, VMLogic};
+
     fn with_mock_interface<F, R>(f: F) -> R
     where
         F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,
@@ -599,5 +600,64 @@ mod mock_chain {
     #[no_mangle]
     extern "C" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
         with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use near_gas::NearGas;
+    use near_primitives::types::GasWeight;
+
+    use crate::{
+        env,
+        test_utils::{accounts, get_created_receipts, get_logs},
+        testing_env,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_mocked_blockchain_api() {
+        let public_key: crate::types::PublicKey =
+            "ed25519:H3C2AVAWKq5Qm7FkyDB5cHKcYKHgbiiB2BzX8DQX8CJ".parse().unwrap();
+        let context = VMContextBuilder::new()
+            .signer_account_id(accounts(0))
+            .signer_account_pk(public_key.clone())
+            .build();
+
+        testing_env!(context.clone());
+        assert_eq!(env::signer_account_id(), accounts(0));
+        assert_eq!(env::signer_account_pk(), public_key);
+
+        env::storage_write(b"smile", b"hello_worlds");
+        assert_eq!(env::storage_read(b"smile").unwrap(), b"hello_worlds");
+        assert!(env::storage_has_key(b"smile"));
+        env::storage_remove(b"smile");
+        assert!(!env::storage_has_key(b"smile"));
+
+        assert_eq!(env::promise_results_count(), 1);
+
+        env::log_str("logged");
+
+        let logs = get_logs();
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0], "logged");
+
+        let actions = get_created_receipts();
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].receiver_id, accounts(0));
+        assert_eq!(actions[0].actions.len(), 1);
+        assert_eq!(
+            actions[0].actions[0],
+            MockAction::FunctionCallWeight {
+                receipt_index: 0,
+                method_name: b"hehe".to_vec(),
+                args: [].to_vec(),
+                attached_deposit: NearToken::from_millinear(1),
+                prepaid_gas: NearGas::from_tgas(1),
+                gas_weight: GasWeight(0)
+            }
+        );
     }
 }
