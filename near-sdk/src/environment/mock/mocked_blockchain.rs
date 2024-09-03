@@ -605,6 +605,7 @@ mod mock_chain {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
 
     use near_gas::NearGas;
     use near_primitives::types::GasWeight;
@@ -636,7 +637,15 @@ mod tests {
         env::storage_remove(b"smile");
         assert!(!env::storage_has_key(b"smile"));
 
-        assert_eq!(env::promise_results_count(), 1);
+        let promise_index = env::promise_create(
+            "account.near".parse().unwrap(),
+            "method",
+            &[],
+            NearToken::from_millinear(1),
+            NearGas::from_tgas(1),
+        );
+
+        env::promise_batch_action_stake(promise_index, NearToken::from_millinear(1), &public_key);
 
         env::log_str("logged");
 
@@ -646,17 +655,29 @@ mod tests {
 
         let actions = get_created_receipts();
         assert_eq!(actions.len(), 1);
-        assert_eq!(actions[0].receiver_id, accounts(0));
-        assert_eq!(actions[0].actions.len(), 1);
+        assert_eq!(actions[0].receiver_id.to_string(), "account.near");
+        assert_eq!(actions[0].actions.len(), 2);
         assert_eq!(
             actions[0].actions[0],
             MockAction::FunctionCallWeight {
                 receipt_index: 0,
-                method_name: b"hehe".to_vec(),
+                method_name: b"method".to_vec(),
                 args: [].to_vec(),
                 attached_deposit: NearToken::from_millinear(1),
                 prepaid_gas: NearGas::from_tgas(1),
                 gas_weight: GasWeight(0)
+            }
+        );
+
+        assert_eq!(
+            actions[0].actions[1],
+            MockAction::Stake {
+                receipt_index: 0,
+                stake: NearToken::from_millinear(1),
+                public_key: near_crypto::PublicKey::from_str(
+                    "ed25519:H3C2AVAWKq5Qm7FkyDB5cHKcYKHgbiiB2BzX8DQX8CJ"
+                )
+                .unwrap()
             }
         );
     }
