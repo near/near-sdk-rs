@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.3.0...near-sdk-v6.0.0) - 2024-09-04
+
+### Other
+- [**breaking**] upgrade to 0.25 release ([#1242](https://github.com/near/near-sdk-rs/pull/1242))
+- updated near-workspaces-rs ([#1239](https://github.com/near/near-sdk-rs/pull/1239))
+
 ## [5.3.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.2.1...near-sdk-v5.3.0) - 2024-08-13
 
 ### Added
