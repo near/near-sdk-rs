@@ -31,6 +31,9 @@ use near_sdk::{
     env, log, near, require, AccountId, BorshStorageKey, NearToken, PanicOnDefault, PromiseOrValue,
 };
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[derive(PanicOnDefault)]
 #[near(contract_state)]
 pub struct Contract {

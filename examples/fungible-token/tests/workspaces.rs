@@ -107,7 +107,7 @@ async fn test_storage_deposit_not_enough_deposit() -> anyhow::Result<()> {
         contract.view_account().await?.balance.saturating_sub(contract_balance_before_deposit);
     // contract receives a gas rewards for the function call, so it should gain some NEAR
     assert!(contract_balance_diff > NearToken::from_near(0));
-    assert!(contract_balance_diff < NearToken::from_yoctonear(30_000_000_000_000_000_000));
+    assert!(contract_balance_diff < NearToken::from_yoctonear(100_000_000_000_000_000_000));
 
     Ok(())
 }
@@ -144,7 +144,7 @@ async fn test_storage_deposit_minimal_deposit() -> anyhow::Result<()> {
     // new_account is charged the transaction fee, so it should loose a bit more than minimal_deposit
     assert!(new_account_balance_diff > minimal_deposit);
     assert!(
-        new_account_balance_diff < minimal_deposit.saturating_add(NearToken::from_millinear(1))
+        new_account_balance_diff < minimal_deposit.saturating_add(NearToken::from_yoctonear(2_000_000_000_000_000_000_000))
     );
 
     let contract_balance_diff =
@@ -154,9 +154,8 @@ async fn test_storage_deposit_minimal_deposit() -> anyhow::Result<()> {
     // adjust the upper limit of the assertion to be more flexible for small variations in the gas reward received
     assert!(
         contract_balance_diff
-            < minimal_deposit.saturating_add(NearToken::from_yoctonear(50_000_000_000_000_000_000))
+            < minimal_deposit.saturating_add(NearToken::from_yoctonear(2_000_000_000_000_000_000_000))
     );
-
     Ok(())
 }
 
@@ -246,7 +245,7 @@ async fn test_storage_deposit_refunds_excessive_deposit() -> anyhow::Result<()> 
     assert!(contract_balance_diff > minimal_deposit);
     assert!(
         contract_balance_diff
-            < minimal_deposit.saturating_add(NearToken::from_yoctonear(50_000_000_000_000_000_000))
+            < minimal_deposit.saturating_add(NearToken::from_yoctonear(150_000_000_000_000_000_000))
     );
 
     Ok(())

@@ -1,6 +1,9 @@
 use near_sdk::require;
 use near_sdk::{env, near, Promise, PromiseError};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 const A_VALUE: u8 = 8;
 
 #[near(contract_state)]

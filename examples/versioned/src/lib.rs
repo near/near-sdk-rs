@@ -1,6 +1,9 @@
 use near_sdk::store::IterableMap;
 use near_sdk::{env, log, near, AccountId, NearToken};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 /// An example of a versioned contract. This is a simple contract that tracks how much
 /// each account deposits into the contract. In v1, a nonce is added to state which increments
 /// after each successful deposit.

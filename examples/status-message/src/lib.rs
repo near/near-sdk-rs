@@ -1,6 +1,9 @@
 use near_sdk::store::LookupMap;
 use near_sdk::{env, log, near, AccountId, BorshStorageKey};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[derive(BorshStorageKey)]
 #[near]
 struct RecordsKey;

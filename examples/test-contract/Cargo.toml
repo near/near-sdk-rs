@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = { path = "../../near-sdk" }
+wasmcov = { version = "0.2", optional = true }
 
 [profile.release]
 codegen-units = 1
@@ -19,4 +20,7 @@ debug = false
 panic = "abort"
 
 [dev-dependencies] 
-near-sdk = { path = "../../near-sdk", features = ["unit-testing"] } 
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+
+[features]
+wasmcov = ["dep:wasmcov"]

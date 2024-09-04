@@ -1,5 +1,8 @@
 use near_sdk::{env, near};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[near(contract_state)]
 pub struct TestContract {}
 

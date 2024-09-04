@@ -32,6 +32,9 @@ use near_sdk::{
 };
 use std::collections::HashMap;
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[derive(PanicOnDefault)]
 #[near(contract_state)]
 pub struct Contract {
