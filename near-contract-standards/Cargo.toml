@@ -13,10 +13,14 @@ NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "~6.0.0", default-features = false, features = ["legacy"] }
+near-sdk = { path = "../near-sdk", version = "~5.4.0", default-features = false, features = [
+    "legacy",
+] }
 
 [dev-dependencies]
-near-sdk = { path = "../near-sdk", default-features = false, features = ["unit-testing"] }
+near-sdk = { path = "../near-sdk", default-features = false, features = [
+    "unit-testing",
+] }
 
 [features]
 default = []
