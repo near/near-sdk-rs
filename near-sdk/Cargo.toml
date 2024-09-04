@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 near-sdk-macros = { path = "../near-sdk-macros", version = "~5.3.0" }
 near-sys = { path = "../near-sys", version = "0.2.2" }
-base64 = "0.21"
+base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
 
@@ -42,11 +42,11 @@ schemars = { version = "0.8.8", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.24", optional = true }
-near-primitives-core = { version = "0.24", optional = true }
-near-primitives = { version = "0.24", optional = true }
-near-crypto = { version = "0.24", default-features = false, optional = true }
-near-parameters = { version = "0.24", optional = true }
+near-vm-runner = { version = "0.25", optional = true }
+near-primitives-core = { version = "0.25", optional = true }
+near-primitives = { version = "0.25", optional = true }
+near-crypto = { version = "0.25", default-features = false, optional = true }
+near-parameters = { version = "0.25", optional = true }
 
 [dev-dependencies]
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
