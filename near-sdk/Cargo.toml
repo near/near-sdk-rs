@@ -42,11 +42,11 @@ schemars = { version = "0.8.8", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.25", optional = true }
-near-primitives-core = { version = "0.25", optional = true }
-near-primitives = { version = "0.25", optional = true }
-near-crypto = { version = "0.25", default-features = false, optional = true }
-near-parameters = { version = "0.25", optional = true }
+near-vm-runner = { version = "0.26", optional = true }
+near-primitives-core = { version = "0.26", optional = true }
+near-primitives = { version = "0.26", optional = true }
+near-crypto = { version = "0.26", default-features = false, optional = true }
+near-parameters = { version = "0.26", optional = true }
 
 [dev-dependencies]
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
@@ -63,7 +63,7 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.12", features = ["unstable"] }
+near-workspaces = { version = "0.13", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
