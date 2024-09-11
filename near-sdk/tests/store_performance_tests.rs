@@ -246,6 +246,9 @@ async fn random_access() -> anyhow::Result<()> {
             .unwrap();
     }
 
+    // Rust 1.81 improved performance of unordered collections.
+    let unordered_map = if cfg!(rustversion::since(1.81)) { 42 } else { 36 };
+
     // iter, repeat here is the number that reflects how many times we retrieve a random element.
     // It's used to measure relative performance.
     for (col, repeat) in collection_types.map(|col| match col {
@@ -253,7 +256,7 @@ async fn random_access() -> anyhow::Result<()> {
         Collection::IterableSet => (col, 1750),
         Collection::IterableMap => (col, 745),
         Collection::UnorderedSet => (col, 41),
-        Collection::UnorderedMap => (col, 42),
+        Collection::UnorderedMap => (col, unordered_map),
         Collection::Vector => (col, 1700),
         _ => (col, 0),
     }) {
