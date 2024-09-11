@@ -253,7 +253,7 @@ async fn random_access() -> anyhow::Result<()> {
         Collection::IterableSet => (col, 1750),
         Collection::IterableMap => (col, 745),
         Collection::UnorderedSet => (col, 41),
-        Collection::UnorderedMap => (col, 36),
+        Collection::UnorderedMap => (col, 42),
         Collection::Vector => (col, 1700),
         _ => (col, 0),
     }) {
