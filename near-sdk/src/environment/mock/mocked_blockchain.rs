@@ -186,7 +186,6 @@ fn sdk_context_to_vm_context(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-
 mod mock_chain {
     use near_vm_runner::logic::{errors::VMLogicError, VMLogic};
 
