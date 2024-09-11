@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.5.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.4.0...near-sdk-v5.5.0) - 2024-09-11
+
+### Other
+
+- Updated near-* dependendencies to v0.26.0. Migrated testing blockchain mock to C-unwind ([#1244](https://github.com/near/near-sdk-rs/pull/1244))
+
 ## [5.4.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.3.0...near-sdk-v5.4.0) - 2024-09-04
 
 ### Other
