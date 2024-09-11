@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.4.0...near-contract-standards-v6.0.0) - 2024-09-11
+
+### Other
+
+- Updated near-* dependendencies to v0.26.0. Migrated testing blockchain mock to C-unwind ([#1244](https://github.com/near/near-sdk-rs/pull/1244))
+
 ## [5.3.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.2.1...near-contract-standards-v5.3.0) - 2024-08-13
 
 ### Fixed
