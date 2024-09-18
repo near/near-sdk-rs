@@ -54,13 +54,15 @@ cargo near create-dev-account
 - Build and deploy the high-level contract:
 
 ```bash
-cargo near deploy --wasmFile path/to/high-level-contract.wasm --accountId your-account.testnet
+cargo build --target wasm32-unknown-unknown --release
+near dev-deploy --wasmFile path/to/high-level-contract.wasm
 ```
 
 - Build and deploy the low-level contract:
 
 ```bash
-cargo near deploy --wasmFile path/to/low-level-contract.wasm --accountId your-account.testnet
+cargo build --target wasm32-unknown-unknown --release
+near dev-deploy --wasmFile path/to/low-level-contract.wasm
 ```
 
 3. Initiate a cross-contract call:
@@ -68,10 +70,10 @@ cargo near deploy --wasmFile path/to/low-level-contract.wasm --accountId your-ac
 - Call the high-level contract to initiate a cross-contract call to the low-level contract:
 
 ```bash
-near call your-high-level-contract-account.testnet call-function '{"args": "value"}' --accountId your-account.testnet
+near call your-high-level-contract-account.testnet calculate_factorial '{"number": 5}' --accountId your-account.testnet
 ```
 
-NOTE: Replace `path/to/high-level-contract.wasm` and `path/to/low-level-contract.wasm` with the actual paths to your compiled WebAssembly files, and `your-account.testnet` with your actual NEAR testnet account ID.
+NOTE: Replace path/to/high-level-contract.wasm and path/to/low-level-contract.wasm with the actual paths to your compiled WebAssembly files, and your-high-level-contract-account.testnet and your-account.testnet with your actual NEAR testnet account IDs.
 
 ## Dependencies
 

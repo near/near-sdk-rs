@@ -52,16 +52,31 @@ cargo near create-dev-account
 3. Deploy the factory contract:
 
 ```bash
-cargo near deploy --wasmFile path/to/factory-contract.wasm --accountId your-account.testnet
+cargo cargo build --target wasm32-unknown-unknown --release
+near dev-deploy --wasmFile target/wasm32-unknown-unknown/release/factory_contract.wasm
 ```
 
 4. Use the factory contract to create instances of the target contract:
 
 ```bash
-near call your-factory-contract-account.testnet create_instance '{"args": "value"}' --accountId your-account.testnet
+near contract call-function as-transaction your-factory-contract-account.testnet deploy_status_message json-args '{"account_id": "sub.your-factory-contract-account.testnet"}' prepaid-gas '100 Tgas' attached-deposit '0 NEAR'
 ```
 
-NOTE: Replace `path/to/factory-contract.wasm` with the actual path to your compiled WebAssembly file, and `your-account.testnet` with your actual NEAR testnet account ID.
+5. Demonstrate calls to simple_call and complex_call functions:
+
+- Call simple_call function:
+
+```bash
+near call your-factory-contract-account.testnet simple_call '{"arg1": "value1"}' --accountId your-account.testnet
+```
+
+- Call complex_call function:
+
+```bash
+near call your-factory-contract-account.testnet complex_call '{"arg1": "value1", "arg2": "value2"}' --accountId your-account.testnet
+```
+
+NOTE FOR 3, 4 AND 5: Replace target/wasm32-unknown-unknown/release/factory_contract.wasm with the actual path to your compiled WebAssembly file, and your-factory-contract-account.testnet with your actual NEAR testnet account ID.
 
 ## Dependencies
 
