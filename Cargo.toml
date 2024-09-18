@@ -1,15 +1,10 @@
 [workspace]
 resolver = "2"
-members = [
-    "near-sdk",
-    "near-sdk-macros",
-    "near-contract-standards",
-    "near-sys",
-]
+members = ["near-sdk", "near-sdk-macros", "near-contract-standards", "near-sys"]
 exclude = ["examples/"]
 
 [workspace.package]
-version = "5.2.1"
+version = "5.5.0"
 
 # Special triple # comment for ci.
 [patch.crates-io]

@@ -118,14 +118,14 @@ async fn insert_and_remove() -> anyhow::Result<()> {
     // insert test, max_iterations here is the number of elements to insert. It's used to measure
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 340),
-        Collection::IterableSet => (col, 340),
-        Collection::IterableMap => (col, 350),
-        Collection::UnorderedSet => (col, 340),
-        Collection::UnorderedMap => (col, 350),
-        Collection::LookupMap => (col, 600),
-        Collection::LookupSet => (col, 970),
-        Collection::Vector => (col, 1000),
+        Collection::TreeMap => (col, 365),
+        Collection::IterableSet => (col, 370),
+        Collection::IterableMap => (col, 370),
+        Collection::UnorderedSet => (col, 360),
+        Collection::UnorderedMap => (col, 365),
+        Collection::LookupMap => (col, 650),
+        Collection::LookupSet => (col, 1020),
+        Collection::Vector => (col, 1080),
     }) {
         let total_gas = account
             .call(&contract_id, "insert")
@@ -143,14 +143,14 @@ async fn insert_and_remove() -> anyhow::Result<()> {
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 220),
-        Collection::IterableSet => (col, 120),
-        Collection::IterableMap => (col, 115),
-        Collection::UnorderedSet => (col, 220),
-        Collection::UnorderedMap => (col, 220),
-        Collection::LookupMap => (col, 480),
-        Collection::LookupSet => (col, 970),
-        Collection::Vector => (col, 500),
+        Collection::TreeMap => (col, 230),
+        Collection::IterableSet => (col, 130),
+        Collection::IterableMap => (col, 120),
+        Collection::UnorderedSet => (col, 240),
+        Collection::UnorderedMap => (col, 250),
+        Collection::LookupMap => (col, 520),
+        Collection::LookupSet => (col, 1050),
+        Collection::Vector => (col, 530),
     }) {
         let total_gas = account
             .call(&contract_id, "remove")
@@ -198,11 +198,11 @@ async fn iter() -> anyhow::Result<()> {
     // It's used to measure relative performance.
     for (col, repeat) in collection_types.map(|col| match col {
         Collection::TreeMap => (col, 5),
-        Collection::IterableSet => (col, 20),
-        Collection::IterableMap => (col, 9),
-        Collection::UnorderedSet => (col, 18),
-        Collection::UnorderedMap => (col, 8),
-        Collection::Vector => (col, 19),
+        Collection::IterableSet => (col, 22),
+        Collection::IterableMap => (col, 10),
+        Collection::UnorderedSet => (col, 20),
+        Collection::UnorderedMap => (col, 9),
+        Collection::Vector => (col, 22),
         _ => (col, 0),
     }) {
         let total_gas = account
@@ -246,15 +246,18 @@ async fn random_access() -> anyhow::Result<()> {
             .unwrap();
     }
 
+    // Rust 1.81 improved performance of unordered collections.
+    let unordered_map = if rustversion::cfg!(since(1.81)) { 42 } else { 36 };
+
     // iter, repeat here is the number that reflects how many times we retrieve a random element.
     // It's used to measure relative performance.
     for (col, repeat) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 14),
-        Collection::IterableSet => (col, 1600),
-        Collection::IterableMap => (col, 720),
-        Collection::UnorderedSet => (col, 37),
-        Collection::UnorderedMap => (col, 33),
-        Collection::Vector => (col, 1600),
+        Collection::TreeMap => (col, 15),
+        Collection::IterableSet => (col, 1750),
+        Collection::IterableMap => (col, 745),
+        Collection::UnorderedSet => (col, 41),
+        Collection::UnorderedMap => (col, unordered_map),
+        Collection::Vector => (col, 1700),
         _ => (col, 0),
     }) {
         let total_gas = account
@@ -303,13 +306,13 @@ async fn contains() -> anyhow::Result<()> {
     // contains test, repeat here is the number of times we check all the elements in each collection.
     // It's used to measure relative performance.
     for (col, repeat) in collection_types.map(|col| match col {
-        Collection::TreeMap => (col, 12),
-        Collection::IterableSet => (col, 11),
-        Collection::IterableMap => (col, 12),
-        Collection::UnorderedSet => (col, 11),
-        Collection::UnorderedMap => (col, 12),
-        Collection::LookupMap => (col, 16),
-        Collection::LookupSet => (col, 14),
+        Collection::TreeMap => (col, 13),
+        Collection::IterableSet => (col, 12),
+        Collection::IterableMap => (col, 13),
+        Collection::UnorderedSet => (col, 12),
+        Collection::UnorderedMap => (col, 13),
+        Collection::LookupMap => (col, 17),
+        Collection::LookupSet => (col, 15),
         _ => (col, 0),
     }) {
         let total_gas = account
@@ -369,10 +372,10 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     // iter, repeat here is the number of times we iterate through the whole collection. It's used to
     // measure relative performance.
     for (col, repeat) in collection_types.map(|col| match col {
-        Collection::IterableSet => (col, 240000),
-        Collection::IterableMap => (col, 130000),
-        Collection::UnorderedSet => (col, 260),
-        Collection::UnorderedMap => (col, 260),
+        Collection::IterableSet => (col, 260000),
+        Collection::IterableMap => (col, 135000),
+        Collection::UnorderedSet => (col, 280),
+        Collection::UnorderedMap => (col, 270),
         _ => (col, 0),
     }) {
         let total_gas = account
@@ -391,10 +394,10 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
     // random access, repeat here is the number of times we try to access an element in the
     // collection. It's used to measure relative performance.
     for (col, repeat) in &collection_types.map(|col| match col {
-        Collection::IterableSet => (col, 540000),
-        Collection::IterableMap => (col, 260000),
-        Collection::UnorderedSet => (col, 255),
-        Collection::UnorderedMap => (col, 255),
+        Collection::IterableSet => (col, 600000),
+        Collection::IterableMap => (col, 280000),
+        Collection::UnorderedSet => (col, 280),
+        Collection::UnorderedMap => (col, 260),
         _ => (col, 0),
     }) {
         let total_gas = account

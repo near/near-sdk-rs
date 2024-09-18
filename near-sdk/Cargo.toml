@@ -21,9 +21,9 @@ required-features = ["abi", "unstable"]
 # Provide near_bidgen macros.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.2.1" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.5.0" }
 near-sys = { path = "../near-sys", version = "0.2.2" }
-base64 = "0.21"
+base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
 
@@ -31,8 +31,8 @@ bs58 = "0.5"
 once_cell = { version = "1.17", default-features = false }
 
 near-account-id = { version = "1.0.0", features = ["serde", "borsh"] }
-near-gas = { version = "0.2.3", features = ["serde", "borsh"] }
-near-token = { version = "0.2.1", features = ["serde", "borsh"] }
+near-gas = { version = "0.3", features = ["serde", "borsh"] }
+near-token = { version = "0.3", features = ["serde", "borsh"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
@@ -42,11 +42,11 @@ schemars = { version = "0.8.8", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.23", optional = true }
-near-primitives-core = { version = "0.23", optional = true }
-near-primitives = { version = "0.23", optional = true }
-near-crypto = { version = "0.23", default-features = false, optional = true }
-near-parameters = { version = "0.23", optional = true }
+near-vm-runner = { version = "0.26", optional = true }
+near-primitives-core = { version = "0.26", optional = true }
+near-primitives = { version = "0.26", optional = true }
+near-crypto = { version = "0.26", default-features = false, optional = true }
+near-parameters = { version = "0.26", optional = true }
 
 [dev-dependencies]
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
@@ -63,7 +63,7 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.10.1", features = ["unstable"] }
+near-workspaces = { version = "0.14", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"
