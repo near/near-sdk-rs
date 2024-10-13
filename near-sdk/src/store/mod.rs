@@ -14,6 +14,19 @@
 //! For example, a store::Vector is stored as several key-value pairs, where indices are the keys.
 //! So, accessing a single element would only load this specific element.
 //!
+//! To help you understand how cost-effective near collections are in terms of gas usage compared to native ones,
+//! take a look at this investigation: [Near benchmarking github](https://github.com/volodymyr-matselyukh/near-benchmarking).
+//! The results of the investigation can be found here: [Results](https://docs.google.com/spreadsheets/d/1ThsBlNR6_Ol9K8cU7BRXNN73PblkTbx0VW_njrF633g/edit?gid=0#gid=0).
+//! If your collection has up to 100 entries, it's acceptable to use the native collection, as it might be simpler
+//! since you don't have to manage prefixes as we do with near collections.
+//! However, if your collection has 1,000 or more entries, it's better to use a near collection. The investigation
+//! mentioned above shows that running the contains method on a native HashSet<i32> consumes 41% more gas
+//! compared to a near IterableSet<i32>.
+//!
+//! It's also a bad practice to have a native collection properties as a top level properties of your contract.
+//! The contract will load all the properties before the contract method invocation. That means that all your native
+//! collections will be fully loaded into memory even if they are not used in the method you invoke.
+//!
 //! It can be expensive to load all values into memory, and because of this, `serde`
 //! [`Serialize`](serde::Serialize) and [`Deserialize`](serde::Deserialize) traits are
 //! intentionally not implemented. If you want to return all values from a storage collection from
