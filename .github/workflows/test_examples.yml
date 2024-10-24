@@ -13,7 +13,8 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
+        toolchain: [1.81]
+        # toolchain: [stable]
         example: [
           adder,
           callback-results,
@@ -34,7 +35,7 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with:
           working-directory: ./examples/${{ matrix.example }}
-      - name: Build status-message
+      - name: Build `status-message`, that `factory-contract` depends on
         if: matrix.example == 'factory-contract'
         env:
           RUSTFLAGS: '-C link-arg=-s'
