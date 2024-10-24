@@ -221,6 +221,7 @@ async fn iter() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::ifs_same_cond)]
 #[tokio::test]
 async fn random_access() -> anyhow::Result<()> {
     // LookupMap and LookupSet are not iterable.
@@ -249,8 +250,6 @@ async fn random_access() -> anyhow::Result<()> {
     let unordered_map = if rustversion::cfg!(since(1.82)) {
         40
     // Rust 1.81 improved performance of unordered collections, 1.82 regressed it
-    //
-    // or maybe it's just different performace of the vm in github in different moments
     } else if rustversion::cfg!(since(1.81)) {
         42
     } else {
