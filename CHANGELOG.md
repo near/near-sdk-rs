@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [5.5.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.5.0...near-sdk-v5.5.1) - 2024-10-24
+
+### Other
+
+- freeze 1.81 for near-workspaces paths (temporarily) ([#1250](https://github.com/near/near-sdk-rs/pull/1250))
+- Benchmark near collections and provide the results as the reference in the docs ([#1248](https://github.com/near/near-sdk-rs/pull/1248))
+- Updated near-workspaces to 0.14 version (matching 0.26 near-* release) ([#1246](https://github.com/near/near-sdk-rs/pull/1246))
+
 ## [5.5.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.4.0...near-sdk-v5.5.0) - 2024-09-11
 
 ### Other
