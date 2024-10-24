@@ -16,8 +16,7 @@ jobs:
           - os: ubuntu-latest
             rs: 1.79
           - os: ubuntu-latest
-            # rs: stable # tests/store-performance with near-workspaces involved are only on linux
-            rs: 1.81
+            rs: stable
           - os: macos-latest
             rs: 1.79
           - os: macos-latest
