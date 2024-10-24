@@ -34,13 +34,16 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with:
           working-directory: ./examples/${{ matrix.example }}
-      - name: Build status-message
+      - name: Build status-message, factory-contract && test factory-contract
         if: matrix.example == 'factory-contract'
         env:
           RUSTFLAGS: '-C link-arg=-s'
         run: |
-          cargo +${{ matrix.toolchain }} build --manifest-path="./examples/status-message/Cargo.toml" --target wasm32-unknown-unknown --release --all &&
+          cargo +${{ matrix.toolchain }} build --manifest-path="./examples/status-message/Cargo.toml" --target wasm32-unknown-unknown --release --all
           cp ./examples/status-message/target/wasm32-unknown-unknown/release/*.wasm ./examples/status-message/res/
+          cargo +${{ matrix.toolchain }} build --manifest-path=./examples/factory-contract/Cargo.toml --target wasm32-unknown-unknown --release --all
+          cp ./examples/factory-contract/target/wasm32-unknown-unknown/release/*.wasm ./examples/factory-contract/res/
+          cargo +${{ matrix.toolchain }} test --manifest-path=./examples/factory-contract/Cargo.toml --all
       - name: Build
         env:
           RUSTFLAGS: '-C link-arg=-s'
