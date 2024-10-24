@@ -13,7 +13,8 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
+        toolchain: [1.81]
+        # toolchain: [stable]
         example: [
           adder,
           callback-results,

@@ -16,11 +16,13 @@ jobs:
           - os: ubuntu-latest
             rs: 1.79
           - os: ubuntu-latest
-            rs: stable
+            # rs: stable
+            rs: 1.81
           - os: macos-latest
             rs: 1.79
           - os: macos-latest
-            rs: stable
+            # rs: stable
+            rs: 1.81
         features: ['', '--features unstable,legacy,__abi-generate']
     steps:
       - uses: actions/checkout@v3
