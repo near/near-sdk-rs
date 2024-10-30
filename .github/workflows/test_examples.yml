@@ -16,7 +16,7 @@ jobs:
         toolchain: [1.81]
         # toolchain: [stable]
         example: [
-          adder,
+          # adder, 1.82
           callback-results,
           cross-contract-calls,
           factory-contract,
