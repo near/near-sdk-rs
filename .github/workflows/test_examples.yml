@@ -18,7 +18,7 @@ jobs:
         example: [
           # adder, 1.82
           # callback-results, 1.82
-          cross-contract-calls,
+          # cross-contract-calls, 1.82
           fungible-token,
           non-fungible-token,
           versioned,          
