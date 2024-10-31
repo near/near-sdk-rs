@@ -19,7 +19,7 @@ jobs:
           # adder, 1.82
           # callback-results, 1.82
           # cross-contract-calls, 1.82
-          fungible-token,
+          # fungible-token, 1.82
           non-fungible-token,
           versioned,          
           factory-contract
