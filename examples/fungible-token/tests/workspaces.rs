@@ -5,6 +5,13 @@ use near_workspaces::{types::NearToken, Account, AccountId, Contract, DevNetwork
 
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
+// TODO: PROMINENT COMMENT
+// in order to be able to use a once fixture from rstest
+// https://docs.rs/rstest/0.16.0/rstest/attr.fixture.html#once-fixture
+// for [near_workspaces::compile_project](https://github.com/near/near-workspaces-rs/blob/main/workspaces/src/cargo/mod.rs#L8)
+// `tokio::fs::read` has to be replaced with `std::fs::read`  
+// and the function made NON-async
+
 async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::Result<()> {
     let res = contract
         .call("storage_deposit")

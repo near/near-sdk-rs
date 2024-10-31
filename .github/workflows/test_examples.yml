@@ -17,12 +17,12 @@ jobs:
         # toolchain: [stable]
         example: [
           # adder, 1.82
-          callback-results,
+          # callback-results, 1.82
           cross-contract-calls,
-          factory-contract,
           fungible-token,
           non-fungible-token,
-          versioned          
+          versioned,          
+          factory-contract
         ]
     steps:
       - uses: actions/checkout@v3
@@ -49,4 +49,4 @@ jobs:
           cargo +${{ matrix.toolchain }} build --manifest-path="./examples/${{matrix.example}}/Cargo.toml" --target wasm32-unknown-unknown --release --all &&
           cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
       - name: Test
-        run: cargo +${{ matrix.toolchain }} test --manifest-path="./examples/${{ matrix.example }}/Cargo.toml" --all
+        run: cargo +${{ matrix.toolchain }} test --manifest-path="./examples/${{ matrix.example }}/Cargo.toml" --workspace

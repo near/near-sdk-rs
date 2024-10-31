@@ -63,11 +63,9 @@ impl Callback {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
-    use tokio::fs;
-
     #[tokio::test]
     async fn workspaces_test() -> anyhow::Result<()> {
-        let wasm = fs::read("res/callback_results.wasm").await?;
+        let wasm = near_workspaces::compile_project("./").await?;
         let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
