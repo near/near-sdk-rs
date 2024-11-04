@@ -20,7 +20,7 @@ jobs:
           # callback-results, 1.82
           # cross-contract-calls, 1.82
           # fungible-token, 1.82
-          non-fungible-token,
+          # non-fungible-token, 1.82
           versioned,          
           factory-contract
         ]
