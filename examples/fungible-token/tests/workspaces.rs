@@ -22,7 +22,7 @@ async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::R
     Ok(())
 }
 
-// TODO: in order to be able to use a once fixture from rstest (wich uses std::sync::OnceLock<T>)
+// TODO: in order to be able to use a once fixture from rstest (which uses std::sync::OnceLock<T>)
 // https://docs.rs/rstest/0.16.0/rstest/attr.fixture.html#once-fixture
 // or std::sync::LazyLock<T, F> as in neardevhub-contract
 // for [near_workspaces::compile_project](https://github.com/near/near-workspaces-rs/blob/main/workspaces/src/cargo/mod.rs#L8)
