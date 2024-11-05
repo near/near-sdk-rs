@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
     let build_opts = BuildOpts::builder()
         .manifest_path(manifest)
+        .no_locked(true)
         .override_nep330_contract_path(nep330_contract_path)
         // a distinct target is needed to avoid deadlock during build
         .override_cargo_target_dir("../target/build-rs-status-message-for-high-level-factory")
