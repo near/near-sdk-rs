@@ -21,7 +21,7 @@ jobs:
           # cross-contract-calls, 1.82
           # fungible-token, 1.82
           # non-fungible-token, 1.82
-          versioned,          
+          # versioned, 1.82
           factory-contract
         ]
     steps:
