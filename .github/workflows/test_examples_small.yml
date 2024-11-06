@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
     strategy:
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [1.81]

@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]

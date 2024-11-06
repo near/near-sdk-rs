@@ -97,9 +97,10 @@ impl VersionedContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use near_abi::AbiRoot;
     use near_sdk::test_utils::test_env::{alice, bob};
     use near_sdk::test_utils::VMContextBuilder;
-    use near_sdk::testing_env;
+    use near_sdk::{serde_json, testing_env};
 
     fn set_predecessor_and_deposit(predecessor: AccountId, deposit: NearToken) {
         testing_env!(VMContextBuilder::new()
@@ -142,5 +143,25 @@ mod tests {
         assert_eq!(contract.get_nonce(), 1);
         assert_eq!(contract.get_deposit(&alice()), Some(&NearToken::from_yoctonear(1000)));
         assert_eq!(contract.get_deposit(&bob()), Some(&NearToken::from_yoctonear(8)));
+    }
+
+    // TODO: add more near_workspaces tests for logic of specifically this contract
+    // this only tests that contract can be built with ABI and responds to __contract_abi
+    // view call
+    #[tokio::test]
+    async fn embedded_abi_test() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let worker = near_workspaces::sandbox().await?;
+        let contract = worker.dev_deploy(&wasm).await?;
+
+        let res = contract.view("__contract_abi").await?;
+
+        let abi_root =
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+
+        assert_eq!(abi_root.schema_version, "0.4.0");
+        assert_eq!(abi_root.metadata.name, Some("versioned".to_string()));
+
+        Ok(())
     }
 }
