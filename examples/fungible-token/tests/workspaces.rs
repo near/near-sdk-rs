@@ -22,23 +22,20 @@ async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::R
     Ok(())
 }
 
-// TODO: in order to be able to use a once fixture from rstest (which uses std::sync::OnceLock<T>)
+// TODO: in order to be able to use a once fixture from rstest (wich uses std::sync::OnceLock<T>)
 // https://docs.rs/rstest/0.16.0/rstest/attr.fixture.html#once-fixture
 // or std::sync::LazyLock<T, F> as in neardevhub-contract
 // for [near_workspaces::compile_project](https://github.com/near/near-workspaces-rs/blob/main/workspaces/src/cargo/mod.rs#L8)
 // `tokio::fs::read` has to be replaced with `std::fs::read`
 // and the function made NON-async
-#[fixture]
-#[once]
-fn fungible_contract_wasm() -> Vec<u8> {
+fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
     let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
         manifest_path: Some(
-            cargo_near_build::camino::Utf8PathBuf::from_str("./ft/Cargo.toml")
-                .expect("camino PathBuf from str"),
+            cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
         ..Default::default()
     })
-    .expect("building `fungible-token` contract for tests");
+    .expect(&format!("building `{}` contract for tests", contract_name));
 
     let contract_wasm = std::fs::read(&artifact.path)
         .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact.path, err))
@@ -48,20 +45,15 @@ fn fungible_contract_wasm() -> Vec<u8> {
 
 #[fixture]
 #[once]
-fn defi_contract_wasm() -> Vec<u8> {
-    let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
-        manifest_path: Some(
-            cargo_near_build::camino::Utf8PathBuf::from_str("./test-contract-defi/Cargo.toml")
-                .expect("camino PathBuf from str"),
-        ),
-        ..Default::default()
-    })
-    .expect("building `defi` contract for tests");
+fn fungible_contract_wasm() -> Vec<u8> {
+    build_contract("./ft/Cargo.toml", "fungible-token")
+}
 
-    let contract_wasm = std::fs::read(&artifact.path)
-        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact.path, err))
-        .expect("std::fs::read");
-    contract_wasm
+
+#[fixture]
+#[once]
+fn defi_contract_wasm() -> Vec<u8> {
+    build_contract("./test-contract-defi/Cargo.toml", "defi")
 }
 
 #[fixture]
