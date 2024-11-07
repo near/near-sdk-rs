@@ -4,6 +4,9 @@ version = "0.0.2"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
 
+[dependencies]
+wasmcov = { version = "0.2", optional = true }
+
 [dev-dependencies]
 anyhow = "1.0"
 near-contract-standards = { path = "../../near-contract-standards" }
@@ -23,3 +26,6 @@ overflow-checks = true
 [workspace]
 # remember to include a member for each contract
 members = ["nft", "test-approval-receiver", "test-token-receiver"]
+
+[features]
+wasmcov = ["dep:wasmcov"]

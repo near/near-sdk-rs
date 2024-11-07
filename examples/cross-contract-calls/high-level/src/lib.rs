@@ -1,6 +1,9 @@
 use near_sdk::env;
 use near_sdk::{log, near, PromiseOrValue};
 
+#[cfg(all(feature = "wasmcov", target_family = "wasm"))]
+wasmcov::near::add_coverage!();
+
 #[derive(Default)]
 #[near(contract_state)]
 pub struct CrossContract {}

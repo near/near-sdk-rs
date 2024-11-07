@@ -4,12 +4,18 @@ version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
 
+[dependencies]
+wasmcov = { version = "0.2", optional = true }
+
 [dev-dependencies]
 anyhow = "1.0"
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
 near-workspaces = "0.14"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+
+[features]
+wasmcov = ["dep:wasmcov"]
 
 [profile.release]
 codegen-units = 1

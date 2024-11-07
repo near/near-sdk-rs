@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
 
+[dependencies]
+wasmcov = { version = "0.2", optional = true }
+
 [dev-dependencies]
 anyhow = "1.0"
 near-sdk = { path = "../../near-sdk", features = ["default", "unit-testing"] }
@@ -21,6 +24,9 @@ opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
+
+[features]
+wasmcov = ["dep:wasmcov"]
 
 [workspace]
 members = ["high-level", "low-level"]

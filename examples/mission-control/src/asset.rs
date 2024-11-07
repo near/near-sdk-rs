@@ -1,14 +1,6 @@
 use near_sdk::near;
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Clone,
-    Copy,
-)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 #[near(serializers = [json, borsh])]
 pub enum Resource {
     Battery,
@@ -17,15 +9,7 @@ pub enum Resource {
     PoseEstimation,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Clone,
-    Copy,
-)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 #[near(serializers = [json, borsh])]
 pub enum Reward {
     Score,
@@ -35,15 +19,7 @@ pub enum Reward {
     Policy,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Clone,
-    Copy,
-)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 #[near(serializers = [json, borsh])]
 pub enum Asset {
     Resource(Resource),
@@ -52,13 +28,7 @@ pub enum Asset {
     Trust,
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[near(serializers = [json, borsh])]
 pub enum Exchange {
     MissionTimeWithResource,
