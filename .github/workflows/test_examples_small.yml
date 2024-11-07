@@ -14,8 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [1.81]
-        # toolchain: [stable]
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
@@ -31,9 +30,5 @@ jobs:
         run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/status-message/Cargo.toml --workspace
       - name: Test mission-control
         run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/mission-control/Cargo.toml --workspace
-      - name: Build test-contract
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/test-contract/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/test-contract/target/wasm32-unknown-unknown/release/*.wasm ./examples/test-contract/res/
       - name: Test test-contract
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --all
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --workspace

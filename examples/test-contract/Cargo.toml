@@ -20,3 +20,8 @@ panic = "abort"
 
 [dev-dependencies] 
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] } 
+near-workspaces = { version = "0.14.1", features = ["unstable"]}
+tokio = { version = "1.14", features = ["full"] }
+anyhow = "1.0"
+near-abi = "0.4.0"
+zstd = "0.13"
