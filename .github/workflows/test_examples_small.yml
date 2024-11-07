@@ -29,12 +29,8 @@ jobs:
         run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/lockable-fungible-token/Cargo.toml --workspace
       - name: Test status-message
         run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/status-message/Cargo.toml --workspace
-      - name: Build mission-control
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/mission-control/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/mission-control/target/wasm32-unknown-unknown/release/*.wasm ./examples/mission-control/res/
       - name: Test mission-control
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/mission-control/Cargo.toml --all
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/mission-control/Cargo.toml --workspace
       - name: Build test-contract
         env:
           RUSTFLAGS: '-C link-arg=-s'
