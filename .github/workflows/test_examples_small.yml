@@ -9,12 +9,18 @@ env:
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
+    name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
+        example: [
+          lockable-fungible-token,
+          status-message,
+          mission-control,
+          test-contract,
+        ]
     steps:
       - uses: actions/checkout@v3
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
@@ -24,11 +30,7 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v1
-      - name: Test lockable-fungible-token
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/lockable-fungible-token/Cargo.toml --workspace
-      - name: Test status-message
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/status-message/Cargo.toml --workspace
-      - name: Test mission-control
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/mission-control/Cargo.toml --workspace
-      - name: Test test-contract
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --workspace
+        with:
+          working-directory: ./examples/${{ matrix.example }}
+      - name: Test
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace
