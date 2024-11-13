@@ -73,7 +73,6 @@ mod tests {
         assert_eq!(get_logs(), vec!["get_status for account_id francis.near"])
     }
 
-    // TODO: add more near_workspaces tests for logic of specifically this contract
     // this only tests that contract can be built with ABI and responds to __contract_abi
     // view call
     #[tokio::test]

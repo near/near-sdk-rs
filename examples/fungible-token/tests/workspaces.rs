@@ -22,12 +22,6 @@ async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::R
     Ok(())
 }
 
-// TODO: in order to be able to use a once fixture from rstest (which uses std::sync::OnceLock<T>)
-// https://docs.rs/rstest/0.16.0/rstest/attr.fixture.html#once-fixture
-// or std::sync::LazyLock<T, F> as in neardevhub-contract
-// for [near_workspaces::compile_project](https://github.com/near/near-workspaces-rs/blob/main/workspaces/src/cargo/mod.rs#L8)
-// `tokio::fs::read` has to be replaced with `std::fs::read`
-// and the function made NON-async
 fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
     let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
         manifest_path: Some(
