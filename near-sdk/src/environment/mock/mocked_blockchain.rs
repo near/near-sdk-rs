@@ -61,6 +61,7 @@ struct LogicFixture {
     ext: Box<MockedExternal>,
     fees_config: Arc<RuntimeFeesConfig>,
     context: Box<near_vm_runner::logic::VMContext>,
+    memory: Box<dyn MemoryLike>,
 }
 
 impl<Memory> MockedBlockchain<Memory>
@@ -88,8 +89,9 @@ where
         let fees_config = Arc::new(fees_config);
         let result_state =
             ExecutionResultState::new(&context, context.make_gas_counter(&config), config.clone());
+        let memory = Box::new(memory.unwrap_or_default());
 
-        let mut logic_fixture = LogicFixture { ext, context, fees_config };
+        let mut logic_fixture = LogicFixture { ext, context, fees_config, memory };
 
         let logic = unsafe {
             VMLogic::new(
@@ -97,7 +99,7 @@ where
                 &*(logic_fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
                 logic_fixture.fees_config.clone(),
                 result_state,
-                memory.unwrap_or_default(),
+                &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
             )
         };
 
