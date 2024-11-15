@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [5.5.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.5.0...near-sdk-v5.5.1) - 2024-11-14
+## [5.6.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.5.0...near-sdk-v5.6.0) - 2024-11-14
 
 ### Other
 
