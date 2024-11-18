@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.platform.os }}
     name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }} ${{ matrix.features }}"
     strategy:
+      fail-fast: false
       matrix:
         platform:
           - os: ubuntu-latest
