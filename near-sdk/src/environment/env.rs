@@ -152,23 +152,53 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 // # Context API #
 // ###############
 /// The id of the account that owns the current contract.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::current_account_id;
+///
+/// assert_eq!(current_account_id(), AccountId::from_str("test.near").unwrap());
+/// ```
 pub fn current_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(current_account_id))
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::signer_account_id;
+///
+/// assert_eq!(signer_account_id(), AccountId::from_str("test.near").unwrap());
+/// ```
 pub fn signer_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(signer_account_id))
 }
 
 /// The public key of the account that did the signing.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::signer_account_pk;
+/// use near_sdk::PublicKey;
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// assert_eq!(signer_account_pk(), pk);
+/// ```
 pub fn signer_account_pk() -> PublicKey {
     PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::predecessor_account_id;
+///
+/// assert_eq!(predecessor_account_id(), AccountId::from_str("test.near").unwrap());
+/// ```
 pub fn predecessor_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(predecessor_account_id))
 }
@@ -182,37 +212,88 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::input;
+///
+/// assert_eq!(input(), None);
+/// assert_eq!(input(), Some(vec![0; 77]));
+/// assert_eq!(input(), Some(vec![1, 2, 9, 124, 0, 56, 229, 249, ...]));
+/// ```
 pub fn input() -> Option<Vec<u8>> {
     try_method_into_register!(input)
 }
 
 /// Current block index.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::block_index;
+///
+/// assert_eq!(block_index(), 1471859319);
+/// ```
 #[deprecated(since = "4.0.0", note = "Use block_height instead")]
 pub fn block_index() -> BlockHeight {
     block_height()
 }
 
 /// Returns the height of the block the transaction is being executed in.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::block_height;
+///
+/// assert_eq!(block_height(), 1471859319);
+/// ```
 pub fn block_height() -> BlockHeight {
     unsafe { sys::block_height() }
 }
 
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::block_timestamp;
+///
+/// assert_eq!(block_timestamp(), 1719193934400000000);
+/// ```
 pub fn block_timestamp() -> u64 {
     unsafe { sys::block_timestamp() }
 }
 
 /// Current block timestamp, i.e, number of non-leap-milliseconds since January 1, 1970 0:00:00 UTC.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::block_timestamp_ms;
+///
+/// assert_eq!(block_timestamp_ms(), 1719193934400);
+/// ```
 pub fn block_timestamp_ms() -> u64 {
     block_timestamp() / 1_000_000
 }
 
 /// Current epoch height.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::epoch_height;
+///
+/// assert_eq!(epoch_height(), 276581739581);
+/// ```
 pub fn epoch_height() -> u64 {
     unsafe { sys::epoch_height() }
 }
 
 /// Current total storage usage of this smart contract that this account would be paying for.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::storage_usage;
+///
+/// assert_eq!(storage_usage(), 18591873843531);
+/// ```
 pub fn storage_usage() -> StorageUsage {
     unsafe { sys::storage_usage() }
 }
@@ -222,6 +303,13 @@ pub fn storage_usage() -> StorageUsage {
 // #################
 /// The balance attached to the given account. This includes the attached_deposit that was
 /// attached to the transaction
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::account_balance;
+///
+/// assert_eq!(account_balance(), NearToken::from_millinear(500));
+/// ```
 pub fn account_balance() -> NearToken {
     let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::account_balance(data.as_ptr() as u64) };
@@ -229,6 +317,13 @@ pub fn account_balance() -> NearToken {
 }
 
 /// The balance locked for potential validator staking.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::account_locked_balance;
+///
+/// assert_eq!(account_locked_balance(), NearToken::from_yocto(195284900020000));
+/// ```
 pub fn account_locked_balance() -> NearToken {
     let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::account_locked_balance(data.as_ptr() as u64) };
@@ -237,6 +332,13 @@ pub fn account_locked_balance() -> NearToken {
 
 /// The balance that was attached to the call that will be immediately deposited before the
 /// contract execution starts
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::attached_deposit;
+///
+/// assert_eq!(attached_deposit(), NearToken::from_near(1));
+/// ```
 pub fn attached_deposit() -> NearToken {
     let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::attached_deposit(data.as_ptr() as u64) };
@@ -244,11 +346,25 @@ pub fn attached_deposit() -> NearToken {
 }
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::prepaid_gas;
+///
+/// assert_eq!(prepaid_gas(), Gas::from_tgas(30));
+/// ```
 pub fn prepaid_gas() -> Gas {
     Gas::from_gas(unsafe { sys::prepaid_gas() })
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::used_gas;
+///
+/// assert_eq!(used_gas(), Gas::from_tgas(30));
+/// ```
 pub fn used_gas() -> Gas {
     Gas::from_gas(unsafe { sys::used_gas() })
 }
@@ -260,6 +376,13 @@ pub fn used_gas() -> Gas {
 /// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
 /// the block. This value is not modified in any way each time this function is called within the
 /// same method/block.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::random_seed;
+///
+/// assert_eq!(random_seed(), vec![0; 32]);
+/// ```
 pub fn random_seed() -> Vec<u8> {
     random_seed_array().to_vec()
 }
@@ -326,7 +449,6 @@ pub fn random_seed_array() -> [u8; 32] {
 /// Hashes the random sequence of bytes using sha256.
 ///
 /// # Examples
-///
 /// ```
 /// use near_sdk::env::sha256;
 /// use hex;
@@ -341,11 +463,35 @@ pub fn sha256(value: &[u8]) -> Vec<u8> {
 }
 
 /// Hashes the random sequence of bytes using keccak256.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::keccak256;
+/// use hex;
+///
+/// assert_eq!(
+///     keccak256(b"The phrase that will be hashed"),
+///     hex::decode("b244af9dd4aada2eda59130bbcff112f29b427d924b654aaeb5a0384fa9afed4")
+///         .expect("Decoding failed")
+/// );
+/// ```
 pub fn keccak256(value: &[u8]) -> Vec<u8> {
     keccak256_array(value).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak512.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::keccak512;
+/// use hex;
+///
+/// assert_eq!(
+///     keccak512(b"The phrase that will be hashed"),
+///     hex::decode("29a7df7b889a443fdfbd769adb57ef7e98e6159187b582baba778c06e8b41a75f61367257e8c525a95b3f13ddf432f115d1df128a910c8fc93221db136d92b31")
+///         .expect("Decoding failed")
+/// );
+/// ```
 pub fn keccak512(value: &[u8]) -> Vec<u8> {
     keccak512_array(value).to_vec()
 }
@@ -353,7 +499,6 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
 ///
 /// # Examples
-///
 /// ```
 /// use near_sdk::env::sha256_array;
 /// use hex;
@@ -376,6 +521,19 @@ pub fn sha256_array(value: &[u8]) -> [u8; 32] {
 }
 
 /// Hashes the bytes using the Keccak-256 hash function. This returns a 32 byte hash.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::keccak256_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &keccak256_array(b"The phrase that will be hashed"),
+///     hex::decode("b244af9dd4aada2eda59130bbcff112f29b427d924b654aaeb5a0384fa9afed4")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
     //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
@@ -387,6 +545,19 @@ pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
 }
 
 /// Hashes the bytes using the Keccak-512 hash function. This returns a 64 byte hash.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::keccak512_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &keccak512_array(b"The phrase that will be hashed"),
+///     hex::decode("29a7df7b889a443fdfbd769adb57ef7e98e6159187b582baba778c06e8b41a75f61367257e8c525a95b3f13ddf432f115d1df128a910c8fc93221db136d92b31")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
     //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
@@ -398,6 +569,19 @@ pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
 }
 
 /// Hashes the bytes using the RIPEMD-160 hash function. This returns a 20 byte hash.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::ripemd160_array;
+/// use hex;
+///
+/// assert_eq!(
+///     &ripemd160_array(b"The phrase that will be hashed"),
+///     hex::decode("9a48b9195fcb14cfe6051c0a1be7882efcadaed8")
+///         .expect("Decoding failed")
+///         .as_slice()
+/// );
+/// ```
 pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
     //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
@@ -441,6 +625,30 @@ pub fn ecrecover(
 }
 
 /// Verifies signature of message using provided ED25519 Public Key
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::ed25519_verify;
+/// use hex;
+///
+/// assert_eq!(
+///     ed25519_verify(
+///         hex::decode("41C44494DAB13009BE73D2CCBD3A49677DDC1F26AD2823CE72833CE4B9603F77CA70A9E179272D92D28E8B2AE7006747C87AB1890362A50347EFF553F5EC4008").expect("Decoding failed").as_slice(),
+///         b"Hello world!",
+///         hex::decode("9C16937BF04CCE709FED52344C43634F1E7A05FC29DD41F48844C3588C7FE663").expect("Decoding failed").as_slice(),
+///     ),
+///     true
+/// );
+///
+/// assert_eq!(
+///     ed25519_verify(
+///         hex::decode("41C44494DAB13009BE73D2CCBD3A49677DDC1F26AD2823CE72833CE4B9603F77CA70A9E179272D92D28E8B2AE7006747C87AB1890362A50347EFF553F5EC4008").expect("Decoding failed").as_slice(),
+///         b"Modified message!",
+///         hex::decode("9C16937BF04CCE709FED52344C43634F1E7A05FC29DD41F48844C3588C7FE663").expect("Decoding failed").as_slice(),
+///     ),
+///     false
+/// );
+/// ```
 pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32]) -> bool {
     unsafe {
         sys::ed25519_verify(
@@ -500,6 +708,23 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 // ################
 /// Creates a promise that will execute a method on account with given arguments and attaches
 /// the given amount and gas.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::promise_create;
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas};
+///
+/// let promise = promise_create(
+///     AccountId::from_str("counter.near").unwrap(),
+///     "increment",
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30)
+/// );
+/// ```
 pub fn promise_create(
     account_id: AccountId,
     function_name: &str,
@@ -523,6 +748,34 @@ pub fn promise_create(
 }
 
 /// Attaches the callback that is executed after promise pointed by `promise_idx` is complete.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_create, promise_then};
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas};
+///
+/// let promise = promise_create(
+///     AccountId::from_str("counter.near").unwrap(),
+///     "increment",
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30)
+/// );
+///
+/// let chained_promise = promise_then(
+///     promise,
+///     AccountId::from_str("greetings.near").unwrap(),
+///     "set_greeting",
+///     serde_json::json!({
+///         "text": "Hello World"
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(4000000000000),
+///     Gas::from_tgas(30)
+/// );
+/// ```
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
@@ -548,6 +801,35 @@ pub fn promise_then(
 }
 
 /// Creates a new promise which completes when time all promises passed as arguments complete.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_create, promise_and};
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas};
+///
+/// let promise1 = promise_create(
+///     AccountId::from_str("counter.near").unwrap(),
+///     "increment",
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30)
+/// );
+///
+/// let promise2 = promise_create(
+///     AccountId::from_str("greetings.near").unwrap(),
+///     "set_greeting",
+///     serde_json::json!({
+///         "text": "Hello World"
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(4000000000000),
+///     Gas::from_tgas(30)
+/// );
+///
+/// let chained_promise = promise_and(&[promise1, promise2]);
+/// ```
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
@@ -557,6 +839,15 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::promise_batch_create;
+/// use near_sdk::AccountId;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+/// ```
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
@@ -564,6 +855,27 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_then, promise_create};
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas};
+///
+/// let promise = promise_create(
+///     AccountId::from_str("counter.near").unwrap(),
+///     "increment",
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30)
+/// );
+///
+/// let new_promise = promise_batch_then(
+///     promise,
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+/// ```
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
@@ -575,10 +887,33 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_create_account, promise_batch_create};
+/// use near_sdk::AccountId;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("new_account.near").unwrap()
+/// );
+///
+/// promise_batch_action_create_account(promise);
+/// ```
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
     unsafe { sys::promise_batch_action_create_account(promise_index.0) }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_deploy_contract, promise_batch_create};
+/// use near_sdk::AccountId;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("contract.near").unwrap()
+/// );
+///
+/// let code = vec![0; 1487].as_slice();
+/// promise_batch_action_deploy_contract(promise, code);
+/// ```
 pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
         sys::promise_batch_action_deploy_contract(
@@ -589,6 +924,24 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_function_call, promise_batch_create};
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("counter.near").unwrap()
+/// );
+///
+/// promise_batch_action_function_call(
+///     promise,
+///     "increase",
+///     serde_json::json!({ "value": 5 }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30)
+/// );
+/// ```
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -609,6 +962,25 @@ pub fn promise_batch_action_function_call(
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_function_call_weight, promise_batch_create};
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas, GasWeight};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("counter.near").unwrap()
+/// );
+///
+/// promise_batch_action_function_call_weight(
+///     promise,
+///     "increase",
+///     serde_json::json!({ "value": 5 }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30),
+///     GasWeight(1)
+/// );
+/// ```
 pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -631,6 +1003,20 @@ pub fn promise_batch_action_function_call_weight(
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_transfer, promise_batch_create};
+/// use near_sdk::NearToken;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// promise_batch_action_transfer(
+///     promise,
+///     NearToken::from_near(1),
+/// );
+/// ```
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
     unsafe {
         sys::promise_batch_action_transfer(
@@ -640,6 +1026,22 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_stake, promise_batch_create};
+/// use near_sdk::{NearToken, PublicKey};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// promise_batch_action_stake(
+///     promise,
+///     NearToken::from_near(1),
+///     &pk
+/// );
+/// ```
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: NearToken,
@@ -654,6 +1056,24 @@ pub fn promise_batch_action_stake(
         )
     }
 }
+
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_add_key_with_full_access, promise_batch_create};
+/// use near_sdk::PublicKey;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let nonce = 55;
+/// promise_batch_action_add_key_with_full_access(
+///     promise,
+///     &pk,
+///     nonce
+/// );
+/// ```
 pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -674,6 +1094,26 @@ pub(crate) fn migrate_to_allowance(allowance: NearToken) -> Allowance {
     Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_add_key_with_function_call, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId, NearToken};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let nonce = 55;
+/// promise_batch_action_add_key_with_function_call(
+///     promise,
+///     &pk,
+///     nonce,
+///     NearToken::from_near(1),
+///     &AccountId::from_str("counter.near").unwrap(),
+///     "increase,decrease"
+/// );
+/// ```
 #[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
 pub fn promise_batch_action_add_key_with_function_call(
     promise_index: PromiseIndex,
@@ -694,6 +1134,48 @@ pub fn promise_batch_action_add_key_with_function_call(
     )
 }
 
+/// # Examples
+/// Unlimited allowance
+/// ```
+/// use near_sdk::env::{promise_batch_action_add_key_allowance_with_function_call, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId, Allowance};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let nonce = 55;
+/// promise_batch_action_add_key_allowance_with_function_call(
+///     promise,
+///     &pk,
+///     nonce,
+///     Allowance::unlimited(),
+///     &AccountId::from_str("counter.near").unwrap(),
+///     "increase,decrease"
+/// );
+/// ```
+///
+/// Limited allowance (1 NEAR)
+/// ```
+/// use near_sdk::env::{promise_batch_action_add_key_allowance_with_function_call, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId, Allowance, NearToken};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let nonce = 55;
+/// promise_batch_action_add_key_allowance_with_function_call(
+///     promise,
+///     &pk,
+///     nonce,
+///     Allowance::limited(NearToken::from_near(1)).unwrap(),
+///     &AccountId::from_str("counter.near").unwrap(),
+///     "increase,decrease"
+/// );
+/// ```
 pub fn promise_batch_action_add_key_allowance_with_function_call(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -721,6 +1203,22 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
         )
     }
 }
+
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_delete_key, promise_batch_create};
+/// use near_sdk::{PublicKey, AccountId};
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// promise_batch_action_delete_key(
+///     promise,
+///     &pk
+/// );
+/// ```
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
@@ -731,6 +1229,20 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
     }
 }
 
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_batch_action_delete_account, promise_batch_create};
+/// use near_sdk::AccountId;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// promise_batch_action_delete_account(
+///     promise,
+///     &AccountId::from_str("beneficiary.near").unwrap()
+/// );
+/// ```
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
     beneficiary_id: &AccountId,
@@ -748,11 +1260,37 @@ pub fn promise_batch_action_delete_account(
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback. This function returns the number of complete and
 /// incomplete callbacks.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::promise_results_count;
+///
+/// assert_eq!(promise_results_count(), 1);
+/// ```
 pub fn promise_results_count() -> u64 {
     unsafe { sys::promise_results_count() }
 }
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_result, promise_results_count};
+/// use near_sdk::PromiseResult;
+///
+/// assert!(promise_results_count() > 0);
+///
+/// // The promise_index will be in the range [0, n)
+/// // where n is the number of promises triggering this callback,
+/// // retrieved from promise_results_count()
+/// let promise_index = 0;
+/// let result = promise_result(promise_index);
+///
+/// match result {
+///     PromiseResult::Successful(data: Vec<u8>) => { ... }
+///     PromiseResult::Failed() => { ... }
+/// };
+/// ```
 pub fn promise_result(result_idx: u64) -> PromiseResult {
     match promise_result_internal(result_idx) {
         Ok(()) => {
@@ -770,8 +1308,28 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
         _ => abort(),
     }
 }
+
 /// Consider the execution result of promise under `promise_idx` as execution result of this
 /// function.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{promise_create, promise_return};
+/// use near_sdk::serde_json;
+/// use near_sdk::{AccountId, NearToken, Gas};
+///
+/// let promise = promise_create(
+///     AccountId::from_str("counter.near").unwrap(),
+///     "increment",
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     NearToken::from_yocto(0),
+///     Gas::from_tgas(30)
+/// );
+///
+/// promise_return(promise);
+/// ```
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
 }
@@ -786,6 +1344,45 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///
 /// Resumption tokens are specific to the local account; promise_yield_resume must be called from
 /// a method of the same contract.
+///
+/// # Examples
+/// Create yield promise and retrieve `data_id` for further resume
+/// ```
+/// use near_sdk::env::promise_yield_create;
+/// use near_sdk::serde_json;
+/// use near_sdk::{Gas, GasWeight, CryptoHash};
+///
+/// let DATA_ID_REGISTER = 0;
+/// let promise = promise_yield_create(
+///     "increment",
+///     // passed as arguments
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     Gas::from_tgas(10),
+///     GasWeight(0),
+///     DATA_REGISTER_ID
+/// );
+///
+/// let data_id: CryptoHash = read_register(DATA_ID_REGISTER)
+///     .expect("reag_register failed")
+///     .try_into()
+///     .expect("conversion to CryptoHash failed");
+/// ```
+/// Resume execution using previously retrieved `data_id`
+/// ```
+/// use near_sdk::env::promise_yield_resume;
+/// use near_sdk::serde_json;
+///
+/// promise_yield_resume(
+///     data_id,
+///     // passed as callback_result
+///     serde_json::json!({
+///         "key": "value",
+///         "text": "long long long"
+///     }).to_string().into_bytes().as_slice()
+/// );
+/// ```
 pub fn promise_yield_create(
     function_name: &str,
     arguments: &[u8],
@@ -814,6 +1411,45 @@ pub fn promise_yield_create(
 /// If promise_yield_resume is called multiple times with the same `data_id`, it is possible to get
 /// back multiple 'true' results. The payload from the first successful call is passed to the
 /// callback.
+///
+/// # Examples
+/// Create yield promise and retrieve `data_id` for further resume
+/// ```
+/// use near_sdk::env::promise_yield_create;
+/// use near_sdk::serde_json;
+/// use near_sdk::{Gas, GasWeight, CryptoHash};
+///
+/// let DATA_ID_REGISTER = 0;
+/// let promise = promise_yield_create(
+///     "increment",
+///     // passed as arguments
+///     serde_json::json!({
+///         "value": 5        
+///     }).to_string().into_bytes().as_slice(),
+///     Gas::from_tgas(10),
+///     GasWeight(0),
+///     DATA_REGISTER_ID
+/// );
+///
+/// let data_id: CryptoHash = read_register(DATA_ID_REGISTER)
+///     .expect("reag_register failed")
+///     .try_into()
+///     .expect("conversion to CryptoHash failed");
+/// ```
+/// Resume execution using previously retrieved `data_id`
+/// ```
+/// use near_sdk::env::promise_yield_resume;
+/// use near_sdk::serde_json;
+///
+/// promise_yield_resume(
+///     data_id,
+///     // passed as callback_result
+///     serde_json::json!({
+///         "key": "value",
+///         "text": "long long long"
+///     }).to_string().into_bytes().as_slice()
+/// );
+/// ```
 pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
     unsafe {
         sys::promise_yield_resume(
@@ -830,6 +1466,21 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
 // ###############
 
 /// For a given account return its current stake. If the account is not a validator, returns 0.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::validator_stake;
+/// use near_sdk::{AccountId, NearToken};
+///
+/// assert_eq!(
+///     validator_stake(&AccountId::from_str("non-validator.near").unwrap()),
+///     NearToken::from_yocto(0)
+/// );
+/// assert_eq!(
+///     validator_stake(&AccountId::from_str("validator.near").unwrap()),
+///     NearToken::from_yocto(5182949103204041233310)
+/// );
+/// ```
 pub fn validator_stake(account_id: &AccountId) -> NearToken {
     let account_id: &str = account_id.as_ref();
     let data = [0u8; size_of::<NearToken>()];
@@ -840,6 +1491,17 @@ pub fn validator_stake(account_id: &AccountId) -> NearToken {
 }
 
 /// Returns the total stake of validators in the current epoch.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::validator_total_stake;
+/// use near_sdk::NearToken;
+///
+/// assert_eq!(
+///     validator_total_stake(),
+///     NearToken::from_yocto(3718239391492491429193931)
+/// );
+/// ```
 pub fn validator_total_stake() -> NearToken {
     let data = [0u8; size_of::<NearToken>()];
     unsafe { sys::validator_total_stake(data.as_ptr() as u64) };
@@ -850,23 +1512,69 @@ pub fn validator_total_stake() -> NearToken {
 // # Miscellaneous API #
 // #####################
 /// Sets the blob of data as the return value of the contract.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::value_return;
+///
+/// value_return(b"String data");
+/// ```
+/// ```
+/// use near_sdk::env::value_return;
+/// use near_sdk::serde_json;
+///
+/// value_return(
+///     serde_json::json!({
+///         "account": "test.near",
+///         "value": 5
+///     }).to_string().into_bytes().as_slice()
+/// );
+/// ```
 pub fn value_return(value: &[u8]) {
     unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
 /// [`panic_str`] should be used as the bytes are required to be UTF-8
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::panic;
+///
+/// panic(b"Unexpected error");
+/// ```
 #[deprecated(since = "4.0.0", note = "Use env::panic_str to panic with a message.")]
 pub fn panic(message: &[u8]) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
 /// Terminates the execution of the program with the UTF-8 encoded message.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::panic_str;
+///
+/// panic_str("Unexpected error");
+/// ```
+/// ```
+/// use near_sdk::env::panic_str;
+/// use near_sdk::AccountId;
+///
+/// let account = AccountId::from_str("test.near").unwrap();
+/// panic_str(format!("Unexpected error happened for account {}", account).as_str());
+/// ```
 pub fn panic_str(message: &str) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
 }
 
 /// Aborts the current contract execution without a custom message.
 /// To include a message, use [`panic_str`].
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::abort;
+///
+/// abort();
+/// ```
 pub fn abort() -> ! {
     // Use wasm32 unreachable call to avoid including the `panic` external function in Wasm.
     #[cfg(target_arch = "wasm32")]
@@ -882,6 +1590,19 @@ pub fn abort() -> ! {
 }
 
 /// Logs the string message message. This message is stored on chain.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::log_str;
+///
+/// log_str("Some text");
+/// ```
+/// ```
+/// use near_sdk::env::log_str;
+///
+/// let number = 5;
+/// log_str(format!("Number: {}", number).as_str());
+/// ```
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", message);
@@ -890,6 +1611,13 @@ pub fn log_str(message: &str) {
 }
 
 /// Log the UTF-8 encodable message.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::log;
+///
+/// log(b"Text");
+/// ```
 #[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
 pub fn log(message: &[u8]) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
@@ -905,7 +1633,6 @@ pub fn log(message: &[u8]) {
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
 ///
 /// # Examples
-///
 /// ```
 /// use near_sdk::env::{storage_write, storage_read};
 ///
@@ -931,7 +1658,6 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// Reads the value stored under the given key.
 ///
 /// # Examples
-///
 /// ```
 /// use near_sdk::env::{storage_write, storage_read};
 ///
@@ -948,6 +1674,15 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 }
 /// Removes the value stored under the given key.
 /// If key-value existed returns `true`, otherwise `false`.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{storage_write, storage_remove};
+///
+/// assert_eq!(storage_remove(b"key"), false);
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_remove(b"key"), true);
+/// ```
 pub fn storage_remove(key: &[u8]) -> bool {
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
@@ -956,10 +1691,35 @@ pub fn storage_remove(key: &[u8]) -> bool {
     }
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{storage_write, storage_remove, storage_get_evicted};
+///
+/// assert!(storage_get_evicted().is_none());
+///
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_get_evicted(), Some(b"value".to_vec()));
+///
+/// storage_write(b"key2", b"value2");
+/// assert_eq!(storage_get_evicted(), Some(b"value2".to_vec()));
+///
+/// storage_remove(b"key");
+/// assert_eq!(storage_get_evicted(), Some(b"value".to_vec()));
+/// ```
 pub fn storage_get_evicted() -> Option<Vec<u8>> {
     read_register(EVICTED_REGISTER)
 }
 /// Checks if there is a key-value in the storage.
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::{storage_write, storage_has_key};
+///
+/// assert_eq!(storage_has_key(b"key"), false);
+/// storage_write(b"key", b"value");
+/// assert_eq!(storage_has_key(b"key"), true);
+/// ```
 pub fn storage_has_key(key: &[u8]) -> bool {
     match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
         0 => false,
@@ -996,7 +1756,14 @@ pub fn state_exists() -> bool {
 
 /// Price per 1 byte of storage from mainnet genesis config.
 /// TODO: will be using the host function when it will be available.
-
+///
+/// # Examples
+/// ```
+/// use near_sdk::env::storage_byte_cost;
+/// use near_sdk::NearToken;
+///
+/// assert_eq!(storage_byte_cost(), NearToken::from_yocto(10000000000000000000));
+/// ```
 pub fn storage_byte_cost() -> NearToken {
     NearToken::from_yoctonear(10_000_000_000_000_000_000u128)
 }
@@ -1006,6 +1773,15 @@ pub fn storage_byte_cost() -> NearToken {
 // ##################
 
 /// Returns `true` if the given account ID is valid and `false` otherwise.
+///
+/// # Examples
+///
+/// ```
+/// use near_sdk::env::is_valid_account_id;
+///
+/// assert_eq!(is_valid_account_id(b"test.near"), true);
+/// assert_eq!(is_valid_account_id(b"test!.%.near"), false);
+/// ```
 pub fn is_valid_account_id(account_id: &[u8]) -> bool {
     if (account_id.len() as u64) < MIN_ACCOUNT_ID_LEN
         || (account_id.len() as u64) > MAX_ACCOUNT_ID_LEN
