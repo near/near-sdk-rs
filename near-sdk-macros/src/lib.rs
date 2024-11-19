@@ -43,9 +43,21 @@ struct NearMacroArgs {
     inside_nearsdk: Option<bool>,
 }
 
-/// This attribute macro is used to enhance the near_bindgen macro.
-/// It is used to add Borsh and Serde derives for serialization and deserialization.
-/// It also adds `BorshSchema` and `JsonSchema` if needed
+/// This attribute macro is used on a struct and its implementations
+/// to generate the necessary code to expose `pub` methods from the contract as well
+/// as generating the glue code to be a valid NEAR contract.
+///
+/// This macro will generate code to load and deserialize state if the `self` parameter is included
+/// as well as saving it back to state if `&mut self` is used.
+///
+/// For parameter serialization, this macro will generate a struct with all of the parameters as
+/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
+/// but can be overwritten by using `#[serializer(borsh)]`.
+///
+/// `#[near]` will also handle serializing and setting the return value of the
+/// function execution based on what type is returned by the function. By default, this will be
+/// done through `serde` serialized as JSON, but this can be overwritten using
+/// `#[result_serializer(borsh)]`.
 ///
 /// If you would like to add Borsh or Serde serialization and deserialization to your contract,
 /// you can use the abi attribute and pass in the serializers you would like to use.
@@ -332,6 +344,10 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ))]
 /// struct Contract {}
 /// ```
+#[deprecated(
+    since = "5.7.0",
+    note = "Use #[near] macro instead which allows to remove boilerplate code"
+)]
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {

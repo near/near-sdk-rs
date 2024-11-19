@@ -1,3 +1,89 @@
+//! # `near-sdk`
+//!
+//! `near-sdk` is a Rust toolkit for developing smart contracts on the [NEAR blockchain](https://near.org).  
+//! It provides abstractions, macros, and utilities to make building robust and secure contracts easy.
+//! More information on how to develop smart contracts can be found in the [NEAR documentation](https://docs.near.org/build/smart-contracts/what-is).
+//! With near-sdk you can create DeFi applications, NFTs and marketplaces, DAOs, gaming and metaverse apps, and much more. 
+//!
+//! ## Features
+//!
+//! - **State Management:** Simplified handling of contract state with serialization via [Borsh](https://borsh.io) or JSON.
+//! - **Initialization methods** We can define an initialization method that can be used to initialize the state of the contract. #[init] macro verifies that the contract has not been initialized yet (the contract state doesn't exist) and will panic otherwise.
+//! - **Payable methods** We can allow methods to accept token transfer together with the function call with #[payable] macro. 
+//! - **Private methods** #[private] macro makes it possible to define private methods that can't be called from the outside of the contract. 
+//! - **Cross-Contract Calls:** Support for asynchronous interactions between contracts.
+//! - **Unit Testing:** Built-in support for testing contracts in a Rust environment.
+//! - **WASM Compilation:** Compile Rust code to WebAssembly (WASM) for execution on the NEAR runtime.
+//!
+//! ## Quick Start
+//!
+//! Add `near-sdk` to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! near-sdk = "5.6.0"
+//! ```
+//!
+//! ### Example: Counter Smart Contract
+//!
+//! Below is an example of a simple counter contract that increments and retrieves a value:
+//!
+//! ```rust
+//! use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+//! use near_sdk::{env, near_bindgen};
+//!
+//! #[near_bindgen]
+//! #[derive(Default, BorshDeserialize, BorshSerialize)]
+//! pub struct Counter {
+//!     value: i32,
+//! }
+//!
+//! #[near_bindgen]
+//! impl Counter {
+//!     /// Increment the counter by one.
+//!     pub fn increment(&mut self) {
+//!         self.value += 1;
+//!         env::log_str(&format!("Counter incremented to: {}", self.value));
+//!     }
+//!
+//!     /// Get the current value of the counter.
+//!     pub fn get(&self) -> i32 {
+//!         self.value
+//!     }
+//! }
+//! ```
+//!
+//! ### Compiling to WASM
+//!
+//! Build your contract for the NEAR blockchain:
+//!
+//! ```bash
+//! cargo near build
+//! ```
+//!
+//! ### Running Unit Tests
+//!
+//! Use the following testing setup:
+//!
+//! ```rust
+//! #[cfg(test)]
+//! mod tests {
+//!     use super::*;
+//!
+//!     #[test]
+//!     fn increment_works() {
+//!         let mut counter = Counter::default();
+//!         counter.increment();
+//!         assert_eq!(counter.get(), 1);
+//!     }
+//! }
+//! ```
+//!
+//! Run tests using:
+//! ```bash
+//! cargo test
+//! ```
+
 //* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
 //* https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
