@@ -222,6 +222,8 @@ impl PromiseJoint {
 ///   .transfer(NearToken::from_yoctonear(1000))
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
+///
+/// More information about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
