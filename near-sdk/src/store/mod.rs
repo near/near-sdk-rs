@@ -70,7 +70,7 @@
 //! - [`LazyOption<T>`](LazyOption): Lazily loaded, optional type that can be used in
 //!   place of a type [`Option<T>`](Option). Will only be loaded when interacted with and will
 //!   persist on [`Drop`].
-//! 
+//!
 //! More information about collections can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/collections)
 
 #[cfg(feature = "unstable")]

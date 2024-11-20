@@ -49,7 +49,7 @@ struct NearMacroArgs {
 ///
 /// This macro will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
-/// 
+///
 /// If the macro is used with Impl section, for parameter serialization, this macro will generate a struct with all of the parameters as
 /// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
 /// but can be overwritten by using `#[serializer(borsh)]`.
@@ -58,10 +58,10 @@ struct NearMacroArgs {
 /// function execution based on what type is returned by the function. By default, this will be
 /// done through `serde` serialized as JSON, but this can be overwritten using
 /// `#[result_serializer(borsh)]`.
-/// 
-/// If the macro is used with struct or enum, it will make the struct or enum serializable with either 
-/// Borsh or Json depending on serializers passed. Use #[near(serializers=[borsh])] to make it serializable with Borsh. 
-/// Or use #[near(serializers=[json])] to make it serializable with Json. By default, borsh is used. 
+///
+/// If the macro is used with struct or enum, it will make the struct or enum serializable with either
+/// Borsh or Json depending on serializers passed. Use #[near(serializers=[borsh])] to make it serializable with Borsh.
+/// Or use #[near(serializers=[json])] to make it serializable with Json. By default, borsh is used.
 /// You can also specify both and none. BorshSchema or JsonSchema are always generated.
 ///
 /// # Example
@@ -295,7 +295,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// This macro is deprecated. Use #[near] instead. The difference between #[near] and #[near_bindgen] is that 
+/// This macro is deprecated. Use #[near] instead. The difference between #[near] and #[near_bindgen] is that
 /// with #[near_bindgen] you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
 /// ```ignore
 /// #[near_bindgen]
@@ -537,8 +537,8 @@ struct DeriveNearSchema {
     borsh: Option<bool>,
 }
 
-/// `NearSchema` is a derive macro that generates `BorshSchema` and / or `JsonSchema` implementations. 
-/// Use #[abi(json)] attribute to generate code for JsonSchema. And #[abi(borsh)] for BorshSchema. 
+/// `NearSchema` is a derive macro that generates `BorshSchema` and / or `JsonSchema` implementations.
+/// Use #[abi(json)] attribute to generate code for JsonSchema. And #[abi(borsh)] for BorshSchema.
 /// You can use both and none as well.
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate, inside_nearsdk))]
 pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {

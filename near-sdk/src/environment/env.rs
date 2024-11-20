@@ -1,5 +1,5 @@
-//! Blockchain-specific methods available to the smart contract. This is a wrapper around a
-//! low-level `BlockchainInterface`. Unless you know what you are doing prefer using `env::*`
+//! Blockchain-specific methods available to the smart contract that allow to interact with NEAR runtime.
+//! This is a wrapper around a low-level [`near_sys`](near_sys). Unless you know what you are doing prefer using `env::*`
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
@@ -76,7 +76,7 @@ pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
 }
 
 /// Replaces the current low-level blockchain interface accessible through `env::*` with another
-/// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
+/// low-level blockchain interface with builtin functions of the NEAR runtime. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
 /// ```
@@ -500,7 +500,7 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 // ################
 /// Creates a promise that will execute a method on account with given arguments and attaches
 /// the given amount and gas.
-/// 
+///
 /// More info about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
 pub fn promise_create(
     account_id: AccountId,
@@ -560,7 +560,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 }
 
 /// Create a NEAR promise which will have multiple promise actions inside.
-/// 
+///
 /// Example:
 /// ```ignore
 /// let target_account = "example.near".to_string();
@@ -586,8 +586,8 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     }
 }
 
-/// Attach a callback NEAR promise to a batch of NEAR promise actions. 
-/// 
+/// Attach a callback NEAR promise to a batch of NEAR promise actions.
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
@@ -601,14 +601,14 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 }
 
 /// Attach a create account promise action to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
     unsafe { sys::promise_batch_action_create_account(promise_index.0) }
 }
 
 /// Attach a deploy contract promise action to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
@@ -621,7 +621,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 }
 
 /// Attach a function call promise action to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
@@ -644,7 +644,7 @@ pub fn promise_batch_action_function_call(
 }
 
 /// Attach a function call with specific gas weight promise action to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
@@ -669,7 +669,7 @@ pub fn promise_batch_action_function_call_weight(
 }
 
 /// Attach a transfer promise action to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
     unsafe {
@@ -681,7 +681,7 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
 }
 
 /// Attach a stake promise action to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
@@ -699,7 +699,7 @@ pub fn promise_batch_action_stake(
 }
 
 /// Attach promise action that adds a full access key to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
@@ -717,7 +717,7 @@ pub fn promise_batch_action_add_key_with_full_access(
 }
 
 /// This is a short lived function while we migrate between the Balance and the allowance type
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub(crate) fn migrate_to_allowance(allowance: NearToken) -> Allowance {
     Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
@@ -744,7 +744,7 @@ pub fn promise_batch_action_add_key_with_function_call(
 }
 
 /// Attach promise action that adds a key with function call with specifi allowance to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_add_key_allowance_with_function_call(
     promise_index: PromiseIndex,
@@ -775,7 +775,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
 }
 
 /// Attach promise action that deletes the key to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
@@ -788,7 +788,7 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 }
 
 /// Attach promise action that deletes the account to the NEAR promise index with the provided promise index.
-/// 
+///
 /// More info about batching [here](crate::env::promise_batch_create)
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
