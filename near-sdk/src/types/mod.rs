@@ -8,7 +8,9 @@ mod primitives;
 pub use self::primitives::*;
 
 pub use near_account_id::{AccountId, AccountIdRef};
+/// Same as `NearGas` from crate [`near_gas`](https://docs.rs/near-gas/latest/near_gas/)
 pub use near_gas::NearGas as Gas;
+/// Same as `NearToken` from crate [`near_token`](https://docs.rs/near-token/latest/near_token/)
 pub use near_token::NearToken;
 
 mod error;
