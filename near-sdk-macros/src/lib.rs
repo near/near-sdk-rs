@@ -305,11 +305,18 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///    pub name: String,
 /// }
 /// ```
+/// Instead of:
+/// ```ignore
+/// #[near]
+/// struct MyStruct {
+///     pub name: String,
+/// }
+/// ```
+#[proc_macro_attribute]
 #[deprecated(
     since = "5.7.0",
     note = "Use #[near] macro instead which allows to remove boilerplate code"
 )]
-#[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
         return core_impl::near_events(attr, item);
@@ -530,6 +537,9 @@ struct DeriveNearSchema {
     borsh: Option<bool>,
 }
 
+/// `NearSchema` is a derive macro that generates `BorshSchema` and / or `JsonSchema` implementations. 
+/// Use #[abi(json)] attribute to generate code for JsonSchema. And #[abi(borsh)] for BorshSchema. 
+/// You can use both and none as well.
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate, inside_nearsdk))]
 pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
     #[cfg(not(feature = "abi"))]
