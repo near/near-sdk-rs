@@ -454,6 +454,8 @@ fn process_impl_block(
 ///     fn sum(&self, a: u128, b: u128) -> u128;
 /// }
 /// ```
+/// 
+/// See more information about role of ext_contract in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(mut input) = syn::parse::<ItemTrait>(item) {
@@ -538,7 +540,7 @@ struct DeriveNearSchema {
 }
 
 /// `NearSchema` is a derive macro that generates `BorshSchema` and / or `JsonSchema` implementations.
-/// Use #[abi(json)] attribute to generate code for JsonSchema. And #[abi(borsh)] for BorshSchema.
+/// Use `#[abi(json)]` attribute to generate code for `JsonSchema`. And `#[abi(borsh)]` for `BorshSchema`.
 /// You can use both and none as well.
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate, inside_nearsdk))]
 pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
@@ -773,7 +775,9 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
 
 /// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
 /// It allows the type to be passed as a unique prefix for persistent collections.
-/// The type should also implement or derive `BorshSerialize` trait.
+/// The type should also implement or derive `BorshSerialize` trait. 
+/// 
+/// More information about storage keys in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/storage)
 #[proc_macro_derive(BorshStorageKey)]
 pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     let (name, generics) = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
