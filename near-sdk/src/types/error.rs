@@ -20,6 +20,15 @@
 ///         }
 ///     }
 /// }
+/// 
+/// #[near]
+/// impl Contract {
+///     // if the Error does not implement FunctionError, the following will not compile with #[handle_result]
+///     #[handle_result]
+///     pub fn set(&self, value: String) -> Result<String, Error> {
+///         Err(Error::NotFound)
+///     }
+/// }
 /// ```
 pub trait FunctionError {
     fn panic(&self) -> !;
