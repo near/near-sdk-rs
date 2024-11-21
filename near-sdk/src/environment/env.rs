@@ -1671,6 +1671,10 @@ pub fn log(message: &[u8]) {
 /// Writes key-value into storage.
 /// If another key-value existed in the storage with the same key it returns `true`, otherwise `false`.
 ///
+/// # Use cases
+/// Storage functions are typically used to upgrade/migrate a contract state, preventing errors like `Cannot deserialize the contract state` after rolling out the breaking changes to the network.
+/// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{storage_write, storage_read};
@@ -1696,6 +1700,10 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 }
 /// Reads the value stored under the given key.
 ///
+/// # Use cases
+/// Storage functions are typically used to upgrade/migrate a contract state, preventing errors like `Cannot deserialize the contract state` after rolling out the breaking changes to the network.
+/// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{storage_write, storage_read};
@@ -1714,6 +1722,10 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// Removes the value stored under the given key.
 /// If key-value existed returns `true`, otherwise `false`.
 ///
+/// # Use cases
+/// Storage functions are typically used to upgrade/migrate a contract state, preventing errors like `Cannot deserialize the contract state` after rolling out the breaking changes to the network.
+/// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{storage_write, storage_remove};
@@ -1731,6 +1743,10 @@ pub fn storage_remove(key: &[u8]) -> bool {
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
 ///
+/// # Use cases
+/// Storage functions are typically used to upgrade/migrate a contract state, preventing errors like `Cannot deserialize the contract state` after rolling out the breaking changes to the network.
+/// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
+///
 /// # Examples
 /// ```
 /// use near_sdk::env::{storage_write, storage_remove, storage_get_evicted};
@@ -1741,6 +1757,10 @@ pub fn storage_get_evicted() -> Option<Vec<u8>> {
     read_register(EVICTED_REGISTER)
 }
 /// Checks if there is a key-value in the storage.
+///
+/// # Use cases
+/// Storage functions are typically used to upgrade/migrate a contract state, preventing errors like `Cannot deserialize the contract state` after rolling out the breaking changes to the network.
+/// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
 /// ```
