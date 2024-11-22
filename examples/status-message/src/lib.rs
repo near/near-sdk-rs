@@ -37,6 +37,8 @@ mod tests {
     use super::*;
     use near_sdk::test_utils::{get_logs, VMContextBuilder};
     use near_sdk::{testing_env, VMContext};
+    use near_sdk::serde_json;
+    use near_abi::AbiRoot;
 
     fn get_context(is_view: bool) -> VMContext {
         VMContextBuilder::new()
@@ -69,5 +71,24 @@ mod tests {
         let contract = StatusMessage::default();
         assert_eq!(None, contract.get_status("francis.near".parse().unwrap()));
         assert_eq!(get_logs(), vec!["get_status for account_id francis.near"])
+    }
+
+    // this only tests that contract can be built with ABI and responds to __contract_abi
+    // view call
+    #[tokio::test]
+    async fn embedded_abi_test() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let worker = near_workspaces::sandbox().await?;
+        let contract = worker.dev_deploy(&wasm).await?;
+
+        let res = contract.view("__contract_abi").await?;
+
+        let abi_root =
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+
+        assert_eq!(abi_root.schema_version, "0.4.0");
+        assert_eq!(abi_root.metadata.name, Some("status-message".to_string()));
+
+        Ok(())
     }
 }

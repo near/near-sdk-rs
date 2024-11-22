@@ -12,6 +12,11 @@ near-sdk = { path = "../../near-sdk" }
 
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-workspaces = { version = "0.15", features = ["unstable"] }
+tokio = { version = "1.14", features = ["full"] }
+anyhow = "1.0"
+near-abi = "0.4.0"
+zstd = "0.13"
 
 [profile.release]
 codegen-units = 1

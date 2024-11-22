@@ -1,7 +1,8 @@
-use crate::utils::{helper_mint, init};
+use crate::utils::{helper_mint, initialized_contracts};
 use near_contract_standards::non_fungible_token::Token;
 use near_sdk::json_types::U128;
-use near_workspaces::Contract;
+use near_workspaces::{Account, Contract};
+use rstest::rstest;
 
 async fn mint_more(nft_contract: &Contract) -> anyhow::Result<()> {
     helper_mint(
@@ -29,10 +30,12 @@ async fn mint_more(nft_contract: &Contract) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[rstest]
 #[tokio::test]
-async fn simulate_enum_total_supply() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let (nft_contract, _, _, _) = init(&worker).await?;
+async fn simulate_enum_total_supply(
+    #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract, Contract)>,
+) -> anyhow::Result<()> {
+    let (nft_contract, _, _, _) = initialized_contracts.await?;
     mint_more(&nft_contract).await?;
 
     let total_supply: U128 = nft_contract.call("nft_total_supply").view().await?.json()?;
@@ -41,10 +44,12 @@ async fn simulate_enum_total_supply() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[rstest]
 #[tokio::test]
-async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let (nft_contract, _, _, _) = init(&worker).await?;
+async fn simulate_enum_nft_tokens(
+    #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract, Contract)>,
+) -> anyhow::Result<()> {
+    let (nft_contract, _, _, _) = initialized_contracts.await?;
     mint_more(&nft_contract).await?;
 
     // No optional args should return all
@@ -91,10 +96,12 @@ async fn simulate_enum_nft_tokens() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[rstest]
 #[tokio::test]
-async fn simulate_enum_nft_supply_for_owner() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let (nft_contract, alice, _, _) = init(&worker).await?;
+async fn simulate_enum_nft_supply_for_owner(
+    #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract, Contract)>,
+) -> anyhow::Result<()> {
+    let (nft_contract, alice, _, _) = initialized_contracts.await?;
 
     // Get number from account with no NFTs
     let owner_num_tokens: U128 = nft_contract
@@ -126,10 +133,12 @@ async fn simulate_enum_nft_supply_for_owner() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[rstest]
 #[tokio::test]
-async fn simulate_enum_nft_tokens_for_owner() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let (nft_contract, alice, _, _) = init(&worker).await?;
+async fn simulate_enum_nft_tokens_for_owner(
+    #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract, Contract)>,
+) -> anyhow::Result<()> {
+    let (nft_contract, alice, _, _) = initialized_contracts.await?;
     mint_more(&nft_contract).await?;
 
     // Get tokens from account with no NFTs
