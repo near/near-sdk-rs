@@ -1,7 +1,5 @@
+use near_workspaces::cargo_near_build;
 use std::str::FromStr;
-
-use cargo_near_build::BuildOpts;
-use cargo_near_build::{bon, camino, extended};
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // directory of target `status-message` sub-contract's crate
@@ -9,9 +7,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // unix path to target `status-message` sub-contract's crate from root of the repo
     let nep330_contract_path = "examples/status-message";
 
-    let manifest = camino::Utf8PathBuf::from_str(workdir)
-        .expect("pathbuf from str")
-        .join("Cargo.toml");
+    let manifest =
+        camino::Utf8PathBuf::from_str(workdir).expect("pathbuf from str").join("Cargo.toml");
 
     let build_opts = BuildOpts::builder()
         .manifest_path(manifest)

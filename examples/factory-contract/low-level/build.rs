@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
-use cargo_near_build::BuildOpts;
-use cargo_near_build::{bon, camino, extended};
+use near_workspaces::cargo_near_build;
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
     // directory of target `status-message` sub-contract's crate

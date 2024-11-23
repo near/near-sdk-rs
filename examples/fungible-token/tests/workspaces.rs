@@ -5,6 +5,7 @@ use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
 use near_workspaces::{types::NearToken, Account, AccountId, Contract};
 use rstest::{fixture, rstest};
+use near_workspaces::cargo_near_build;
 
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 

@@ -6,7 +6,7 @@ use near_contract_standards::non_fungible_token::TokenId;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
 use rstest::fixture;
-
+use near_workspaces::cargo_near_build;
 pub const TOKEN_ID: &str = "0";
 
 pub async fn helper_mint(
