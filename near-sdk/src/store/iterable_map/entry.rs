@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<'a, K, V, H> Entry<'a, K, V, H>
+impl<K, V, H> Entry<'_, K, V, H>
 where
     K: BorshSerialize + Ord + Clone,
     V: BorshSerialize + BorshDeserialize,

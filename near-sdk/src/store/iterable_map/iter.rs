@@ -89,14 +89,14 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for Iter<'a, K, V, H>
+impl<K, V, H> ExactSizeIterator for Iter<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
 {
 }
-impl<'a, K, V, H> FusedIterator for Iter<'a, K, V, H>
+impl<K, V, H> FusedIterator for Iter<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -104,7 +104,7 @@ where
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for Iter<'a, K, V, H>
+impl<K, V, H> DoubleEndedIterator for Iter<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -190,14 +190,14 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for IterMut<'a, K, V, H>
+impl<K, V, H> ExactSizeIterator for IterMut<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
 {
 }
-impl<'a, K, V, H> FusedIterator for IterMut<'a, K, V, H>
+impl<K, V, H> FusedIterator for IterMut<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -205,7 +205,7 @@ where
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for IterMut<'a, K, V, H>
+impl<K, V, H> DoubleEndedIterator for IterMut<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -264,8 +264,8 @@ where
     }
 }
 
-impl<'a, K> ExactSizeIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
-impl<'a, K> FusedIterator for Keys<'a, K> where K: BorshSerialize + BorshDeserialize {}
+impl<K> ExactSizeIterator for Keys<'_, K> where K: BorshSerialize + BorshDeserialize {}
+impl<K> FusedIterator for Keys<'_, K> where K: BorshSerialize + BorshDeserialize {}
 
 impl<'a, K> DoubleEndedIterator for Keys<'a, K>
 where
@@ -324,14 +324,14 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for Values<'a, K, V, H>
+impl<K, V, H> ExactSizeIterator for Values<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
 {
 }
-impl<'a, K, V, H> FusedIterator for Values<'a, K, V, H>
+impl<K, V, H> FusedIterator for Values<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -339,7 +339,7 @@ where
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for Values<'a, K, V, H>
+impl<K, V, H> DoubleEndedIterator for Values<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -402,14 +402,14 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for ValuesMut<'a, K, V, H>
+impl<K, V, H> ExactSizeIterator for ValuesMut<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
     H: ToKey,
 {
 }
-impl<'a, K, V, H> FusedIterator for ValuesMut<'a, K, V, H>
+impl<K, V, H> FusedIterator for ValuesMut<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -417,7 +417,7 @@ where
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for ValuesMut<'a, K, V, H>
+impl<K, V, H> DoubleEndedIterator for ValuesMut<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -473,7 +473,7 @@ where
     }
 }
 
-impl<'a, K, V, H> Iterator for Drain<'a, K, V, H>
+impl<K, V, H> Iterator for Drain<'_, K, V, H>
 where
     K: BorshSerialize + BorshDeserialize + Ord + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -496,7 +496,7 @@ where
     }
 }
 
-impl<'a, K, V, H> ExactSizeIterator for Drain<'a, K, V, H>
+impl<K, V, H> ExactSizeIterator for Drain<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -504,7 +504,7 @@ where
 {
 }
 
-impl<'a, K, V, H> FusedIterator for Drain<'a, K, V, H>
+impl<K, V, H> FusedIterator for Drain<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,
@@ -512,7 +512,7 @@ where
 {
 }
 
-impl<'a, K, V, H> DoubleEndedIterator for Drain<'a, K, V, H>
+impl<K, V, H> DoubleEndedIterator for Drain<'_, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize + Clone,
     V: BorshSerialize + BorshDeserialize,

@@ -67,10 +67,10 @@ where
     }
 }
 
-impl<'a, T> ExactSizeIterator for Iter<'a, T> where T: BorshSerialize + Ord + BorshDeserialize {}
-impl<'a, T> FusedIterator for Iter<'a, T> where T: BorshSerialize + Ord + BorshDeserialize {}
+impl<T> ExactSizeIterator for Iter<'_, T> where T: BorshSerialize + Ord + BorshDeserialize {}
+impl<T> FusedIterator for Iter<'_, T> where T: BorshSerialize + Ord + BorshDeserialize {}
 
-impl<'a, T> DoubleEndedIterator for Iter<'a, T>
+impl<T> DoubleEndedIterator for Iter<'_, T>
 where
     T: BorshSerialize + Ord + BorshDeserialize,
 {
@@ -130,7 +130,7 @@ where
     }
 }
 
-impl<'a, T, H> FusedIterator for Difference<'a, T, H>
+impl<T, H> FusedIterator for Difference<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
@@ -184,7 +184,7 @@ where
     }
 }
 
-impl<'a, T, H> FusedIterator for Intersection<'a, T, H>
+impl<T, H> FusedIterator for Intersection<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
@@ -231,7 +231,7 @@ where
     }
 }
 
-impl<'a, T, H> FusedIterator for SymmetricDifference<'a, T, H>
+impl<T, H> FusedIterator for SymmetricDifference<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
@@ -278,7 +278,7 @@ where
     }
 }
 
-impl<'a, T, H> FusedIterator for Union<'a, T, H>
+impl<T, H> FusedIterator for Union<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
@@ -316,7 +316,7 @@ where
     }
 }
 
-impl<'a, T, H> Iterator for Drain<'a, T, H>
+impl<T, H> Iterator for Drain<'_, T, H>
 where
     T: BorshSerialize + BorshDeserialize + Ord + Clone,
     H: ToKey,
@@ -339,21 +339,21 @@ where
     }
 }
 
-impl<'a, T, H> ExactSizeIterator for Drain<'a, T, H>
+impl<T, H> ExactSizeIterator for Drain<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
 {
 }
 
-impl<'a, T, H> FusedIterator for Drain<'a, T, H>
+impl<T, H> FusedIterator for Drain<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,
 {
 }
 
-impl<'a, T, H> DoubleEndedIterator for Drain<'a, T, H>
+impl<T, H> DoubleEndedIterator for Drain<'_, T, H>
 where
     T: BorshSerialize + Ord + BorshDeserialize + Clone,
     H: ToKey,

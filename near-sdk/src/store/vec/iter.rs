@@ -55,10 +55,10 @@ where
     }
 }
 
-impl<'a, T> ExactSizeIterator for Iter<'a, T> where T: BorshSerialize + BorshDeserialize {}
-impl<'a, T> FusedIterator for Iter<'a, T> where T: BorshSerialize + BorshDeserialize {}
+impl<T> ExactSizeIterator for Iter<'_, T> where T: BorshSerialize + BorshDeserialize {}
+impl<T> FusedIterator for Iter<'_, T> where T: BorshSerialize + BorshDeserialize {}
 
-impl<'a, T> DoubleEndedIterator for Iter<'a, T>
+impl<T> DoubleEndedIterator for Iter<'_, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -140,10 +140,10 @@ where
     }
 }
 
-impl<'a, T> ExactSizeIterator for IterMut<'a, T> where T: BorshSerialize + BorshDeserialize {}
-impl<'a, T> FusedIterator for IterMut<'a, T> where T: BorshSerialize + BorshDeserialize {}
+impl<T> ExactSizeIterator for IterMut<'_, T> where T: BorshSerialize + BorshDeserialize {}
+impl<T> FusedIterator for IterMut<'_, T> where T: BorshSerialize + BorshDeserialize {}
 
-impl<'a, T> DoubleEndedIterator for IterMut<'a, T>
+impl<T> DoubleEndedIterator for IterMut<'_, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -194,7 +194,7 @@ where
     }
 }
 
-impl<'a, T> Drop for Drain<'a, T>
+impl<T> Drop for Drain<'_, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -218,7 +218,7 @@ where
     }
 }
 
-impl<'a, T> Iterator for Drain<'a, T>
+impl<T> Iterator for Drain<'_, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {
@@ -252,10 +252,10 @@ where
     }
 }
 
-impl<'a, T> ExactSizeIterator for Drain<'a, T> where T: BorshSerialize + BorshDeserialize {}
-impl<'a, T> FusedIterator for Drain<'a, T> where T: BorshSerialize + BorshDeserialize {}
+impl<T> ExactSizeIterator for Drain<'_, T> where T: BorshSerialize + BorshDeserialize {}
+impl<T> FusedIterator for Drain<'_, T> where T: BorshSerialize + BorshDeserialize {}
 
-impl<'a, T> DoubleEndedIterator for Drain<'a, T>
+impl<T> DoubleEndedIterator for Drain<'_, T>
 where
     T: BorshSerialize + BorshDeserialize,
 {

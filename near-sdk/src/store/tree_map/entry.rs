@@ -24,7 +24,7 @@ where
     }
 }
 
-impl<'a, K, V> Entry<'a, K, V>
+impl<K, V> Entry<'_, K, V>
 where
     K: BorshSerialize,
 {

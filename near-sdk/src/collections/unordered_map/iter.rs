@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<'a, K, V> Iterator for Iter<'a, K, V>
+impl<K, V> Iterator for Iter<'_, K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
@@ -56,20 +56,20 @@ where
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V>
+impl<K, V> ExactSizeIterator for Iter<'_, K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
 }
-impl<'a, K, V> FusedIterator for Iter<'a, K, V>
+impl<K, V> FusedIterator for Iter<'_, K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,
 {
 }
 
-impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V>
+impl<K, V> DoubleEndedIterator for Iter<'_, K, V>
 where
     K: BorshSerialize + BorshDeserialize,
     V: BorshSerialize + BorshDeserialize,

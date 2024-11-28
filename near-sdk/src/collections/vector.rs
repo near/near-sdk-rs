@@ -288,7 +288,7 @@ impl<'a, T> RawIter<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for RawIter<'a, T> {
+impl<T> Iterator for RawIter<'_, T> {
     type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -310,10 +310,10 @@ impl<'a, T> Iterator for RawIter<'a, T> {
     }
 }
 
-impl<'a, T> ExactSizeIterator for RawIter<'a, T> {}
-impl<'a, T> FusedIterator for RawIter<'a, T> {}
+impl<T> ExactSizeIterator for RawIter<'_, T> {}
+impl<T> FusedIterator for RawIter<'_, T> {}
 
-impl<'a, T> DoubleEndedIterator for RawIter<'a, T> {
+impl<T> DoubleEndedIterator for RawIter<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         <Self as DoubleEndedIterator>::nth_back(self, 0)
     }
@@ -335,7 +335,7 @@ impl<'a, T> Iter<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for Iter<'a, T>
+impl<T> Iterator for Iter<'_, T>
 where
     T: BorshDeserialize,
 {
@@ -359,10 +359,10 @@ where
     }
 }
 
-impl<'a, T> ExactSizeIterator for Iter<'a, T> where T: BorshDeserialize {}
-impl<'a, T> FusedIterator for Iter<'a, T> where T: BorshDeserialize {}
+impl<T> ExactSizeIterator for Iter<'_, T> where T: BorshDeserialize {}
+impl<T> FusedIterator for Iter<'_, T> where T: BorshDeserialize {}
 
-impl<'a, T> DoubleEndedIterator for Iter<'a, T>
+impl<T> DoubleEndedIterator for Iter<'_, T>
 where
     T: BorshDeserialize,
 {

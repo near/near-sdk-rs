@@ -13,14 +13,14 @@ impl IntoStorageKey for Vec<u8> {
     }
 }
 
-impl<'a> IntoStorageKey for &'a [u8] {
+impl IntoStorageKey for &[u8] {
     #[inline]
     fn into_storage_key(self) -> Vec<u8> {
         self.to_vec()
     }
 }
 
-impl<'a> IntoStorageKey for &'a [u8; 1] {
+impl IntoStorageKey for &[u8; 1] {
     #[inline]
     fn into_storage_key(self) -> Vec<u8> {
         self.to_vec()

@@ -12,7 +12,7 @@ pub(crate) enum NearEvent<'a> {
     Nep141(crate::fungible_token::events::Nep141Event<'a>),
 }
 
-impl<'a> NearEvent<'a> {
+impl NearEvent<'_> {
     fn to_json_string(&self) -> String {
         // Events cannot fail to serialize so fine to panic on error
         #[allow(clippy::redundant_closure)]
