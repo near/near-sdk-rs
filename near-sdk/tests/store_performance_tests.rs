@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -25,6 +25,12 @@ pub enum Collection {
     LookupSet,
     TreeMap,
     Vector,
+    LazyOption,
+}
+
+pub enum Contract {
+    StoreContract,
+    LazyContract,
 }
 
 fn random_account_id(collection: Collection, seed: &str) -> AccountId {
@@ -53,9 +59,13 @@ async fn dev_generate(
     Ok((account.into_result()?, collection))
 }
 
-async fn setup_worker() -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
+async fn setup_worker(contract: Contract) -> anyhow::Result<(Arc<Worker<Sandbox>>, AccountId)> {
+    let contract_path = match contract {
+        Contract::StoreContract => "./tests/test-contracts/store",
+        Contract::LazyContract => "./tests/test-contracts/lazy",
+    };
     let worker = Arc::new(near_workspaces::sandbox().await?);
-    let wasm = near_workspaces::compile_project("./tests/test-contracts/store").await?;
+    let wasm = near_workspaces::compile_project(contract_path).await?;
     let contract = worker.dev_deploy(&wasm).await?;
     let res = contract.call("new").max_gas().transact().await?;
     assert!(res.is_success());
@@ -80,7 +90,7 @@ fn perform_asserts(total_gas: u64, col: &Collection) {
 
 #[allow(unused)]
 async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, AccountId)> {
-    let (worker, contract_id) = setup_worker().await?;
+    let (worker, contract_id) = setup_worker(Contract::StoreContract).await?;
     let mut accounts = Vec::new();
 
     for acc_seed in 0..num {
@@ -92,8 +102,8 @@ async fn setup_several(num: usize) -> anyhow::Result<(Vec<Account>, AccountId)> 
     Ok((accounts, contract_id))
 }
 
-async fn setup() -> anyhow::Result<(Account, AccountId)> {
-    let (worker, contract_id) = setup_worker().await?;
+async fn setup(contract: Contract) -> anyhow::Result<(Account, AccountId)> {
+    let (worker, contract_id) = setup_worker(contract).await?;
 
     let (account, _) =
         dev_generate(worker.clone(), Collection::IterableSet, "seed".to_string()).await?;
@@ -114,7 +124,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         Collection::Vector,
     ];
 
-    let (account, contract_id) = setup().await?;
+    let (account, contract_id) = setup(Contract::StoreContract).await?;
     // insert test, max_iterations here is the number of elements to insert. It's used to measure
     // relative performance.
     for (col, max_iterations) in collection_types.map(|col| match col {
@@ -126,6 +136,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         Collection::LookupMap => (col, 650),
         Collection::LookupSet => (col, 1020),
         Collection::Vector => (col, 1080),
+        _ => (col, 0),
     }) {
         let total_gas = account
             .call(&contract_id, "insert")
@@ -151,6 +162,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         Collection::LookupMap => (col, 520),
         Collection::LookupSet => (col, 1050),
         Collection::Vector => (col, 530),
+        _ => (col, 0),
     }) {
         let total_gas = account
             .call(&contract_id, "remove")
@@ -181,7 +193,7 @@ async fn iter() -> anyhow::Result<()> {
     ];
 
     let element_number = 100;
-    let (account, contract_id) = setup().await?;
+    let (account, contract_id) = setup(Contract::StoreContract).await?;
 
     // pre-populate
     for col in collection_types {
@@ -234,7 +246,7 @@ async fn random_access() -> anyhow::Result<()> {
         Collection::Vector,
     ];
     let element_number = 100;
-    let (account, contract_id) = setup().await?;
+    let (account, contract_id) = setup(Contract::StoreContract).await?;
 
     // pre-populate
     for col in collection_types {
@@ -297,7 +309,7 @@ async fn contains() -> anyhow::Result<()> {
     ];
     // Each collection gets the same number of elements.
     let element_number = 100;
-    let (account, contract_id) = setup().await?;
+    let (account, contract_id) = setup(Contract::StoreContract).await?;
 
     // prepopulate
     for col in collection_types {
@@ -344,7 +356,7 @@ async fn contains() -> anyhow::Result<()> {
 async fn iterable_vs_unordered() -> anyhow::Result<()> {
     let element_number = 300;
     let deleted_element_number = 299;
-    let (account, contract_id) = setup().await?;
+    let (account, contract_id) = setup(Contract::StoreContract).await?;
 
     // We only care about Unordered* and Iterable* collections.
     let collection_types = &[
@@ -420,5 +432,51 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
         perform_asserts(total_gas, col);
     }
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy() -> anyhow::Result<()> {
+    let (account, contract_id) = setup(Contract::LazyContract).await?;
+
+    let res = account
+        .call(&contract_id, "insert_delete")
+        .args_json((700,))
+        .max_gas()
+        .transact()
+        .await?
+        .unwrap();
+
+    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+
+    let res = account
+        .call(&contract_id, "insert_delete_flush_once")
+        .args_json((1700,))
+        .max_gas()
+        .transact()
+        .await?
+        .unwrap();
+
+    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+
+    let res = account
+        .call(&contract_id, "flush")
+        .args_json((2400000,))
+        .max_gas()
+        .transact()
+        .await?
+        .unwrap();
+
+    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+
+    let res = account
+        .call(&contract_id, "insert_flush")
+        .args_json((1200,))
+        .max_gas()
+        .transact()
+        .await?
+        .unwrap();
+
+    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
     Ok(())
 }
