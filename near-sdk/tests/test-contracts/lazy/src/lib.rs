@@ -1,5 +1,5 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near, store::LazyOption, PanicOnDefault};
+use near_sdk::{near, store::LazyOption, PanicOnDefault};
 
 #[derive(BorshSerialize, BorshDeserialize, Ord, PartialOrd, Eq, PartialEq, Clone)]
 #[borsh(crate = "near_sdk::borsh")]
