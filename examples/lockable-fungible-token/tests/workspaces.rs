@@ -3,6 +3,7 @@ use std::str::FromStr;
 use near_sdk::json_types::U128;
 use near_workspaces::{types::NearToken, Account, Contract};
 use rstest::{fixture, rstest};
+use near_workspaces::cargo_near_build;
 
 #[fixture]
 fn initial_balance() -> U128 {
