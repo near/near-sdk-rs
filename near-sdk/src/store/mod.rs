@@ -20,8 +20,8 @@
 //! If your collection has up to 100 entries, it's acceptable to use the native collection, as it might be simpler
 //! since you don't have to manage prefixes as we do with near collections.
 //! However, if your collection has 1,000 or more entries, it's better to use a near collection. The investigation
-//! mentioned above shows that running the contains method on a native HashSet<i32> consumes 41% more gas
-//! compared to a near IterableSet<i32>.
+//! mentioned above shows that running the contains method on a native [`std::collections::HashSet<i32>`] consumes 41% more gas
+//! compared to a near [`crate::store::IterableSet<i32>`].
 //!
 //! It's also a bad practice to have a native collection properties as a top level properties of your contract.
 //! The contract will load all the properties before the contract method invocation. That means that all your native
@@ -52,7 +52,7 @@
 //! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //!   guarantees.
 //!
-//! - [`TreeMap`](TreeMap) (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
+//! - [`TreeMap`] (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
 //!   which comes at the cost of more expensive lookups and iteration.
 //!
 //! Sets:

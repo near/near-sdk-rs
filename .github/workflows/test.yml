@@ -125,5 +125,5 @@ jobs:
       run: |
         cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs
         cargo doc -p near-sdk-macros
-        cargo doc -p near-contract-standards
+        cargo doc -p near-contract-standards --no-deps
         cargo doc -p near-sys
