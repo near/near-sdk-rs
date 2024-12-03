@@ -147,7 +147,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, &col);
+        perform_asserts(total_gas, col);
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
@@ -172,7 +172,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, &col);
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -225,7 +225,7 @@ async fn iter() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, &col);
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -287,7 +287,7 @@ async fn random_access() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, &col);
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -342,7 +342,7 @@ async fn contains() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, &col);
+        perform_asserts(total_gas, col);
     }
 
     Ok(())
@@ -405,7 +405,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, &col);
+        perform_asserts(total_gas, col);
     }
 
     // random access, repeat here is the number of times we try to access an element in the
