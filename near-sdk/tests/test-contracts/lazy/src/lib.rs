@@ -38,6 +38,15 @@ impl LazyContract {
         }
     }
 
+    #[payable]
+    pub fn get(&mut self, iterations: u32) {
+        let insertable = self.insertable();
+        self.lazy_opt.set(Some(insertable));
+        for _ in 0..=iterations {
+            self.lazy_opt.get();
+        }
+    }
+
     /// This should write on each iteration.
     #[payable]
     pub fn insert_flush(&mut self, iterations: u32) {
@@ -45,6 +54,19 @@ impl LazyContract {
         for idx in 0..=iterations {
             insertable.index = idx as u32;
             self.lazy_opt.set(Some(insertable.clone()));
+            self.lazy_opt.flush();
+        }
+    }
+
+    /// This should write twice on each iteration.
+    #[payable]
+    pub fn insert_take_flush(&mut self, iterations: u32) {
+        let mut insertable = self.insertable();
+        for idx in 0..=iterations {
+            insertable.index = idx as u32;
+            self.lazy_opt.set(Some(insertable.clone()));
+            self.lazy_opt.flush();
+            self.lazy_opt.take();
             self.lazy_opt.flush();
         }
     }

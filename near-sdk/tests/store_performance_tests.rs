@@ -1,6 +1,6 @@
 // As wasm VM performance is tested, there is no need to test this on other types of OS.
 // This test runs only on Linux, as it's much slower on OS X due to an interpreted VM.
-#![cfg(target_os = "linux")]
+// #![cfg(target_os = "linux")]
 
 use near_account_id::AccountId;
 use near_gas::NearGas;
@@ -9,6 +9,7 @@ use near_workspaces::types::{KeyType, SecretKey};
 use near_workspaces::{Account, Worker};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::sync::Arc;
 use strum_macros::Display;
 
@@ -25,7 +26,6 @@ pub enum Collection {
     LookupSet,
     TreeMap,
     Vector,
-    LazyOption,
 }
 
 pub enum Contract {
@@ -72,7 +72,7 @@ async fn setup_worker(contract: Contract) -> anyhow::Result<(Arc<Worker<Sandbox>
     Ok((worker, contract.id().clone()))
 }
 
-fn perform_asserts(total_gas: u64, col: &Collection) {
+fn perform_asserts(total_gas: u64, col: impl Display) {
     // Constraints a bit relaxed to account for binary differences due to on-demand compilation.
     assert!(
         total_gas < NearGas::from_tgas(110).as_gas(),
@@ -136,7 +136,6 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         Collection::LookupMap => (col, 650),
         Collection::LookupSet => (col, 1020),
         Collection::Vector => (col, 1080),
-        _ => (col, 0),
     }) {
         let total_gas = account
             .call(&contract_id, "insert")
@@ -162,7 +161,6 @@ async fn insert_and_remove() -> anyhow::Result<()> {
         Collection::LookupMap => (col, 520),
         Collection::LookupSet => (col, 1050),
         Collection::Vector => (col, 530),
-        _ => (col, 0),
     }) {
         let total_gas = account
             .call(&contract_id, "remove")
@@ -447,7 +445,7 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_delete");
 
     let res = account
         .call(&contract_id, "insert_delete_flush_once")
@@ -457,17 +455,27 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_delete_flush_once");
 
     let res = account
         .call(&contract_id, "flush")
-        .args_json((2400000,))
+        .args_json((2450000,))
         .max_gas()
         .transact()
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush");
+
+    let res = account
+        .call(&contract_id, "get")
+        .args_json((3500000,))
+        .max_gas()
+        .transact()
+        .await?
+        .unwrap();
+
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get");
 
     let res = account
         .call(&contract_id, "insert_flush")
@@ -477,6 +485,16 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), &Collection::LazyOption);
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_flush");
+
+    let res = account
+        .call(&contract_id, "insert_take_flush")
+        .args_json((700,))
+        .max_gas()
+        .transact()
+        .await?
+        .unwrap();
+
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_take_flush");
     Ok(())
 }
