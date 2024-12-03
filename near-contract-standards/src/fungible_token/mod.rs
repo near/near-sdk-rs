@@ -1,3 +1,5 @@
+//! Fungible tokens as described in [by the spec](https://nomicon.io/Standards/Tokens/FungibleToken).
+//!
 //! This module represents a Fungible Token standard.
 //!
 //! # Examples
