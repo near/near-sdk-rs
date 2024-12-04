@@ -81,7 +81,7 @@ fn perform_asserts(total_gas: u64, col: impl Display, override_min_gas: Option<u
         NearGas::from_gas(total_gas)
     );
     assert!(
-        total_gas > NearGas::from_tgas(override_min_gas.unwrap_or_else(|| 90)).as_gas(),
+        total_gas > NearGas::from_tgas(override_min_gas.unwrap_or(90)).as_gas(),
         "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
         col,
         NearGas::from_gas(total_gas)
@@ -459,7 +459,7 @@ async fn test_lazy() -> anyhow::Result<()> {
 
     let res = account
         .call(&contract_id, "flush")
-        .args_json((2400000,))
+        .args_json((2800000,))
         .max_gas()
         .transact()
         .await?
