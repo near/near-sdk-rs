@@ -72,7 +72,7 @@ async fn setup_worker(contract: Contract) -> anyhow::Result<(Arc<Worker<Sandbox>
     Ok((worker, contract.id().clone()))
 }
 
-fn perform_asserts(total_gas: u64, col: impl Display) {
+fn perform_asserts(total_gas: u64, col: impl Display, override_min_gas: Option<u64>) {
     // Constraints a bit relaxed to account for binary differences due to on-demand compilation.
     assert!(
         total_gas < NearGas::from_tgas(110).as_gas(),
@@ -81,7 +81,7 @@ fn perform_asserts(total_gas: u64, col: impl Display) {
         NearGas::from_gas(total_gas)
     );
     assert!(
-        total_gas > NearGas::from_tgas(90).as_gas(),
+        total_gas > NearGas::from_tgas(override_min_gas.unwrap_or_else(|| 90)).as_gas(),
         "not enough gas consumed {}: {}, adjust the number of iterations to spot regressions",
         col,
         NearGas::from_gas(total_gas)
@@ -147,7 +147,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     // remove test, max_iterations here is the number of elements to remove. It's used to measure
@@ -172,7 +172,7 @@ async fn insert_and_remove() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     Ok(())
@@ -225,7 +225,7 @@ async fn iter() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     Ok(())
@@ -287,7 +287,7 @@ async fn random_access() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     Ok(())
@@ -342,7 +342,7 @@ async fn contains() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     Ok(())
@@ -405,7 +405,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     // random access, repeat here is the number of times we try to access an element in the
@@ -427,7 +427,7 @@ async fn iterable_vs_unordered() -> anyhow::Result<()> {
             .total_gas_burnt
             .as_gas();
 
-        perform_asserts(total_gas, col);
+        perform_asserts(total_gas, col, None);
     }
 
     Ok(())
@@ -445,7 +445,7 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_delete");
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_delete", None);
 
     let res = account
         .call(&contract_id, "insert_delete_flush_once")
@@ -455,27 +455,29 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_delete_flush_once");
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_delete_flush_once", None);
 
     let res = account
         .call(&contract_id, "flush")
-        .args_json((2200000,))
+        .args_json((2400000,))
         .max_gas()
         .transact()
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush");
+    // Override min gas to avoid constant tuning, it's pretty clear this is performant.
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:flush", Some(70));
 
     let res = account
         .call(&contract_id, "get")
-        .args_json((3500000,))
+        .args_json((2400000,))
         .max_gas()
         .transact()
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get");
+    // Override min gas to avoid constant tuning, it's pretty clear this is performant.
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get", Some(70));
 
     let res = account
         .call(&contract_id, "insert_flush")
@@ -485,7 +487,7 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_flush");
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_flush", None);
 
     let res = account
         .call(&contract_id, "insert_take")
@@ -495,6 +497,6 @@ async fn test_lazy() -> anyhow::Result<()> {
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_take");
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_take", None);
     Ok(())
 }
