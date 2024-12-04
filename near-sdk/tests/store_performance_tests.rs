@@ -459,7 +459,7 @@ async fn test_lazy() -> anyhow::Result<()> {
 
     let res = account
         .call(&contract_id, "flush")
-        .args_json((3000000,))
+        .args_json((2000000,))
         .max_gas()
         .transact()
         .await?
