@@ -459,7 +459,7 @@ async fn test_lazy() -> anyhow::Result<()> {
 
     let res = account
         .call(&contract_id, "flush")
-        .args_json((3550000,))
+        .args_json((3000000,))
         .max_gas()
         .transact()
         .await?
@@ -488,13 +488,13 @@ async fn test_lazy() -> anyhow::Result<()> {
     perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_flush");
 
     let res = account
-        .call(&contract_id, "insert_take_flush")
+        .call(&contract_id, "insert_take")
         .args_json((700,))
         .max_gas()
         .transact()
         .await?
         .unwrap();
 
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_take_flush");
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:insert_take");
     Ok(())
 }

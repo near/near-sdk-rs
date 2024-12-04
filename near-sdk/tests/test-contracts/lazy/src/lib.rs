@@ -60,7 +60,7 @@ impl LazyContract {
 
     /// This should write twice on each iteration.
     #[payable]
-    pub fn insert_take_flush(&mut self, iterations: u32) {
+    pub fn insert_take(&mut self, iterations: u32) {
         let mut insertable = self.insertable();
         for idx in 0..=iterations {
             insertable.index = idx as u32;
