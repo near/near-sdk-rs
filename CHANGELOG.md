@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [5.6.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.6.0...near-sdk-v5.6.1) - 2024-12-05
+
+### Other
+
+- tests for Lazy and moving out of unstable ([#1268](https://github.com/near/near-sdk-rs/pull/1268))
+- add a `cargo doc` job ([#1269](https://github.com/near/near-sdk-rs/pull/1269))
+- allow clippy::needless_lifetimes (1.83 more suggestions) ([#1267](https://github.com/near/near-sdk-rs/pull/1267))
+- examples for Near-related host functions ([#1259](https://github.com/near/near-sdk-rs/pull/1259))
+- updates near-workspaces to 0.15 version ([#1260](https://github.com/near/near-sdk-rs/pull/1260))
+
 ## [5.6.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.5.0...near-sdk-v5.6.0) - 2024-11-14
 
 ### Other
