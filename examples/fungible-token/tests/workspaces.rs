@@ -39,14 +39,14 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
 }
 
 #[fixture]
-#[once]
+// #[once]
 fn fungible_contract_wasm() -> Vec<u8> {
     build_contract("./ft/Cargo.toml", "fungible-token")
 }
 
 
 #[fixture]
-#[once]
+// #[once]
 fn defi_contract_wasm() -> Vec<u8> {
     build_contract("./test-contract-defi/Cargo.toml", "defi")
 }
@@ -59,12 +59,12 @@ fn initial_balance() -> U128 {
 #[fixture]
 async fn initialized_contracts(
     initial_balance: U128,
-    fungible_contract_wasm: &Vec<u8>,
-    defi_contract_wasm: &Vec<u8>,
+    fungible_contract_wasm: Vec<u8>,
+    defi_contract_wasm: Vec<u8>,
 ) -> anyhow::Result<(Contract, Account, Contract)> {
     let worker = near_workspaces::sandbox().await?;
 
-    let ft_contract = worker.dev_deploy(fungible_contract_wasm).await?;
+    let ft_contract = worker.dev_deploy(&fungible_contract_wasm).await?;
 
     let res = ft_contract
         .call("new_default_meta")
@@ -74,7 +74,7 @@ async fn initialized_contracts(
         .await?;
     assert!(res.is_success());
 
-    let defi_contract = worker.dev_deploy(defi_contract_wasm).await?;
+    let defi_contract = worker.dev_deploy(&defi_contract_wasm).await?;
 
     let res = defi_contract
         .call("new")
@@ -82,6 +82,7 @@ async fn initialized_contracts(
         .max_gas()
         .transact()
         .await?;
+    dbg!(&res);
     assert!(res.is_success());
 
     let alice = ft_contract
