@@ -23,3 +23,7 @@ overflow-checks = true
 [workspace]
 # remember to include a member for each contract
 members = ["ft", "test-contract-defi"]
+
+[patch.crates-io]
+cargo-near-build = { git = 'https://github.com/dj8yfo/cargo-near.git', rev = '843aa974d7f30ad803af401bd7c0a819872ccbdf' }
+
