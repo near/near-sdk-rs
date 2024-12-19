@@ -97,6 +97,7 @@ impl TryFrom<PublicKey> for near_crypto::PublicKey {
 ///             .unwrap();
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Hash)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct PublicKey {
     data: Vec<u8>,
 }
