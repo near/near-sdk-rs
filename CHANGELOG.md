@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.0...near-sdk-v5.7.1) - 2024-12-19
+
+### Other
+
+- impaired PublicKey with missing BorshSchema (#1281)
+
 ## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.6.0...near-sdk-v5.7.0) - 2024-12-13
 
 ### Other
