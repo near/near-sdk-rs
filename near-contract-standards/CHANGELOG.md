@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.6.0...near-contract-standards-v5.7.0) - 2024-12-13
+
+### Other
+
+- add a `cargo doc` job (#1269)
+- allow clippy::needless_lifetimes (1.83 more suggestions) (#1267)
+
 ## [5.5.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.4.0...near-contract-standards-v5.5.0) - 2024-09-11
 
 ### Other
