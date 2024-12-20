@@ -98,4 +98,4 @@ __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
 __macro-docs = []
 
 [package.metadata.docs.rs]
-features = ["unstable", "legacy", "unit-testing", "__macro-docs"]
+features = ["unstable", "legacy", "unit-testing", "__macro-docs", "near-primitives", "near-vm-runner"]

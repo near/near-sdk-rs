@@ -1,6 +1,7 @@
 /// Enables contract runtime to panic with the given type. Any error type used in conjunction
 /// with `#[handle_result]` has to implement this trait.
 ///
+/// Example:
 /// ```
 /// use near_sdk::FunctionError;
 ///
@@ -17,6 +18,15 @@
 ///             Error::Unexpected { message } =>
 ///                 near_sdk::env::panic_str(&format!("unexpected error: {}", message))
 ///         }
+///     }
+/// }
+///
+/// #[near]
+/// impl Contract {
+///     // if the Error does not implement FunctionError, the following will not compile with #[handle_result]
+///     #[handle_result]
+///     pub fn set(&self, value: String) -> Result<String, Error> {
+///         Err(Error::NotFound)
 ///     }
 /// }
 /// ```

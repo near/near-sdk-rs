@@ -2,7 +2,13 @@
 pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnData};
 
 //* Types from near_vm_logic
-/// Promise index that is computed only once.
+/// Promise index that is computed only once. It is an internal index that identifies a specific promise (or a sequence of promises) created during the execution of a smart contract.
+/// Returned by [`promise_create`](crate::env::promise_create) and can be used to refer this promise in `promise_then`, `promise_batch_create`, and other functions.
+/// Example:
+/// ```ignore
+/// let promise_id = env::promise_create("a.near", "new", b"{}", 0, 1_000_000_000_000);
+/// env::promise_then(promise_id, "b.near", "callback", b"{}", 0, 1_000_000_000_000);
+/// ```
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Copy, Clone)]
 pub struct PromiseIndex(pub(crate) u64);
 
