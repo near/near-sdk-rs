@@ -251,6 +251,7 @@ enum PromiseSubtype {
 
 impl Promise {
     /// Create a promise that acts on the given account.
+    /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
         Self {
             subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
@@ -274,16 +275,19 @@ impl Promise {
     }
 
     /// Create account on which this promise acts.
+    /// Uses low-level [`crate::env::promise_batch_action_create_account`]
     pub fn create_account(self) -> Self {
         self.add_action(PromiseAction::CreateAccount)
     }
 
     /// Deploy a smart contract to the account on which this promise acts.
+    /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
     pub fn deploy_contract(self, code: Vec<u8>) -> Self {
         self.add_action(PromiseAction::DeployContract { code })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
+    /// Uses low-level [`crate::env::promise_batch_action_function_call`]
     pub fn function_call(
         self,
         function_name: String,
@@ -297,6 +301,7 @@ impl Promise {
     /// A low-level interface for making a function call to the account that this promise acts on.
     /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
     /// on this function call at the end of the scheduling method execution.
+    /// Uses low-level [`crate::env::promise_batch_action_function_call_weight`]
     pub fn function_call_weight(
         self,
         function_name: String,
@@ -315,21 +320,25 @@ impl Promise {
     }
 
     /// Transfer tokens to the account that this promise acts on.
+    /// Uses low-level [`crate::env::promise_batch_action_transfer`]
     pub fn transfer(self, amount: NearToken) -> Self {
         self.add_action(PromiseAction::Transfer { amount })
     }
 
     /// Stake the account for the given amount of tokens using the given public key.
+    /// Uses low-level [`crate::env::promise_batch_action_stake`]
     pub fn stake(self, amount: NearToken, public_key: PublicKey) -> Self {
         self.add_action(PromiseAction::Stake { amount, public_key })
     }
 
     /// Add full access key to the given account.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
     pub fn add_full_access_key(self, public_key: PublicKey) -> Self {
         self.add_full_access_key_with_nonce(public_key, 0)
     }
 
     /// Add full access key to the given account with a provided nonce.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
     pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
         self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
     }
@@ -337,6 +346,7 @@ impl Promise {
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
     /// e.g. `"method_a,method_b".to_string()`.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
     pub fn add_access_key_allowance(
         self,
         public_key: PublicKey,
@@ -366,6 +376,7 @@ impl Promise {
     }
 
     /// Add an access key with a provided nonce.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
     pub fn add_access_key_allowance_with_nonce(
         self,
         public_key: PublicKey,
@@ -403,11 +414,13 @@ impl Promise {
     }
 
     /// Delete access key from the given account.
+    /// Uses low-level [`crate::env::promise_batch_action_delete_key`]
     pub fn delete_key(self, public_key: PublicKey) -> Self {
         self.add_action(PromiseAction::DeleteKey { public_key })
     }
 
     /// Delete the given account.
+    /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
     pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
         self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
     }
@@ -425,6 +438,7 @@ impl Promise {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
+    /// Uses low-level [`crate::env::promise_and`]
     pub fn and(self, other: Promise) -> Promise {
         Promise {
             subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
@@ -449,6 +463,7 @@ impl Promise {
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
+    /// Uses low-level [`crate::env::promise_batch_then`]
     pub fn then(self, mut other: Promise) -> Promise {
         match &mut other.subtype {
             PromiseSubtype::Single(x) => {
@@ -491,6 +506,7 @@ impl Promise {
     ///     }
     /// }
     /// ```
+    /// Makes the promise to use low-level [`crate::env::promise_return`].
     #[allow(clippy::wrong_self_convention)]
     pub fn as_return(self) -> Self {
         *self.should_return.borrow_mut() = true;
