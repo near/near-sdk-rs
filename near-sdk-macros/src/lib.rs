@@ -55,7 +55,7 @@ struct NearMacroArgs {
 ///    pub name: String,
 /// }
 /// ```
-/// 
+///
 /// This macro will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
 ///
@@ -84,16 +84,16 @@ struct NearMacroArgs {
 ///        ...
 //    }
 /// ```
-/// 
+///
 /// # Usage for enum / struct
-/// 
+///
 /// If the macro is used with struct or enum, it will make the struct or enum serializable with either
 /// Borsh or Json depending on serializers passed. Use `#[near(serializers=[borsh])]` to make it serializable with Borsh.
 /// Or use `#[near(serializers=[json])]` to make it serializable with Json. By default, borsh is used.
 /// You can also specify both and none. BorshSchema or JsonSchema are always generated.
 ///
 /// If you want the struct to be a contract state, you can pass in the contract_state argument.
-/// 
+///
 /// ## Example
 /// ```ignore
 /// use near_sdk::near;
@@ -474,7 +474,7 @@ fn process_impl_block(
 ///     fn mult(&self, a: u64, b: u64) -> u128;
 ///     fn sum(&self, a: u128, b: u128) -> u128;
 /// }
-/// 
+///
 /// #[near]
 /// impl Contract {
 ///    pub fn multiply_by_five(&mut self, number: u64) -> Promise {
@@ -483,9 +483,9 @@ fn process_impl_block(
 ///            .mult(number, 5)
 ///    }
 /// }
-/// 
+///
 /// ```
-/// 
+///
 /// See more information about role of ext_contract in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -815,23 +815,23 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
 
 /// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
 /// It allows the type to be passed as a unique prefix for persistent collections.
-/// The type should also implement or derive `BorshSerialize` trait. 
-/// 
+/// The type should also implement or derive `BorshSerialize` trait.
+///
 /// More information about storage keys in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/storage)
-/// ## Example 
+/// ## Example
 /// ```ignore
 /// #[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
 /// #[borsh(crate = "near_sdk::borsh")]
 /// pub enum StorageKey {
 ///     Messages,
 /// }
-/// 
+///
 /// // Define the contract structure
 /// #[near(contract_state)]
 /// pub struct Contract {
 ///     messages: Vector<String>
 /// }
-/// 
+///
 /// // Define the default, which automatically initializes the contract
 /// impl Default for Contract {
 ///     fn default() -> Self {

@@ -59,7 +59,7 @@
 //! ```bash
 //! cargo install --locked cargo-near
 //! ```
-//! 
+//!
 //! Build your contract for the NEAR blockchain:
 //!
 //! ```bash

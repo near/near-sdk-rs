@@ -20,7 +20,7 @@
 ///         }
 ///     }
 /// }
-/// 
+///
 /// #[near]
 /// impl Contract {
 ///     // if the Error does not implement FunctionError, the following will not compile with #[handle_result]

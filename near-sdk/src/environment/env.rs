@@ -755,7 +755,7 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 ///
 /// More info about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
-/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs> 
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 ///
 pub fn promise_create(
     account_id: AccountId,
