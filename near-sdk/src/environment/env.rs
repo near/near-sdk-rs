@@ -892,7 +892,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// ```ignore
 /// let target_account = "example.near".to_string();
 /// let promise_index = env::promise_batch_create(&target_account);
-/// 
+///
 /// // Adding actions to the promise
 /// env::promise_batch_action_transfer(promise_index, 10u128); // Transfer 10 NEAR
 /// env::promise_batch_action_function_call(
