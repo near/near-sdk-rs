@@ -47,24 +47,7 @@ struct NearMacroArgs {
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
 ///
-/// This macro will generate code to load and deserialize state if the `self` parameter is included
-/// as well as saving it back to state if `&mut self` is used.
-///
-/// If the macro is used with Impl section, for parameter serialization, this macro will generate a struct with all of the parameters as
-/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
-/// but can be overwritten by using `#[serializer(borsh)]`.
-///
-/// `#[near]` will also handle serializing and setting the return value of the
-/// function execution based on what type is returned by the function. By default, this will be
-/// done through `serde` serialized as JSON, but this can be overwritten using
-/// `#[result_serializer(borsh)]`.
-///
-/// If the macro is used with struct or enum, it will make the struct or enum serializable with either
-/// Borsh or Json depending on serializers passed. Use #[near(serializers=[borsh])] to make it serializable with Borsh.
-/// Or use #[near(serializers=[json])] to make it serializable with Json. By default, borsh is used.
-/// You can also specify both and none. BorshSchema or JsonSchema are always generated.
-///
-/// # Example
+/// ## Example
 ///
 /// ```ignore
 /// #[near(serializers=[borsh, json])]
@@ -72,8 +55,46 @@ struct NearMacroArgs {
 ///    pub name: String,
 /// }
 /// ```
-/// If you want this struct to be a contract state, you can pass in the contract_state argument.
-/// # Example
+/// 
+/// This macro will generate code to load and deserialize state if the `self` parameter is included
+/// as well as saving it back to state if `&mut self` is used.
+///
+/// # Parameter and result serialization
+/// If the macro is used with Impl section, for parameter serialization, this macro will generate a struct with all of the parameters as
+/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
+/// but can be overwritten by using `#[serializer(borsh)]`:
+/// ```ignore
+/// #[near]
+/// impl Adder {
+///    #[result_serializer(borsh)]
+///    pub fn borsh_parameters(&self, #[serializer(borsh)] a: Pair, #[serializer(borsh)] b: Pair) -> Pair {
+///        ...
+//    }
+/// ```
+///
+/// `#[near]` will also handle serializing and setting the return value of the
+/// function execution based on what type is returned by the function. By default, this will be
+/// done through `serde` serialized as JSON, but this can be overwritten using
+/// `#[result_serializer(borsh)]`:
+/// ```ignore
+/// #[near]
+/// impl Adder {
+///    #[result_serializer(borsh)]
+///    pub fn borsh_parameters(&self) -> Pair {
+///        ...
+//    }
+/// ```
+/// 
+/// # Usage for enum / struct
+/// 
+/// If the macro is used with struct or enum, it will make the struct or enum serializable with either
+/// Borsh or Json depending on serializers passed. Use `#[near(serializers=[borsh])]` to make it serializable with Borsh.
+/// Or use `#[near(serializers=[json])]` to make it serializable with Json. By default, borsh is used.
+/// You can also specify both and none. BorshSchema or JsonSchema are always generated.
+///
+/// If you want the struct to be a contract state, you can pass in the contract_state argument.
+/// 
+/// ## Example
 /// ```ignore
 /// use near_sdk::near;
 ///
@@ -89,7 +110,7 @@ struct NearMacroArgs {
 /// ```
 /// As well, the macro supports arguments like `event_json` and `contract_metadata`.
 ///
-/// Events Standard:
+/// # Events Standard:
 ///
 /// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
 /// according to NEP-297
@@ -100,7 +121,7 @@ struct NearMacroArgs {
 /// By default this will be JSON deserialized with `serde`
 ///
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ```ignore
 /// use near_sdk::near;
@@ -128,7 +149,7 @@ struct NearMacroArgs {
 /// }
 /// ```
 ///
-/// Contract Source Metadata Standard:
+/// # Contract Source Metadata Standard:
 ///
 /// By using `contract_metadata` as an argument `near` will populate the contract metadata
 /// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near]` is used without
@@ -139,7 +160,7 @@ struct NearMacroArgs {
 /// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
 /// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
 ///
-/// # Examples
+/// ## Examples
 /// ```ignore
 /// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 /// use near_sdk::near;
@@ -295,7 +316,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// This macro is deprecated. Use #[near] instead. The difference between #[near] and #[near_bindgen] is that
+/// This macro is deprecated. Use [#[near]](./attr.near.html) instead. The difference between #[near] and #[near_bindgen] is that
 /// with #[near_bindgen] you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
 /// ```ignore
 /// #[near_bindgen]
@@ -443,7 +464,7 @@ fn process_impl_block(
 /// Each of these static methods takes positional arguments defined by the Trait,
 /// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
 ///
-/// # Examples
+/// ## Examples
 ///
 /// ```ignore
 /// use near_sdk::ext_contract;
@@ -453,6 +474,16 @@ fn process_impl_block(
 ///     fn mult(&self, a: u64, b: u64) -> u128;
 ///     fn sum(&self, a: u128, b: u128) -> u128;
 /// }
+/// 
+/// #[near]
+/// impl Contract {
+///    pub fn multiply_by_five(&mut self, number: u64) -> Promise {
+///        ext_calculator::ext(self.calculator_account.clone())
+///            .with_static_gas(Gas::from_tgas(5))
+///            .mult(number, 5)
+///    }
+/// }
+/// 
 /// ```
 /// 
 /// See more information about role of ext_contract in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
@@ -542,6 +573,15 @@ struct DeriveNearSchema {
 /// `NearSchema` is a derive macro that generates `BorshSchema` and / or `JsonSchema` implementations.
 /// Use `#[abi(json)]` attribute to generate code for `JsonSchema`. And `#[abi(borsh)]` for `BorshSchema`.
 /// You can use both and none as well.
+/// ## Example
+/// ```ignore
+/// #[derive(NearSchema)]
+/// #[abi(borsh)]
+/// struct Value {
+///    field: InnerValue,
+/// }
+/// ```
+/// In this example, BorshSchema will be generated for `Value` struct.
 #[proc_macro_derive(NearSchema, attributes(abi, serde, borsh, schemars, validate, inside_nearsdk))]
 pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
     #[cfg(not(feature = "abi"))]
@@ -778,6 +818,29 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
 /// The type should also implement or derive `BorshSerialize` trait. 
 /// 
 /// More information about storage keys in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/storage)
+/// ## Example 
+/// ```ignore
+/// #[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
+/// #[borsh(crate = "near_sdk::borsh")]
+/// pub enum StorageKey {
+///     Messages,
+/// }
+/// 
+/// // Define the contract structure
+/// #[near(contract_state)]
+/// pub struct Contract {
+///     messages: Vector<String>
+/// }
+/// 
+/// // Define the default, which automatically initializes the contract
+/// impl Default for Contract {
+///     fn default() -> Self {
+///         Self {
+///             messages: Vector::new(StorageKey::Messages)
+///         }
+///     }
+/// }
+/// ```
 #[proc_macro_derive(BorshStorageKey)]
 pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     let (name, generics) = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {

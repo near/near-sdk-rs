@@ -55,6 +55,11 @@
 //!
 //! ### Compiling to WASM
 //!
+//! Install cargo near in case if you don't have it:
+//! ```bash
+//! cargo install --locked cargo-near
+//! ```
+//! 
 //! Build your contract for the NEAR blockchain:
 //!
 //! ```bash
