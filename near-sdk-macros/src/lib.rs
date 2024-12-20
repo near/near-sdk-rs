@@ -336,10 +336,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro_attribute]
-#[deprecated(
-    since = "5.7.0",
-    note = "Use #[near] macro instead which allows to remove boilerplate code"
-)]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
         return core_impl::near_events(attr, item);
