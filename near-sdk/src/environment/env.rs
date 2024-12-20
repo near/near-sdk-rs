@@ -1580,6 +1580,7 @@ pub fn promise_yield_create(
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume`]
+/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288)
 pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
     unsafe {
         sys::promise_yield_resume(
@@ -1657,6 +1658,7 @@ pub fn validator_total_stake() -> NearToken {
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L18)
 pub fn value_return(value: &[u8]) {
     unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
@@ -1731,6 +1733,7 @@ pub fn abort() -> ! {
 /// let number = 5;
 /// log_str(format!("Number: {}", number).as_str());
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", message);
@@ -1772,6 +1775,7 @@ pub fn log(message: &[u8]) {
 /// assert!(storage_write(b"key", b"another_value"));
 /// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L63)
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         sys::storage_write(
@@ -1823,6 +1827,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// storage_write(b"key", b"value");
 /// assert_eq!(storage_remove(b"key"), true);
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
 pub fn storage_remove(key: &[u8]) -> bool {
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
@@ -1905,6 +1910,7 @@ pub fn state_exists() -> bool {
 ///
 /// assert_eq!(storage_byte_cost(), NearToken::from_yoctonear(10000000000000000000));
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/storage_impl.rs#L105), [here](https://github.com/near/near-sdk-rs/blob/master/near-contract-standards/src/non_fungible_token/utils.rs) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/fungible-token/tests/workspaces.rs)
 pub fn storage_byte_cost() -> NearToken {
     NearToken::from_yoctonear(10_000_000_000_000_000_000u128)
 }
