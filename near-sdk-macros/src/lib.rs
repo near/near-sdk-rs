@@ -318,8 +318,8 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// This macro is deprecated. Use [#[macro@near]](./attr.near.html) instead. The difference between #[macro@near] and #[macro@near_bindgen] is that
-/// with #[macro@near_bindgen] you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
+/// This macro is deprecated. Use [#\[near\]](./attr.near.html) instead. The difference between #\[near\] and #\[near_bindgen\] is that
+/// with #\[near_bindgen\] you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
 /// ```ignore
 /// #[near_bindgen]
 /// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
