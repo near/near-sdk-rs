@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.0...near-sdk-v5.7.1) - 2024-12-20
+
+### Other
+
+- updates near-workspaces to 0.16 version (#1284)
+- impaired PublicKey with missing BorshSchema (#1281)
+
 ## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.6.0...near-sdk-v5.7.0) - 2024-12-13
 
 ### Other
