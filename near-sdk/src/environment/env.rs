@@ -1390,6 +1390,7 @@ pub fn promise_batch_action_delete_account(
 /// assert_eq!(promise_results_count(), 0);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_results_count`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
     unsafe { sys::promise_results_count() }
 }
@@ -1419,6 +1420,7 @@ pub fn promise_results_count() -> u64 {
 /// };
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_result`]
+/// Example usages: [one](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/core_impl.rs#L178), [two](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433), [three](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61), [four](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
 pub fn promise_result(result_idx: u64) -> PromiseResult {
     match promise_result_internal(result_idx) {
         Ok(()) => {
