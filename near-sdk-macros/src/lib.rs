@@ -69,7 +69,7 @@ struct NearMacroArgs {
 ///    #[result_serializer(borsh)]
 ///    pub fn borsh_parameters(&self, #[serializer(borsh)] a: Pair, #[serializer(borsh)] b: Pair) -> Pair {
 ///        /// ...
-//    }
+///    }
 /// ```
 ///
 /// `#[near]` will also handle serializing and setting the return value of the
@@ -82,7 +82,7 @@ struct NearMacroArgs {
 ///    #[result_serializer(borsh)]
 ///    pub fn borsh_parameters(&self) -> Pair {
 ///        /// ...
-//    }
+///    }
 /// ```
 ///
 /// # Usage for enum / struct

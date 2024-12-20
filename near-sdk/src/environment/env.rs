@@ -1462,6 +1462,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// promise_return(promise);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
+/// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
 }
@@ -1513,6 +1514,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create`]
+/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689)
 pub fn promise_yield_create(
     function_name: &str,
     arguments: &[u8],
