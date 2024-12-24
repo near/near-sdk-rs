@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.0...near-sdk-v5.7.1) - 2024-12-24
+
+### Other
+
+- `__abi-generate` feature in docs.rs (#1286)
+- updates near-workspaces to 0.16 version (#1284)
+- impaired PublicKey with missing BorshSchema (#1281)
+
 ## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.6.0...near-sdk-v5.7.0) - 2024-12-13
 
 ### Other
