@@ -2,8 +2,8 @@
 /// with `#[handle_result]` has to implement this trait.
 ///
 /// Example:
-/// ```
-/// use near_sdk::FunctionError;
+/// ```ignore
+/// use near_sdk::{FunctionError, near};
 ///
 /// enum Error {
 ///     NotFound,
@@ -20,6 +20,10 @@
 ///         }
 ///     }
 /// }
+/// 
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract;
 ///
 /// #[near]
 /// impl Contract {
