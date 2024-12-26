@@ -24,4 +24,7 @@ near-sdk = { path = "../near-sdk", default-features = false, features = [
 
 [features]
 default = []
-abi = ["near-sdk/abi"]
+abi = ["near-sdk/__abi-generate"]
+
+[package.metadata.docs.rs]
+features = ["abi"]

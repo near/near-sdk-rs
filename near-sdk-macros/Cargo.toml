@@ -34,3 +34,6 @@ prettyplease = { version = "0.2.15" }
 abi = []
 __abi-embed = ["abi"]
 __abi-generate = ["abi"]
+
+[package.metadata.docs.rs]
+features = ["__abi-generate"]

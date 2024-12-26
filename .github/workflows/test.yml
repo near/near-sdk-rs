@@ -123,7 +123,7 @@ jobs:
       env:
         RUSTDOCFLAGS: -D warnings
       run: |
-        cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,near-primitives,near-vm-runner
-        cargo doc -p near-sdk-macros
-        cargo doc -p near-contract-standards --no-deps
+        cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate,near-primitives,near-vm-runner
+        cargo doc -p near-sdk-macros --features __abi-generate
+        cargo doc -p near-contract-standards --no-deps --features abi
         cargo doc -p near-sys
