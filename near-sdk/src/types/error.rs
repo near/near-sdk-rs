@@ -20,7 +20,7 @@
 ///         }
 ///     }
 /// }
-/// 
+///
 /// #[near(contract_state)]
 /// #[derive(Default)]
 /// pub struct Contract;
