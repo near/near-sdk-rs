@@ -28,7 +28,7 @@ impl From<Base64VecU8> for Vec<u8> {
 /// Convenience module to allow anotating a serde structure as base64 bytes.
 ///
 /// # Example
-/// ```ignore
+/// ```no_run
 /// use serde::{Serialize, Deserialize};
 /// use near_sdk::json_types::base64_bytes;
 ///

@@ -2,7 +2,7 @@
 /// with `#[handle_result]` has to implement this trait.
 ///
 /// Example:
-/// ```ignore
+/// ```no_run
 /// use near_sdk::{FunctionError, near};
 ///
 /// enum Error {

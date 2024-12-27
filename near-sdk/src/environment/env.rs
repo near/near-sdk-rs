@@ -889,7 +889,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// Create a NEAR promise which will have multiple promise actions inside.
 ///
 /// Example:
-/// ```ignore
+/// ```no_run
 /// let target_account = "example.near".to_string();
 /// let promise_index = env::promise_batch_create(&target_account);
 ///
