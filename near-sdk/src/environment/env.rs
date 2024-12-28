@@ -878,7 +878,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 
 /// # Examples
 /// ```
-/// 
+///
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
@@ -891,7 +891,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// Example:
 /// ```no_run
 /// use near_sdk::env;
-/// 
+///
 /// let target_account = "example.near".to_string();
 /// let promise_index = env::promise_batch_create(&target_account);
 ///

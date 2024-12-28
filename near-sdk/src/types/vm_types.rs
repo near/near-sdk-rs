@@ -7,7 +7,7 @@ pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnD
 /// Example:
 /// ```no_run
 /// use near_sdk::env;
-/// 
+///
 /// let promise_id = env::promise_create("a.near", "new", b"{}", 0, 1_000_000_000_000);
 /// env::promise_then(promise_id, "b.near", "callback", b"{}", 0, 1_000_000_000_000);
 /// ```
