@@ -9,11 +9,11 @@ pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnD
 /// use near_sdk::{env, NearGas};
 ///
 /// let promise_id = env::promise_create(
-///     &AccountId::from_str("a.near").unwrap(), "new", b"{}", 0, 
+///     &AccountId::from_str("a.near").unwrap(), "new", b"{}", 0,
 ///     NearGas::from_tgas(1)
 /// );
 /// env::promise_then(
-///     promise_id, &AccountId::from_str("b.near").unwrap(), "callback", b"{}", 0, 
+///     promise_id, &AccountId::from_str("b.near").unwrap(), "callback", b"{}", 0,
 ///     NearGas::from_tgas(1)
 /// );
 /// ```
