@@ -877,12 +877,13 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 }
 
 /// # Examples
-/// ```
+/// ```no_run
 ///
+/// use near_sdk::env;
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// let promise = promise_batch_create(
+/// let promise = env::promise_batch_create(
 ///     &AccountId::from_str("receiver.near").unwrap()
 /// );
 /// ```
@@ -890,19 +891,20 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 ///
 /// Example:
 /// ```no_run
-/// use near_sdk::env;
+/// use near_sdk::{env, NearToken, NearGas};
 ///
-/// let target_account = "example.near".to_string();
-/// let promise_index = env::promise_batch_create(&target_account);
+/// let promise_index = env::promise_batch_create(
+///     &AccountId::from_str("example.near").unwrap()
+/// );
 ///
 /// // Adding actions to the promise
-/// env::promise_batch_action_transfer(promise_index, 10u128); // Transfer 10 NEAR
+/// env::promise_batch_action_transfer(promise_index, NearToken::fromNear(10u128)); // Transfer 10 NEAR
 /// env::promise_batch_action_function_call(
 ///     promise_index,
-///     "method_name".to_string(), // Target method
-///     b"{}".to_vec(),           // Arguments
+///     "method_name", // Target method
+///     b"{}",           // Arguments
 ///     0,                        // Attached deposit
-///     5_000_000_000_000         // Gas for execution
+///     NearGas::from_tgas(5)        // Gas for execution
 /// );
 /// ```
 /// All actions in a batch are executed in the order they were added.

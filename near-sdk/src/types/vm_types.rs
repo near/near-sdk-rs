@@ -6,10 +6,16 @@ pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnD
 /// Returned by [`promise_create`](crate::env::promise_create) and can be used to refer this promise in `promise_then`, `promise_batch_create`, and other functions.
 /// Example:
 /// ```no_run
-/// use near_sdk::env;
+/// use near_sdk::{env, NearGas};
 ///
-/// let promise_id = env::promise_create("a.near", "new", b"{}", 0, 1_000_000_000_000);
-/// env::promise_then(promise_id, "b.near", "callback", b"{}", 0, 1_000_000_000_000);
+/// let promise_id = env::promise_create(
+///     &AccountId::from_str("a.near").unwrap(), "new", b"{}", 0, 
+///     NearGas::from_tgas(1)
+/// );
+/// env::promise_then(
+///     promise_id, &AccountId::from_str("b.near").unwrap(), "callback", b"{}", 0, 
+///     NearGas::from_tgas(1)
+/// );
 /// ```
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Copy, Clone)]
 pub struct PromiseIndex(pub(crate) u64);
