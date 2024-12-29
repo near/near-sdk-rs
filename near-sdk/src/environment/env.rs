@@ -891,20 +891,20 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 ///
 /// Example:
 /// ```no_run
-/// use near_sdk::{env, NearToken, NearGas};
+/// use near_sdk::{env, NearToken, Gas, AccountId};
 ///
 /// let promise_index = env::promise_batch_create(
 ///     &AccountId::from_str("example.near").unwrap()
 /// );
 ///
 /// // Adding actions to the promise
-/// env::promise_batch_action_transfer(promise_index, NearToken::fromNear(10u128)); // Transfer 10 NEAR
+/// env::promise_batch_action_transfer(promise_index, NearToken::from_near(10u128)); // Transfer 10 NEAR
 /// env::promise_batch_action_function_call(
 ///     promise_index,
 ///     "method_name", // Target method
 ///     b"{}",           // Arguments
-///     0,                        // Attached deposit
-///     NearGas::from_tgas(5)        // Gas for execution
+///     NearToken::from_near(0), // Attached deposit
+///     Gas::from_tgas(5)        // Gas for execution
 /// );
 /// ```
 /// All actions in a batch are executed in the order they were added.
