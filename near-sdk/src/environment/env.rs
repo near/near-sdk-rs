@@ -159,7 +159,7 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(current_account_id(), AccountId::from_str("alice.near").unwrap());
+/// assert_eq!(current_account_id(), "alice.near".parse().unwrap());
 /// ```
 pub fn current_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(current_account_id))
@@ -174,7 +174,7 @@ pub fn current_account_id() -> AccountId {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(signer_account_id(), AccountId::from_str("bob.near").unwrap());
+/// assert_eq!(signer_account_id(), "bob.near".parse().unwrap());
 /// ```
 pub fn signer_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(signer_account_id))
@@ -203,7 +203,7 @@ pub fn signer_account_pk() -> PublicKey {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(predecessor_account_id(), AccountId::from_str("bob.near").unwrap());
+/// assert_eq!(predecessor_account_id(), "bob.near".parse().unwrap());
 /// ```
 pub fn predecessor_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(predecessor_account_id))
@@ -743,7 +743,7 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -789,7 +789,7 @@ pub fn promise_create(
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -800,7 +800,7 @@ pub fn promise_create(
 ///
 /// let chained_promise = promise_then(
 ///     promise,
-///     AccountId::from_str("greetings.near").unwrap(),
+///     "greetings.near".parse().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -845,7 +845,7 @@ pub fn promise_then(
 /// use std::str::FromStr;
 ///
 /// let promise1 = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -855,7 +855,7 @@ pub fn promise_then(
 /// );
 ///
 /// let promise2 = promise_create(
-///     AccountId::from_str("greetings.near").unwrap(),
+///     "greetings.near".parse().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -884,7 +884,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// use std::str::FromStr;
 ///
 /// let promise = env::promise_batch_create(
-///     &AccountId::from_str("receiver.near").unwrap()
+///     &"receiver.near".parse().unwrap()
 /// );
 /// ```
 /// Create a NEAR promise which will have multiple promise actions inside.
@@ -894,7 +894,7 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// use near_sdk::{env, NearToken, Gas, AccountId};
 ///
 /// let promise_index = env::promise_batch_create(
-///     &AccountId::from_str("example.near").unwrap()
+///     &"example.near".parse().unwrap()
 /// );
 ///
 /// // Adding actions to the promise
@@ -927,7 +927,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -938,7 +938,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 ///
 /// let new_promise = promise_batch_then(
 ///     promise,
-///     &AccountId::from_str("receiver.near").unwrap()
+///     &"receiver.near".parse().unwrap()
 /// );
 /// ```
 /// Attach a callback NEAR promise to a batch of NEAR promise actions.
