@@ -74,7 +74,7 @@ impl ContractMetadata {
 
         // adding nep330 if it is not present
         if self.standards.is_empty()
-            || self.standards.iter().all(|s| s.standard.to_ascii_lowercase() != "nep330")
+            || self.standards.iter().all(|s| !s.standard.eq_ignore_ascii_case("nep330"))
         {
             self.standards
                 .push(Standard { standard: "nep330".to_string(), version: "1.2.0".to_string() });
