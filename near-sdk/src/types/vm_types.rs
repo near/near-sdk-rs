@@ -6,14 +6,15 @@ pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnD
 /// Returned by [`promise_create`](crate::env::promise_create) and can be used to refer this promise in `promise_then`, `promise_batch_create`, and other functions.
 /// Example:
 /// ```no_run
-/// use near_sdk::{env, Gas};
+/// use near_sdk::{env, Gas, AccountId, NearToken};
+/// use std::str::FromStr;
 ///
 /// let promise_id = env::promise_create(
-///     &AccountId::from_str("a.near").unwrap(), "new", b"{}", 0,
+///     AccountId::from_str("a.near").unwrap(), "new", b"{}", NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(1)
 /// );
 /// env::promise_then(
-///     promise_id, &AccountId::from_str("b.near").unwrap(), "callback", b"{}", 0,
+///     promise_id, AccountId::from_str("b.near").unwrap(), "callback", b"{}", NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(1)
 /// );
 /// ```

@@ -71,7 +71,8 @@
 //!   place of a type [`Option<T>`](Option). Will only be loaded when interacted with and will
 //!   persist on [`Drop`].
 //!
-//! More information about collections can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/collections)
+//! * More information about collections can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/collections)
+//! * Benchmarking results of the NEAR-SDK store collections vs native collections can be found in [github](https://github.com/volodymyr-matselyukh/near-benchmarking)
 
 mod lazy;
 pub use lazy::Lazy;

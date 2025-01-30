@@ -29,16 +29,15 @@
 //! Below is an example of a simple counter contract that increments and retrieves a value:
 //!
 //! ```rust
-//! use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-//! use near_sdk::{env, near_bindgen};
+//! use near_sdk::{env, near};
 //!
-//! #[near_bindgen]
-//! #[derive(Default, BorshDeserialize, BorshSerialize)]
+//! #[near(contract_state)]
+//! #[derive(Default)]
 //! pub struct Counter {
 //!     value: i32,
 //! }
 //!
-//! #[near_bindgen]
+//! #[near]
 //! impl Counter {
 //!     /// Increment the counter by one.
 //!     pub fn increment(&mut self) {

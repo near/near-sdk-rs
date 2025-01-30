@@ -8,9 +8,9 @@ mod primitives;
 pub use self::primitives::*;
 
 pub use near_account_id::{AccountId, AccountIdRef};
-/// Same as `NearGas` from crate [`near_gas`](near_gas)
+/// A wrapper struct for `u64` that represents gas. And provides helpful methods to convert to and from tera-gas and giga-gas.
 pub use near_gas::NearGas as Gas;
-/// Same as `NearToken` from crate [`near_token`](near_token)
+/// A wrapper struct for `u128` that represents tokens. And provides helpful methods to convert with a proper precision.
 pub use near_token::NearToken;
 
 mod error;

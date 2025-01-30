@@ -159,7 +159,7 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(current_account_id(), "alice.near".parse().unwrap());
+/// assert_eq!(current_account_id(), "alice.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn current_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(current_account_id))
@@ -174,7 +174,7 @@ pub fn current_account_id() -> AccountId {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(signer_account_id(), "bob.near".parse().unwrap());
+/// assert_eq!(signer_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn signer_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(signer_account_id))
@@ -203,7 +203,7 @@ pub fn signer_account_pk() -> PublicKey {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(predecessor_account_id(), "bob.near".parse().unwrap());
+/// assert_eq!(predecessor_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn predecessor_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(predecessor_account_id))
@@ -743,7 +743,7 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
