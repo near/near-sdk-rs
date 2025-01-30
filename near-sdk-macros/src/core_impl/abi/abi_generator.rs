@@ -44,22 +44,10 @@ impl ImplItemMethodInfo {
     ///
     /// # Example:
     /// The following function:
-    /// ```rust
-    /// # use near_sdk::{near};
-    /// # #[near(contract_state)]
-    /// # #[derive(Default)]
-    /// # pub struct Counter {
-    /// #     val: u64,
-    /// # }
-    ///
-    /// # #[near]
-    /// # impl Counter {
+    /// ```ignore
     /// /// I am a function.
     /// #[handle_result]
-    /// pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> {
-    /// #    unimplemented!()
-    /// }
-    /// #}
+    /// pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
     /// ```
     /// will produce this struct:
     /// ```ignore
