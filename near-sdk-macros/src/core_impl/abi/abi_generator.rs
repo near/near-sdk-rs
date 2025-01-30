@@ -62,7 +62,7 @@ impl ImplItemMethodInfo {
     /// #}
     /// ```
     /// will produce this struct:
-    /// ```rust
+    /// ```ignore
     /// near_sdk::__private::AbiFunction {
     ///     name: "f3".to_string(),
     ///     doc: Some(" I am a function.".to_string()),
