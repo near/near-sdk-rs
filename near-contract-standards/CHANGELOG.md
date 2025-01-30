@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.7.0...near-contract-standards-v5.7.1) - 2025-01-30
+
+### Other
+
+- `__abi-generate` feature in docs.rs (#1286)
+
 ## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.6.0...near-contract-standards-v5.7.0) - 2024-12-13
 
 ### Other
