@@ -75,7 +75,7 @@ impl AttrSigInfo {
     /// and `SUBTYPE` is one of the following: `[T; n]`, path like
     /// `std::collections::HashMap<SUBTYPE, SUBTYPE>`, or tuple `(SUBTYPE0, SUBTYPE1, ...)`.
     /// # Example
-    /// ```ignore
+    /// ```rust
     /// struct Input {
     ///   arg0: Vec<String>,
     ///   arg1: [u64; 10],
