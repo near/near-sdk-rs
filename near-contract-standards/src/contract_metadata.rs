@@ -13,10 +13,6 @@ use near_sdk::serde::{Deserialize, Serialize};
 pub struct ContractSourceMetadata {
     /// Optional version identifier, typically a semantic version
     ///
-    /// **NOTE**:
-    /// As of **NEP-330** standard version **1.2.0**
-    /// this field may or may not be consistent with [`Self::link`] and with [`BuildInfo::source_code_snapshot`], but only [`BuildInfo::source_code_snapshot`] defines source code for formal reproducibility verification, and [`Self::link`] and [`Self::version`] do not
-    ///
     /// ## Examples:
     ///
     /// ```rust,no_run
@@ -27,10 +23,6 @@ pub struct ContractSourceMetadata {
     /// ```
     pub version: Option<String>,
     /// Optional URL to source code repository/tree
-    ///
-    /// **NOTE**:
-    /// As of **NEP-330** standard version **1.2.0**
-    /// this field may or may not be consistent with [`Self::version`] and with [`BuildInfo::source_code_snapshot`], but only [`BuildInfo::source_code_snapshot`] defines source code for formal reproducibility verification, and [`Self::link`] and [`Self::version`] do not
     ///
     /// ## Examples:
     ///
@@ -106,6 +98,8 @@ pub struct Standard {
 mod build_info {
     use near_sdk::serde::{Deserialize, Serialize};
 
+    /// Defines all required details for formal WASM build reproducibility verification
+    /// according to [**NEP-330 standard**](https://github.com/near/NEPs/blob/master/neps/nep-0330.md)
     #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
     #[serde(crate = "near_sdk::serde")]
     pub struct BuildInfo {
