@@ -2,7 +2,16 @@ use near_sdk_macros::near;
 use serde::{Deserialize, Deserializer, Serializer};
 
 /// Helper class to serialize/deserialize `Vec<u8>` to base64 string.
-
+///
+/// # Example
+/// ```rust
+/// use near_sdk::{json_types::Base64VecU8, near};
+///
+/// #[near(serializers=[json])]
+/// struct NewStruct {
+///     field: Base64VecU8,
+/// }
+/// ```
 #[near(inside_nearsdk, serializers=[borsh, json])]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Base64VecU8(
@@ -25,19 +34,7 @@ impl From<Base64VecU8> for Vec<u8> {
     }
 }
 
-/// Convenience module to allow anotating a serde structure as base64 bytes.
-///
-/// # Example
-/// ```ignore
-/// use serde::{Serialize, Deserialize};
-/// use near_sdk::json_types::base64_bytes;
-///
-/// #[derive(Serialize, Deserialize)]
-/// struct NewStruct {
-///     #[serde(with = "base64_bytes")]
-///     field: Vec<u8>,
-/// }
-/// ```
+/// Convenience module to allow annotating a serde structure as base64 bytes.
 mod base64_bytes {
     use super::*;
     use base64::Engine;
