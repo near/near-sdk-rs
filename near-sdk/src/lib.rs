@@ -24,7 +24,7 @@
 //! near-sdk = "5.6.0"
 //! ```
 //!
-//! ### Example: Counter Smart Contract
+//! ### Example: Counter Smart Contract. For more information, see the [macro@near] documentation.
 //!
 //! Below is an example of a simple counter contract that increments and retrieves a value:
 //!
@@ -87,9 +87,6 @@
 //! ```bash
 //! cargo test
 //! ```
-//!
-//! # For more information, see the [macro@near] documentation.
-
 //* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
 //* https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
@@ -101,9 +98,11 @@
 #[cfg(test)]
 extern crate quickcheck;
 
-/// This attribute macro is used on a struct and its implementations
+/// This attribute macro is used on a struct/enum and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
+///
+/// The macro is a syntactic sugar for [macro@near_bindgen] and expands to the [macro@near_bindgen] macro invocations.
 ///
 /// ## Example
 ///
@@ -142,7 +141,7 @@ extern crate quickcheck;
 ///
 /// `#[near]` will also handle serializing and setting the return value of the
 /// function execution based on what type is returned by the function. By default, this will be
-/// done through `serde` serialized as JSON, but this can be overwritten using
+/// done through `serde` serialized as JSON, but this can be overridden using
 /// `#[result_serializer(borsh)]`:
 /// ```rust
 /// use near_sdk::near;
@@ -166,9 +165,9 @@ extern crate quickcheck;
 /// If the macro is used with struct or enum, it will make the struct or enum serializable with either
 /// Borsh or Json depending on serializers passed. Use `#[near(serializers=[borsh])]` to make it serializable with Borsh.
 /// Or use `#[near(serializers=[json])]` to make it serializable with Json. By default, borsh is used.
-/// You can also specify both and none. BorshSchema or JsonSchema are always generated.
+/// You can also specify both and none. BorshSchema or JsonSchema are always generated if respective serializer is toggled on.
 ///
-/// If you want the struct to be a contract state, you can pass in the contract_state argument.
+/// If you want the struct/enum to be a contract state, you can pass in the contract_state argument.
 ///
 /// ## Example
 /// ```rust
@@ -184,18 +183,18 @@ extern crate quickcheck;
 ///     pub fn some_function(&self) {}
 /// }
 /// ```
-/// As well, the macro supports arguments like `event_json` and `contract_metadata`.
 ///
 /// # Events Standard:
 ///
 /// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
-/// according to NEP-297
+/// according to [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
 ///
 /// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version
 /// as well as include serialization reformatting to include the `event` and `data` fields automatically.
 /// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
 /// By default this will be JSON deserialized with `serde`
 ///
+/// The version is required to allow backward compatibility. The older back-end will use the version field to determine if the event is supported.
 ///
 /// ## Examples
 ///
@@ -237,7 +236,10 @@ extern crate quickcheck;
 /// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near]` is used without
 /// any arguments.
 ///
-/// All fields(version, link, standard) are optional and will be populated with defaults from the Cargo.toml file if not specified.
+/// All fields(version, link) are optional and will be populated with defaults from the Cargo.toml file if not specified.
+/// The `standard` will be populated with `nep330` by default.
+///
+/// Any additional standards can be added and should be specified using the `standard` sub-attribute.
 ///
 /// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
 /// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
@@ -314,9 +316,9 @@ pub use near_sdk_macros::ext_contract;
 /// ```
 pub use near_sdk_macros::near_bindgen;
 
-/// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
+/// `BorshStorageKey` generates implementation for [BorshIntoStorageKey](crate::private::BorshIntoStorageKey) trait.
 /// It allows the type to be passed as a unique prefix for persistent collections.
-/// The type should also implement or derive `BorshSerialize` trait.
+/// The type should also implement or derive [BorshSerialize](borsh::BorshSerialize) trait.
 ///
 /// More information about storage keys in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/storage)
 /// ## Example
@@ -364,19 +366,12 @@ pub use near_sdk_macros::BorshStorageKey;
 pub use near_sdk_macros::PanicOnDefault;
 
 /// NOTE: This is an internal implementation for `#[near_bindgen(events(standard = ...))]` attribute.
+/// Please use [macro@near] instead.
 ///
 /// This derive macro is used to inject the necessary wrapper and logic to auto format
-/// standard event logs. The other appropriate attribute macros are not injected with this macro.
-/// Required attributes below:
-/// ```rust
-/// #[derive(near_sdk::serde::Serialize, Clone)]
-/// #[serde(crate="near_sdk::serde")]
-/// #[serde(tag = "event", content = "data")]
-/// #[serde(rename_all="snake_case")]
-/// pub enum MyEvent {
-///     Event
-/// }
-/// ```
+/// standard event logs and generate the `emit` function, and event version.
+///
+/// The macro is not for public use.
 pub use near_sdk_macros::EventMetadata;
 
 /// `NearSchema` is a derive macro that generates `BorshSchema` and / or `JsonSchema` implementations.
@@ -400,7 +395,7 @@ pub use near_sdk_macros::NearSchema;
 /// as the message.
 /// ## Example
 /// ```rust
-/// use near_sdk::FunctionError;
+/// use near_sdk::{FunctionError, near};
 ///
 /// #[derive(FunctionError)]
 /// pub enum MyError {
@@ -412,6 +407,17 @@ pub use near_sdk_macros::NearSchema;
 ///         match self {
 ///             MyError::Error => write!(f, "Error"),
 ///         }
+///     }
+/// }
+///
+/// #[near(contract_state)]
+/// pub struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     #[handle_result]
+///     pub fn some_function(&self) -> Result<(), MyError> {
+///         Err(MyError::Error)
 ///     }
 /// }
 /// ```
