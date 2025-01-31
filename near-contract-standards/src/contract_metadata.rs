@@ -6,7 +6,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 /// Contract source metadata follows [**NEP-330 standard**](https://github.com/near/NEPs/blob/master/neps/nep-0330.md) for smart contracts
 ///
 /// See documentation of [`near_api::types::contract::ContractSourceMetadata`](https://docs.rs/near-api/latest/near_api/types/contract/struct.ContractSourceMetadata.html)
-/// and [`near_api::Contract::contract_source_metadata`](https://docs.rs/near-api/latest/near_api/struct.Contract.html#method.contract_source_metadata) 
+/// and [`near_api::Contract::contract_source_metadata`](https://docs.rs/near-api/latest/near_api/struct.Contract.html#method.contract_source_metadata)
 /// on how to query this piece of data from a contract via `near_api` crate
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
