@@ -1,5 +1,5 @@
-//! Blockchain-specific methods available to the smart contract. This is a wrapper around a
-//! low-level `BlockchainInterface`. Unless you know what you are doing prefer using `env::*`
+//! Blockchain-specific methods available to the smart contract that allow to interact with NEAR runtime.
+//! This is a wrapper around a low-level [`near_sys`](near_sys). Unless you know what you are doing prefer using `env::*`
 //! whenever possible. In case of cross-contract calls prefer using even higher-level API available
 //! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
 
@@ -76,7 +76,7 @@ pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
 }
 
 /// Replaces the current low-level blockchain interface accessible through `env::*` with another
-/// low-level blockchain interfacr that implements `BlockchainInterface` trait. In most cases you
+/// low-level blockchain interface with builtin functions of the NEAR runtime. In most cases you
 /// want to use `testing_env!` macro to set it.
 ///
 /// ```
@@ -159,7 +159,7 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(current_account_id(), AccountId::from_str("alice.near").unwrap());
+/// assert_eq!(current_account_id(), "alice.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn current_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(current_account_id))
@@ -174,7 +174,7 @@ pub fn current_account_id() -> AccountId {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(signer_account_id(), AccountId::from_str("bob.near").unwrap());
+/// assert_eq!(signer_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn signer_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(signer_account_id))
@@ -203,7 +203,7 @@ pub fn signer_account_pk() -> PublicKey {
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// assert_eq!(predecessor_account_id(), AccountId::from_str("bob.near").unwrap());
+/// assert_eq!(predecessor_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn predecessor_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(predecessor_account_id))
@@ -225,6 +225,7 @@ fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
 ///
 /// assert_eq!(input(), Some(Vec::new()));
 /// ```
+/// See an example here [here](https://github.com/near-examples/update-migrate-rust/blob/a1a326de73c152831f93fbf6d90932e13a08b89f/self-updates/update/src/update.rs#L19)
 pub fn input() -> Option<Vec<u8>> {
     try_method_into_register!(input)
 }
@@ -742,7 +743,7 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -751,6 +752,11 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 ///     Gas::from_tgas(30)
 /// );
 /// ```
+///
+/// More info about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
+///
 pub fn promise_create(
     account_id: AccountId,
     function_name: &str,
@@ -773,7 +779,7 @@ pub fn promise_create(
     }
 }
 
-/// Attaches the callback that is executed after promise pointed by `promise_idx` is complete.
+/// Attaches the callback (which is a [`near_primitives::action::FunctionCallAction`]) that is executed after promise pointed by `promise_idx` is complete.
 ///
 /// # Examples
 /// ```
@@ -783,7 +789,7 @@ pub fn promise_create(
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -794,7 +800,7 @@ pub fn promise_create(
 ///
 /// let chained_promise = promise_then(
 ///     promise,
-///     AccountId::from_str("greetings.near").unwrap(),
+///     "greetings.near".parse().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -803,6 +809,8 @@ pub fn promise_create(
 ///     Gas::from_tgas(30)
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_then`]
+/// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
@@ -837,7 +845,7 @@ pub fn promise_then(
 /// use std::str::FromStr;
 ///
 /// let promise1 = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -847,7 +855,7 @@ pub fn promise_then(
 /// );
 ///
 /// let promise2 = promise_create(
-///     AccountId::from_str("greetings.near").unwrap(),
+///     "greetings.near".parse().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -858,6 +866,7 @@ pub fn promise_then(
 ///
 /// let chained_promise = promise_and(&[promise1, promise2]);
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
 pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
     let mut data = vec![0u8; size_of_val(promise_indices)];
     for i in 0..promise_indices.len() {
@@ -868,15 +877,41 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 }
 
 /// # Examples
-/// ```
-/// use near_sdk::env::promise_batch_create;
+/// ```no_run
+///
+/// use near_sdk::env;
 /// use near_sdk::AccountId;
 /// use std::str::FromStr;
 ///
-/// let promise = promise_batch_create(
-///     &AccountId::from_str("receiver.near").unwrap()
+/// let promise = env::promise_batch_create(
+///     &"receiver.near".parse().unwrap()
 /// );
 /// ```
+/// Create a NEAR promise which will have multiple promise actions inside.
+///
+/// Example:
+/// ```no_run
+/// use near_sdk::{env, NearToken, Gas, AccountId};
+///
+/// let promise_index = env::promise_batch_create(
+///     &"example.near".parse().unwrap()
+/// );
+///
+/// // Adding actions to the promise
+/// env::promise_batch_action_transfer(promise_index, NearToken::from_near(10u128)); // Transfer 10 NEAR
+/// env::promise_batch_action_function_call(
+///     promise_index,
+///     "method_name", // Target method
+///     b"{}",           // Arguments
+///     NearToken::from_near(0), // Attached deposit
+///     Gas::from_tgas(5)        // Gas for execution
+/// );
+/// ```
+/// All actions in a batch are executed in the order they were added.
+/// Batched actions act as a unit: they execute in the same receipt, and if any fails, then they all get reverted.
+/// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/actions)
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_create`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
@@ -892,7 +927,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5        
@@ -903,9 +938,13 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 ///
 /// let new_promise = promise_batch_then(
 ///     promise,
-///     &AccountId::from_str("receiver.near").unwrap()
+///     &"receiver.near".parse().unwrap()
 /// );
 /// ```
+/// Attach a callback NEAR promise to a batch of NEAR promise actions.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_then`]
 pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
     let account_id: &str = account_id.as_ref();
     unsafe {
@@ -917,6 +956,9 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
     }
 }
 
+/// Attach a create account promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_create_account, promise_batch_create};
@@ -929,10 +971,15 @@ pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -
 ///
 /// promise_batch_action_create_account(promise);
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_create_account`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
     unsafe { sys::promise_batch_action_create_account(promise_index.0) }
 }
 
+/// Attach a deploy contract promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_deploy_contract, promise_batch_create};
@@ -946,6 +993,8 @@ pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
 /// let code = [0; 1487];
 /// promise_batch_action_deploy_contract(promise, &code);
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_deploy_contract`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
     unsafe {
         sys::promise_batch_action_deploy_contract(
@@ -956,6 +1005,9 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
     }
 }
 
+/// Attach a function call promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_function_call, promise_batch_create};
@@ -975,6 +1027,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 ///     Gas::from_tgas(30)
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call`]
 pub fn promise_batch_action_function_call(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -995,6 +1048,9 @@ pub fn promise_batch_action_function_call(
     }
 }
 
+/// Attach a function call with specific gas weight promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_function_call_weight, promise_batch_create};
@@ -1015,6 +1071,7 @@ pub fn promise_batch_action_function_call(
 ///     GasWeight(1)
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call_weight`]
 pub fn promise_batch_action_function_call_weight(
     promise_index: PromiseIndex,
     function_name: &str,
@@ -1037,6 +1094,9 @@ pub fn promise_batch_action_function_call_weight(
     }
 }
 
+/// Attach a transfer promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_transfer, promise_batch_create};
@@ -1052,6 +1112,8 @@ pub fn promise_batch_action_function_call_weight(
 ///     NearToken::from_near(1),
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_transfer`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
     unsafe {
         sys::promise_batch_action_transfer(
@@ -1061,6 +1123,9 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
     }
 }
 
+/// Attach a stake promise action to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_stake, promise_batch_create};
@@ -1078,6 +1143,7 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
 ///     &pk
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_stake`]
 pub fn promise_batch_action_stake(
     promise_index: PromiseIndex,
     amount: NearToken,
@@ -1093,6 +1159,9 @@ pub fn promise_batch_action_stake(
     }
 }
 
+/// Attach promise action that adds a full access key to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_add_key_with_full_access, promise_batch_create};
@@ -1111,6 +1180,8 @@ pub fn promise_batch_action_stake(
 ///     nonce
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_key_with_full_access`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_add_key_with_full_access(
     promise_index: PromiseIndex,
     public_key: &PublicKey,
@@ -1127,6 +1198,8 @@ pub fn promise_batch_action_add_key_with_full_access(
 }
 
 /// This is a short lived function while we migrate between the Balance and the allowance type
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 pub(crate) fn migrate_to_allowance(allowance: NearToken) -> Allowance {
     Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
 }
@@ -1172,6 +1245,9 @@ pub fn promise_batch_action_add_key_with_function_call(
     )
 }
 
+/// Attach promise action that adds a key with function call with specifi allowance to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// Unlimited allowance
 /// ```
@@ -1244,6 +1320,9 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
     }
 }
 
+/// Attach promise action that deletes the key to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_delete_key, promise_batch_create};
@@ -1260,6 +1339,7 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
 ///     &pk
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_key`]
 pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
     unsafe {
         sys::promise_batch_action_delete_key(
@@ -1270,6 +1350,9 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
     }
 }
 
+/// Attach promise action that deletes the account to the NEAR promise index with the provided promise index.
+///
+/// More info about batching [here](crate::env::promise_batch_create)
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_action_delete_account, promise_batch_create};
@@ -1285,6 +1368,7 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 ///     &AccountId::from_str("beneficiary.near").unwrap()
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_account`]
 pub fn promise_batch_action_delete_account(
     promise_index: PromiseIndex,
     beneficiary_id: &AccountId,
@@ -1309,6 +1393,8 @@ pub fn promise_batch_action_delete_account(
 ///
 /// assert_eq!(promise_results_count(), 0);
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_results_count`]
+/// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
     unsafe { sys::promise_results_count() }
 }
@@ -1337,6 +1423,8 @@ pub fn promise_results_count() -> u64 {
 ///     }
 /// };
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_result`]
+/// Example usages: [one](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/core_impl.rs#L178), [two](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433), [three](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61), [four](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
 pub fn promise_result(result_idx: u64) -> PromiseResult {
     match promise_result_internal(result_idx) {
         Ok(()) => {
@@ -1377,6 +1465,8 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 ///
 /// promise_return(promise);
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
+/// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
 }
@@ -1427,6 +1517,8 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create`]
+/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/pull/1133)
 pub fn promise_yield_create(
     function_name: &str,
     arguments: &[u8],
@@ -1491,6 +1583,8 @@ pub fn promise_yield_create(
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
+/// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume`]
+/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/pull/1133)
 pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
     unsafe {
         sys::promise_yield_resume(
@@ -1568,6 +1662,7 @@ pub fn validator_total_stake() -> NearToken {
 ///     }).to_string().into_bytes().as_slice()
 /// );
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L18)
 pub fn value_return(value: &[u8]) {
     unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
@@ -1642,6 +1737,7 @@ pub fn abort() -> ! {
 /// let number = 5;
 /// log_str(format!("Number: {}", number).as_str());
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{}", message);
@@ -1683,6 +1779,7 @@ pub fn log(message: &[u8]) {
 /// assert!(storage_write(b"key", b"another_value"));
 /// assert_eq!(storage_read(b"key").unwrap(), b"another_value");
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L63)
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
     match unsafe {
         sys::storage_write(
@@ -1734,6 +1831,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// storage_write(b"key", b"value");
 /// assert_eq!(storage_remove(b"key"), true);
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
 pub fn storage_remove(key: &[u8]) -> bool {
     match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
         0 => false,
@@ -1788,6 +1886,8 @@ pub fn state_read<T: borsh::BorshDeserialize>() -> Option<T> {
             .unwrap_or_else(|_| panic_str("Cannot deserialize the contract state."))
     })
 }
+
+/// Writes the specified state to storage.
 pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
     let data = match borsh::to_vec(state) {
         Ok(serialized) => serialized,
@@ -1814,6 +1914,7 @@ pub fn state_exists() -> bool {
 ///
 /// assert_eq!(storage_byte_cost(), NearToken::from_yoctonear(10000000000000000000));
 /// ```
+/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/storage_impl.rs#L105), [here](https://github.com/near/near-sdk-rs/blob/master/near-contract-standards/src/non_fungible_token/utils.rs) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/fungible-token/tests/workspaces.rs)
 pub fn storage_byte_cost() -> NearToken {
     NearToken::from_yoctonear(10_000_000_000_000_000_000u128)
 }
