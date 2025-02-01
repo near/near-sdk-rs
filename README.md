@@ -328,4 +328,5 @@ If you are interested in contributing, please look at the [contributing guidelin
 
 ## Unedited Video Link for Update
 
-https://www.loom.com/share/bf35f4544fad4a9e93ef240f92c43a55
+[![Watch the video](https://raw.githubusercontent.com/emarc99/near-sdk-rs/feat/enhance-readme/assets/thumbnail.jpg)](https://raw.githubusercontent.com/emarc99/near-sdk-rs/feat/enhance-readme/assets/video.mp4.mov)
+
