@@ -259,6 +259,29 @@ extern crate quickcheck;
 /// ```
 pub use near_sdk_macros::near;
 
+/// This macro is deprecated. Use [macro@near] instead. The difference between `#[near]` and `#[near_bindgen]` is that
+/// with `#[near_bindgen]` you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
+/// ```rust
+/// use near_sdk::{near_bindgen, NearSchema, borsh::{BorshSerialize, BorshDeserialize}};
+///
+/// #[near_bindgen]
+/// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
+/// #[borsh(crate = "near_sdk::borsh")]
+/// struct MyStruct {
+///    pub name: String,
+/// }
+/// ```
+/// Instead of:
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(serializers=[borsh])]
+/// struct MyStruct {
+///     pub name: String,
+/// }
+/// ```
+pub use near_sdk_macros::near_bindgen;
+
 /// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
 /// Each of these static methods takes positional arguments defined by the Trait,
 /// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
@@ -292,29 +315,6 @@ pub use near_sdk_macros::near;
 ///
 /// See more information about role of ext_contract in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract)
 pub use near_sdk_macros::ext_contract;
-
-/// This macro is deprecated. Use [macro@near] instead. The difference between `#[near]` and `#[near_bindgen]` is that
-/// with `#[near_bindgen]` you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
-/// ```rust
-/// use near_sdk::{near_bindgen, NearSchema, borsh::{BorshSerialize, BorshDeserialize}};
-///
-/// #[near_bindgen]
-/// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
-/// #[borsh(crate = "near_sdk::borsh")]
-/// struct MyStruct {
-///    pub name: String,
-/// }
-/// ```
-/// Instead of:
-/// ```rust
-/// use near_sdk::near;
-///
-/// #[near(serializers=[borsh])]
-/// struct MyStruct {
-///     pub name: String,
-/// }
-/// ```
-pub use near_sdk_macros::near_bindgen;
 
 /// `BorshStorageKey` generates implementation for [BorshIntoStorageKey](crate::__private::BorshIntoStorageKey) trait.
 /// It allows the type to be passed as a unique prefix for persistent collections.
