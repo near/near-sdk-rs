@@ -17,3 +17,9 @@ pub fn result_serializer() {}
 
 /// See [`near_sdk::near #[handle_result]`](macro@crate::near#handle_result-sub-attribute)
 pub fn handle_result() {}
+
+/// See [`near_sdk::near #[event_json]`](macro@crate::near#event_json-sub-attribute)
+pub fn event_json() {}
+
+/// See [`near_sdk::near #[contract_metadata]`](macro@crate::near#contract_metadata-sub-attribute)
+pub fn contract_metadata() {}

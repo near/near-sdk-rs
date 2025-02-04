@@ -142,78 +142,6 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// # Events Standard:
-///
-/// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
-/// according to [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
-///
-/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version`
-/// as well as include serialization reformatting to include the `event` and `data` fields automatically.
-/// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
-/// By default this will be JSON deserialized with `serde`
-///
-/// The version is required to allow backward compatibility. The older back-end will use the version field to determine if the event is supported.
-///
-/// ## Examples
-///
-/// ```rust
-/// use near_sdk::{near, AccountId};
-///
-/// # #[near(contract_state)]
-/// # pub struct Contract {
-/// #    data: i8,
-/// # }
-/// #[near(event_json(standard = "nepXXX"))]
-/// pub enum MyEvents {
-///    #[event_version("1.0.0")]
-///    Swap { token_in: AccountId, token_out: AccountId, amount_in: u128, amount_out: u128 },
-///
-///    #[event_version("2.0.0")]
-///    StringEvent(String),
-///
-///    #[event_version("3.0.0")]
-///    EmptyEvent
-/// }
-///
-/// #[near]
-/// impl Contract {
-///     pub fn some_function(&self) {
-///         MyEvents::StringEvent(
-///             String::from("some_string")
-///         ).emit();
-///     }
-///
-/// }
-/// ```
-///
-/// # Contract Source Metadata Standard:
-///
-/// By using `contract_metadata` as an argument `near` will populate the contract metadata
-/// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near]` is used without
-/// any arguments.
-///
-/// All fields(version, link) are optional and will be populated with defaults from the Cargo.toml file if not specified.
-/// The `standard` will be populated with `nep330` by default.
-///
-/// Any additional standards can be added and should be specified using the `standard` sub-attribute.
-///
-/// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
-/// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
-///
-/// ## Examples
-///
-/// ```rust
-/// use near_sdk::near;
-///
-/// #[near(contract_metadata(
-///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
-///     link = "https://github.com/near-examples/nft-tutorial",
-///     standard(standard = "nep171", version = "1.0.0"),
-///     standard(standard = "nep177", version = "2.0.0"),
-/// ))]
-/// struct Contract {}
-/// ```
-///
 /// # Sub-attributes
 ///
 /// ## init sub-attribute
@@ -419,6 +347,77 @@ extern crate quickcheck;
 ///         Ok(())
 ///     }
 /// }
+/// ```
+///
+/// ## event_json sub-attribute
+///
+/// By passing `event_json` as an argument `near` will generate the relevant code to format events
+/// according to [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
+///
+/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version`
+/// as well as include serialization reformatting to include the `event` and `data` fields automatically.
+/// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
+/// By default this will be JSON deserialized with `serde`
+///
+/// The version is required to allow backward compatibility. The older back-end will use the version field to determine if the event is supported.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::{near, AccountId};
+///
+/// # #[near(contract_state)]
+/// # pub struct Contract {
+/// #    data: i8,
+/// # }
+/// #[near(event_json(standard = "nepXXX"))]
+/// pub enum MyEvents {
+///    #[event_version("1.0.0")]
+///    Swap { token_in: AccountId, token_out: AccountId, amount_in: u128, amount_out: u128 },
+///
+///    #[event_version("2.0.0")]
+///    StringEvent(String),
+///
+///    #[event_version("3.0.0")]
+///    EmptyEvent
+/// }
+///
+/// #[near]
+/// impl Contract {
+///     pub fn some_function(&self) {
+///         MyEvents::StringEvent(
+///             String::from("some_string")
+///         ).emit();
+///     }
+///
+/// }
+/// ```
+///
+/// ## contract_metadata sub-attribute
+/// By using `contract_metadata` as an argument `near` will populate the contract metadata
+/// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near]` is used without
+/// any arguments.
+///
+/// All fields(version, link) are optional and will be populated with defaults from the Cargo.toml file if not specified.
+/// The `standard` will be populated with `nep330` by default.
+///
+/// Any additional standards can be added and should be specified using the `standard` sub-attribute.
+///
+/// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
+/// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_metadata(
+///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
+///     link = "https://github.com/near-examples/nft-tutorial",
+///     standard(standard = "nep171", version = "1.0.0"),
+///     standard(standard = "nep177", version = "2.0.0"),
+/// ))]
+/// struct Contract {}
 /// ```
 pub use near_sdk_macros::near;
 
