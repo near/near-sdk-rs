@@ -293,14 +293,6 @@ cargo near deploy
 
 Builds the smart contract (equivalent to `cargo near build`) and guides you to deploy it to the blockchain.
 
-## Building with reproducible builds
-
-Since WebAssembly compiler includes a bunch of debug information into the binary, the resulting binary might be
-different on different machines. To be able to compile the binary in a reproducible way, we added a Dockerfile
-that allows to compile the binary.
-
-**Use [contract-builder](https://github.com/near/near-sdk-rs/tree/master/contract-builder)**
-
 ## NEAR contract standards
 
 [`near-contract-standards` crate](https://github.com/near/near-sdk-rs/tree/master/near-contract-standards) provides a set of interfaces and implementations for NEAR's contract standards:
