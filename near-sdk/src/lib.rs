@@ -358,7 +358,7 @@ extern crate quickcheck;
 /// ### Basic error handling example
 ///
 /// This example shows how to use error handling in a contract when the types are defined in the contract.
-/// This way the contract can utilize result types and panic with the type using its `ToString` implementation
+/// This way the contract can utilize result types and panic with the type using its [ToString] implementation
 ///
 /// ```rust
 /// use near_sdk::{near, FunctionError};
@@ -554,7 +554,7 @@ pub use near_sdk_macros::EventMetadata;
 pub use near_sdk_macros::NearSchema;
 
 /// `FunctionError` generates implementation for `near_sdk::FunctionError` trait.
-/// It allows contract runtime to panic with the type using its `ToString` implementation
+/// It allows contract runtime to panic with the type using its [ToString] implementation
 /// as the message.
 /// ## Example
 /// ```rust
