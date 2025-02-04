@@ -24,7 +24,7 @@
 //! near-sdk = "5.6.0"
 //! ```
 //!
-//! ### Example: Counter Smart Contract. For more information, see the [macro@near] documentation.
+//! ### Example: Counter Smart Contract. For more information, see the [near] documentation.
 //!
 //! Below is an example of a simple counter contract that increments and retrieves a value:
 //!
@@ -102,7 +102,7 @@ extern crate quickcheck;
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
 ///
-/// The macro is a syntactic sugar for [macro@near_bindgen] and expands to the [macro@near_bindgen] macro invocations.
+/// The macro is a syntactic sugar for [near_bindgen] and expands to the [near_bindgen] macro invocations.
 ///
 /// ## Example
 ///
@@ -117,48 +117,6 @@ extern crate quickcheck;
 ///
 /// This macro will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
-///
-/// # Parameter and result serialization
-/// If the macro is used with Impl section, for parameter serialization, this macro will generate a struct with all of the parameters as
-/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
-/// but can be overwritten by using `#[serializer(borsh)]`:
-/// ```rust
-/// use near_sdk::near;
-///
-/// # #[near(contract_state)]
-/// # struct MyContract {
-/// #   pub name: String,
-/// # }
-///
-/// #[near]
-/// impl MyContract {
-///    #[result_serializer(borsh)]
-///    pub fn borsh_parameters(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) -> String {
-///        format!("{} {}", a, b)
-///    }
-/// }
-/// ```
-///
-/// `#[near]` will also handle serializing and setting the return value of the
-/// function execution based on what type is returned by the function. By default, this will be
-/// done through `serde` serialized as JSON, but this can be overridden using
-/// `#[result_serializer(borsh)]`:
-/// ```rust
-/// use near_sdk::near;
-///
-/// # #[near(contract_state)]
-/// # struct MyContract {
-/// #   pub name: String,
-/// # }
-///
-/// #[near]
-/// impl MyContract {
-///    #[result_serializer(borsh)]
-///    pub fn borsh_parameters(&self) -> String {
-///        self.name.clone()
-///    }
-/// }
-/// ```
 ///
 /// # Usage for enum / struct
 ///
@@ -189,7 +147,7 @@ extern crate quickcheck;
 /// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
 /// according to [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
 ///
-/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version
+/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version`
 /// as well as include serialization reformatting to include the `event` and `data` fields automatically.
 /// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
 /// By default this will be JSON deserialized with `serde`
@@ -205,8 +163,6 @@ extern crate quickcheck;
 /// # pub struct Contract {
 /// #    data: i8,
 /// # }
-///
-///
 /// #[near(event_json(standard = "nepXXX"))]
 /// pub enum MyEvents {
 ///    #[event_version("1.0.0")]
@@ -257,9 +213,216 @@ extern crate quickcheck;
 /// ))]
 /// struct Contract {}
 /// ```
+///
+/// # Sub-attributes
+///
+/// ## init sub-attribute
+///
+/// Contract initialization method annotation. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/storage#initializing-the-state)
+///
+/// By default, the `Default::default()` implementation of a contract will be used to initialize a contract. There can be a custom initialization function which takes parameters or performs custom logic with the following `#[init]` annotation:
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::{log, near};
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Counter {
+///     value: u64,
+/// }
+///
+/// #[near]
+/// impl Counter {
+///     #[init]
+///     pub fn new(value: u64) -> Self {
+///         log!("Custom counter initialization!");
+///         Self { value }
+///     }
+/// }
+/// ```
+///
+/// ## payable sub-attribute
+///
+/// Specifies that the method can accept NEAR tokens. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#payable-functions)
+///
+/// Methods can be annotated with `#[payable]` to allow tokens to be transferred with the method invocation. For more information, see payable methods.
+///
+/// To declare a function as payable, use the `#[payable]` annotation as follows:
+///
+/// ### Basic example
+///
+/// ```rust
+///use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Counter {
+///     val: i8,
+/// }
+///
+/// #[near]
+/// impl Counter {
+///     #[payable]
+///     pub fn my_method(&mut self) {
+///        //...
+///     }
+/// }
+/// ```
+///
+/// ## private sub-attribute
+///
+/// More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#private-functions)
+///
+/// Some methods need to be exposed to allow the contract to call a method on itself through a promise, but want to disallow any other contract to call it.
+/// For this, use the `#[private]` annotation to panic when this method is called externally. See [private methods](https://docs.near.org/build/smart-contracts/anatomy/functions#private-functions) for more information.
+///
+/// This annotation can be applied to any method through the following:
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Counter {
+///     val: u64,
+/// }
+///
+/// #[near]
+/// impl Counter {
+///     #[private]
+///     pub fn my_method(&mut self) {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// ## result_serializer sub-attribute
+///
+/// The macro defines the serializer for parameter and function return serialization.
+/// Only one of `borsh` or `json` can be specified.
+///
+/// If the macro is used with Impl section, for parameter serialization, this macro will generate a struct with all of the parameters as
+/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
+/// but can be overwritten by using `#[serializer(borsh)]`:
+/// ```rust
+/// use near_sdk::near;
+///
+/// # #[near(contract_state)]
+/// # struct MyContract {
+/// #   pub name: String,
+/// # }
+///
+/// #[near]
+/// impl MyContract {
+///    #[result_serializer(borsh)]
+///    pub fn borsh_parameters(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) -> String {
+///        format!("{} {}", a, b)
+///    }
+/// }
+/// ```
+///
+/// `#[near]` will also handle serializing and setting the return value of the
+/// function execution based on what type is returned by the function. By default, this will be
+/// done through `serde` serialized as JSON, but this can be overridden using
+/// `#[result_serializer(borsh)]`:
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// # #[near(contract_state)]
+/// # struct MyContract {
+/// #   pub name: String,
+/// # }
+///
+/// #[near]
+/// impl MyContract {
+///    #[result_serializer(borsh)]
+///    pub fn borsh_parameters(&self) -> String {
+///        self.name.clone()
+///    }
+/// }
+/// ```
+///
+/// ## handle_result sub-attribute
+///
+/// Have `#[handle_result]` to Support Result types regardless of how they're referred to
+/// Function marked with `#[handle_result]` should return `Result<T, E>` (where E implements [FunctionError]).
+/// If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`
+///
+/// ### Basic error handling example
+///
+/// This example shows how to use error handling in a contract when the types are defined in the contract.
+/// This way the contract can utilize result types and panic with the type using its `ToString` implementation
+///
+/// ```rust
+/// use near_sdk::{near, FunctionError};
+///
+/// #[derive(FunctionError)]
+/// pub enum MyError {
+///     SomePanicError,
+/// }
+///
+/// impl std::fmt::Display for MyError {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         match self {
+///             MyError::SomePanicError => write!(f, "Panic error message that would be displayed to the user"),
+///         }
+///     }
+/// }
+///
+/// #[near(contract_state)]
+/// pub struct MyContract {
+///     pub some_value: u64,
+/// }
+///
+/// #[near]
+/// impl MyContract {
+///     #[handle_result]
+///     pub fn some_function(&self) -> Result<(), MyError> {
+///         if self.some_value == 0 {
+///             return Err(MyError::SomePanicError);
+///         }
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// ### Basic callback function example
+///
+/// This examples shows how to create a function that handles the result of a
+/// cross-chain call. For more details, see [here](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#callback-function)
+///
+/// ```rust
+/// use near_sdk::{near, AccountId, Promise, PromiseError};
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Counter {
+///     val: u64,
+/// }
+///
+/// #[near]
+/// impl Counter {
+///     #[handle_result]
+///     pub fn get_result(
+///         &self,
+///         account_id: AccountId,
+///         #[callback_result] set_status_result: Result<(), PromiseError>,
+///     ) -> Result<(), &'static str> {
+///         // ..
+///         Ok(())
+///     }
+/// }
+/// ```
 pub use near_sdk_macros::near;
 
-/// This macro is deprecated. Use [macro@near] instead. The difference between `#[near]` and `#[near_bindgen]` is that
+/// This macro is deprecated. Use [near] instead. The difference between `#[near]` and `#[near_bindgen]` is that
 /// with `#[near_bindgen]` you have to manually add boilerplate code for structs and enums so that they become Json- and Borsh-serializable:
 /// ```rust
 /// use near_sdk::{near_bindgen, NearSchema, borsh::{BorshSerialize, BorshDeserialize}};
@@ -366,7 +529,7 @@ pub use near_sdk_macros::BorshStorageKey;
 pub use near_sdk_macros::PanicOnDefault;
 
 /// NOTE: This is an internal implementation for `#[near_bindgen(events(standard = ...))]` attribute.
-/// Please use [macro@near] instead.
+/// Please use [near] instead.
 ///
 /// This derive macro is used to inject the necessary wrapper and logic to auto format
 /// standard event logs and generate the `emit` function, and event version.
@@ -461,7 +624,7 @@ pub use crate::utils::storage_key_impl::IntoStorageKey;
 pub use crate::utils::*;
 
 #[cfg(feature = "__macro-docs")]
-pub mod near;
+pub mod near_annotations;
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub mod test_utils;
