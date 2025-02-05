@@ -104,30 +104,16 @@ extern crate quickcheck;
 ///
 /// The macro is a syntactic sugar for [near_bindgen] and expands to the [near_bindgen] macro invocations.
 ///
-/// ## Example
+/// # Sub-attributes
 ///
-/// ```rust
-/// use near_sdk::near;
+/// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
-/// #[near(serializers=[borsh, json])]
-/// struct MyStruct {
-///    pub name: String,
-/// }
-/// ```
+/// The macro sub-attribute prepares a struct/enum to be a contract state.
 ///
 /// This macro will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
 ///
-/// # Usage for enum / struct
-///
-/// If the macro is used with struct or enum, it will make the struct or enum serializable with either
-/// Borsh or Json depending on serializers passed. Use `#[near(serializers=[borsh])]` to make it serializable with Borsh.
-/// Or use `#[near(serializers=[json])]` to make it serializable with Json. By default, borsh is used.
-/// You can also specify both and none. BorshSchema or JsonSchema are always generated if respective serializer is toggled on.
-///
-/// If you want the struct/enum to be a contract state, you can pass in the contract_state argument.
-///
-/// ## Example
+/// ### Basic example
 /// ```rust
 /// use near_sdk::near;
 ///
@@ -142,13 +128,64 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// # Sub-attributes
+/// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
-/// ## init sub-attribute
+/// The macro sub-attribute makes the struct or enum serializable with either json or borsh. By default, borsh is used.
+///
+/// ### Make struct/enum serializable with borsh
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(serializers=[borsh])]
+/// pub enum MyEnum {
+///     Variant1,
+/// }
+///
+/// #[near(serializers=[borsh])]
+/// pub struct MyStruct {
+///     pub name: String,
+/// }
+/// ```
+///
+/// ### Make struct/enum serializable with json
+///
+/// ```rust
+/// use near_sdk::near;
+/// #[near(serializers=[json])]
+/// pub enum MyEnum {
+///     Variant1,
+/// }
+///
+/// #[near(serializers=[json])]
+/// pub struct MyStruct {
+///     pub name: String,
+/// }
+/// ```
+///
+/// ### Make struct/enum serializable with both borsh and json
+///
+/// ```rust
+/// use near_sdk::near;
+/// #[near(serializers=[borsh, json])]
+/// pub enum MyEnum {
+///     Variant1,
+/// }
+///
+/// #[near(serializers=[borsh, json])]
+/// pub struct MyStruct {
+///     pub name: String,
+/// }
+/// ```
+///
+/// ## `#[init]` (annotates methods of a type in its `impl` block)
 ///
 /// Contract initialization method annotation. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/storage#initializing-the-state)
 ///
-/// By default, the `Default::default()` implementation of a contract will be used to initialize a contract. There can be a custom initialization function which takes parameters or performs custom logic with the following `#[init]` annotation:
+/// By default, the `Default::default()` implementation of a contract will be used to initialize a contract.
+/// There can be a custom initialization function which takes parameters or performs custom logic with the following `#[init]` annotation.
+///
+/// You can provide several initialization functions.
 ///
 /// ### Basic example
 ///
@@ -171,7 +208,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## payable sub-attribute
+/// ## `#[payable]` (annotates methods of a type in its `impl` block)
 ///
 /// Specifies that the method can accept NEAR tokens. More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#payable-functions)
 ///
@@ -199,14 +236,12 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## private sub-attribute
+/// ## `#[private]` (annotates methods of a type in its `impl` block)]
+///
+/// The macro sub-attribute forbids to call the method except from within the contract.
+/// This is useful for internal methods that should not be called from outside the contract.
 ///
 /// More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#private-functions)
-///
-/// Some methods need to be exposed to allow the contract to call a method on itself through a promise, but want to disallow any other contract to call it.
-/// For this, use the `#[private]` annotation to panic when this method is called externally. See [private methods](https://docs.near.org/build/smart-contracts/anatomy/functions#private-functions) for more information.
-///
-/// This annotation can be applied to any method through the following:
 ///
 /// ### Basic example
 ///
@@ -228,14 +263,11 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## result_serializer sub-attribute
+/// ## `#[result_serializer(...)]` (annotates methods of a type in its `impl` block)
 ///
-/// The macro defines the serializer for parameter and function return serialization.
+/// The macro sub-attribute defines the serializer for function return serialization.
 /// Only one of `borsh` or `json` can be specified.
 ///
-/// If the macro is used with Impl section, for parameter serialization, this macro will generate a struct with all of the parameters as
-/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
-/// but can be overwritten by using `#[serializer(borsh)]`:
 /// ```rust
 /// use near_sdk::near;
 ///
@@ -253,7 +285,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// `#[near]` will also handle serializing and setting the return value of the
+/// `#[near]` will handle serializing and setting the return value of the
 /// function execution based on what type is returned by the function. By default, this will be
 /// done through `serde` serialized as JSON, but this can be overridden using
 /// `#[result_serializer(borsh)]`:
@@ -277,7 +309,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## handle_result sub-attribute
+/// ## `#[handle_result]` (annotates methods of a type in its `impl` block)
 ///
 /// Have `#[handle_result]` to Support Result types regardless of how they're referred to
 /// Function marked with `#[handle_result]` should return `Result<T, E>` (where E implements [FunctionError]).
@@ -349,7 +381,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## event_json sub-attribute
+/// ## `#[event_json(...)]` (annotates enums)
 ///
 /// By passing `event_json` as an argument `near` will generate the relevant code to format events
 /// according to [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
@@ -393,7 +425,8 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## contract_metadata sub-attribute
+/// ## `#[near(contract_metadata(...))]` (annotates structs/enums)
+///
 /// By using `contract_metadata` as an argument `near` will populate the contract metadata
 /// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near]` is used without
 /// any arguments.
