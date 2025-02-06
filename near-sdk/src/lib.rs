@@ -103,12 +103,14 @@ extern crate quickcheck;
 /// as generating the glue code to be a valid NEAR contract.
 ///
 /// The macro is a syntactic sugar for [near_bindgen] and expands to the [near_bindgen] macro invocations.
+/// Both of them share the same sub-attributes, except for those that are explicitly marked as specific to the [near] macro.
 ///
 /// # Sub-attributes
 ///
 /// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
 /// The macro sub-attribute prepares a struct/enum to be a contract state.
+/// **The sub-attribute specific to the [near] macro only.**
 ///
 /// This macro will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
@@ -131,6 +133,7 @@ extern crate quickcheck;
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
 /// The macro sub-attribute makes the struct or enum serializable with either json or borsh. By default, borsh is used.
+/// **The sub-attribute specific to the [near] macro only.**
 ///
 /// ### Make struct/enum serializable with borsh
 ///
@@ -175,6 +178,23 @@ extern crate quickcheck;
 /// #[near(serializers=[borsh, json])]
 /// pub struct MyStruct {
 ///     pub name: String,
+/// }
+/// ```
+///
+/// ## `#[serializer(...)]` (annotates function arguments)
+///
+/// The macro sub-attribute makes the function argument serializable with either json or borsh. By default, borsh is used.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///# #[near(contract_state)]
+///# pub struct Contract {}
+///
+/// #[near]
+/// impl Contract {
+///     pub fn some_function(&self, #[serializer(borsh)] a: String, #[serializer] b: String) {}
 /// }
 /// ```
 ///
@@ -279,7 +299,7 @@ extern crate quickcheck;
 /// #[near]
 /// impl MyContract {
 ///    #[result_serializer(borsh)]
-///    pub fn borsh_parameters(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) -> String {
+///    pub fn borsh_parameters(&self) -> String {
 ///        format!("{} {}", a, b)
 ///    }
 /// }
@@ -315,9 +335,31 @@ extern crate quickcheck;
 /// Function marked with `#[handle_result]` should return `Result<T, E>` (where E implements [FunctionError]).
 /// If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`
 ///
-/// ### Basic error handling example
+/// ### Basic error handling with Result
 ///
-/// This example shows how to use error handling in a contract when the types are defined in the contract.
+/// ```rust
+/// use near_sdk::{near, AccountId, Promise, PromiseError};
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Counter {
+///     val: u64,
+/// }
+///
+/// #[near]
+/// impl Counter {
+///     #[handle_result]
+///     pub fn some_function2(
+///         &self,
+///     ) -> Result<(), &'static str> {
+///         Err("error")
+///     }
+/// }
+/// ```
+///
+/// ### Typed error handling
+///
+/// This example shows how to use error handling in a contract when the error are defined in the contract.
 /// This way the contract can utilize result types and panic with the type using its [ToString] implementation
 ///
 /// ```rust
@@ -335,17 +377,17 @@ extern crate quickcheck;
 ///         }
 ///     }
 /// }
-///
-/// #[near(contract_state)]
-/// pub struct MyContract {
-///     pub some_value: u64,
-/// }
+///# #[near(contract_state)]
+///# #[derive(Default)]
+///# pub struct Counter {
+///#    val: u64,
+///# }
 ///
 /// #[near]
-/// impl MyContract {
+/// impl Counter {
 ///     #[handle_result]
 ///     pub fn some_function(&self) -> Result<(), MyError> {
-///         if self.some_value == 0 {
+///         if self.val == 0 {
 ///             return Err(MyError::SomePanicError);
 ///         }
 ///         Ok(())
@@ -353,35 +395,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ### Basic callback function example
-///
-/// This examples shows how to create a function that handles the result of a
-/// cross-chain call. For more details, see [here](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#callback-function)
-///
-/// ```rust
-/// use near_sdk::{near, AccountId, Promise, PromiseError};
-///
-/// #[near(contract_state)]
-/// #[derive(Default)]
-/// pub struct Counter {
-///     val: u64,
-/// }
-///
-/// #[near]
-/// impl Counter {
-///     #[handle_result]
-///     pub fn get_result(
-///         &self,
-///         account_id: AccountId,
-///         #[callback_result] set_status_result: Result<(), PromiseError>,
-///     ) -> Result<(), &'static str> {
-///         // ..
-///         Ok(())
-///     }
-/// }
-/// ```
-///
-/// ## `#[event_json(...)]` (annotates enums)
+/// ## `#[near(event_json(...))]` (annotates enums)
 ///
 /// By passing `event_json` as an argument `near` will generate the relevant code to format events
 /// according to [NEP-297](https://github.com/near/NEPs/blob/master/neps/nep-0297.md)
