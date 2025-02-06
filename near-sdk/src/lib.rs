@@ -184,6 +184,7 @@ extern crate quickcheck;
 /// ## `#[serializer(...)]` (annotates function arguments)
 ///
 /// The attribute makes the function argument serializable with either json or borsh. By default, json is used.
+/// Please, note that all the arguments of the function should be using the same serializer.
 ///
 /// ### Basic example
 ///
@@ -194,7 +195,7 @@ extern crate quickcheck;
 ///
 /// #[near]
 /// impl Contract {
-///     pub fn some_function(&self, #[serializer(json)] a: String, #[serializer] b: String) {}
+///     pub fn some_function(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) {}
 /// }
 /// ```
 ///
