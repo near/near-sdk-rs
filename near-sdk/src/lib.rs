@@ -422,7 +422,7 @@ extern crate quickcheck;
 /// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
 /// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
 ///
-/// **Please note that the `contract_metadata` will be ignored if `#[near(contract_state)]` is not used**.
+/// **Please note that the `contract_metadata` will be ignored if [`#[near(contract_state)]`](near#nearcontract_state-annotates-structsenums) is not used**.
 ///
 /// ### Basic example
 ///
