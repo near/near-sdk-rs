@@ -109,7 +109,7 @@ extern crate quickcheck;
 ///
 /// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
-/// The attribute prepares a struct/enum to be a contract state.
+/// This is a marker attribute to mark the `Contract` (which is usually one per crate). This attribute is also required to make the [`#[near(contract_metadata(...))]`](near#nearcontract_metadata-annotates-structsenums) attribute work.
 /// **The attribute specific to the [near] macro only.**
 ///
 /// ### Basic example
@@ -422,11 +422,14 @@ extern crate quickcheck;
 /// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
 /// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
 ///
+/// **Please note that the `contract_metadata` will be ignored if `#[near(contract_state)]` is not used**.
+///
 /// ### Basic example
 ///
 /// ```rust
 /// use near_sdk::near;
 ///
+/// #[near(contract_state)]
 /// #[near(contract_metadata(
 ///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
 ///     link = "https://github.com/near-examples/nft-tutorial",
