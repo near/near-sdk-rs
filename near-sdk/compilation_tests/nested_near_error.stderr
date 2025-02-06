@@ -1,0 +1,7 @@
+error: The `near` macro cannot be nested with other `near` or `near_bindgen` macros. Please comma-separate the attributes instead of nesting them
+ --> compilation_tests/nested_near_error.rs:5:1
+  |
+5 | #[near(contract_state)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `near` (in Nightly builds, run with -Z macro-backtrace for more info)
