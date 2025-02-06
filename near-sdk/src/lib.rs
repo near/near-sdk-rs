@@ -103,16 +103,16 @@ extern crate quickcheck;
 /// as generating the glue code to be a valid NEAR contract.
 ///
 /// The macro is a syntactic sugar for [near_bindgen] and expands to the [near_bindgen] macro invocations.
-/// Both of them share the same sub-attributes, except for those that are explicitly marked as specific to the [near] macro.
+/// Both of them share the same attributes, except for those that are explicitly marked as specific to the [near] macro. ([1](near#nearserializers-annotates-structsenums), [2](near#nearcontract_state-annotates-structsenums))
 ///
-/// # Sub-attributes
+/// # Attributes
 ///
 /// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
-/// The macro sub-attribute prepares a struct/enum to be a contract state.
-/// **The sub-attribute specific to the [near] macro only.**
+/// The attribute prepares a struct/enum to be a contract state.
+/// **The attribute specific to the [near] macro only.**
 ///
-/// This macro will generate code to load and deserialize state if the `self` parameter is included
+/// This attribute will generate code to load and deserialize state if the `self` parameter is included
 /// as well as saving it back to state if `&mut self` is used.
 ///
 /// ### Basic example
@@ -132,8 +132,8 @@ extern crate quickcheck;
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
-/// The macro sub-attribute makes the struct or enum serializable with either json or borsh. By default, borsh is used.
-/// **The sub-attribute specific to the [near] macro only.**
+/// The attribute makes the struct or enum serializable with either json or borsh. By default, borsh is used.
+/// **The attribute specific to the [near] macro only.**
 ///
 /// ### Make struct/enum serializable with borsh
 ///
@@ -183,7 +183,7 @@ extern crate quickcheck;
 ///
 /// ## `#[serializer(...)]` (annotates function arguments)
 ///
-/// The macro sub-attribute makes the function argument serializable with either json or borsh. By default, borsh is used.
+/// The attribute makes the function argument serializable with either json or borsh. By default, json is used.
 ///
 /// ### Basic example
 ///
@@ -194,7 +194,7 @@ extern crate quickcheck;
 ///
 /// #[near]
 /// impl Contract {
-///     pub fn some_function(&self, #[serializer(borsh)] a: String, #[serializer] b: String) {}
+///     pub fn some_function(&self, #[serializer(json)] a: String, #[serializer] b: String) {}
 /// }
 /// ```
 ///
@@ -258,7 +258,7 @@ extern crate quickcheck;
 ///
 /// ## `#[private]` (annotates methods of a type in its `impl` block)]
 ///
-/// The macro sub-attribute forbids to call the method except from within the contract.
+/// The attribute forbids to call the method except from within the contract.
 /// This is useful for internal methods that should not be called from outside the contract.
 ///
 /// More details can be found [here](https://docs.near.org/build/smart-contracts/anatomy/functions#private-functions)
@@ -285,7 +285,7 @@ extern crate quickcheck;
 ///
 /// ## `#[result_serializer(...)]` (annotates methods of a type in its `impl` block)
 ///
-/// The macro sub-attribute defines the serializer for function return serialization.
+/// The attribute defines the serializer for function return serialization.
 /// Only one of `borsh` or `json` can be specified.
 ///
 /// ```rust
@@ -300,7 +300,7 @@ extern crate quickcheck;
 /// impl MyContract {
 ///    #[result_serializer(borsh)]
 ///    pub fn borsh_parameters(&self) -> String {
-///        format!("{} {}", a, b)
+///         "hello_world".to_string()
 ///    }
 /// }
 /// ```
@@ -448,7 +448,7 @@ extern crate quickcheck;
 /// All fields(version, link) are optional and will be populated with defaults from the Cargo.toml file if not specified.
 /// The `standard` will be populated with `nep330` by default.
 ///
-/// Any additional standards can be added and should be specified using the `standard` sub-attribute.
+/// Any additional standards can be added and should be specified using the `standard` attribute.
 ///
 /// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
 /// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.

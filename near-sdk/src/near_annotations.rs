@@ -16,7 +16,7 @@
 //! * serializers
 //! * contract_state
 
-/// See [`near_sdk::near #[init]`](crate::near#init-annotates-methods-of-a-type-in-its-impl-block) for details.
+/// See [`near_sdk::near #[init]`](crate::near#init-annotates-methods-of-a-type-in-its-impl-block)
 pub fn init() {}
 
 /// See [`near_sdk::near #[payable]`](crate::near#payable-annotates-methods-of-a-type-in-its-impl-block)
