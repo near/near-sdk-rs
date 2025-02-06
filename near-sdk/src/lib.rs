@@ -109,7 +109,7 @@ extern crate quickcheck;
 ///
 /// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
-/// This is a marker attribute to mark the `Contract` (only one per crate is possible). This attribute is also required to make the [`#[near(contract_metadata(...))]`](near#nearcontract_metadata-annotates-structsenums) attribute work.
+/// The attribute prepares a struct/enum to be a contract state. This attribute is also required to make the [`#[near(contract_metadata(...))]`](near#nearcontract_metadata-annotates-structsenums) attribute work.
 /// **The attribute specific to the [near] macro only.**
 ///
 /// ### Basic example
