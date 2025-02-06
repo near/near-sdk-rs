@@ -112,9 +112,6 @@ extern crate quickcheck;
 /// The attribute prepares a struct/enum to be a contract state.
 /// **The attribute specific to the [near] macro only.**
 ///
-/// This attribute will generate code to load and deserialize state if the `self` parameter is included
-/// as well as saving it back to state if `&mut self` is used.
-///
 /// ### Basic example
 /// ```rust
 /// use near_sdk::near;
@@ -122,11 +119,6 @@ extern crate quickcheck;
 /// #[near(contract_state)]
 /// pub struct Contract {
 ///    data: i8,
-/// }
-///
-/// #[near]
-/// impl Contract {
-///     pub fn some_function(&self) {}
 /// }
 /// ```
 ///
@@ -195,7 +187,7 @@ extern crate quickcheck;
 ///
 /// #[near]
 /// impl Contract {
-///     pub fn some_function(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) {}
+///     pub fn borsh_arguments(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) {}
 /// }
 /// ```
 ///
@@ -300,32 +292,8 @@ extern crate quickcheck;
 /// #[near]
 /// impl MyContract {
 ///    #[result_serializer(borsh)]
-///    pub fn borsh_parameters(&self) -> String {
+///    pub fn borsh_return_value(&self) -> String {
 ///         "hello_world".to_string()
-///    }
-/// }
-/// ```
-///
-/// `#[near]` will handle serializing and setting the return value of the
-/// function execution based on what type is returned by the function. By default, this will be
-/// done through `serde` serialized as JSON, but this can be overridden using
-/// `#[result_serializer(borsh)]`:
-///
-/// ### Basic example
-///
-/// ```rust
-/// use near_sdk::near;
-///
-/// # #[near(contract_state)]
-/// # struct MyContract {
-/// #   pub name: String,
-/// # }
-///
-/// #[near]
-/// impl MyContract {
-///    #[result_serializer(borsh)]
-///    pub fn borsh_parameters(&self) -> String {
-///        self.name.clone()
 ///    }
 /// }
 /// ```
