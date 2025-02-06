@@ -109,7 +109,7 @@ extern crate quickcheck;
 ///
 /// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
-/// This is a marker attribute to mark the `Contract` (which is usually one per crate). This attribute is also required to make the [`#[near(contract_metadata(...))]`](near#nearcontract_metadata-annotates-structsenums) attribute work.
+/// This is a marker attribute to mark the `Contract` (only one per crate is possible). This attribute is also required to make the [`#[near(contract_metadata(...))]`](near#nearcontract_metadata-annotates-structsenums) attribute work.
 /// **The attribute specific to the [near] macro only.**
 ///
 /// ### Basic example
@@ -429,8 +429,7 @@ extern crate quickcheck;
 /// ```rust
 /// use near_sdk::near;
 ///
-/// #[near(contract_state)]
-/// #[near(contract_metadata(
+/// #[near(contract_state, contract_metadata(
 ///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
 ///     link = "https://github.com/near-examples/nft-tutorial",
 ///     standard(standard = "nep171", version = "1.0.0"),
