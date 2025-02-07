@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.1...near-sdk-v6.0.0) - 2025-02-07
+
+### Added
+
+- *(near_sdk_macros)* improved error reporting for `near` macro (#1301)
+
+### Other
+
+- moved annotations to the near macro documentation.  (#1299)
+- moved near-sdk-macros doc to near-sdk crate. (#1295)
+
 ## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.0...near-sdk-v5.7.1) - 2025-01-30
 
 ### Other
