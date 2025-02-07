@@ -40,4 +40,6 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/contract_metadata_fn_name.rs");
     t.pass("compilation_tests/contract_metadata_bindgen.rs");
     t.pass("compilation_tests/types.rs");
+    t.compile_fail("compilation_tests/nested_near_error.rs");
+    t.compile_fail("compilation_tests/double_contract_state_error.rs");
 }

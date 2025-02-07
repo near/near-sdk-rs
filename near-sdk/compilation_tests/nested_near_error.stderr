@@ -1,0 +1,7 @@
+error: #[near] or #[near_bindgen] attributes are not allowed to be nested inside of the outmost #[near] attribute. Only a single #[near] attribute is allowed
+ --> compilation_tests/nested_near_error.rs:5:1
+  |
+5 | #[near(contract_state)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `near` (in Nightly builds, run with -Z macro-backtrace for more info)

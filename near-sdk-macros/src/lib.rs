@@ -43,6 +43,32 @@ struct NearMacroArgs {
     inside_nearsdk: Option<bool>,
 }
 
+fn has_nested_near_macros(item: TokenStream) -> bool {
+    syn::parse::<syn::Item>(item)
+        .ok()
+        .and_then(|item_ast| {
+            let attrs = match item_ast {
+                syn::Item::Struct(s) => s.attrs,
+                syn::Item::Enum(e) => e.attrs,
+                syn::Item::Impl(i) => i.attrs,
+                _ => vec![], // Other cases don't support near macros anyway
+            };
+
+            attrs.into_iter().find(|attr| {
+                let path_str = attr.path().to_token_stream().to_string();
+                path_str == "near" || path_str == "near_bindgen"
+            })
+        })
+        .is_some()
+}
+
+fn check_duplicate_contract_state() -> bool {
+    static CONTRACT_STATE_DEFINED: ::std::sync::atomic::AtomicBool =
+        ::std::sync::atomic::AtomicBool::new(false);
+
+    CONTRACT_STATE_DEFINED.swap(true, ::std::sync::atomic::Ordering::AcqRel)
+}
+
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -68,12 +94,33 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {::near_sdk}
     };
+
+    // Check for nested near macros by parsing the input and examining actual attributes
+    if has_nested_near_macros(item.clone()) {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "#[near] or #[near_bindgen] attributes are not allowed to be nested inside of the outmost #[near] attribute. Only a single #[near] attribute is allowed",
+            )
+            .to_compile_error(),
+        );
+    }
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
 
     let mut expanded: proc_macro2::TokenStream = quote! {};
 
     if near_macro_args.contract_state.unwrap_or(false) {
+        if check_duplicate_contract_state() {
+            return TokenStream::from(
+                syn::Error::new(
+                    Span::call_site(),
+                    "Contract state can only be defined once per crate",
+                )
+                .to_compile_error(),
+            );
+        }
+
         if let Some(metadata) = near_macro_args.contract_metadata {
             expanded = quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
         } else {
