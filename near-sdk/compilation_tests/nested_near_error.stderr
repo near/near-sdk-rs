@@ -1,4 +1,4 @@
-error: The `near` macro cannot be nested with other `near` or `near_bindgen` macros. Please comma-separate the attributes instead of nesting them
+error: #[near] or #[near_bindgen] attributes are not allowed to be nested inside of the outmost #[near] attribute. Only a single #[near] attribute is allowed
  --> compilation_tests/nested_near_error.rs:5:1
   |
 5 | #[near(contract_state)]

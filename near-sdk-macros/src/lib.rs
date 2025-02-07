@@ -66,7 +66,7 @@ fn check_duplicate_contract_state() -> bool {
     static CONTRACT_STATE_DEFINED: ::std::sync::atomic::AtomicBool =
         ::std::sync::atomic::AtomicBool::new(false);
 
-    CONTRACT_STATE_DEFINED.swap(true, ::std::sync::atomic::Ordering::SeqCst)
+    CONTRACT_STATE_DEFINED.swap(true, ::std::sync::atomic::Ordering::AcqRel)
 }
 
 #[proc_macro_attribute]
@@ -100,7 +100,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
         return TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
-                "The `near` macro cannot be nested with other `near` or `near_bindgen` macros. Please comma-separate the attributes instead of nesting them",
+                "#[near] or #[near_bindgen] attributes are not allowed to be nested inside of the outmost #[near] attribute. Only a single #[near] attribute is allowed",
             )
             .to_compile_error(),
         );
