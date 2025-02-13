@@ -13,6 +13,51 @@
 //! mentioned above shows that running the contains method on a native [`std::collections::HashSet<i32>`] **consumes 41% more gas**
 //! compared to a near [`crate::store::IterableSet<i32>`].
 //!
+//! ## FAQ: collections of this [`module`](self) only persist on `Drop` and `flush`
+//! Unlike containers in [`near_sdk::collections`](crate::collections) module, most containers in current [`module`](self) will cache all changes
+//! and loads and only update values that are changed in storage after it’s dropped through it’s [`Drop`] implementation.
+//!
+//! These changes can be updated in storage before the container variable is dropped by using
+//! the container's `flush` method, e.g. [`IterableMap::flush`](crate::store::IterableMap::flush) ([`IterableMap::drop`](crate::store::IterableMap::drop) uses it in implementation too).
+//!
+//! ```rust,no_run
+//! # use near_sdk::{log, near, env};
+//! use near_sdk::store::IterableMap;
+//!
+//! #[near(contract_state)]
+//! #[derive(Debug)]
+//! pub struct Contract {
+//!   greeting_map: IterableMap<String, String>,
+//! }
+//!
+//! # impl Default for Contract {
+//! #     fn default() -> Self {
+//! #         let prefix = b"gr_pr";
+//! #         Self {
+//! #             greeting_map: IterableMap::new(prefix.as_slice()),
+//! #         }
+//! #     }
+//! # }
+//!
+//! #[near]
+//! impl Contract {
+//!     pub fn mutating_method(&mut self, argument: String) {
+//!         self.greeting_map.insert("greeting".into(), argument);
+
+//!         env::log_str(&format!("State of contract mutated: {:#?}", self));
+//!     }
+//! }
+//! // expanded #[near] macro call on a contract method definition:
+//! // ...
+//! # let argument = "hello world".to_string();
+//! let mut contract: Contract = ::near_sdk::env::state_read().unwrap_or_default();
+//! // call of the original `mutating_method` as defined in source code prior to expansion
+//! Contract::mutating_method(&mut contract, argument);
+//! ::near_sdk::env::state_write(&contract);
+//! // Drop on `contract` is called! `IterableMap` is only `flush`-ed here  <====
+//! // ...
+//! ```
+//!
 //! ## General description
 //!
 //! These collections are more scalable versions of [`std::collections`] when used as contract
