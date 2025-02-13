@@ -180,6 +180,87 @@ extern crate quickcheck;
 ///
 /// * list of [**host functions**](collections#calls-to-host-functions-used-in-implementation) used for [`collections`] implementation
 ///
+/// ### Implementation details and **host functions** calls used
+///
+/// If the details of [ABI](https://github.com/near/abi) generation layer are put aside, then the macro performs roughly the following:  
+///
+/// #### inner workings of `#[near(contract_state)]` macro on struct/enum:
+///
+/// ```rust
+/// # use near_sdk::near;
+/// #[near(contract_state)]
+/// pub struct Contract { /* .. */ }
+/// ```
+///
+/// 1. Macro adds derived implementations of [`borsh::BorshSerialize`]/[`borsh::BorshSerialize`] for `Contract` type
+/// 2. Macro defines a global `CONTRACT_SOURCE_METADATA` variable, which is a string of json serialization of [`near_contract_standards::contract_metadata::ContractSourceMetadata`](https://docs.rs/near-contract-standards/latest/near_contract_standards/contract_metadata/struct.ContractSourceMetadata.html).
+/// 3. Macro defines `contract_source_metadata` function:
+///     ```rust,no_run
+///     #[no_mangle]
+///     pub extern "C" fn contract_source_metadata() { /* .. */ }
+///     ```
+///    which
+///   * calls [`env::setup_panic_hook`] host function
+///   * calls [`env::value_return`] host function with bytes of `CONTRACT_SOURCE_METADATA` from step 2.
+///
+/// #### inner workings of `#[near]` macro on impl block:
+///
+/// ```rust
+/// # use near_sdk::near;
+/// # #[near(contract_state)]
+/// # pub struct Contract { /* .. */ }
+/// #[near]
+/// impl Contract {
+///     pub fn view_method(&self) -> String { todo!("method body") }
+///
+///     pub fn mutating_method(&mut self, argument: String) { /* .. */ }
+/// }
+/// ```
+/// ##### for a **view** method macro defines the following function:
+/// ```rust,no_run
+/// #[no_mangle]
+/// pub extern "C" fn view_method() { /* .. */ }
+/// ```
+/// which
+///
+/// 1. calls [`env::setup_panic_hook`] host function
+/// 2. calls [`env::state_read`] host function to load `Contract` into a `state` variable
+/// 3. calls original `Contract::view_method(&state)` as defined in `#[near]` annotated block and saves
+///    the returned value into a `result` variable
+/// 4. calls [`serde_json::to_vec`] on obtained `result` and saves returned value to `serialized_result` variable
+///   * `json` format can be changed to serializing with [`borsh::to_vec`] by using [`#[result_serializer(...)]`](`near#result_serializer-annotates-methods-of-a-type-in-its-impl-block`)
+/// 5. if the `serialized_result` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal result serialization error  
+/// 6. otherwise, if the `serialized_result` is a [`Result::Ok`], then [`env::value_return`] host function is called with unwrapped `serialized_result`
+///
+/// ##### for a **mutating** method macro defines the following function:
+/// ```rust,no_run
+/// #[no_mangle]
+/// pub extern "C" fn mutating_method() { /* ..*/ }
+/// ```
+/// which
+///
+/// 1. calls [`env::setup_panic_hook`] host function
+/// 2. calls [`env::input`] host function and saves it to `input` variable
+/// 3. deserializes `Contract::mutating_method` arguments with [`serde_json::from_slice`] and saves it to `deserialized_input` variable
+///   * `json` format can be changed to deserializing with [`borsh::from_slice`] by using [`#[serializer(...)]`](`near#serializer-annotates-function-arguments`)
+/// 4. if the `deserialized_input` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal input deserialization error  
+/// 5. otherwise, if the `deserialized_input` is a [`Result::Ok`], `deserialized_input` is unwrapped and saved to `deserialized_input_success` variable
+/// 6. calls [`env::state_read`] host function to load `Contract` into a `state` variable
+/// 7. calls original `Contract::mutating_method(&mut state, deserialized_input_success.argument)` as defined in `#[near]` annotated block
+/// 8. calls [`env::state_write`] with `&state` as argument.
+///
+/// ##### using [cargo-expand](https://crates.io/crates/cargo-expand) to view actual macro results
+///
+/// The above is an approximate description of what macro performs.
+///
+/// Running the following in a contract's crate is a way to introspect more details of its operation:
+///
+/// ```bash,ignore
+/// cargo expand --lib --target wasm32-unknown-unknown
+/// # this has additional code generated for ABI layer
+/// cargo expand --lib --features near-sdk/__abi-generate
+/// ```
+///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
 /// The attribute makes the struct or enum serializable with either json or borsh. By default, borsh is used.
@@ -233,8 +314,8 @@ extern crate quickcheck;
 ///
 /// ## `#[serializer(...)]` (annotates function arguments)
 ///
-/// The attribute makes the function argument serializable with either json or borsh. By default, json is used.
-/// Please, note that all the arguments of the function should be using the same serializer.
+/// The attribute makes the function argument deserializable with either json or borsh. By default, json is used.
+/// Please, note that all the arguments of the function should be using the same deserializer.
 ///
 /// ### Basic example
 ///
@@ -475,7 +556,7 @@ extern crate quickcheck;
 /// All fields(version, link) are optional and will be populated with defaults from the Cargo.toml file if not specified.
 /// The `standard` will be populated with `nep330` by default.
 ///
-/// Any additional standards can be added and should be specified using the `standard` attribute.
+/// **Any additional standards can be added and should be specified using the `standard` attribute.**
 ///
 /// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
 /// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
