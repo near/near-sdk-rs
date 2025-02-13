@@ -147,8 +147,38 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// It makes little sense to define
-/// contract state without contract-specific methods to view and mutate its state.
+/// ### Using SDK collections for storage
+///
+/// If contract state becomes large, collections from following modules can be used:
+///
+/// #### [`store`] module:
+///
+/// ```rust
+/// # use near_sdk_macros::near;
+/// use near_sdk::store::IterableMap;
+///
+/// #[near(contract_state)]
+/// pub struct StatusMessage {
+///    records: IterableMap<String, String>,
+/// }
+/// ```
+///
+/// * list of [**host functions**](store#calls-to-host-functions-used-in-implementation) used for [`store`] implementation
+/// * **FAQ**: mutating state of collections from [`store`] module is only finally persisted on running [`Drop`/`flush`](store#faq-collections-of-this-module-only-persist-on-drop-and-flush)
+///
+/// #### [`collections`] module:
+///
+/// ```rust
+/// # use near_sdk_macros::near;
+/// use near_sdk::collections::LookupMap;
+///
+/// #[near(contract_state)]
+/// pub struct StatusMessage {
+///    records: LookupMap<String, String>,
+/// }
+/// ```
+///
+/// * list of [**host functions**](collections#calls-to-host-functions-used-in-implementation) used for [`collections`] implementation
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///

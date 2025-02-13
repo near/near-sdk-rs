@@ -88,7 +88,7 @@
 //! collections to be able to access all values. Because only metadata is serialized, these
 //! structures should not be used as a borsh return value from a function.
 //!
-//! ## Calls to host-functions, used in implementation:
+//! ## Calls to **host functions**, used in implementation:
 //!
 //! * [`near_sdk::env::storage_write`](crate::env::storage_write)
 //! * [`near_sdk::env::storage_read`](crate::env::storage_read)

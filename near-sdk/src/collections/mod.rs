@@ -36,7 +36,7 @@
 //! The efficiency of `LookupMap` comes at the cost, since it has fewer methods than `HashMap` and is not
 //! that seamlessly integrated with the rest of the Rust standard library.
 //!
-//! ## Calls to host-functions, used in implementation:
+//! ## Calls to **host functions**, used in implementation:
 //!
 //! * [`near_sdk::env::storage_write`](crate::env::storage_write)
 //! * [`near_sdk::env::storage_read`](crate::env::storage_read)
