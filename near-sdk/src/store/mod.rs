@@ -21,7 +21,7 @@
 //! the container's `flush` method, e.g. [`IterableMap::flush`](crate::store::IterableMap::flush) ([`IterableMap::drop`](crate::store::IterableMap::drop) uses it in implementation too).
 //!
 //! ```rust,no_run
-//! # use near_sdk::{log, near, env};
+//! # use near_sdk::{log, near};
 //! use near_sdk::store::IterableMap;
 //!
 //! #[near(contract_state)]
@@ -44,7 +44,7 @@
 //!     pub fn mutating_method(&mut self, argument: String) {
 //!         self.greeting_map.insert("greeting".into(), argument);
 
-//!         env::log_str(&format!("State of contract mutated: {:#?}", self));
+//!         near_sdk::env::log_str(&format!("State of contract mutated: {:#?}", self));
 //!     }
 //! }
 //! // expanded #[near] macro call on a contract method definition:
@@ -90,10 +90,10 @@
 //!
 //! ## Calls to host-functions, used in implementation:
 //!
-//! * [`env::storage_write`](crate::env::storage_write)
-//! * [`env::storage_read`](crate::env::storage_read)
-//! * [`env::storage_remove`](crate::env::storage_remove)
-//! * [`env::storage_has_key`](crate::env::storage_has_key)
+//! * [`near_sdk::env::storage_write`](crate::env::storage_write)
+//! * [`near_sdk::env::storage_read`](crate::env::storage_read)
+//! * [`near_sdk::env::storage_remove`](crate::env::storage_remove)
+//! * [`near_sdk::env::storage_has_key`](crate::env::storage_has_key)
 //!
 //! ## Module's glossary:
 //!
