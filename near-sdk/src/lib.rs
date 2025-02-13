@@ -54,16 +54,26 @@
 //!
 //! ### Compiling to WASM
 //!
-//! Install cargo near in case if you don't have it:
+//! Install `cargo-near` in case if you don't have it:
 //! ```bash
 //! cargo install --locked cargo-near
 //! ```
 //!
-//! Build your contract for the NEAR blockchain:
+//! More installation methods on [cargo-near](https://github.com/near/cargo-near)
+//!
+//! Builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml):
 //!
 //! ```bash
 //! cargo near build
 //! ```
+//!
+//! If you have problems/errors with schema/ABI during build that you cannot figure out quick, you can skip/circumvent them with:
+//!
+//! ```bash
+//! cargo near build non-reproducible-wasm --no-abi
+//! ```
+//!
+//! And return to figuring how to resolve problems with generating ABI of your contract later.
 //!
 //! ### Running Unit Tests
 //!
