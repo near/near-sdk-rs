@@ -43,6 +43,13 @@
 //! collections to be able to access all values. Because only metadata is serialized, these
 //! structures should not be used as a borsh return value from a function.
 //!
+//! ## Calls to host-functions, used in implementation:
+//!
+//! * [`env::storage_write`](crate::env::storage_write)
+//! * [`env::storage_read`](crate::env::storage_read)
+//! * [`env::storage_remove`](crate::env::storage_remove)
+//! * [`env::storage_has_key`](crate::env::storage_has_key)
+//!
 //! ## Module's glossary:
 //!
 //! The collections are as follows:
