@@ -1,5 +1,20 @@
 //! Collections and types used when interacting with storage.
 //!
+//! ## Benchmarks of comparison with [`std::collections`]:
+//!
+//! To help you understand how cost-effective near collections are in terms of gas usage compared to native ones,
+//! take a look at this investigation: [Near benchmarking github](https://github.com/volodymyr-matselyukh/near-benchmarking).
+//!
+//! The results of the investigation can be found here: [Results](https://docs.google.com/spreadsheets/d/1ThsBlNR6_Ol9K8cU7BRXNN73PblkTbx0VW_njrF633g/edit?gid=0#gid=0).
+//!
+//! If your collection has up to 100 entries, it's acceptable to use the native collection, as it might be simpler
+//! since you don't have to manage prefixes as we do with near collections.
+//! However, if your collection has 1,000 or more entries, it's better to use a near collection. The investigation
+//! mentioned above shows that running the contains method on a native [`std::collections::HashSet<i32>`] **consumes 41% more gas**
+//! compared to a near [`crate::store::IterableSet<i32>`].
+//!
+//! ## General description
+//!
 //! These collections are more scalable versions of [`std::collections`] when used as contract
 //! state because it allows values to be lazily loaded and stored based on what is actually
 //! interacted with.
@@ -13,15 +28,6 @@
 //! That's where `store` module helps. Its collections are backed by a key value store.
 //! For example, a store::Vector is stored as several key-value pairs, where indices are the keys.
 //! So, accessing a single element would only load this specific element.
-//!
-//! To help you understand how cost-effective near collections are in terms of gas usage compared to native ones,
-//! take a look at this investigation: [Near benchmarking github](https://github.com/volodymyr-matselyukh/near-benchmarking).
-//! The results of the investigation can be found here: [Results](https://docs.google.com/spreadsheets/d/1ThsBlNR6_Ol9K8cU7BRXNN73PblkTbx0VW_njrF633g/edit?gid=0#gid=0).
-//! If your collection has up to 100 entries, it's acceptable to use the native collection, as it might be simpler
-//! since you don't have to manage prefixes as we do with near collections.
-//! However, if your collection has 1,000 or more entries, it's better to use a near collection. The investigation
-//! mentioned above shows that running the contains method on a native [`std::collections::HashSet<i32>`] consumes 41% more gas
-//! compared to a near [`crate::store::IterableSet<i32>`].
 //!
 //! It's also a bad practice to have a native collection properties as a top level properties of your contract.
 //! The contract will load all the properties before the contract method invocation. That means that all your native
@@ -37,6 +43,8 @@
 //! collections to be able to access all values. Because only metadata is serialized, these
 //! structures should not be used as a borsh return value from a function.
 //!
+//! ## Module's glossary:
+//!
 //! The collections are as follows:
 //!
 //! Sequences:
@@ -51,6 +59,7 @@
 //!
 //! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //!   guarantees.
+//! - [`IterableMap`]: a replacement with better iteration performance for [`UnorderedMap`], which is being deprecated.
 //!
 //! - [`TreeMap`] (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
 //!   which comes at the cost of more expensive lookups and iteration.
@@ -61,6 +70,7 @@
 //!
 //! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
 //!   version of [`LookupSet`] and persisted to storage.
+//! - [`IterableSet`]: a replacement with better iteration performance for [`UnorderedSet`], which is being deprecated.
 //!
 //! Basic Types:
 //!
