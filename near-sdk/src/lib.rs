@@ -24,7 +24,7 @@
 //! near-sdk = "5.6.0"
 //! ```
 //!
-//! ### Example: Counter Smart Contract. For more information, see the [near] documentation.
+//! ### Example: Counter Smart Contract. For more information, see the [**near** macro](near) documentation.
 //!
 //! Below is an example of a simple counter contract that increments and retrieves a value:
 //!
@@ -102,8 +102,8 @@ extern crate quickcheck;
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
 ///
-/// The macro is a syntactic sugar for [near_bindgen] and expands to the [near_bindgen] macro invocations.
-/// Both of them share the same attributes, except for those that are explicitly marked as specific to the [near] macro. ([1](near#nearserializers-annotates-structsenums), [2](near#nearcontract_state-annotates-structsenums))
+/// The macro is a syntactic sugar for [**near_bindgen**](near_bindgen) and expands to the [**near_bindgen**](near_bindgen) macro invocations.
+/// Both of them share the same attributes, except for those that are explicitly marked as specific to the [**near**](near) macro. ([1](near#nearserializers-annotates-structsenums), [2](near#nearcontract_state-annotates-structsenums))
 ///
 /// # Attributes
 ///
@@ -119,9 +119,36 @@ extern crate quickcheck;
 ///
 /// #[near(contract_state)]
 /// pub struct Contract {
-///    data: i8,
+///     greeting: String,
 /// }
 /// ```
+/// which usually comes paired with at least one **impl** block for the contract type,
+/// annotated with a plain `#[near]` attribute:
+///
+/// ```rust
+/// # use near_sdk::{near, log};
+///
+/// # #[near(contract_state)]
+/// # pub struct Contract {
+/// #     greeting: String,
+/// # }
+/// #[near]
+/// impl Contract {
+///     // view method
+///     pub fn get_greeting(&self) -> String {
+///         self.greeting.clone()
+///     }
+///
+///     // mutating method
+///     pub fn set_greeting(&mut self, greeting: String) {
+///         log!("Saving greeting: {greeting}");
+///         self.greeting = greeting;
+///     }
+/// }
+/// ```
+///
+/// It makes little sense to define
+/// contract state without contract-specific methods to view and mutate its state.
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
