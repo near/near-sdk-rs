@@ -1,7 +1,5 @@
-//! Collections and types used when interacting with storage.
-//!
-//! These collections are more scalable versions of [`std::collections`] when used as contract
-//! state because it allows values to be lazily loaded and stored based on what is actually
+//! These collections are more scalable versions of [`std::collections`] when used as contract 
+//! state because it allows values to be lazily loaded and stored based on what is actually 
 //! interacted with.
 //!
 //! Fundamentally, a contract's storage is a key/value store where both keys and values are just
@@ -52,6 +50,11 @@
 //! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
 //!   guarantees.
 //!
+//! - [`IterableMap`]: A performant iterable key-value storage implementation that addresses iteration
+//!   performance degradation with high number of elements. Unlike [`UnorderedMap`], it maintains
+//!   consistently fast iteration performance by optimizing the underlying storage structure, using
+//!   an optimized vector for keys alongside a lookup map for values. 
+//!
 //! - [`TreeMap`] (`unstable`): Storage version of [`std::collections::BTreeMap`]. Ordered by key,
 //!   which comes at the cost of more expensive lookups and iteration.
 //!
@@ -61,6 +64,10 @@
 //!
 //! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
 //!   version of [`LookupSet`] and persisted to storage.
+//!
+//! - [`IterableSet`]: A performant iterable set implementation optimized for high-volume iteration.
+//!   Uses separate storage for fast element lookup and a vector for optimized iteration, making it
+//!   ideal for cases where you need to frequently iterate over large sets of data.
 //!
 //! Basic Types:
 //!
