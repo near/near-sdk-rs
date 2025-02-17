@@ -62,13 +62,6 @@ fn has_nested_near_macros(item: TokenStream) -> bool {
         .is_some()
 }
 
-fn check_duplicate_contract_state() -> bool {
-    static CONTRACT_STATE_DEFINED: ::std::sync::atomic::AtomicBool =
-        ::std::sync::atomic::AtomicBool::new(false);
-
-    CONTRACT_STATE_DEFINED.swap(true, ::std::sync::atomic::Ordering::AcqRel)
-}
-
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -111,16 +104,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut expanded: proc_macro2::TokenStream = quote! {};
 
     if near_macro_args.contract_state.unwrap_or(false) {
-        if check_duplicate_contract_state() {
-            return TokenStream::from(
-                syn::Error::new(
-                    Span::call_site(),
-                    "Contract state can only be defined once per crate",
-                )
-                .to_compile_error(),
-            );
-        }
-
         if let Some(metadata) = near_macro_args.contract_metadata {
             expanded = quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
         } else {

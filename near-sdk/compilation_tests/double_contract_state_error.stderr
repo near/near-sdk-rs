@@ -1,7 +1,0 @@
-error: Contract state can only be defined once per crate
- --> compilation_tests/double_contract_state_error.rs:9:5
-  |
-9 |     #[near(contract_state)]
-  |     ^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the attribute macro `near` (in Nightly builds, run with -Z macro-backtrace for more info)
