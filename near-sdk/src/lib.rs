@@ -98,6 +98,7 @@
 #[cfg(test)]
 extern crate quickcheck;
 
+// add comment to trigger
 /// This attribute macro is used on a struct/enum and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
