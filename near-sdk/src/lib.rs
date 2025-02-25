@@ -379,6 +379,9 @@ extern crate quickcheck;
 /// In the example:
 ///   - lower level [`env::promise_create`], [`env::promise_then`] and [`env::promise_return`] are used in
 ///     `factorial` method to set up a callback of `factorial_mult` with result of factorial for `(n-1)`
+///   - [`#[private]`](near#private-annotates-methods-of-a-type-in-its-impl-block) on `factorial_mult` is used to
+///     to allow only calling `factorial_mult` from factorial contract method by `CrossContract` itself
+///     and disallow for it to be called externally by users
 ///
 /// ```rust
 /// use near_sdk::{near, env, log, NearToken, Gas};
