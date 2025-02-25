@@ -277,7 +277,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## `#[callback_unwrap]` (annotates function parameters)
+/// ## `#[callback_unwrap]` (annotates function arguments)
 ///
 /// Automatically unwraps the successful result of a callback from a cross-contract call.
 /// Used on parameters in callback methods that are invoked as part of a cross-contract call chain.
@@ -314,26 +314,6 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ### Error Handling Alternative
-///
-/// If you need to handle failed promises explicitly, receive the `Result<T, PromiseError>` directly
-/// instead of using `#[callback_unwrap]`:
-///
-/// ```rust
-/// # use near_sdk::{near, PromiseError};
-/// # #[near(contract_state)]
-/// # pub struct Contract {}
-/// # #[near]
-/// # impl Contract {
-///     #[private] 
-///     pub fn handle_callback(&mut self, result: Result<u8, PromiseError>) {
-///         match result {
-///             Ok(value) => { /* Handle success */ },
-///             Err(err) => { /* Handle error */ },
-///         }
-///     }
-/// # }
-/// ```
 /// ## `#[result_serializer(...)]` (annotates methods of a type in its `impl` block)
 ///
 /// The attribute defines the serializer for function return serialization.
