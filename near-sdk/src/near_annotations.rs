@@ -3,18 +3,20 @@
 //! This is not a real module; here we document the attributes that [`#[near]`](crate::near)
 //! and [`#[near_bindgen]`](crate::near_bindgen) macro use.
 //!
-//! `near_bindgen` and `near_sdk` shares almost the same attributes:
-//! * init
-//! * payable
-//! * private
-//! * handle_result
-//! * event_json
-//! * contract_metadata
-//! * serializer
+//! `near_bindgen` and `near_sdk` share most of the attributes:
+//! * `init`
+//! * `payable`
+//! * `private`
+//! * `handle_result`
+//! * `callback_unwrap`
+//! * `event_json`
+//! * `contract_metadata`
+//! * `serializer`
+//! * `result_serializer`
 //!
-//! These attributes are only part of the `near` macro.
-//! * serializers
-//! * contract_state
+//! Following attributes are only part of the `near` macro:
+//! * `serializers`
+//! * `contract_state`
 
 /// See [`near_sdk::near #[init]`](crate::near#init-annotates-methods-of-a-type-in-its-impl-block)
 pub fn init() {}
@@ -30,6 +32,9 @@ pub fn result_serializer() {}
 
 /// See [`near_sdk::near #[handle_result]`](crate::near#handle_result-annotates-methods-of-a-type-in-its-impl-block)
 pub fn handle_result() {}
+
+/// See [`near_sdk::near #[callback_unwrap]`](crate::near#callback_unwrap-annotates-function-arguments)
+pub fn callback_unwrap() {}
 
 /// See [`near_sdk::near #[near(event_json(...))]`](crate::near#nearevent_json-annotates-enums)
 pub fn event_json() {}
