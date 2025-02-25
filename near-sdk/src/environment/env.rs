@@ -1,7 +1,11 @@
 //! Blockchain-specific methods available to the smart contract that allow to interact with NEAR runtime.
-//! This is a wrapper around a low-level [`near_sys`](near_sys). Unless you know what you are doing prefer using `env::*`
-//! whenever possible. In case of cross-contract calls prefer using even higher-level API available
-//! through `callback_args`, `callback_args_vec`, `ext_contract`, `Promise`, and `PromiseOrValue`.
+//! This is a wrapper around a low-level [`near_sys`](near_sys).
+//!
+//! Unless you know what you are doing prefer using `env::*`
+//! whenever possible.
+//!
+//! In case of cross-contract calls prefer using higher-level API available
+//! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
 
 use std::convert::TryInto;
 use std::mem::{size_of, size_of_val};
