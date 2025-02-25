@@ -371,8 +371,8 @@ extern crate quickcheck;
 /// Used on parameters in callback methods that are invoked as part of a cross-contract call chain.
 /// If the promise fails, the method will panic with the error message.
 ///
-/// This attribute is commonly used with [`PromiseOrValue<T>`], which represents either an immediate value
-/// or a promise that will resolve to that value.
+/// This attribute is commonly used with [`Promise`] or [`PromiseOrValue<T>`] as the return type of another contract method,
+/// whose return value will be passed as argument to `#[callback_unwrap]`-annotated argument
 ///
 /// ### Example with Cross-Contract Factorial:
 ///
