@@ -365,6 +365,94 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
+/// ## `#[callback_unwrap]` (annotates function arguments)
+///
+/// Automatically unwraps the successful result of a callback from a cross-contract call.
+/// Used on parameters in callback methods that are invoked as part of a cross-contract call chain.
+/// If the promise fails, the method will panic with the error message.
+///
+/// This attribute is commonly used with [`Promise`] or [`PromiseOrValue<T>`] as the return type of another contract method,
+/// whose return value will be passed as argument to `#[callback_unwrap]`-annotated argument
+///
+/// ### Example with Cross-Contract Factorial:
+///
+/// In the example:
+///   - lower level [`env::promise_create`], [`env::promise_then`] and [`env::promise_return`] are used in
+///     `factorial` method to set up a callback of `factorial_mult` with result of factorial for `(n-1)`
+///   - [`#[private]`](near#private-annotates-methods-of-a-type-in-its-impl-block) on `factorial_mult` is used to
+///     to allow only calling `factorial_mult` from factorial contract method by `CrossContract` itself
+///     and disallow for it to be called externally by users
+///
+/// ```rust
+/// use near_sdk::{near, env, log, NearToken, Gas};
+///
+/// // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
+/// const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
+///
+/// // Prepaid gas for a single `factorial_mult` call.
+/// const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct CrossContract {}
+///
+/// #[near]
+/// impl CrossContract {
+///     pub fn factorial(&self, n: u32) {
+///         if n <= 1 {
+///             env::value_return(&serde_json::to_vec(&1u32).unwrap());
+///             return;
+///         }
+///         let account_id = env::current_account_id();
+///         let prepaid_gas = env::prepaid_gas().saturating_sub(FACTORIAL_CALL_GAS);
+///         let promise0 = env::promise_create(
+///             account_id.clone(),
+///             "factorial",
+///             &serde_json::to_vec(&(n - 1,)).unwrap(),
+///             NearToken::from_near(0),
+///             prepaid_gas.saturating_sub(FACTORIAL_MULT_CALL_GAS),
+///         );
+///         let promise1 = env::promise_then(
+///             promise0,
+///             account_id,
+///             "factorial_mult",
+///             &serde_json::to_vec(&(n,)).unwrap(),
+///             NearToken::from_near(0),
+///             FACTORIAL_MULT_CALL_GAS,
+///         );
+///         env::promise_return(promise1);
+///     }
+///
+///     #[private]
+///     pub fn factorial_mult(&self, n: u32, #[callback_unwrap] factorial_n_minus_one_result: u32) -> u32 {
+///         log!("Received n: {:?}", n);
+///         log!("Received factorial_n_minus_one_result: {:?}", factorial_n_minus_one_result);
+///
+///         let result = n * factorial_n_minus_one_result;
+///
+///         log!("Multiplied {:?}", result.clone());
+///         result
+///     }
+/// }
+/// ```
+/// which has the following lines in a `factorial`'s view call log:
+///
+/// ```bash,ignore
+/// logs: [
+///     "Received n: 5",
+///     "Received factorial_n_minus_one_result: 24",
+///     "Multiplied 120",
+/// ],
+/// ```
+///
+/// ### Other examples within repo:
+///
+/// - `Cross-Contract Factorial` again [examples/cross-contract-calls](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/cross-contract-calls/high-level/src/lib.rs?plain=1#L26)
+///   - same example as [above](near#example-with-cross-contract-factorial), but uses [`Promise::then`] instead of [`env`](mod@env) host functions calls to set up a callback of `factorial_mult`
+/// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L30)
+/// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L31)
+/// - [examples/callback-results](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/callback-results/src/lib.rs?plain=1#L51)
+///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
 /// By passing `event_json` as an argument `near` will generate the relevant code to format events
