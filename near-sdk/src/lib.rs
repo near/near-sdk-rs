@@ -277,43 +277,6 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## `#[callback_unwrap]` (annotates function arguments)
-///
-/// Automatically unwraps the successful result of a callback from a cross-contract call.
-/// Used on parameters in callback methods that are invoked as part of a cross-contract call chain.
-/// If the promise fails, the method will panic with the error message.
-///
-/// This attribute is commonly used with [`PromiseOrValue<T>`], which represents either an immediate value
-/// or a promise that will resolve to that value.
-///
-/// ### Example with Cross-Contract Factorial:
-///
-/// ```rust
-/// # use near_sdk::{near, env, PromiseOrValue};
-/// #[near(contract_state)]
-/// #[derive(Default)]
-/// pub struct CrossContract {}
-///
-/// #[near]
-/// impl CrossContract {
-///     pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
-///         if n <= 1 {
-///             return PromiseOrValue::Value(1);
-///         }
-///         let account_id = env::current_account_id();
-///         Self::ext(account_id.clone())
-///             .factorial(n - 1)
-///             .then(Self::ext(account_id).factorial_mult(n))
-///             .into()
-///     }
-///
-///     #[private]
-///     pub fn factorial_mult(&self, n: u32, #[callback_unwrap] cur: u32) -> u32 {
-///         n * cur
-///     }
-/// }
-/// ```
-///
 /// ## `#[result_serializer(...)]` (annotates methods of a type in its `impl` block)
 ///
 /// The attribute defines the serializer for function return serialization.
@@ -398,6 +361,43 @@ extern crate quickcheck;
 ///             return Err(MyError::SomePanicError);
 ///         }
 ///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// ## `#[callback_unwrap]` (annotates function arguments)
+///
+/// Automatically unwraps the successful result of a callback from a cross-contract call.
+/// Used on parameters in callback methods that are invoked as part of a cross-contract call chain.
+/// If the promise fails, the method will panic with the error message.
+///
+/// This attribute is commonly used with [`PromiseOrValue<T>`], which represents either an immediate value
+/// or a promise that will resolve to that value.
+///
+/// ### Example with Cross-Contract Factorial:
+///
+/// ```rust
+/// # use near_sdk::{near, env, PromiseOrValue};
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct CrossContract {}
+///
+/// #[near]
+/// impl CrossContract {
+///     pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
+///         if n <= 1 {
+///             return PromiseOrValue::Value(1);
+///         }
+///         let account_id = env::current_account_id();
+///         Self::ext(account_id.clone())
+///             .factorial(n - 1)
+///             .then(Self::ext(account_id).factorial_mult(n))
+///             .into()
+///     }
+///
+///     #[private]
+///     pub fn factorial_mult(&self, n: u32, #[callback_unwrap] cur: u32) -> u32 {
+///         n * cur
 ///     }
 /// }
 /// ```
