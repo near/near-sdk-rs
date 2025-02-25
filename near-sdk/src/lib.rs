@@ -376,30 +376,70 @@ extern crate quickcheck;
 ///
 /// ### Example with Cross-Contract Factorial:
 ///
+/// In the example:
+///   - lower level [`env::promise_create`], [`env::promise_then`] and [`env::promise_return`] are used in
+///     `factorial` method to set up a callback of `factorial_mult` with result of factorial for `(n-1)`
+///
 /// ```rust
-/// # use near_sdk::{near, env, PromiseOrValue};
+/// use near_sdk::{near, env, log, NearToken, Gas};
+///
+/// // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
+/// const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
+///
+/// // Prepaid gas for a single `factorial_mult` call.
+/// const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
+///
 /// #[near(contract_state)]
 /// #[derive(Default)]
 /// pub struct CrossContract {}
 ///
 /// #[near]
 /// impl CrossContract {
-///     pub fn factorial(&self, n: u32) -> PromiseOrValue<u32> {
+///     pub fn factorial(&self, n: u32) {
 ///         if n <= 1 {
-///             return PromiseOrValue::Value(1);
+///             env::value_return(&serde_json::to_vec(&1u32).unwrap());
+///             return;
 ///         }
 ///         let account_id = env::current_account_id();
-///         Self::ext(account_id.clone())
-///             .factorial(n - 1)
-///             .then(Self::ext(account_id).factorial_mult(n))
-///             .into()
+///         let prepaid_gas = env::prepaid_gas().saturating_sub(FACTORIAL_CALL_GAS);
+///         let promise0 = env::promise_create(
+///             account_id.clone(),
+///             "factorial",
+///             &serde_json::to_vec(&(n - 1,)).unwrap(),
+///             NearToken::from_near(0),
+///             prepaid_gas.saturating_sub(FACTORIAL_MULT_CALL_GAS),
+///         );
+///         let promise1 = env::promise_then(
+///             promise0,
+///             account_id,
+///             "factorial_mult",
+///             &serde_json::to_vec(&(n,)).unwrap(),
+///             NearToken::from_near(0),
+///             FACTORIAL_MULT_CALL_GAS,
+///         );
+///         env::promise_return(promise1);
 ///     }
 ///
 ///     #[private]
-///     pub fn factorial_mult(&self, n: u32, #[callback_unwrap] cur: u32) -> u32 {
-///         n * cur
+///     pub fn factorial_mult(&self, n: u32, #[callback_unwrap] factorial_n_minus_one_result: u32) -> u32 {
+///         log!("Received n: {:?}", n);
+///         log!("Received factorial_n_minus_one_result: {:?}", factorial_n_minus_one_result);
+///
+///         let result = n * factorial_n_minus_one_result;
+///
+///         log!("Multiplied {:?}", result.clone());
+///         result
 ///     }
 /// }
+/// ```
+/// which has the following lines in a `factorial`'s view call log:
+///
+/// ```bash,ignore
+/// logs: [
+///     "Received n: 5",
+///     "Received factorial_n_minus_one_result: 24",
+///     "Multiplied 120",
+/// ],
 /// ```
 ///
 /// ## `#[near(event_json(...))]` (annotates enums)

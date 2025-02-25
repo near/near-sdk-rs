@@ -754,7 +754,9 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 /// ```
 ///
 /// More info about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
+///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_create`]
+///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 ///
 pub fn promise_create(
@@ -810,6 +812,7 @@ pub fn promise_create(
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_then`]
+///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 pub fn promise_then(
     promise_idx: PromiseIndex,
@@ -1466,6 +1469,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// promise_return(promise);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
+///
 /// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_return(promise_idx: PromiseIndex) {
     unsafe { sys::promise_return(promise_idx.0) }
