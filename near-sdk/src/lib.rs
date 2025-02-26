@@ -190,8 +190,8 @@ extern crate quickcheck;
 ///     pub extern "C" fn contract_source_metadata() { /* .. */ }
 ///     ```
 ///    which
-///   * calls [`env::setup_panic_hook`] host function
-///   * calls [`env::value_return`] host function with bytes of `CONTRACT_SOURCE_METADATA` from step 2.
+///     1. calls [`env::setup_panic_hook`] host function
+///     2. calls [`env::value_return`] host function with bytes of `CONTRACT_SOURCE_METADATA` from step 2.
 ///
 /// ##### using [cargo-expand](https://crates.io/crates/cargo-expand) to view actual macro results
 ///
@@ -354,6 +354,13 @@ extern crate quickcheck;
 ///     pub fn borsh_arguments(&self, #[serializer(borsh)] a: String, #[serializer(borsh)] b: String) {}
 /// }
 /// ```
+///
+/// ### Implementation details of `#[serializer(...)]` macro and **host functions** calls used
+///
+/// In a nutshell, using the attribute allows to replace default [`serde_json::from_slice`] with [`borsh::from_slice`].
+///
+/// A bit more thoroughly the effect of the attribute is described in step **3.1** in the context of how [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function) macro works on a
+/// sample mutating method of a contract.
 ///
 /// ## `#[init]` (annotates methods of a type in its `impl` block)
 ///
