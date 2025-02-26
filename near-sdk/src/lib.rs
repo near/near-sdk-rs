@@ -261,7 +261,7 @@ extern crate quickcheck;
 /// 3. calls original `Contract::view_method(&state)` as defined in `#[near]` annotated [impl block](near#implementation-details-of-near-macro-and-host-functions-calls-used) and saves
 ///    the returned value into a `result` variable
 /// 4. calls [`serde_json::to_vec`] on obtained `result` and saves returned value to `serialized_result` variable
-///   * `json` format can be changed to serializing with [`borsh::to_vec`] by using [`#[result_serializer(...)]`](`near#result_serializer-annotates-methods-of-a-type-in-its-impl-block`)
+///     1. `json` format can be changed to serializing with [`borsh::to_vec`] by using [`#[result_serializer(...)]`](`near#result_serializer-annotates-methods-of-a-type-in-its-impl-block`)
 /// 5. if the `serialized_result` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal result serialization error  
 /// 6. otherwise, if the `serialized_result` is a [`Result::Ok`], then [`env::value_return`] host function is called with unwrapped `serialized_result`
 ///
@@ -275,7 +275,7 @@ extern crate quickcheck;
 /// 1. calls [`env::setup_panic_hook`] host function
 /// 2. calls [`env::input`] host function and saves it to `input` variable
 /// 3. deserializes `Contract::mutating_method` arguments by calling [`serde_json::from_slice`] on `input` variable and saves it to `deserialized_input` variable
-///   * `json` format can be changed to deserializing with [`borsh::from_slice`] by using [`#[serializer(...)]`](`near#serializer-annotates-function-arguments`)
+///     1. `json` format can be changed to deserializing with [`borsh::from_slice`] by using [`#[serializer(...)]`](`near#serializer-annotates-function-arguments`)
 /// 4. if the `deserialized_input` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal input deserialization error  
 /// 5. otherwise, if the `deserialized_input` is a [`Result::Ok`], `deserialized_input` is unwrapped and saved to `deserialized_input_success` variable
 /// 6. calls [`env::state_read`] host function to load `Contract` into a `state` variable
@@ -461,6 +461,13 @@ extern crate quickcheck;
 ///    }
 /// }
 /// ```
+///
+/// ### Implementation details of `#[result_serializer(...)]` macro and **host functions** calls used
+///
+/// In a nutshell, using the attribute allows to replace default [`serde_json::to_vec`] with [`borsh::to_vec`].
+///
+/// A bit more thoroughly the effect of the attribute is described in step **4.1** in the context of how [`#[near]`](near#for-above-view-method-macro-defines-the-following-function) macro works on a
+/// sample view method of a contract.
 ///
 /// ## `#[handle_result]` (annotates methods of a type in its `impl` block)
 ///
