@@ -5,6 +5,7 @@ exclude = ["examples/"]
 
 [workspace.package]
 version = "5.8.1"
+rust-version = "1.82.0"
 
 # Special triple # comment for ci.
 [patch.crates-io]
