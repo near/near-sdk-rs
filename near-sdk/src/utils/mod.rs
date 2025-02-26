@@ -89,18 +89,28 @@ pub fn assert_one_yocto() {
 }
 
 /// Returns true if promise was successful.
-/// Fails if called outside a callback that received 1 promise result.
-/// Uses low-level [`crate::env::promise_results_count`].
+///
+/// Calls [`crate::env::panic_str`] **host function** if called outside a callback that received precisely 1 promise result.
+///
+/// Uses low-level [`crate::env::promise_results_count`] **host function**.
 pub fn is_promise_success() -> bool {
-    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
+    require!(
+        env::promise_results_count() == 1,
+        "Contract expected a single result on the callback"
+    );
     env::promise_result_internal(0).is_ok()
 }
 
 /// Returns the result of the promise if successful. Otherwise returns None.
-/// Fails if called outside a callback that received 1 promise result.
-/// Uses low-level [`crate::env::promise_results_count`] and [`crate::env::promise_result`].
+///
+/// Calls [`crate::env::panic_str`] **host function** if called outside a callback that received precisely 1 promise result.
+///
+/// Uses low-level [`crate::env::promise_results_count`] and [`crate::env::promise_result`] **host functions**.
 pub fn promise_result_as_success() -> Option<Vec<u8>> {
-    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
+    require!(
+        env::promise_results_count() == 1,
+        "Contract expected a single result on the callback"
+    );
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,

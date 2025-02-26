@@ -1401,6 +1401,7 @@ pub fn promise_batch_action_delete_account(
 /// assert_eq!(promise_results_count(), 0);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_results_count`]
+///
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
     unsafe { sys::promise_results_count() }
