@@ -92,7 +92,7 @@ pub fn assert_one_yocto() {
 ///
 /// Calls [`crate::env::panic_str`] **host function** if called outside a callback that received precisely 1 promise result.
 ///
-/// Uses low-level [`crate::env::promise_results_count`] **host function**.
+/// Uses low-level [`crate::env::promise_results_count`] and [`crate::env::promise_result`] **host functions**.
 pub fn is_promise_success() -> bool {
     require!(
         env::promise_results_count() == 1,

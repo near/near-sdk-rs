@@ -470,7 +470,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// For above `method` using the attribute on arguments, changes the body of generated function
+/// For above `method` using the attribute on arguments, changes the body of function generated in  [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)
 ///
 /// ```rust,no_run
 /// #[no_mangle]
