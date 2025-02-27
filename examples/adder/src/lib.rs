@@ -29,9 +29,16 @@ impl Adder {
         &self,
         #[callback_unwrap] a: DoublePair,
         #[callback_unwrap] b: DoublePair,
-        #[callback_vec] others: Vec<DoublePair>,
     ) -> DoublePair {
-        Some(b).iter().chain(others.iter()).fold(a, |acc, el| DoublePair {
+        Some(b).iter().fold(a, |acc, el| DoublePair {
+            first: sum_pair(&acc.first, &el.first),
+            second: sum_pair(&acc.second, &el.second),
+        })
+    }
+
+    pub fn add_callback_vec(&self, #[callback_vec] elements: Vec<DoublePair>) -> DoublePair {
+        let start = DoublePair { first: Pair(0, 0), second: Pair(0, 0) };
+        elements.iter().fold(start, |acc, el| DoublePair {
             first: sum_pair(&acc.first, &el.first),
             second: sum_pair(&acc.second, &el.second),
         })
@@ -55,8 +62,7 @@ mod tests {
 
         let res = contract.view("__contract_abi").await?;
 
-        let abi_root =
-            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+        let abi_root = serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
 
         assert_eq!(abi_root.schema_version, "0.4.0");
         assert_eq!(abi_root.metadata.name, Some("adder".to_string()));
