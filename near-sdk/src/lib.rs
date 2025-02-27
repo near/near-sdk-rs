@@ -248,7 +248,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ##### for above **view** method macro defines the following function:
+/// ##### for above **view** method `#[near]` macro defines the following function:
 ///
 /// ```rust,no_run
 /// #[no_mangle]
@@ -265,7 +265,7 @@ extern crate quickcheck;
 /// 5. if the `serialized_result` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal result serialization error  
 /// 6. otherwise, if the `serialized_result` is a [`Result::Ok`], then [`env::value_return`] host function is called with unwrapped `serialized_result`
 ///
-/// ##### for above **mutating** method macro defines the following function:
+/// ##### for above **mutating** method `#[near]` macro defines the following function:
 /// ```rust,no_run
 /// #[no_mangle]
 /// pub extern "C" fn mutating_method() { /* ..*/ }
@@ -359,7 +359,7 @@ extern crate quickcheck;
 ///
 /// In a nutshell, using the attribute allows to replace default [`serde_json::from_slice`] with [`borsh::from_slice`].
 ///
-/// A bit more thoroughly the effect of the attribute is described in (step **3.1**, [`#[near]` on mutating method](near#for-above-mutating-method-macro-defines-the-following-function)).
+/// A bit more thoroughly the effect of the attribute is described in (step **3.1**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)).
 ///
 /// ## `#[init]` (annotates methods of a type in its `impl` block)
 ///
@@ -472,7 +472,7 @@ extern crate quickcheck;
 ///
 /// In a nutshell, using the attribute allows to replace default [`serde_json::to_vec`] with [`borsh::to_vec`].
 ///
-/// A bit more thoroughly the effect of the attribute is described in (step **4.1**, [`#[near] on view method`](near#for-above-view-method-macro-defines-the-following-function)).
+/// A bit more thoroughly the effect of the attribute is described in (step **4.1**, [`#[near] on view method`](near#for-above-view-method-near-macro-defines-the-following-function)).
 ///
 /// ## `#[handle_result]` (annotates methods of a type in its `impl` block)
 ///
