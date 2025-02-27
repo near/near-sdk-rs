@@ -453,6 +453,45 @@ extern crate quickcheck;
 /// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L31)
 /// - [examples/callback-results](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/callback-results/src/lib.rs?plain=1#L51)
 ///
+/// ### Implementation details of `#[callback_unwrap]` macro and **host functions** calls used
+///
+/// ```rust
+/// # use near_sdk::near;
+/// # #[near(contract_state)]
+/// # pub struct Contract { /* .. */ }
+/// #[near]
+/// impl Contract {
+///     pub fn method(
+///         &mut self,
+///         regular: String,
+///         #[callback_unwrap] one: String,
+///         #[callback_unwrap] two: String
+///     ) { /* .. */ }
+/// }
+/// ```
+///
+/// For above `method` using the attribute on arguments, changes the body of generated function
+///
+/// ```rust,no_run
+/// #[no_mangle]
+/// pub extern "C" fn method() { /* .. */ }
+/// ```
+///
+/// in the following way:
+///
+/// 1. arguments, annotated with `#[callback_unwrap]`, are no longer expected to be included into `input`,
+///    deserialized in (step **3**, [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function)).
+/// 2. for each argument, annotated with `#[callback_unwrap]`:
+///     1. [`env::promise_result`] host function is called with corresponding index, starting from 0
+///        (`0u64` for argument `one`, `1u64` for argument `two` above), and saved into `promise_result` variable
+///     2. if the `promise_result` is a [`PromiseResult::Failed`] error, then [`env::panic_str`] host function is called to signal callback computation error   
+///     3. otherwise, if the `promise_result` is a [`PromiseResult::Successful`], it's unwrapped and saved to a `data` variable
+///     4. `data` is deserialized similar to that as usual (step **3**, [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function)),
+///        and saved to `deserialized_n_promise` variable
+/// 3. counterpart of (step **7**, [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function)):  
+///    original method is called `Contract::method(&mut state, deserialized_input_success.regular, deserialized_0_promise, deserialized_1_promise)`,
+///    as defined in `#[near]` annotated impl block
+///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
 /// By passing `event_json` as an argument `near` will generate the relevant code to format events
