@@ -359,8 +359,7 @@ extern crate quickcheck;
 ///
 /// In a nutshell, using the attribute allows to replace default [`serde_json::from_slice`] with [`borsh::from_slice`].
 ///
-/// A bit more thoroughly the effect of the attribute is described in step **3.1** in the context of how [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function) macro works on a
-/// sample mutating method of a contract.
+/// A bit more thoroughly the effect of the attribute is described in (step **3.1**, [`#[near]` on mutating method](near#for-above-mutating-method-macro-defines-the-following-function)).
 ///
 /// ## `#[init]` (annotates methods of a type in its `impl` block)
 ///
@@ -473,8 +472,7 @@ extern crate quickcheck;
 ///
 /// In a nutshell, using the attribute allows to replace default [`serde_json::to_vec`] with [`borsh::to_vec`].
 ///
-/// A bit more thoroughly the effect of the attribute is described in step **4.1** in the context of how [`#[near]`](near#for-above-view-method-macro-defines-the-following-function) macro works on a
-/// sample view method of a contract.
+/// A bit more thoroughly the effect of the attribute is described in (step **4.1**, [`#[near] on view method`](near#for-above-view-method-macro-defines-the-following-function)).
 ///
 /// ## `#[handle_result]` (annotates methods of a type in its `impl` block)
 ///
