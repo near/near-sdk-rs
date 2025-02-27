@@ -480,15 +480,15 @@ extern crate quickcheck;
 /// in the following way:
 ///
 /// 1. arguments, annotated with `#[callback_unwrap]`, are no longer expected to be included into `input`,
-///    deserialized in (step **3**, [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function)).
+///    deserialized in (step **3**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)).
 /// 2. for each argument, annotated with `#[callback_unwrap]`:
 ///     1. [`env::promise_result`] host function is called with corresponding index, starting from 0
 ///        (`0u64` for argument `one`, `1u64` for argument `two` above), and saved into `promise_result` variable
 ///     2. if the `promise_result` is a [`PromiseResult::Failed`] error, then [`env::panic_str`] host function is called to signal callback computation error   
 ///     3. otherwise, if the `promise_result` is a [`PromiseResult::Successful`], it's unwrapped and saved to a `data` variable
-///     4. `data` is deserialized similar to that as usual (step **3**, [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function)),
+///     4. `data` is deserialized similar to that as usual (step **3**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)),
 ///        and saved to `deserialized_n_promise` variable
-/// 3. counterpart of (step **7**, [`#[near]`](near#for-above-mutating-method-macro-defines-the-following-function)):  
+/// 3. counterpart of (step **7**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)):  
 ///    original method is called `Contract::method(&mut state, deserialized_input_success.regular, deserialized_0_promise, deserialized_1_promise)`,
 ///    as defined in `#[near]` annotated impl block
 ///
