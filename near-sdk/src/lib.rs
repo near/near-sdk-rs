@@ -447,11 +447,11 @@ extern crate quickcheck;
 ///
 /// ### Other examples within repo:
 ///
-/// - `Cross-Contract Factorial` again [examples/cross-contract-calls](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/cross-contract-calls/high-level/src/lib.rs?plain=1#L26)
+/// - `Cross-Contract Factorial` again [examples/cross-contract-calls](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/high-level/src/lib.rs?plain=1#L26)
 ///   - same example as [above](near#example-with-cross-contract-factorial), but uses [`Promise::then`] instead of [`env`](mod@env) host functions calls to set up a callback of `factorial_mult`
-/// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L30)
-/// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L31)
-/// - [examples/callback-results](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/callback-results/src/lib.rs?plain=1#L51)
+/// - [examples/adder](https://github.com/near/near-sdk-rs/tree/master/examples/adder/src/lib.rs?plain=1#L30)
+/// - [examples/adder](https://github.com/near/near-sdk-rs/tree/master/examples/adder/src/lib.rs?plain=1#L31)
+/// - [examples/callback-results](https://github.com/near/near-sdk-rs/tree/master/examples/callback-results/src/lib.rs?plain=1#L51)
 ///
 /// ### Implementation details of `#[callback_unwrap]` macro and **host functions** calls used
 ///
