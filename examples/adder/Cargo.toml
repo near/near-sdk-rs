@@ -1,5 +1,5 @@
 [package]
-name = "adder"
+name = "callback-vec-demo"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
