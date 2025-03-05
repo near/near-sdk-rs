@@ -690,6 +690,8 @@ extern crate quickcheck;
 ///
 /// 1. calls [`env::setup_panic_hook`] host function
 /// 2. calls [`env::state_read`] host function to load `Contract` into a `state` variable
+///     1. `env::state_read`'s result is unwrapped with [`Option::unwrap_or_default`]
+///     2. [`PanicOnDefault`] may be used to NOT let [implementation of `Default` for `Contract`](Default) value become the outcome `Contract`'s `state`, when [`env::state_read`] returns [`Option::None`]
 /// 3. calls original `Contract::view_method(&state)` as defined in `#[near]` annotated [impl block](near#implementation-details-of-near-macro-and-host-functions-calls-used) and saves
 ///    the returned value into a `result` variable
 /// 4. calls [`serde_json::to_vec`] on obtained `result` and saves returned value to `serialized_result` variable
@@ -711,6 +713,8 @@ extern crate quickcheck;
 /// 4. if the `deserialized_input` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal input deserialization error  
 /// 5. otherwise, if the `deserialized_input` is a [`Result::Ok`], `deserialized_input` is unwrapped and saved to `deserialized_input_success` variable
 /// 6. calls [`env::state_read`] host function to load `Contract` into a `state` variable
+///     1. `env::state_read`'s result is unwrapped with [`Option::unwrap_or_default`]
+///     2. [`PanicOnDefault`] may be used to NOT let [implementation of `Default` for `Contract`](Default) value become the outcome `Contract`'s `state`, when [`env::state_read`] returns [`Option::None`]
 /// 7. calls original `Contract::mutating_method(&mut state, deserialized_input_success.argument)` as defined in `#[near]` annotated [impl block](near#implementation-details-of-near-macro-and-host-functions-calls-used)
 /// 8. calls [`env::state_write`] with `&state` as argument.
 pub use near_sdk_macros::near;
