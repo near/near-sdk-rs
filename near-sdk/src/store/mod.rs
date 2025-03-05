@@ -109,7 +109,7 @@
 //!   [`UnorderedMap`]/[`std::collections::HashMap`] except that keys are not persisted and cannot be
 //!   iterated over.
 //!
-//! - [`UnorderedMap`]: Storage version of [`std::collections::HashMap`]. No ordering
+//! - [`UnorderedMap`]: __DEPRECATED__ storage version of [`std::collections::HashMap`]. No ordering
 //!   guarantees.
 //! - [`IterableMap`]: a replacement with better iteration performance for [`UnorderedMap`], which is being deprecated.
 //!
@@ -120,7 +120,7 @@
 //!
 //! - [`LookupSet`]: Non-iterable storage version of [`std::collections::HashSet`].
 //!
-//! - [`UnorderedSet`]: Analogous to [`std::collections::HashSet`], and is an iterable
+//! - [`UnorderedSet`]: __DEPRECATED__ analogous to [`std::collections::HashSet`], and is an iterable
 //!   version of [`LookupSet`] and persisted to storage.
 //! - [`IterableSet`]: a replacement with better iteration performance for [`UnorderedSet`], which is being deprecated.
 //!
