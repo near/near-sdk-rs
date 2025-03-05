@@ -32,7 +32,7 @@ jobs:
           toolchain: ${{ matrix.platform.rs }}
           default: true
           target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
 #      - name: Downgrade dependencies
 #        run: |
 #          cargo update -p clap@4.5.4 --precise 4.4.18
@@ -53,7 +53,7 @@ jobs:
           toolchain: stable
           default: true
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - name: Test Format
         run: cargo fmt -- --check
       - run: cargo clippy --tests --all-features -- -Dclippy::all
@@ -68,7 +68,7 @@ jobs:
           profile: minimal
           toolchain: stable
           default: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - name: Compilation tests
         run: cargo test --package near-sdk --test compilation_tests --features __abi-generate --features unstable -- compilation_tests --exact --nocapture
   windows:
@@ -82,7 +82,7 @@ jobs:
           profile: minimal
           toolchain: stable
           default: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: cargo check -p near-sdk --features unstable,legacy
       - run: cargo check -p near-sdk --no-default-features
       - run: cargo check -p near-sdk --no-default-features --features legacy
@@ -100,7 +100,7 @@ jobs:
           profile: minimal
           toolchain: stable
           default: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
@@ -109,7 +109,7 @@ jobs:
   # won't look as expected, when rendered, and sometimes errors, which will prevent doc from being
   # generated at release time altogether.
   cargo-doc:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
