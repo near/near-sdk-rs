@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [5.8.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.1...near-sdk-v5.8.2) - 2025-03-06
+
+### Other
+
+- impl details of `#[callback_unwrap]` ([#1321](https://github.com/near/near-sdk-rs/pull/1321))
+- `#[near(contract_state)]` in-depth pass ([#1307](https://github.com/near/near-sdk-rs/pull/1307))
+- document `callback_unwrap` attribute ([#1313](https://github.com/near/near-sdk-rs/pull/1313))
+
 ## [5.8.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.0...near-sdk-v5.8.1) - 2025-02-17
 
 ### Other
