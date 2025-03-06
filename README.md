@@ -38,7 +38,7 @@
 
 **Release notes and unreleased changes can be found in the [CHANGELOG](https://github.com/near/near-sdk-rs/blob/master/CHANGELOG.md)**
 
-## Example. For more information, see the [near](https://docs.rs/near-sdk/latest/near_sdk/attr.near.html) documentation
+## Example. For more information, see the [`Attribute Macro near`](https://docs.rs/near-sdk/latest/near_sdk/attr.near.html) documentation
 
 Wrap a struct in `#[near]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
@@ -89,11 +89,11 @@ cargo test --package status-message
 ```
 
 ### Asynchronous cross-contract calls
-Asynchronous cross-contract calls allow parallel execution of multiple contracts in parallel with subsequent aggregation on another contract. `env` exposes the following methods:
-* `promise_create` -- schedules an execution of a function on some contract;
-* `promise_then` -- attaches the callback back to the current contract once the function is executed;
-* `promise_and` -- combinator, allows waiting on several promises simultaneously, before executing the callback;
-* `promise_return` -- treats the result of execution of the promise as the result of the current function.
+Asynchronous cross-contract calls allow parallel execution of multiple contracts in parallel with subsequent aggregation on another contract. [`env`](https://docs.rs/near-sdk/latest/near_sdk/env/index.html) exposes the following methods:
+* [`promise_create`](https://docs.rs/near-sdk/latest/near_sdk/env/fn.promise_create.html) -- schedules an execution of a function on some contract;
+* [`promise_then`](https://docs.rs/near-sdk/latest/near_sdk/env/fn.promise_then.html) -- attaches the callback back to the current contract once the function is executed;
+* [`promise_and`](https://docs.rs/near-sdk/latest/near_sdk/env/fn.promise_and.html) -- combinator, allows waiting on several promises simultaneously, before executing the callback;
+* [`promise_return`](https://docs.rs/near-sdk/latest/near_sdk/env/fn.promise_return.html) -- treats the result of execution of the promise as the result of the current function.
 
 Follow [examples/cross-contract-high-level](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/high-level)
 to see various usages of cross contract calls, including **system-level actions** done from inside the contract like balance transfer (examples of other system-level actions are: account creation, access key creation/deletion, contract deployment, etc).

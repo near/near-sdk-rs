@@ -172,7 +172,7 @@ extern crate quickcheck;
 ///
 /// * list of [**host functions**](collections#calls-to-host-functions-used-in-implementation) used for [`collections`] implementation
 ///
-/// ### Reference to [Implementation details of `#[near(contract_state)]` macro](near#implementation-details-of-nearcontract_state-macro-and-host-functions-calls-used) (How does it work?)
+/// ### Reference to [Implementation of `#[near(contract_state)]` attribute](near#implementation-of-nearcontract_state-attribute-and-host-functions-calls-used) (How does it work?)
 ///
 /// ## `#[near]` (annotates impl blocks)
 ///
@@ -202,7 +202,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ### Reference to [Implementation details of `#[near]` macro](near#implementation-details-of-near-macro-and-host-functions-calls-used) (How does it work?)
+/// ### Reference to [Implementation of `#[near]` macro](near#implementation-of-near-macro-and-host-functions-calls-used) (How does it work?)
 ///
 /// ## `#[near(serializers=[...])` (annotates structs/enums)
 ///
@@ -276,7 +276,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ### Implementation details of `#[serializer(...)]` macro and **host functions** calls used
+/// ### Implementation of `#[serializer(...)]` attribute and **host functions** calls used
 ///
 /// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
 ///
@@ -391,7 +391,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ### Implementation details of `#[result_serializer(...)]` macro and **host functions** calls used
+/// ### Implementation of `#[result_serializer(...)]` attribute and **host functions** calls used
 ///
 /// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
 ///
@@ -549,9 +549,9 @@ extern crate quickcheck;
 ///
 /// - `Cross-Contract Factorial` again [examples/cross-contract-calls](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/cross-contract-calls/high-level/src/lib.rs?plain=1#L26)
 ///   - same example as [above](near#example-with-cross-contract-factorial), but uses [`Promise::then`] instead of [`env`](mod@env) host functions calls to set up a callback of `factorial_mult`
-/// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L30)
-/// - [examples/adder](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/adder/src/lib.rs?plain=1#L31)
-/// - [examples/callback-results](https://github.com/near/near-sdk-rs/blob/9596835369467cac6198e8de9a4b72a38deee4a5/examples/callback-results/src/lib.rs?plain=1#L51)
+/// - [examples/callback-results](https://github.com/near/near-sdk-rs/tree/master/examples/callback-results/src/lib.rs?plain=1#L51)
+///
+/// ### Reference to  [Implementation of `#[callback_unwrap]` attribute](near#implementation-of-callback_unwrap-attribute-and-host-functions-calls-used)
 ///
 /// ## `#[near(event_json(...))]` (annotates enums)
 ///
@@ -629,7 +629,9 @@ extern crate quickcheck;
 ///
 /// ---
 ///
-/// ## Implementation details of `#[near(contract_state)]` macro and **host functions** calls used
+/// ## Implementation of `#[near(contract_state)]` attribute and **host functions** calls used
+///
+/// This heading describes [`#[near(contract_state)]`](near#nearcontract_state-annotates-structsenums).
 ///
 /// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
 ///
@@ -664,7 +666,9 @@ extern crate quickcheck;
 ///
 /// ---
 ///
-/// ## Implementation details of `#[near]` macro and **host functions** calls used
+/// ## Implementation of `#[near]` macro and **host functions** calls used
+///
+/// This heading describes [`#[near]` on impl blocks](near#near-annotates-impl-blocks).
 ///
 /// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
 ///
@@ -692,7 +696,7 @@ extern crate quickcheck;
 /// 2. calls [`env::state_read`] host function to load `Contract` into a `state` variable
 ///     1. `env::state_read`'s result is unwrapped with [`Option::unwrap_or_default`]
 ///     2. [`PanicOnDefault`] may be used to NOT let [implementation of `Default` for `Contract`](Default) value become the outcome `Contract`'s `state`, when [`env::state_read`] returns [`Option::None`]
-/// 3. calls original `Contract::view_method(&state)` as defined in `#[near]` annotated [impl block](near#implementation-details-of-near-macro-and-host-functions-calls-used) and saves
+/// 3. calls original `Contract::view_method(&state)` as defined in `#[near]` annotated [impl block](near#implementation-of-near-macro-and-host-functions-calls-used) and saves
 ///    the returned value into a `result` variable
 /// 4. calls [`serde_json::to_vec`] on obtained `result` and saves returned value to `serialized_result` variable
 ///     1. `json` format can be changed to serializing with [`borsh::to_vec`] by using [`#[result_serializer(...)]`](`near#result_serializer-annotates-methods-of-a-type-in-its-impl-block`)
@@ -715,8 +719,55 @@ extern crate quickcheck;
 /// 6. calls [`env::state_read`] host function to load `Contract` into a `state` variable
 ///     1. `env::state_read`'s result is unwrapped with [`Option::unwrap_or_default`]
 ///     2. [`PanicOnDefault`] may be used to NOT let [implementation of `Default` for `Contract`](Default) value become the outcome `Contract`'s `state`, when [`env::state_read`] returns [`Option::None`]
-/// 7. calls original `Contract::mutating_method(&mut state, deserialized_input_success.argument)` as defined in `#[near]` annotated [impl block](near#implementation-details-of-near-macro-and-host-functions-calls-used)
+/// 7. calls original `Contract::mutating_method(&mut state, deserialized_input_success.argument)` as defined in `#[near]` annotated [impl block](near#implementation-of-near-macro-and-host-functions-calls-used)
 /// 8. calls [`env::state_write`] with `&state` as argument.
+///
+/// ---
+///
+/// ## Implementation of `#[callback_unwrap]` attribute and **host functions** calls used
+///
+/// This heading describes [`#[callback_unwrap]`](near#callback_unwrap-annotates-function-arguments).
+///
+/// In a nutshell and if the details of [ABI](https://github.com/near/abi) generation layer are put aside,
+///
+/// ```rust
+/// # use near_sdk::near;
+/// # #[near(contract_state)]
+/// # pub struct Contract { /* .. */ }
+/// #[near]
+/// impl Contract {
+///     pub fn method(
+///         &mut self,
+///         regular: String,
+///         #[callback_unwrap] one: String,
+///         #[callback_unwrap] two: String
+///     ) { /* .. */ }
+/// }
+/// ```
+///
+/// For above `method` using the attribute on arguments, changes the body of function generated in  [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)
+///
+/// ```rust,no_run
+/// #[no_mangle]
+/// pub extern "C" fn method() { /* .. */ }
+/// ```
+///
+/// in the following way:
+///
+/// 1. arguments, annotated with `#[callback_unwrap]`, are no longer expected to be included into `input`,
+///    deserialized in (step **3**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)).
+/// 2. for each argument, annotated with `#[callback_unwrap]`:
+///     1. [`env::promise_result`] host function is called with corresponding index, starting from 0
+///        (`0u64` for argument `one`, `1u64` for argument `two` above), and saved into `promise_result` variable
+///     2. if the `promise_result` is a [`PromiseResult::Failed`] error, then [`env::panic_str`] host function is called to signal callback computation error   
+///     3. otherwise, if the `promise_result` is a [`PromiseResult::Successful`], it's unwrapped and saved to a `data` variable
+///     4. `data` is deserialized similar to that as usual (step **3**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)),
+///        and saved to `deserialized_n_promise` variable
+/// 3. counterpart of (step **7**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)):  
+///    original method is called `Contract::method(&mut state, deserialized_input_success.regular, deserialized_0_promise, deserialized_1_promise)`,
+///    as defined in `#[near]` annotated impl block
+///
+/// ---
 pub use near_sdk_macros::near;
 
 /// This macro is deprecated. Use [near] instead. The difference between `#[near]` and `#[near_bindgen]` is that

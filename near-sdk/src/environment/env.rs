@@ -1401,6 +1401,7 @@ pub fn promise_batch_action_delete_account(
 /// assert_eq!(promise_results_count(), 0);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_results_count`]
+///
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
     unsafe { sys::promise_results_count() }
@@ -1430,8 +1431,14 @@ pub fn promise_results_count() -> u64 {
 ///     }
 /// };
 /// ```
+///
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_result`]
-/// Example usages: [one](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/core_impl.rs#L178), [two](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433), [three](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61), [four](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
+///
+/// Example usages:
+/// - [near-contract-standards/src/fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/core_impl.rs#L178)
+/// - [near-contract-standards/src/non_fungible_token](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/non_fungible_token/core/core_impl.rs#L433)
+/// - [examples/factory-contract/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61)
+/// - [examples/cross-contract-calls/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
 pub fn promise_result(result_idx: u64) -> PromiseResult {
     match promise_result_internal(result_idx) {
         Ok(()) => {
@@ -1806,8 +1813,10 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// Reads the value stored under the given key.
 ///
 /// # Use cases
+///
 /// Storage functions are typically used to upgrade/migrate a contract state, preventing errors like `Cannot deserialize the contract state` after rolling out the breaking changes to the network.
-/// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
+///
+/// For practical examples, see different implementations in [`near-examples/update-migrate-rust` repo](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
 /// ```
@@ -1817,6 +1826,9 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// storage_write(b"key", b"value");
 /// assert_eq!(storage_read(b"key").unwrap(), b"value");
 /// ```
+///
+/// Another example:
+/// - [near-contract-standards/src/upgrade](https://github.com/near/near-sdk-rs/blob/746e4280a7e25b2036bd4e2f2c186cd76e1a7cde/near-contract-standards/src/upgrade/mod.rs?plain=1#L77)
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
     match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
         0 => None,

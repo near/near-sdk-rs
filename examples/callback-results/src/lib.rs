@@ -18,6 +18,16 @@ impl Callback {
             .then(Self::ext(env::current_account_id()).handle_callbacks())
     }
 
+    /// Call functions a, b, and c asynchronously and handle results with `handle_callbacks`.
+    pub fn call_all_reverse(fail_b: bool, c_value: u8, d_value: u8) -> Promise {
+        Self::ext(env::current_account_id())
+            .b(fail_b)
+            .and(Self::ext(env::current_account_id()).c(c_value))
+            .and(Self::ext(env::current_account_id()).d(d_value))
+            .and(Self::ext(env::current_account_id()).a())
+            .then(Self::ext(env::current_account_id()).handle_callbacks_reverse())
+    }
+
     /// Calls function c with a value that will always succeed
     pub fn a() -> Promise {
         Self::ext(env::current_account_id()).c(A_VALUE)
@@ -52,6 +62,23 @@ impl Callback {
         #[callback_result] b: Result<String, PromiseError>,
         #[callback_result] c: Result<u8, PromiseError>,
         #[callback_result] d: Result<(), PromiseError>,
+    ) -> (bool, bool, bool) {
+        require!(a == A_VALUE, "Promise returned incorrect value");
+        if let Ok(s) = b.as_ref() {
+            require!(s == "Some string");
+        }
+        (b.is_err(), c.is_err(), d.is_err())
+    }
+
+    /// Receives the callbacks from the other promises called.
+    /// used in `workspaces_test_reverse` to check the same result as in `workspaces_test`
+    /// with respect to `callback_unwrap`/`callback_result` attributes' order in args
+    #[private]
+    pub fn handle_callbacks_reverse(
+        #[callback_result] b: Result<String, PromiseError>,
+        #[callback_result] c: Result<u8, PromiseError>,
+        #[callback_result] d: Result<(), PromiseError>,
+        #[callback_unwrap] a: u8,
     ) -> (bool, bool, bool) {
         require!(a == A_VALUE, "Promise returned incorrect value");
         if let Ok(s) = b.as_ref() {
@@ -112,6 +139,33 @@ mod tests {
         // Fail all
         let res = contract
             .call("call_all")
+            .args_json((true, 0u8, 0u8))
+            .gas(near_sdk::Gas::from_tgas(300))
+            .transact()
+            .await?;
+        assert_eq!(res.json::<(bool, bool, bool)>()?, (true, true, true));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workspaces_test_reverse() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let worker = near_workspaces::sandbox().await?;
+        let contract = worker.dev_deploy(&wasm).await?;
+
+        // No failures
+        let res = contract
+            .call("call_all_reverse")
+            .args_json((false, 1u8, 1u8))
+            .max_gas()
+            .transact()
+            .await?;
+        assert_eq!(res.json::<(bool, bool, bool)>()?, (false, false, false));
+
+        // Fail all
+        let res = contract
+            .call("call_all_reverse")
             .args_json((true, 0u8, 0u8))
             .gas(near_sdk::Gas::from_tgas(300))
             .transact()
