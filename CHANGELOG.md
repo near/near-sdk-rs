@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.9.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.2...near-sdk-v5.9.0) - 2025-03-06
+
+### Other
+
+- updates near-* dependencies to 0.29 release ([#1325](https://github.com/near/near-sdk-rs/pull/1325))
+
 ## [5.8.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.1...near-sdk-v5.8.2) - 2025-03-06
 
 ### Other
