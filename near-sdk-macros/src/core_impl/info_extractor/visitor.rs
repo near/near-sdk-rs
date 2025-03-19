@@ -15,6 +15,7 @@ struct ParsedData {
     is_payable: bool,
     is_private: bool,
     ignores_state: bool,
+    deny_unknown_fields: bool,
     result_serializer: SerializerType,
     receiver: Option<Receiver>,
 }
@@ -42,6 +43,7 @@ impl Default for ParsedData {
             is_payable: Default::default(),
             is_private: Default::default(),
             ignores_state: Default::default(),
+            deny_unknown_fields: Default::default(),
             result_serializer: SerializerType::JSON,
             receiver: Default::default(),
         }
@@ -104,6 +106,11 @@ impl Visitor {
 
     pub fn visit_private_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
         self.parsed_data.is_private = true;
+        Ok(())
+    }
+
+    pub fn visit_deny_unknown_fields_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.deny_unknown_fields = true;
         Ok(())
     }
 
@@ -178,15 +185,30 @@ impl Visitor {
         let Visitor { kind, parsed_data, .. } = self;
 
         let ParsedData {
-            is_payable, is_private, ignores_state, result_serializer, receiver, ..
+            is_payable,
+            is_private,
+            ignores_state,
+            deny_unknown_fields,
+            result_serializer,
+            receiver,
+            ..
         } = parsed_data;
 
         let method_kind = match kind {
-            Call => {
-                MethodKind::Call(CallMethod { is_payable, is_private, result_serializer, receiver })
-            }
-            Init => MethodKind::Init(InitMethod { is_payable, ignores_state }),
-            View => MethodKind::View(ViewMethod { is_private, result_serializer, receiver }),
+            Call => MethodKind::Call(CallMethod {
+                is_payable,
+                is_private,
+                deny_unknown_fields,
+                result_serializer,
+                receiver,
+            }),
+            Init => MethodKind::Init(InitMethod { is_payable, deny_unknown_fields, ignores_state }),
+            View => MethodKind::View(ViewMethod {
+                is_private,
+                deny_unknown_fields,
+                result_serializer,
+                receiver,
+            }),
         };
 
         Ok((method_kind, returns))

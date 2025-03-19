@@ -272,6 +272,15 @@ mod tests {
     }
 
     #[test]
+    fn deny_unknown_fields_return_mut_method() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = syn::parse_str("#[deny_unknown_fields] pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
     fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
@@ -282,7 +291,7 @@ mod tests {
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
-    
+
     #[test]
     fn handle_result_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();

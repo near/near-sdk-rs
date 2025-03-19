@@ -115,6 +115,9 @@ impl AttrSigInfo {
                 "private" => {
                     visitor.visit_private_attr(attr)?;
                 }
+                "deny_unknown_fields" => {
+                    visitor.visit_deny_unknown_fields_attr(attr)?;
+                }
                 "result_serializer" => {
                     if args.borsh.is_some() && args.json.is_some() {
                         return Err(Error::new(
