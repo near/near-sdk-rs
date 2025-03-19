@@ -390,7 +390,7 @@ extern crate quickcheck;
 /// #[near]
 /// impl Counter {
 ///     #[deny_unknown_fields]
-///     pub fn my_method(&mut self, number: U128) {
+///     pub fn my_method(&mut self, description: String) {
 ///         // ...
 ///     }
 /// }
