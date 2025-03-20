@@ -1,5 +1,6 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
+assertion_line: 280
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]

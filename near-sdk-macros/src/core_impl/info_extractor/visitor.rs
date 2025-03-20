@@ -15,7 +15,7 @@ struct ParsedData {
     is_payable: bool,
     is_private: bool,
     ignores_state: bool,
-    deny_unknown_fields: bool,
+    deny_unknown_arguments: bool,
     result_serializer: SerializerType,
     receiver: Option<Receiver>,
 }
@@ -43,7 +43,7 @@ impl Default for ParsedData {
             is_payable: Default::default(),
             is_private: Default::default(),
             ignores_state: Default::default(),
-            deny_unknown_fields: Default::default(),
+            deny_unknown_arguments: Default::default(),
             result_serializer: SerializerType::JSON,
             receiver: Default::default(),
         }
@@ -109,8 +109,8 @@ impl Visitor {
         Ok(())
     }
 
-    pub fn visit_deny_unknown_fields_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
-        self.parsed_data.deny_unknown_fields = true;
+    pub fn visit_deny_unknown_arguments_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.deny_unknown_arguments = true;
         Ok(())
     }
 
@@ -188,7 +188,7 @@ impl Visitor {
             is_payable,
             is_private,
             ignores_state,
-            deny_unknown_fields,
+            deny_unknown_arguments,
             result_serializer,
             receiver,
             ..
@@ -198,14 +198,16 @@ impl Visitor {
             Call => MethodKind::Call(CallMethod {
                 is_payable,
                 is_private,
-                deny_unknown_fields,
+                deny_unknown_arguments,
                 result_serializer,
                 receiver,
             }),
-            Init => MethodKind::Init(InitMethod { is_payable, deny_unknown_fields, ignores_state }),
+            Init => {
+                MethodKind::Init(InitMethod { is_payable, deny_unknown_arguments, ignores_state })
+            }
             View => MethodKind::View(ViewMethod {
                 is_private,
-                deny_unknown_fields,
+                deny_unknown_arguments,
                 result_serializer,
                 receiver,
             }),

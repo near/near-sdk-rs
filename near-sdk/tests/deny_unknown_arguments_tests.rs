@@ -4,7 +4,7 @@ use serde_json::json;
 #[tokio::test]
 async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>> {
     let contract_wasm =
-        near_workspaces::compile_project("./tests/test-contracts/deny_unknown_fields").await?;
+        near_workspaces::compile_project("./tests/test-contracts/deny_unknown_arguments").await?;
     let sandbox = near_workspaces::sandbox().await?;
 
     // Create basic accounts and deploy main contract

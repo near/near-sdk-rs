@@ -369,7 +369,7 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
-/// ## `#[deny_unknown_fields]` (annotates methods of a type in its `impl` block)]
+/// ## `#[deny_unknown_arguments]` (annotates methods of a type in its `impl` block)]
 ///
 /// Specifies that the method call should error during deserialization if any unknown fields are present in the input.
 /// This helps ensure data integrity by rejecting potentially malformed input.
@@ -389,7 +389,7 @@ extern crate quickcheck;
 ///
 /// #[near]
 /// impl Counter {
-///     #[deny_unknown_fields]
+///     #[deny_unknown_arguments]
 ///     pub fn my_method(&mut self, description: String) {
 ///         // ...
 ///     }

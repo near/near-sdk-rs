@@ -35,14 +35,14 @@ impl AttrSigInfo {
         }
     }
 
-    /// Whether the method has `deny_unknown_fields` attribute.
-    pub fn deny_unknown_fields(&self) -> bool {
+    /// Whether the method has `deny_unknown_arguments` attribute.
+    pub fn deny_unknown_arguments(&self) -> bool {
         use MethodKind::*;
 
         match &self.method_kind {
-            Call(call_method) => call_method.deny_unknown_fields,
-            Init(init_method) => init_method.deny_unknown_fields,
-            View(view_method) => view_method.deny_unknown_fields,
+            Call(call_method) => call_method.deny_unknown_arguments,
+            Init(init_method) => init_method.deny_unknown_arguments,
+            View(view_method) => view_method.deny_unknown_arguments,
         }
     }
 
@@ -101,7 +101,7 @@ impl AttrSigInfo {
         );
         let attribute = match &self.input_serializer {
             SerializerType::JSON => {
-                let deny_fields_attr = if self.deny_unknown_fields() {
+                let deny_fields_attr = if self.deny_unknown_arguments() {
                     quote! { deny_unknown_fields }
                 } else {
                     quote! {}
