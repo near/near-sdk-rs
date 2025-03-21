@@ -274,7 +274,10 @@ mod tests {
     #[test]
     fn deny_unknown_arguments_return_mut_method() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
-        let mut method: ImplItemFn = syn::parse_str("#[deny_unknown_arguments] pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[deny_unknown_arguments] 
+            pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }
+        };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
