@@ -18,7 +18,7 @@
     <a href="https://near.chat"><img src="https://img.shields.io/discord/490367152054992913?style=flat-square&label=discord&color=lightgreen" alt="Join the community on Discord" /></a>
     <a href="https://t.me/NEAR_Tools_Community_Group"><img src="https://img.shields.io/badge/telegram-online-lightgreen?style=flat-square" alt="Join the community on Telegram" /></a>
     <a href="https://x.com/nearprotocol"><img src="https://img.shields.io/twitter/follow/NEARProtocol" alt="Join the community on Twitter" /></a>  
-      </p>
+  </p>
 
    <h3>
       <a href="https://github.com/near/near-sdk-rs#features">Features</a>
