@@ -35,6 +35,17 @@ impl AttrSigInfo {
         }
     }
 
+    /// Whether the method has `deny_unknown_arguments` attribute.
+    pub fn deny_unknown_arguments(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.deny_unknown_arguments,
+            Init(init_method) => init_method.deny_unknown_arguments,
+            View(view_method) => view_method.deny_unknown_arguments,
+        }
+    }
+
     pub fn input_struct_ser(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
@@ -89,10 +100,17 @@ impl AttrSigInfo {
             "Can only generate input struct for when input args are specified"
         );
         let attribute = match &self.input_serializer {
-            SerializerType::JSON => quote! {
-                #[derive(::near_sdk::serde::Deserialize)]
-                #[serde(crate = "::near_sdk::serde")]
-            },
+            SerializerType::JSON => {
+                let deny_fields_attr = if self.deny_unknown_arguments() {
+                    quote! { deny_unknown_fields }
+                } else {
+                    quote! {}
+                };
+                quote! {
+                    #[derive(::near_sdk::serde::Deserialize)]
+                    #[serde(crate = "::near_sdk::serde", #deny_fields_attr)]
+                }
+            }
             SerializerType::Borsh => quote! {
                 #[derive(::near_sdk::borsh::BorshDeserialize)]
                 #[borsh(crate = "::near_sdk::borsh")]

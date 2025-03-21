@@ -1,6 +1,6 @@
 //! # `near-sdk`
 //!
-//! `near-sdk` is a Rust toolkit for developing smart contracts on the [NEAR blockchain](https://near.org).  
+//! `near-sdk` is a Rust toolkit for developing smart contracts on the [NEAR blockchain](https://near.org).
 //! It provides abstractions, macros, and utilities to make building robust and secure contracts easy.
 //! More information on how to develop smart contracts can be found in the [NEAR documentation](https://docs.near.org/build/smart-contracts/what-is).
 //! With near-sdk you can create DeFi applications, NFTs and marketplaces, DAOs, gaming and metaverse apps, and much more.
@@ -369,6 +369,57 @@ extern crate quickcheck;
 /// }
 /// ```
 ///
+/// ## `#[deny_unknown_arguments]` (annotates methods of a type in its `impl` block)]
+///
+/// Specifies that the method call should error during deserialization if any unknown fields are present in the input.
+/// This helps ensure data integrity by rejecting potentially malformed input.
+///
+/// Without this attribute, unknown fields are silently ignored during deserialization.
+///
+/// Implementation uses [`deny_unknown_fields`](https://serde.rs/container-attrs.html#deny_unknown_fields) `serde`'s attribute.
+///
+/// In the following example call of `my_method` with
+/// ```json,ignore
+/// {
+///     "description": "value of description"
+/// }
+/// ```
+/// payload works, but call of `my_method` with
+///
+/// ```json,ignore
+/// {
+///     "description": "value of description",
+///     "unknown_field": "what"
+/// }
+/// ```
+/// payload is declined with a `FunctionCallError(ExecutionError("Smart contract panicked: Failed to deserialize input from JSON."))` error.
+///
+/// ### Basic example
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Counter {
+///     val: u64,
+/// }
+///
+/// #[near]
+/// impl Counter {
+///     #[deny_unknown_arguments]
+///     pub fn my_method(&mut self, description: String) {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// This attribute is not supposed to be used together with [`#[serializer(borsh)]`](`near#serializer-annotates-function-arguments`)
+/// arguments' serializer, and assumes that default `json` is used.
+///
+/// If `borsh` is used on arguments, usage of `deny_unknown_arguments` on method is a no-op.
+///
+///
 /// ## `#[result_serializer(...)]` (annotates methods of a type in its `impl` block)
 ///
 /// The attribute defines the serializer for function return serialization.
@@ -700,7 +751,7 @@ extern crate quickcheck;
 ///    the returned value into a `result` variable
 /// 4. calls [`serde_json::to_vec`] on obtained `result` and saves returned value to `serialized_result` variable
 ///     1. `json` format can be changed to serializing with [`borsh::to_vec`] by using [`#[result_serializer(...)]`](`near#result_serializer-annotates-methods-of-a-type-in-its-impl-block`)
-/// 5. if the `serialized_result` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal result serialization error  
+/// 5. if the `serialized_result` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal result serialization error
 /// 6. otherwise, if the `serialized_result` is a [`Result::Ok`], then [`env::value_return`] host function is called with unwrapped `serialized_result`
 ///
 /// ##### for above **mutating** method `#[near]` macro defines the following function:
@@ -714,7 +765,7 @@ extern crate quickcheck;
 /// 2. calls [`env::input`] host function and saves it to `input` variable
 /// 3. deserializes `Contract::mutating_method` arguments by calling [`serde_json::from_slice`] on `input` variable and saves it to `deserialized_input` variable
 ///     1. `json` format can be changed to deserializing with [`borsh::from_slice`] by using [`#[serializer(...)]`](`near#serializer-annotates-function-arguments`)
-/// 4. if the `deserialized_input` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal input deserialization error  
+/// 4. if the `deserialized_input` is an [`Result::Err`] error, then [`env::panic_str`] host function is called to signal input deserialization error
 /// 5. otherwise, if the `deserialized_input` is a [`Result::Ok`], `deserialized_input` is unwrapped and saved to `deserialized_input_success` variable
 /// 6. calls [`env::state_read`] host function to load `Contract` into a `state` variable
 ///     1. `env::state_read`'s result is unwrapped with [`Option::unwrap_or_default`]
@@ -759,11 +810,11 @@ extern crate quickcheck;
 /// 2. for each argument, annotated with `#[callback_unwrap]`:
 ///     1. [`env::promise_result`] host function is called with corresponding index, starting from 0
 ///        (`0u64` for argument `one`, `1u64` for argument `two` above), and saved into `promise_result` variable
-///     2. if the `promise_result` is a [`PromiseResult::Failed`] error, then [`env::panic_str`] host function is called to signal callback computation error   
+///     2. if the `promise_result` is a [`PromiseResult::Failed`] error, then [`env::panic_str`] host function is called to signal callback computation error
 ///     3. otherwise, if the `promise_result` is a [`PromiseResult::Successful`], it's unwrapped and saved to a `data` variable
 ///     4. `data` is deserialized similar to that as usual (step **3**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)),
 ///        and saved to `deserialized_n_promise` variable
-/// 3. counterpart of (step **7**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)):  
+/// 3. counterpart of (step **7**, [`#[near]` on mutating method](near#for-above-mutating-method-near-macro-defines-the-following-function)):
 ///    original method is called `Contract::method(&mut state, deserialized_input_success.regular, deserialized_0_promise, deserialized_1_promise)`,
 ///    as defined in `#[near]` annotated impl block
 ///
