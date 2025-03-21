@@ -376,6 +376,24 @@ extern crate quickcheck;
 ///
 /// Without this attribute, unknown fields are silently ignored during deserialization.
 ///
+/// Implementation uses [`deny_unknown_fields`](https://serde.rs/container-attrs.html#deny_unknown_fields) `serde`'s attribute.
+/// 
+/// In the following example call of `my_method` with
+/// ```json,ignore
+/// {
+///     "description": "value of description"
+/// }
+/// ```
+/// payload works, but call of `my_method` with
+/// 
+/// ```json,ignore
+/// {
+///     "description": "value of description",
+///     "unknown_field": "what" 
+/// }
+/// ```
+/// payload is declined with a `FunctionCallError(ExecutionError("Smart contract panicked: Failed to deserialize input from JSON."))` error.
+/// 
 /// ### Basic example
 ///
 /// ```rust
@@ -395,6 +413,12 @@ extern crate quickcheck;
 ///     }
 /// }
 /// ```
+/// 
+/// This attribute is not supposed to be used together with [`#[serializer(borsh)]`](`near#serializer-annotates-function-arguments`)
+/// arguments' serializer, and assumes that default `json` is used. 
+///
+/// If `borsh` is used on arguments, usage of `deny_unknown_arguments` on method is a no-op.
+///
 ///
 /// ## `#[result_serializer(...)]` (annotates methods of a type in its `impl` block)
 ///
