@@ -7,6 +7,7 @@
 //! * `init`
 //! * `payable`
 //! * `private`
+//! * `deny_unknown_arguments`
 //! * `handle_result`
 //! * `callback_unwrap`
 //! * `event_json`
@@ -26,6 +27,9 @@ pub fn payable() {}
 
 /// See [`near_sdk::near #[private]`](crate::near#private-annotates-methods-of-a-type-in-its-impl-block)
 pub fn private() {}
+
+/// See [`near_sdk::near #[deny_unknown_arguments]`](crate::near#deny_unknown_arguments-annotates-methods-of-a-type-in-its-impl-block)
+pub fn deny_unknown_arguments() {}
 
 /// See [`near_sdk::near #[result_serializer]`](crate::near#result_serializer-annotates-methods-of-a-type-in-its-impl-block)
 pub fn result_serializer() {}

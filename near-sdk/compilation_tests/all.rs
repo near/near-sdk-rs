@@ -5,6 +5,7 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/invalid_arg_pat.rs");
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");
+    t.pass("compilation_tests/deny_unknown_arguments.rs");
     t.pass("compilation_tests/trait_impl.rs");
     t.compile_fail("compilation_tests/bad_argument.rs");
     t.pass("compilation_tests/complex.rs");
