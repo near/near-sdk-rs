@@ -19,4 +19,4 @@ jobs:
         with:
           # add to DevTools Project #156
           project-url: https://github.com/orgs/near/projects/156
-          github-token: ${{ secrets.GH_TOKEN }}
+          github-token: ${{ secrets.PROJECT_GH_TOKEN }}
