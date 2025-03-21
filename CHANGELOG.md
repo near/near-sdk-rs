@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.10.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.9.0...near-sdk-v5.10.0) - 2025-03-21
+
+### Added
+
+- `deny_unknown_arguments` on-method attribute ([#1328](https://github.com/near/near-sdk-rs/pull/1328))
+
 ## [5.9.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.2...near-sdk-v5.9.0) - 2025-03-06
 
 ### Other
