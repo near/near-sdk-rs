@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.11.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.10.0...near-sdk-v5.11.0) - 2025-03-22
+
+### Added
+
+- Added promise_yield_create and promise_yield_resume APIs to the mocked test utils ([#1333](https://github.com/near/near-sdk-rs/pull/1333))
+
 ## [5.10.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.9.0...near-sdk-v5.10.0) - 2025-03-21
 
 ### Added
