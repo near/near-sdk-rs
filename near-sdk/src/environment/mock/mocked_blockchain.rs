@@ -577,12 +577,7 @@ mod mock_chain {
         payload_ptr: u64,
     ) -> u32 {
         with_mock_interface(|b| {
-            b.promise_yield_resume(
-                data_id_len,
-                data_id_ptr,
-                payload_len,
-                payload_ptr,
-            )
+            b.promise_yield_resume(data_id_len, data_id_ptr, payload_len, payload_ptr)
         })
     }
     #[no_mangle]
