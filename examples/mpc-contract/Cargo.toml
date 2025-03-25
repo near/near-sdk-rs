@@ -11,6 +11,11 @@ crate-type = ["cdylib"]
 near-sdk = { path = "../../near-sdk" }
 hex = "0.4"
 
+[dev-dependencies]
+near-workspaces = { version = "0.18.0", features = ["unstable"] }
+tokio = { version = "1.14", features = ["full"] }
+mpc-contract = { path = "." }
+
 [profile.release]
 codegen-units = 1
 # Tell `rustc` to optimize for small code size.

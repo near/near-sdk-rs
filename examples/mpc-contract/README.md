@@ -1,9 +1,9 @@
-# Status Message
+# MPC Contract
 
-Records the status messages of the accounts that call this contract.
+A contract that shows you how to work with the yield promise API.
 
 ## Testing
 To test run:
 ```bash
-cargo test --package status-message -- --nocapture
+cargo test --package mpc-contract -- --nocapture
 ```

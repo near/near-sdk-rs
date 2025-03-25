@@ -1,35 +1,7 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::TreeMap;
 use near_sdk::{
-    env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas, GasWeight,
+    env, log, near, serde_json, store::IterableMap, AccountId, CryptoHash, Gas, GasWeight,
     NearToken, PromiseError,
 };
-
-#[derive(BorshSerialize, BorshStorageKey)]
-#[borsh(crate = "near_sdk::borsh")]
-struct RecordsKey;
-
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct SignatureRequest {
-    data_id: CryptoHash,
-    account_id: AccountId,
-    message: String,
-}
-
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
-pub struct MpcContract {
-    requests: TreeMap<u64, SignatureRequest>,
-    next_available_request_index: u64,
-}
-
-impl Default for MpcContract {
-    fn default() -> Self {
-        Self { requests: TreeMap::new(RecordsKey), next_available_request_index: 0u64 }
-    }
-}
 
 // Register used to receive data id from `promise_await_data`.
 const DATA_ID_REGISTER: u64 = 0;
@@ -40,10 +12,33 @@ const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(5);
 // Prepaid gas for a `do_something` call
 const CHAINED_CALL_GAS: Gas = Gas::from_tgas(5);
 
-#[near_bindgen]
+#[near(serializers = ["borsh", "json"])]
+#[derive(Clone, Debug)]
+pub struct SignatureRequest {
+    pub data_id: CryptoHash,
+    pub account_id: AccountId,
+    pub message: String,
+}
+
+#[near(contract_state, serializers = ["borsh"])]
+pub struct MpcContract {
+    requests: IterableMap<u64, SignatureRequest>,
+    next_available_request_index: u64,
+}
+
+impl Default for MpcContract {
+    fn default() -> Self {
+        Self {
+            requests: IterableMap::new(b"requests".to_vec()),
+            next_available_request_index: 0u64,
+        }
+    }
+}
+
+#[near]
 impl MpcContract {
     /// User-facing API: accepts some message and returns a signature
-    pub fn sign(&mut self, message_to_be_signed: String) {
+    pub fn sign(&mut self, message: String) {
         let index = self.next_available_request_index;
         self.next_available_request_index += 1;
 
@@ -59,12 +54,8 @@ impl MpcContract {
         let data_id: CryptoHash =
             env::read_register(DATA_ID_REGISTER).expect("").try_into().expect("");
         self.requests.insert(
-            &index,
-            &SignatureRequest {
-                data_id,
-                account_id: env::signer_account_id(),
-                message: message_to_be_signed,
-            },
+            index,
+            SignatureRequest { data_id, account_id: env::signer_account_id(), message },
         );
 
         // The yield promise is composable with the usual promise API features. We can choose to
@@ -85,11 +76,7 @@ impl MpcContract {
     }
 
     /// Called by MPC participants to submit a signature
-    pub fn sign_respond(&mut self, data_id: String, signature: String) {
-        let mut data_id_buf = [0u8; 32];
-        hex::decode_to_slice(data_id, &mut data_id_buf).expect("");
-        let data_id = data_id_buf;
-
+    pub fn sign_respond(&mut self, data_id: CryptoHash, signature: String) {
         // check that caller is allowed to respond, signature is valid, etc.
         // ...
 
@@ -112,8 +99,11 @@ impl MpcContract {
         }
     }
 
-    pub fn do_something(#[callback_unwrap] signature_result: String) {
-        log!("fn do_something invoked with result '{}'", &signature_result);
+    pub fn do_something(#[callback_result] signature_result: Result<String, PromiseError>) {
+        match signature_result {
+            Ok(signature) => log!("fn do_something invoked with result '{}'", &signature),
+            Err(_) => log!("Should not happen"),
+        }
     }
 
     /// Helper for local testing; prints all pending requests
@@ -126,5 +116,121 @@ impl MpcContract {
                 request.message
             );
         }
+    }
+
+    pub fn get_requests(&self) -> Vec<SignatureRequest> {
+        self.requests.iter().map(|(_, request)| request).cloned().collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
+    use near_sdk::serde_json;
+    use near_workspaces::{network::Sandbox, result::ExecutionFinalResult};
+
+    const SIGNATURE_TEXT: &str = "I'm a cool signature, Kolo?";
+
+    async fn mpc_loop(
+        workspace: near_workspaces::Worker<Sandbox>,
+        contract: near_workspaces::Contract,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mpc_server = workspace.dev_create_account().await?;
+        let mut interval = tokio::time::interval(Duration::from_secs(2));
+
+        for i in 0..10 {
+            interval.tick().await;
+            println!("MPC server loop iteration {}", i);
+            let requests: Vec<SignatureRequest> = contract.view("get_requests").await?.json()?;
+            println!("Requests: {:?}", requests);
+            if requests.len() > 0 {
+                let result = mpc_server.call(contract.id(), "sign_respond")
+                    .gas(Gas::from_tgas(200))
+                    .args_json(serde_json::json!({ "data_id": requests[0].data_id, "signature": SIGNATURE_TEXT }))
+                    .transact()
+                    .await?
+                    .into_result();
+                println!("MPC server result: {:?}", result);
+                result?;
+                return Ok(());
+            }
+        }
+
+        Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "No requests found")))
+    }
+
+    async fn alice_part(
+        workspace: near_workspaces::Worker<Sandbox>,
+        contract: near_workspaces::Contract,
+    ) -> Result<ExecutionFinalResult, Box<dyn std::error::Error>> {
+        let alice = workspace.dev_create_account().await?;
+        let message = "Hello, world!";
+        Ok(alice
+            .call(contract.id(), "sign")
+            .args_json(serde_json::json!({ "message": message }))
+            .gas(Gas::from_tgas(200))
+            .transact()
+            .await?)
+    }
+
+    #[tokio::test]
+    async fn happy_path() -> Result<(), Box<dyn std::error::Error>> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let workspace = near_workspaces::sandbox().await?;
+
+        let contract_account = workspace.dev_create_account().await?;
+        let contract = contract_account.deploy(wasm.as_slice()).await?.into_result()?;
+
+        let (alice_result, mpc_result) = tokio::join!(
+            // Alice starts the signing process
+            alice_part(workspace.clone(), contract.clone()),
+            // The yield process is some service that waits for the user request and responds to it
+            mpc_loop(workspace.clone(), contract.clone())
+        );
+
+        assert!(alice_result.is_ok());
+        assert!(mpc_result.is_ok());
+
+        let alice_result = alice_result.unwrap();
+        let logs = alice_result.logs();
+        assert_eq!(logs.len(), 1);
+
+        // As you can see, for the Alice it looks like a single transaction, but in the reality
+        // it waits for the outside entity to respond to continue the execution.
+        assert_eq!(
+            logs[0],
+            format!("fn do_something invoked with result 'signature received: {}'", SIGNATURE_TEXT)
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn negative_path() -> Result<(), Box<dyn std::error::Error>> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let workspace = near_workspaces::sandbox().await?;
+
+        let contract_account = workspace.dev_create_account().await?;
+        let contract = contract_account.deploy(wasm.as_slice()).await?.into_result()?;
+
+        let alice = workspace.dev_create_account().await?;
+
+        /// Alice starts the signing process, but the MPC server does not respond
+        /// for quite some time, so the transaction times out.
+        /// This is managed by protocol-level parameter `yield_timeout_length_in_blocks`.
+        let alice_result = alice
+            .call(contract.id(), "sign")
+            .args_json(serde_json::json!({ "message": "Hello, world!" }))
+            .gas(Gas::from_tgas(200))
+            .transact()
+            .await?;
+
+        let logs = alice_result.logs();
+        assert!(alice_result.is_failure());
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0], "fn do_something invoked with result 'signature request timed out'");
+        Ok(())
     }
 }
