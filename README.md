@@ -17,6 +17,7 @@
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="https://near.chat"><img src="https://img.shields.io/discord/490367152054992913?style=flat-square&label=discord&color=lightgreen" alt="Join the community on Discord" /></a>
     <a href="https://t.me/NEAR_Tools_Community_Group"><img src="https://img.shields.io/badge/telegram-online-lightgreen?style=flat-square" alt="Join the community on Telegram" /></a>
+    <a href="https://x.com/nearprotocol"><img src="https://img.shields.io/twitter/follow/NEARProtocol" alt="Join the community on Twitter" /></a>  
   </p>
 
    <h3>

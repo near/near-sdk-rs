@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [5.11.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.10.0...near-sdk-v5.11.0) - 2025-03-22
+
+### Added
+
+- Added promise_yield_create and promise_yield_resume APIs to the mocked test utils ([#1333](https://github.com/near/near-sdk-rs/pull/1333))
+
+## [5.10.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.9.0...near-sdk-v5.10.0) - 2025-03-21
+
+### Added
+
+- `deny_unknown_arguments` on-method attribute ([#1328](https://github.com/near/near-sdk-rs/pull/1328))
+
+## [5.9.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.2...near-sdk-v5.9.0) - 2025-03-06
+
+### Other
+
+- updates near-* dependencies to 0.29 release ([#1325](https://github.com/near/near-sdk-rs/pull/1325))
+
 ## [5.8.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.1...near-sdk-v5.8.2) - 2025-03-06
 
 ### Other

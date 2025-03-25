@@ -51,6 +51,8 @@ pub struct CallMethod {
     pub is_payable: bool,
     /// Whether method can accept calls from self (current account)
     pub is_private: bool,
+    /// Whether method can accept unknown JSON fields
+    pub deny_unknown_arguments: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
@@ -61,6 +63,8 @@ pub struct CallMethod {
 pub struct ViewMethod {
     /// Whether method can accept calls from self (current account)
     pub is_private: bool,
+    /// Whether method can accept unknown JSON fields
+    pub deny_unknown_arguments: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
     /// The receiver, like `mut self`, `self`, `&mut self`, `&self`, or `None`.
@@ -71,6 +75,8 @@ pub struct ViewMethod {
 pub struct InitMethod {
     /// Whether method accepting $NEAR.
     pub is_payable: bool,
+    /// Whether method can accept unknown JSON fields
+    pub deny_unknown_arguments: bool,
     /// Whether init method ignores state
     pub ignores_state: bool,
 }
