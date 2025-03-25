@@ -99,11 +99,8 @@ impl MpcContract {
         }
     }
 
-    pub fn do_something(#[callback_result] signature_result: Result<String, PromiseError>) {
-        match signature_result {
-            Ok(signature) => log!("fn do_something invoked with result '{}'", &signature),
-            Err(_) => log!("Should not happen"),
-        }
+    pub fn do_something(#[callback_unwrap] signature_result: String) {
+        log!("fn do_something invoked with result '{}'", &signature_result);
     }
 
     /// Helper for local testing; prints all pending requests
@@ -125,7 +122,7 @@ impl MpcContract {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{task::Poll, time::Duration};
 
     use super::*;
 
@@ -167,13 +164,31 @@ mod tests {
         contract: near_workspaces::Contract,
     ) -> Result<ExecutionFinalResult, Box<dyn std::error::Error>> {
         let alice = workspace.dev_create_account().await?;
+        let mut interval = tokio::time::interval(Duration::from_secs(2));
         let message = "Hello, world!";
-        Ok(alice
+        let block_init = workspace.view_block().await?.height();
+        let result = alice
             .call(contract.id(), "sign")
             .args_json(serde_json::json!({ "message": message }))
-            .gas(Gas::from_tgas(200))
-            .transact()
-            .await?)
+            .gas(Gas::from_tgas(300))
+            .transact_async()
+            .await?;
+
+        loop {
+            interval.tick().await;
+            let block = workspace.view_block().await?.height();
+            println!("Alice waiting for ~{} blocks", block - block_init);
+
+            let status = result.status().await?;
+            match status {
+                Poll::Ready(result) => {
+                    println!("Alice result: {:?}", result);
+                    return Ok(result);
+                }
+                _ => {}
+            }
+        }
+        Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Timeout")))
     }
 
     #[tokio::test]
@@ -215,20 +230,13 @@ mod tests {
         let contract_account = workspace.dev_create_account().await?;
         let contract = contract_account.deploy(wasm.as_slice()).await?.into_result()?;
 
-        let alice = workspace.dev_create_account().await?;
-
-        /// Alice starts the signing process, but the MPC server does not respond
-        /// for quite some time, so the transaction times out.
-        /// This is managed by protocol-level parameter `yield_timeout_length_in_blocks`.
-        let alice_result = alice
-            .call(contract.id(), "sign")
-            .args_json(serde_json::json!({ "message": "Hello, world!" }))
-            .gas(Gas::from_tgas(200))
-            .transact()
-            .await?;
+        // Alice starts the signing process, but the MPC server does not respond
+        // for quite some time, so the transaction times out.
+        // This is managed by protocol-level parameter `yield_timeout_length_in_blocks`.
+        let alice_result = alice_part(workspace, contract).await?;
 
         let logs = alice_result.logs();
-        assert!(alice_result.is_failure());
+        assert!(alice_result.is_success());
         assert_eq!(logs.len(), 1);
         assert_eq!(logs[0], "fn do_something invoked with result 'signature request timed out'");
         Ok(())
