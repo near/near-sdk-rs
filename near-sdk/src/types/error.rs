@@ -1,8 +1,9 @@
 /// Enables contract runtime to panic with the given type. Any error type used in conjunction
 /// with `#[handle_result]` has to implement this trait.
 ///
-/// ```
-/// use near_sdk::FunctionError;
+/// Example:
+/// ```no_run
+/// use near_sdk::{FunctionError, near};
 ///
 /// enum Error {
 ///     NotFound,
@@ -17,6 +18,19 @@
 ///             Error::Unexpected { message } =>
 ///                 near_sdk::env::panic_str(&format!("unexpected error: {}", message))
 ///         }
+///     }
+/// }
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract;
+///
+/// #[near]
+/// impl Contract {
+///     // if the Error does not implement FunctionError, the following will not compile with #[handle_result]
+///     #[handle_result]
+///     pub fn set(&self, value: String) -> Result<String, Error> {
+///         Err(Error::NotFound)
 ///     }
 /// }
 /// ```
@@ -37,14 +51,13 @@ where
 /// abort without a custom message.
 ///
 /// ```
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-/// use near_sdk::{Abort, near_bindgen};
+/// use near_sdk::{Abort, near};
 ///
-/// #[near_bindgen]
-/// #[derive(Default, BorshDeserialize, BorshSerialize)]
+/// #[near(contract_state)]
+/// #[derive(Default)]
 /// pub struct Contract;
 ///
-/// #[near_bindgen]
+/// #[near]
 /// impl Contract {
 ///     #[handle_result]
 ///     pub fn foo(&self, text: &str) -> Result<String, Abort> {

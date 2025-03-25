@@ -6,6 +6,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.8.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.7.1...near-contract-standards-v5.8.0) - 2025-02-07
+
+### Other
+
+- *(near-contract-standards)* add `build_info` field (#1297)
+
+## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.7.0...near-contract-standards-v5.7.1) - 2025-01-30
+
+### Other
+
+- `__abi-generate` feature in docs.rs (#1286)
+
+## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.6.0...near-contract-standards-v5.7.0) - 2024-12-13
+
+### Other
+
+- add a `cargo doc` job (#1269)
+- allow clippy::needless_lifetimes (1.83 more suggestions) (#1267)
+
+## [5.5.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.4.0...near-contract-standards-v5.5.0) - 2024-09-11
+
+### Other
+
+- Updated near-* dependendencies to v0.26.0. Migrated testing blockchain mock to C-unwind ([#1244](https://github.com/near/near-sdk-rs/pull/1244))
+
+## [5.3.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.2.1...near-contract-standards-v5.3.0) - 2024-08-13
+
+### Fixed
+- Fix storage management error message with proper amount ([#1222](https://github.com/near/near-sdk-rs/pull/1222))
+
+## [5.2.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.1.0...near-contract-standards-v5.2.0) - 2024-07-04
+
+### Added
+- Exported `ext_storage_management` Promise shortcuts, so Storage Management interfaces can be used in contracts to call external contracts using the high-level cross-contract call interfaces ([#1208](https://github.com/near/near-sdk-rs/pull/1208))
+- Exported `ext_nft_*` Promise shortcuts, so NFT interfaces can be re-used in contracts to call external NFT contracts using the high-level cross-contract call interfaces ([#1206](https://github.com/near/near-sdk-rs/pull/1206))
+
+## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0...near-contract-standards-v5.1.0) - 2024-03-28
+
+### Added
+- Finalize `#[near]` attribute-macro implementation with the support for custom parameters passing to serializer attributes `#[near(serializers = [borsh(...)])]` ([#1158](https://github.com/near/near-sdk-rs/pull/1158))
+- Introduce `#[near]` macro to further streamline contracts development reducing the boilerplate! ([#1142](https://github.com/near/near-sdk-rs/pull/1142))
+
+## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0-alpha.2...near-contract-standards-v5.0.0-alpha.3) - 2024-02-19
+
+### Fixed
+- Fixed a typo in the storage_deposit refund computation (introduced in 5.0.0-alpha.1 release) ([#1146](https://github.com/near/near-sdk-rs/pull/1146))
+
 ## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.0.0-alpha.1...near-contract-standards-v5.0.0-alpha.2) - 2024-01-16
 
 ### Other

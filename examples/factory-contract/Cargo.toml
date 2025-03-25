@@ -8,7 +8,8 @@ edition = "2021"
 anyhow = "1.0"
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.9.0", default-features = false, features = ["install"] }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-workspaces = { version = "0.16", features = ["unstable"] }
 
 [profile.release]
 codegen-units = 1
@@ -19,7 +20,4 @@ debug = false
 panic = "abort"
 
 [workspace]
-members = [
-  "high-level",
-  "low-level",
-]
+members = ["high-level", "low-level"]

@@ -3,22 +3,19 @@ use crate::agent::Agent;
 use crate::asset::*;
 use crate::rate::*;
 use near_sdk::AccountId;
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, near_bindgen};
+use near_sdk::env;
 use std::collections::HashMap;
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(Serialize, Deserialize, BorshDeserialize, BorshSerialize)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
+
+#[near(serializers=[json, borsh], contract_state)]
 pub struct MissionControl {
     account: Account,
     agents: HashMap<AccountId, Agent>,
     rates: HashMap<Exchange, Rate>,
 }
 
-#[near_bindgen]
+#[near]
 impl MissionControl {
     pub fn add_agent(&mut self) {
         let account_id = env::signer_account_id();
@@ -86,6 +83,8 @@ fn rates_default() -> HashMap<Exchange, Rate> {
 mod tests {
     use super::*;
     use near_sdk::env;
+    use near_abi::AbiRoot;
+    use near_sdk::serde_json;
 
     #[test]
     fn add_agent() {
@@ -98,5 +97,24 @@ mod tests {
             Some(Quantity(2)),
             contract.assets_quantity(account_id.clone(), Asset::MissionTime)
         );
+    }
+
+    // this only tests that contract can be built with ABI and responds to __contract_abi
+    // view call
+    #[tokio::test]
+    async fn embedded_abi_test() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let worker = near_workspaces::sandbox().await?;
+        let contract = worker.dev_deploy(&wasm).await?;
+
+        let res = contract.view("__contract_abi").await?;
+
+        let abi_root =
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+
+        assert_eq!(abi_root.schema_version, "0.4.0");
+        assert_eq!(abi_root.metadata.name, Some("mission-control".to_string()));
+
+        Ok(())
     }
 }

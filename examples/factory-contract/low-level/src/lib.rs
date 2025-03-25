@@ -1,17 +1,15 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json;
-use near_sdk::{env, near_bindgen, AccountId, Gas, NearToken, PromiseResult};
+use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(Default)]
+#[near(contract_state)]
 pub struct FactoryContract {}
 
-#[near_bindgen]
+#[near]
 impl FactoryContract {
     pub fn deploy_status_message(&self, account_id: AccountId, amount: U128) {
         let promise_idx = env::promise_batch_create(&account_id);
@@ -22,7 +20,7 @@ impl FactoryContract {
             &env::signer_account_pk(),
             0,
         );
-        let code: &[u8] = include_bytes!("../../../status-message/res/status_message.wasm");
+        let code: &[u8] = include_bytes!(env!("BUILD_RS_SUB_BUILD_STATUS-MESSAGE"));
         env::promise_batch_action_deploy_contract(promise_idx, code);
     }
 

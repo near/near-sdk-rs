@@ -1,12 +1,11 @@
 use crate::CryptoHash;
-use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
+use near_sdk_macros::near;
 use serde::{de, ser, Deserialize};
 use std::convert::TryFrom;
 
-#[derive(
-    Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, BorshDeserialize, BorshSerialize, Default,
-)]
+#[near(inside_nearsdk)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default)]
 pub struct Base58CryptoHash(CryptoHash);
 
 impl From<Base58CryptoHash> for CryptoHash {
@@ -82,7 +81,7 @@ impl std::str::FromStr for Base58CryptoHash {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let mut crypto_hash: CryptoHash = CryptoHash::default();
-        let size = bs58::decode(value).into(&mut crypto_hash)?;
+        let size = bs58::decode(value).onto(&mut crypto_hash)?;
         if size != std::mem::size_of::<CryptoHash>() {
             return Err(ParseCryptoHashError {
                 kind: ParseCryptoHashErrorKind::InvalidLength(size),

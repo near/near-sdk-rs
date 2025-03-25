@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk", features = ["unstable"] }
+near-sdk = { path = "../../near-sdk", features = ["unstable", "unit-testing"] }
 
 [profile.release]
 codegen-units = 1
@@ -17,3 +17,11 @@ opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
+
+[dev-dependencies]
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-workspaces = { version = "0.16", features = ["unstable"] }
+tokio = { version = "1.14", features = ["full"] }
+anyhow = "1.0"
+near-abi = "0.4.0"
+zstd = "0.13"

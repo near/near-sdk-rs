@@ -1,3 +1,5 @@
+//! ## General description
+//!
 //! Collections that offer an alternative to standard containers from `std::collections::*` by
 //! utilizing the underlying blockchain trie storage more efficiently.
 //!
@@ -11,11 +13,9 @@
 //!
 //! ```
 //! # use std::collections::HashMap;
-//! # use borsh::{BorshSerialize, BorshDeserialize};
-//! # use near_sdk_macros::near_bindgen;
+//! # use near_sdk_macros::near;
 //!
-//! #[near_bindgen]
-//! #[derive(BorshDeserialize, BorshSerialize)]
+//! #[near(contract_state)]
 //! pub struct StatusMessage {
 //!    records: HashMap<String, String>,
 //! }
@@ -24,19 +24,26 @@
 //! The following is an efficient alternative. It will load each element individually only when it is
 //! read and will save it only when it is written/removed.
 //! ```
-//! # use borsh::{BorshSerialize, BorshDeserialize};
-//! # use near_sdk_macros::near_bindgen;
+//! # use near_sdk_macros::near;
 //! # use near_sdk::collections::LookupMap;
 //!
-//! #[near_bindgen]
-//! #[derive(BorshDeserialize, BorshSerialize)]
+//! #[near(contract_state)]
 //! pub struct StatusMessage {
 //!    records: LookupMap<String, String>,
 //! }
 //! ```
 //!
 //! The efficiency of `LookupMap` comes at the cost, since it has fewer methods than `HashMap` and is not
-//! that seemlessly integrated with the rest of the Rust standard library.
+//! that seamlessly integrated with the rest of the Rust standard library.
+//!
+//! ## Calls to **host functions**, used in implementation:
+//!
+//! * [`near_sdk::env::storage_write`](crate::env::storage_write)
+//! * [`near_sdk::env::storage_read`](crate::env::storage_read)
+//! * [`near_sdk::env::storage_remove`](crate::env::storage_remove)
+//! * [`near_sdk::env::storage_get_evicted`](crate::env::storage_get_evicted)
+//! * [`near_sdk::env::storage_has_key`](crate::env::storage_has_key)
+//!
 
 mod legacy_tree_map;
 #[allow(deprecated)]

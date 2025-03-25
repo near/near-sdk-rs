@@ -7,9 +7,10 @@ edition = "2021"
 [dev-dependencies]
 anyhow = "1.0"
 near-contract-standards = { path = "../../near-contract-standards" }
-near-sdk = { path = "../../near-sdk" }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.9.0", default-features = false, features = ["install"] }
+near-workspaces = { version = "0.16", features = ["unstable"] }
+rstest = "0.23.0"
 
 [profile.release]
 codegen-units = 1
@@ -22,8 +23,4 @@ overflow-checks = true
 
 [workspace]
 # remember to include a member for each contract
-members = [
-  "nft",
-  "test-approval-receiver",
-  "test-token-receiver",
-]
+members = ["nft", "test-approval-receiver", "test-token-receiver"]

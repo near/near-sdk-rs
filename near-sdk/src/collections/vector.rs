@@ -5,6 +5,7 @@ use std::iter::FusedIterator;
 use std::marker::PhantomData;
 
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 
 use crate::collections::append_slice;
 use crate::{env, IntoStorageKey};
@@ -20,7 +21,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 
 /// An iterable implementation of vector that stores its content on the trie.
 /// Uses the following map: index -> element.
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct Vector<T> {
     len: u64,
     prefix: Vec<u8>,
@@ -99,7 +100,10 @@ impl<T> Vector<T> {
             expect_consistent_state(self.pop_raw())
         } else {
             let lookup_key = self.index_to_lookup_key(index);
-            let raw_last_value = self.pop_raw().expect("checked `index < len` above, so `len > 0`");
+            let raw_last_value = match self.pop_raw() {
+                Some(value) => value,
+                None => env::panic_str("checked `index < len` above, so `len > 0`"),
+            };
             if env::storage_write(&lookup_key, &raw_last_value) {
                 expect_consistent_state(env::storage_get_evicted())
             } else {
@@ -510,6 +514,7 @@ mod tests {
         }
 
         #[derive(Debug, BorshDeserialize)]
+        #[allow(dead_code)]
         struct WithoutBorshSerialize(u64);
 
         let deserialize_only_vec =

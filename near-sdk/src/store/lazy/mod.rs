@@ -9,6 +9,8 @@ mod impls;
 use borsh::{to_vec, BorshDeserialize, BorshSerialize};
 use once_cell::unsync::OnceCell;
 
+use near_sdk_macros::near;
+
 use crate::env;
 use crate::store::ERR_INCONSISTENT_STATE;
 use crate::utils::{CacheEntry, EntryState};
@@ -59,14 +61,14 @@ where
 /// *a = "new string".to_string();
 /// assert_eq!(a.get(), "new string");
 /// ```
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct Lazy<T>
 where
     T: BorshSerialize,
 {
     /// Key bytes to index the contract's storage.
     storage_key: Box<[u8]>,
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` bound from T
     /// Cached value which is lazily loaded and deserialized from storage.
     cache: OnceCell<CacheEntry<T>>,
 }
@@ -116,6 +118,11 @@ where
                 v.replace_state(EntryState::Cached);
             }
         }
+    }
+
+    /// Removes the underlying storage item. Useful for deprecating the obsolete [`Lazy`] values.
+    pub fn remove(&mut self) -> bool {
+        env::storage_remove(&self.storage_key)
     }
 }
 
@@ -181,6 +188,15 @@ mod tests {
         // A value that is not stored in storage yet and one that has not been loaded yet can
         // be checked for equality.
         assert_eq!(lazy_loaded, b);
+    }
+
+    #[test]
+    pub fn test_remove() {
+        let mut lazy = Lazy::new(b"m", 8u8);
+        lazy.flush();
+        assert!(env::storage_has_key(b"m"));
+        lazy.remove();
+        assert!(!env::storage_has_key(b"m"));
     }
 
     #[test]

@@ -6,11 +6,11 @@ use crate::non_fungible_token::events::{NftMint, NftTransfer};
 use crate::non_fungible_token::metadata::TokenMetadata;
 use crate::non_fungible_token::token::{Token, TokenId};
 use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_deposit_to_account};
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, env, require, AccountId, BorshStorageKey, Gas, IntoStorageKey,
+    assert_one_yocto, env, near, require, AccountId, BorshStorageKey, Gas, IntoStorageKey,
     PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
@@ -28,8 +28,7 @@ const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 ///     - NonFungibleTokenMetadata -- return metadata for the token in NEP-177, up to contract to implement.
 ///
 /// For example usage, see examples/non-fungible-token/src/lib.rs.
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near]
 pub struct NonFungibleToken {
     // owner of contract
     pub owner_id: AccountId,
@@ -433,11 +432,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         // Get whether token should be returned
         let must_revert = match env::promise_result(0) {
             PromiseResult::Successful(value) => {
-                if let Ok(yes_or_no) = near_sdk::serde_json::from_slice::<bool>(&value) {
-                    yes_or_no
-                } else {
-                    true
-                }
+                near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(true)
             }
             PromiseResult::Failed => true,
         };

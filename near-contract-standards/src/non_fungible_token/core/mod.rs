@@ -5,10 +5,11 @@ mod resolver;
 
 pub use self::core_impl::*;
 
-pub use self::receiver::NonFungibleTokenReceiver;
-pub use self::resolver::NonFungibleTokenResolver;
+pub use self::receiver::{ext_nft_receiver, NonFungibleTokenReceiver};
+pub use self::resolver::{ext_nft_resolver, NonFungibleTokenResolver};
 
 use crate::non_fungible_token::token::{Token, TokenId};
+use near_sdk::ext_contract;
 use near_sdk::AccountId;
 use near_sdk::PromiseOrValue;
 
@@ -23,17 +24,15 @@ use near_sdk::PromiseOrValue;
 /// # Examples
 ///
 /// ```
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near};
 /// use near_contract_standards::non_fungible_token::{core::NonFungibleTokenCore, NonFungibleToken, TokenId, Token};
 ///
-/// #[near_bindgen]
-/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "near_sdk::borsh")]
+/// #[near(contract_state)]
+/// #[derive(PanicOnDefault)]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}
-/// #[near_bindgen]
+/// #[near]
 /// impl NonFungibleTokenCore for Contract {
 ///     #[payable]
 ///    fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, approval_id: Option<u64>, memo: Option<String>) {
@@ -51,6 +50,7 @@ use near_sdk::PromiseOrValue;
 ///}
 /// ```
 ///
+#[ext_contract(ext_nft_core)]
 pub trait NonFungibleTokenCore {
     /// Simple transfer. Transfer a given `token_id` from current owner to
     /// `receiver_id`.

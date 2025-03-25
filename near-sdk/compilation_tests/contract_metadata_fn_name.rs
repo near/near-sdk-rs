@@ -1,9 +1,9 @@
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
-#[near_bindgen]
+#[near(contract_state)]
 struct Contract {}
 
-#[near_bindgen]
+#[near]
 impl Contract {
     pub fn contract_source_metadata() {}
 }

@@ -3,25 +3,23 @@ A stub contract that implements nft_on_transfer for simulation testing nft_trans
 */
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenReceiver;
 use near_contract_standards::non_fungible_token::TokenId;
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{env, log, near_bindgen, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
+use near_sdk::{env, log, near, require, AccountId, Gas, PanicOnDefault, PromiseOrValue};
 
 /// It is estimated that we need to attach 5 TGas for the code execution and 5 TGas for cross-contract call
 const GAS_FOR_NFT_ON_TRANSFER: Gas = Gas::from_tgas(10);
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
+#[derive(PanicOnDefault)]
 pub struct TokenReceiver {
     non_fungible_token_account_id: AccountId,
 }
 
 // Have to repeat the same trait for our own implementation.
-trait ValueReturnTrait {
+pub trait ValueReturnTrait {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 
-#[near_bindgen]
+#[near]
 impl TokenReceiver {
     #[init]
     pub fn new(non_fungible_token_account_id: AccountId) -> Self {
@@ -29,7 +27,7 @@ impl TokenReceiver {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl NonFungibleTokenReceiver for TokenReceiver {
     /// Returns true if token should be returned to `sender_id`
     /// Four supported `msg`s:
@@ -81,7 +79,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl ValueReturnTrait for TokenReceiver {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool> {
         log!("in ok_go, return_it={}", return_it);

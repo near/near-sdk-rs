@@ -1,13 +1,10 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::store::UnorderedMap;
-use near_sdk::{env, log, near_bindgen, AccountId, NearToken};
+use near_sdk::store::IterableMap;
+use near_sdk::{env, log, near, AccountId, NearToken};
 
 /// An example of a versioned contract. This is a simple contract that tracks how much
 /// each account deposits into the contract. In v1, a nonce is added to state which increments
 /// after each successful deposit.
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near(contract_state)]
 pub enum VersionedContract {
     V0(ContractV0),
     V1(Contract),
@@ -33,7 +30,7 @@ impl VersionedContract {
         }
     }
 
-    fn funders(&self) -> &UnorderedMap<AccountId, NearToken> {
+    fn funders(&self) -> &IterableMap<AccountId, NearToken> {
         match self {
             Self::V0(contract) => &contract.funders,
             Self::V1(contract) => &contract.funders,
@@ -47,32 +44,30 @@ impl Default for VersionedContract {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near]
 pub struct ContractV0 {
-    funders: UnorderedMap<AccountId, NearToken>,
+    funders: IterableMap<AccountId, NearToken>,
 }
 
 impl Default for ContractV0 {
     fn default() -> Self {
-        Self { funders: UnorderedMap::new(b"f") }
+        Self { funders: IterableMap::new(b"f") }
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[near]
 pub struct Contract {
-    funders: UnorderedMap<AccountId, NearToken>,
+    funders: IterableMap<AccountId, NearToken>,
     nonce: u64,
 }
 
 impl Default for Contract {
     fn default() -> Self {
-        Self { funders: UnorderedMap::new(b"f"), nonce: 0 }
+        Self { funders: IterableMap::new(b"f"), nonce: 0 }
     }
 }
 
-#[near_bindgen]
+#[near]
 impl VersionedContract {
     #[payable]
     pub fn deposit(&mut self) {
@@ -102,9 +97,10 @@ impl VersionedContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use near_abi::AbiRoot;
     use near_sdk::test_utils::test_env::{alice, bob};
     use near_sdk::test_utils::VMContextBuilder;
-    use near_sdk::testing_env;
+    use near_sdk::{serde_json, testing_env};
 
     fn set_predecessor_and_deposit(predecessor: AccountId, deposit: NearToken) {
         testing_env!(VMContextBuilder::new()
@@ -133,7 +129,7 @@ mod tests {
     #[test]
     fn contract_v0_interactions() {
         let mut contract = {
-            let mut funders = UnorderedMap::new(b"f");
+            let mut funders = IterableMap::new(b"f");
             funders.insert(bob(), NearToken::from_yoctonear(8));
             VersionedContract::V0(ContractV0 { funders })
         };
@@ -147,5 +143,24 @@ mod tests {
         assert_eq!(contract.get_nonce(), 1);
         assert_eq!(contract.get_deposit(&alice()), Some(&NearToken::from_yoctonear(1000)));
         assert_eq!(contract.get_deposit(&bob()), Some(&NearToken::from_yoctonear(8)));
+    }
+
+    // this only tests that contract can be built with ABI and responds to __contract_abi
+    // view call
+    #[tokio::test]
+    async fn embedded_abi_test() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
+        let worker = near_workspaces::sandbox().await?;
+        let contract = worker.dev_deploy(&wasm).await?;
+
+        let res = contract.view("__contract_abi").await?;
+
+        let abi_root =
+            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
+
+        assert_eq!(abi_root.schema_version, "0.4.0");
+        assert_eq!(abi_root.metadata.name, Some("versioned".to_string()));
+
+        Ok(())
     }
 }

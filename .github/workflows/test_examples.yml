@@ -11,24 +11,29 @@ jobs:
     runs-on: ${{ matrix.platform }}
     name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
         toolchain: [stable]
-        example: [cross-contract-calls, fungible-token]
+        example: [
+          adder,
+          callback-results,
+          cross-contract-calls,
+          fungible-token,
+          non-fungible-token,
+          versioned,
+          factory-contract
+        ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          working-directory: ./examples/${{ matrix.example }}
-      - name: Build
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/${{matrix.example}}/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/${{matrix.example}}/target/wasm32-unknown-unknown/release/*.wasm ./examples/${{matrix.example}}/res/
+          workspaces: "./examples/${{ matrix.example }} -> target"
       - name: Test
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --all
+        run: cargo +${{ matrix.toolchain }} test --manifest-path="./examples/${{ matrix.example }}/Cargo.toml" --workspace

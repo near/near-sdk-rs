@@ -1,6 +1,5 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde_json;
-use near_sdk::{env, near_bindgen, require, Gas, NearToken, PromiseResult};
+use near_sdk::{env, near, require, Gas, NearToken, PromiseResult};
 
 // Prepaid gas for a single (not inclusive of recursion) `factorial` call.
 const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
@@ -8,12 +7,11 @@ const FACTORIAL_CALL_GAS: Gas = Gas::from_tgas(20);
 // Prepaid gas for a single `factorial_mult` call.
 const FACTORIAL_MULT_CALL_GAS: Gas = Gas::from_tgas(10);
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
-#[borsh(crate = "near_sdk::borsh")]
+#[derive(Default)]
+#[near(contract_state)]
 pub struct CrossContract {}
 
-#[near_bindgen]
+#[near]
 impl CrossContract {
     pub fn factorial(&self, n: u32) {
         if n <= 1 {

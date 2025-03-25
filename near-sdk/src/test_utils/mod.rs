@@ -14,15 +14,15 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 /// There are five parameters that can be accepted to configure the interface with a
 /// [`MockedBlockchain`], in this order:
 /// - `context`: [`VMContext`] which contains some core information about
-/// the blockchain and message data which can be used from the smart contract.
+///   the blockchain and message data which can be used from the smart contract.
 /// - `config` (optional): [`vm::Config`] which contains some additional information
-/// about the VM to configure parameters not directly related to the transaction being executed.
+///   about the VM to configure parameters not directly related to the transaction being executed.
 /// - `fee_config`(optional): [`RuntimeFeesConfig`] which configures the
-/// fees for execution and storage of transactions.
-/// - `validators`(optional): a [`HashMap`]<[`AccountId`], [`Balance`]> mocking the
-/// current validators of the blockchain.
+///   fees for execution and storage of transactions.
+/// - `validators`(optional): a [`HashMap`]<[`AccountId`], [`NearToken`]> mocking the
+///   current validators of the blockchain.
 /// - `promise_results`(optional): a [`Vec`] of [`PromiseResult`] which mocks the results
-/// of callback calls during the execution.
+///   of callback calls during the execution.
 ///
 /// Any argument not included will use the default implementation of each.
 ///
@@ -57,7 +57,7 @@ pub use context::{accounts, testing_env_with_promise_results, VMContextBuilder};
 /// [`vm::Config`]: near_parameters::vm::Config
 /// [`RuntimeFeesConfig`]: near_parameters::RuntimeFeesConfig
 /// [`AccountId`]: crate::AccountId
-/// [`Balance`]: crate::Balance
+/// [`NearToken`]: crate::NearToken
 /// [`PromiseResult`]: crate::PromiseResult
 /// [`HashMap`]: std::collections::HashMap
 #[macro_export]

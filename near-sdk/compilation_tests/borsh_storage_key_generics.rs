@@ -1,8 +1,9 @@
 //! Testing BorshStorageKey macro with lifetimes and generics.
 
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{self, BorshSerialize};
 use near_sdk::collections::LookupMap;
-use near_sdk::{near_bindgen, BorshStorageKey};
+use near_sdk::BorshStorageKey;
+use near_sdk::near;
 
 #[derive(BorshStorageKey, BorshSerialize)]
 struct StorageKeyStruct<'a, T>
@@ -21,8 +22,7 @@ where
     SubAccounts { account_id: &'a T },
 }
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(contract_state)]
 struct Contract {
     map1: LookupMap<u64, u64>,
     map2: LookupMap<String, String>,
@@ -38,7 +38,7 @@ impl Default for Contract {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {}
 
 fn main() {}

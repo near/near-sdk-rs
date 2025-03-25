@@ -14,6 +14,8 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::ops::RangeBounds;
 
+use near_sdk_macros::near;
+
 type NodeAndIndex<'a, K> = (FreeListIndex, &'a Node<K>);
 
 fn expect<T>(val: Option<T>) -> T {
@@ -28,13 +30,26 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
+#[near(inside_nearsdk)]
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     values: LookupMap<K, V, H>,
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     tree: Tree<K>,
 }
 
@@ -63,42 +78,18 @@ where
     }
 }
 
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<K, V, H> BorshSerialize for TreeMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.values, writer)?;
-        BorshSerialize::serialize(&self.tree, writer)?;
-        Ok(())
-    }
-}
-
-impl<K, V, H> BorshDeserialize for TreeMap<K, V, H>
-where
-    K: BorshSerialize + Ord,
-    V: BorshSerialize,
-    H: ToKey,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            values: BorshDeserialize::deserialize_reader(reader)?,
-            tree: BorshDeserialize::deserialize_reader(reader)?,
-        })
-    }
-}
-
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 struct Tree<K>
 where
     K: BorshSerialize,
 {
     root: Option<FreeListIndex>,
-    #[borsh(bound(deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     nodes: FreeList<Node<K>>,
 }
 
@@ -114,7 +105,8 @@ where
     }
 }
 
-#[derive(Clone, BorshSerialize, BorshDeserialize, Debug)]
+#[near(inside_nearsdk)]
+#[derive(Clone, Debug)]
 struct Node<K> {
     key: K,                     // key stored in a node
     lft: Option<FreeListIndex>, // left link of a node
@@ -2144,5 +2136,23 @@ mod tests {
         // root.
         swap_set(&mut map);
         assert_eq!(map.tree.root, Some(FreeListIndex(0)));
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "TreeMap".to_string(),
+            <TreeMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <TreeMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

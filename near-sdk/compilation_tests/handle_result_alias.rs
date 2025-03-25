@@ -1,15 +1,14 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
 type MyResult = Result<u32, &'static str>;
 
-#[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(Default)]
+#[near(contract_state)]
 struct Contract {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     #[handle_result(aliased)]
     pub fn fun(&self) -> MyResult {

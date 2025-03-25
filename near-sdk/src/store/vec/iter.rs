@@ -5,7 +5,7 @@ use super::{Vector, ERR_INDEX_OUT_OF_BOUNDS};
 use crate::env;
 
 /// An iterator over references to each element in the stored vector.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,
@@ -181,7 +181,7 @@ where
     }
 
     /// Returns the amount of remaining elements to yield by the iterator.
-    fn remaining(&self) -> usize {
+    pub(crate) fn remaining(&self) -> usize {
         self.range.len()
     }
     fn remove(&mut self, index: u32) -> T {

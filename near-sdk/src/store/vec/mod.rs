@@ -61,6 +61,7 @@ use std::{
 };
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 
 pub use self::iter::{Drain, Iter, IterMut};
 use super::ERR_INCONSISTENT_STATE;
@@ -111,37 +112,19 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 /// vec.extend([1, 2, 3].iter().copied());
 /// assert!(Iterator::eq(vec.into_iter(), [7, 1, 2, 3].iter()));
 /// ```
+#[near(inside_nearsdk)]
 pub struct Vector<T>
 where
     T: BorshSerialize,
 {
     pub(crate) len: u32,
+    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     pub(crate) values: IndexMap<T>,
-}
-
-//? Manual implementations needed only because borsh derive is leaking field types
-// https://github.com/near/borsh-rs/issues/41
-impl<T> BorshSerialize for Vector<T>
-where
-    T: BorshSerialize,
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        BorshSerialize::serialize(&self.len, writer)?;
-        BorshSerialize::serialize(&self.values, writer)?;
-        Ok(())
-    }
-}
-
-impl<T> BorshDeserialize for Vector<T>
-where
-    T: BorshSerialize,
-{
-    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            len: BorshDeserialize::deserialize_reader(reader)?,
-            values: BorshDeserialize::deserialize_reader(reader)?,
-        })
-    }
 }
 
 #[test]
@@ -193,7 +176,7 @@ where
         self.len == 0
     }
 
-    /// Create new vector with zero elements. Prefixes storage accesss with the prefix provided.
+    /// Create new vector with zero elements. Prefixes storage access with the prefix provided.
     ///
     /// This prefix can be anything that implements [`IntoStorageKey`]. The prefix is used when
     /// storing and looking up values in storage to ensure no collisions with other collections.
@@ -527,15 +510,17 @@ impl<T> fmt::Debug for Vector<T>
 where
     T: BorshSerialize + BorshDeserialize + fmt::Debug,
 {
+    #[cfg(feature = "expensive-debug")]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if cfg!(feature = "expensive-debug") {
-            fmt::Debug::fmt(&self.iter().collect::<Vec<_>>(), f)
-        } else {
-            f.debug_struct("Vector")
-                .field("len", &self.len)
-                .field("prefix", &self.values.prefix)
-                .finish()
-        }
+        fmt::Debug::fmt(&self.iter().collect::<Vec<_>>(), f)
+    }
+
+    #[cfg(not(feature = "expensive-debug"))]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Vector")
+            .field("len", &self.len)
+            .field("prefix", &self.values.prefix)
+            .finish()
     }
 }
 
@@ -543,8 +528,9 @@ where
 #[cfg(test)]
 mod tests {
     use arbitrary::{Arbitrary, Unstructured};
-    use borsh::{to_vec, BorshDeserialize, BorshSerialize};
+    use borsh::{to_vec, BorshDeserialize};
     use rand::{Rng, RngCore, SeedableRng};
+    use std::ops::{Bound, IndexMut};
 
     use super::Vector;
     use crate::{store::IndexMap, test_utils::test_env::setup_free};
@@ -564,6 +550,48 @@ mod tests {
         for _ in 0..501 {
             assert_eq!(baseline.pop(), vec.pop());
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_set_panic() {
+        let mut vec = Vector::new(b"b");
+        vec.set(2, 0);
+    }
+
+    #[test]
+    fn test_get_mut_none() {
+        let mut vec: Vector<bool> = Vector::new(b"b");
+        assert!(vec.get_mut(2).is_none());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_drain_panic() {
+        let mut vec: Vector<bool> = Vector::new(b"b");
+        vec.drain(..=u32::MAX);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_drain_panic_2() {
+        let mut vec: Vector<bool> = Vector::new(b"b");
+        vec.drain((Bound::Excluded(u32::MAX), Bound::Included(u32::MAX)));
+    }
+
+    #[test]
+    fn test_replace_method() {
+        let mut vec = Vector::new(b"b");
+        vec.push(10);
+        vec.replace(0, 2);
+        assert_eq!(vec[0], 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_replace_method_panic() {
+        let mut vec = Vector::new(b"b");
+        vec.replace(0, 2);
     }
 
     #[test]
@@ -613,6 +641,20 @@ mod tests {
         }
         let actual: Vec<_> = vec.iter().cloned().collect();
         assert_eq!(actual, baseline);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_swap_remove_panic() {
+        let mut vec: Vector<bool> = Vector::new(b"v".to_vec());
+        vec.swap_remove(1);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn test_swap_panic() {
+        let mut vec: Vector<bool> = Vector::new(b"v".to_vec());
+        vec.swap(1, 2);
     }
 
     #[test]
@@ -682,8 +724,10 @@ mod tests {
         // * The storage is reused in the second part of this test, need to flush
         vec.flush();
 
-        use borsh::{BorshDeserialize, BorshSerialize};
-        #[derive(Debug, BorshSerialize, BorshDeserialize)]
+        use near_sdk_macros::near;
+
+        #[near(inside_nearsdk)]
+        #[derive(Debug)]
         struct TestType(u64);
 
         let deserialize_only_vec =
@@ -727,6 +771,33 @@ mod tests {
     }
 
     #[test]
+    pub fn iterator_mut_checks() {
+        let mut vec = Vector::new(b"v");
+        let mut baseline = vec![];
+        for i in 0..10 {
+            vec.push(i);
+            baseline.push(i);
+        }
+
+        let mut vec_iter = vec.iter_mut();
+        let mut bl_iter = baseline.iter_mut();
+        assert_eq!(vec_iter.next(), bl_iter.next());
+        assert_eq!(vec_iter.next_back(), bl_iter.next_back());
+        assert_eq!(vec_iter.nth(3), bl_iter.nth(3));
+        assert_eq!(vec_iter.nth_back(2), bl_iter.nth_back(2));
+
+        // Check to make sure indexing overflow is handled correctly
+        assert!(vec_iter.nth(5).is_none());
+        assert!(bl_iter.nth(5).is_none());
+
+        assert!(vec_iter.next().is_none());
+        assert!(bl_iter.next().is_none());
+
+        // Count check
+        assert_eq!(vec.iter().count(), baseline.len());
+    }
+
+    #[test]
     fn drain_iterator() {
         let mut vec = Vector::new(b"v");
         let mut baseline = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -741,6 +812,7 @@ mod tests {
             let mut b_drain = baseline.drain(0..3);
             assert_eq!(drain.next(), b_drain.next());
             assert_eq!(drain.next(), b_drain.next());
+            assert_eq!(drain.count(), 1);
         }
 
         // 7 elements, drained 3
@@ -776,6 +848,44 @@ mod tests {
         crate::mock::with_mocked_blockchain(|m| assert!(m.take_storage().is_empty()));
     }
 
+    #[test]
+    fn test_indexing() {
+        let mut v: Vector<i32> = Vector::new(b"b");
+        v.push(10);
+        v.push(20);
+        assert_eq!(v[0], 10);
+        assert_eq!(v[1], 20);
+        let mut x: u32 = 0;
+        assert_eq!(v[x], 10);
+        assert_eq!(v[x + 1], 20);
+        x += 1;
+        assert_eq!(v[x], 20);
+        assert_eq!(v[x - 1], 10);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_panic() {
+        let v: Vector<bool> = Vector::new(b"b");
+        let _ = v[1];
+    }
+
+    #[test]
+    fn test_index_mut() {
+        let mut v: Vector<i32> = Vector::new(b"b");
+        v.push(10);
+        v.push(20);
+        *v.index_mut(0) += 1;
+        assert_eq!(v[0], 11);
+        assert_eq!(v[1], 20);
+        let mut x: u32 = 0;
+        assert_eq!(v[x], 11);
+        assert_eq!(v[x + 1], 20);
+        x += 1;
+        assert_eq!(v[x], 20);
+        assert_eq!(v[x - 1], 11);
+    }
+
     #[derive(Arbitrary, Debug)]
     enum Op {
         Push(u8),
@@ -786,6 +896,13 @@ mod tests {
         Reset,
         Get(u32),
         Swap(u32, u32),
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_mut_panic() {
+        let mut v: Vector<bool> = Vector::new(b"b");
+        v.index_mut(1);
     }
 
     #[test]
@@ -883,5 +1000,22 @@ mod tests {
         drop(vec);
         let vec = Vector::<String>::deserialize(&mut serialized.as_slice()).unwrap();
         assert_eq!(vec[0], "Some data");
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "Vector".to_string(),
+            <Vector<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <Vector<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

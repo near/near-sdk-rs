@@ -1,20 +1,12 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::schemars;
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{AccountId, NearToken};
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+use near_sdk::{ext_contract, near, AccountId, NearToken};
+
+#[near(serializers=[borsh, json])]
 pub struct StorageBalance {
     pub total: NearToken,
     pub available: NearToken,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[borsh(crate = "near_sdk::borsh")]
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+#[near(serializers=[borsh, json])]
 pub struct StorageBalanceBounds {
     pub min: NearToken,
     pub max: Option<NearToken>,
@@ -29,8 +21,7 @@ pub struct StorageBalanceBounds {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near_bindgen, PanicOnDefault, AccountId, NearToken, log};
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+/// use near_sdk::{near, PanicOnDefault, AccountId, NearToken, log};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::FungibleToken;
@@ -39,15 +30,14 @@ pub struct StorageBalanceBounds {
 /// };
 /// use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
 ///
-/// #[near_bindgen]
-/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "near_sdk::borsh")]
+/// #[near(contract_state)]
+/// #[derive(PanicOnDefault)]
 /// pub struct Contract {
 ///     token: FungibleToken,
 ///     metadata: LazyOption<FungibleTokenMetadata>,
 /// }
 ///
-/// #[near_bindgen]
+/// #[near]
 /// impl StorageManagement for Contract {
 ///     #[payable]
 ///     fn storage_deposit(
@@ -85,6 +75,7 @@ pub struct StorageBalanceBounds {
 ///
 /// ```
 ///
+#[ext_contract(ext_storage_management)]
 pub trait StorageManagement {
     // if `registration_only=true` MUST refund above the minimum balance if the account didn't exist and
     //     refund full deposit if the account exists.
@@ -116,7 +107,7 @@ pub trait StorageManagement {
     ///
     /// If `force=true` the function SHOULD ignore account balances (burn them) and close the account.
     /// Otherwise, MUST panic if caller has a positive registered balance (eg token holdings) or
-    ///     the contract doesn't support force unregistration.
+    /// the contract doesn't support force deregistration.
     /// MUST require exactly 1 yoctoNEAR attached balance to prevent restricted function-call access-key call
     /// (UX wallet security)
     /// Returns `true` iff the account was unregistered.

@@ -8,17 +8,15 @@ use std::collections::HashMap;
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near_bindgen};
+/// use near_sdk::{PanicOnDefault, AccountId, PromiseOrValue, near};
 /// use near_contract_standards::non_fungible_token::{NonFungibleToken, NonFungibleTokenResolver, TokenId};
 ///
-/// #[near_bindgen]
-/// #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
-/// #[borsh(crate = "near_sdk::borsh")]
+/// #[near(contract_state)]
+/// #[derive(PanicOnDefault)]
 /// pub struct Contract {
 ///    tokens: NonFungibleToken,
 ///}
-/// #[near_bindgen]
+/// #[near]
 /// impl NonFungibleTokenResolver for Contract {
 ///     #[private]
 ///     fn nft_resolve_transfer(&mut self, previous_owner_id: AccountId, receiver_id: AccountId, token_id: TokenId, approved_account_ids: Option<HashMap<AccountId, u64>>) -> bool {

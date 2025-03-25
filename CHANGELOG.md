@@ -2,6 +2,168 @@
 
 ## [Unreleased]
 
+## [5.8.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.1...near-sdk-v5.8.2) - 2025-03-06
+
+### Other
+
+- impl details of `#[callback_unwrap]` ([#1321](https://github.com/near/near-sdk-rs/pull/1321))
+- `#[near(contract_state)]` in-depth pass ([#1307](https://github.com/near/near-sdk-rs/pull/1307))
+- document `callback_unwrap` attribute ([#1313](https://github.com/near/near-sdk-rs/pull/1313))
+
+## [5.8.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.8.0...near-sdk-v5.8.1) - 2025-02-17
+
+### Other
+
+- remove `double_contract_state_error` diagnostic (#1310)
+
+## [5.8.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.1...near-sdk-v5.8.0) - 2025-02-07
+
+### Added
+
+- *(near_sdk_macros)* improved error reporting for `near` macro (#1301)
+
+### Other
+
+- moved annotations to the near macro documentation.  (#1299)
+- moved near-sdk-macros doc to near-sdk crate. (#1295)
+
+## [5.7.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.7.0...near-sdk-v5.7.1) - 2025-01-30
+
+### Other
+
+- improved documentation for near-sdk and near-sdk-macros crates (#1262)
+- clippy lint of 1.84 fixed (#1290)
+- `__abi-generate` feature in docs.rs (#1286)
+- updates near-workspaces to 0.16 version (#1284)
+- impaired PublicKey with missing BorshSchema (#1281)
+
+## [5.7.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.6.0...near-sdk-v5.7.0) - 2024-12-13
+
+### Other
+
+- updates near-* dependencies to 0.28 release (#1272)
+- tests for Lazy and moving out of unstable (#1268)
+- add a `cargo doc` job (#1269)
+- allow clippy::needless_lifetimes (1.83 more suggestions) (#1267)
+- examples for Near-related host functions (#1259)
+- updates near-workspaces to 0.15 version (#1260)
+
+## [5.6.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.5.0...near-sdk-v5.6.0) - 2024-11-14
+
+### Other
+
+- updates near-* dependencies to 0.27 release ([#1254](https://github.com/near/near-sdk-rs/pull/1254))
+- freeze 1.81 for near-workspaces paths (temporarily) ([#1250](https://github.com/near/near-sdk-rs/pull/1250))
+- Benchmark near collections and provide the results as the reference in the docs ([#1248](https://github.com/near/near-sdk-rs/pull/1248))
+- Updated near-workspaces to 0.14 version (matching 0.26 near-* release) ([#1246](https://github.com/near/near-sdk-rs/pull/1246))
+
+## [5.5.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.4.0...near-sdk-v5.5.0) - 2024-09-11
+
+### Other
+
+- Updated near-* dependendencies to v0.26.0. Migrated testing blockchain mock to C-unwind ([#1244](https://github.com/near/near-sdk-rs/pull/1244))
+
+## [5.4.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.3.0...near-sdk-v5.4.0) - 2024-09-04
+
+### Other
+- updates near-* dependencies to 0.25.0 ([#1242](https://github.com/near/near-sdk-rs/pull/1242))
+- updates near-workspaces-rs ([#1239](https://github.com/near/near-sdk-rs/pull/1239))
+
+## [5.3.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.2.1...near-sdk-v5.3.0) - 2024-08-13
+
+### Added
+- Introduced 'remove' method for 'near_sdk::store::Lazy' collection ([#1238](https://github.com/near/near-sdk-rs/pull/1238))
+- Allow store collection iterators to be cloned (this enables standard Iterator methods like `cycle()`) ([#1224](https://github.com/near/near-sdk-rs/pull/1224))
+
+### Fixed
+- Fix storage management error message with proper amount ([#1222](https://github.com/near/near-sdk-rs/pull/1222))
+- Fixed compilation errors after Rust 1.80 latest stable release ([#1227](https://github.com/near/near-sdk-rs/pull/1227))
+
+### Other
+- updates near-* dependencies to 0.24.0 ([#1237](https://github.com/near/near-sdk-rs/pull/1237))
+- Include all examples into CI testing suite ([#1228](https://github.com/near/near-sdk-rs/pull/1228))
+- Optimized up to 10% contract binary size by using `near_sdk::env::panic_str` instead of `expect` calls ([#1220](https://github.com/near/near-sdk-rs/pull/1220))
+- Fixed Rust 1.80 new warning by adding `cargo:rustc-check-cfg` for `__abi-embed-checked` feature in `near-sdk-macros` build.rs ([#1225](https://github.com/near/near-sdk-rs/pull/1225))
+
+## [5.2.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.2.0...near-sdk-v5.2.1) - 2024-07-05
+
+### Fixed
+- *(nep330)* Fallback to `CARGO_PKG_REPOSITORY` and `CARGO_PKG_VERSION` when `NEP330_*` variables are not provided ([#1215](https://github.com/near/near-sdk-rs/pull/1215))
+
+## [5.2.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.1.0...near-sdk-v5.2.0) - 2024-07-04
+
+### Added
+- New `near_sdk::store::IterableMap` and `near_sdk::store::IterableSet` that address the iteration performance issue of `store::UnorderedMap` ([#1164](https://github.com/near/near-sdk-rs/pull/1164)) ([#1175](https://github.com/near/near-sdk-rs/pull/1175))
+- Added `BorshSchema` trait impl to all `near_sdk::store` collections!
+  - `store::TreeMap<K, V, H>` and `UnorderedSet<T, H>` ([#1213](https://github.com/near/near-sdk-rs/pull/1213))
+  - `store::IterableSet` and `store::IterableMap` and refactored and added ABI defiintions tests ([#1212](https://github.com/near/near-sdk-rs/pull/1212))
+  - `store::UnorderedMap` ([#1209](https://github.com/near/near-sdk-rs/pull/1209))
+- Added yield execution host functions ([#1183](https://github.com/near/near-sdk-rs/pull/1183))
+- NEP-330 1.2.0 support - added build info field in contract metadata ([#1178](https://github.com/near/near-sdk-rs/pull/1178))
+
+### Fixed
+- [**technically breaking**] Make log macro fully compatible with std::format (string interpolation is now supported) ([#1189](https://github.com/near/near-sdk-rs/pull/1189))
+- use FQDNs when calling contract methods to avoid method names collision ([#1186](https://github.com/near/near-sdk-rs/pull/1186))
+
+### Other
+- Added performance tests for 'store' collections ([#1195](https://github.com/near/near-sdk-rs/pull/1195))
+- Full tests coverage for `store::Vector` + coverage for all the collections relevant to IterableMap implementation ([#1173](https://github.com/near/near-sdk-rs/pull/1173))
+- Full tests coverage for `store` collections ([#1172](https://github.com/near/near-sdk-rs/pull/1172))
+- Documented `#[init]`, `#[payable]`, `#[handle_result]`, `#[private]`, `#[result_serializer]` attributes for docs.rs discoverability ([#1185](https://github.com/near/near-sdk-rs/pull/1185))
+- Enabled `unit-testing` feature for docs.rs
+- Replaced manual `borsh` trait impl-s with derives and correct bounds in `near_sdk::store` and `near_sdk::collections` ([#1176](https://github.com/near/near-sdk-rs/pull/1176))
+- Proxy JsonSchema::schema_name to the original implementation ([#1210](https://github.com/near/near-sdk-rs/pull/1210))
+- Fixed Rust 1.79 linter warnings ([#1202](https://github.com/near/near-sdk-rs/pull/1202))
+- Fixed Rust 1.78 linter warnings ([#1181](https://github.com/near/near-sdk-rs/pull/1181))
+- Updated near-* dependencies to 0.23 version ([#1207](https://github.com/near/near-sdk-rs/pull/1207))
+
+## [5.1.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0...near-sdk-v5.1.0) - 2024-03-28
+
+### Added
+- Finalize `#[near]` attribute-macro implementation with the support for custom parameters passing to serializer attributes `#[near(serializers = [borsh(...)])]` ([#1158](https://github.com/near/near-sdk-rs/pull/1158))
+- Introduce `#[near]` macro to further streamline contracts development reducing the boilerplate! ([#1142](https://github.com/near/near-sdk-rs/pull/1142))
+
+### Other
+- add typo checker in ci ([#1159](https://github.com/near/near-sdk-rs/pull/1159))
+
+## [5.0.0](https://github.com/near/near-sdk-rs/compare/4.1.1...near-sdk-v5.0.0) - 2024-02-21
+
+### Highlights
+
+This release mostly maintains backwards compatibility with the previous version, but it also includes several breaking changes that improve developer experience and bring security and performance fixes. The most notable changes are:
+
+- Contract source metadata ([NEP-330](https://github.com/near/NEPs/blob/master/neps/nep-0330.md)) is now implemented by default for all the contracts out of the box, which means that you can call `contract_source_metadata()` function and receive `{ version?: string, link?: string, standards?: { standard: string, version: string }[] }` ([#1106](https://github.com/near/near-sdk-rs/pull/1106))
+- Type-safe NEAR balance, gas amounts, and account ids were implemented:
+  - Use [`near_sdk::NearToken`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.NearToken.html) instead of u128/U128/Balance ([#1104](https://github.com/near/near-sdk-rs/pull/1104))
+  - Use [`near_sdk::Gas`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.Gas.html) instead of u64/Gas ([#1082](https://github.com/near/near-sdk-rs/pull/1082))
+  - Use [`near_sdk::AccountId`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.AccountId.html) or [`near_sdk::AccountIdRef`](https://docs.rs/near-sdk/5.0.0/near_sdk/struct.AccountIdRef.html) instead of String aliases for account ids ([#1108](https://github.com/near/near-sdk-rs/pull/1108))
+- Update [borsh to 1.0.0](https://github.com/near/borsh-rs/releases/tag/borsh-v1.0.0) ([#1075](https://github.com/near/near-sdk-rs/pull/1075))
+  - You will have to be explicit about the borsh re-export with `#[borsh(crate = "near_sdk::borsh")]`, see the example in the [README](https://github.com/near/near-sdk-rs#example)
+- New host functions exposed:
+  - [`near_sdk::env::ed25519_verify`](https://docs.rs/near-sdk/5.0.0/near_sdk/env/fn.ed25519_verify.html) ([#1010](https://github.com/near/near-sdk-rs/pull/1010))
+  - [`near_sdk::env::alt_bn128`](https://docs.rs/near-sdk/5.0.0/near_sdk/env/fn.alt_bn128.html) ([#1028](https://github.com/near/near-sdk-rs/pull/1028))
+- Slimmed down the dependencies by default, most notably, you may still need to explicitly enable `legacy` feature for `near_sdk::collections` and `unit-testing` feature for `near_sdk::testing_env` and `near_sdk::mock` ([#1149](https://github.com/near/near-sdk-rs/pull/1149))
+- Updated `nearcore` crates from `0.17` -> `0.20`, but contracts rarely use these directly so no breaking changes are expected ([#1130](https://github.com/near/near-sdk-rs/pull/1130))
+- Support Result types in `#[handle_result]` regardless of how they're referred to ([#1099](https://github.com/near/near-sdk-rs/pull/1099))
+- `Self` is now prohibited in non-init methods to prevent common footguns ([#1073](https://github.com/near/near-sdk-rs/pull/1073))
+- Require explicit `Unlimited` or `Limited` when specifying allowances to prevent `0` to be silently treated as unlimited allowance ([#976](https://github.com/near/near-sdk-rs/pull/976))
+- Performance improvement to `TreeMap.range` ([#964](https://github.com/near/near-sdk-rs/pull/964))
+- Deprecated `near_sdk::store::UnorderedMap` and `near_sdk::store::UnorderedSet` due to not meeting the original requirements (iteration over a collection of more than 2k elements runs out of gas) ([#1139](https://github.com/near/near-sdk-rs/pull/1139))
+- Deprecated `near_sdk::collections::LegacyTreeMap` ([#963](https://github.com/near/near-sdk-rs/pull/963))
+
+The best way to develop NEAR contracts in Rust is by using [`cargo-near` CLI](https://github.com/near/cargo-near).
+It provides a convenient way to create, build, test, and deploy contracts!
+
+Get your fully configured development environment in under 1 minute using [GitHub CodeSpaces configured for NEAR](https://github.com/near/cargo-near-new-project-template)!
+
+## [5.0.0-alpha.3](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.2...near-sdk-v5.0.0-alpha.3) - 2024-02-19
+
+### Fixed
+- Deprecated `store::UnorderedMap` and `store::UnorderedSet` due to not meeting the original requirements (iteration over a collection of more than 2k elements runs out of gas) ([#1139](https://github.com/near/near-sdk-rs/pull/1139))
+
+### Other
+- Added ABI tests for SDK-generated methods [contract_source_metadata] ([#1136](https://github.com/near/near-sdk-rs/pull/1136))
+
 ## [5.0.0-alpha.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.0.0-alpha.1...near-sdk-v5.0.0-alpha.2) - 2024-01-16
 
 ### Fixed
@@ -288,7 +450,7 @@
 * Move type aliases and core types to near-sdk to avoid coupling. [PR 415](https://github.com/near/near-sdk-rs/pull/415).
 * Implements new `Lazy` type under the new `unstable` feature which is a lazily loaded storage value. [PR 409](https://github.com/near/near-sdk-rs/pull/409).
 * fix(promise): `PromiseOrValue` now correctly sets `should_return` flag correctly on serialization. [PR 407](https://github.com/near/near-sdk-rs/pull/407).
-* fix(tree_map): Correctly panic when range indices are exluded and `start > end`. [PR 392](https://github.com/near/near-sdk-rs/pull/392).
+* fix(tree_map): Correctly panic when range indices are excluded and `start > end`. [PR 392](https://github.com/near/near-sdk-rs/pull/392).
 * Implement `FromStr` for json types to allow calling `.parse()` to convert them.
   * `ValidAccountId` [PR 391](https://github.com/near/near-sdk-rs/pull/391).
   * `Base58CryptoHash` [PR 398](https://github.com/near/near-sdk-rs/pull/398).
@@ -300,7 +462,7 @@
 * Update syscall interface to no longer go through `BLOCKCHAIN_INTERFACE`. Instead uses `near_sdk::sys` which is under the `unstable` feature flag if needed. [PR 417](https://github.com/near/near-sdk-rs/pull/417).
 * Set up global allocator by default for WASM architectures. [PR 429](https://github.com/near/near-sdk-rs/pull/429).
   * This removes the re-export of `wee_alloc` because if this feature is enabled, the allocator will already be set.
-  * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overriden to a custom one or set manually if intended.
+  * Deprecates `setup_alloc!` macro as this will be setup by default, as long as the `wee_alloc` feature is not specifically disabled. In this case, the allocator can be overridden to a custom one or set manually if intended.
 * Update `TreeMap` iterator implementation to avoid unnecessary storage reads. [PR 428](https://github.com/near/near-sdk-rs/pull/428).
 * Update `AccountId` to be a newtype with merged functionality from `ValidAccountId`. [PR 448](https://github.com/near/near-sdk-rs/pull/448)
   * Removes `ValidAccountId` to avoid having multiple types for account IDs.

@@ -1,6 +1,7 @@
 mod impls;
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use once_cell::unsync::OnceCell;
 
 use crate::env;
@@ -31,7 +32,7 @@ use crate::IntoStorageKey;
 /// assert_eq!(a.get(), &Some("new new value".to_owned()));
 /// ```
 /// [`Deref`]: std::ops::Deref
-#[derive(BorshSerialize, BorshDeserialize)]
+#[near(inside_nearsdk)]
 pub struct LazyOption<T>
 where
     T: BorshSerialize,
@@ -40,7 +41,7 @@ where
     prefix: Box<[u8]>,
 
     /// Cached value which is lazily loaded and deserialized from storage.
-    #[borsh(skip, bound(deserialize = ""))]
+    #[borsh(skip, bound(deserialize = ""))] // removes `core::default::Default` bound from T
     cache: OnceCell<CacheEntry<T>>,
 }
 

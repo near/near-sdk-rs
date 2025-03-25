@@ -1,15 +1,13 @@
 //! Smart contract with initialization function.
 
-use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::near;
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(contract_state)]
 struct Incrementer {
     value: u32,
 }
 
-#[near_bindgen]
+#[near]
 impl Incrementer {
     pub fn inc(&mut self, by: u32) {
         self.value += by;

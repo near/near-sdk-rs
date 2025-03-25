@@ -1,3 +1,4 @@
+use near_sdk_macros::near;
 use std::ops::Bound;
 use std::vec::Vec;
 use std::{borrow::Borrow, iter::FusedIterator};
@@ -39,6 +40,7 @@ where
 /// An iterator over elements of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `iter` method on [`TreeMap`].
+#[derive(Clone)]
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -407,6 +409,7 @@ where
 /// An iterator over the keys of a [`TreeMap`], in sorted order.
 ///
 /// This `struct` is created by the `keys` method on [`TreeMap`].
+#[derive(Clone)]
 pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize + Ord,
@@ -675,6 +678,7 @@ where
 /// An iterator over the values of a [`TreeMap`], in order by key.
 ///
 /// This `struct` is created by the `values` method on [`TreeMap`].
+#[derive(Clone)]
 pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -998,7 +1002,8 @@ impl<K> Find<K> {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Debug, Copy, Clone)]
+#[near(inside_nearsdk)]
+#[derive(Debug, Copy, Clone)]
 enum FindUnbounded {
     /// Find the first element in the given root
     First,
