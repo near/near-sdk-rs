@@ -146,9 +146,6 @@ extern "C" {
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     );
-    // ########################
-    // # Promise yield/resume #
-    // ########################
     pub fn promise_yield_create(
         function_name_len: u64,
         function_name_ptr: u64,

@@ -733,6 +733,9 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
     unsafe { sys::alt_bn128_pairing_check(value.len() as _, value.as_ptr() as _) == 1 }
 }
 
+// ################
+// # Promises API #
+// ################
 /// Creates a promise that will execute a method on account with given arguments and attaches
 /// the given amount and gas.
 ///
