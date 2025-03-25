@@ -143,7 +143,7 @@ mod tests {
             println!("MPC server loop iteration {}", i);
             let requests: Vec<SignatureRequest> = contract.view("get_requests").await?.json()?;
             println!("Requests: {:?}", requests);
-            if requests.len() > 0 {
+            if !requests.is_empty() {
                 let result = mpc_server.call(contract.id(), "sign_respond")
                     .gas(Gas::from_tgas(200))
                     .args_json(serde_json::json!({ "data_id": requests[0].data_id, "signature": SIGNATURE_TEXT }))
@@ -180,15 +180,11 @@ mod tests {
             println!("Alice waiting for ~{} blocks", block - block_init);
 
             let status = result.status().await?;
-            match status {
-                Poll::Ready(result) => {
-                    println!("Alice result: {:?}", result);
-                    return Ok(result);
-                }
-                _ => {}
+            if let Poll::Ready(result) = status {
+                println!("Alice result: {:?}", result);
+                return Ok(result);
             }
         }
-        Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Timeout")))
     }
 
     #[tokio::test]
