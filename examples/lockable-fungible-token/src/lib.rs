@@ -77,7 +77,7 @@ impl FunToken {
         escrow_account_id: AccountId,
         allowance: U128,
     ) -> Result<(), &'static str> {
-        let allowance = allowance.into();
+        let allowance: u128 = allowance.into();
         let owner_id = env::predecessor_account_id();
         if escrow_account_id == owner_id {
             return Err("Can't set allowance for yourself");
@@ -101,7 +101,7 @@ impl FunToken {
     /// * The owner should have enough unlocked balance.
     #[handle_result]
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: U128) -> Result<(), &'static str> {
-        let lock_amount = lock_amount.into();
+        let lock_amount: u128 = lock_amount.into();
         if lock_amount == 0 {
             return Err("Can't lock 0 tokens");
         }
@@ -139,7 +139,7 @@ impl FunToken {
     /// * The (`predecessor_id`) should have at least `unlock_amount` locked tokens from `owner_id`.
     #[handle_result]
     pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: U128) -> Result<(), &'static str> {
-        let unlock_amount = unlock_amount.into();
+        let unlock_amount: u128 = unlock_amount.into();
         if unlock_amount == 0 {
             return Err("Can't unlock 0 tokens");
         }
@@ -183,7 +183,7 @@ impl FunToken {
         new_owner_id: AccountId,
         amount: U128,
     ) -> Result<(), &'static str> {
-        let amount = amount.into();
+        let amount: u128 = amount.into();
         if amount == 0 {
             return Err("Can't transfer 0 tokens");
         }
