@@ -12,7 +12,7 @@ const SIGN_ON_FINISH_CALL_GAS: Gas = Gas::from_tgas(5);
 // Prepaid gas for a `do_something` call
 const CHAINED_CALL_GAS: Gas = Gas::from_tgas(5);
 
-#[near(serializers = ["borsh", "json"])]
+#[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
 pub struct SignatureRequest {
     pub data_id: CryptoHash,
@@ -20,7 +20,7 @@ pub struct SignatureRequest {
     pub message: String,
 }
 
-#[near(contract_state, serializers = ["borsh"])]
+#[near(contract_state)]
 pub struct MpcContract {
     requests: IterableMap<u64, SignatureRequest>,
     next_available_request_index: u64,
