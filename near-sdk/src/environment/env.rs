@@ -1533,7 +1533,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_create`]
-/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/pull/1133)
+/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L45)
 pub fn promise_yield_create(
     function_name: &str,
     arguments: &[u8],
@@ -1599,7 +1599,7 @@ pub fn promise_yield_create(
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume`]
-/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/pull/1133)
+/// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L84)
 pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
     unsafe {
         sys::promise_yield_resume(

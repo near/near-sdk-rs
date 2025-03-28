@@ -22,7 +22,8 @@ jobs:
           fungible-token,
           non-fungible-token,
           versioned,
-          factory-contract
+          factory-contract,
+          mpc-contract
         ]
     steps:
       - uses: actions/checkout@v4
