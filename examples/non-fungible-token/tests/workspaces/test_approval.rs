@@ -25,10 +25,10 @@ async fn simulate_simple_approve(
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(510000000000000000000))
+        .deposit(NearToken::from_yoctonear(610000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // check nft_is_approved, don't provide approval_id
     let alice_approved = nft_contract
@@ -58,12 +58,8 @@ async fn simulate_simple_approve(
     assert!(!alice_approval_id_is_2);
 
     // alternatively, one could check the data returned by nft_token
-    let token = nft_contract
-        .call("nft_token")
-        .args_json((TOKEN_ID,))
-        .view()
-        .await?
-        .json::<Token>()?;
+    let token =
+        nft_contract.call("nft_token").args_json((TOKEN_ID,)).view().await?.json::<Token>()?;
     let mut expected_approvals: HashMap<AccountId, u64> = HashMap::new();
     expected_approvals.insert(AccountId::try_from(alice.id().to_string())?, 1);
     assert_eq!(token.approved_account_ids.unwrap(), expected_approvals);
@@ -76,7 +72,7 @@ async fn simulate_simple_approve(
         .deposit(ONE_NEAR)
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     let alice_approval_id_is_2 = nft_contract
         .call("nft_is_approved")
@@ -89,18 +85,14 @@ async fn simulate_simple_approve(
     // approving another account gives different approval_id
     let res = nft_contract
         .call("nft_approve")
-        .args_json((
-            TOKEN_ID,
-            token_receiver_contract.id(),
-            Option::<String>::None,
-        ))
+        .args_json((TOKEN_ID, token_receiver_contract.id(), Option::<String>::None))
         .max_gas()
         // note that token_receiver's account name is shorter, and so takes less bytes to store and
         // therefore requires a smaller deposit!
-        .deposit(NearToken::from_yoctonear(450000000000000000000))
+        .deposit(NearToken::from_yoctonear(550000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     let token_receiver_approval_id_is_3 = nft_contract
         .call("nft_is_approved")
@@ -122,15 +114,12 @@ async fn simulate_approval_with_call(
 
     let res = nft_contract
         .call("nft_approve")
-        .args_json((
-            TOKEN_ID,
-            approval_receiver_contract.id(),
-            Some("return-now".to_string()),
-        ))
+        .args_json((TOKEN_ID, approval_receiver_contract.id(), Some("return-now".to_string())))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(450000000000000000000))
+        .deposit(NearToken::from_yoctonear(550000000000000000000))
         .transact()
         .await?;
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
     assert_eq!(res.json::<String>()?, "cool".to_string());
 
     // Approve again; will set different approval_id (ignored by approval_receiver).
@@ -144,6 +133,7 @@ async fn simulate_approval_with_call(
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
     assert_eq!(res.json::<String>()?, msg);
 
     Ok(())
@@ -161,33 +151,24 @@ async fn simulate_approved_account_transfers_token(
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(510000000000000000000))
+        .deposit(NearToken::from_yoctonear(610000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // alice sends to self
     let res = alice
         .call(nft_contract.id(), "nft_transfer")
-        .args_json((
-            alice.id(),
-            TOKEN_ID,
-            Some(1u64),
-            Some("gotcha! bahahaha".to_string()),
-        ))
+        .args_json((alice.id(), TOKEN_ID, Some(1u64), Some("gotcha! bahahaha".to_string())))
         .max_gas()
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // token now owned by alice
-    let token = nft_contract
-        .call("nft_token")
-        .args_json((TOKEN_ID,))
-        .view()
-        .await?
-        .json::<Token>()?;
+    let token =
+        nft_contract.call("nft_token").args_json((TOKEN_ID,)).view().await?.json::<Token>()?;
     assert_eq!(token.owner_id.to_string(), alice.id().to_string());
 
     Ok(())
@@ -205,24 +186,20 @@ async fn simulate_revoke(
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(510000000000000000000))
+        .deposit(NearToken::from_yoctonear(610000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // root approves token_receiver
     let res = nft_contract
         .call("nft_approve")
-        .args_json((
-            TOKEN_ID,
-            token_receiver_contract.id(),
-            Option::<String>::None,
-        ))
+        .args_json((TOKEN_ID, token_receiver_contract.id(), Option::<String>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(450000000000000000000))
+        .deposit(NearToken::from_yoctonear(550000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // root revokes alice
     let res = nft_contract
@@ -232,7 +209,7 @@ async fn simulate_revoke(
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // alice is revoked...
     let alice_approved = nft_contract
@@ -260,7 +237,7 @@ async fn simulate_revoke(
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // alice is still revoked...
     let alice_approved = nft_contract
@@ -278,7 +255,7 @@ async fn simulate_revoke(
         .view()
         .await?
         .json::<bool>()?;
-    assert!(!token_receiver_approved);
+    assert!(!token_receiver_approved,);
 
     Ok(())
 }
@@ -295,24 +272,20 @@ async fn simulate_revoke_all(
         .call("nft_approve")
         .args_json((TOKEN_ID, alice.id(), Option::<String>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(510000000000000000000))
+        .deposit(NearToken::from_yoctonear(610000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // root approves token_receiver
     let res = nft_contract
         .call("nft_approve")
-        .args_json((
-            TOKEN_ID,
-            token_receiver_contract.id(),
-            Option::<String>::None,
-        ))
+        .args_json((TOKEN_ID, token_receiver_contract.id(), Option::<String>::None))
         .max_gas()
-        .deposit(NearToken::from_yoctonear(450000000000000000000))
+        .deposit(NearToken::from_yoctonear(550000000000000000000))
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // root revokes all
     let res = nft_contract
@@ -322,7 +295,7 @@ async fn simulate_revoke_all(
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(res.is_success());
+    assert!(res.is_success(), "{}", res.into_result().unwrap_err().to_string());
 
     // alice is revoked...
     let alice_approved = nft_contract
