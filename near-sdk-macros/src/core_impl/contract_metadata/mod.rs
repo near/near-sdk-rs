@@ -4,8 +4,18 @@ use darling::{ast::NestedMeta, Error, FromMeta};
 use proc_macro2::TokenStream;
 use quote::quote;
 
+mod nep330_keys {
+
+    pub const LINK: &str = "NEP330_LINK";
+    pub const VERSION: &str = "NEP330_VERSION";
+}
 mod build_info;
 
+const CARGO_PKG_REPOSITORY_KEY: &str = "CARGO_PKG_REPOSITORY";
+const CARGO_PKG_VERSION_KEY: &str = "CARGO_PKG_VERSION";
+
+const STANDARD_NEP330: &str = "nep330";
+const STANDARD_NEP330_VERSION: &str = "1.3.0";
 #[derive(FromMeta)]
 struct MacroConfig {
     contract_metadata: Option<ContractMetadata>,
@@ -56,16 +66,16 @@ struct Standard {
 impl ContractMetadata {
     fn populate(mut self) -> Self {
         if self.link.is_none() {
-            let field_val = std::env::var("NEP330_LINK")
-                .or(std::env::var("CARGO_PKG_REPOSITORY"))
+            let field_val = std::env::var(nep330_keys::LINK)
+                .or(std::env::var(CARGO_PKG_REPOSITORY_KEY))
                 .unwrap_or(String::from(""));
             if !field_val.is_empty() {
                 self.link = Some(field_val);
             }
         }
         if self.version.is_none() {
-            let field_val = std::env::var("NEP330_VERSION")
-                .or(std::env::var("CARGO_PKG_VERSION"))
+            let field_val = std::env::var(nep330_keys::VERSION)
+                .or(std::env::var(CARGO_PKG_VERSION_KEY))
                 .unwrap_or(String::from(""));
             if !field_val.is_empty() {
                 self.version = Some(field_val);
@@ -74,13 +84,15 @@ impl ContractMetadata {
 
         // adding nep330 if it is not present
         if self.standards.is_empty()
-            || self.standards.iter().all(|s| !s.standard.eq_ignore_ascii_case("nep330"))
+            || self.standards.iter().all(|s| !s.standard.eq_ignore_ascii_case(STANDARD_NEP330))
         {
-            self.standards
-                .push(Standard { standard: "nep330".to_string(), version: "1.2.0".to_string() });
+            self.standards.push(Standard {
+                standard: STANDARD_NEP330.to_string(),
+                version: STANDARD_NEP330_VERSION.to_string(),
+            });
         }
 
-        if std::env::var("NEP330_BUILD_INFO_BUILD_ENVIRONMENT").is_ok() {
+        if std::env::var(build_info::nep330_keys::BUILD_ENVIRONMENT).is_ok() {
             self.build_info = Some(
                 build_info::BuildInfo::from_env()
                     .expect("Build Details Extension field not provided or malformed"),
