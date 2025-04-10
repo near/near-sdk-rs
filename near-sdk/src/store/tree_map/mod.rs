@@ -1611,7 +1611,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.iter().nth(1), Some((&2, &42)));
         assert_eq!(map.iter().count(), 3);
-        assert_eq!(map.iter().last(), Some((&3, &43)));
+        assert_eq!(map.iter().next_back(), Some((&3, &43)));
         map.clear();
     }
 
@@ -1636,7 +1636,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.iter().rev().nth(1), Some((&2, &42)));
         assert_eq!(map.iter().rev().count(), 3);
-        assert_eq!(map.iter().rev().last(), Some((&1, &41)));
+        assert_eq!(map.iter().rev().next_back(), Some((&1, &41)));
         map.clear();
     }
 
@@ -1674,7 +1674,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.range(31..).nth(2), Some((&45, &42)));
         assert_eq!(map.range(31..).count(), 4);
-        assert_eq!(map.range(31..).last(), Some((&50, &42)));
+        assert_eq!(map.range(31..).next_back(), Some((&50, &42)));
 
         map.clear();
     }
@@ -1718,7 +1718,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.range(..31).rev().nth(2), Some((&20, &42)));
         assert_eq!(map.range(..31).rev().count(), 6);
-        assert_eq!(map.range(..31).rev().last(), Some((&5, &42)));
+        assert_eq!(map.range(..31).rev().next_back(), Some((&5, &42)));
 
         map.clear();
     }
@@ -1790,7 +1790,10 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((&35, &42)));
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
-        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((&40, &42)));
+        assert_eq!(
+            map.range((Bound::Excluded(20), Bound::Excluded(45))).next_back(),
+            Some((&40, &42))
+        );
 
         map.clear();
     }
