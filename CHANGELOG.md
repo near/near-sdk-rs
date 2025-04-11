@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [5.12.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.11.0...near-sdk-v5.12.0) - 2025-04-10
+
+### Added
+
+- nep330 result wasm path field  ([#1344](https://github.com/near/near-sdk-rs/pull/1344))
+
+### Other
+
+- Fixed linting warnings (clippy Rust 1.86) ([#1345](https://github.com/near/near-sdk-rs/pull/1345))
+- added example how to use `promise_yield_create` and `promise_yield_resume` ([#1133](https://github.com/near/near-sdk-rs/pull/1133))
+- updated near-workspaces in examples ([#1337](https://github.com/near/near-sdk-rs/pull/1337))
+
 ## [5.11.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.10.0...near-sdk-v5.11.0) - 2025-03-22
 
 ### Added
