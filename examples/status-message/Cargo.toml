@@ -43,6 +43,3 @@ container_build_command = [
     "reproducible-wasm",
     "--no-lockedd",
 ]
-
-
-

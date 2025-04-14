@@ -3,6 +3,7 @@ name = "defi"
 version = "0.0.1"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
+repository = "https://github.com/near/near-sdk-rs"
 
 [lib]
 crate-type = ["cdylib"]
@@ -13,3 +14,20 @@ near-contract-standards = { path = "../../../near-contract-standards" }
 
 [dev-dependencies]
 near-sdk = { path = "../../../near-sdk", features = ["unit-testing"] }
+
+[package.metadata.near.build]
+# This is the Docker metadata line:
+image = "nearprotocol/contract-builder:latest-amd64"
+
+[package.metadata.near.reproducible_build]
+# docker image, descriptor of build environment
+image = "nearprotocol/contract-builder:latest-amd64"
+# tag after colon above serves only descriptive purpose; image is identified by digest
+image_digest = "sha256:53b34ea28b8995c6e8908e76db8ea0b117ac73bc91c83c8aae930e635e9ef885"
+container_build_command = [
+    "cargo",
+    "near",
+    "build",
+    "reproducible-wasm",
+    "--no-lockedd",
+]
