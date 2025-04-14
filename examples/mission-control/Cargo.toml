@@ -29,13 +29,21 @@ panic = "abort"
 
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
-image = "nearprotocol/contract-builder:latest-amd64"
+image = "sourcescan/cargo-near:0.13.5-rust-1.85.1"
 # tag after colon above serves only descriptive purpose; image is identified by digest
-image_digest = "sha256:53b34ea28b8995c6e8908e76db8ea0b117ac73bc91c83c8aae930e635e9ef885"
+image_digest = "sha256:3b0272ecdbb91465f3e7348330d7f2d031d27901f26fb25b4eaf1560a60c20f3"
+# list of environment variables names, whose values, if set, will be used as external build parameters
+# in a reproducible manner
+# supported by `sourcescan/cargo-near:0.10.1-rust-1.82.0` image or later images
+passed_env = []
+# build command inside of docker container 
+# if docker image from default gallery is used https://hub.docker.com/r/sourcescan/cargo-near/tags,
+# the command may be any combination of flags of `cargo-near`,
+# supported by respective version of binary inside the container besides `--no-locked` flag
 container_build_command = [
     "cargo",
     "near",
     "build",
-    "reproducible-wasm",
-    "--no-lockedd",
+    "non-reproducible-wasm",
+    "--locked",
 ]
