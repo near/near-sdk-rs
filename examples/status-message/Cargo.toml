@@ -33,5 +33,7 @@ image = "nearprotocol/contract-builder:latest-amd64"
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
 image = "nearprotocol/contract-builder:latest-amd64"
+# tag after colon above serves only descriptive purpose; image is identified by digest
+image_digest = "sha256:53b34ea28b8995c6e8908e76db8ea0b117ac73bc91c83c8aae930e635e9ef885"
 
 
