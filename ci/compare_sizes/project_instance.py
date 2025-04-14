@@ -32,29 +32,20 @@ class ProjectInstance:
         return os.path.join(self._root_dir, "examples")
 
     def _build_artifact(self, artifact, cache):
-        client = docker.from_env()
-        tag = "latest-arm64" if platform.machine() == "ARM64" else "latest-amd64"
-        image = f"nearprotocol/contract-builder:{tag}"
-
-        client.containers.run(
-            image,
-            "./build.sh",
-            mounts=[
-                docker.types.Mount("/host", self._root_dir, type="bind"),
-                docker.types.Mount(
-                    "/usr/local/cargo/registry", cache.registry, type="bind"
-                ),
-                docker.types.Mount("/usr/local/cargo/git", cache.git, type="bind"),
-                docker.types.Mount("/target", cache.target, type="bind"),
+        subprocess.run(
+            [
+                "cargo",
+                "near",
+                "build",
+                "reproducible-wasm",
+                "--no-locked",
             ],
-            working_dir=f"/host/examples/{artifact.name}",
-            cap_add=["SYS_PTRACE"],
-            security_opt=["seccomp=unconfined"],
-            remove=True,
-            user=os.getuid(),
-            environment={
+            cwd=os.path.join(artifact.path),
+            check=True,
+            env={
+                **os.environ,  # Include the existing environment variables
                 "RUSTFLAGS": "-C link-arg=-s",
-                "CARGO_TARGET_DIR": "/target",
+                "CARGO_TARGET_DIR": f"{self._root_dir}/target",
             },
         )
 
@@ -68,7 +59,9 @@ class ProjectInstance:
     def build_artifacts(self, cache):
         for example in self._examples:
             print(f"Building {example.name}...", file=sys.stderr)
-            self._build_artifact(example, cache)
+            for _, dirs, _ in os.walk(example.path):
+                if "src" in dirs:
+                    self._build_artifact(example, cache)
 
     def sizes(self, cache):
         self.build_artifacts(cache)
