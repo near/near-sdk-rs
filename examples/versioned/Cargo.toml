@@ -27,10 +27,6 @@ anyhow = "1.0"
 near-abi = "0.4.0"
 zstd = "0.13"
 
-[package.metadata.near.build]
-# This is the Docker metadata line:
-image = "nearprotocol/contract-builder:latest-amd64"
-
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
 image = "nearprotocol/contract-builder:latest-amd64"

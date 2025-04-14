@@ -25,10 +25,6 @@ overflow-checks = true
 # remember to include a member for each contract
 members = ["ft", "test-contract-defi"]
 
-[package.metadata.near.build]
-# This is the Docker metadata line:
-image = "nearprotocol/contract-builder:latest-amd64"
-
 [package.metadata.near.reproducible_build]
 # docker image, descriptor of build environment
 image = "nearprotocol/contract-builder:latest-amd64"
