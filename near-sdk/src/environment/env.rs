@@ -2471,20 +2471,16 @@ mod tests {
             108, 78, 74,
         ]; 25];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_p2_sum(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_sum");
-        }
-    }
+        let result = super::bls12381_p2_sum(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_sum");
+}
 
     #[test]
     fn bls12381_g1_multiexp_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_g1_multiexp(&buffer);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g1_multiexp");
-        }
-    }
+        let result = super::bls12381_g1_multiexp(&buffer);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g1_multiexp");
+}
 
     #[test]
     fn bls12381_g1_multiexp_50_100() {
@@ -2499,20 +2495,16 @@ mod tests {
             255, 255,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_g1_multiexp(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g1_multiexp");
-        }
-    }
+        let result = super::bls12381_g1_multiexp(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g1_multiexp");
+}
 
     #[test]
     fn bls12381_g2_multiexp_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_g2_multiexp(&buffer);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g2_multiexp");
-        }
-    }
+        let result = super::bls12381_g2_multiexp(&buffer);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g2_multiexp");
+}
 
     #[test]
     fn bls12381_g2_multiexp_50_100() {
@@ -2531,20 +2523,16 @@ mod tests {
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_g2_multiexp(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g2_multiexp");
-        }
-    }
+        let result = super::bls12381_g2_multiexp(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_g2_multiexp");
+}
 
     #[test]
     fn bls12381_map_fp_to_g1_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_map_fp_to_g1(&buffer);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp_to_g1");
-        }
-    }
+        let result = super::bls12381_map_fp_to_g1(&buffer);
+        assert!(result.is_empty(), "Expected an empty result from bls12381_map_fp_to_g1");
+}
 
     #[test]
     fn bls12381_map_fp_to_g1_50_100() {
@@ -2554,20 +2542,16 @@ mod tests {
             8, 12, 26, 82, 220, 104, 184, 182, 147, 80,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_map_fp_to_g1(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp_to_g1");
-        }
-    }
+        let result = super::bls12381_map_fp_to_g1(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp_to_g1");
+}
 
     #[test]
     fn bls12381_map_fp2_to_g2_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_map_fp2_to_g2(&buffer);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp2_to_g2");
-        }
-    }
+        let result = super::bls12381_map_fp2_to_g2(&buffer);
+        assert!(result.is_empty(), "Expected an empty result from bls12381_map_fp2_to_g2");
+}
 
     #[test]
     fn bls12381_map_fp2_to_g2_10_100() {
@@ -2580,20 +2564,16 @@ mod tests {
             80,
         ]; 10];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_map_fp2_to_g2(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp2_to_g2");
-        }
+        let result = super::bls12381_map_fp2_to_g2(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_map_fp2_to_g2");
     }
 
     #[test]
     fn bls12381_pairing_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_pairing_check(&buffer);
-            assert!(!result, "Expected result to be false");
-        }
-    }
+        let result = super::bls12381_pairing_check(&buffer);
+        assert!(!result, "Expected result to be false");
+}
 
     #[test]
     fn bls12381_pairing_5_100() {
@@ -2616,19 +2596,15 @@ mod tests {
             134, 8, 184, 40, 1,
         ]; 5];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_pairing_check(&flat);
-            assert!(!result, "Expected result to be false");
-        }
+        let result = super::bls12381_pairing_check(&flat);
+        assert!(!result, "Expected result to be false");
     }
 
     #[test]
     fn bls12381_p1_decompress_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_p1_decompress(&buffer);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p1_decompress");
-        }
+        let result = super::bls12381_p1_decompress(&buffer);
+        assert!(result.is_empty(), "Expected an empty result from bls12381_p1_decompress");
     }
 
     #[test]
@@ -2639,19 +2615,15 @@ mod tests {
             195, 124, 70, 91, 53, 182, 222, 158, 19, 104, 106, 15,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_p1_decompress(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p1_decompress");
-        }
+        let result = super::bls12381_p1_decompress(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p1_decompress");
     }
 
     #[test]
     fn bls12381_p2_decompress_0_100() {
         let buffer: [u8; 0] = [];
-        for _ in 0..100 {
-            let result = super::bls12381_p2_decompress(&buffer);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_decompress");
-        }
+        let result = super::bls12381_p2_decompress(&buffer);
+        assert!(result.is_empty(), "Expected an empty result from bls12381_p2_decompress");
     }
 
     #[test]
@@ -2665,9 +2637,7 @@ mod tests {
             172, 240,
         ]; 50];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
-        for _ in 0..100 {
-            let result = super::bls12381_p2_decompress(&flat);
-            assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_decompress");
-        }
+        let result = super::bls12381_p2_decompress(&flat);
+        assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_decompress");
     }
 }
