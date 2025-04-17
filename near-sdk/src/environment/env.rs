@@ -2579,7 +2579,7 @@ mod tests {
     fn bls12381_pairing_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
-            assert_eq!(super::bls12381_pairing_check(&buffer), false);
+            assert!(!super::bls12381_pairing_check(&buffer));
         }
     }
 
@@ -2605,7 +2605,7 @@ mod tests {
         ]; 5];
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
         for _ in 0..100 {
-            assert_eq!(super::bls12381_pairing_check(&flat), false);
+            assert!(!super::bls12381_pairing_check(&flat));
         }
     }
 
