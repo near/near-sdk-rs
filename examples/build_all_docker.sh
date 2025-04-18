@@ -16,7 +16,12 @@ for arg in "$@"; do
 done
 
 for d in "status-message/" $(ls -d */ | grep -v -e "status-message\/$"); do
-    (./build_docker.sh ${d%%/})
+    for directory in $(find $d -type d); do
+        if [ -d "$directory/src" ]; then
+            echo building $d;
+            (cd "$d"; cargo near build reproducible-wasm --no-locked; cp target/wasm32-unknown-unknown/release/*.wasm res/;);
+        fi
+    done
 done
 
 if [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ]; then
