@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.13.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.12.0...near-sdk-v5.13.0) - 2025-04-18
+
+### Added
+
+- Added BLS12-381 curve operations support in near-sys and exposed in near_sdk::env ([#1346](https://github.com/near/near-sdk-rs/pull/1346))
+
 ## [5.12.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.11.0...near-sdk-v5.12.0) - 2025-04-10
 
 ### Added
