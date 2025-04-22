@@ -1,5 +1,8 @@
-use near_sdk::{test_utils::{testing_env, VMContextBuilder, get_created_receipts}, AccountId, Promise};
-use near_sdk::env;
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 
 #[test]
 fn test_created_receipts() {
@@ -32,3 +35,4 @@ fn test_created_receipts() {
     let actions = &receipt.actions;
     assert!(actions.iter().any(|action| matches!(action, near_sdk::env::ReceiptAction::Transfer { .. })));
 }
+}  
