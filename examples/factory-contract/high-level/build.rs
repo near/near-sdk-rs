@@ -67,7 +67,7 @@ mod run_build {
             std::fs::write(&out_path, b"").expect("success write");
             out_path
         } else {
-            cargo_near_build::build_with_cli(opts).expect("successfull build")
+            cargo_near_build::build_with_cli(opts).expect("successful build")
         }
     }
 }
