@@ -37,6 +37,7 @@ fn main() {
     let override_cargo_target_dir = override_cargo_target_dir();
     let build_opts = cargo_near_build::BuildOpts::builder()
         .manifest_path(manifest)
+        .no_locked(true)
         .override_cargo_target_dir(override_cargo_target_dir.to_string())
         .override_nep330_contract_path(nep330_contract_path)
         .override_nep330_output_wasm_path(nep330_output_wasm_path)
@@ -50,7 +51,7 @@ fn main() {
         is_abi_or_cargo_check,
         vec![&workdir, "Cargo.toml", "../Cargo.lock"],
         out_path,
-        "BUILD_RS_SUB_BUILD_ARTIFACT_1",
+        "BUILD_RS_SUB_BUILD_STATUS-MESSAGE",
     );
 }
 
