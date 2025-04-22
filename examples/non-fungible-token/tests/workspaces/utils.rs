@@ -3,10 +3,10 @@ use std::str::FromStr;
 use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::TokenId;
 
+use near_workspaces::cargo_near_build;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
 use rstest::fixture;
-use near_workspaces::cargo_near_build;
 pub const TOKEN_ID: &str = "0";
 
 pub async fn helper_mint(
@@ -42,7 +42,7 @@ pub async fn helper_mint(
 }
 
 fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
-    let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
+    let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
         manifest_path: Some(
             cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
@@ -50,8 +50,8 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
     })
     .expect(&format!("building `{}` contract for tests", contract_name));
 
-    let contract_wasm = std::fs::read(&artifact.path)
-        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact.path, err))
+    let contract_wasm = std::fs::read(&artifact)
+        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact, err))
         .expect("std::fs::read");
     contract_wasm
 }
@@ -146,10 +146,5 @@ pub async fn initialized_contracts(
         .await?;
     assert!(res.is_success());
 
-    return Ok((
-        nft_contract,
-        alice,
-        token_receiver_contract,
-        approval_receiver_contract,
-    ));
+    return Ok((nft_contract, alice, token_receiver_contract, approval_receiver_contract));
 }

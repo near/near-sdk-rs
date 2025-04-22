@@ -63,7 +63,9 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.18", features = ["unstable"] }
+near-workspaces = { version = "0.18", features = [
+    "unstable",
+], git = "https://github.com/dj8yfo/workspaces-rs.git", branch = "feat/build-with-ext-cli" }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"

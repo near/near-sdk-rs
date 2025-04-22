@@ -12,7 +12,9 @@ near-sdk = { path = "../../near-sdk" }
 hex = "0.4"
 
 [dev-dependencies]
-near-workspaces = { version = "0.16.0", features = ["unstable"] }
+near-workspaces = { version = "0.18", features = [
+    "unstable",
+], git = "https://github.com/dj8yfo/workspaces-rs.git", branch = "feat/build-with-ext-cli" }
 tokio = { version = "1.14", features = ["full"] }
 mpc-contract = { path = "." }
 
