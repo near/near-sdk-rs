@@ -31,7 +31,7 @@ class ProjectInstance:
     def _examples_dir(self):
         return os.path.join(self._root_dir, "examples")
 
-    def _build_artifact(self, artifact, cache):
+    def _build_artifact(self, artifact):
         subprocess.run(
             [
                 "cargo",
@@ -40,7 +40,7 @@ class ProjectInstance:
                 "reproducible-wasm",
                 "--no-locked",
             ],
-            cwd=os.path.join(artifact.path),
+            cwd=os.path.join(artifact),
             check=True,
             env={
                 **os.environ,  # Include the existing environment variables
@@ -51,17 +51,32 @@ class ProjectInstance:
 
     @property
     def _examples(self):
-        examples = filter(os.DirEntry.is_dir, os.scandir(self._examples_dir))
-
         # build "status-message" first, as it's a dependency of some other examples
-        return sorted(examples, key=lambda x: x.name != "status-message")
+        examples = [
+            os.path.join(self._examples_dir, "status-message"),
+            os.path.join(self._examples_dir, "adder"),
+            os.path.join(self._examples_dir, "callback-results"),
+            os.path.join(self._examples_dir, "cross-contract-calls", "high-level"),
+            os.path.join(self._examples_dir, "cross-contract-calls", "low-level"),
+            os.path.join(self._examples_dir, "factory-contract", "high-level"),
+            os.path.join(self._examples_dir, "factory-contract", "low-level"),
+            os.path.join(self._examples_dir, "fungible-token", "ft"),
+            os.path.join(self._examples_dir, "fungible-token", "test-contract-defi"),
+            os.path.join(self._examples_dir, "lockable-fungible-token"),
+            os.path.join(self._examples_dir, "mission-control"),
+            os.path.join(self._examples_dir, "mpc-contract"),
+            os.path.join(self._examples_dir, "non-fungible-token", "nft"),
+            os.path.join(self._examples_dir, "non-fungible-token", "test-approval-receiver"),
+            os.path.join(self._examples_dir, "non-fungible-token", "test-token-receiver"),
+            os.path.join(self._examples_dir, "test-contract"),
+            os.path.join(self._examples_dir, "versioned"),
+        ]
+        return examples
 
     def build_artifacts(self, cache):
         for example in self._examples:
             print(f"Building {example.name}...", file=sys.stderr)
-            for _, dirs, _ in os.walk(example.path):
-                if "src" in dirs:
-                    self._build_artifact(example, cache)
+            self._build_artifact(example)
 
     def sizes(self, cache):
         self.build_artifacts(cache)
