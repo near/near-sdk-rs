@@ -47,10 +47,16 @@ impl quote::ToTokens for ContractMetadata {
                 standard(standard = #standard_name, version = #standard_version),
             };
         }
+
+        // This is necessary, because using a simple `version = #version`, will lead to macros tokenizing `version = None` to `version = `, which
+        // cannot be parsed as meta and is considered invalid.
+        let version_tokens = version.as_ref().map(|v| quote! { version = #v, });
+        let link_tokens = link.as_ref().map(|l| quote! { link = #l, });
+
         tokens.extend(quote! {
             contract_metadata(
-                version = #version,
-                link = #link,
+                #version_tokens
+                #link_tokens
                 #standards
             )
         })
