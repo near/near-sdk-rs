@@ -30,7 +30,7 @@ bs58 = "0.5"
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-account-id = { version = "1.0.0", features = ["serde", "borsh"] }
+near-account-id = { git = "https://github.com/PolyProgrammist/near-account-id-rs.git", branch = "alpha", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 
