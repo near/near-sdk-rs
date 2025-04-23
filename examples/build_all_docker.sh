@@ -19,7 +19,7 @@ for d in "status-message/" $(ls -d */ | grep -v -e "status-message\/$"); do
     for directory in $(find $d -type d); do
         if [ -d "$directory/src" ]; then
             echo building $d;
-            (cd "$d"; cargo near build reproducible-wasm --no-locked; cp target/wasm32-unknown-unknown/release/*.wasm res/;);
+            (cd "$d"; cargo near build reproducible-wasm --no-locked;);
         fi
     done
 done
