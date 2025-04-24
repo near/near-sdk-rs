@@ -108,3 +108,8 @@ features = [
 
 [patch.crates-io]
 near-account-id = {  git = "https://github.com/PolyProgrammist/near-account-id-rs.git", branch = "alpha", features = ["serde", "borsh"]}
+near-vm-runner = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "jsonschema-for-rpc" }
+near-primitives-core = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "jsonschema-for-rpc" }
+near-primitives = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "jsonschema-for-rpc" }
+near-crypto = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "jsonschema-for-rpc" }
+near-parameters = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "jsonschema-for-rpc" }
