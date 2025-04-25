@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
 [build-dependencies]
-cargo-near-build = { version = "0.5.1", git = "https://github.com/dj8yfo/cargo-near.git", branch = "feat/build-external-method" }
+cargo-near-build = { version = "0.5.1", git = "https://github.com/dj8yfo/cargo-near.git", branch = "feat/extended-build-with-cli" }
 
 
 [dev-dependencies]
