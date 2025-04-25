@@ -38,6 +38,7 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_arg.rs");
     t.pass("compilation_tests/handle_result_alias.rs");
     t.pass("compilation_tests/contract_metadata.rs");
+    t.pass("compilation_tests/contract_metadata-no-version-no-link.rs");
     t.compile_fail("compilation_tests/contract_metadata_fn_name.rs");
     t.pass("compilation_tests/contract_metadata_bindgen.rs");
     t.pass("compilation_tests/types.rs");
