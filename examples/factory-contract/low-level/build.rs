@@ -1,14 +1,18 @@
 use cargo_near_build::{bon, camino};
+use duct::cmd;
 
 fn main() {
-    let build_opts = cargo_near_build::BuildOpts::builder()
-        .manifest_path(camino::Utf8PathBuf::from("../../status-message").join("Cargo.toml"))
-        // `--no-locked` flag isn't recommended to be used in build-scripts for
-        // production contracts for reproducible builds,
-        // as such contracts won't verify with respect to WASM reproducibility;
-        // it's fine for current demo contract in `near-sdk`, which has certain hardships with tracking `Cargo.lock`-s continuously for examples
-        .no_locked(true)
-        .build();
+    let manifest_path = camino::Utf8PathBuf::from("../../status-message").join("Cargo.toml");
+    // =================================
+    // this workaround with calling `cargo update` before building sub-contract
+    // is specifically for current demo contract in `near-sdk`, which has certain hardships with tracking `Cargo.lock`-s continuously for examples
+    // this is not recommended for use in production sub-contracts,
+    // as such contracts won't verify with respect to WASM reproducibility;
+    cmd!("cargo", "update", "--manifest-path", manifest_path.as_str())
+        .run()
+        .expect("no `cargo update` err");
+    // =================================
+    let build_opts = cargo_near_build::BuildOpts::builder().manifest_path(manifest_path).build();
 
     let extended_build_opts = cargo_near_build::extended::BuildOptsExtended::builder()
         .build_opts(build_opts)
