@@ -807,7 +807,7 @@ pub fn bls12381_map_fp2_to_g2(value: &[u8]) -> Vec<u8> {
 
 /// Perform BLS12-381 pairing check. Returns true if the pairing check passes.
 pub fn bls12381_pairing_check(value: &[u8]) -> bool {
-    unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) == 1 }
+    unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) == 0 }
 }
 
 /// Decompress a BLS12-381 G1 point.
