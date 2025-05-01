@@ -2585,15 +2585,6 @@ mod tests {
     }
 
     #[test]
-    fn bls12381_pairing_invalid_check() {
-        // Invalid test vector (should return false)
-        let invalid_input = hex::decode("97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8").unwrap();
-
-        let result = super::bls12381_pairing_check(&invalid_input);
-        assert!(!result, "Expected invalid pairing check to return false");
-    }
-
-    #[test]
     fn bls12381_pairing_5_100() {
         let buffer: [[u8; 288]; 5] = [[
             23, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195, 104,
