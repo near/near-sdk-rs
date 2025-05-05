@@ -10,7 +10,7 @@ anyhow = "1.0"
 near-sdk = { path = "../../near-sdk", features = ["default", "unit-testing"] }
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.18", features = ["unstable"] }
+near-workspaces = { version = "0.19", features = ["unstable"] }
 
 cross-contract-high-level = { path = "./high-level" }
 cross-contract-low-level = { path = "./low-level" }

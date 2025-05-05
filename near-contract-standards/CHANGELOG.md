@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.12.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.11.0...near-contract-standards-v5.12.0) - 2025-04-10
+
+### Added
+
+- nep330 result wasm path field  ([#1344](https://github.com/near/near-sdk-rs/pull/1344))
+
 ## [5.8.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.7.1...near-contract-standards-v5.8.0) - 2025-02-07
 
 ### Other

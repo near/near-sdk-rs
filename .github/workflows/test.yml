@@ -32,6 +32,8 @@ jobs:
           toolchain: ${{ matrix.platform.rs }}
           default: true
           target: wasm32-unknown-unknown
+      - name: Install cargo-near CLI (dependency for build with near-workspaces)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
       - uses: Swatinem/rust-cache@v2
 #      - name: Downgrade dependencies
 #        run: |
