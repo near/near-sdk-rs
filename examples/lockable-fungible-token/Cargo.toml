@@ -14,7 +14,7 @@ near-sdk = { path = "../../near-sdk", features = ["legacy"] }
 anyhow = "1.0"
 tokio = { version = "1.14", features = ["full"] }
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
-near-workspaces = { version = "0.18", features = ["unstable"] }
+near-workspaces = { version = "0.19", features = ["unstable"] }
 rstest = "0.23.0"
 
 [profile.release]

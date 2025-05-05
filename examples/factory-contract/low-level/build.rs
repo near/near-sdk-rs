@@ -1,40 +1,30 @@
-use std::str::FromStr;
+use cargo_near_build::{bon, camino};
+use duct::cmd;
 
-use cargo_near_build::BuildOpts;
-use cargo_near_build::{bon, camino, extended};
+fn main() {
+    let manifest_path = camino::Utf8PathBuf::from("../../status-message").join("Cargo.toml");
+    // =================================
+    // this workaround with calling `cargo update` before building sub-contract
+    // is specifically for current demo contract in `near-sdk`, which has certain hardships with tracking `Cargo.lock`-s continuously for examples
+    // this is not recommended for use in production sub-contracts,
+    // as such contracts won't verify with respect to WASM reproducibility;
+    cmd!("cargo", "update", "--manifest-path", manifest_path.as_str())
+        .run()
+        .expect("no `cargo update` err");
+    // =================================
+    let build_opts = cargo_near_build::BuildOpts::builder().manifest_path(manifest_path).build();
 
-fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
-    // directory of target `status-message` sub-contract's crate
-    let workdir = "../../status-message";
-    // unix path to target `status-message` sub-contract's crate from root of the repo
-    let nep330_contract_path = "examples/status-message";
-
-    let manifest =
-        camino::Utf8PathBuf::from_str(workdir).expect("pathbuf from str").join("Cargo.toml");
-
-    let build_opts = BuildOpts::builder()
-        .manifest_path(manifest)
-        .no_locked(true)
-        .override_nep330_contract_path(nep330_contract_path)
-        // a distinct target is needed to avoid deadlock during build
-        .override_cargo_target_dir("../target/build-rs-status-message-for-low-level-factory")
-        .build();
-
-    let build_script_opts = extended::BuildScriptOpts::builder()
-        .rerun_if_changed_list(bon::vec![workdir, "Cargo.toml", "../Cargo.lock"])
-        .build_skipped_when_env_is(vec![
-            // shorter build for `cargo check`
-            ("PROFILE", "debug"),
-            (cargo_near_build::env_keys::BUILD_RS_ABI_STEP_HINT, "true"),
-        ])
-        .stub_path("../target/status-message-low-level-stub.bin")
-        .result_env_key("BUILD_RS_SUB_BUILD_STATUS-MESSAGE")
-        .build();
-
-    let extended_opts = extended::BuildOptsExtended::builder()
+    let extended_build_opts = cargo_near_build::extended::BuildOptsExtended::builder()
         .build_opts(build_opts)
-        .build_script_opts(build_script_opts)
-        .build();
-    cargo_near_build::extended::build(extended_opts)?;
-    Ok(())
+        .rerun_if_changed_list(bon::vec!["Cargo.toml", "../Cargo.lock"])
+        .result_file_path_env_key("BUILD_RS_SUB_BUILD_STATUS-MESSAGE")
+        .prepare()
+        .expect("no error in auto-compute of params");
+
+    // the output `_wasm_path` can be reused in build.rs for more transformations, if needed
+    //
+    // required option `result_file_path_env_key` env variable is used in src/lib.rs to obtain the built wasm result:
+    // const DONATION_DEFAULT_CONTRACT: &[u8] = include_bytes!(env!("BUILD_RS_SUB_BUILD_STATUS-MESSAGE1"));
+    let _wasm_path =
+        cargo_near_build::extended::build_with_cli(extended_build_opts).expect("no build error");
 }

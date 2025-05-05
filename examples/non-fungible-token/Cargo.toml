@@ -9,7 +9,7 @@ anyhow = "1.0"
 near-contract-standards = { path = "../../near-contract-standards" }
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.18", features = ["unstable"] }
+near-workspaces = { version = "0.19", features = ["unstable"] }
 rstest = "0.23.0"
 
 [profile.release]
