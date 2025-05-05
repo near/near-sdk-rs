@@ -1,6 +1,6 @@
 [package]
 name = "near-sys"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Near Inc <hello@near.org>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
