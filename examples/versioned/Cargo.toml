@@ -20,9 +20,7 @@ panic = "abort"
 
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
-near-workspaces = { version = "0.18", features = [
-    "unstable",
-], git = "https://github.com/dj8yfo/workspaces-rs.git", branch = "feat/build-with-ext-cli" }
+near-workspaces = { version = "0.19", features = ["unstable"] }
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-abi = "0.4.0"
