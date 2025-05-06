@@ -70,7 +70,7 @@ class ProjectInstance:
 
     def build_artifacts(self, cache):
         for example in self._examples:
-            print(f"Building {example.split("/")[1]}...", file=sys.stderr)
+            print(f"Building {example}...", file=sys.stderr)
             self._build_artifact(example)
 
     def sizes(self, cache):
