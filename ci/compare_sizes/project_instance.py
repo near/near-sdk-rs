@@ -42,11 +42,6 @@ class ProjectInstance:
             ],
             cwd=os.path.join(artifact),
             check=True,
-            env={
-                **os.environ,  # Include the existing environment variables
-                "RUSTFLAGS": "-C link-arg=-s",
-                "CARGO_TARGET_DIR": f"{self._root_dir}/target",
-            },
         )
 
     @property
