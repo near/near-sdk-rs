@@ -9,6 +9,8 @@ declare -a example_dirs=("adder"
                     "callback-results"
                     "cross-contract-calls/high-level"
                     "cross-contract-calls/low-level"
+                    "factory-contract/high-level"
+                    "factory-contract/low-level"
                 )
 
 for dir in "${example_dirs[@]}"; do
