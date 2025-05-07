@@ -6,15 +6,16 @@ echo $(rustc --version)
 pushd $(dirname ${BASH_SOURCE[0]})
 
 declare -a example_dirs=("adder" 
+                    "callback-results"
                 )
 
 for dir in "${example_dirs[@]}"; do
     echo '##################################'
-    echo "building $dir...";
+    echo "building '$dir' ...";
     pushd $dir
     cargo near build non-reproducible-wasm
     popd
-    echo "finished building $dir...";
+    echo "finished building '$dir' ...";
     echo '##################################'
 done
 
