@@ -7,6 +7,8 @@ pushd $(dirname ${BASH_SOURCE[0]})
 
 declare -a example_dirs=("adder" 
                     "callback-results"
+                    "cross-contract-calls/high-level"
+                    "cross-contract-calls/low-level"
                 )
 
 for dir in "${example_dirs[@]}"; do
