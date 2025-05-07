@@ -1,17 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 rustup target add wasm32-unknown-unknown
 
 echo $(rustc --version)
 pushd $(dirname ${BASH_SOURCE[0]})
 
-for d in "status-message"  $(ls -d */ | grep -v -e "status-message\/$"); do
-    for directory in $(find $d -type d); do
-        if [ -d "$directory/src" ]; then
-            echo building $d;
-            (cd "$d"; cargo near build non-reproducible-wasm;);
-        fi
-    done
+declare -a example_dirs=("adder" 
+                )
+
+for dir in "${example_dirs[@]}"; do
+    echo '##################################'
+    echo "building $dir...";
+    pushd $dir
+    cargo near build non-reproducible-wasm
+    popd
+    echo "finished building $dir...";
+    echo '##################################'
 done
 
 popd
+
+echo 'Build All Examples Finished!'

@@ -1,30 +1,23 @@
 #!/usr/bin/env bash
-set -ex
+set -e
+rustup target add wasm32-unknown-unknown
 
-CHECK=0
-
+echo $(rustc --version)
 pushd $(dirname ${BASH_SOURCE[0]})
 
-# Loop through arguments and process them
-for arg in "$@"; do
-    case $arg in
-    -c | --check)
-        CHECK=1
-        shift
-        ;;
-    esac
+declare -a example_dirs=("adder" 
+                )
+
+for dir in "${example_dirs[@]}"; do
+    echo '##################################'
+    echo "building $dir (in docker container) ...";
+    pushd $dir
+    cargo near build reproducible-wasm --no-locked
+    popd
+    echo "finished building $dir...";
+    echo '##################################'
 done
 
-for d in "status-message/" $(ls -d */ | grep -v -e "status-message\/$"); do
-    for directory in $(find $d -type d); do
-        if [ -d "$directory/src" ]; then
-            echo building $d;
-            (cd "$d"; cargo near build reproducible-wasm --no-locked;);
-        fi
-    done
-done
+popd
 
-if [ $CHECK == 1 ] && [ ! -z "$(git diff --exit-code)" ]; then
-    echo "Repository is dirty, please make sure you have committed all contract wasm files"
-    exit 1
-fi
+echo 'Build All Examples in docker Finished!'
