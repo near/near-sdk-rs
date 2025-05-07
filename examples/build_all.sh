@@ -16,6 +16,9 @@ declare -a example_dirs=("adder"
                     "lockable-fungible-token"
                     "mission-control"
                     "mpc-contract"
+                    "non-fungible-token/nft"
+                    "non-fungible-token/test-approval-receiver"
+                    "non-fungible-token/test-token-receiver"
                 )
 
 for dir in "${example_dirs[@]}"; do
