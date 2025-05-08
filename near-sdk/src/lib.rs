@@ -105,6 +105,7 @@
 #![allow(clippy::multiple_bound_locations)]
 #![allow(clippy::needless_lifetimes)]
 
+// Add a little comment for quick checking
 #[cfg(test)]
 extern crate quickcheck;
 
