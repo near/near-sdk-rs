@@ -20,6 +20,7 @@ declare -a example_dirs=("adder"
                     "non-fungible-token/test-approval-receiver"
                     "non-fungible-token/test-token-receiver"
                     "status-message"
+                    "test-contract"
                 )
 
 for dir in "${example_dirs[@]}"; do
