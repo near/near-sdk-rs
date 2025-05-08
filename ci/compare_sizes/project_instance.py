@@ -37,6 +37,7 @@ class ProjectInstance:
                 "reproducible-wasm",
                 "--no-locked",
             ],
+            capture_output=True,
             cwd=artifact,
             check=True,
         )
