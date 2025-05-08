@@ -16,27 +16,14 @@ jobs:
         run: gh pr checkout ${{ github.event.issue.number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cache intermediate artifacts
-        uses: actions/cache@v3
-        env:
-          cache-name: compare-sizes
-        with:
-          path: |
-            docker-target
-            /home/runner/work/.cargo/git
-            /home/runner/work/.cargo/registry
-          # TODO: add an additional key here, e.g. the Rust toolchain version used
-          key: ${{ runner.os }}-build-${{ env.cache-name }}
-          # restore-keys: |
-          #   ${{ runner.os }}-build-${{ env.cache-name }}
       - name: Install cargo-near CLI (dependency for docker builds in generate report)
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
       - name: Generate report
         run: |
-          yes | pip install GitPython appdirs
+          yes | pip install GitPython
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
           echo "REPORT<<$EOF" >> "$GITHUB_ENV"
-          ci/compare_sizes/compare_sizes.py --cargo-cache-dir /home/runner/work/.cargo >> "$GITHUB_ENV"
+          ci/compare_sizes/compare_sizes.py >> "$GITHUB_ENV"
           echo "$EOF" >> "$GITHUB_ENV"
       - name: Submit report
         if: ${{ success() }}

@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
 # Requires:
-# `pip install GitPython appdirs`
-import argparse
+# `pip install GitPython`
 import os
-from cache import Cache
-from appdirs import AppDirs
 
 from project_instance import ProjectInstance
 
@@ -46,28 +43,14 @@ Sizes are given in bytes.
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="compare_sizes",
-        description="compare example contract sizes between current branch and master",
-    )
-    parser.add_argument("-c", "--cargo-cache-dir")
-    args = parser.parse_args()
-
-    default_cache_dir = os.path.join(
-        AppDirs("near_sdk_dev_cache", "near").user_data_dir,
-        "contract_build",
-    )
-    cache_dir = args.cargo_cache_dir if args.cargo_cache_dir else default_cache_dir
-    cache = Cache(cache_dir)
-
     this_file = os.path.abspath(os.path.realpath(__file__))
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(this_file)))
 
     cur_branch = ProjectInstance(project_root)
 
     with cur_branch.branch("master") as master:
-        cur_sizes = cur_branch.sizes(cache)
-        master_sizes = master.sizes(cache)
+        cur_sizes = cur_branch.sizes()
+        master_sizes = master.sizes()
 
         print(report(master_sizes, cur_sizes))
 

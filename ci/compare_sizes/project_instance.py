@@ -37,7 +37,7 @@ class ProjectInstance:
                 "reproducible-wasm",
                 "--no-locked",
             ],
-            cwd=os.path.join(artifact),
+            cwd=artifact,
             check=True,
         )
 
@@ -65,13 +65,13 @@ class ProjectInstance:
         ]
         return examples
 
-    def build_artifacts(self, cache):
+    def build_artifacts(self):
         for example in self._examples:
-            print(f"Building {example}...", file=sys.stderr)
+            print(f"Building `{example}` ...", file=sys.stderr)
             self._build_artifact(example)
 
-    def sizes(self, cache):
-        self.build_artifacts(cache)
+    def sizes(self):
+        self.build_artifacts()
 
         artifact_paths = glob.glob(self._examples_dir + "/*/res/*.wasm")
         return {
