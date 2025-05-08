@@ -76,7 +76,8 @@ class ProjectInstance:
     def sizes(self):
         self.build_artifacts()
 
-        print("finding result wasms in {self._examples_dir}", file=sys.stderr)
+        # (not a meaningful comment to trigger stuck ci)
+        print(f"finding result wasms in {self._examples_dir}", file=sys.stderr)
 
         artifact_paths1 = glob.glob(self._examples_dir + "/*/target/near/*.wasm")
         artifact_paths2 = glob.glob(self._examples_dir + "/*/target/near/*/*.wasm")
