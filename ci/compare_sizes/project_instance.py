@@ -1,11 +1,8 @@
-import docker
 import os
 import glob
 import subprocess
 import tempfile
-import shutil
 import sys
-import platform
 from contextlib import contextmanager
 from git import Repo
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 # Requires:
-# `pip install GitPython docker appdirs`
+# `pip install GitPython appdirs`
 import argparse
 import os
-import sys
 from cache import Cache
 from appdirs import AppDirs
 
