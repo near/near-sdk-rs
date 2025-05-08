@@ -1,3 +1,6 @@
+*WARNING*: this directory is not actively used (not maintained to be up-to-date).
+It's not deleted, as it contains non-trivial info, which may be useful with small adjustments in other usecases.
+
 This directory contains tools for the contract size minification.
 Requirements:
      * cargo install wasm-snip wasm-gc
