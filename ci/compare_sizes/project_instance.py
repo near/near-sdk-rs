@@ -43,9 +43,7 @@ class ProjectInstance:
 
     @property
     def _examples(self):
-        # build "status-message" first, as it's a dependency of some other examples
         examples = [
-            os.path.join(self._examples_dir, "status-message"),
             os.path.join(self._examples_dir, "adder"),
             os.path.join(self._examples_dir, "callback-results"),
             os.path.join(self._examples_dir, "cross-contract-calls", "high-level"),
@@ -60,6 +58,7 @@ class ProjectInstance:
             os.path.join(self._examples_dir, "non-fungible-token", "nft"),
             os.path.join(self._examples_dir, "non-fungible-token", "test-approval-receiver"),
             os.path.join(self._examples_dir, "non-fungible-token", "test-token-receiver"),
+            os.path.join(self._examples_dir, "status-message"),
             os.path.join(self._examples_dir, "test-contract"),
             os.path.join(self._examples_dir, "versioned"),
         ]
@@ -67,13 +66,22 @@ class ProjectInstance:
 
     def build_artifacts(self):
         for example in self._examples:
+            print("###############################", file=sys.stderr)
             print(f"Building `{example}` ...", file=sys.stderr)
             self._build_artifact(example)
+            print(f"Finished Building `{example}` ...", file=sys.stderr)
+            print("###############################", file=sys.stderr)
 
     def sizes(self):
         self.build_artifacts()
 
-        artifact_paths = glob.glob(self._examples_dir + "/*/res/*.wasm")
+        print("finding result wasms in {self._examples_dir}", file=sys.stderr)
+
+        artifact_paths1 = glob.glob(self._examples_dir + "/*/target/near/*.wasm")
+        artifact_paths2 = glob.glob(self._examples_dir + "/*/target/near/*/*.wasm")
+
+        artifact_paths = artifact_paths1 + artifact_paths2
+
         return {
             os.path.basename(path): os.stat(path).st_size for path in artifact_paths
         }
