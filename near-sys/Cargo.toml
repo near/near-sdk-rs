@@ -2,11 +2,11 @@
 name = "near-sys"
 version = "0.2.3"
 authors = ["Near Inc <hello@near.org>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-categories = ["wasm"]
-repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://near-sdk.io"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = """
 Syscall definitions for builtin functions of the NEAR runtime.
 """

@@ -5,6 +5,11 @@ exclude = ["examples/"]
 
 [workspace.package]
 version = "5.13.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+categories = ["wasm"]
+repository = "https://github.com/near/near-sdk-rs"
+homepage = "https://docs.near.org/"
 
 # Special triple # comment for ci.
 [patch.crates-io]
