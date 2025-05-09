@@ -42,11 +42,11 @@ schemars = { version = "0.8.8", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.29", optional = true }
-near-primitives-core = { version = "0.29", optional = true }
-near-primitives = { version = "0.29", optional = true }
-near-crypto = { version = "0.29", default-features = false, optional = true }
-near-parameters = { version = "0.29", optional = true }
+near-vm-runner = { version = "0.30", optional = true }
+near-primitives-core = { version = "0.30", optional = true }
+near-primitives = { version = "0.30", optional = true }
+near-crypto = { version = "0.30", default-features = false, optional = true }
+near-parameters = { version = "0.30", optional = true }
 
 [dev-dependencies]
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
