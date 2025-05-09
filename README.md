@@ -12,7 +12,7 @@
 
   <p>
     <a href="https://docs.rs/near-sdk"><img src="https://docs.rs/near-sdk/badge.svg?style=flat-square" alt="Reference Documentation" /></a>
-    <a href="https://blog.rust-lang.org/2024/10/17/Rust-1.82.0.html"><img src="https://img.shields.io/badge/rustc-1.82+-lightgray.svg?style=flat-square" alt="MSRV" /></a>
+    <a href="https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/"><img src="https://img.shields.io/badge/rustc-1.85+-lightgray.svg?style=flat-square" alt="MSRV" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/v/near-sdk.svg?style=flat-square" alt="Crates.io version" /></a>
     <a href="https://crates.io/crates/near-sdk"><img src="https://img.shields.io/crates/d/near-sdk.svg?style=flat-square" alt="Download" /></a>
     <a href="http://near.chat"><img src="https://img.shields.io/discord/490367152054992913?style=flat-square&label=discord&color=lightgreen" alt="Join the community on Discord" /></a>
@@ -322,7 +322,7 @@ State breaking changes (low-level serialization format of any data type) will be
 
 ### MSRV
 
-The minimum supported Rust version is currently `1.82`. There are no guarantees that this will be upheld if a security patch release needs to come in that requires a Rust toolchain increase.
+The minimum supported Rust version is currently `1.85`. There are no guarantees that this will be upheld if a security patch release needs to come in that requires a Rust toolchain increase.
 
 ## Contributing
 

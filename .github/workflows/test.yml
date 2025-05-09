@@ -15,11 +15,11 @@ jobs:
       matrix:
         platform:
           - os: ubuntu-latest
-            rs: 1.82.0
+            rs: 1.85.0
           - os: ubuntu-latest
             rs: stable
           - os: macos-latest
-            rs: 1.82.0
+            rs: 1.85.0
           - os: macos-latest
             rs: stable
         features: ['', '--features unstable,legacy,__abi-generate']

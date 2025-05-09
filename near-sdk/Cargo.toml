@@ -2,12 +2,12 @@
 name = "near-sdk"
 version.workspace = true
 authors = ["Near Inc <max@nearprotocol.com>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
+edition.workspace = true
+license.workspace = true
 readme = "README.md"
-categories = ["wasm"]
-repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://near-sdk.io"
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = """
 Rust library for writing NEAR smart contracts.
 """
