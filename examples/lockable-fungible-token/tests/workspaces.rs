@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use near_sdk::json_types::U128;
+use near_workspaces::cargo_near_build;
 use near_workspaces::{types::NearToken, Account, Contract};
 use rstest::{fixture, rstest};
-use near_workspaces::cargo_near_build;
 
 #[fixture]
 fn initial_balance() -> U128 {
@@ -11,7 +11,7 @@ fn initial_balance() -> U128 {
 }
 
 fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
-    let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
+    let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
         manifest_path: Some(
             cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
@@ -19,8 +19,8 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
     })
     .expect(&format!("building `{}` contract for tests", contract_name));
 
-    let contract_wasm = std::fs::read(&artifact.path)
-        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact.path, err))
+    let contract_wasm = std::fs::read(&artifact)
+        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact, err))
         .expect("std::fs::read");
     contract_wasm
 }
@@ -72,25 +72,14 @@ async fn test_owner_initial_state(
     let res = contract.call("get_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?, initial_balance);
 
-    let res = contract
-        .call("get_total_balance")
-        .args_json((contract.id(),))
-        .view()
-        .await?;
+    let res = contract.call("get_total_balance").args_json((contract.id(),)).view().await?;
     assert_eq!(res.json::<U128>()?, initial_balance);
 
-    let res = contract
-        .call("get_unlocked_balance")
-        .args_json((contract.id(),))
-        .view()
-        .await?;
+    let res = contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
     assert_eq!(res.json::<U128>()?, initial_balance);
 
-    let res = contract
-        .call("get_allowance")
-        .args_json((contract.id(), contract.id()))
-        .view()
-        .await?;
+    let res =
+        contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
     assert_eq!(res.json::<U128>()?, U128::from(0));
 
     let res = contract
@@ -169,26 +158,15 @@ async fn test_lock_owner(
 
     let (contract, _) = initialized_contract.await?;
 
-    let res = contract
-        .call("lock")
-        .args_json((contract.id(), lock_amount))
-        .max_gas()
-        .transact()
-        .await?;
+    let res =
+        contract.call("lock").args_json((contract.id(), lock_amount)).max_gas().transact().await?;
     assert!(res.is_success());
 
-    let res = contract
-        .call("get_unlocked_balance")
-        .args_json((contract.id(),))
-        .view()
-        .await?;
+    let res = contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
     assert_eq!(res.json::<U128>()?.0, initial_balance.0 - lock_amount.0);
 
-    let res = contract
-        .call("get_allowance")
-        .args_json((contract.id(), contract.id()))
-        .view()
-        .await?;
+    let res =
+        contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
     assert_eq!(res.json::<U128>()?, U128::from(0));
 
     let res = contract
@@ -208,20 +186,12 @@ async fn test_fail_lock(
 ) -> anyhow::Result<()> {
     let (contract, alice) = initialized_contract.await?;
 
-    let res = contract
-        .call("lock")
-        .args_json((contract.id(), "0"))
-        .max_gas()
-        .transact()
-        .await;
+    let res = contract.call("lock").args_json((contract.id(), "0")).max_gas().transact().await;
     assert!(format!("{:?}", res).contains("Can't lock 0 tokens"));
 
     let res = contract
         .call("lock")
-        .args_json((
-            contract.id(),
-            U128::from(NearToken::from_near(10001).as_yoctonear()),
-        ))
+        .args_json((contract.id(), U128::from(NearToken::from_near(10001).as_yoctonear())))
         .max_gas()
         .transact()
         .await;
@@ -229,10 +199,7 @@ async fn test_fail_lock(
 
     let res = alice
         .call(contract.id(), "lock")
-        .args_json((
-            contract.id(),
-            U128::from(NearToken::from_near(10).as_yoctonear()),
-        ))
+        .args_json((contract.id(), U128::from(NearToken::from_near(10).as_yoctonear())))
         .max_gas()
         .transact()
         .await;
@@ -251,12 +218,8 @@ async fn test_unlock_owner(
 
     let (contract, _) = initialized_contract.await?;
 
-    let res = contract
-        .call("lock")
-        .args_json((contract.id(), lock_amount))
-        .max_gas()
-        .transact()
-        .await?;
+    let res =
+        contract.call("lock").args_json((contract.id(), lock_amount)).max_gas().transact().await?;
     assert!(res.is_success());
 
     let res = contract
@@ -267,18 +230,11 @@ async fn test_unlock_owner(
         .await?;
     assert!(res.is_success());
 
-    let res = contract
-        .call("get_unlocked_balance")
-        .args_json((contract.id(),))
-        .view()
-        .await?;
+    let res = contract.call("get_unlocked_balance").args_json((contract.id(),)).view().await?;
     assert_eq!(res.json::<U128>()?.0, initial_balance.0);
 
-    let res = contract
-        .call("get_allowance")
-        .args_json((contract.id(), contract.id()))
-        .view()
-        .await?;
+    let res =
+        contract.call("get_allowance").args_json((contract.id(), contract.id())).view().await?;
     assert_eq!(res.json::<U128>()?, U128::from(0));
 
     let res = contract
@@ -298,20 +254,12 @@ async fn test_fail_unlock(
 ) -> anyhow::Result<()> {
     let (contract, _) = initialized_contract.await?;
 
-    let res = contract
-        .call("unlock")
-        .args_json((contract.id(), "0"))
-        .max_gas()
-        .transact()
-        .await;
+    let res = contract.call("unlock").args_json((contract.id(), "0")).max_gas().transact().await;
     assert!(format!("{:?}", res).contains("Can't unlock 0 tokens"));
 
     let res = contract
         .call("unlock")
-        .args_json((
-            contract.id(),
-            U128::from(NearToken::from_near(1).as_yoctonear()),
-        ))
+        .args_json((contract.id(), U128::from(NearToken::from_near(1).as_yoctonear())))
         .max_gas()
         .transact()
         .await;
@@ -363,20 +311,12 @@ async fn test_fail_transfer(
 ) -> anyhow::Result<()> {
     let (contract, alice) = initialized_contract.await?;
 
-    let res = contract
-        .call("transfer")
-        .args_json((alice.id(), "0"))
-        .max_gas()
-        .transact()
-        .await;
+    let res = contract.call("transfer").args_json((alice.id(), "0")).max_gas().transact().await;
     assert!(format!("{:?}", res).contains("Can't transfer 0 tokens"));
 
     let res = contract
         .call("transfer")
-        .args_json((
-            alice.id(),
-            U128::from(NearToken::from_near(10001).as_yoctonear()),
-        ))
+        .args_json((alice.id(), U128::from(NearToken::from_near(10001).as_yoctonear())))
         .max_gas()
         .transact()
         .await;

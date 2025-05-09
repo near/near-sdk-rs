@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [5.13.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.12.0...near-sdk-v5.13.0) - 2025-05-05
+
+### Added
+
+- Added BLS12-381 curve operations support in near-sys and exposed in near_sdk::env ([#1346](https://github.com/near/near-sdk-rs/pull/1346))
+
+### Fixed
+
+- BLS12-381 pairing check return value comparison ([#1352](https://github.com/near/near-sdk-rs/pull/1352))
+- Fixed the tokenization of of ContractMetadata, where it can lead to invalid meta if `link` and `version` is not provided ([#1349](https://github.com/near/near-sdk-rs/pull/1349))
+
+### Other
+
+- update `near-workspaces`, `cargo-near-build`in examples and core tests  to avoid `wasm-opt` compile ([#1350](https://github.com/near/near-sdk-rs/pull/1350))
+
 ## [5.12.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.11.0...near-sdk-v5.12.0) - 2025-04-10
 
 ### Added

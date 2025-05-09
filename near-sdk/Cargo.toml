@@ -21,8 +21,8 @@ required-features = ["abi", "unstable"]
 # Provide near_bidgen macros.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.12.0" }
-near-sys = { path = "../near-sys", version = "0.2.2" }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.13.0" }
+near-sys = { path = "../near-sys", version = "0.2.3" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
 bs58 = "0.5"
@@ -63,7 +63,7 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.18", features = ["unstable"] }
+near-workspaces = { version = "0.19", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"

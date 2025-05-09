@@ -72,6 +72,7 @@ pub struct ContractSourceMetadata {
     /// # ;
     /// ```
     // it's a guess it was added as 1.1.0 of nep330, [nep330 1.1.0 standard recording](https://www.youtube.com/watch?v=pBLN9UyE6AA) actually discusses nep351
+    #[serde(default)]
     pub standards: Vec<Standard>,
     /// Optional details that are required for formal contract WASM build reproducibility verification
     ///
