@@ -9,7 +9,7 @@
     Previously known as <code>near-bindgen</code>.
   </p>
   <p>
-      Maximum supported Rust version is **1.86.0**
+      Maximum supported Rust version is <strong>1.86.0</strong>
   </p>
 
 
