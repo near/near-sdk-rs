@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.3...near-sys-v0.2.4) - 2025-05-14
+
+### Other
+
+- updates near-* dependencies to 0.30 release ([#1356](https://github.com/near/near-sdk-rs/pull/1356))
+
 ## [0.2.3](https://github.com/near/near-sdk-rs/compare/near-sys-v0.2.2...near-sys-v0.2.3) - 2025-05-05
 
 ### Added
