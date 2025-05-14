@@ -14,13 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
-        example: [
-          lockable-fungible-token,
-          status-message,
-          mission-control,
-          test-contract,
-        ]
+        toolchain: [1.86]
+        example:
+          [
+            lockable-fungible-token,
+            status-message,
+            mission-control,
+            test-contract,
+          ]
     steps:
       - uses: actions/checkout@v4
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"

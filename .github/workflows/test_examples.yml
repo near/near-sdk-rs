@@ -14,17 +14,18 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
-        example: [
-          adder,
-          callback-results,
-          cross-contract-calls,
-          fungible-token,
-          non-fungible-token,
-          versioned,
-          factory-contract,
-          mpc-contract
-        ]
+        toolchain: [1.86]
+        example:
+          [
+            adder,
+            callback-results,
+            cross-contract-calls,
+            fungible-token,
+            non-fungible-token,
+            versioned,
+            factory-contract,
+            mpc-contract,
+          ]
     steps:
       - uses: actions/checkout@v4
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"

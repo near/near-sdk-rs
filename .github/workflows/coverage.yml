@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         platform: [macos-latest]
-        toolchain: [stable]
+        toolchain: [1.86]
     steps:
       - uses: actions/checkout@v4
       - name: Install Homebrew
