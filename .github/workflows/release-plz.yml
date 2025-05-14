@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.86
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@v0.5
         env:

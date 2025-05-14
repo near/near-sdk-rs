@@ -17,12 +17,12 @@ jobs:
           - os: ubuntu-latest
             rs: 1.85.0
           - os: ubuntu-latest
-            rs: stable
+            rs: 1.86.0
           - os: macos-latest
             rs: 1.85.0
           - os: macos-latest
-            rs: stable
-        features: ['', '--features unstable,legacy,__abi-generate']
+            rs: 1.86.0
+        features: ["", "--features unstable,legacy,__abi-generate"]
     steps:
       - uses: actions/checkout@v4
       - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
@@ -35,10 +35,10 @@ jobs:
       - name: Install cargo-near CLI (dependency for build with near-workspaces)
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
       - uses: Swatinem/rust-cache@v2
-#      - name: Downgrade dependencies
-#        run: |
-#          cargo update -p clap@4.5.4 --precise 4.4.18
-#          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
+      #      - name: Downgrade dependencies
+      #        run: |
+      #          cargo update -p clap@4.5.4 --precise 4.4.18
+      #          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
       - name: print rustc && rustdoc version
         run: rustc --version && rustdoc --version
       - name: test
@@ -48,11 +48,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install stable toolchain
+      - name: Install 1.86 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
@@ -64,11 +64,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install stable toolchain
+      - name: Install 1.86 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
       - uses: Swatinem/rust-cache@v2
       - name: Compilation tests
@@ -82,7 +82,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
       - uses: Swatinem/rust-cache@v2
       - run: cargo check -p near-sdk --features unstable,legacy
@@ -100,7 +100,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
       - uses: Swatinem/rust-cache@v2
       - name: Install Audit
@@ -114,18 +114,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        default: true
-    - name: run cargo doc
-      env:
-        RUSTDOCFLAGS: -D warnings
-      run: |
-        cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate
-        cargo doc -p near-sdk-macros --features __abi-generate
-        cargo doc -p near-contract-standards --no-deps --features abi
-        cargo doc -p near-sys
+      - uses: actions/checkout@v4
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          default: true
+      - name: run cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate
+          cargo doc -p near-sdk-macros --features __abi-generate
+          cargo doc -p near-contract-standards --no-deps --features abi
+          cargo doc -p near-sys
