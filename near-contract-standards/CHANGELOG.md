@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [5.13.1](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.13.0...near-contract-standards-v5.13.1) - 2025-05-14
+## [5.14.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.13.0...near-contract-standards-v5.14.0) - 2025-05-14
 
 ### Other
 
