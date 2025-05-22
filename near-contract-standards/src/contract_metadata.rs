@@ -68,10 +68,11 @@ pub struct ContractSourceMetadata {
     /// ```rust,no_run
     /// # use near_contract_standards::contract_metadata::Standard;
     /// # let link: Vec<Standard> =
-    /// vec![Standard { standard: "nep330".into(), version: "1.2.0".into() }]
+    /// vec![Standard { standard: "nep330".into(), version: "1.3.0".into() }]
     /// # ;
     /// ```
     // it's a guess it was added as 1.1.0 of nep330, [nep330 1.1.0 standard recording](https://www.youtube.com/watch?v=pBLN9UyE6AA) actually discusses nep351
+    #[serde(default)]
     pub standards: Vec<Standard>,
     /// Optional details that are required for formal contract WASM build reproducibility verification
     ///
@@ -111,7 +112,7 @@ mod build_info {
     use near_sdk::serde::{Deserialize, Serialize};
 
     /// Defines all required details for formal WASM build reproducibility verification
-    /// according to [**NEP-330 standard 1.2.0 revision**](https://github.com/near/NEPs/blob/master/neps/nep-0330.md)
+    /// according to [**NEP-330 standard 1.3.0 revision**](https://github.com/near/NEPs/blob/master/neps/nep-0330.md)
     #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
     #[serde(crate = "near_sdk::serde")]
     pub struct BuildInfo {
@@ -167,5 +168,19 @@ mod build_info {
         /// # ;
         /// ```
         pub source_code_snapshot: String,
+        /// A path within the build environment, where the result WASM binary has been put
+        /// during build.
+        /// This should be a subpath of `/home/near/code`
+        ///
+        /// This field is an addition of **1.3.0** **NEP-330** revision
+        ///
+        /// ## Examples:
+        ///
+        /// ```rust,no_run
+        /// # let output_wasm_path: Option<String> =
+        /// Some("/home/near/code/target/near/simple_package.wasm".into())
+        /// # ;
+        /// ```
+        pub output_wasm_path: Option<String>,
     }
 }

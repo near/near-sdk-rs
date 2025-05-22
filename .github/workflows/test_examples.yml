@@ -14,17 +14,18 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
-        example: [
-          adder,
-          callback-results,
-          cross-contract-calls,
-          fungible-token,
-          non-fungible-token,
-          versioned,
-          factory-contract,
-          mpc-contract
-        ]
+        toolchain: [1.86]
+        example:
+          [
+            adder,
+            callback-results,
+            cross-contract-calls,
+            fungible-token,
+            non-fungible-token,
+            versioned,
+            factory-contract,
+            mpc-contract,
+          ]
     steps:
       - uses: actions/checkout@v4
       - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
@@ -33,8 +34,12 @@ jobs:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
+      - name: Install cargo-near CLI (dependency for build with near-workspaces)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./examples/${{ matrix.example }} -> target"
       - name: Test
+        env:
+          NEAR_RPC_TIMEOUT_SECS: 100
         run: cargo +${{ matrix.toolchain }} test --manifest-path="./examples/${{ matrix.example }}/Cargo.toml" --workspace

@@ -1,14 +1,13 @@
 use std::str::FromStr;
 
 use near_sdk::json_types::U128;
+use near_workspaces::cargo_near_build;
 use near_workspaces::operations::Function;
 use near_workspaces::result::ValueOrReceiptId;
 use near_workspaces::{types::NearToken, Account, AccountId, Contract};
 use rstest::{fixture, rstest};
-use near_workspaces::cargo_near_build;
 
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
-
 
 async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::Result<()> {
     let res = contract
@@ -24,7 +23,7 @@ async fn register_user(contract: &Contract, account_id: &AccountId) -> anyhow::R
 }
 
 fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
-    let artifact = cargo_near_build::build(cargo_near_build::BuildOpts {
+    let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
         manifest_path: Some(
             cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
         ),
@@ -32,8 +31,8 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
     })
     .expect(&format!("building `{}` contract for tests", contract_name));
 
-    let contract_wasm = std::fs::read(&artifact.path)
-        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact.path, err))
+    let contract_wasm = std::fs::read(&artifact)
+        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact, err))
         .expect("std::fs::read");
     contract_wasm
 }
@@ -43,7 +42,6 @@ fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
 fn fungible_contract_wasm() -> Vec<u8> {
     build_contract("./ft/Cargo.toml", "fungible-token")
 }
-
 
 #[fixture]
 #[once]
@@ -76,12 +74,7 @@ async fn initialized_contracts(
 
     let defi_contract = worker.dev_deploy(defi_contract_wasm).await?;
 
-    let res = defi_contract
-        .call("new")
-        .args_json((ft_contract.id(),))
-        .max_gas()
-        .transact()
-        .await?;
+    let res = defi_contract.call("new").args_json((ft_contract.id(),)).max_gas().transact().await?;
     assert!(res.is_success());
 
     let alice = ft_contract
@@ -111,8 +104,7 @@ async fn test_total_supply(
     initial_balance: U128,
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, _, _) =
-        initialized_contracts.await?;
+    let (contract, _, _) = initialized_contracts.await?;
 
     let res = contract.call("ft_total_supply").view().await?;
     assert_eq!(res.json::<U128>()?, initial_balance);
@@ -125,8 +117,7 @@ async fn test_total_supply(
 async fn test_storage_deposit_not_enough_deposit(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, _, _) =
-        initialized_contracts.await?;
+    let (contract, _, _) = initialized_contracts.await?;
 
     let new_account = contract
         .as_account()
@@ -155,11 +146,8 @@ async fn test_storage_deposit_not_enough_deposit(
     assert!(new_account_balance_diff > NearToken::from_near(0));
     assert!(new_account_balance_diff < NearToken::from_millinear(1));
 
-    let contract_balance_diff = contract
-        .view_account()
-        .await?
-        .balance
-        .saturating_sub(contract_balance_before_deposit);
+    let contract_balance_diff =
+        contract.view_account().await?.balance.saturating_sub(contract_balance_before_deposit);
     // contract receives a gas rewards for the function call, so it should gain some NEAR
     assert!(contract_balance_diff > NearToken::from_near(0));
     assert!(contract_balance_diff < NearToken::from_yoctonear(30_000_000_000_000_000_000));
@@ -172,8 +160,7 @@ async fn test_storage_deposit_not_enough_deposit(
 async fn test_storage_deposit_minimal_deposit(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, _, _) =
-        initialized_contracts.await?;
+    let (contract, _, _) = initialized_contracts.await?;
 
     let new_account = contract
         .as_account()
@@ -204,11 +191,8 @@ async fn test_storage_deposit_minimal_deposit(
         new_account_balance_diff < minimal_deposit.saturating_add(NearToken::from_millinear(1))
     );
 
-    let contract_balance_diff = contract
-        .view_account()
-        .await?
-        .balance
-        .saturating_sub(contract_balance_before_deposit);
+    let contract_balance_diff =
+        contract.view_account().await?.balance.saturating_sub(contract_balance_before_deposit);
     // contract receives a gas rewards for the function call, so the difference should be slightly more than minimal_deposit
     assert!(contract_balance_diff > minimal_deposit);
     // adjust the upper limit of the assertion to be more flexible for small variations in the gas reward received
@@ -225,8 +209,7 @@ async fn test_storage_deposit_minimal_deposit(
 async fn test_storage_deposit_refunds_excessive_deposit(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, _, _) =
-        initialized_contracts.await?;
+    let (contract, _, _) = initialized_contracts.await?;
 
     let minimal_deposit = near_sdk::env::storage_byte_cost().saturating_mul(125);
 
@@ -238,19 +221,10 @@ async fn test_storage_deposit_refunds_excessive_deposit(
         min: U128,
         max: U128,
     }
-    let storage_balance_bounds: StorageBalanceBounds = contract
-        .call("storage_balance_bounds")
-        .view()
-        .await?
-        .json()?;
-    assert_eq!(
-        storage_balance_bounds.min,
-        minimal_deposit.as_yoctonear().into()
-    );
-    assert_eq!(
-        storage_balance_bounds.max,
-        minimal_deposit.as_yoctonear().into()
-    );
+    let storage_balance_bounds: StorageBalanceBounds =
+        contract.call("storage_balance_bounds").view().await?.json()?;
+    assert_eq!(storage_balance_bounds.min, minimal_deposit.as_yoctonear().into());
+    assert_eq!(storage_balance_bounds.max, minimal_deposit.as_yoctonear().into());
 
     // Check that a non-registered account does not have storage balance
     //
@@ -300,10 +274,7 @@ async fn test_storage_deposit_refunds_excessive_deposit(
         .view()
         .await?
         .json()?;
-    assert_eq!(
-        storage_balance_bounds.total,
-        minimal_deposit.as_yoctonear().into()
-    );
+    assert_eq!(storage_balance_bounds.total, minimal_deposit.as_yoctonear().into());
     assert_eq!(storage_balance_bounds.available, 0.into());
 
     let new_account_balance_diff = new_account_balance_before_deposit
@@ -314,11 +285,8 @@ async fn test_storage_deposit_refunds_excessive_deposit(
         new_account_balance_diff < minimal_deposit.saturating_add(NearToken::from_millinear(1))
     );
 
-    let contract_balance_diff = contract
-        .view_account()
-        .await?
-        .balance
-        .saturating_sub(contract_balance_before_deposit);
+    let contract_balance_diff =
+        contract.view_account().await?.balance.saturating_sub(contract_balance_before_deposit);
     // contract receives a gas rewards for the function call, so the difference should be slightly more than minimal_deposit
     assert!(contract_balance_diff > minimal_deposit);
     assert!(
@@ -336,8 +304,7 @@ async fn test_simple_transfer(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
     let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
-    let (contract, alice, _) =
-        initialized_contracts.await?;
+    let (contract, alice, _) = initialized_contracts.await?;
 
     let res = contract
         .call("ft_transfer")
@@ -348,18 +315,10 @@ async fn test_simple_transfer(
         .await?;
     assert!(res.is_success());
 
-    let root_balance = contract
-        .call("ft_balance_of")
-        .args_json((contract.id(),))
-        .view()
-        .await?
-        .json::<U128>()?;
-    let alice_balance = contract
-        .call("ft_balance_of")
-        .args_json((alice.id(),))
-        .view()
-        .await?
-        .json::<U128>()?;
+    let root_balance =
+        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
+    let alice_balance =
+        contract.call("ft_balance_of").args_json((alice.id(),)).view().await?.json::<U128>()?;
     assert_eq!(initial_balance.0 - transfer_amount.0, root_balance.0);
     assert_eq!(transfer_amount.0, alice_balance.0);
 
@@ -371,8 +330,7 @@ async fn test_simple_transfer(
 async fn test_close_account_empty_balance(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, alice, _) =
-        initialized_contracts.await?;
+    let (contract, alice, _) = initialized_contracts.await?;
 
     let res = alice
         .call(contract.id(), "storage_unregister")
@@ -391,8 +349,7 @@ async fn test_close_account_empty_balance(
 async fn test_close_account_non_empty_balance(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, _, _) =
-        initialized_contracts.await?;
+    let (contract, _, _) = initialized_contracts.await?;
 
     let res = contract
         .call("storage_unregister")
@@ -422,8 +379,7 @@ async fn test_close_account_non_empty_balance(
 async fn simulate_close_account_force_non_empty_balance(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
-    let (contract, _, _) =
-        initialized_contracts.await?;
+    let (contract, _, _) = initialized_contracts.await?;
 
     let res = contract
         .call("storage_unregister")
@@ -446,8 +402,7 @@ async fn simulate_transfer_call_with_burned_amount(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
     let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
-    let (contract, _, defi_contract) =
-        initialized_contracts.await?;
+    let (contract, _, defi_contract) = initialized_contracts.await?;
 
     // defi contract must be registered as a FT account
     register_user(&contract, defi_contract.id()).await?;
@@ -457,12 +412,7 @@ async fn simulate_transfer_call_with_burned_amount(
         .batch()
         .call(
             Function::new("ft_transfer_call")
-                .args_json((
-                    defi_contract.id(),
-                    transfer_amount,
-                    Option::<String>::None,
-                    "10",
-                ))
+                .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "10"))
                 .deposit(ONE_YOCTO)
                 .gas(near_sdk::Gas::from_tgas(150)),
         )
@@ -511,8 +461,7 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
     let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
-    let (contract, _, defi_contract) =
-        initialized_contracts.await?;
+    let (contract, _, defi_contract) = initialized_contracts.await?;
 
     // defi contract must be registered as a FT account
     register_user(&contract, defi_contract.id()).await?;
@@ -520,24 +469,15 @@ async fn simulate_transfer_call_with_immediate_return_and_no_refund(
     // root invests in defi by calling `ft_transfer_call`
     let res = contract
         .call("ft_transfer_call")
-        .args_json((
-            defi_contract.id(),
-            transfer_amount,
-            Option::<String>::None,
-            "take-my-money",
-        ))
+        .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "take-my-money"))
         .max_gas()
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_success());
 
-    let root_balance = contract
-        .call("ft_balance_of")
-        .args_json((contract.id(),))
-        .view()
-        .await?
-        .json::<U128>()?;
+    let root_balance =
+        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
@@ -557,18 +497,12 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft(
     #[future] initialized_contracts: anyhow::Result<(Contract, Account, Contract)>,
 ) -> anyhow::Result<()> {
     let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
-    let (contract, _, defi_contract) =
-        initialized_contracts.await?;
+    let (contract, _, defi_contract) = initialized_contracts.await?;
 
     // call fails because DEFI contract is not registered as FT user
     let res = contract
         .call("ft_transfer_call")
-        .args_json((
-            defi_contract.id(),
-            transfer_amount,
-            Option::<String>::None,
-            "take-my-money",
-        ))
+        .args_json((defi_contract.id(), transfer_amount, Option::<String>::None, "take-my-money"))
         .max_gas()
         .deposit(ONE_YOCTO)
         .transact()
@@ -576,12 +510,8 @@ async fn simulate_transfer_call_when_called_contract_not_registered_with_ft(
     assert!(res.is_failure());
 
     // balances remain unchanged
-    let root_balance = contract
-        .call("ft_balance_of")
-        .args_json((contract.id(),))
-        .view()
-        .await?
-        .json::<U128>()?;
+    let root_balance =
+        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
@@ -602,8 +532,7 @@ async fn simulate_transfer_call_with_promise_and_refund(
 ) -> anyhow::Result<()> {
     let refund_amount = U128::from(NearToken::from_near(50).as_yoctonear());
     let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
-    let (contract, _, defi_contract) =
-        initialized_contracts.await?;
+    let (contract, _, defi_contract) = initialized_contracts.await?;
 
     // defi contract must be registered as a FT account
     register_user(&contract, defi_contract.id()).await?;
@@ -622,22 +551,15 @@ async fn simulate_transfer_call_with_promise_and_refund(
         .await?;
     assert!(res.is_success());
 
-    let root_balance = contract
-        .call("ft_balance_of")
-        .args_json((contract.id(),))
-        .view()
-        .await?
-        .json::<U128>()?;
+    let root_balance =
+        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
         .view()
         .await?
         .json::<U128>()?;
-    assert_eq!(
-        initial_balance.0 - transfer_amount.0 + refund_amount.0,
-        root_balance.0
-    );
+    assert_eq!(initial_balance.0 - transfer_amount.0 + refund_amount.0, root_balance.0);
     assert_eq!(transfer_amount.0 - refund_amount.0, defi_balance.0);
 
     Ok(())
@@ -651,8 +573,7 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund(
 ) -> anyhow::Result<()> {
     let transfer_amount = U128::from(NearToken::from_near(100).as_yoctonear());
 
-    let (contract, _, defi_contract) =
-        initialized_contracts.await?;
+    let (contract, _, defi_contract) = initialized_contracts.await?;
 
     // defi contract must be registered as a FT account
     register_user(&contract, defi_contract.id()).await?;
@@ -682,12 +603,8 @@ async fn simulate_transfer_call_promise_panics_for_a_full_refund(
     }
 
     // balances remain unchanged
-    let root_balance = contract
-        .call("ft_balance_of")
-        .args_json((contract.id(),))
-        .view()
-        .await?
-        .json::<U128>()?;
+    let root_balance =
+        contract.call("ft_balance_of").args_json((contract.id(),)).view().await?.json::<U128>()?;
     let defi_balance = contract
         .call("ft_balance_of")
         .args_json((defi_contract.id(),))
