@@ -2,18 +2,18 @@
 name = "near-contract-standards"
 version.workspace = true
 authors = ["Near Inc <hello@near.org>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-categories = ["wasm"]
-repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://near-sdk.io"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
 documentation = "https://docs.rs/near-contract-standards"
 description = """
 NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "~5.12.0", default-features = false, features = [
+near-sdk = { path = "../near-sdk", version = "~5.14.0", default-features = false, features = [
     "legacy",
 ] }
 

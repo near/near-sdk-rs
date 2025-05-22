@@ -8,9 +8,9 @@ The script is mostly triggered in PRs by posting `/compare` in a comment. For de
 
 It's also possible to test it locally like so:
 
-``` sh
+```bash
 # from the root dir
+pip install GitPython
 ci/compare_sizes/compare_sizes.py
 ```
 
-When run like this, the script maintains a build cache in the user app directories appropriate for the host platform.
