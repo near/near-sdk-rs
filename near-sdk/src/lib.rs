@@ -225,6 +225,24 @@ extern crate quickcheck;
 ///     pub name: String,
 /// }
 /// ```
+/// 
+/// ### Pass parameters to `borsh` serializer
+/// 
+/// The `#[near(serializers = [...])]` macro allows you to pass configuration options/paramters to the `borsh` serializer. This is 
+/// useful for customizing how the blockchain state and data structures are serialized and deserialized.
+///
+/// ```rust
+/// use borsh::BorshSerialize;
+/// use near_sdk::near;
+/// 
+/// #[derive(BorshSerialize, BorshDeserialize)]
+/// #[near(seializers = [borsh(use_discriminant = true)])]
+/// pub enum MyEnum {
+///    Variant1,
+///    Variant2,
+/// }
+/// ```
+///  
 ///
 /// ### Make struct/enum serializable with json
 ///
