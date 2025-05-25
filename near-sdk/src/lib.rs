@@ -242,7 +242,27 @@ extern crate quickcheck;
 ///    Variant2,
 /// }
 /// ```
-///  
+/// 
+/// `borsh` macro does not support multiple instances, for example:
+/// 
+/// ```rust
+/// use near_sdk::near;
+/// use borsh::BorshSerialize;
+/// 
+/// #[derive(BorshSerialize)]
+/// #[near(serializers = [borsh(crate = "borsh")])]
+/// #[near(serializers = [borsh(use_discriminant = true)])]
+/// ```
+///
+/// If multiple instances are to be passed, then `borsh` requires all the parameters to be specified at once, like:
+/// 
+/// ```rust
+/// use near_sdk::near;
+/// use borsh::BorshSerialize;
+/// 
+/// #[derive(BorshSerialize)]
+/// #[near(serializers = [borsh(crate = "borsh", use_discriminant = true)])]
+/// ```
 ///
 /// ### Make struct/enum serializable with json
 ///
