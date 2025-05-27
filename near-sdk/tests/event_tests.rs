@@ -80,7 +80,6 @@ fn test_json_emit() {
         assert_eq!(log1.get("data").unwrap(), "string");
     }
     {
-    {
         let log2: serde_json::Value =
             serde_json::from_str(&logs[2].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
         assert_eq!(log2.as_object().unwrap().len(), 3);
