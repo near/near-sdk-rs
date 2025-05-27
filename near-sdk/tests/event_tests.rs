@@ -55,7 +55,7 @@ fn test_json_emit() {
 
     {
         let log0: serde_json::Value =
-            serde_json::from_str(&logs[0].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+            serde_json::from_str(logs[0].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
 
         assert_eq!(log0.as_object().unwrap().len(), 4);
         assert_eq!(log0.get("standard").unwrap(), "test_standard");
@@ -72,7 +72,7 @@ fn test_json_emit() {
     }
     {
         let log1: serde_json::Value =
-            serde_json::from_str(&logs[1].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+            serde_json::from_str(logs[1].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
         assert_eq!(log1.as_object().unwrap().len(), 4);
         assert_eq!(log1.get("standard").unwrap(), "test_standard");
         assert_eq!(log1.get("version").unwrap(), "2.0.0");
@@ -81,7 +81,7 @@ fn test_json_emit() {
     }
     {
         let log2: serde_json::Value =
-            serde_json::from_str(&logs[2].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+            serde_json::from_str(logs[2].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
         assert_eq!(log2.as_object().unwrap().len(), 3);
         assert_eq!(log2.get("standard").unwrap(), "test_standard");
         assert_eq!(log2.get("version").unwrap(), "3.0.0");
@@ -90,7 +90,7 @@ fn test_json_emit() {
     }
     {
         let log3: serde_json::Value =
-            serde_json::from_str(&logs[3].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+            serde_json::from_str(logs[3].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
         assert_eq!(log3.as_object().unwrap().len(), 4);
         assert_eq!(log3.get("standard").unwrap(), "test_standard");
         assert_eq!(log3.get("version").unwrap(), "4.0.0");
@@ -99,7 +99,7 @@ fn test_json_emit() {
     }
     {
         let log4: serde_json::Value =
-            serde_json::from_str(&logs[4].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+            serde_json::from_str(logs[4].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
         assert_eq!(log4.as_object().unwrap().len(), 4);
         assert_eq!(log4.get("standard").unwrap(), "test_standard");
         assert_eq!(log4.get("version").unwrap(), "5.0.0");
@@ -108,7 +108,7 @@ fn test_json_emit() {
     }
     {
         let log5: serde_json::Value =
-            serde_json::from_str(&logs[5].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+            serde_json::from_str(logs[5].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
         assert_eq!(log5.as_object().unwrap().len(), 3);
         assert_eq!(log5.get("standard").unwrap(), "another_standard");
         assert_eq!(log5.get("version").unwrap(), "1.0.0");
