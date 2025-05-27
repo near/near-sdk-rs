@@ -701,7 +701,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
 
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
-                pub fn to_json(&self) -> String {
+                pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
                     use ::std::string::String;
 
                     let (standard, version): (String, String) = match self {
@@ -718,13 +718,15 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                         event_data: &#event_lifetime #name #type_generics
                     }
                     let event = EventBuilder { standard, version, event_data: self };
-                    ::near_sdk::serde_json::to_string(&event)
+                    ::near_sdk::serde_json::to_value(event)
                             .unwrap_or_else(|_| ::near_sdk::env::abort())
                 }
 
                 pub fn emit(&self) {
                     let json = self.to_json();
-                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
+                    let json_str = ::near_sdk::serde_json::to_string(&json)
+                            .unwrap_or_else(|_| ::near_sdk::env::abort());
+                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json_str));
                 }
             }
         })
