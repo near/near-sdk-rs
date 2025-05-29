@@ -108,8 +108,6 @@
 #[cfg(test)]
 extern crate quickcheck;
 
-// NOTE: If you know what you are doing and want to avoid using `cargo-near`, you can set
-// CARGO_BUILD_RUSTFLAGS='--cfg cargo_near_build' for `cargo build` to pass this gate.
 #[cfg(not(any(
     test,
     doctest,
