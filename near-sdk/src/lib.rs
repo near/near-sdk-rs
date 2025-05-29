@@ -108,6 +108,22 @@
 #[cfg(test)]
 extern crate quickcheck;
 
+// NOTE: If you know what you are doing and want to avoid using `cargo-near`, you can set
+// CARGO_BUILD_RUSTFLAGS='--cfg cargo_near_build' for `cargo build` to pass this gate.
+#[cfg(not(any(
+    test,
+    doctest,
+    clippy,
+    target_family = "wasm",
+    feature = "unit-testing",
+    feature = "__abi-generate"
+)))]
+compile_error!(
+    "⚠️  Use `cargo near build` instead of `cargo build` to compile your contract
+
+💡  Install cargo-near from https://github.com/near/cargo-near"
+);
+
 /// This attribute macro is used on a struct/enum and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
