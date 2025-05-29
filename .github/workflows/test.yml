@@ -85,11 +85,11 @@ jobs:
           toolchain: 1.86
           default: true
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check -p near-sdk --features unstable,legacy
-      - run: cargo check -p near-sdk --no-default-features
-      - run: cargo check -p near-sdk --no-default-features --features legacy
-      - run: cargo check -p near-sdk --no-default-features --features unstable
-      - run: cargo check -p near-contract-standards
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --features unstable,legacy
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features legacy
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features unstable
+      - run: cargo check -p near-contract-standards --target wasm32-unknown-unknown
   audit:
     name: Audit
     runs-on: ubuntu-latest
