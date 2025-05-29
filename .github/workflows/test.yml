@@ -84,6 +84,7 @@ jobs:
           profile: minimal
           toolchain: 1.86
           default: true
+          target: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --features unstable,legacy
       - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features
