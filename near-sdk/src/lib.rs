@@ -226,42 +226,36 @@ extern crate quickcheck;
 /// }
 /// ```
 /// 
-/// ### Pass parameters to `borsh` serializer
+/// ### Customize `borsh` serializer
 /// 
-/// The `#[near(serializers = [...])]` macro allows you to pass configuration options/paramters to the `borsh` serializer. This is 
-/// useful for customizing how the blockchain state and data structures are serialized and deserialized.
+/// The `#[near(serializers = [borsh(...)])]` macro allows you to pass [configuration parameters to the `borsh` serializer](https://docs.rs/borsh/latest/borsh/derive.BorshSerialize.html#attributes).
+/// This is useful for customizing borsh serialization parameters since, unlike serde, borsh macros do not support repetitive attributes.
 ///
 /// ```rust
-/// use borsh::BorshSerialize;
 /// use near_sdk::near;
 /// 
-/// #[derive(BorshSerialize, BorshDeserialize)]
-/// #[near(seializers = [borsh(use_discriminant = true)])]
+/// #[near(serializers = [borsh(use_discriminant = true)])]
 /// pub enum MyEnum {
 ///    Variant1,
 ///    Variant2,
 /// }
 /// ```
 /// 
-/// `borsh` macro does not support multiple instances, for example:
+/// ### Customize `json` serializer
 /// 
-/// ```rust
-/// use near_sdk::near;
-/// use borsh::BorshSerialize;
-/// 
-/// #[derive(BorshSerialize)]
-/// #[near(serializers = [borsh(crate = "borsh")])]
-/// #[near(serializers = [borsh(use_discriminant = true)])]
-/// ```
+/// The `#[near(serializers = [json])]` macro does not support passing configuration parameters to the `json` serializer.
+/// Yet, you can just use [`#[serde(...)]` attributes](https://serde.rs/attributes.html) as if `#[derive(Serialize, Deserialize)]` is added to the struct (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
 ///
-/// If multiple instances are to be passed, then `borsh` requires all the parameters to be specified at once, like:
-/// 
 /// ```rust
 /// use near_sdk::near;
-/// use borsh::BorshSerialize;
 /// 
-/// #[derive(BorshSerialize)]
-/// #[near(serializers = [borsh(crate = "borsh", use_discriminant = true)])]
+/// #[near(serializers = [json])]
+/// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// pub enum MyEnum {
+///    Variant1,
+///    #[serde(alias = "VARIANT_2")]
+///    Variant2,
+/// }
 /// ```
 ///
 /// ### Make struct/enum serializable with json
