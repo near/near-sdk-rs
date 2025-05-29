@@ -13,6 +13,7 @@ near-sdk = { path = "../../near-sdk" }
 hex = "0.4"
 
 [dev-dependencies]
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 near-workspaces = { version = "0.20", features = ["unstable"] }
 tokio = { version = "1.14", features = ["full"] }
 mpc-contract = { path = "." }
