@@ -722,6 +722,27 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                             .unwrap_or_else(|_| ::near_sdk::env::abort());
                     ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
                 }
+
+                pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
+                    use ::std::string::String;
+
+                    let (standard, version): (String, String) = match self {
+                        #(#event_meta),*
+                    };
+
+                    #[derive(::near_sdk::serde::Serialize)]
+                    #[serde(crate="::near_sdk::serde")]
+                    #[serde(rename_all="snake_case")]
+                    struct EventBuilder #custom_impl_generics #where_clause {
+                        standard: String,
+                        version: String,
+                        #[serde(flatten)]
+                        event_data: &#event_lifetime #name #type_generics
+                    }
+                    let event = EventBuilder { standard, version, event_data: self };
+                    ::near_sdk::serde_json::to_value(&event)
+                        .unwrap_or_else(|_| ::near_sdk::env::abort())
+                }
             }
         })
     } else {
