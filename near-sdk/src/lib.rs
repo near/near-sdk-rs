@@ -108,6 +108,20 @@
 #[cfg(test)]
 extern crate quickcheck;
 
+#[cfg(not(any(
+    test,
+    doctest,
+    clippy,
+    target_family = "wasm",
+    feature = "unit-testing",
+    feature = "__abi-generate"
+)))]
+compile_error!(
+    "⚠️  Use `cargo near build` instead of `cargo build` to compile your contract
+
+💡  Install cargo-near from https://github.com/near/cargo-near"
+);
+
 /// This attribute macro is used on a struct/enum and its implementations
 /// to generate the necessary code to expose `pub` methods from the contract as well
 /// as generating the glue code to be a valid NEAR contract.
@@ -224,12 +238,26 @@ extern crate quickcheck;
 /// pub struct MyStruct {
 ///     pub name: String,
 /// }
+///
+///
+/// // Since [borsh] is the default value, you can simply skip serializers:
+///
+/// #[near]
+/// pub enum MyEnum2 {
+///     Variant1,
+/// }
+///
+/// #[near]
+/// pub struct MyStruct2 {
+///     pub name: String,
+/// }
 /// ```
 ///
 /// ### Make struct/enum serializable with json
 ///
 /// ```rust
 /// use near_sdk::near;
+///
 /// #[near(serializers=[json])]
 /// pub enum MyEnum {
 ///     Variant1,
@@ -245,6 +273,7 @@ extern crate quickcheck;
 ///
 /// ```rust
 /// use near_sdk::near;
+///
 /// #[near(serializers=[borsh, json])]
 /// pub enum MyEnum {
 ///     Variant1,
@@ -253,6 +282,38 @@ extern crate quickcheck;
 /// #[near(serializers=[borsh, json])]
 /// pub struct MyStruct {
 ///     pub name: String,
+/// }
+/// ```
+///
+/// ### Customize `borsh` serializer
+///
+/// The `#[near(serializers = [borsh(...)])]` macro allows you to pass [configuration parameters to the `borsh` serializer](https://docs.rs/borsh/latest/borsh/derive.BorshSerialize.html#attributes).
+/// This is useful for customizing borsh serialization parameters since, unlike serde, borsh macros do not support repetitive attributes.
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(serializers = [borsh(use_discriminant = true)])]
+/// pub enum MyEnum {
+///     Variant1,
+///     Variant2,
+/// }
+/// ```
+///
+/// ### Customize `json` serializer
+///
+/// The `#[near(serializers = [json])]` macro does not support passing configuration parameters to the `json` serializer.
+/// Yet, you can just use [`#[serde(...)]` attributes](https://serde.rs/attributes.html) as if `#[derive(Serialize, Deserialize)]` is added to the struct (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(serializers = [json])]
+/// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// pub enum MyEnum {
+///     Variant1,
+///     #[serde(alias = "VARIANT_2")]
+///     Variant2,
 /// }
 /// ```
 ///
