@@ -39,7 +39,8 @@ fn test_json_emit() {
     let amount_in: u128 = 100;
     let amount_out: u128 = 200;
 
-    let log0_struct = TestEvents::Swap { token_in, token_out, amount_in, amount_out, test: String::from("tst") };
+    let log0_struct =
+        TestEvents::Swap { token_in, token_out, amount_in, amount_out, test: String::from("tst") };
     let log0_json_expected = log0_struct.to_json();
     log0_struct.emit();
 
@@ -113,7 +114,10 @@ fn test_json_emit() {
 
         let log2: serde_json::Value = serde_json::from_str(log2_str).unwrap();
 
-        assert_eq!(log2_str, r#"{"standard":"test_standard","version":"3.0.0","event":"empty_event"}"#);
+        assert_eq!(
+            log2_str,
+            r#"{"standard":"test_standard","version":"3.0.0","event":"empty_event"}"#
+        );
 
         assert_eq!(log2_json_expected, log2);
 
