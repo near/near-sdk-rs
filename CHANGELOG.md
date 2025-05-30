@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [5.15.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.14.0...near-sdk-v5.15.0) - 2025-05-30
+
+### Added
+
+- Added a new `.to_json()` method for Events in addition to `.emit()` ([#1360](https://github.com/near/near-sdk-rs/pull/1360))
+- Hint developers to use `cargo near build` to build contracts instead of `cargo build` ([#1361](https://github.com/near/near-sdk-rs/pull/1361))
+
+### Other
+
+- Added explanation for borsh(...) parameters in #[near(serializers = [...])] ([#1359](https://github.com/near/near-sdk-rs/pull/1359))
+
 ## [5.14.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.13.0...near-sdk-v5.14.0) - 2025-05-14
 
 ### Other
