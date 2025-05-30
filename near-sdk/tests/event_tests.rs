@@ -38,24 +38,44 @@ fn test_json_emit() {
     let token_out: AccountId = "test.near".parse().unwrap();
     let amount_in: u128 = 100;
     let amount_out: u128 = 200;
-    TestEvents::Swap { token_in, token_out, amount_in, amount_out, test: String::from("tst") }
-        .emit();
 
-    TestEvents::StringEvent::<String>(String::from("string")).emit();
+    let log0_struct = TestEvents::Swap { token_in, token_out, amount_in, amount_out, test: String::from("tst") };
+    let log0_json_expected = log0_struct.to_json();
+    log0_struct.emit();
 
-    TestEvents::EmptyEvent::<String>.emit();
+    let log1_struct = TestEvents::StringEvent::<String>(String::from("string"));
+    let log1_json_expected = log1_struct.to_json();
+    log1_struct.emit();
 
-    TestEvents::LifetimeTestA::<String>("lifetime").emit();
+    let log2_struct = TestEvents::EmptyEvent::<String>;
+    let log2_json_expected = log2_struct.to_json();
+    log2_struct.emit();
 
-    TestEvents::LifetimeTestB::<String>("lifetime_b").emit();
+    let log3_struct = TestEvents::LifetimeTestA::<String>("lifetime");
+    let log3_json_expected = log3_struct.to_json();
+    log3_struct.emit();
 
-    private::AnotherEvent::Test.emit();
+    let log4_struct = TestEvents::LifetimeTestB::<String>("lifetime_b");
+    let log4_json_expected = log4_struct.to_json();
+    log4_struct.emit();
+
+    let log5_struct = private::AnotherEvent::Test;
+    let log5_json_expected = log5_struct.to_json();
+    log5_struct.emit();
 
     let logs = get_logs();
 
     {
-        let log0: serde_json::Value =
-            serde_json::from_str(logs[0].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        let log0_str = logs[0].strip_prefix("EVENT_JSON:").unwrap();
+
+        let log0: serde_json::Value = serde_json::from_str(log0_str).unwrap();
+
+        assert_eq!(
+            log0_str,
+            r#"{"standard":"test_standard","version":"1.0.0","event":"swap","data":{"token_in":"wrap.near","token_out":"test.near","amount_in":100,"amount_out":200,"test":"tst"}}"#
+        );
+
+        assert_eq!(log0_json_expected, log0);
 
         assert_eq!(log0.as_object().unwrap().len(), 4);
         assert_eq!(log0.get("standard").unwrap(), "test_standard");
@@ -71,8 +91,17 @@ fn test_json_emit() {
         assert_eq!(data0.get("test").unwrap(), "tst");
     }
     {
-        let log1: serde_json::Value =
-            serde_json::from_str(logs[1].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        let log1_str = logs[1].strip_prefix("EVENT_JSON:").unwrap();
+
+        let log1: serde_json::Value = serde_json::from_str(log1_str).unwrap();
+
+        assert_eq!(
+            log1_str,
+            r#"{"standard":"test_standard","version":"2.0.0","event":"string_event","data":"string"}"#
+        );
+
+        assert_eq!(log1_json_expected, log1);
+
         assert_eq!(log1.as_object().unwrap().len(), 4);
         assert_eq!(log1.get("standard").unwrap(), "test_standard");
         assert_eq!(log1.get("version").unwrap(), "2.0.0");
@@ -80,8 +109,14 @@ fn test_json_emit() {
         assert_eq!(log1.get("data").unwrap(), "string");
     }
     {
-        let log2: serde_json::Value =
-            serde_json::from_str(logs[2].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        let log2_str = logs[2].strip_prefix("EVENT_JSON:").unwrap();
+
+        let log2: serde_json::Value = serde_json::from_str(log2_str).unwrap();
+
+        assert_eq!(log2_str, r#"{"standard":"test_standard","version":"3.0.0","event":"empty_event"}"#);
+
+        assert_eq!(log2_json_expected, log2);
+
         assert_eq!(log2.as_object().unwrap().len(), 3);
         assert_eq!(log2.get("standard").unwrap(), "test_standard");
         assert_eq!(log2.get("version").unwrap(), "3.0.0");
@@ -89,8 +124,17 @@ fn test_json_emit() {
         assert!(log2.get("data").is_none());
     }
     {
-        let log3: serde_json::Value =
-            serde_json::from_str(logs[3].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        let log3_str = logs[3].strip_prefix("EVENT_JSON:").unwrap();
+
+        let log3: serde_json::Value = serde_json::from_str(log3_str).unwrap();
+
+        assert_eq!(
+            log3_str,
+            r#"{"standard":"test_standard","version":"4.0.0","event":"lifetime_test_a","data":"lifetime"}"#
+        );
+
+        assert_eq!(log3_json_expected, log3);
+
         assert_eq!(log3.as_object().unwrap().len(), 4);
         assert_eq!(log3.get("standard").unwrap(), "test_standard");
         assert_eq!(log3.get("version").unwrap(), "4.0.0");
@@ -98,8 +142,17 @@ fn test_json_emit() {
         assert_eq!(log3.get("data").unwrap(), "lifetime");
     }
     {
-        let log4: serde_json::Value =
-            serde_json::from_str(logs[4].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        let log4_str = logs[4].strip_prefix("EVENT_JSON:").unwrap();
+
+        let log4: serde_json::Value = serde_json::from_str(log4_str).unwrap();
+
+        assert_eq!(
+            log4_str,
+            r#"{"standard":"test_standard","version":"5.0.0","event":"lifetime_test_b","data":"lifetime_b"}"#
+        );
+
+        assert_eq!(log4_json_expected, log4);
+
         assert_eq!(log4.as_object().unwrap().len(), 4);
         assert_eq!(log4.get("standard").unwrap(), "test_standard");
         assert_eq!(log4.get("version").unwrap(), "5.0.0");
@@ -107,8 +160,14 @@ fn test_json_emit() {
         assert_eq!(log4.get("data").unwrap(), "lifetime_b");
     }
     {
-        let log5: serde_json::Value =
-            serde_json::from_str(logs[5].strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        let log5_str = logs[5].strip_prefix("EVENT_JSON:").unwrap();
+
+        let log5: serde_json::Value = serde_json::from_str(log5_str).unwrap();
+
+        assert_eq!(log5_str, r#"{"standard":"another_standard","version":"1.0.0","event":"test"}"#);
+
+        assert_eq!(log5_json_expected, log5);
+
         assert_eq!(log5.as_object().unwrap().len(), 3);
         assert_eq!(log5.get("standard").unwrap(), "another_standard");
         assert_eq!(log5.get("version").unwrap(), "1.0.0");

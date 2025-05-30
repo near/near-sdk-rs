@@ -701,8 +701,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
 
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
-                #[inline]
-                fn json_event_format_maker(&self) -> (impl Fn() -> String, impl Fn() -> ::near_sdk::serde_json::Value) {
+                pub fn emit(&self) {
                     use ::std::string::String;
 
                     let (standard, version): (String, String) = match self {
@@ -719,22 +718,30 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                         event_data: &#event_lifetime #name #type_generics
                     }
                     let event = EventBuilder { standard, version, event_data: self };
-                    let json_event_maker = move || ::near_sdk::serde_json::to_value(event)
+                    let json = ::near_sdk::serde_json::to_string(&event)
                             .unwrap_or_else(|_| ::near_sdk::env::abort());
-                    let json_string_event_maker = move || ::near_sdk::serde_json::to_string(event)
-                            .unwrap_or_else(|_| ::near_sdk::env::abort());
-
-                    (json_string_event_maker, json_event_maker)
+                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
                 }
 
                 pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
-                    let (_make_string, make_json) = self.json_event_format_maker();
-                    make_json()
-                }
+                    use ::std::string::String;
 
-                pub fn emit(&self) {
-                    let (make_string, _make_json) = self.json_event_format_maker();
-                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", make_string));
+                    let (standard, version): (String, String) = match self {
+                        #(#event_meta),*
+                    };
+
+                    #[derive(::near_sdk::serde::Serialize)]
+                    #[serde(crate="::near_sdk::serde")]
+                    #[serde(rename_all="snake_case")]
+                    struct EventBuilder #custom_impl_generics #where_clause {
+                        standard: String,
+                        version: String,
+                        #[serde(flatten)]
+                        event_data: &#event_lifetime #name #type_generics
+                    }
+                    let event = EventBuilder { standard, version, event_data: self };
+                    ::near_sdk::serde_json::to_value(&event)
+                        .unwrap_or_else(|_| ::near_sdk::env::abort())
                 }
             }
         })
