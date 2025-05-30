@@ -238,50 +238,26 @@ compile_error!(
 /// pub struct MyStruct {
 ///     pub name: String,
 /// }
-/// ```
-/// 
-/// ### Pass parameters to `borsh` serializer
-/// 
-/// The `#[near(serializers = [...])]` macro allows you to pass configuration options/paramters to the `borsh` serializer. This is 
-/// useful for customizing how the blockchain state and data structures are serialized and deserialized.
 ///
-/// ```rust
-/// use borsh::BorshSerialize;
-/// use near_sdk::near;
-/// 
-/// #[derive(BorshSerialize, BorshDeserialize)]
-/// #[near(seializers = [borsh(use_discriminant = true)])]
-/// pub enum MyEnum {
-///    Variant1,
-///    Variant2,
+///
+/// // Since [borsh] is the default value, you can simply skip serializers:
+///
+/// #[near]
+/// pub enum MyEnum2 {
+///     Variant1,
 /// }
-/// ```
-/// 
-/// `borsh` macro does not support multiple instances, for example:
-/// 
-/// ```rust
-/// use near_sdk::near;
-/// use borsh::BorshSerialize;
-/// 
-/// #[derive(BorshSerialize)]
-/// #[near(serializers = [borsh(crate = "borsh")])]
-/// #[near(serializers = [borsh(use_discriminant = true)])]
-/// ```
 ///
-/// If multiple instances are to be passed, then `borsh` requires all the parameters to be specified at once, like:
-/// 
-/// ```rust
-/// use near_sdk::near;
-/// use borsh::BorshSerialize;
-/// 
-/// #[derive(BorshSerialize)]
-/// #[near(serializers = [borsh(crate = "borsh", use_discriminant = true)])]
+/// #[near]
+/// pub struct MyStruct2 {
+///     pub name: String,
+/// }
 /// ```
 ///
 /// ### Make struct/enum serializable with json
 ///
 /// ```rust
 /// use near_sdk::near;
+///
 /// #[near(serializers=[json])]
 /// pub enum MyEnum {
 ///     Variant1,
@@ -297,6 +273,7 @@ compile_error!(
 ///
 /// ```rust
 /// use near_sdk::near;
+///
 /// #[near(serializers=[borsh, json])]
 /// pub enum MyEnum {
 ///     Variant1,
@@ -305,6 +282,38 @@ compile_error!(
 /// #[near(serializers=[borsh, json])]
 /// pub struct MyStruct {
 ///     pub name: String,
+/// }
+/// ```
+///
+/// ### Customize `borsh` serializer
+///
+/// The `#[near(serializers = [borsh(...)])]` macro allows you to pass [configuration parameters to the `borsh` serializer](https://docs.rs/borsh/latest/borsh/derive.BorshSerialize.html#attributes).
+/// This is useful for customizing borsh serialization parameters since, unlike serde, borsh macros do not support repetitive attributes.
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(serializers = [borsh(use_discriminant = true)])]
+/// pub enum MyEnum {
+///     Variant1,
+///     Variant2,
+/// }
+/// ```
+///
+/// ### Customize `json` serializer
+///
+/// The `#[near(serializers = [json])]` macro does not support passing configuration parameters to the `json` serializer.
+/// Yet, you can just use [`#[serde(...)]` attributes](https://serde.rs/attributes.html) as if `#[derive(Serialize, Deserialize)]` is added to the struct (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
+///
+/// ```rust
+/// use near_sdk::near;
+///
+/// #[near(serializers = [json])]
+/// #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+/// pub enum MyEnum {
+///     Variant1,
+///     #[serde(alias = "VARIANT_2")]
+///     Variant2,
 /// }
 /// ```
 ///
