@@ -719,9 +719,9 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                         event_data: &#event_lifetime #name #type_generics
                     }
                     let event = EventBuilder { standard, version, event_data: self };
-                    let json_event_maker = ::near_sdk::serde_json::to_value(event)
+                    let json_event_maker = move || ::near_sdk::serde_json::to_value(event)
                             .unwrap_or_else(|_| ::near_sdk::env::abort());
-                    let json_string_event_maker = ::near_sdk::serde_json::to_string(event)
+                    let json_string_event_maker = move || ::near_sdk::serde_json::to_string(event)
                             .unwrap_or_else(|_| ::near_sdk::env::abort());
 
                     (json_string_event_maker, json_event_maker)
