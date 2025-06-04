@@ -464,8 +464,8 @@ impl Promise {
     /// p1.then(p2).and(p3).then(p4);
     /// ```
     /// Uses low-level [`crate::env::promise_batch_then`]
-    pub fn then(self, mut other: Promise) -> Promise {
-        match &mut other.subtype {
+    pub fn then(self, other: Promise) -> Promise {
+        match &other.subtype {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
                 if after.is_some() {
@@ -478,6 +478,42 @@ impl Promise {
             PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
         }
         other
+    }
+
+    /// Schedules execution of multiple other promises right after the current
+    /// promise finishes executing.
+    ///
+    /// In the following code, `bob_near` is created first, `carol_near` second,
+    /// and finally `dave_near` and `eva_near` are created in concurrently.
+    /// ```no_run
+    /// # use near_sdk::Promise;
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// p1.then(p2).then_many(&[&p3, &p4]);
+    /// ```
+    pub fn then_many(self, others: &[&Promise]) {
+        for other in others {
+            let self_clone = Promise {
+                subtype: self.subtype.clone(),
+                // Cloning `should_return` is okay, since it cannot be modified
+                // again later. (`self` is consumed)
+                should_return: self.should_return.clone(),
+            };
+            match &other.subtype {
+                PromiseSubtype::Single(x) => {
+                    let mut after = x.after.borrow_mut();
+                    if after.is_some() {
+                        crate::env::panic_str(
+                            "Cannot callback promise which is already scheduled after another",
+                        );
+                    }
+                    *after = Some(self_clone)
+                }
+                PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
+            }
+        }
     }
 
     /// A specialized, relatively low-level API method. Allows to mark the given promise as the one
@@ -859,5 +895,131 @@ mod tests {
             )
         });
         assert!(has_action);
+    }
+
+    #[test]
+    fn test_then() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .then(Promise::new(sub_account_1).create_account());
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+        let sub_creation = &receipts[1];
+
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub_creation.receipt_indices,
+            &[0],
+            "then_many() must create dependency on receipt 0"
+        );
+    }
+
+    #[test]
+    fn test_then_many() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+        let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
+
+        {
+            let p1 = Promise::new(sub_account_1.clone()).create_account();
+            let p2 = Promise::new(sub_account_2.clone()).create_account();
+            Promise::new(alice()).create_account().then_many(&[&p1, &p2]);
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+        // recursive construction switches the order of receipts
+        let sub1_creation = &receipts[2];
+        let sub2_creation = &receipts[1];
+
+        // ensure we are looking at the right receipts
+        assert_eq!(sub1_creation.receiver_id, sub_account_1);
+        assert_eq!(sub2_creation.receiver_id, sub_account_2);
+
+        // Check dependencies were created
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub1_creation.receipt_indices,
+            &[0],
+            "then_many() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub2_creation.receipt_indices,
+            &[0],
+            "then_many() must create dependency on receipt 0"
+        );
+    }
+
+    #[test]
+    fn test_then_many_then_many() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+        let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
+        let sub_account_3: AccountId = "sub3.sub2.alice.near".parse().unwrap();
+        let sub_account_4: AccountId = "sub4.sub2.alice.near".parse().unwrap();
+
+        {
+            let p1 = Promise::new(sub_account_1.clone()).create_account();
+            let p2 = Promise::new(sub_account_2.clone()).create_account();
+            let p3 = Promise::new(sub_account_3.clone()).create_account();
+            let p4 = Promise::new(sub_account_4.clone()).create_account();
+            Promise::new(alice()).create_account().then_many(&[&p1, &p2]);
+            p2.then_many(&[&p3, &p4]);
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+        // recursive construction switches the order of receipts
+        let sub1_creation = &receipts[4];
+        let sub2_creation = &receipts[1];
+        let sub3_creation = &receipts[3];
+        let sub4_creation = &receipts[2];
+
+        // ensure we are looking at the right receipts
+        assert_eq!(sub1_creation.receiver_id, sub_account_1);
+        assert_eq!(sub2_creation.receiver_id, sub_account_2);
+        assert_eq!(sub3_creation.receiver_id, sub_account_3);
+        assert_eq!(sub4_creation.receiver_id, sub_account_4);
+
+        // Find receipt index to depend on
+        let sub2_creation_index = sub2_creation.actions[0].receipt_index().unwrap();
+
+        // Check dependencies were created
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub1_creation.receipt_indices,
+            &[0],
+            "then_many() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub2_creation.receipt_indices,
+            &[0],
+            "then_many() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub3_creation.receipt_indices,
+            &[sub2_creation_index],
+            "then_many() must create dependency on sub2_creation"
+        );
+        assert_eq!(
+            &sub4_creation.receipt_indices,
+            &[sub2_creation_index],
+            "then_many() must create dependency on sub2_creation"
+        );
     }
 }
