@@ -17,7 +17,7 @@ pub extern "C" fn method() {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
                     ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from JSON. Error: `{}`", e),
+                        &format!("Failed to deserialize input from JSON. Error: `{e}`"),
                     )
                 }
             }
