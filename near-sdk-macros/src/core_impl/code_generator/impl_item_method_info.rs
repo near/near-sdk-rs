@@ -121,7 +121,9 @@ impl ImplItemMethodInfo {
                     match ::near_sdk::env::input() {
                         Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
                             Ok(deserialized) => deserialized,
-                            Err(e) => ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"))
+                            Err(e) => {
+                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"))
+                            }
                         },
                         None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
                     };

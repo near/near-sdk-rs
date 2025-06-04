@@ -15,8 +15,10 @@ pub extern "C" fn method() {
         Some(input) => {
             match ::near_sdk::serde_json::from_slice(&input) {
                 Ok(deserialized) => deserialized,
-                Err(_) => {
-                    ::near_sdk::env::panic_str("Failed to deserialize input from JSON.")
+                Err(e) => {
+                    ::near_sdk::env::panic_str(
+                        &format!("Failed to deserialize input from JSON. Error: `{}`", e),
+                    )
                 }
             }
         }
