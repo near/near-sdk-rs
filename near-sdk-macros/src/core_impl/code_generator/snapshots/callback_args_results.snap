@@ -16,11 +16,11 @@ pub extern "C" fn method() {
                 match ::near_sdk::serde_json::from_slice(&data) {
                     Ok(deserialized) => deserialized,
                     Err(e) => {
-                        let mut err = String::from(
-                            "Failed to deserialize callback using JSON. Error: ",
+                        ::near_sdk::env::panic_str(
+                            &format!(
+                                "Failed to deserialize callback using JSON. Error: `{e}`"
+                            ),
                         );
-                        err.push_str(&e.to_string());
-                        ::near_sdk::env::panic_str(&err);
                     }
                 },
             )
@@ -37,11 +37,11 @@ pub extern "C" fn method() {
                 match ::near_sdk::serde_json::from_slice(&data) {
                     Ok(deserialized) => deserialized,
                     Err(e) => {
-                        let mut err = String::from(
-                            "Failed to deserialize callback using JSON. Error: ",
+                        ::near_sdk::env::panic_str(
+                            &format!(
+                                "Failed to deserialize callback using JSON. Error: `{e}`"
+                            ),
                         );
-                        err.push_str(&e.to_string());
-                        ::near_sdk::env::panic_str(&err);
                     }
                 },
             )

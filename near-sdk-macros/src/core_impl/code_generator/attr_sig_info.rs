@@ -331,9 +331,7 @@ fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
             match ::near_sdk::serde_json::from_slice(&data) {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
-                    let mut err = String::from("Failed to deserialize callback using JSON. Error: ");
-                    err.push_str(&e.to_string());
-                    ::near_sdk::env::panic_str(&err);
+                    ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`"));
                 },
             }
         },
@@ -341,9 +339,7 @@ fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
             match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data) {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
-                    let mut err = String::from("Failed to deserialize callback using Borsh. Error: ");
-                    err.push_str(&e.to_string());
-                    ::near_sdk::env::panic_str(&err);
+                    ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`"));
                 }
             }
         },
