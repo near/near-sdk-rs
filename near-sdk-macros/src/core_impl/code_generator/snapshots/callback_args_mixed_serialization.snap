@@ -20,9 +20,11 @@ pub extern "C" fn method() {
             match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
                 Ok(deserialized) => deserialized,
                 Err(e) => {
-                    ::near_sdk::env::panic_str(
-                        &format!("Failed to deserialize input from Borsh. Error: `{e}`"),
-                    )
+                    let mut err = String::from(
+                        "Failed to deserialize input from Borsh. Error: ",
+                    );
+                    err.push_str(&e.to_string());
+                    ::near_sdk::env::panic_str(&err);
                 }
             }
         }

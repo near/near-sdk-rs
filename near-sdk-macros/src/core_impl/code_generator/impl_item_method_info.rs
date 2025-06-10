@@ -122,7 +122,9 @@ impl ImplItemMethodInfo {
                         Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
                             Ok(deserialized) => deserialized,
                             Err(e) => {
-                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"))
+                                let mut err = String::from("Failed to deserialize input from JSON. Error: ");
+                                err.push_str(&e.to_string());
+                                ::near_sdk::env::panic_str(&err);
                             }
                         },
                         None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
@@ -132,7 +134,11 @@ impl ImplItemMethodInfo {
                     match ::near_sdk::env::input() {
                         Some(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
                             Ok(deserialized) => deserialized,
-                            Err(e) => ::near_sdk::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{e}`"))
+                            Err(e) => {
+                                let mut err = String::from("Failed to deserialize input from Borsh. Error: ");
+                                err.push_str(&e.to_string());
+                                ::near_sdk::env::panic_str(&err);
+                            }
                         },
                         None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
                     };
