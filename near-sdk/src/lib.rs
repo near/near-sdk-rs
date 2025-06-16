@@ -117,9 +117,20 @@ extern crate quickcheck;
     feature = "__abi-generate"
 )))]
 compile_error!(
-    "⚠️  Use `cargo near build` instead of `cargo build` to compile your contract
+    "1. 🔨️  Use `cargo near build` instead of `cargo build` to compile your contract
+💡  Install cargo-near from https://github.com/near/cargo-near
 
-💡  Install cargo-near from https://github.com/near/cargo-near"
+2. ✅ Use `cargo check --target wasm32-unknown-unknown` instead of `cargo check` to error-check your contract
+
+3. ⚙️ Only following cfg-s are considered VALID for `near-sdk`:
+  - `#[cfg(target_family = "wasm")]`
+  - `#[cfg(feature = "__abi-generate")`
+  - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
+  - `#[cfg(test)]`
+  - `#[cfg(doctest)]`
+  - `#[cfg(clippy)]`
+⚠ a cfg, which is not one of the above, results in CURRENT compilation error to be emitted.
+"
 );
 
 /// This attribute macro is used on a struct/enum and its implementations
