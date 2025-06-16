@@ -129,7 +129,7 @@ compile_error!(
   - `#[cfg(test)]`
   - `#[cfg(doctest)]`
   - `#[cfg(clippy)]`
-⚠ a cfg, which is not one of the above, results in CURRENT compilation error to be emitted.
+⚠️ a cfg, which is not one of the above, results in CURRENT compilation error to be emitted.
 "
 );
 
