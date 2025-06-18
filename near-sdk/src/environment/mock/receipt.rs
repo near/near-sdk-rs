@@ -213,10 +213,8 @@ mod tests {
     #[cfg(feature = "global-contracts")]
     #[test]
     fn test_global_contract_mock_actions() {
-        let deploy_action = MockAction::DeployGlobalContract {
-            receipt_index: 0,
-            code: vec![1, 2, 3],
-        };
+        let deploy_action =
+            MockAction::DeployGlobalContract { receipt_index: 0, code: vec![1, 2, 3] };
         assert_eq!(deploy_action.receipt_index(), Some(0));
 
         let use_action = MockAction::UseGlobalContract {
@@ -239,7 +237,9 @@ mod tests {
 
         let logic_use = LogicMockAction::UseGlobalContract {
             receipt_index: 1,
-            contract_id: near_vm_runner::logic::types::GlobalContractIdentifier::AccountId("test_contract".parse().unwrap()),
+            contract_id: near_vm_runner::logic::types::GlobalContractIdentifier::AccountId(
+                "test_contract".parse().unwrap(),
+            ),
         };
         let mock_use = MockAction::from(logic_use);
         assert!(matches!(mock_use, MockAction::UseGlobalContract { .. }));
@@ -247,7 +247,9 @@ mod tests {
 
     #[cfg(not(feature = "global-contracts"))]
     #[test]
-    #[should_panic(expected = "Global contract functionality requires the 'global-contracts' feature flag")]
+    #[should_panic(
+        expected = "Global contract functionality requires the 'global-contracts' feature flag"
+    )]
     fn test_deploy_global_contract_panic_without_feature() {
         let logic_action = LogicMockAction::DeployGlobalContract {
             receipt_index: 0,
@@ -259,11 +261,15 @@ mod tests {
 
     #[cfg(not(feature = "global-contracts"))]
     #[test]
-    #[should_panic(expected = "Global contract functionality requires the 'global-contracts' feature flag")]
+    #[should_panic(
+        expected = "Global contract functionality requires the 'global-contracts' feature flag"
+    )]
     fn test_use_global_contract_panic_without_feature() {
         let logic_action = LogicMockAction::UseGlobalContract {
             receipt_index: 1,
-            contract_id: near_vm_runner::logic::types::GlobalContractIdentifier::AccountId("test_contract".parse().unwrap()),
+            contract_id: near_vm_runner::logic::types::GlobalContractIdentifier::AccountId(
+                "test_contract".parse().unwrap(),
+            ),
         };
         let _ = MockAction::from(logic_action);
     }

@@ -998,7 +998,9 @@ mod tests {
         let code = vec![5, 6, 7, 8];
 
         {
-            Promise::new(alice()).create_account().deploy_global_contract_by_account_id(code.clone());
+            Promise::new(alice())
+                .create_account()
+                .deploy_global_contract_by_account_id(code.clone());
         }
 
         let has_action = get_actions().any(|el| {
@@ -1022,9 +1024,7 @@ mod tests {
         }
 
         // Check if any UseGlobalContract action exists
-        let has_action = get_actions().any(|el| {
-            matches!(el, MockAction::UseGlobalContract { .. })
-        });
+        let has_action = get_actions().any(|el| matches!(el, MockAction::UseGlobalContract { .. }));
         assert!(has_action);
     }
 
@@ -1036,13 +1036,15 @@ mod tests {
         let deployer = bob();
 
         {
-            Promise::new(alice()).create_account().use_global_contract_by_account_id(deployer.clone());
+            Promise::new(alice())
+                .create_account()
+                .use_global_contract_by_account_id(deployer.clone());
         }
 
         let has_action = get_actions().any(|el| {
             matches!(
                 el,
-                MockAction::UseGlobalContract { contract_id, receipt_index: _ } 
+                MockAction::UseGlobalContract { contract_id, receipt_index: _ }
                 if contract_id.contains(&deployer.to_string())
             )
         });
