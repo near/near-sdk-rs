@@ -193,6 +193,14 @@ impl From<LogicMockAction> for MockAction {
             LogicMockAction::UseGlobalContract { receipt_index, contract_id, .. } => {
                 Self::UseGlobalContract { receipt_index, contract_id: format!("{:?}", contract_id) }
             }
+            #[cfg(not(feature = "global-contracts"))]
+            LogicMockAction::DeployGlobalContract { .. } => {
+                panic!("Global contract functionality requires the 'global-contracts' feature flag")
+            }
+            #[cfg(not(feature = "global-contracts"))]
+            LogicMockAction::UseGlobalContract { .. } => {
+                panic!("Global contract functionality requires the 'global-contracts' feature flag")
+            }
         }
     }
 }
