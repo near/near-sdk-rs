@@ -343,7 +343,7 @@ impl Promise {
     }
 
     #[cfg(feature = "global-contracts")]
-    /// Deploy a global smart contract by referencing another account's deployed code.
+    /// Deploy a global smart contract, identifiable by the predecessor's account ID.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
     ///
     /// # Examples
@@ -965,6 +965,85 @@ mod tests {
             matches!(
                 el,
                 MockAction::DeleteKey { public_key: p , receipt_index: _, } if p == public_key
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_global_contract() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code = vec![1, 2, 3, 4];
+
+        {
+            Promise::new(alice()).create_account().deploy_global_contract(code.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::DeployGlobalContract { code: c, receipt_index: _ } if c == code
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_global_contract_by_account_id() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code = vec![5, 6, 7, 8];
+
+        {
+            Promise::new(alice()).create_account().deploy_global_contract_by_account_id(code.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::DeployGlobalContract { code: c, receipt_index: _ } if c == code
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_use_global_contract() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code_hash = vec![0u8; 32];
+
+        {
+            Promise::new(alice()).create_account().use_global_contract(code_hash.clone());
+        }
+
+        // Check if any UseGlobalContract action exists
+        let has_action = get_actions().any(|el| {
+            matches!(el, MockAction::UseGlobalContract { .. })
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_use_global_contract_by_account_id() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let deployer = bob();
+
+        {
+            Promise::new(alice()).create_account().use_global_contract_by_account_id(deployer.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::UseGlobalContract { contract_id, receipt_index: _ } 
+                if contract_id.contains(&deployer.to_string())
             )
         });
         assert!(has_action);
