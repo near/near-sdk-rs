@@ -21,12 +21,18 @@ pub trait ExtStatusMessage {
 impl GlobalFactoryContract {
     /// Deploy a global contract with the given bytecode, identifiable by its code hash
     #[payable]
-    pub fn deploy_global_contract(&mut self, name: String, code: Vec<u8>, account_id: AccountId, amount: NearToken) -> Promise {
+    pub fn deploy_global_contract(
+        &mut self,
+        name: String,
+        code: Vec<u8>,
+        account_id: AccountId,
+        amount: NearToken,
+    ) -> Promise {
         // Store the code hash for later reference
         let code_hash = env::sha256(&code);
         self.deployed_global_contracts.insert(name.clone(), code_hash);
         self.global_contract_deployers.insert(name, account_id.clone());
-        
+
         Promise::new(account_id)
             .create_account()
             .transfer(amount)
@@ -36,12 +42,18 @@ impl GlobalFactoryContract {
 
     /// Deploy a global contract, identifiable by the predecessor's account ID
     #[payable]
-    pub fn deploy_global_contract_by_account_id(&mut self, name: String, code: Vec<u8>, account_id: AccountId, amount: NearToken) -> Promise {
+    pub fn deploy_global_contract_by_account_id(
+        &mut self,
+        name: String,
+        code: Vec<u8>,
+        account_id: AccountId,
+        amount: NearToken,
+    ) -> Promise {
         // Store reference to this deployment
         let code_hash = env::sha256(&code);
         self.deployed_global_contracts.insert(name.clone(), code_hash);
         self.global_contract_deployers.insert(name, account_id.clone());
-        
+
         Promise::new(account_id)
             .create_account()
             .transfer(amount)
@@ -50,7 +62,12 @@ impl GlobalFactoryContract {
     }
 
     /// Use an existing global contract by its code hash
-    pub fn use_global_contract_by_hash(&self, code_hash: Vec<u8>, account_id: AccountId, amount: NearToken) -> Promise {
+    pub fn use_global_contract_by_hash(
+        &self,
+        code_hash: Vec<u8>,
+        account_id: AccountId,
+        amount: NearToken,
+    ) -> Promise {
         Promise::new(account_id)
             .create_account()
             .transfer(amount)
@@ -59,7 +76,12 @@ impl GlobalFactoryContract {
     }
 
     /// Use an existing global contract by referencing the account that deployed it
-    pub fn use_global_contract_by_account(&self, deployer_account_id: AccountId, account_id: AccountId, amount: NearToken) -> Promise {
+    pub fn use_global_contract_by_account(
+        &self,
+        deployer_account_id: AccountId,
+        account_id: AccountId,
+        amount: NearToken,
+    ) -> Promise {
         Promise::new(account_id)
             .create_account()
             .transfer(amount)
@@ -82,7 +104,11 @@ impl GlobalFactoryContract {
         self.deployed_global_contracts
             .iter()
             .map(|(name, hash)| {
-                let deployer = self.global_contract_deployers.get(name).cloned().unwrap_or_else(|| "unknown".parse().unwrap());
+                let deployer = self
+                    .global_contract_deployers
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| "unknown".parse().unwrap());
                 (name.clone(), hash.clone(), deployer)
             })
             .collect()
@@ -140,12 +166,17 @@ mod tests {
         let account_id = accounts(2);
         let amount = NearToken::from_near(10);
 
-        contract.deploy_global_contract("test_contract".to_string(), code.clone(), account_id, amount);
+        contract.deploy_global_contract(
+            "test_contract".to_string(),
+            code.clone(),
+            account_id,
+            amount,
+        );
 
         // Check that the contract was recorded
         let stored_hash = contract.get_global_contract_hash("test_contract".to_string());
         assert!(stored_hash.is_some());
-        
+
         let expected_hash = near_sdk::env::sha256(&code);
         assert_eq!(stored_hash.unwrap(), expected_hash);
     }
@@ -160,7 +191,12 @@ mod tests {
         let account_id = accounts(2);
         let amount = NearToken::from_near(10);
 
-        contract.deploy_global_contract("test_contract".to_string(), code.clone(), account_id.clone(), amount);
+        contract.deploy_global_contract(
+            "test_contract".to_string(),
+            code.clone(),
+            account_id.clone(),
+            amount,
+        );
 
         let contracts = contract.list_global_contracts();
         assert_eq!(contracts.len(), 1);
