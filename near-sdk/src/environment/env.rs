@@ -2760,7 +2760,7 @@ mod tests {
     fn test_global_contract_functions() {
         // Test the global contract promise batch action functions
         // These tests verify the functions can be called without panicking
-        
+
         let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
         let code = vec![0u8; 100]; // Mock contract bytecode
         let code_hash = vec![0u8; 32]; // Mock 32-byte hash
@@ -2781,13 +2781,13 @@ mod tests {
 
     #[test]
     fn test_global_contract_edge_cases() {
-        // Test with minimal valid inputs 
+        // Test with minimal valid inputs
         let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
-        
+
         // Test with single byte code (minimal size)
         super::promise_batch_action_deploy_global_contract(promise_index, &[0]);
         super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &[0]);
-        
+
         // Test with 32-byte hash (standard size for CryptoHash)
         let valid_hash = [0u8; 32];
         super::promise_batch_action_use_global_contract(promise_index, &valid_hash);

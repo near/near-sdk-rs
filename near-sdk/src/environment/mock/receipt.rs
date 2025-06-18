@@ -185,10 +185,7 @@ impl From<LogicMockAction> for MockAction {
                 Self::DeployGlobalContract { receipt_index, code }
             }
             LogicMockAction::UseGlobalContract { receipt_index, contract_id, .. } => {
-                Self::UseGlobalContract { 
-                    receipt_index, 
-                    contract_id: format!("{:?}", contract_id) 
-                }
+                Self::UseGlobalContract { receipt_index, contract_id: format!("{:?}", contract_id) }
             }
         }
     }

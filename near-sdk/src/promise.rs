@@ -145,13 +145,19 @@ impl PromiseAction {
                 crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
             }
             DeployGlobalContractByAccountId { code } => {
-                crate::env::promise_batch_action_deploy_global_contract_by_account_id(promise_index, code)
+                crate::env::promise_batch_action_deploy_global_contract_by_account_id(
+                    promise_index,
+                    code,
+                )
             }
             UseGlobalContract { code_hash } => {
                 crate::env::promise_batch_action_use_global_contract(promise_index, code_hash)
             }
             UseGlobalContractByAccountId { account_id } => {
-                crate::env::promise_batch_action_use_global_contract_by_account_id(promise_index, account_id)
+                crate::env::promise_batch_action_use_global_contract_by_account_id(
+                    promise_index,
+                    account_id,
+                )
             }
         }
     }
