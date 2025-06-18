@@ -7,10 +7,10 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk", features = ["legacy", "unstable"] }
+near-sdk = { path = "../../near-sdk", features = ["legacy", "unstable", "global-contracts"] }
 
 [dev-dependencies]
-near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing", "global-contracts"] }
 near-workspaces = { version = "0.20", features = ["unstable"] }
 tokio = { version = "1.12.0", features = ["full"] }
 anyhow = "1.0"

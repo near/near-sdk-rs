@@ -71,15 +71,19 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
+    #[cfg(feature = "global-contracts")]
     DeployGlobalContract {
         code: Vec<u8>,
     },
+    #[cfg(feature = "global-contracts")]
     DeployGlobalContractByAccountId {
         code: Vec<u8>,
     },
+    #[cfg(feature = "global-contracts")]
     UseGlobalContract {
         code_hash: Vec<u8>,
     },
+    #[cfg(feature = "global-contracts")]
     UseGlobalContractByAccountId {
         account_id: AccountId,
     },
@@ -141,18 +145,22 @@ impl PromiseAction {
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
             }
+            #[cfg(feature = "global-contracts")]
             DeployGlobalContract { code } => {
                 crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
             }
+            #[cfg(feature = "global-contracts")]
             DeployGlobalContractByAccountId { code } => {
                 crate::env::promise_batch_action_deploy_global_contract_by_account_id(
                     promise_index,
                     code,
                 )
             }
+            #[cfg(feature = "global-contracts")]
             UseGlobalContract { code_hash } => {
                 crate::env::promise_batch_action_use_global_contract(promise_index, code_hash)
             }
+            #[cfg(feature = "global-contracts")]
             UseGlobalContractByAccountId { account_id } => {
                 crate::env::promise_batch_action_use_global_contract_by_account_id(
                     promise_index,
@@ -316,6 +324,7 @@ impl Promise {
         self.add_action(PromiseAction::DeployContract { code })
     }
 
+    #[cfg(feature = "global-contracts")]
     /// Deploy a global smart contract using the provided contract code.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
     ///
@@ -333,6 +342,7 @@ impl Promise {
         self.add_action(PromiseAction::DeployGlobalContract { code })
     }
 
+    #[cfg(feature = "global-contracts")]
     /// Deploy a global smart contract by referencing another account's deployed code.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
     ///
@@ -350,6 +360,7 @@ impl Promise {
         self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
     }
 
+    #[cfg(feature = "global-contracts")]
     /// Use an existing global contract by code hash.
     /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
     ///
@@ -367,6 +378,7 @@ impl Promise {
         self.add_action(PromiseAction::UseGlobalContract { code_hash })
     }
 
+    #[cfg(feature = "global-contracts")]
     /// Use an existing global contract by referencing the account that deployed it.
     /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
     ///

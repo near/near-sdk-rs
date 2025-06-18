@@ -75,6 +75,7 @@ default = ["wee_alloc"]
 expensive-debug = []
 unstable = []
 legacy = []
+global-contracts = ["near-sys/global-contracts"]
 abi = [
     "borsh/unstable__schema",
     "near-abi",
