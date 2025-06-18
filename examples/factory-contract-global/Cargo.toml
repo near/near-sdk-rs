@@ -1,0 +1,32 @@
+[package]
+name = "factory-contract-global"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { path = "../../near-sdk", features = ["legacy", "unstable"] }
+
+[dev-dependencies]
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-workspaces = { version = "0.20", features = ["unstable"] }
+tokio = { version = "1.12.0", features = ["full"] }
+anyhow = "1.0"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[patch.crates-io]
+# TODO: Remove this when we get a new version of near-workspaces-rs
+near-primitives = { git = "https://github.com/near/nearcore.git", branch = "jsonrpc-v32" }
+near-crypto = { git = "https://github.com/near/nearcore.git", branch = "jsonrpc-v32" }
+near-chain-configs = { git = "https://github.com/near/nearcore.git", branch = "jsonrpc-v32" }
+near-jsonrpc-primitives = { git = "https://github.com/near/nearcore.git", branch = "jsonrpc-v32" }
+near-jsonrpc-client = { git = "https://github.com/near/near-jsonrpc-client-rs.git", branch = "jsonrpc-v32" }

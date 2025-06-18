@@ -42,11 +42,11 @@ schemars = { version = "0.8.8", optional = true }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
-near-vm-runner = { version = "0.30", optional = true }
-near-primitives-core = { version = "0.30", optional = true }
-near-primitives = { version = "0.30", optional = true }
-near-crypto = { version = "0.30", default-features = false, optional = true }
-near-parameters = { version = "0.30", optional = true }
+near-vm-runner = { git = "https://github.com/near/nearcore", branch = "master", optional = true }
+near-primitives-core = { git = "https://github.com/near/nearcore", branch = "master", optional = true }
+near-primitives = { git = "https://github.com/near/nearcore", branch = "master", optional = true }
+near-crypto = { git = "https://github.com/near/nearcore", branch = "master", default-features = false, optional = true }
+near-parameters = { git = "https://github.com/near/nearcore", branch = "master", optional = true }
 
 [dev-dependencies]
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }

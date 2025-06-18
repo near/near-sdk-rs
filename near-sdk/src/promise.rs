@@ -71,6 +71,18 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
+    DeployGlobalContract {
+        code: Vec<u8>,
+    },
+    DeployGlobalContractByAccountId {
+        code: Vec<u8>,
+    },
+    UseGlobalContract {
+        code_hash: Vec<u8>,
+    },
+    UseGlobalContractByAccountId {
+        account_id: AccountId,
+    },
 }
 
 impl PromiseAction {
@@ -128,6 +140,18 @@ impl PromiseAction {
             }
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
+            }
+            DeployGlobalContract { code } => {
+                crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
+            }
+            DeployGlobalContractByAccountId { code } => {
+                crate::env::promise_batch_action_deploy_global_contract_by_account_id(promise_index, code)
+            }
+            UseGlobalContract { code_hash } => {
+                crate::env::promise_batch_action_use_global_contract(promise_index, code_hash)
+            }
+            UseGlobalContractByAccountId { account_id } => {
+                crate::env::promise_batch_action_use_global_contract_by_account_id(promise_index, account_id)
             }
         }
     }
@@ -284,6 +308,73 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
     pub fn deploy_contract(self, code: Vec<u8>) -> Self {
         self.add_action(PromiseAction::DeployContract { code })
+    }
+
+    /// Deploy a global smart contract using the provided contract code.
+    /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code = vec![0u8; 100]; // Contract bytecode
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .deploy_global_contract(code);
+    /// ```
+    pub fn deploy_global_contract(self, code: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContract { code })
+    }
+
+    /// Deploy a global smart contract by referencing another account's deployed code.
+    /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code = vec![0u8; 100]; // Contract bytecode
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .deploy_global_contract_by_account_id(code);
+    /// ```
+    pub fn deploy_global_contract_by_account_id(self, code: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
+    }
+
+    /// Use an existing global contract by code hash.
+    /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code_hash = vec![0u8; 32]; // 32-byte hash
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .use_global_contract(code_hash);
+    /// ```
+    pub fn use_global_contract(self, code_hash: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::UseGlobalContract { code_hash })
+    }
+
+    /// Use an existing global contract by referencing the account that deployed it.
+    /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken, AccountId};
+    ///
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .use_global_contract_by_account_id("deployer.near".parse().unwrap());
+    /// ```
+    pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
+        self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.

@@ -76,6 +76,15 @@ pub enum MockAction {
         data: Vec<u8>,
         data_id: near_primitives::hash::CryptoHash,
     },
+    DeployGlobalContract {
+        receipt_index: ReceiptIndex,
+        code: Vec<u8>,
+    },
+    UseGlobalContract {
+        receipt_index: ReceiptIndex,
+        // Store as String to avoid trait bound issues with GlobalContractIdentifier
+        contract_id: String,
+    },
 }
 
 impl MockAction {
@@ -93,6 +102,8 @@ impl MockAction {
             MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::YieldCreate { .. } => None,
             MockAction::YieldResume { .. } => None,
+            MockAction::DeployGlobalContract { receipt_index, .. } => Some(*receipt_index),
+            MockAction::UseGlobalContract { receipt_index, .. } => Some(*receipt_index),
         }
     }
 }
@@ -170,6 +181,15 @@ impl From<LogicMockAction> for MockAction {
                 Self::YieldCreate { data_id, receiver_id }
             }
             LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
+            LogicMockAction::DeployGlobalContract { receipt_index, code, .. } => {
+                Self::DeployGlobalContract { receipt_index, code }
+            }
+            LogicMockAction::UseGlobalContract { receipt_index, contract_id, .. } => {
+                Self::UseGlobalContract { 
+                    receipt_index, 
+                    contract_id: format!("{:?}", contract_id) 
+                }
+            }
         }
     }
 }
