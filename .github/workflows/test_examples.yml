@@ -24,6 +24,7 @@ jobs:
             non-fungible-token,
             versioned,
             factory-contract,
+            factory-contract-global,
             mpc-contract,
           ]
     steps:
