@@ -1,4 +1,5 @@
 use near_workspaces::types::{AccountId, NearToken};
+use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
 
 /// Test basic global contract deployment functionality
 #[tokio::test]
@@ -20,13 +21,12 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
 
     // Deploy a global contract
     let global_account_id: AccountId = format!("global.{}", factory_contract.id()).parse()?;
-    let deploy_amount = NearToken::from_near(20);
 
     let res = factory_contract
         .call("deploy_global_contract")
-        .args_json(("status_message", status_code.clone(), &global_account_id, deploy_amount))
+        .args_json(("status_message", Base64VecU8::from(status_code.clone()), &global_account_id))
         .max_gas()
-        .deposit(NearToken::from_near(50))
+        .deposit(NearToken::from_near(25))
         .transact()
         .await?;
     println!("Deployed global contract: {:?}", res);
@@ -39,14 +39,14 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
         .args_json(("status_message",))
         .view()
         .await?
-        .json::<Option<Vec<u8>>>()?;
+        .json::<Option<Base58CryptoHash>>()?;
 
     assert!(stored_hash.is_some(), "Global contract hash should be stored");
 
     // Verify we can list the deployed global contracts
     let contracts_list = factory_contract.call("list_global_contracts").view().await?.json::<Vec<(
         String,
-        Vec<u8>,
+        Base58CryptoHash,
         AccountId,
     )>>()?;
 
@@ -73,12 +73,11 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
         .call("deploy_global_contract")
         .args_json((
             "status_message",
-            status_code.clone(),
+            Base64VecU8::from(status_code.clone()),
             &global_account_id,
-            NearToken::from_near(20),
         ))
         .max_gas()
-        .deposit(NearToken::from_near(50))
+        .deposit(NearToken::from_near(25))
         .transact()
         .await?;
 
@@ -90,7 +89,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
         .args_json(("status_message",))
         .view()
         .await?
-        .json::<Option<Vec<u8>>>()?
+        .json::<Option<Base58CryptoHash>>()?
         .expect("Should have stored hash");
 
     // Now use the global contract by hash
@@ -98,9 +97,9 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 
     let res = factory_contract
         .call("use_global_contract_by_hash")
-        .args_json((stored_hash, &user_account_id, NearToken::from_near(10)))
+        .args_json((stored_hash, &user_account_id))
         .max_gas()
-        .deposit(NearToken::from_near(30))
+        .deposit(NearToken::from_near(15))
         .transact()
         .await?;
 
@@ -126,12 +125,11 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
         .call("deploy_global_contract_by_account_id")
         .args_json((
             "status_message",
-            status_code.clone(),
+            Base64VecU8::from(status_code.clone()),
             &global_account_id,
-            NearToken::from_near(20),
         ))
         .max_gas()
-        .deposit(NearToken::from_near(50))
+        .deposit(NearToken::from_near(25))
         .transact()
         .await?;
 
@@ -142,9 +140,9 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
 
     let res = factory_contract
         .call("use_global_contract_by_account")
-        .args_json((&global_account_id, &user_account_id, NearToken::from_near(10)))
+        .args_json((&global_account_id, &user_account_id))
         .max_gas()
-        .deposit(NearToken::from_near(30))
+        .deposit(NearToken::from_near(15))
         .transact()
         .await?;
 
@@ -168,14 +166,14 @@ async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
         .args_json(("non_existent",))
         .view()
         .await?
-        .json::<Option<Vec<u8>>>()?;
+        .json::<Option<Base58CryptoHash>>()?;
 
     assert!(non_existent_hash.is_none(), "Should return None for non-existent contract");
 
     // Test listing contracts when none are deployed
     let empty_list = factory_contract.call("list_global_contracts").view().await?.json::<Vec<(
         String,
-        Vec<u8>,
+        Base58CryptoHash,
         AccountId,
     )>>()?;
 

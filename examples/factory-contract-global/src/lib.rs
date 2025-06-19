@@ -1,11 +1,11 @@
-use near_sdk::PromiseError;
-use near_sdk::{env, ext_contract, near, AccountId, NearToken, Promise};
+use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
+use near_sdk::{env, ext_contract, near, AccountId, CryptoHash, Promise, PromiseError};
 
 #[derive(Default)]
 #[near(contract_state)]
 pub struct GlobalFactoryContract {
     /// Store the hash of deployed global contracts for reference
-    pub deployed_global_contracts: std::collections::HashMap<String, Vec<u8>>,
+    pub deployed_global_contracts: std::collections::HashMap<String, CryptoHash>,
     /// Store account IDs that have deployed global contracts
     pub global_contract_deployers: std::collections::HashMap<String, AccountId>,
 }
@@ -24,20 +24,21 @@ impl GlobalFactoryContract {
     pub fn deploy_global_contract(
         &mut self,
         name: String,
-        code: Vec<u8>,
+        code: Base64VecU8,
         account_id: AccountId,
-        amount: NearToken,
     ) -> Promise {
         // Store the code hash for later reference
-        let code_hash = env::sha256(&code);
+        let code_bytes: Vec<u8> = code.into();
+        let code_hash_vec = env::sha256(&code_bytes);
+        let code_hash: CryptoHash = code_hash_vec.try_into().unwrap();
         self.deployed_global_contracts.insert(name.clone(), code_hash);
         self.global_contract_deployers.insert(name, account_id.clone());
 
         Promise::new(account_id)
             .create_account()
-            .transfer(amount)
+            .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_global_contract(code)
+            .deploy_global_contract(code_bytes)
     }
 
     /// Deploy a global contract, identifiable by the predecessor's account ID
@@ -45,34 +46,34 @@ impl GlobalFactoryContract {
     pub fn deploy_global_contract_by_account_id(
         &mut self,
         name: String,
-        code: Vec<u8>,
+        code: Base64VecU8,
         account_id: AccountId,
-        amount: NearToken,
     ) -> Promise {
         // Store reference to this deployment
-        let code_hash = env::sha256(&code);
+        let code_bytes: Vec<u8> = code.into();
+        let code_hash_vec = env::sha256(&code_bytes);
+        let code_hash: CryptoHash = code_hash_vec.try_into().unwrap();
         self.deployed_global_contracts.insert(name.clone(), code_hash);
         self.global_contract_deployers.insert(name, account_id.clone());
 
         Promise::new(account_id)
             .create_account()
-            .transfer(amount)
+            .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_global_contract_by_account_id(code)
+            .deploy_global_contract_by_account_id(code_bytes)
     }
 
     /// Use an existing global contract by its code hash
     pub fn use_global_contract_by_hash(
         &self,
-        code_hash: Vec<u8>,
+        code_hash: Base58CryptoHash,
         account_id: AccountId,
-        amount: NearToken,
     ) -> Promise {
         Promise::new(account_id)
             .create_account()
-            .transfer(amount)
+            .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .use_global_contract(code_hash)
+            .use_global_contract(CryptoHash::from(code_hash).to_vec())
     }
 
     /// Use an existing global contract by referencing the account that deployed it
@@ -80,18 +81,17 @@ impl GlobalFactoryContract {
         &self,
         deployer_account_id: AccountId,
         account_id: AccountId,
-        amount: NearToken,
     ) -> Promise {
         Promise::new(account_id)
             .create_account()
-            .transfer(amount)
+            .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
             .use_global_contract_by_account_id(deployer_account_id)
     }
 
     /// Get the code hash of a deployed global contract by name
-    pub fn get_global_contract_hash(&self, name: String) -> Option<Vec<u8>> {
-        self.deployed_global_contracts.get(&name).cloned()
+    pub fn get_global_contract_hash(&self, name: String) -> Option<Base58CryptoHash> {
+        self.deployed_global_contracts.get(&name).cloned().map(|hash| hash.into())
     }
 
     /// Get the deployer account ID of a global contract by name
@@ -100,7 +100,7 @@ impl GlobalFactoryContract {
     }
 
     /// List all deployed global contracts
-    pub fn list_global_contracts(&self) -> Vec<(String, Vec<u8>, AccountId)> {
+    pub fn list_global_contracts(&self) -> Vec<(String, Base58CryptoHash, AccountId)> {
         self.deployed_global_contracts
             .iter()
             .map(|(name, hash)| {
@@ -109,7 +109,7 @@ impl GlobalFactoryContract {
                     .get(name)
                     .cloned()
                     .unwrap_or_else(|| "unknown".parse().unwrap());
-                (name.clone(), hash.clone(), deployer)
+                (name.clone(), (*hash).into(), deployer)
             })
             .collect()
     }
@@ -156,6 +156,7 @@ mod tests {
             .build()
     }
 
+    
     #[test]
     fn test_deploy_global_contract() {
         let context = get_context(accounts(1));
@@ -164,23 +165,23 @@ mod tests {
         let mut contract = GlobalFactoryContract::default();
         let code = vec![0u8; 100]; // Mock bytecode
         let account_id = accounts(2);
-        let amount = NearToken::from_near(10);
 
         contract.deploy_global_contract(
             "test_contract".to_string(),
-            code.clone(),
+            code.clone().into(),
             account_id,
-            amount,
         );
 
         // Check that the contract was recorded
         let stored_hash = contract.get_global_contract_hash("test_contract".to_string());
         assert!(stored_hash.is_some());
 
-        let expected_hash = near_sdk::env::sha256(&code);
-        assert_eq!(stored_hash.unwrap(), expected_hash);
+        let expected_hash_vec = near_sdk::env::sha256(&code);
+        let expected_hash: CryptoHash = expected_hash_vec.try_into().unwrap();
+        assert_eq!(stored_hash.unwrap(), expected_hash.into());
     }
 
+    
     #[test]
     fn test_list_global_contracts() {
         let context = get_context(accounts(1));
@@ -189,13 +190,11 @@ mod tests {
         let mut contract = GlobalFactoryContract::default();
         let code = vec![0u8; 100];
         let account_id = accounts(2);
-        let amount = NearToken::from_near(10);
 
         contract.deploy_global_contract(
             "test_contract".to_string(),
-            code.clone(),
+            code.clone().into(),
             account_id.clone(),
-            amount,
         );
 
         let contracts = contract.list_global_contracts();

@@ -1,4 +1,5 @@
 use near_workspaces::types::{AccountId, NearToken};
+use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
 
 /// Test realistic multisig factory scenario based on NEP-591
 /// This demonstrates the primary use case: deploying the same contract multiple times
@@ -28,12 +29,11 @@ async fn test_multisig_factory_global_contract() -> anyhow::Result<()> {
         .call("deploy_global_contract")
         .args_json((
             "multisig_v1.0.0",
-            multisig_code.clone(),
+            Base64VecU8::from(multisig_code.clone()),
             &global_multisig_id,
-            NearToken::from_near(20),
         ))
         .max_gas()
-        .deposit(NearToken::from_near(50))
+        .deposit(NearToken::from_near(25))
         .transact()
         .await?;
 
@@ -50,7 +50,7 @@ async fn test_multisig_factory_global_contract() -> anyhow::Result<()> {
         .args_json(("multisig_v1.0.0",))
         .view()
         .await?
-        .json::<Option<Vec<u8>>>()?
+        .json::<Option<Base58CryptoHash>>()?
         .expect("Should have stored hash");
 
     // 2. Now multiple users can create multisig wallets without paying full storage costs
@@ -69,10 +69,9 @@ async fn test_multisig_factory_global_contract() -> anyhow::Result<()> {
             .args_json((
                 &multisig_hash,
                 &user_id,
-                NearToken::from_near(5), // Much lower cost than full deployment
             ))
             .max_gas()
-            .deposit(NearToken::from_near(15))
+            .deposit(NearToken::from_near(8))
             .transact()
             .await?;
 
@@ -140,12 +139,11 @@ async fn test_business_onboarding_global_contracts() -> anyhow::Result<()> {
         .call("deploy_global_contract_by_account_id")
         .args_json((
             "business_wallet",
-            wallet_code,
+            Base64VecU8::from(wallet_code),
             &business_wallet_deployer,
-            NearToken::from_near(25),
         ))
         .max_gas()
-        .deposit(NearToken::from_near(50))
+        .deposit(NearToken::from_near(25))
         .transact()
         .await?;
 
@@ -174,10 +172,9 @@ async fn test_business_onboarding_global_contracts() -> anyhow::Result<()> {
             .args_json((
                 &business_wallet_deployer,
                 &customer_id,
-                NearToken::from_near(2), // Very low cost for the business
             ))
             .max_gas()
-            .deposit(NearToken::from_near(10))
+            .deposit(NearToken::from_near(5))
             .transact()
             .await?;
 
@@ -239,12 +236,11 @@ async fn test_cost_comparison_regular_vs_global() -> anyhow::Result<()> {
         .call("deploy_global_contract")
         .args_json((
             "cost_comparison_contract",
-            contract_code.clone(),
+            Base64VecU8::from(contract_code.clone()),
             &global_deployer,
-            global_deploy_cost,
         ))
         .max_gas()
-        .deposit(NearToken::from_near(50))
+        .deposit(NearToken::from_near(25))
         .transact()
         .await?;
 
@@ -256,7 +252,7 @@ async fn test_cost_comparison_regular_vs_global() -> anyhow::Result<()> {
         .args_json(("cost_comparison_contract",))
         .view()
         .await?
-        .json::<Option<Vec<u8>>>()?
+        .json::<Option<Base58CryptoHash>>()?
         .expect("Should have hash");
 
     // Simulate multiple users using the global contract
@@ -268,9 +264,9 @@ async fn test_cost_comparison_regular_vs_global() -> anyhow::Result<()> {
 
         let result = factory_contract
             .call("use_global_contract_by_hash")
-            .args_json((&global_hash, &user_id, per_user_global_cost))
+            .args_json((&global_hash, &user_id))
             .max_gas()
-            .deposit(NearToken::from_near(10))
+            .deposit(NearToken::from_near(5))
             .transact()
             .await?;
 
