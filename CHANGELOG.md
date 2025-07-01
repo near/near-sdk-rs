@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.15.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.0...near-sdk-v5.15.1) - 2025-07-01
+
+### Other
+
+- New `non-contract-usage` feature flag to be able to use near-sdk-rs in thirdparty projects that don't use it for contract building ([#1370](https://github.com/near/near-sdk-rs/pull/1370))
+
 ## [5.15.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.14.0...near-sdk-v5.15.0) - 2025-06-16
 
 ### Added
