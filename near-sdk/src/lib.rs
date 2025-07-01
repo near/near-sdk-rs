@@ -114,6 +114,7 @@ extern crate quickcheck;
     clippy,
     target_family = "wasm",
     feature = "unit-testing",
+    feature = "non-contract-usage",
     feature = "__abi-generate"
 )))]
 compile_error!(
