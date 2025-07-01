@@ -1,0 +1,23 @@
+[package]
+name = "contract-callback"
+version = "0.1.0"
+authors = ["Near Inc <hello@nearprotocol.com>"]
+edition = "2021"
+
+[dependencies]
+near-sdk = { path = "../../near-sdk" }
+
+[dev-dependencies]
+anyhow = "1.0"
+tokio = { version = "1.14", features = ["full"] }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
+near-workspaces = { version = "0.18", features = ["unstable"] }
+rstest = "0.23.0"
+
+[profile.release]
+codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
