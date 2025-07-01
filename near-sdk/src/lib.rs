@@ -127,6 +127,7 @@ compile_error!(
   - `#[cfg(target_family = "wasm")]`
   - `#[cfg(feature = "__abi-generate")`
   - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
+  - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment)
   - `#[cfg(test)]`
   - `#[cfg(doctest)]`
   - `#[cfg(clippy)]`
