@@ -114,6 +114,7 @@ extern crate quickcheck;
     clippy,
     target_family = "wasm",
     feature = "unit-testing",
+    feature = "non-contract-usage",
     feature = "__abi-generate"
 )))]
 compile_error!(
@@ -124,8 +125,9 @@ compile_error!(
 
 3. ⚙️ Only following cfg-s are considered VALID for `near-sdk`:
   - `#[cfg(target_family = "wasm")]`
-  - `#[cfg(feature = "__abi-generate")`
+  - `#[cfg(feature = "non-contract-usage")]` (intended for use of `near-sdk` in non-contract environment)
   - `#[cfg(feature = "unit-testing")]` (intended for use of `near-sdk` as one of `[dev-dependencies]`)
+  - `#[cfg(feature = "__abi-generate")`
   - `#[cfg(test)]`
   - `#[cfg(doctest)]`
   - `#[cfg(clippy)]`

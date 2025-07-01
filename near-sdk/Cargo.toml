@@ -91,6 +91,7 @@ unit-testing = [
     "near-crypto",
     "near-parameters",
 ]
+non-contract-usage = []
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
