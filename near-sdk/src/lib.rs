@@ -1070,7 +1070,7 @@ pub use environment::env;
 pub use near_sys as sys;
 
 mod promise;
-pub use promise::{Allowance, Promise, PromiseOrValue};
+pub use promise::{Allowance, ConcurrentPromises, Promise, PromiseOrValue};
 
 // Private types just used within macro generation, not stable to be used.
 #[doc(hidden)]
