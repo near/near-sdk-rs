@@ -480,40 +480,52 @@ impl Promise {
         other
     }
 
-    /// Schedules execution of multiple other promises right after the current
-    /// promise finishes executing.
+    /// Schedules execution of multiple concurrent promises right after the
+    /// current promise finishes executing.
+    ///
+    /// This method will send the same return value as a data receipt to all
+    /// following receipts.
     ///
     /// In the following code, `bob_near` is created first, `carol_near` second,
-    /// and finally `dave_near` and `eva_near` are created in concurrently.
+    /// and finally `dave_near` and `eva_near` are created concurrently.
+    ///
     /// ```no_run
     /// # use near_sdk::Promise;
     /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
     /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
     /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
-    /// p1.then(p2).then_many(&[&p3, &p4]);
+    /// p1.then(p2).then_concurrent(vec![p3, p4]);
     /// ```
-    pub fn then_many(self, others: &[&Promise]) {
-        for other in others {
-            let self_clone = Promise {
-                subtype: self.subtype.clone(),
-                // Cloning `should_return` is okay, since it cannot be modified
-                // again later. (`self` is consumed)
-                should_return: self.should_return.clone(),
-            };
-            match &other.subtype {
-                PromiseSubtype::Single(x) => {
-                    let mut after = x.after.borrow_mut();
-                    if after.is_some() {
-                        crate::env::panic_str(
-                            "Cannot callback promise which is already scheduled after another",
-                        );
-                    }
-                    *after = Some(self_clone)
-                }
-                PromiseSubtype::Joint(_) => crate::env::panic_str("Cannot callback joint promise."),
-            }
-        }
+    ///
+    /// The returned [`ConcurrentPromises`] allows chaining more promises.
+    ///
+    /// In the following code, `bob_near` is created first, next `carol_near`
+    /// and `dave_near` are created concurrently, and finally `eva_near` is
+    /// created after all others have been created.
+    ///
+    /// ```no_run
+    /// # use near_sdk::Promise;
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
+    /// ```
+    pub fn then_concurrent(self, promises: Vec<Promise>) -> ConcurrentPromises {
+        let mapped_promises = promises
+            .into_iter()
+            .map(|other| {
+                let self_clone = Promise {
+                    subtype: self.subtype.clone(),
+                    // Cloning `should_return` is okay, since it cannot be modified
+                    // again later. (`self` is consumed )
+                    should_return: self.should_return.clone(),
+                };
+                self_clone.then(other)
+            })
+            .collect();
+        ConcurrentPromises { promises: mapped_promises }
     }
 
     /// A specialized, relatively low-level API method. Allows to mark the given promise as the one
@@ -661,6 +673,66 @@ impl<T: borsh::BorshSerialize> borsh::BorshSerialize for PromiseOrValue<T> {
 impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
     fn schema_name() -> String {
         format!("PromiseOrValue{}", T::schema_name())
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        T::json_schema(gen)
+    }
+}
+
+/// A list of promises that are executed concurrently.
+///
+/// This is the return type of [`Promise::then_concurrent`] and it wraps the
+/// contained promises for a more convenient syntax when chaining calls.
+///
+/// Use [`ConcurrentPromises::join`] to create a new promises that waits for all
+/// concurrent promises and takes all their return values as inputs.
+///
+/// Use [`ConcurrentPromises::split_off`] to divide the list of promises into
+/// subgroups that can be joined independently.
+///
+/// You can also use [`ConcurrentPromises::take`] to retrieve the list of
+/// promises as a vector.
+#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
+pub struct ConcurrentPromises {
+    promises: Vec<Promise>,
+}
+
+impl ConcurrentPromises {
+    /// Create a new promises that waits for all contained concurrent promises.
+    ///
+    /// The returned promise is a [`Promise::and`] combination of all contained
+    /// promises. Chain it with a [`Promise::then`] to wait for them to finish
+    /// and receive all their outputs as inputs in a following function call.
+    pub fn join(self) -> Promise {
+        self.promises
+            .into_iter()
+            .reduce(|left, right| left.and(right))
+            .expect("cannot join empty concurrent promises")
+    }
+
+    /// Splits the contained list of promises into two at the given index,
+    /// returning a new [`ConcurrentPromises`] containing the elements in the
+    /// range [at, len).
+    ///
+    /// After the call, the original [`ConcurrentPromises`] will be left
+    /// containing the elements [0, at).
+    pub fn split_off(&mut self, at: usize) -> ConcurrentPromises {
+        let right_side = self.promises.split_off(at);
+        ConcurrentPromises { promises: right_side }
+    }
+
+    /// Take the contained concurrent promises out of the convenience wrapper
+    /// [`ConcurrentPromises`].
+    pub fn take(self) -> Vec<Promise> {
+        self.promises
+    }
+}
+
+#[cfg(feature = "abi")]
+impl<T: schemars::JsonSchema> schemars::JsonSchema for ConcurrentPromises {
+    fn schema_name() -> String {
+        "ConcurrentPromises".to_string()
     }
 
     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
@@ -919,12 +991,12 @@ mod tests {
         assert_eq!(
             &sub_creation.receipt_indices,
             &[0],
-            "then_many() must create dependency on receipt 0"
+            "then_concurrent() must create dependency on receipt 0"
         );
     }
 
     #[test]
-    fn test_then_many() {
+    fn test_then_concurrent() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
         let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
         let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
@@ -932,14 +1004,14 @@ mod tests {
         {
             let p1 = Promise::new(sub_account_1.clone()).create_account();
             let p2 = Promise::new(sub_account_2.clone()).create_account();
-            Promise::new(alice()).create_account().then_many(&[&p1, &p2]);
+            Promise::new(alice()).create_account().then_concurrent(vec![p1, p2]);
         }
 
         let receipts = get_created_receipts();
         let main_account_creation = &receipts[0];
-        // recursive construction switches the order of receipts
-        let sub1_creation = &receipts[2];
-        let sub2_creation = &receipts[1];
+
+        let sub1_creation = &receipts[1];
+        let sub2_creation = &receipts[2];
 
         // ensure we are looking at the right receipts
         assert_eq!(sub1_creation.receiver_id, sub_account_1);
@@ -953,45 +1025,46 @@ mod tests {
         assert_eq!(
             &sub1_creation.receipt_indices,
             &[0],
-            "then_many() must create dependency on receipt 0"
+            "then_concurrent() must create dependency on receipt 0"
         );
         assert_eq!(
             &sub2_creation.receipt_indices,
             &[0],
-            "then_many() must create dependency on receipt 0"
+            "then_concurrent() must create dependency on receipt 0"
         );
     }
 
     #[test]
-    fn test_then_many_then_many() {
+    fn test_then_concurrent_split_off_then() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
         let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
         let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
         let sub_account_3: AccountId = "sub3.sub2.alice.near".parse().unwrap();
-        let sub_account_4: AccountId = "sub4.sub2.alice.near".parse().unwrap();
 
         {
             let p1 = Promise::new(sub_account_1.clone()).create_account();
             let p2 = Promise::new(sub_account_2.clone()).create_account();
             let p3 = Promise::new(sub_account_3.clone()).create_account();
-            let p4 = Promise::new(sub_account_4.clone()).create_account();
-            Promise::new(alice()).create_account().then_many(&[&p1, &p2]);
-            p2.then_many(&[&p3, &p4]);
+            Promise::new(alice())
+                .create_account()
+                .then_concurrent(vec![p1, p2])
+                .split_off(1)
+                .join()
+                .then(p3);
         }
 
         let receipts = get_created_receipts();
         let main_account_creation = &receipts[0];
+
         // recursive construction switches the order of receipts
-        let sub1_creation = &receipts[4];
+        let sub1_creation = &receipts[3];
         let sub2_creation = &receipts[1];
-        let sub3_creation = &receipts[3];
-        let sub4_creation = &receipts[2];
+        let sub3_creation = &receipts[2];
 
         // ensure we are looking at the right receipts
         assert_eq!(sub1_creation.receiver_id, sub_account_1);
         assert_eq!(sub2_creation.receiver_id, sub_account_2);
         assert_eq!(sub3_creation.receiver_id, sub_account_3);
-        assert_eq!(sub4_creation.receiver_id, sub_account_4);
 
         // Find receipt index to depend on
         let sub2_creation_index = sub2_creation.actions[0].receipt_index().unwrap();
@@ -1004,22 +1077,82 @@ mod tests {
         assert_eq!(
             &sub1_creation.receipt_indices,
             &[0],
-            "then_many() must create dependency on receipt 0"
+            "then_concurrent() must create dependency on receipt 0"
         );
         assert_eq!(
             &sub2_creation.receipt_indices,
             &[0],
-            "then_many() must create dependency on receipt 0"
+            "then_concurrent() must create dependency on receipt 0"
         );
         assert_eq!(
             &sub3_creation.receipt_indices,
             &[sub2_creation_index],
-            "then_many() must create dependency on sub2_creation"
+            "then() must create dependency on sub2_creation"
+        );
+    }
+
+    #[test]
+    fn test_then_concurrent_twice() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+        let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
+        let sub_account_3: AccountId = "sub3.sub2.alice.near".parse().unwrap();
+        let sub_account_4: AccountId = "sub4.sub2.alice.near".parse().unwrap();
+
+        {
+            let p1 = Promise::new(sub_account_1.clone()).create_account();
+            let p2 = Promise::new(sub_account_2.clone()).create_account();
+            let p3 = Promise::new(sub_account_3.clone()).create_account();
+            let p4 = Promise::new(sub_account_4.clone()).create_account();
+            Promise::new(alice())
+                .create_account()
+                .then_concurrent(vec![p1, p2])
+                .join()
+                .then_concurrent(vec![p3, p4]);
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+        // recursive construction switches the order of receipts
+        let sub1_creation = &receipts[1];
+        let sub2_creation = &receipts[2];
+        let sub3_creation = &receipts[3];
+        let sub4_creation = &receipts[4];
+
+        // ensure we are looking at the right receipts
+        assert_eq!(sub1_creation.receiver_id, sub_account_1);
+        assert_eq!(sub2_creation.receiver_id, sub_account_2);
+        assert_eq!(sub3_creation.receiver_id, sub_account_3);
+        assert_eq!(sub4_creation.receiver_id, sub_account_4);
+
+        // Find receipt indices to depend on
+        let sub1_creation_index = sub1_creation.actions[0].receipt_index().unwrap();
+        let sub2_creation_index = sub2_creation.actions[0].receipt_index().unwrap();
+
+        // Check dependencies were created
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub1_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub2_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub3_creation.receipt_indices,
+            &[sub1_creation_index, sub2_creation_index],
+            "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
         );
         assert_eq!(
             &sub4_creation.receipt_indices,
-            &[sub2_creation_index],
-            "then_many() must create dependency on sub2_creation"
+            &[sub1_creation_index, sub2_creation_index],
+            "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
         );
     }
 }
