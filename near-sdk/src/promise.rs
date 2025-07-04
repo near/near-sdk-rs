@@ -729,17 +729,6 @@ impl ConcurrentPromises {
     }
 }
 
-#[cfg(feature = "abi")]
-impl<T: schemars::JsonSchema> schemars::JsonSchema for ConcurrentPromises {
-    fn schema_name() -> String {
-        "ConcurrentPromises".to_string()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        T::json_schema(gen)
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
