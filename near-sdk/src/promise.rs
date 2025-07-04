@@ -693,7 +693,6 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
 ///
 /// You can also use [`ConcurrentPromises::take`] to retrieve the list of
 /// promises as a vector.
-#[cfg_attr(feature = "abi", derive(schemars::JsonSchema))]
 pub struct ConcurrentPromises {
     promises: Vec<Promise>,
 }
