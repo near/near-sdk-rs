@@ -690,9 +690,6 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
 ///
 /// Use [`ConcurrentPromises::split_off`] to divide the list of promises into
 /// subgroups that can be joined independently.
-///
-/// You can also use [`ConcurrentPromises::take`] to retrieve the list of
-/// promises as a vector.
 pub struct ConcurrentPromises {
     promises: Vec<Promise>,
 }
@@ -719,12 +716,6 @@ impl ConcurrentPromises {
     pub fn split_off(&mut self, at: usize) -> ConcurrentPromises {
         let right_side = self.promises.split_off(at);
         ConcurrentPromises { promises: right_side }
-    }
-
-    /// Take the contained concurrent promises out of the convenience wrapper
-    /// [`ConcurrentPromises`].
-    pub fn take(self) -> Vec<Promise> {
-        self.promises
     }
 }
 
