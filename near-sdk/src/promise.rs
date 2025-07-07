@@ -136,7 +136,7 @@ impl PromiseAction {
 struct PromiseSingle {
     pub account_id: AccountId,
     pub actions: RefCell<Vec<PromiseAction>>,
-    pub after: RefCell<Option<Promise>>,
+    pub after: RefCell<Option<Rc<Promise>>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -465,6 +465,15 @@ impl Promise {
     /// ```
     /// Uses low-level [`crate::env::promise_batch_then`]
     pub fn then(self, other: Promise) -> Promise {
+        Rc::new(self).then_impl(other)
+    }
+
+    /// Shared, private implementation between `then` and `then_concurrent`.
+    ///
+    /// This takes self as a reference counted object promise, to allow multiple
+    /// dependencies pointing to the same promise without duplicating that
+    /// promise.
+    fn then_impl(self: Rc<Self>, other: Promise) -> Promise {
         match &other.subtype {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
@@ -513,18 +522,9 @@ impl Promise {
     /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
     /// ```
     pub fn then_concurrent(self, promises: Vec<Promise>) -> ConcurrentPromises {
-        let mapped_promises = promises
-            .into_iter()
-            .map(|other| {
-                let self_clone = Promise {
-                    subtype: self.subtype.clone(),
-                    // Cloning `should_return` is okay, since it cannot be modified
-                    // again later. (`self` is consumed )
-                    should_return: self.should_return.clone(),
-                };
-                self_clone.then(other)
-            })
-            .collect();
+        let this = Rc::new(self);
+        let mapped_promises =
+            promises.into_iter().map(|other| Rc::clone(&this).then_impl(other)).collect();
         ConcurrentPromises { promises: mapped_promises }
     }
 
