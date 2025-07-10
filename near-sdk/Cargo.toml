@@ -106,3 +106,11 @@ features = [
     "__macro-docs",
     "__abi-generate",
 ]
+
+[patch.crates-io]
+near-account-id = {  git = "https://github.com/PolyProgrammist/near-account-id-rs.git", branch = "v1_and_v08", features = ["serde", "borsh"]}
+near-vm-runner = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "update-openapi-spec" }
+near-primitives-core = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "update-openapi-spec" }
+near-primitives = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "update-openapi-spec" }
+near-crypto = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "update-openapi-spec" }
+near-parameters = { git = "https://github.com/PolyProgrammist/nearcore.git", branch = "update-openapi-spec" }
