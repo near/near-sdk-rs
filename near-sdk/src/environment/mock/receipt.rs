@@ -170,6 +170,12 @@ impl From<LogicMockAction> for MockAction {
                 Self::YieldCreate { data_id, receiver_id }
             }
             LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
+            LogicMockAction::UseGlobalContract { .. } => {
+                panic!("UseGlobalContract is not supported in MockAction");
+            },
+            LogicMockAction::DeployGlobalContract { .. } => {
+                panic!("DeployGlobalContract is not supported in MockAction");
+            }
         }
     }
 }
