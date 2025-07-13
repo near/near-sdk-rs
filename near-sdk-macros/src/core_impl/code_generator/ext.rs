@@ -19,6 +19,7 @@ pub(crate) fn generate_ext_structs(
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
+                state_init: None,
             }
         }
     };
@@ -38,6 +39,7 @@ pub(crate) fn generate_ext_structs(
           pub(crate) deposit: ::near_sdk::NearToken,
           pub(crate) static_gas: ::near_sdk::Gas,
           pub(crate) gas_weight: ::near_sdk::GasWeight,
+          pub(crate) state_init: Option<::near_sdk::StateInitArgs>,
       }
 
       impl #name {
@@ -52,6 +54,13 @@ pub(crate) fn generate_ext_structs(
           pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
               self.gas_weight = ::near_sdk::GasWeight(gas_weight);
               self
+          }
+          pub fn with_state_init(
+            mut self,
+            state_init: Option<::near_sdk::StateInitArgs>,
+          ) -> Self {
+            self.state_init = state_init;
+            self
           }
       }
 

@@ -25,6 +25,8 @@ near-sdk = { path = "../near-sdk", default-features = false, features = [
 [features]
 default = []
 abi = ["near-sdk/__abi-generate"]
+# Compile Sharded Fungible Token wallet-contract implementation
+sharded_fungible_token_wallet_impl = []
 
 [package.metadata.docs.rs]
 features = ["abi"]

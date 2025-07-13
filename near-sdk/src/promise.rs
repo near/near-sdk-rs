@@ -8,7 +8,9 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use crate::{
+    AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey, StateInit, StateInitArgs,
+};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -46,6 +48,16 @@ enum PromiseAction {
         amount: NearToken,
         gas: Gas,
         weight: GasWeight,
+    },
+    FunctionCallWeightStateInit {
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+        state_init: StateInit,
+        state_init_amount: NearToken,
+        state_init_refund_to: AccountId,
     },
     Transfer {
         amount: NearToken,
@@ -100,6 +112,26 @@ impl PromiseAction {
                     GasWeight(weight.0),
                 )
             }
+            FunctionCallWeightStateInit {
+                function_name,
+                arguments,
+                amount,
+                gas,
+                weight,
+                state_init,
+                state_init_amount,
+                state_init_refund_to,
+            } => crate::env::promise_batch_action_function_call_weight_state_init(
+                promise_index,
+                function_name,
+                arguments,
+                *amount,
+                *gas,
+                GasWeight(weight.0),
+                state_init,
+                *state_init_amount,
+                state_init_refund_to,
+            ),
             Transfer { amount } => {
                 crate::env::promise_batch_action_transfer(promise_index, *amount)
             }
@@ -316,6 +348,44 @@ impl Promise {
             amount,
             gas,
             weight,
+        })
+    }
+
+    /// Same as [`.function_call_weight()`](Promise::function_call_weight_state_init),
+    /// except that if the contract doesn't exist, it will be deployed &
+    /// initialized with `state_init`. Note that the `receiver_id` of the
+    /// `Promise` must be equal to
+    /// `state_init`[`.derived_account_id()`](StateInit::derived_account_id).
+    ///
+    /// To pay for storage in case of deployment, `state_init.amount` will be
+    /// immediately subtracted from current account's balance as a "reserve"
+    /// for storage costs. If the receiver contract turns out to be initialized
+    /// when this receipt gets executed, then a new receipt is created to
+    /// refund `state_init.amount` to `state_init.refund_to`.
+    ///
+    /// See [`crate::env::promise_batch_action_function_call_weight_state_init`]
+    pub fn function_call_weight_state_init(
+        self,
+        function_name: String,
+        arguments: Vec<u8>,
+        amount: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+        state_init: Option<StateInitArgs>,
+    ) -> Self {
+        let Some(state_init) = state_init else {
+            return self.function_call_weight(function_name, arguments, amount, gas, weight);
+        };
+
+        self.add_action(PromiseAction::FunctionCallWeightStateInit {
+            function_name,
+            arguments,
+            amount,
+            gas,
+            weight,
+            state_init: state_init.state_init,
+            state_init_amount: state_init.amount,
+            state_init_refund_to: state_init.refund_to,
         })
     }
 
