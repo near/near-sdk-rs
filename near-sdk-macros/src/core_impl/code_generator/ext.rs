@@ -19,6 +19,7 @@ pub(crate) fn generate_ext_structs(
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
+                state_init: None,
             }
         }
     };
@@ -38,6 +39,7 @@ pub(crate) fn generate_ext_structs(
           pub(crate) deposit: ::near_sdk::NearToken,
           pub(crate) static_gas: ::near_sdk::Gas,
           pub(crate) gas_weight: ::near_sdk::GasWeight,
+          pub(crate) state_init: Option<::near_sdk::StateInitArgs>,
       }
 
       impl #name {
@@ -52,6 +54,13 @@ pub(crate) fn generate_ext_structs(
           pub fn with_unused_gas_weight(mut self, gas_weight: u64) -> Self {
               self.gas_weight = ::near_sdk::GasWeight(gas_weight);
               self
+          }
+          pub fn with_state_init(
+            mut self,
+            state_init: Option<::near_sdk::StateInitArgs>,
+          ) -> Self {
+            self.state_init = state_init;
+            self
           }
       }
 
@@ -129,8 +138,17 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
         #new_non_bindgen_attrs
         pub fn #ident #generics(self, #pat_type_list) -> ::near_sdk::Promise {
             let __args = #serialize;
-            ::near_sdk::Promise::new(self.account_id)
-            .function_call_weight(
+            let mut __promise = ::near_sdk::Promise::new(self.account_id);
+            if let Some(state_init) = self.state_init {
+                __promise = __promise.state_init(
+                    state_init.state_init,
+                    state_init.amount,
+                    state_init.gas,
+                    ::near_sdk::GasWeight(0),
+                    state_init.refund_to,
+                );
+            }
+            __promise.function_call_weight(
                 ::std::string::String::from(#ident_str),
                 __args,
                 self.deposit,

@@ -18,7 +18,8 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{CryptoHash, GasWeight, PromiseError};
+use crate::{ContractCode, CryptoHash, GasWeight, PromiseError, StateInit};
+use near_account_id::AccountIdRef;
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -167,6 +168,16 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// ```
 pub fn current_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(current_account_id))
+}
+
+/// Returns code (or reference to global contract) deployed on current
+/// contract being executed.
+///
+/// Note: gas cost of this for globally deployed contracts should be
+/// relatively small, since it would only return `ContractCode::RefGlobalAccountId(contract_id)`
+/// or `ContractCode::RefGlobalAccountId(hash)`.
+pub fn current_contract_code() -> ContractCode {
+    unimplemented!("TBD")
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
@@ -1109,6 +1120,34 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
             code.as_ptr() as _,
         )
     }
+}
+
+/// If the contract doesn't exist, it will be deployed & initialized
+/// with `state_init`. Note that the `receiver_id` of the `Promise`
+/// must be equal to `state_init`[`.derived_account_id()`](StateInit::derived_account_id).
+///
+/// To pay for storage in case of deployment, `amount` will be
+/// immediately subtracted from current account's balance as a
+/// "reserve" for storage costs. If the receiver contract turns out
+/// to be initialized when this receipt gets executed, then a new
+/// receipt is created to refund `amount` to `refund_to`.
+///
+/// # Panics
+/// This function panics if at least one of following conditions were not met:
+/// * `receiver_id` of the `Promise` must be equal to `state_init.derived_account_id()`
+/// * `amount` is sufficient to cover storage costs
+///   at least to store the code of the contract
+/// * current account has enough balance to pay for `amount`
+#[allow(unused_variables)] // TODO: remove
+pub fn promise_batch_action_state_init(
+    promise_index: PromiseIndex,
+    state_init: &StateInit, // TODO: StateInitRef<'a> to avoid cloning
+    amount: NearToken,
+    gas: Gas,
+    weight: GasWeight,
+    refund_to: &AccountIdRef,
+) {
+    unimplemented!("TBD")
 }
 
 /// Attach a function call promise action to the NEAR promise index with the provided promise index.

@@ -8,7 +8,7 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey, StateInit};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -33,6 +33,13 @@ enum PromiseAction {
     CreateAccount,
     DeployContract {
         code: Vec<u8>,
+    },
+    StateInit {
+        state_init: StateInit,
+        amount: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+        refund_to: AccountId,
     },
     FunctionCall {
         function_name: String,
@@ -80,6 +87,16 @@ impl PromiseAction {
             CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
             DeployContract { code } => {
                 crate::env::promise_batch_action_deploy_contract(promise_index, code)
+            }
+            StateInit { state_init, amount, gas, weight, refund_to } => {
+                crate::env::promise_batch_action_state_init(
+                    promise_index,
+                    state_init,
+                    *amount,
+                    *gas,
+                    GasWeight(weight.0),
+                    refund_to,
+                )
             }
             FunctionCall { function_name, arguments, amount, gas } => {
                 crate::env::promise_batch_action_function_call(
@@ -317,6 +334,30 @@ impl Promise {
             gas,
             weight,
         })
+    }
+
+    /// Same as [`.function_call_weight()`](Promise::function_call_weight_state_init),
+    /// except that if the contract doesn't exist, it will be deployed &
+    /// initialized with `state_init`. Note that the `receiver_id` of the
+    /// `Promise` must be equal to
+    /// `state_init`[`.derived_account_id()`](StateInit::derived_account_id).
+    ///
+    /// To pay for storage in case of deployment, `state_init.amount` will be
+    /// immediately subtracted from current account's balance as a "reserve"
+    /// for storage costs. If the receiver contract turns out to be initialized
+    /// when this receipt gets executed, then a new receipt is created to
+    /// refund `state_init.amount` to `state_init.refund_to`.
+    ///
+    /// See [`crate::env::promise_batch_action_function_call_weight_state_init`]
+    pub fn state_init(
+        self,
+        state_init: StateInit,
+        amount: NearToken,
+        gas: Gas,
+        weight: GasWeight,
+        refund_to: AccountId,
+    ) -> Self {
+        self.add_action(PromiseAction::StateInit { state_init, amount, gas, weight, refund_to })
     }
 
     /// Transfer tokens to the account that this promise acts on.
