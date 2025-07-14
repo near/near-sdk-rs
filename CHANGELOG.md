@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.16.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.1...near-sdk-v5.16.0) - 2025-07-14
+
+### Added
+
+- then_concurrent() + join() Promise API for map-reduce-like flow ([#1364](https://github.com/near/near-sdk-rs/pull/1364))
+
 ## [5.15.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.0...near-sdk-v5.15.1) - 2025-07-01
 
 ### Other
