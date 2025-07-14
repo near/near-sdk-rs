@@ -2,6 +2,8 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use bs58::decode::Error as B58Error;
 use near_sdk_macros::near;
 use std::{convert::TryFrom, io};
+#[cfg(feature = "abi")]
+use crate::schemars_exports::schemars;
 
 /// PublicKey curve
 #[near(inside_nearsdk, serializers=[borsh(use_discriminant = true)])]

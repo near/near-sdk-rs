@@ -13,6 +13,8 @@ use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+#[cfg(feature = "abi")]
+use crate::schemars_exports::schemars;
 
 #[derive(Debug, Clone)]
 struct Serializers {
