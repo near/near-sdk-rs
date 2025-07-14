@@ -3,6 +3,8 @@ use bs58::decode::Error as B58Error;
 use near_sdk_macros::near;
 use serde::{de, ser, Deserialize};
 use std::convert::TryFrom;
+#[cfg(feature = "abi")]
+use crate::schemars_exports::schemars;
 
 #[near(inside_nearsdk)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Default)]
