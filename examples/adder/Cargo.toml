@@ -47,3 +47,6 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
+
+[patch.crates-io]
+near-account-id = {  git = "https://github.com/PolyProgrammist/near-account-id-rs.git", branch = "v1_and_v08"}
