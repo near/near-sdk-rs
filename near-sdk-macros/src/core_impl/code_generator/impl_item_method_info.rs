@@ -205,8 +205,9 @@ impl ImplItemMethodInfo {
 
             Init(init_method) => {
                 if !init_method.ignores_state {
+                    let struct_type = &self.struct_type;
                     quote! {
-                        if ::near_sdk::env::state_exists() {
+                        if #struct_type::__state_exists() {
                             ::near_sdk::env::panic_str("The contract has already been initialized");
                         }
                     }
@@ -230,7 +231,7 @@ impl ImplItemMethodInfo {
             let mutability = receiver.mutability;
 
             quote! {
-                let #mutability contract: #struct_type = ::near_sdk::env::state_read().unwrap_or_default();
+                let #mutability contract = #struct_type::__state_read().unwrap_or_default();
             }
         };
 
@@ -264,7 +265,7 @@ impl ImplItemMethodInfo {
 
         fn contract_ser() -> TokenStream2 {
             quote! {
-                ::near_sdk::env::state_write(&contract);
+                contract.__state_write();
             }
         }
 

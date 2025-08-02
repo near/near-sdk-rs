@@ -12,6 +12,9 @@ description = """
 NEAR smart contracts standard library.
 """
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 near-sdk = { path = "../near-sdk", version = "~5.15.1", default-features = false, features = [
     "legacy",

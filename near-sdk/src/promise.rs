@@ -8,7 +8,7 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
+use crate::{AccountId, Gas, GasWeight, LazyStateInit, NearToken, PromiseIndex, PublicKey};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
 // This wrapper prevents incorrect construction
@@ -33,6 +33,10 @@ enum PromiseAction {
     CreateAccount,
     DeployContract {
         code: Vec<u8>,
+    },
+    StateInit {
+        state_init: LazyStateInit,
+        amount: NearToken,
     },
     FunctionCall {
         function_name: String,
@@ -80,6 +84,9 @@ impl PromiseAction {
             CreateAccount => crate::env::promise_batch_action_create_account(promise_index),
             DeployContract { code } => {
                 crate::env::promise_batch_action_deploy_contract(promise_index, code)
+            }
+            StateInit { state_init, amount } => {
+                crate::env::promise_batch_action_state_init(promise_index, state_init, *amount)
             }
             FunctionCall { function_name, arguments, amount, gas } => {
                 crate::env::promise_batch_action_function_call(
@@ -137,6 +144,7 @@ struct PromiseSingle {
     pub account_id: AccountId,
     pub actions: RefCell<Vec<PromiseAction>>,
     pub after: RefCell<Option<Rc<Promise>>>,
+    pub refund_to: RefCell<Option<AccountId>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -152,6 +160,9 @@ impl PromiseSingle {
         } else {
             crate::env::promise_batch_create(&self.account_id)
         };
+        if let Some(refund_to) = self.refund_to.borrow().as_ref() {
+            crate::env::promise_set_refund_to(promise_index, refund_to);
+        }
         let actions_lock = self.actions.borrow();
         for action in actions_lock.iter() {
             action.add(promise_index);
@@ -258,10 +269,23 @@ impl Promise {
                 account_id,
                 actions: RefCell::new(vec![]),
                 after: RefCell::new(None),
+                refund_to: RefCell::new(None),
                 promise_index: RefCell::new(None),
             })),
             should_return: RefCell::new(false),
         }
+    }
+
+    /// Set a different [`AccountId`] instead of current one to which refunds
+    /// should go. See [`crate::env::promise_set_refund_to()`]
+    pub fn refund_to(self, account_id: AccountId) -> Self {
+        match &self.subtype {
+            PromiseSubtype::Single(p) => *p.refund_to.borrow_mut() = Some(account_id),
+            PromiseSubtype::Joint(_) => {
+                crate::env::panic_str("Cannot set refund_to on a joint promise.")
+            }
+        }
+        self
     }
 
     fn add_action(self, action: PromiseAction) -> Self {
@@ -284,6 +308,12 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
     pub fn deploy_contract(self, code: Vec<u8>) -> Self {
         self.add_action(PromiseAction::DeployContract { code })
+    }
+
+    /// Deploy and initialize deterministic account.
+    /// Uses low-level [`crate::env::promise_batch_action_state_init`]
+    pub fn state_init(self, state_init: impl Into<LazyStateInit>, amount: NearToken) -> Self {
+        self.add_action(PromiseAction::StateInit { state_init: state_init.into(), amount })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.

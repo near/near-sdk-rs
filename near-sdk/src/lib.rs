@@ -1072,6 +1072,9 @@ pub use near_sys as sys;
 mod promise;
 pub use promise::{Allowance, ConcurrentPromises, Promise, PromiseOrValue};
 
+mod state_init;
+pub use self::state_init::*;
+
 // Private types just used within macro generation, not stable to be used.
 #[doc(hidden)]
 #[path = "private/mod.rs"]
@@ -1116,3 +1119,4 @@ pub use bs58;
 pub use schemars;
 pub use serde;
 pub use serde_json;
+pub use serde_with;

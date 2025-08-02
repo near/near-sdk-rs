@@ -125,8 +125,9 @@ impl AttrSigInfo {
         }
         quote! {
             #attribute
-            struct Input {
+            struct Input<'nearinput> {
                 #fields
+                __marker: ::core::marker::PhantomData<&'nearinput ()>,
             }
         }
     }
@@ -156,6 +157,7 @@ impl AttrSigInfo {
         quote! {
             Input {
                 #fields
+                __marker,
             }
         }
     }

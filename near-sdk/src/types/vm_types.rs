@@ -30,8 +30,8 @@ pub type IteratorIndex = u64;
 /// When there is a callback attached to one or more contract calls the execution results of these
 /// calls are available to the contract invoked through the callback.
 #[derive(Debug, PartialEq, Eq)]
-pub enum PromiseResult {
-    Successful(Vec<u8>),
+pub enum PromiseResult<T = Vec<u8>> {
+    Successful(T),
     Failed,
 }
 
@@ -41,6 +41,16 @@ impl From<PromiseResult> for VmPromiseResult {
         match p {
             PromiseResult::Successful(v) => Self::Successful(v),
             PromiseResult::Failed => Self::Failed,
+        }
+    }
+}
+
+impl<T> PromiseResult<T> {
+    /// Convert into [`Result`]
+    pub fn into_result(self) -> Result<T, PromiseError> {
+        match self {
+            PromiseResult::Successful(v) => Ok(v),
+            PromiseResult::Failed => Err(PromiseError::Failed),
         }
     }
 }

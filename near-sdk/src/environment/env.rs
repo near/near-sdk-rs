@@ -18,7 +18,8 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{CryptoHash, GasWeight, PromiseError};
+use crate::{ContractCode, CryptoHash, GasWeight, LazyStateInit, PromiseError};
+use near_account_id::AccountIdRef;
 use near_sys as sys;
 
 const REGISTER_EXPECTED_ERR: &str =
@@ -31,8 +32,8 @@ const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
 /// Register used to record evicted values from the storage.
 const EVICTED_REGISTER: u64 = u64::MAX - 1;
 
-/// Key used to store the state of the contract.
-const STATE_KEY: &[u8] = b"STATE";
+/// Default key used to store the state of the contract.
+pub const DEFAULT_STATE_KEY: &[u8] = b"STATE";
 
 /// The minimum length of a valid account ID.
 const MIN_ACCOUNT_ID_LEN: u64 = 2;
@@ -167,6 +168,28 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// ```
 pub fn current_account_id() -> AccountId {
     assert_valid_account_id(method_into_register!(current_account_id))
+}
+
+/// Returns code deployed on current contract being executed.
+/// For now, only references to globally deployed contracts are supported.
+///
+/// Note: gas cost of this for globally deployed contracts should be
+/// relatively small, since it would only return `ContractCode::GlobalCodeHash(code_hash)`
+/// or `ContractCode::GlobalAccountId(account_id)`.
+pub fn current_contract_code() -> ContractCode {
+    match unsafe { sys::current_contract_code(ATOMIC_OP_REGISTER) } {
+        0 => {
+            let code_hash = CryptoHash::default();
+            unsafe {
+                sys::read_register(ATOMIC_OP_REGISTER, code_hash.as_ptr() as _);
+            }
+            ContractCode::GlobalCodeHash(code_hash)
+        }
+        1 => ContractCode::GlobalAccountId(assert_valid_account_id(expect_register(
+            read_register(ATOMIC_OP_REGISTER),
+        ))),
+        _ => abort(),
+    }
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
@@ -1025,6 +1048,17 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
     }
 }
 
+/// Set a different [`AccountId`] instead of current one to which refunds
+/// should go for all failed (e.g. [function_call](promise_batch_action_function_call_weight))
+/// or unused (e.g. [state_init](promise_batch_action_state_init)) deposits in
+/// the created receipt.
+pub fn promise_set_refund_to(promise_idx: PromiseIndex, account_id: &AccountIdRef) {
+    let account_id: &str = account_id.as_ref();
+    unsafe {
+        sys::promise_set_refund_to(promise_idx.0, account_id.len() as _, account_id.as_ptr() as _)
+    }
+}
+
 /// # Examples
 /// ```
 /// use near_sdk::env::{promise_batch_then, promise_create};
@@ -1197,6 +1231,47 @@ pub fn promise_batch_action_function_call_weight(
             gas.as_gas(),
             weight.0,
         )
+    }
+}
+
+/// Optionally, deploy the contract with deterministic account id and
+/// initialize its storage with [`StateInit`](crate::StateInit) according to
+/// [NEP-616](https://github.com/near/NEPs/pull/616).
+///
+/// Note that the `receiver_id` of the [`Promise`](crate::Promise) MUST be
+/// equal to [`state_init.derive_account_id()`](LazyStateInit::derive_account_id).
+/// Otherwise, this promise will fail.
+///
+/// If non-zero, `amount` will be immediately subtracted from current
+/// account's balance as a "reserve" for storage costs.
+///
+/// If the receiving contract is in `noexist` or `uninit` state by the time
+/// this action gets executed:
+/// * The contract is deployed and initialized with [`state_init`](crate::StateInit)
+/// * [`state_init.storage_cost`](crate::StateInit::storage_cost) is
+///   subtracted from attached `amount`. If the contract was in `uninit`
+///   state and had non-zero balance, then its balance is used first and only
+///   the missing part required for covering storage costs will subtracted
+///   from the attached `amount`.
+/// * The contract state is marked as `active`.
+/// * The remaining amount is transferred back to predecessor or
+///   [refund_to](promise_set_refund_to) if set.
+///
+/// If the contract was already in `active` state, then full `amount` is
+/// refunded. See [`promise_set_refund_to`].
+pub fn promise_batch_action_state_init(
+    promise_index: PromiseIndex,
+    state_init: &LazyStateInit,
+    amount: NearToken,
+) {
+    let serialized = state_init.serialize();
+    unsafe {
+        sys::promise_batch_action_state_init(
+            promise_index.0,
+            serialized.len() as _,
+            serialized.as_ptr() as _,
+            &amount.as_yoctonear() as *const u128 as _,
+        );
     }
 }
 
@@ -1505,6 +1580,25 @@ pub fn promise_batch_action_delete_account(
 pub fn promise_results_count() -> u64 {
     unsafe { sys::promise_results_count() }
 }
+
+/// If the current function is invoked by a callback, we can access the
+/// length of execution results of the promises that caused the callback.
+/// It can be used to prevent out-of-gas failures when reading too long
+/// execution result via [`promise_result()`].
+pub(crate) fn promise_result_length(result_idx: u64) -> Result<u64, PromiseError> {
+    match unsafe { sys::promise_result_length(result_idx, ATOMIC_OP_REGISTER) } {
+        1 => {
+            let buf = 0u64.to_le_bytes();
+            unsafe {
+                sys::read_register(ATOMIC_OP_REGISTER, buf.as_ptr() as _);
+            }
+            Ok(u64::from_le_bytes(buf))
+        }
+        2 => Err(PromiseError::Failed),
+        _ => abort(),
+    }
+}
+
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
 ///
@@ -1547,6 +1641,24 @@ pub fn promise_result(result_idx: u64) -> PromiseResult {
         Err(PromiseError::Failed) => PromiseResult::Failed,
     }
 }
+
+/// Same as [`promise_result()`], except that it limits the length of
+/// execution result that is about to be read: if the result length is greater
+/// than `bytes_at_most`, then it will return `Ok(Err(TooLongError))`.
+pub fn promise_result_at_most(
+    result_idx: u64,
+    bytes_at_most: u64,
+) -> Result<Result<Vec<u8>, TooLongError>, PromiseError> {
+    let length = promise_result_length(result_idx)?;
+    if length > bytes_at_most {
+        return Ok(Err(TooLongError));
+    }
+    promise_result(result_idx).into_result().map(Ok)
+}
+
+/// Error returned by [`promise_result_at_most()`] when attempting to read
+/// too long execution result.
+pub struct TooLongError;
 
 pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
     match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
@@ -2000,7 +2112,7 @@ pub fn storage_has_key(key: &[u8]) -> bool {
 // ############################################
 /// Load the state of the given object.
 pub fn state_read<T: borsh::BorshDeserialize>() -> Option<T> {
-    storage_read(STATE_KEY).map(|data| {
+    storage_read(DEFAULT_STATE_KEY).map(|data| {
         T::try_from_slice(&data)
             .unwrap_or_else(|_| panic_str("Cannot deserialize the contract state."))
     })
@@ -2012,11 +2124,11 @@ pub fn state_write<T: borsh::BorshSerialize>(state: &T) {
         Ok(serialized) => serialized,
         Err(_) => panic_str("Cannot serialize the contract state."),
     };
-    storage_write(STATE_KEY, &data);
+    storage_write(DEFAULT_STATE_KEY, &data);
 }
 /// Returns `true` if the contract state exists and `false` otherwise.
 pub fn state_exists() -> bool {
-    storage_has_key(STATE_KEY)
+    storage_has_key(DEFAULT_STATE_KEY)
 }
 
 // #####################################
@@ -2035,7 +2147,17 @@ pub fn state_exists() -> bool {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/storage_impl.rs#L105), [here](https://github.com/near/near-sdk-rs/blob/master/near-contract-standards/src/non_fungible_token/utils.rs) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/fungible-token/tests/workspaces.rs)
 pub fn storage_byte_cost() -> NearToken {
-    NearToken::from_yoctonear(10_000_000_000_000_000_000u128)
+    let data = [0u8; size_of::<NearToken>()];
+    unsafe { sys::storage_config_amount_per_byte(data.as_ptr() as u64) };
+    NearToken::from_yoctonear(u128::from_le_bytes(data))
+}
+
+pub fn storage_num_bytes_account() -> StorageUsage {
+    unsafe { sys::storage_config_num_bytes_account() }
+}
+
+pub fn storage_num_extra_bytes_record() -> StorageUsage {
+    unsafe { sys::storage_config_num_extra_bytes_record() }
 }
 
 // ##################

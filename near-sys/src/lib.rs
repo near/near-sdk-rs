@@ -11,6 +11,7 @@ extern "C" {
     // # Context API #
     // ###############
     pub fn current_account_id(register_id: u64);
+    pub fn current_contract_code(register_id: u64) -> u8;
     pub fn signer_account_id(register_id: u64);
     pub fn signer_account_pk(register_id: u64);
     pub fn predecessor_account_id(register_id: u64);
@@ -88,11 +89,18 @@ extern "C" {
     pub fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64;
     pub fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64;
     pub fn promise_batch_then(promise_index: u64, account_id_len: u64, account_id_ptr: u64) -> u64;
+    pub fn promise_set_refund_to(promise_index: u64, account_id_len: u64, account_id_ptr: u64);
     // #######################
     // # Promise API actions #
     // #######################
     pub fn promise_batch_action_create_account(promise_index: u64);
     pub fn promise_batch_action_deploy_contract(promise_index: u64, code_len: u64, code_ptr: u64);
+    pub fn promise_batch_action_state_init(
+        promise_index: u64,
+        state_init_len: u64,
+        state_init_ptr: u64,
+        amount_ptr: u64,
+    );
     pub fn promise_batch_action_function_call(
         promise_index: u64,
         function_name_len: u64,
@@ -165,11 +173,15 @@ extern "C" {
     // # Promise API results #
     // #######################
     pub fn promise_results_count() -> u64;
+    pub fn promise_result_length(result_idx: u64, register_id: u64) -> u64;
     pub fn promise_result(result_idx: u64, register_id: u64) -> u64;
     pub fn promise_return(promise_id: u64);
     // ###############
     // # Storage API #
     // ###############
+    pub fn storage_config_amount_per_byte(amount_ptr: u64);
+    pub fn storage_config_num_bytes_account() -> u64;
+    pub fn storage_config_num_extra_bytes_record() -> u64;
     pub fn storage_write(
         key_len: u64,
         key_ptr: u64,

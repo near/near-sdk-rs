@@ -1,6 +1,6 @@
 #![allow(clippy::manual_unwrap_or_default)]
 
-use darling::{ast::NestedMeta, Error, FromMeta};
+use darling::FromMeta;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -16,10 +16,6 @@ const CARGO_PKG_VERSION_KEY: &str = "CARGO_PKG_VERSION";
 
 const STANDARD_NEP330: &str = "nep330";
 const STANDARD_NEP330_VERSION: &str = "1.3.0";
-#[derive(FromMeta)]
-struct MacroConfig {
-    contract_metadata: Option<ContractMetadata>,
-}
 
 #[derive(serde::Serialize, Default, FromMeta)]
 pub(crate) struct ContractMetadata {
@@ -54,11 +50,9 @@ impl quote::ToTokens for ContractMetadata {
         let link_tokens = link.as_ref().map(|l| quote! { link = #l, });
 
         tokens.extend(quote! {
-            contract_metadata(
-                #version_tokens
-                #link_tokens
-                #standards
-            )
+            #version_tokens
+            #link_tokens
+            #standards
         })
     }
 }
@@ -107,43 +101,15 @@ impl ContractMetadata {
 
         self
     }
-}
 
-/// Allows for the injection of the contract source metadata information into the contract code as
-/// a constant.
-pub(crate) fn contract_source_metadata_const(attr: proc_macro::TokenStream) -> TokenStream {
-    if attr.to_string().is_empty() {
-        let metadata = serde_json::to_string(&ContractMetadata::default().populate())
-            .expect("ContractMetadata implements Serialize");
+    /// Allows for the injection of the contract source metadata
+    /// information into the contract code as a constant.
+    pub fn contract_source_metadata_const(self) -> TokenStream {
+        let metadata =
+            serde_json::to_string(&self.populate()).expect("ContractMetadata implements Serialize");
 
-        return quote! {
-           pub const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
-        };
-    }
-
-    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
-        Ok(v) => v,
-        Err(e) => {
-            return Error::from(e).write_errors();
+        quote! {
+            const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
         }
-    };
-
-    let args = match MacroConfig::from_list(&attr_args) {
-        Ok(v) => v,
-        Err(e) => {
-            return e.write_errors();
-        }
-    };
-
-    let metadata = serde_json::to_string(
-        &args
-            .contract_metadata
-            .expect("Attribute input must be present given standard was followed")
-            .populate(),
-    )
-    .expect("ContractMetadata implements Serialize");
-
-    quote! {
-        const CONTRACT_SOURCE_METADATA: &'static str = #metadata;
     }
 }
