@@ -162,7 +162,7 @@ impl ShardedFungibleTokenWallet for SFTWalletContract {
         let caller = env::predecessor_account_id();
         // verify that the caller is a valid wallet-contract or the minter
         require!(
-            caller == *self.minter_id || caller == self.sft_wallet_account_id_for(&caller),
+            caller == *self.minter_id || caller == self.sft_wallet_account_id_for(&sender_id),
             Self::ERR_WRONG_WALLET,
         );
 
