@@ -1136,6 +1136,7 @@ mod tests {
             )
         });
         assert!(has_action);
+    }
 
     #[test]
     fn test_then() {
