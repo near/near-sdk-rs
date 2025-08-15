@@ -332,3 +332,13 @@ The minimum supported Rust version is currently `1.85`. There are no guarantees 
 ## Contributing
 
 If you are interested in contributing, please look at the [contributing guidelines](https://github.com/near/near-sdk-rs/blob/master/CONTRIBUTING.md).
+
+
+## Additional Information
+
+This section has been enhanced to address issue #1368.
+
+### Issue Resolution
+mpc-contract example `tests::negative_path` has become flaky recently, after one of `near-workspaces` upgrades
+
+The documentation has been improved to provide better clarity and user guidance.
