@@ -184,12 +184,12 @@ where
     }
 
     /// Generates iterator for shared references to each value in the bucket.
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
     }
 
     /// Generates iterator for exclusive references to each value in the bucket.
-    pub fn iter_mut(&mut self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut::new(self)
     }
 
@@ -200,7 +200,7 @@ where
     /// from the list, even if the iterator was not fully consumed. If the
     /// iterator **is not** dropped (with [`mem::forget`] for example), the collection will be left
     /// in an inconsistent state.
-    pub fn drain(&mut self) -> Drain<T> {
+    pub fn drain(&mut self) -> Drain<'_, T> {
         Drain::new(self)
     }
 
