@@ -156,7 +156,7 @@ impl<T> Vector<T> {
     }
 
     /// Iterate over raw serialized elements.
-    pub fn iter_raw(&self) -> RawIter<T> {
+    pub fn iter_raw(&self) -> RawIter<'_, T> {
         RawIter::new(self)
     }
 
@@ -233,7 +233,7 @@ where
     }
 
     /// Iterate over deserialized elements.
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
     }
 

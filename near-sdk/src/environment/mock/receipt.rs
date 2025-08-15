@@ -1,6 +1,10 @@
+use near_primitives::action::{GlobalContractDeployMode, GlobalContractIdentifier};
 use near_primitives_core::types::GasWeight;
 use near_vm_runner::logic::mocks::mock_external::MockAction as LogicMockAction;
-use near_vm_runner::logic::types::ReceiptIndex;
+use near_vm_runner::logic::types::{
+    GlobalContractDeployMode as GlobalContractDeployModeVM,
+    GlobalContractIdentifier as GlobalContractIdentifierVM, ReceiptIndex,
+};
 
 use crate::{AccountId, Gas, NearToken};
 
@@ -28,6 +32,15 @@ pub enum MockAction {
     DeployContract {
         receipt_index: ReceiptIndex,
         code: Vec<u8>,
+    },
+    DeployGlobalContract {
+        receipt_index: ReceiptIndex,
+        code: Vec<u8>,
+        mode: GlobalContractDeployMode,
+    },
+    UseGlobalContract {
+        receipt_index: ReceiptIndex,
+        contract_id: GlobalContractIdentifier,
     },
     FunctionCallWeight {
         receipt_index: ReceiptIndex,
@@ -84,6 +97,8 @@ impl MockAction {
             MockAction::CreateReceipt { .. } => None,
             MockAction::CreateAccount { receipt_index } => Some(*receipt_index),
             MockAction::DeployContract { receipt_index, .. } => Some(*receipt_index),
+            MockAction::DeployGlobalContract { receipt_index, .. } => Some(*receipt_index),
+            MockAction::UseGlobalContract { receipt_index, .. } => Some(*receipt_index),
             MockAction::FunctionCallWeight { receipt_index, .. } => Some(*receipt_index),
             MockAction::Transfer { receipt_index, .. } => Some(*receipt_index),
             MockAction::Stake { receipt_index, .. } => Some(*receipt_index),
@@ -118,6 +133,26 @@ impl From<LogicMockAction> for MockAction {
             }
             LogicMockAction::DeployContract { receipt_index, code } => {
                 Self::DeployContract { receipt_index, code }
+            }
+            LogicMockAction::DeployGlobalContract { receipt_index, code, mode } => {
+                let contract_mode: GlobalContractDeployMode = match mode {
+                    GlobalContractDeployModeVM::AccountId => GlobalContractDeployMode::AccountId,
+                    GlobalContractDeployModeVM::CodeHash => GlobalContractDeployMode::CodeHash,
+                };
+
+                Self::DeployGlobalContract { receipt_index, code, mode: contract_mode }
+            }
+            LogicMockAction::UseGlobalContract { receipt_index, contract_id } => {
+                let contract_identifier: GlobalContractIdentifier = match contract_id {
+                    GlobalContractIdentifierVM::AccountId(account_id) => {
+                        GlobalContractIdentifier::AccountId(account_id)
+                    }
+                    GlobalContractIdentifierVM::CodeHash(code_hash) => {
+                        GlobalContractIdentifier::CodeHash(code_hash)
+                    }
+                };
+
+                Self::UseGlobalContract { receipt_index, contract_id: contract_identifier }
             }
             LogicMockAction::FunctionCallWeight {
                 receipt_index,

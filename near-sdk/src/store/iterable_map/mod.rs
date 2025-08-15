@@ -264,7 +264,7 @@ where
     ///     println!("key: {} val: {}", key, val);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<K, V, H>
+    pub fn iter(&self) -> Iter<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -294,7 +294,7 @@ where
     ///     println!("key: {} val: {}", key, val);
     /// }
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -318,7 +318,7 @@ where
     ///     println!("{}", key);
     /// }
     /// ```
-    pub fn keys(&self) -> Keys<K>
+    pub fn keys(&self) -> Keys<'_, K>
     where
         K: BorshDeserialize,
     {
@@ -342,7 +342,7 @@ where
     ///     println!("{}", val);
     /// }
     /// ```
-    pub fn values(&self) -> Values<K, V, H>
+    pub fn values(&self) -> Values<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -370,7 +370,7 @@ where
     ///     println!("{}", val);
     /// }
     /// ```
-    pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -397,7 +397,7 @@ where
     ///
     /// assert!(a.is_empty());
     /// ```
-    pub fn drain(&mut self) -> Drain<K, V, H>
+    pub fn drain(&mut self) -> Drain<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -639,7 +639,7 @@ where
     /// assert_eq!(count[&1], 1);
     /// assert_eq!(count.get(&8), None);
     /// ```
-    pub fn entry(&mut self, key: K) -> Entry<K, V, H>
+    pub fn entry(&mut self, key: K) -> Entry<'_, K, V, H>
     where
         K: Clone,
     {
