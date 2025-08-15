@@ -438,7 +438,7 @@ where
     ///     println!("val: {}", val);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<T>
+    pub fn iter(&self) -> Iter<'_, T>
     where
         T: BorshDeserialize,
     {
@@ -462,7 +462,7 @@ where
     ///
     /// assert!(a.is_empty());
     /// ```
-    pub fn drain(&mut self) -> Drain<T, H>
+    pub fn drain(&mut self) -> Drain<'_, T, H>
     where
         T: BorshDeserialize,
     {
