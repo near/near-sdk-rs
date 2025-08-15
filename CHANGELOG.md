@@ -7,18 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.0.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.1...near-sdk-v6.0.0) - 2025-08-15
+## [5.16.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.1...near-sdk-v5.16.0) - 2025-08-15
 
 ### Added
 
-- then_concurrent() + join() Promise API for map-reduce-like flow ([#1364](https://github.com/near/near-sdk-rs/pull/1364))
+- `then_concurrent()` + `join()` Promise API for map-reduce-like flow ([#1364](https://github.com/near/near-sdk-rs/pull/1364))
 
 ### Other
 
-- [**breaking**] update near-* dependencies to 0.31 release ([#1379](https://github.com/near/near-sdk-rs/pull/1379))
-# Changelog
-
-## [Unreleased]
+- [**breaking** for unit-testing feature] update near-* dependencies to 0.31 release ([#1379](https://github.com/near/near-sdk-rs/pull/1379))
 
 ## [5.15.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.0...near-sdk-v5.15.1) - 2025-07-01
 
