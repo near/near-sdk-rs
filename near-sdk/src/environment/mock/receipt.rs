@@ -1,11 +1,9 @@
 use near_primitives::action::{GlobalContractDeployMode, GlobalContractIdentifier};
 use near_primitives_core::types::GasWeight;
+use near_vm_runner::logic::mocks::mock_external::MockAction as LogicMockAction;
 use near_vm_runner::logic::types::{
+    GlobalContractDeployMode as GlobalContractDeployModeVM,
     GlobalContractIdentifier as GlobalContractIdentifierVM, ReceiptIndex,
-};
-use near_vm_runner::logic::{
-    mocks::mock_external::MockAction as LogicMockAction,
-    types::GlobalContractDeployMode as GlobalContractDeployModeVM,
 };
 
 use crate::{AccountId, Gas, NearToken};
