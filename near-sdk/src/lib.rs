@@ -1113,6 +1113,6 @@ pub use base64;
 pub use borsh;
 pub use bs58;
 #[cfg(feature = "abi")]
-pub use schemars;
+pub use crate::schemars_exports::chemars;
 pub use serde;
 pub use serde_json;

@@ -30,7 +30,7 @@ bs58 = "0.5"
 # Used for caching, might be worth porting only functionality needed.
 once_cell = { version = "1.17", default-features = false }
 
-near-account-id = { version = "1.0.0", features = ["serde", "borsh"] }
+near-account-id = { git = "https://github.com/polyprogrammist/near-account-id-rs.git", branch="v1_and_v08", features = ["serde", "borsh"] }
 near-gas = { version = "0.3", features = ["serde", "borsh"] }
 near-token = { version = "0.3", features = ["serde", "borsh"] }
 
@@ -38,7 +38,8 @@ near-token = { version = "0.3", features = ["serde", "borsh"] }
 wee_alloc = { version = "0.4.5", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-schemars = { version = "0.8.8", optional = true }
+schemars-v1 = { version = "1.0.3", optional = true, package = "schemars" }
+schemars-v0_8 = { version = "0.8.8", optional = true, package = "schemars" }
 near-abi = { version = "0.4.0", features = [
     "__chunked-entries",
 ], optional = true }
@@ -84,6 +85,19 @@ abi = [
     "near-gas/abi",
     "near-token/abi",
 ]
+abi-with-schemars-v1 = [
+    "borsh/unstable__schema",
+    "near-abi",
+    "schemars-v1",
+    "near-sdk-macros/abi-with-schemars-v1",
+    "near-account-id/abi-with-schemars-v1",
+    "near-gas/abi-with-schemars-v1",
+    "near-token/abi-with-schemars-v1",
+]
+schemars-v1 = ["schemars", "dep:schemars-v1"]
+schemars-v0_8 = ["schemars", "dep:schemars-v0_8"] 
+schemars = ["dep:schemars-v0_8"]
+
 unit-testing = [
     "near-vm-runner",
     "near-primitives-core",
@@ -92,6 +106,7 @@ unit-testing = [
     "near-parameters",
 ]
 non-contract-usage = []
+
 
 __abi-embed = ["near-sdk-macros/__abi-embed"]
 __abi-generate = ["abi", "near-sdk-macros/__abi-generate"]
