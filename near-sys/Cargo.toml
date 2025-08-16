@@ -12,6 +12,3 @@ Syscall definitions for builtin functions of the NEAR runtime.
 """
 
 [dependencies]
-
-[features]
-global-contracts = []

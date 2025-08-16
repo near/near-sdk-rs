@@ -146,7 +146,6 @@ extern "C" {
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     );
-    #[cfg(feature = "global-contracts")]
     // #########################
     // # Global Contract API   #
     // #########################
@@ -155,19 +154,16 @@ extern "C" {
         code_len: u64,
         code_ptr: u64,
     );
-    #[cfg(feature = "global-contracts")]
     pub fn promise_batch_action_deploy_global_contract_by_account_id(
         promise_index: u64,
         code_len: u64,
         code_ptr: u64,
     );
-    #[cfg(feature = "global-contracts")]
     pub fn promise_batch_action_use_global_contract(
         promise_index: u64,
         code_hash_len: u64,
         code_hash_ptr: u64,
     );
-    #[cfg(feature = "global-contracts")]
     pub fn promise_batch_action_use_global_contract_by_account_id(
         promise_index: u64,
         account_id_len: u64,

@@ -71,19 +71,15 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
-    #[cfg(feature = "global-contracts")]
     DeployGlobalContract {
         code: Vec<u8>,
     },
-    #[cfg(feature = "global-contracts")]
     DeployGlobalContractByAccountId {
         code: Vec<u8>,
     },
-    #[cfg(feature = "global-contracts")]
     UseGlobalContract {
         code_hash: Vec<u8>,
     },
-    #[cfg(feature = "global-contracts")]
     UseGlobalContractByAccountId {
         account_id: AccountId,
     },
@@ -145,22 +141,18 @@ impl PromiseAction {
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
             }
-            #[cfg(feature = "global-contracts")]
             DeployGlobalContract { code } => {
                 crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
             }
-            #[cfg(feature = "global-contracts")]
             DeployGlobalContractByAccountId { code } => {
                 crate::env::promise_batch_action_deploy_global_contract_by_account_id(
                     promise_index,
                     code,
                 )
             }
-            #[cfg(feature = "global-contracts")]
             UseGlobalContract { code_hash } => {
                 crate::env::promise_batch_action_use_global_contract(promise_index, code_hash)
             }
-            #[cfg(feature = "global-contracts")]
             UseGlobalContractByAccountId { account_id } => {
                 crate::env::promise_batch_action_use_global_contract_by_account_id(
                     promise_index,
@@ -324,7 +316,6 @@ impl Promise {
         self.add_action(PromiseAction::DeployContract { code })
     }
 
-    #[cfg(feature = "global-contracts")]
     /// Deploy a global smart contract using the provided contract code.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
     ///
@@ -342,7 +333,6 @@ impl Promise {
         self.add_action(PromiseAction::DeployGlobalContract { code })
     }
 
-    #[cfg(feature = "global-contracts")]
     /// Deploy a global smart contract, identifiable by the predecessor's account ID.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
     ///
@@ -360,7 +350,6 @@ impl Promise {
         self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
     }
 
-    #[cfg(feature = "global-contracts")]
     /// Use an existing global contract by code hash.
     /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
     ///
@@ -378,7 +367,6 @@ impl Promise {
         self.add_action(PromiseAction::UseGlobalContract { code_hash })
     }
 
-    #[cfg(feature = "global-contracts")]
     /// Use an existing global contract by referencing the account that deployed it.
     /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
     ///
@@ -831,6 +819,8 @@ impl ConcurrentPromises {
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
+    use near_primitives::action::GlobalContractIdentifier;
+
     use crate::mock::MockAction;
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
@@ -1057,7 +1047,6 @@ mod tests {
         assert!(has_action);
     }
 
-    #[cfg(feature = "global-contracts")]
     #[test]
     fn test_deploy_global_contract() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
@@ -1071,13 +1060,12 @@ mod tests {
         let has_action = get_actions().any(|el| {
             matches!(
                 el,
-                MockAction::DeployGlobalContract { code: c, receipt_index: _ } if c == code
+                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: _ } if c == code
             )
         });
         assert!(has_action);
     }
 
-    #[cfg(feature = "global-contracts")]
     #[test]
     fn test_deploy_global_contract_by_account_id() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
@@ -1093,13 +1081,12 @@ mod tests {
         let has_action = get_actions().any(|el| {
             matches!(
                 el,
-                MockAction::DeployGlobalContract { code: c, receipt_index: _ } if c == code
+                MockAction::DeployGlobalContract { code: c, .. } if c == code
             )
         });
         assert!(has_action);
     }
 
-    #[cfg(feature = "global-contracts")]
     #[test]
     fn test_use_global_contract() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
@@ -1115,7 +1102,6 @@ mod tests {
         assert!(has_action);
     }
 
-    #[cfg(feature = "global-contracts")]
     #[test]
     fn test_use_global_contract_by_account_id() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
@@ -1131,7 +1117,7 @@ mod tests {
         let has_action = get_actions().any(|el| {
             matches!(
                 el,
-                MockAction::UseGlobalContract { contract_id, receipt_index: _ }
+                MockAction::UseGlobalContract { contract_id: GlobalContractIdentifier::AccountId(contract_id), receipt_index: _ }
                 if contract_id.contains(&deployer.to_string())
             )
         });

@@ -89,17 +89,6 @@ pub enum MockAction {
         data: Vec<u8>,
         data_id: near_primitives::hash::CryptoHash,
     },
-    #[cfg(feature = "global-contracts")]
-    DeployGlobalContract {
-        receipt_index: ReceiptIndex,
-        code: Vec<u8>,
-    },
-    #[cfg(feature = "global-contracts")]
-    UseGlobalContract {
-        receipt_index: ReceiptIndex,
-        // Store as String to avoid trait bound issues with GlobalContractIdentifier
-        contract_id: String,
-    },
 }
 
 impl MockAction {
@@ -119,10 +108,6 @@ impl MockAction {
             MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::YieldCreate { .. } => None,
             MockAction::YieldResume { .. } => None,
-            #[cfg(feature = "global-contracts")]
-            MockAction::DeployGlobalContract { receipt_index, .. } => Some(*receipt_index),
-            #[cfg(feature = "global-contracts")]
-            MockAction::UseGlobalContract { receipt_index, .. } => Some(*receipt_index),
         }
     }
 }
@@ -220,22 +205,6 @@ impl From<LogicMockAction> for MockAction {
                 Self::YieldCreate { data_id, receiver_id }
             }
             LogicMockAction::YieldResume { data, data_id } => Self::YieldResume { data, data_id },
-            #[cfg(feature = "global-contracts")]
-            LogicMockAction::DeployGlobalContract { receipt_index, code, .. } => {
-                Self::DeployGlobalContract { receipt_index, code }
-            }
-            #[cfg(feature = "global-contracts")]
-            LogicMockAction::UseGlobalContract { receipt_index, contract_id, .. } => {
-                Self::UseGlobalContract { receipt_index, contract_id: format!("{:?}", contract_id) }
-            }
-            #[cfg(not(feature = "global-contracts"))]
-            LogicMockAction::DeployGlobalContract { .. } => {
-                panic!("Global contract functionality requires the 'global-contracts' feature flag")
-            }
-            #[cfg(not(feature = "global-contracts"))]
-            LogicMockAction::UseGlobalContract { .. } => {
-                panic!("Global contract functionality requires the 'global-contracts' feature flag")
-            }
         }
     }
 }
@@ -245,21 +214,19 @@ mod tests {
     use super::*;
     use near_vm_runner::logic::mocks::mock_external::MockAction as LogicMockAction;
 
-    #[cfg(feature = "global-contracts")]
     #[test]
     fn test_global_contract_mock_actions() {
         let deploy_action =
-            MockAction::DeployGlobalContract { receipt_index: 0, code: vec![1, 2, 3] };
+            MockAction::DeployGlobalContract { receipt_index: 0, code: vec![1, 2, 3], mode: GlobalContractIdentifier::AccountId("test_contract".parse().unwrap()) };
         assert_eq!(deploy_action.receipt_index(), Some(0));
 
         let use_action = MockAction::UseGlobalContract {
             receipt_index: 1,
-            contract_id: "test_contract".to_string(),
+            contract_id: GlobalContractIdentifier::AccountId("test_contract".parse().unwrap()),
         };
         assert_eq!(use_action.receipt_index(), Some(1));
     }
 
-    #[cfg(feature = "global-contracts")]
     #[test]
     fn test_logic_mock_action_conversion() {
         let logic_deploy = LogicMockAction::DeployGlobalContract {
@@ -278,34 +245,5 @@ mod tests {
         };
         let mock_use = MockAction::from(logic_use);
         assert!(matches!(mock_use, MockAction::UseGlobalContract { .. }));
-    }
-
-    #[cfg(not(feature = "global-contracts"))]
-    #[test]
-    #[should_panic(
-        expected = "Global contract functionality requires the 'global-contracts' feature flag"
-    )]
-    fn test_deploy_global_contract_panic_without_feature() {
-        let logic_action = LogicMockAction::DeployGlobalContract {
-            receipt_index: 0,
-            code: vec![1, 2, 3],
-            mode: near_vm_runner::logic::types::GlobalContractDeployMode::CodeHash,
-        };
-        let _ = MockAction::from(logic_action);
-    }
-
-    #[cfg(not(feature = "global-contracts"))]
-    #[test]
-    #[should_panic(
-        expected = "Global contract functionality requires the 'global-contracts' feature flag"
-    )]
-    fn test_use_global_contract_panic_without_feature() {
-        let logic_action = LogicMockAction::UseGlobalContract {
-            receipt_index: 1,
-            contract_id: near_vm_runner::logic::types::GlobalContractIdentifier::AccountId(
-                "test_contract".parse().unwrap(),
-            ),
-        };
-        let _ = MockAction::from(logic_action);
     }
 }

@@ -42,9 +42,8 @@ fn ensure_abi_for_prepended_functions() {
     // ensure methods are prepended
     PREPENDED_METHODS.map(|method| {
         assert!(
-            near_abi_symbols.contains(format!("__near_abi_{}", method).as_str()),
-            "ABI should contain prepended method {}",
-            method
+            near_abi_symbols.contains(format!("__near_abi_{method}").as_str()),
+            "ABI should contain prepended method {method}"
         );
     });
 }
