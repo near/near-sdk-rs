@@ -63,7 +63,7 @@ rand_chacha = "0.3.1"
 near-rng = "0.1.1"
 near-abi = { version = "0.4.0", features = ["__chunked-entries"] }
 symbolic-debuginfo = "12"
-near-workspaces = { version = "0.20", features = ["unstable"] }
+near-workspaces = { version = "0.21", features = ["unstable"] }
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 strum = "0.25.0"

@@ -3,11 +3,11 @@ fn check_example_size(example: &str) -> usize {
     let status = std::process::Command::new("cargo")
         .env("RUSTFLAGS", "-C link-arg=-s")
         .args(["build", "--release", "--target", "wasm32-unknown-unknown", "--manifest-path"])
-        .arg(format!("../examples/{}/Cargo.toml", example))
+        .arg(format!("../examples/{example}/Cargo.toml"))
         .status()
         .unwrap();
     if !status.success() {
-        panic!("building wasm example returned non-zero code {}", status);
+        panic!("building wasm example returned non-zero code {status}");
     }
 
     let wasm = std::fs::read(format!(

@@ -349,7 +349,7 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                     return TokenStream::from(
                         syn::Error::new(
                             Span::call_site(),
-                            format!("Failed to parse mod name for ext_contract: {}", err),
+                            format!("Failed to parse mod name for ext_contract: {err}"),
                         )
                         .to_compile_error(),
                     )
@@ -667,7 +667,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemEnum>(item) {
         let name = &input.ident;
         // get `standard` const injected from `near_events`
-        let standard_name = format!("{}_event_standard", name);
+        let standard_name = format!("{name}_event_standard");
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
         // version from each attribute macro
         let mut event_meta: Vec<proc_macro2::TokenStream> = vec![];

@@ -208,3 +208,42 @@ impl From<LogicMockAction> for MockAction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_vm_runner::logic::mocks::mock_external::MockAction as LogicMockAction;
+
+    #[test]
+    fn test_global_contract_mock_actions() {
+        let deploy_action =
+            MockAction::DeployGlobalContract { receipt_index: 0, code: vec![1, 2, 3], mode: GlobalContractIdentifier::AccountId("test_contract".parse().unwrap()) };
+        assert_eq!(deploy_action.receipt_index(), Some(0));
+
+        let use_action = MockAction::UseGlobalContract {
+            receipt_index: 1,
+            contract_id: GlobalContractIdentifier::AccountId("test_contract".parse().unwrap()),
+        };
+        assert_eq!(use_action.receipt_index(), Some(1));
+    }
+
+    #[test]
+    fn test_logic_mock_action_conversion() {
+        let logic_deploy = LogicMockAction::DeployGlobalContract {
+            receipt_index: 0,
+            code: vec![1, 2, 3],
+            mode: near_vm_runner::logic::types::GlobalContractDeployMode::CodeHash,
+        };
+        let mock_deploy = MockAction::from(logic_deploy);
+        assert!(matches!(mock_deploy, MockAction::DeployGlobalContract { .. }));
+
+        let logic_use = LogicMockAction::UseGlobalContract {
+            receipt_index: 1,
+            contract_id: near_vm_runner::logic::types::GlobalContractIdentifier::AccountId(
+                "test_contract".parse().unwrap(),
+            ),
+        };
+        let mock_use = MockAction::from(logic_use);
+        assert!(matches!(mock_use, MockAction::UseGlobalContract { .. }));
+    }
+}
