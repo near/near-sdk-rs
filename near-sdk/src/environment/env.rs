@@ -1964,7 +1964,7 @@ pub fn abort() -> ! {
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
-    eprintln!("{}", message);
+    eprintln!("{message}");
 
     unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
 }

@@ -1,10 +1,8 @@
+#[cfg(feature = "global-contracts")]
 use near_primitives::action::{GlobalContractDeployMode, GlobalContractIdentifier};
 use near_primitives_core::types::GasWeight;
 use near_vm_runner::logic::mocks::mock_external::MockAction as LogicMockAction;
-use near_vm_runner::logic::types::{
-    GlobalContractDeployMode as GlobalContractDeployModeVM,
-    GlobalContractIdentifier as GlobalContractIdentifierVM, ReceiptIndex,
-};
+use near_vm_runner::logic::types::ReceiptIndex;
 
 use crate::{AccountId, Gas, NearToken};
 
@@ -33,11 +31,13 @@ pub enum MockAction {
         receipt_index: ReceiptIndex,
         code: Vec<u8>,
     },
+    #[cfg(feature = "global-contracts")]
     DeployGlobalContract {
         receipt_index: ReceiptIndex,
         code: Vec<u8>,
         mode: GlobalContractDeployMode,
     },
+    #[cfg(feature = "global-contracts")]
     UseGlobalContract {
         receipt_index: ReceiptIndex,
         contract_id: GlobalContractIdentifier,
@@ -89,17 +89,6 @@ pub enum MockAction {
         data: Vec<u8>,
         data_id: near_primitives::hash::CryptoHash,
     },
-    #[cfg(feature = "global-contracts")]
-    DeployGlobalContract {
-        receipt_index: ReceiptIndex,
-        code: Vec<u8>,
-    },
-    #[cfg(feature = "global-contracts")]
-    UseGlobalContract {
-        receipt_index: ReceiptIndex,
-        // Store as String to avoid trait bound issues with GlobalContractIdentifier
-        contract_id: String,
-    },
 }
 
 impl MockAction {
@@ -108,7 +97,9 @@ impl MockAction {
             MockAction::CreateReceipt { .. } => None,
             MockAction::CreateAccount { receipt_index } => Some(*receipt_index),
             MockAction::DeployContract { receipt_index, .. } => Some(*receipt_index),
+            #[cfg(feature = "global-contracts")]
             MockAction::DeployGlobalContract { receipt_index, .. } => Some(*receipt_index),
+            #[cfg(feature = "global-contracts")]
             MockAction::UseGlobalContract { receipt_index, .. } => Some(*receipt_index),
             MockAction::FunctionCallWeight { receipt_index, .. } => Some(*receipt_index),
             MockAction::Transfer { receipt_index, .. } => Some(*receipt_index),
@@ -119,10 +110,6 @@ impl MockAction {
             MockAction::AddKeyWithFullAccess { receipt_index, .. } => Some(*receipt_index),
             MockAction::YieldCreate { .. } => None,
             MockAction::YieldResume { .. } => None,
-            #[cfg(feature = "global-contracts")]
-            MockAction::DeployGlobalContract { receipt_index, .. } => Some(*receipt_index),
-            #[cfg(feature = "global-contracts")]
-            MockAction::UseGlobalContract { receipt_index, .. } => Some(*receipt_index),
         }
     }
 }
@@ -151,20 +138,24 @@ impl From<LogicMockAction> for MockAction {
             }
             #[cfg(feature = "global-contracts")]
             LogicMockAction::DeployGlobalContract { receipt_index, code, mode } => {
-                let contract_mode: GlobalContractDeployMode = match mode {
-                    GlobalContractDeployModeVM::AccountId => GlobalContractDeployMode::AccountId,
-                    GlobalContractDeployModeVM::CodeHash => GlobalContractDeployMode::CodeHash,
+                let contract_mode = match mode {
+                    near_vm_runner::logic::types::GlobalContractDeployMode::AccountId => {
+                        GlobalContractDeployMode::AccountId
+                    }
+                    near_vm_runner::logic::types::GlobalContractDeployMode::CodeHash => {
+                        GlobalContractDeployMode::CodeHash
+                    }
                 };
 
                 Self::DeployGlobalContract { receipt_index, code, mode: contract_mode }
             }
             #[cfg(feature = "global-contracts")]
             LogicMockAction::UseGlobalContract { receipt_index, contract_id } => {
-                let contract_identifier: GlobalContractIdentifier = match contract_id {
-                    GlobalContractIdentifierVM::AccountId(account_id) => {
-                        GlobalContractIdentifier::AccountId(account_id)
-                    }
-                    GlobalContractIdentifierVM::CodeHash(code_hash) => {
+                let contract_identifier = match contract_id {
+                    near_vm_runner::logic::types::GlobalContractIdentifier::AccountId(
+                        account_id,
+                    ) => GlobalContractIdentifier::AccountId(account_id),
+                    near_vm_runner::logic::types::GlobalContractIdentifier::CodeHash(code_hash) => {
                         GlobalContractIdentifier::CodeHash(code_hash)
                     }
                 };
