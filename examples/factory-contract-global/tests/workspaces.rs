@@ -7,7 +7,7 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
     // Initialize the sandbox environment with specific commit that includes global contract support
     println!("Initializing worker");
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
 
     println!("Deploying global contract");
@@ -60,7 +60,7 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
@@ -112,7 +112,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
@@ -155,7 +155,7 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
