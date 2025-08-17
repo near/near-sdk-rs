@@ -7,7 +7,7 @@ use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
 #[tokio::test]
 async fn test_multisig_factory_global_contract() -> anyhow::Result<()> {
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
 
     // Deploy the factory contract
@@ -121,7 +121,7 @@ async fn test_multisig_factory_global_contract() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_business_onboarding_global_contracts() -> anyhow::Result<()> {
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
 
     let factory_wasm = near_workspaces::compile_project(".").await?;
@@ -213,7 +213,7 @@ async fn test_business_onboarding_global_contracts() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_cost_comparison_regular_vs_global() -> anyhow::Result<()> {
     let worker =
-        near_workspaces::sandbox_with_version("master/5e4b47da55e18f2d2ce3d88f84c15e607380970e")
+        near_workspaces::sandbox_with_version("2.7.0")
             .await?;
 
     let factory_wasm = near_workspaces::compile_project(".").await?;
