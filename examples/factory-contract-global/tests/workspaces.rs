@@ -99,7 +99,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
         .call("use_global_contract_by_hash")
         .args_json((stored_hash, &user_account_id))
         .max_gas()
-        .deposit(NearToken::from_near(15))
+        .deposit(NearToken::from_millinear(10))
         .transact()
         .await?;
 
@@ -142,7 +142,7 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
         .call("use_global_contract_by_account")
         .args_json((&global_account_id, &user_account_id))
         .max_gas()
-        .deposit(NearToken::from_near(15))
+        .deposit(NearToken::from_millinear(10))
         .transact()
         .await?;
 
