@@ -71,7 +71,7 @@ async fn test_multisig_factory_global_contract() -> anyhow::Result<()> {
                 &user_id,
             ))
             .max_gas()
-            .deposit(NearToken::from_near(8))
+            .deposit(NearToken::from_millinear(1))
             .transact()
             .await?;
 
@@ -174,7 +174,7 @@ async fn test_business_onboarding_global_contracts() -> anyhow::Result<()> {
                 &customer_id,
             ))
             .max_gas()
-            .deposit(NearToken::from_near(5))
+            .deposit(NearToken::from_millinear(1))
             .transact()
             .await?;
 
@@ -266,7 +266,7 @@ async fn test_cost_comparison_regular_vs_global() -> anyhow::Result<()> {
             .call("use_global_contract_by_hash")
             .args_json((&global_hash, &user_id))
             .max_gas()
-            .deposit(NearToken::from_near(5))
+            .deposit(NearToken::from_millinear(1))
             .transact()
             .await?;
 
