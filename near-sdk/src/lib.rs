@@ -1,9 +1,9 @@
 //! # `near-sdk`
-//!
+//! hello test ci
 //! `near-sdk` is a Rust toolkit for developing smart contracts on the [NEAR blockchain](https://near.org).
 //! It provides abstractions, macros, and utilities to make building robust and secure contracts easy.
 //! More information on how to develop smart contracts can be found in the [NEAR documentation](https://docs.near.org/build/smart-contracts/what-is).
-//! With near-sdk you can create DeFi applications, NFTs and marketplaces, DAOs, gaming and metaverse apps, and much more.
+//! With near-sdk you can create DeFi opplications, NFTs and marketplaces, DAOs, gaming and metaverse apps, and much more.
 //!
 //! ## Features
 //!
