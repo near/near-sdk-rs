@@ -1,6 +1,9 @@
 use near_workspaces::types::{AccountId, NearToken};
 use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
 
+const STORAGE_DEPOSIT_PER_BYTE: NearToken = NearToken::from_near(1).saturating_div(100_000);
+const GLOBAL_STORAGE_COST_PER_BYTE: NearToken = STORAGE_DEPOSIT_PER_BYTE.saturating_mul(10);
+
 /// Test basic global contract deployment functionality
 #[tokio::test]
 async fn test_deploy_global_contract() -> anyhow::Result<()> {
@@ -26,12 +29,12 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
         .call("deploy_global_contract")
         .args_json(("status_message", Base64VecU8::from(status_code.clone()), &global_account_id))
         .max_gas()
-        .deposit(NearToken::from_near(25))
+        .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
         .await?;
-    println!("Deployed global contract: {:?}", res);
+    println!("Deployed global contract: {res:?}");
 
-    assert!(res.is_success(), "Failed to deploy global contract: {:?}", res);
+    assert!(res.is_success(), "Failed to deploy global contract: {res:?}");
 
     // Verify the global contract was recorded
     let stored_hash = factory_contract
@@ -77,7 +80,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
             &global_account_id,
         ))
         .max_gas()
-        .deposit(NearToken::from_near(25))
+        .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
         .await?;
 
@@ -99,7 +102,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
         .call("use_global_contract_by_hash")
         .args_json((stored_hash, &user_account_id))
         .max_gas()
-        .deposit(NearToken::from_millinear(10))
+        .deposit(NearToken::from_millinear(1))
         .transact()
         .await?;
 
@@ -129,11 +132,11 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
             &global_account_id,
         ))
         .max_gas()
-        .deposit(NearToken::from_near(25))
+        .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Failed to deploy global contract by account: {:?}", res);
+    assert!(res.is_success(), "Failed to deploy global contract by account: {res:?}");
 
     // Now use the global contract by account ID
     let user_account_id: AccountId = format!("user.{}", factory_contract.id()).parse()?;
@@ -142,11 +145,11 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
         .call("use_global_contract_by_account")
         .args_json((&global_account_id, &user_account_id))
         .max_gas()
-        .deposit(NearToken::from_millinear(10))
+        .deposit(NearToken::from_millinear(1))
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Failed to use global contract by account: {:?}", res);
+    assert!(res.is_success(), "Failed to use global contract by account: {res:?}");
 
     Ok(())
 }
@@ -178,6 +181,30 @@ async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
     )>>()?;
 
     assert!(empty_list.is_empty(), "Should return empty list when no contracts deployed");
+
+    // Test using non-existent contract
+    let user_account_id: AccountId = format!("user.{}", factory_contract.id()).parse()?;
+    let res = factory_contract
+        .call("use_global_contract_by_hash")
+        .args_json(("11111111111111111111111111111111", &user_account_id))
+        .max_gas()
+        .deposit(NearToken::from_millinear(100))
+        .transact()
+        .await?;
+    assert!(res.is_failure(), "Not failed to use global contract by hash: {res:?}");
+
+    // Test using non-existent contract
+    let global_contract_account_id: AccountId = format!("non-existent-global.{}", factory_contract.id()).parse()?;
+    let user_account_id: AccountId = format!("user.{}", factory_contract.id()).parse()?;
+    let res = factory_contract
+        .call("use_global_contract_by_account")
+        .args_json((&global_contract_account_id, &user_account_id))
+        .max_gas()
+        .deposit(NearToken::from_millinear(100))
+        .transact()
+        .await?;
+
+    assert!(res.is_failure(), "Not failed to use global contract by account: {res:?}");
 
     Ok(())
 }
