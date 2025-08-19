@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.17.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.0...near-sdk-v5.17.1) - 2025-08-19
+
+### Other
+
+- Enabled global-contracts feature for docs.rs ([#1383](https://github.com/near/near-sdk-rs/pull/1383))
+
 ## [5.17.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.16.0...near-sdk-v5.17.0) - 2025-08-19
 
 ### Added
