@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.17.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.16.0...near-sdk-v5.17.0) - 2025-08-19
+
+### Added
+
+- Add global contract support (NEP-591) ([#1369](https://github.com/near/near-sdk-rs/pull/1369))
+
 ## [5.16.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.15.1...near-sdk-v5.16.0) - 2025-08-15
 
 ### Added
