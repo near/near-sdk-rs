@@ -21,7 +21,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! near-sdk = "5.6.0"
+//! near-sdk = "5.17.0"
 //! ```
 //!
 //! ### Example: Counter Smart Contract. For more information, see the [**near** macro](near) documentation.
