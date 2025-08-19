@@ -45,7 +45,7 @@ impl BuildInfo {
             .filter(|build_command| !build_command.is_empty())
             .ok_or(ERR_EMPTY_BUILD_COMMAND.to_string())?;
         let build_command: Vec<String> = serde_json::from_str(&build_command)
-            .map_err(|err| format!("{}: {}", ERR_PARSE_BUILD_COMMAND, err))?;
+            .map_err(|err| format!("{ERR_PARSE_BUILD_COMMAND}: {err}"))?;
 
         let source_code_snapshot = std::env::var(nep330_keys::SOURCE_CODE_SNAPSHOT)
             .ok()

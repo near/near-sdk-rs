@@ -849,7 +849,7 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
 ///     "counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(30)
@@ -897,7 +897,7 @@ pub fn promise_create(
 ///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(30)
@@ -954,7 +954,7 @@ pub fn promise_then(
 ///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(30)
@@ -1036,7 +1036,7 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 ///     "counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(30)
@@ -1489,6 +1489,116 @@ pub fn promise_batch_action_delete_account(
     }
 }
 
+#[cfg(feature = "global-contracts")]
+/// Deploys a global contract using the provided contract code.
+///
+/// # Arguments
+/// * `promise_index` - Promise batch index
+/// * `code` - Contract bytecode to deploy as a global contract
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::{env, PromiseIndex};
+///
+/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let code = vec![0u8; 100]; // Contract bytecode
+/// env::promise_batch_action_deploy_global_contract(promise, &code);
+/// ```
+pub fn promise_batch_action_deploy_global_contract(promise_index: PromiseIndex, code: &[u8]) {
+    unsafe {
+        sys::promise_batch_action_deploy_global_contract(
+            promise_index.0,
+            code.len() as _,
+            code.as_ptr() as _,
+        )
+    }
+}
+
+#[cfg(feature = "global-contracts")]
+/// Deploys a global contract by referencing another account's deployed code.
+///
+/// # Arguments
+/// * `promise_index` - Promise batch index
+/// * `code` - Contract bytecode to deploy as a global contract
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::{env, PromiseIndex};
+///
+/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let code = vec![0u8; 100]; // Contract bytecode
+/// env::promise_batch_action_deploy_global_contract_by_account_id(promise, &code);
+/// ```
+pub fn promise_batch_action_deploy_global_contract_by_account_id(
+    promise_index: PromiseIndex,
+    code: &[u8],
+) {
+    unsafe {
+        sys::promise_batch_action_deploy_global_contract_by_account_id(
+            promise_index.0,
+            code.len() as _,
+            code.as_ptr() as _,
+        )
+    }
+}
+
+#[cfg(feature = "global-contracts")]
+/// Uses an existing global contract by code hash.
+///
+/// # Arguments
+/// * `promise_index` - Promise batch index
+/// * `code_hash` - Hash of the global contract code to use
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::{env, PromiseIndex};
+///
+/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let code_hash = vec![0u8; 32]; // 32-byte hash
+/// env::promise_batch_action_use_global_contract(promise, &code_hash);
+/// ```
+pub fn promise_batch_action_use_global_contract(promise_index: PromiseIndex, code_hash: &[u8]) {
+    unsafe {
+        sys::promise_batch_action_use_global_contract(
+            promise_index.0,
+            code_hash.len() as _,
+            code_hash.as_ptr() as _,
+        )
+    }
+}
+
+#[cfg(feature = "global-contracts")]
+/// Uses an existing global contract by referencing the account that deployed it.
+///
+/// # Arguments
+/// * `promise_index` - Promise batch index
+/// * `account_id` - Account ID that deployed the global contract
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::{env, PromiseIndex, AccountId};
+/// use std::str::FromStr;
+///
+/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// env::promise_batch_action_use_global_contract_by_account_id(
+///     promise,
+///     &AccountId::from_str("deployer.near").unwrap()
+/// );
+/// ```
+pub fn promise_batch_action_use_global_contract_by_account_id(
+    promise_index: PromiseIndex,
+    account_id: &AccountId,
+) {
+    let account_id: &str = account_id.as_ref();
+    unsafe {
+        sys::promise_batch_action_use_global_contract_by_account_id(
+            promise_index.0,
+            account_id.len() as _,
+            account_id.as_ptr() as _,
+        )
+    }
+}
+
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback. This function returns the number of complete and
 /// incomplete callbacks.
@@ -1570,7 +1680,7 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 ///     AccountId::from_str("counter.near").unwrap(),
 ///     "increment",
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(30)
@@ -1608,7 +1718,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///     "increment",
 ///     // passed as arguments
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     Gas::from_tgas(10),
 ///     GasWeight(0),
@@ -1674,7 +1784,7 @@ pub fn promise_yield_create(
 ///     "increment",
 ///     // passed as arguments
 ///     serde_json::json!({
-///         "value": 5        
+///         "value": 5
 ///     }).to_string().into_bytes().as_slice(),
 ///     Gas::from_tgas(10),
 ///     GasWeight(0),
@@ -1854,7 +1964,7 @@ pub fn abort() -> ! {
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
 pub fn log_str(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
-    eprintln!("{}", message);
+    eprintln!("{message}");
 
     unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
 }
@@ -2648,5 +2758,44 @@ mod tests {
         let flat: Vec<u8> = buffer.iter().flat_map(|x| x.iter()).copied().collect();
         let result = super::bls12381_p2_decompress(&flat);
         assert!(!result.is_empty(), "Expected a non-empty result from bls12381_p2_decompress");
+    }
+
+    #[test]
+    #[cfg(feature = "global-contracts")]
+    fn test_global_contract_functions() {
+        // Test the global contract promise batch action functions
+        // These tests verify the functions can be called without panicking
+
+        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let code = vec![0u8; 100]; // Mock contract bytecode
+        let code_hash = vec![0u8; 32]; // Mock 32-byte hash
+        let account_id = "deployer.near".parse().unwrap();
+
+        // Test deploy_global_contract
+        super::promise_batch_action_deploy_global_contract(promise_index, &code);
+
+        // Test deploy_global_contract_by_account_id
+        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &code);
+
+        // Test use_global_contract
+        super::promise_batch_action_use_global_contract(promise_index, &code_hash);
+
+        // Test use_global_contract_by_account_id
+        super::promise_batch_action_use_global_contract_by_account_id(promise_index, &account_id);
+    }
+
+    #[test]
+    #[cfg(feature = "global-contracts")]
+    fn test_global_contract_edge_cases() {
+        // Test with minimal valid inputs
+        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+
+        // Test with single byte code (minimal size)
+        super::promise_batch_action_deploy_global_contract(promise_index, &[0]);
+        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &[0]);
+
+        // Test with 32-byte hash (standard size for CryptoHash)
+        let valid_hash = [0u8; 32];
+        super::promise_batch_action_use_global_contract(promise_index, &valid_hash);
     }
 }

@@ -39,7 +39,7 @@ pub(crate) fn near_events(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Some(standard) = args.event_json.and_then(|event_json| event_json.standard) {
         if let Ok(mut input) = syn::parse::<ItemEnum>(item) {
             let name = &input.ident;
-            let standard_name = format!("{}_event_standard", name);
+            let standard_name = format!("{name}_event_standard");
             let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
             // NearEvent Macro handles implementation
             input.attrs.push(
