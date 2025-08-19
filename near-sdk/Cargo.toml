@@ -101,6 +101,7 @@ __macro-docs = []
 
 [package.metadata.docs.rs]
 features = [
+    "global-contracts",
     "unstable",
     "legacy",
     "unit-testing",
