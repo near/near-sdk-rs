@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 use std::io::{Error, Write};
 use std::num::NonZeroU128;
 use std::rc::Rc;
+#[cfg(feature = "abi")]
+use crate::schemars_exports::schemars;
 
 use crate::env::migrate_to_allowance;
 use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
