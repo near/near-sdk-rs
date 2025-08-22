@@ -45,11 +45,11 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
     assert!(stored_hash.is_some(), "Global contract hash should be stored");
 
     // Verify we can list the deployed global contracts
-    let contracts_list = factory_contract.call("list_global_contracts").view().await?.json::<Vec<(
-        String,
-        Base58CryptoHash,
-        AccountId,
-    )>>()?;
+    let contracts_list = factory_contract
+        .call("list_global_contracts")
+        .view()
+        .await?
+        .json::<Vec<(String, String)>>()?;
 
     assert_eq!(contracts_list.len(), 1);
     assert_eq!(contracts_list[0].0, "status_message");
@@ -158,11 +158,11 @@ async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
     assert!(non_existent_hash.is_none(), "Should return None for non-existent contract");
 
     // Test listing contracts when none are deployed
-    let empty_list = factory_contract.call("list_global_contracts").view().await?.json::<Vec<(
-        String,
-        Base58CryptoHash,
-        AccountId,
-    )>>()?;
+    let empty_list = factory_contract
+        .call("list_global_contracts")
+        .view()
+        .await?
+        .json::<Vec<(String, String)>>()?;
 
     assert!(empty_list.is_empty(), "Should return empty list when no contracts deployed");
 
