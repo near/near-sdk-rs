@@ -15,6 +15,8 @@ use std::{convert::TryFrom, mem::MaybeUninit};
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
 use crate::mock::MockedBlockchain;
 use crate::promise::Allowance;
+#[cfg(feature = "global-contracts")]
+use crate::types::AccountIdRef;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
@@ -472,8 +474,8 @@ pub fn random_seed_array() -> [u8; 32] {
 ///     hex::decode("7fc38bc74a0d0e592d2b8381839adc2649007d5bca11f92eeddef78681b4e3a3").expect("Decoding failed")
 /// );
 /// ```
-pub fn sha256(value: &[u8]) -> Vec<u8> {
-    sha256_array(value).to_vec()
+pub fn sha256(value: impl AsRef<[u8]>) -> Vec<u8> {
+    sha256_array(value.as_ref()).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak256.
@@ -489,8 +491,8 @@ pub fn sha256(value: &[u8]) -> Vec<u8> {
 ///         .expect("Decoding failed")
 /// );
 /// ```
-pub fn keccak256(value: &[u8]) -> Vec<u8> {
-    keccak256_array(value).to_vec()
+pub fn keccak256(value: impl AsRef<[u8]>) -> Vec<u8> {
+    keccak256_array(value.as_ref()).to_vec()
 }
 
 /// Hashes the random sequence of bytes using keccak512.
@@ -506,8 +508,8 @@ pub fn keccak256(value: &[u8]) -> Vec<u8> {
 ///         .expect("Decoding failed")
 /// );
 /// ```
-pub fn keccak512(value: &[u8]) -> Vec<u8> {
-    keccak512_array(value).to_vec()
+pub fn keccak512(value: impl AsRef<[u8]>) -> Vec<u8> {
+    keccak512_array(value.as_ref()).to_vec()
 }
 
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
@@ -524,7 +526,8 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 ///         .as_slice()
 /// );
 /// ```
-pub fn sha256_array(value: &[u8]) -> [u8; 32] {
+pub fn sha256_array(value: impl AsRef<[u8]>) -> CryptoHash {
+    let value = value.as_ref();
     //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid sha256 implementation.
@@ -548,7 +551,8 @@ pub fn sha256_array(value: &[u8]) -> [u8; 32] {
 ///         .as_slice()
 /// );
 /// ```
-pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
+pub fn keccak256_array(value: impl AsRef<[u8]>) -> CryptoHash {
+    let value = value.as_ref();
     //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid keccak256 implementation.
@@ -572,7 +576,8 @@ pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
 ///         .as_slice()
 /// );
 /// ```
-pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
+pub fn keccak512_array(value: impl AsRef<[u8]>) -> [u8; 64] {
+    let value = value.as_ref();
     //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid keccak512 implementation.
@@ -596,7 +601,8 @@ pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
 ///         .as_slice()
 /// );
 /// ```
-pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
+pub fn ripemd160_array(value: impl AsRef<[u8]>) -> [u8; 20] {
+    let value = value.as_ref();
     //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
     //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
     //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
@@ -679,7 +685,12 @@ pub fn ecrecover(
 ///     false
 /// );
 /// ```
-pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32]) -> bool {
+pub fn ed25519_verify(
+    signature: &[u8; 64],
+    message: impl AsRef<[u8]>,
+    public_key: &[u8; 32],
+) -> bool {
+    let message = message.as_ref();
     unsafe {
         sys::ed25519_verify(
             signature.len() as _,
@@ -698,7 +709,8 @@ pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32
 /// well-suited for ZK proofs.
 ///
 /// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
-pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
+pub fn alt_bn128_g1_multiexp(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::alt_bn128_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -714,7 +726,8 @@ pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
 /// well-suited for ZK proofs.
 ///
 /// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
-pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
+pub fn alt_bn128_g1_sum(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::alt_bn128_g1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -729,7 +742,8 @@ pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
 /// well-suited for ZK proofs.
 ///
 /// See also: [EIP-197](https://eips.ethereum.org/EIPS/eip-197)
-pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
+pub fn alt_bn128_pairing_check(value: impl AsRef<[u8]>) -> bool {
+    let value = value.as_ref();
     unsafe { sys::alt_bn128_pairing_check(value.len() as _, value.as_ptr() as _) == 1 }
 }
 
@@ -740,7 +754,8 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 /// Compute BLS12-381 G1 sum.
 ///
 /// See also: [IETF draft-irtf-cfrg-pairing-friendly-curves](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves)
-pub fn bls12381_p1_sum(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_p1_sum(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_p1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -751,7 +766,8 @@ pub fn bls12381_p1_sum(value: &[u8]) -> Vec<u8> {
 }
 
 /// Compute BLS12-381 G2 sum.
-pub fn bls12381_p2_sum(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_p2_sum(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_p2_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -762,7 +778,8 @@ pub fn bls12381_p2_sum(value: &[u8]) -> Vec<u8> {
 }
 
 /// Compute BLS12-381 G1 multiexponentiation.
-pub fn bls12381_g1_multiexp(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_g1_multiexp(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -773,7 +790,8 @@ pub fn bls12381_g1_multiexp(value: &[u8]) -> Vec<u8> {
 }
 
 /// Compute BLS12-381 G2 multiexponentiation.
-pub fn bls12381_g2_multiexp(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_g2_multiexp(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_g2_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -784,7 +802,8 @@ pub fn bls12381_g2_multiexp(value: &[u8]) -> Vec<u8> {
 }
 
 /// Map an Fp element to a BLS12-381 G1 point.
-pub fn bls12381_map_fp_to_g1(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_map_fp_to_g1(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_map_fp_to_g1(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -795,7 +814,8 @@ pub fn bls12381_map_fp_to_g1(value: &[u8]) -> Vec<u8> {
 }
 
 /// Map an Fp2 element to a BLS12-381 G2 point.
-pub fn bls12381_map_fp2_to_g2(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_map_fp2_to_g2(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_map_fp2_to_g2(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -806,12 +826,14 @@ pub fn bls12381_map_fp2_to_g2(value: &[u8]) -> Vec<u8> {
 }
 
 /// Perform BLS12-381 pairing check. Returns true if the pairing check passes.
-pub fn bls12381_pairing_check(value: &[u8]) -> bool {
+pub fn bls12381_pairing_check(value: impl AsRef<[u8]>) -> bool {
+    let value = value.as_ref();
     unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) == 0 }
 }
 
 /// Decompress a BLS12-381 G1 point.
-pub fn bls12381_p1_decompress(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_p1_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_p1_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -822,7 +844,8 @@ pub fn bls12381_p1_decompress(value: &[u8]) -> Vec<u8> {
 }
 
 /// Decompress a BLS12-381 G2 point.
-pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
+pub fn bls12381_p2_decompress(value: impl AsRef<[u8]>) -> Vec<u8> {
+    let value = value.as_ref();
     unsafe {
         sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
@@ -850,7 +873,7 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
-///     }).to_string().into_bytes().as_slice(),
+///     }).to_string(),
 ///     NearToken::from_yoctonear(0),
 ///     Gas::from_tgas(30)
 /// );
@@ -865,11 +888,12 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
 pub fn promise_create(
     account_id: AccountId,
     function_name: &str,
-    arguments: &[u8],
+    arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
+    let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_create(
             account_id.len() as _,
@@ -921,11 +945,12 @@ pub fn promise_then(
     promise_idx: PromiseIndex,
     account_id: AccountId,
     function_name: &str,
-    arguments: &[u8],
+    arguments: impl AsRef<[u8]>,
     amount: NearToken,
     gas: Gas,
 ) -> PromiseIndex {
     let account_id = account_id.as_bytes();
+    let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_then(
             promise_idx.0,
@@ -1554,10 +1579,13 @@ pub fn promise_batch_action_deploy_global_contract_by_account_id(
 /// use near_sdk::{env, PromiseIndex};
 ///
 /// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
-/// let code_hash = vec![0u8; 32]; // 32-byte hash
+/// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
 /// env::promise_batch_action_use_global_contract(promise, &code_hash);
 /// ```
-pub fn promise_batch_action_use_global_contract(promise_index: PromiseIndex, code_hash: &[u8]) {
+pub fn promise_batch_action_use_global_contract(
+    promise_index: PromiseIndex,
+    code_hash: &CryptoHash,
+) {
     unsafe {
         sys::promise_batch_action_use_global_contract(
             promise_index.0,
@@ -1587,9 +1615,9 @@ pub fn promise_batch_action_use_global_contract(promise_index: PromiseIndex, cod
 /// ```
 pub fn promise_batch_action_use_global_contract_by_account_id(
     promise_index: PromiseIndex,
-    account_id: &AccountId,
+    account_id: &AccountIdRef,
 ) {
-    let account_id: &str = account_id.as_ref();
+    let account_id: &str = account_id.as_str();
     unsafe {
         sys::promise_batch_action_use_global_contract_by_account_id(
             promise_index.0,
@@ -1745,11 +1773,12 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L689) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L45)
 pub fn promise_yield_create(
     function_name: &str,
-    arguments: &[u8],
+    arguments: impl AsRef<[u8]>,
     gas: Gas,
     weight: GasWeight,
     register_id: u64,
 ) -> PromiseIndex {
+    let arguments = arguments.as_ref();
     unsafe {
         PromiseIndex(sys::promise_yield_create(
             function_name.len() as _,
@@ -1809,7 +1838,8 @@ pub fn promise_yield_create(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume`]
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L84)
-pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
+pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> bool {
+    let data = data.as_ref();
     unsafe {
         sys::promise_yield_resume(
             data_id.len() as _,
@@ -1887,7 +1917,8 @@ pub fn validator_total_stake() -> NearToken {
 /// );
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L18)
-pub fn value_return(value: &[u8]) {
+pub fn value_return(value: impl AsRef<[u8]>) {
+    let value = value.as_ref();
     unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
 }
 /// Terminates the execution of the program with the UTF-8 encoded message.
@@ -2768,8 +2799,8 @@ mod tests {
 
         let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
         let code = vec![0u8; 100]; // Mock contract bytecode
-        let code_hash = vec![0u8; 32]; // Mock 32-byte hash
-        let account_id = "deployer.near".parse().unwrap();
+        let code_hash = [0u8; 32]; // Mock 32-byte hash (CryptoHash)
+        let account_id = "deployer.near".try_into().unwrap();
 
         // Test deploy_global_contract
         super::promise_batch_action_deploy_global_contract(promise_index, &code);
@@ -2781,7 +2812,7 @@ mod tests {
         super::promise_batch_action_use_global_contract(promise_index, &code_hash);
 
         // Test use_global_contract_by_account_id
-        super::promise_batch_action_use_global_contract_by_account_id(promise_index, &account_id);
+        super::promise_batch_action_use_global_contract_by_account_id(promise_index, account_id);
     }
 
     #[test]

@@ -27,18 +27,14 @@ impl GlobalFactoryContract {
         code: Base64VecU8,
         account_id: AccountId,
     ) -> Promise {
-        // Store the code hash for later reference
-        let code_bytes: Vec<u8> = code.into();
-        let code_hash_vec = env::sha256(&code_bytes);
-        let code_hash: CryptoHash = code_hash_vec.try_into().unwrap();
+        let code_hash = env::sha256_array(&code);
         self.deployed_global_contracts.insert(name.clone(), code_hash);
-        self.global_contract_deployers.insert(name, account_id.clone());
 
         Promise::new(account_id)
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_global_contract(code_bytes)
+            .deploy_global_contract(code)
     }
 
     /// Deploy a global contract, identifiable by the predecessor's account ID
@@ -49,18 +45,13 @@ impl GlobalFactoryContract {
         code: Base64VecU8,
         account_id: AccountId,
     ) -> Promise {
-        // Store reference to this deployment
-        let code_bytes: Vec<u8> = code.into();
-        let code_hash_vec = env::sha256(&code_bytes);
-        let code_hash: CryptoHash = code_hash_vec.try_into().unwrap();
-        self.deployed_global_contracts.insert(name.clone(), code_hash);
         self.global_contract_deployers.insert(name, account_id.clone());
 
         Promise::new(account_id)
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_global_contract_by_account_id(code_bytes)
+            .deploy_global_contract_by_account_id(code)
     }
 
     /// Use an existing global contract by its code hash
@@ -73,7 +64,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .use_global_contract(CryptoHash::from(code_hash).to_vec())
+            .use_global_contract(code_hash)
     }
 
     /// Use an existing global contract by referencing the account that deployed it
@@ -100,17 +91,15 @@ impl GlobalFactoryContract {
     }
 
     /// List all deployed global contracts
-    pub fn list_global_contracts(&self) -> Vec<(String, Base58CryptoHash, AccountId)> {
-        self.deployed_global_contracts
+    pub fn list_global_contracts(&self) -> Vec<(String, String)> {
+        self.global_contract_deployers
             .iter()
-            .map(|(name, hash)| {
-                let deployer = self
-                    .global_contract_deployers
-                    .get(name)
-                    .cloned()
-                    .unwrap_or_else(|| "unknown".parse().unwrap());
-                (name.clone(), (*hash).into(), deployer)
-            })
+            .map(|(name, account_id)| (name.clone(), account_id.to_string()))
+            .chain(
+                self.deployed_global_contracts
+                    .iter()
+                    .map(|(name, hash)| (name.clone(), (&Base58CryptoHash::from(*hash)).into())),
+            )
             .collect()
     }
 
@@ -156,7 +145,6 @@ mod tests {
             .build()
     }
 
-    
     #[test]
     fn test_deploy_global_contract() {
         let context = get_context(accounts(1));
@@ -176,12 +164,10 @@ mod tests {
         let stored_hash = contract.get_global_contract_hash("test_contract".to_string());
         assert!(stored_hash.is_some());
 
-        let expected_hash_vec = near_sdk::env::sha256(&code);
-        let expected_hash: CryptoHash = expected_hash_vec.try_into().unwrap();
+        let expected_hash = near_sdk::env::sha256_array(&code);
         assert_eq!(stored_hash.unwrap(), expected_hash.into());
     }
 
-    
     #[test]
     fn test_list_global_contracts() {
         let context = get_context(accounts(1));
@@ -200,6 +186,6 @@ mod tests {
         let contracts = contract.list_global_contracts();
         assert_eq!(contracts.len(), 1);
         assert_eq!(contracts[0].0, "test_contract");
-        assert_eq!(contracts[0].2, account_id);
+        assert_eq!(contracts[0].1, "EoFMvgbdQttJ3vLsVBcgZaWbhEGrJnpqda85qtbu7LbL");
     }
 }

@@ -1,5 +1,5 @@
-use near_workspaces::types::{AccountId, NearToken};
 use near_sdk::json_types::{Base58CryptoHash, Base64VecU8};
+use near_workspaces::types::{AccountId, NearToken};
 
 const STORAGE_DEPOSIT_PER_BYTE: NearToken = NearToken::from_near(1).saturating_div(100_000);
 const GLOBAL_STORAGE_COST_PER_BYTE: NearToken = STORAGE_DEPOSIT_PER_BYTE.saturating_mul(10);
@@ -9,9 +9,7 @@ const GLOBAL_STORAGE_COST_PER_BYTE: NearToken = STORAGE_DEPOSIT_PER_BYTE.saturat
 async fn test_deploy_global_contract() -> anyhow::Result<()> {
     // Initialize the sandbox environment with specific commit that includes global contract support
     println!("Initializing worker");
-    let worker =
-        near_workspaces::sandbox_with_version("2.7.0")
-            .await?;
+    let worker = near_workspaces::sandbox_with_version("2.7.0").await?;
 
     println!("Deploying global contract");
 
@@ -62,9 +60,7 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
 /// Test using a global contract by hash
 #[tokio::test]
 async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
-    let worker =
-        near_workspaces::sandbox_with_version("2.7.0")
-            .await?;
+    let worker = near_workspaces::sandbox_with_version("2.7.0").await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
 
@@ -74,11 +70,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 
     let res = factory_contract
         .call("deploy_global_contract")
-        .args_json((
-            "status_message",
-            Base64VecU8::from(status_code.clone()),
-            &global_account_id,
-        ))
+        .args_json(("status_message", Base64VecU8::from(status_code.clone()), &global_account_id))
         .max_gas()
         .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
@@ -114,9 +106,7 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 /// Test using a global contract by account ID
 #[tokio::test]
 async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
-    let worker =
-        near_workspaces::sandbox_with_version("2.7.0")
-            .await?;
+    let worker = near_workspaces::sandbox_with_version("2.7.0").await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
 
@@ -126,11 +116,7 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
 
     let res = factory_contract
         .call("deploy_global_contract_by_account_id")
-        .args_json((
-            "status_message",
-            Base64VecU8::from(status_code.clone()),
-            &global_account_id,
-        ))
+        .args_json(("status_message", Base64VecU8::from(status_code.clone()), &global_account_id))
         .max_gas()
         .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
@@ -157,9 +143,7 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
 /// Test error cases and edge conditions
 #[tokio::test]
 async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
-    let worker =
-        near_workspaces::sandbox_with_version("2.7.0")
-            .await?;
+    let worker = near_workspaces::sandbox_with_version("2.7.0").await?;
     let factory_wasm = near_workspaces::compile_project(".").await?;
     let factory_contract = worker.dev_deploy(&factory_wasm).await?;
 
@@ -194,7 +178,8 @@ async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
     assert!(res.is_failure(), "Not failed to use global contract by hash: {res:?}");
 
     // Test using non-existent contract
-    let global_contract_account_id: AccountId = format!("non-existent-global.{}", factory_contract.id()).parse()?;
+    let global_contract_account_id: AccountId =
+        format!("non-existent-global.{}", factory_contract.id()).parse()?;
     let user_account_id: AccountId = format!("user.{}", factory_contract.id()).parse()?;
     let res = factory_contract
         .call("use_global_contract_by_account")
