@@ -52,16 +52,32 @@
 //! }
 //! ```
 //!
-//! ### Compiling to WASM
+//! ### Cargo NEAR Extension
 //!
-//! Install `cargo-near` in case if you don't have it:
+//! [`cargo-near`](https://github.com/near/cargo-near) is a handy command line
+//! extension to `cargo`, which guides you through the common tasks of
+//! creating, building, and deploying smart contracts.
+//!
+//! Follow the [installation instructions](https://github.com/near/cargo-near?tab=readme-ov-file#installation) on cargo-near README.
+//!
+//! Or compile it and install it from the source code:
+//!
 //! ```bash
 //! cargo install --locked cargo-near
 //! ```
 //!
-//! More installation methods on [cargo-near](https://github.com/near/cargo-near)
+//! ### Create New NEAR Smart Contract
 //!
-//! Builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml):
+//! `cargo-near` can be used to start a new project with an example smart contract, unit tests,
+//! integration tests, and continuous integration preconfigured for you.
+//!
+//! ```bash
+//! cargo near new
+//! ```
+//!
+//! ### Compiling to WASM
+//!
+//! `cargo-near` builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml):
 //!
 //! ```bash
 //! cargo near build
@@ -97,8 +113,10 @@
 //! ```bash
 //! cargo test
 //! ```
-//* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
-//* https://github.com/rust-lang/rust-clippy/issues/8091
+
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+// Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
+// https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
 // We want to enable all clippy lints, but some of them generate false positives.
 #![allow(clippy::missing_const_for_fn, clippy::redundant_pub_crate)]
