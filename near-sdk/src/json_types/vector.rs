@@ -34,6 +34,12 @@ impl From<Base64VecU8> for Vec<u8> {
     }
 }
 
+impl AsRef<[u8]> for Base64VecU8 {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
 /// Convenience module to allow annotating a serde structure as base64 bytes.
 mod base64_bytes {
     use super::*;

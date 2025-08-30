@@ -8,6 +8,8 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
+#[cfg(feature = "global-contracts")]
+use crate::CryptoHash;
 use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
 
 /// Allow an access key to spend either an unlimited or limited amount of gas
@@ -81,7 +83,7 @@ enum PromiseAction {
     },
     #[cfg(feature = "global-contracts")]
     UseGlobalContract {
-        code_hash: Vec<u8>,
+        code_hash: CryptoHash,
     },
     #[cfg(feature = "global-contracts")]
     UseGlobalContractByAccountId {
@@ -320,8 +322,8 @@ impl Promise {
 
     /// Deploy a smart contract to the account on which this promise acts.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
-    pub fn deploy_contract(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployContract { code })
+    pub fn deploy_contract(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployContract { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -338,8 +340,8 @@ impl Promise {
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .deploy_global_contract(code);
     /// ```
-    pub fn deploy_global_contract(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContract { code })
+    pub fn deploy_global_contract(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContract { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -356,8 +358,8 @@ impl Promise {
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .deploy_global_contract_by_account_id(code);
     /// ```
-    pub fn deploy_global_contract_by_account_id(self, code: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
+    pub fn deploy_global_contract_by_account_id(self, code: impl Into<Vec<u8>>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code: code.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -368,14 +370,14 @@ impl Promise {
     /// ```no_run
     /// use near_sdk::{Promise, NearToken};
     ///
-    /// let code_hash = vec![0u8; 32]; // 32-byte hash
+    /// let code_hash = [0u8; 32]; // 32-byte hash (CryptoHash)
     /// Promise::new("alice.near".parse().unwrap())
     ///     .create_account()
     ///     .transfer(NearToken::from_yoctonear(1000))
     ///     .use_global_contract(code_hash);
     /// ```
-    pub fn use_global_contract(self, code_hash: Vec<u8>) -> Self {
-        self.add_action(PromiseAction::UseGlobalContract { code_hash })
+    pub fn use_global_contract(self, code_hash: impl Into<CryptoHash>) -> Self {
+        self.add_action(PromiseAction::UseGlobalContract { code_hash: code_hash.into() })
     }
 
     #[cfg(feature = "global-contracts")]
@@ -400,11 +402,16 @@ impl Promise {
     pub fn function_call(
         self,
         function_name: String,
-        arguments: Vec<u8>,
+        arguments: impl Into<Vec<u8>>,
         amount: NearToken,
         gas: Gas,
     ) -> Self {
-        self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
+        self.add_action(PromiseAction::FunctionCall {
+            function_name,
+            arguments: arguments.into(),
+            amount,
+            gas,
+        })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
@@ -414,14 +421,14 @@ impl Promise {
     pub fn function_call_weight(
         self,
         function_name: String,
-        arguments: Vec<u8>,
+        arguments: impl Into<Vec<u8>>,
         amount: NearToken,
         gas: Gas,
         weight: GasWeight,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCallWeight {
             function_name,
-            arguments,
+            arguments: arguments.into(),
             amount,
             gas,
             weight,
@@ -1104,10 +1111,10 @@ mod tests {
     fn test_use_global_contract() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
-        let code_hash = vec![0u8; 32];
+        let code_hash = [0u8; 32];
 
         {
-            Promise::new(alice()).create_account().use_global_contract(code_hash.clone());
+            Promise::new(alice()).create_account().use_global_contract(code_hash);
         }
 
         // Check if any UseGlobalContract action exists
