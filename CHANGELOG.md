@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.17.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.1...near-sdk-v5.17.2) - 2025-08-30
+
+### Other
+
+- Auto-document features on docs.rs + improved wording for the top-level documentation ([#1386](https://github.com/near/near-sdk-rs/pull/1386))
+
 ## [5.17.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.0...near-sdk-v5.17.1) - 2025-08-19
 
 ### Other
