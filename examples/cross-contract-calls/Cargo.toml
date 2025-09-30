@@ -3,13 +3,14 @@ name = "cross-contract-wrapper"
 version = "0.1.0"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
+repository = "https://github.com/near/near-sdk-rs"
 
 [dev-dependencies]
 anyhow = "1.0"
-near-sdk = { path = "../../near-sdk" }
+near-sdk = { path = "../../near-sdk", features = ["default", "unit-testing"] }
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.9.0", default-features = false, features = ["install"] }
+near-workspaces = { version = "0.21", features = ["unstable"] }
 
 cross-contract-high-level = { path = "./high-level" }
 cross-contract-low-level = { path = "./low-level" }
@@ -23,7 +24,4 @@ debug = false
 panic = "abort"
 
 [workspace]
-members = [
-    "high-level",
-    "low-level",
-]
+members = ["high-level", "low-level"]

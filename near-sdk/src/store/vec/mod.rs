@@ -61,7 +61,7 @@ use std::{
 };
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk_macros::NearSchema;
+use near_sdk_macros::near;
 
 pub use self::iter::{Drain, Iter, IterMut};
 use crate::{env, errors, IntoStorageKey};
@@ -109,9 +109,7 @@ fn expect_consistent_state<T>(val: Option<T>) -> T {
 /// vec.extend([1, 2, 3].iter().copied());
 /// assert!(Iterator::eq(vec.into_iter(), [7, 1, 2, 3].iter()));
 /// ```
-#[derive(NearSchema, BorshSerialize, BorshDeserialize)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub struct Vector<T>
 where
     T: BorshSerialize,
@@ -431,7 +429,7 @@ where
     /// assert_eq!(iterator.next(), Some(&4));
     /// assert_eq!(iterator.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
     }
 
@@ -451,7 +449,7 @@ where
     /// }
     /// assert_eq!(vec.iter().copied().collect::<Vec<_>>(), &[3u32, 4, 6]);
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut::new(self)
     }
 
@@ -482,7 +480,7 @@ where
     /// vec.drain(..);
     /// assert!(vec.is_empty());
     /// ```
-    pub fn drain<R>(&mut self, range: R) -> Drain<T>
+    pub fn drain<R>(&mut self, range: R) -> Drain<'_, T>
     where
         R: RangeBounds<u32>,
     {
@@ -1001,5 +999,22 @@ mod tests {
         drop(vec);
         let vec = Vector::<String>::deserialize(&mut serialized.as_slice()).unwrap();
         assert_eq!(vec[0], "Some data");
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "Vector".to_string(),
+            <Vector<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <Vector<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

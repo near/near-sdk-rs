@@ -36,6 +36,7 @@ where
 /// An iterator over elements of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `iter` method on [`UnorderedMap`].
+#[derive(Clone)]
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -230,6 +231,7 @@ where
 /// An iterator over the keys of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `keys` method on [`UnorderedMap`].
+#[derive(Clone)]
 pub struct Keys<'a, K: 'a>
 where
     K: BorshSerialize + BorshDeserialize,
@@ -285,6 +287,7 @@ where
 /// An iterator over the values of a [`UnorderedMap`].
 ///
 /// This `struct` is created by the `values` method on [`UnorderedMap`].
+#[derive(Clone)]
 pub struct Values<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,
@@ -527,5 +530,49 @@ where
     fn next_back(&mut self) -> Option<Self::Item> {
         let key = self.keys.next_back()?;
         Some(self.remove_value(key))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use borsh::{BorshDeserialize, BorshSerialize};
+
+    #[derive(BorshSerialize, BorshDeserialize, Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
+    struct Key(i32);
+
+    #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
+    struct Value(String);
+
+    #[test]
+    fn test_unordered_map_iter_clone() {
+        let mut store = UnorderedMap::new(b'a');
+
+        store.insert(Key(1), Value("one".to_string()));
+        store.insert(Key(2), Value("two".to_string()));
+        store.insert(Key(3), Value("three".to_string()));
+
+        let mut iter = store.iter().cycle();
+
+        let mut collected = vec![];
+        for _ in 0..9 {
+            if let Some((key, value)) = iter.next() {
+                collected.push((key.clone(), value.clone()));
+            }
+        }
+
+        let expected = vec![
+            (Key(1), Value("one".to_string())),
+            (Key(2), Value("two".to_string())),
+            (Key(3), Value("three".to_string())),
+            (Key(1), Value("one".to_string())),
+            (Key(2), Value("two".to_string())),
+            (Key(3), Value("three".to_string())),
+            (Key(1), Value("one".to_string())),
+            (Key(2), Value("two".to_string())),
+            (Key(3), Value("three".to_string())),
+        ];
+
+        assert_eq!(collected, expected);
     }
 }

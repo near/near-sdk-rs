@@ -3,7 +3,7 @@ pub use self::iter::{Drain, Iter, IterMut};
 
 use super::Vector;
 use crate::{env, errors, IntoStorageKey};
-use near_sdk_macros::{near, NearSchema};
+use near_sdk_macros::near;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
@@ -17,9 +17,7 @@ pub struct FreeListIndex(pub(crate) u32);
 /// Unordered container of values. This is similar to [`Vector`] except that values are not
 /// re-arranged on removal, keeping the indices consistent. When an element is removed, it will
 /// be replaced with an empty cell which will be populated on the next insertion.
-#[derive(NearSchema, BorshSerialize, BorshDeserialize)]
-#[inside_nearsdk]
-#[abi(borsh)]
+#[near(inside_nearsdk)]
 pub(crate) struct FreeList<T>
 where
     T: BorshSerialize,
@@ -36,7 +34,7 @@ where
 }
 
 #[near(inside_nearsdk)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Slot<T> {
     /// Represents a filled cell of a value in the collection.
     Occupied(T),
@@ -186,12 +184,12 @@ where
     }
 
     /// Generates iterator for shared references to each value in the bucket.
-    pub fn iter(&self) -> Iter<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
     }
 
     /// Generates iterator for exclusive references to each value in the bucket.
-    pub fn iter_mut(&mut self) -> IterMut<T> {
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut::new(self)
     }
 
@@ -202,7 +200,7 @@ where
     /// from the list, even if the iterator was not fully consumed. If the
     /// iterator **is not** dropped (with [`mem::forget`] for example), the collection will be left
     /// in an inconsistent state.
-    pub fn drain(&mut self) -> Drain<T> {
+    pub fn drain(&mut self) -> Drain<'_, T> {
         Drain::new(self)
     }
 
@@ -522,5 +520,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "FreeList".to_string(),
+            <FreeList<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <FreeList<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

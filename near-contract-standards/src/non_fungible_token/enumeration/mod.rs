@@ -2,7 +2,7 @@ mod enumeration_impl;
 
 use crate::non_fungible_token::token::Token;
 use near_sdk::json_types::U128;
-use near_sdk::{AccountId, BaseError};
+use near_sdk::{ext_contract, {AccountId}, BaseError};
 
 /// Offers methods helpful in determining account ownership of NFTs and provides a way to page through NFTs per owner, determine total supply, etc.
 ///
@@ -40,6 +40,7 @@ use near_sdk::{AccountId, BaseError};
 /// }
 /// ```
 ///
+#[ext_contract(ext_nft_enumeration)]
 pub trait NonFungibleTokenEnumeration {
     /// Returns the total supply of non-fungible tokens as a string representing an
     /// unsigned 128-bit integer to avoid JSON number limit of 2^53.

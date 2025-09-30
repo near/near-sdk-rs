@@ -37,6 +37,7 @@ where
 /// An iterator over elements of a [`IterableMap`].
 ///
 /// This `struct` is created by the `iter` method on [`IterableMap`].
+#[derive(Clone)]
 pub struct Iter<'a, K, V, H>
 where
     K: BorshSerialize + Ord + BorshDeserialize,

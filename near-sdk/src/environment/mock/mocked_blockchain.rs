@@ -9,32 +9,41 @@ use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
 use near_primitives_core::version::PROTOCOL_VERSION;
 use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
-use near_vm_runner::logic::{External, MemoryLike, VMLogic};
+use near_vm_runner::logic::{ExecutionResultState, External, MemoryLike, VMLogic};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
 /// Mocked blockchain that can be used in the tests for the smart contracts.
 /// It implements `BlockchainInterface` by redirecting calls to `VMLogic`. It unwraps errors of
 /// `VMLogic` to cause panic during the unit tests similarly to how errors of `VMLogic` would cause
 /// the termination of guest program execution. Unit tests can even assert the expected error
 /// message.
-pub struct MockedBlockchain {
+pub struct MockedBlockchain<Memory = MockedMemory>
+where
+    Memory: MemoryLike + Default + 'static,
+{
     logic: RefCell<VMLogic<'static>>,
     // We keep ownership over logic fixture so that references in `VMLogic` are valid.
     #[allow(dead_code)]
     logic_fixture: LogicFixture,
+    _memory: PhantomData<Memory>,
 }
 
 pub fn test_vm_config() -> near_parameters::vm::Config {
     let store = RuntimeConfigStore::test();
-    let config = store.get_config(PROTOCOL_VERSION).wasm_config.clone();
+    let config = store.get_config(PROTOCOL_VERSION).wasm_config.as_ref().to_owned();
     near_parameters::vm::Config {
         vm_kind: config.vm_kind.replace_with_wasmtime_if_unsupported(),
         ..config
     }
 }
 
-impl Default for MockedBlockchain {
+impl<T> Default for MockedBlockchain<T>
+where
+    T: MemoryLike + Default + 'static,
+{
     fn default() -> Self {
         MockedBlockchain::new(
             VMContextBuilder::new().build(),
@@ -50,14 +59,15 @@ impl Default for MockedBlockchain {
 
 struct LogicFixture {
     ext: Box<MockedExternal>,
+    fees_config: Arc<RuntimeFeesConfig>,
+    context: Box<near_vm_runner::logic::VMContext>,
     memory: Box<dyn MemoryLike>,
-    #[allow(clippy::box_collection)]
-    promise_results: Box<Vec<VmPromiseResult>>,
-    config: Box<near_parameters::vm::Config>,
-    fees_config: Box<RuntimeFeesConfig>,
 }
 
-impl MockedBlockchain {
+impl<Memory> MockedBlockchain<Memory>
+where
+    Memory: MemoryLike + Default + 'static,
+{
     pub fn new(
         context: VMContext,
         config: near_parameters::vm::Config,
@@ -65,33 +75,36 @@ impl MockedBlockchain {
         promise_results: Vec<PromiseResult>,
         storage: HashMap<Vec<u8>, Vec<u8>>,
         validators: HashMap<String, NearToken>,
-        memory_opt: Option<Box<dyn MemoryLike>>,
+        memory: Option<Memory>,
     ) -> Self {
         let mut ext = Box::new(MockedExternal::new());
-        let context = sdk_context_to_vm_context(context);
+        let promise_results: Arc<[VmPromiseResult]> =
+            promise_results.into_iter().map(Into::into).collect::<Vec<_>>().into();
+        let context: Box<near_vm_runner::logic::VMContext> =
+            Box::new(sdk_context_to_vm_context(context, promise_results));
         ext.fake_trie = storage;
         ext.validators =
             validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v.as_yoctonear())).collect();
-        let memory = memory_opt.unwrap_or_else(|| Box::<MockedMemory>::default());
-        let promise_results = Box::new(promise_results.into_iter().map(From::from).collect());
-        let config = Box::new(config);
-        let fees_config = Box::new(fees_config);
+        let config = Arc::new(config);
+        let fees_config = Arc::new(fees_config);
+        let result_state =
+            ExecutionResultState::new(&context, context.make_gas_counter(&config), config.clone());
+        let memory = Box::new(memory.unwrap_or_default());
 
-        let mut logic_fixture = LogicFixture { ext, memory, promise_results, config, fees_config };
+        let mut logic_fixture = LogicFixture { ext, context, fees_config, memory };
 
         let logic = unsafe {
             VMLogic::new(
                 &mut *(logic_fixture.ext.as_mut() as *mut dyn External),
-                context,
-                &*(logic_fixture.config.as_mut() as *const near_parameters::vm::Config),
-                &*(logic_fixture.fees_config.as_mut() as *const RuntimeFeesConfig),
-                &*(logic_fixture.promise_results.as_ref().as_slice() as *const [VmPromiseResult]),
+                &*(logic_fixture.context.as_mut() as *mut near_vm_runner::logic::VMContext),
+                logic_fixture.fees_config.clone(),
+                result_state,
                 &mut *(logic_fixture.memory.as_mut() as *mut dyn MemoryLike),
             )
         };
 
         let logic = RefCell::new(logic);
-        Self { logic, logic_fixture }
+        Self { logic, logic_fixture, _memory: PhantomData }
     }
 
     pub fn take_storage(&mut self) -> HashMap<Vec<u8>, Vec<u8>> {
@@ -145,7 +158,10 @@ impl MockedBlockchain {
     }
 }
 
-fn sdk_context_to_vm_context(context: VMContext) -> near_vm_runner::logic::VMContext {
+fn sdk_context_to_vm_context(
+    context: VMContext,
+    promise_results: std::sync::Arc<[VmPromiseResult]>,
+) -> near_vm_runner::logic::VMContext {
     near_vm_runner::logic::VMContext {
         current_account_id: context.current_account_id.as_str().parse().unwrap(),
         signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
@@ -167,12 +183,14 @@ fn sdk_context_to_vm_context(context: VMContext) -> near_vm_runner::logic::VMCon
             .into_iter()
             .map(|a| a.as_str().parse().unwrap())
             .collect(),
+        promise_results,
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 mod mock_chain {
     use near_vm_runner::logic::{errors::VMLogicError, VMLogic};
+
     fn with_mock_interface<F, R>(f: F) -> R
     where
         F: FnOnce(&mut VMLogic) -> Result<R, VMLogicError>,
@@ -181,91 +199,91 @@ mod mock_chain {
     }
 
     #[no_mangle]
-    extern "C" fn read_register(register_id: u64, ptr: u64) {
+    extern "C-unwind" fn read_register(register_id: u64, ptr: u64) {
         with_mock_interface(|b| b.read_register(register_id, ptr))
     }
     #[no_mangle]
-    extern "C" fn register_len(register_id: u64) -> u64 {
+    extern "C-unwind" fn register_len(register_id: u64) -> u64 {
         with_mock_interface(|b| b.register_len(register_id))
     }
     #[no_mangle]
-    extern "C" fn current_account_id(register_id: u64) {
+    extern "C-unwind" fn current_account_id(register_id: u64) {
         with_mock_interface(|b| b.current_account_id(register_id))
     }
     #[no_mangle]
-    extern "C" fn signer_account_id(register_id: u64) {
+    extern "C-unwind" fn signer_account_id(register_id: u64) {
         with_mock_interface(|b| b.signer_account_id(register_id))
     }
     #[no_mangle]
-    extern "C" fn signer_account_pk(register_id: u64) {
+    extern "C-unwind" fn signer_account_pk(register_id: u64) {
         with_mock_interface(|b| b.signer_account_pk(register_id))
     }
     #[no_mangle]
-    extern "C" fn predecessor_account_id(register_id: u64) {
+    extern "C-unwind" fn predecessor_account_id(register_id: u64) {
         with_mock_interface(|b| b.predecessor_account_id(register_id))
     }
     #[no_mangle]
-    extern "C" fn input(register_id: u64) {
+    extern "C-unwind" fn input(register_id: u64) {
         with_mock_interface(|b| b.input(register_id))
     }
     #[no_mangle]
-    extern "C" fn block_index() -> u64 {
+    extern "C-unwind" fn block_index() -> u64 {
         with_mock_interface(|b| b.block_index())
     }
     #[no_mangle]
-    extern "C" fn block_timestamp() -> u64 {
+    extern "C-unwind" fn block_timestamp() -> u64 {
         with_mock_interface(|b| b.block_timestamp())
     }
     #[no_mangle]
-    extern "C" fn epoch_height() -> u64 {
+    extern "C-unwind" fn epoch_height() -> u64 {
         with_mock_interface(|b| b.epoch_height())
     }
     #[no_mangle]
-    extern "C" fn storage_usage() -> u64 {
+    extern "C-unwind" fn storage_usage() -> u64 {
         with_mock_interface(|b| b.storage_usage())
     }
     #[no_mangle]
-    extern "C" fn account_balance(balance_ptr: u64) {
+    extern "C-unwind" fn account_balance(balance_ptr: u64) {
         with_mock_interface(|b| b.account_balance(balance_ptr))
     }
     #[no_mangle]
-    extern "C" fn account_locked_balance(balance_ptr: u64) {
+    extern "C-unwind" fn account_locked_balance(balance_ptr: u64) {
         with_mock_interface(|b| b.account_locked_balance(balance_ptr))
     }
     #[no_mangle]
-    extern "C" fn attached_deposit(balance_ptr: u64) {
+    extern "C-unwind" fn attached_deposit(balance_ptr: u64) {
         with_mock_interface(|b| b.attached_deposit(balance_ptr))
     }
     #[no_mangle]
-    extern "C" fn prepaid_gas() -> u64 {
+    extern "C-unwind" fn prepaid_gas() -> u64 {
         with_mock_interface(|b| b.prepaid_gas())
     }
     #[no_mangle]
-    extern "C" fn used_gas() -> u64 {
+    extern "C-unwind" fn used_gas() -> u64 {
         with_mock_interface(|b| b.used_gas())
     }
     #[no_mangle]
-    extern "C" fn random_seed(register_id: u64) {
+    extern "C-unwind" fn random_seed(register_id: u64) {
         with_mock_interface(|b| b.random_seed(register_id))
     }
     #[no_mangle]
-    extern "C" fn sha256(value_len: u64, value_ptr: u64, register_id: u64) {
+    extern "C-unwind" fn sha256(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.sha256(value_len, value_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn keccak256(value_len: u64, value_ptr: u64, register_id: u64) {
+    extern "C-unwind" fn keccak256(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.keccak256(value_len, value_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn keccak512(value_len: u64, value_ptr: u64, register_id: u64) {
+    extern "C-unwind" fn keccak512(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.keccak512(value_len, value_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64) {
+    extern "C-unwind" fn ripemd160(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.ripemd160(value_len, value_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn ecrecover(
+    extern "C-unwind" fn ecrecover(
         hash_len: u64,
         hash_ptr: u64,
         sig_len: u64,
@@ -279,7 +297,7 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn ed25519_verify(
+    extern "C-unwind" fn ed25519_verify(
         signature_len: u64,
         signature_ptr: u64,
         message_len: u64,
@@ -299,29 +317,29 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn value_return(value_len: u64, value_ptr: u64) {
+    extern "C-unwind" fn value_return(value_len: u64, value_ptr: u64) {
         with_mock_interface(|b| b.value_return(value_len, value_ptr))
     }
     #[no_mangle]
-    extern "C" fn panic() -> ! {
+    extern "C-unwind" fn panic() -> ! {
         with_mock_interface(|b| b.panic());
         unreachable!()
     }
     #[no_mangle]
-    extern "C" fn panic_utf8(len: u64, ptr: u64) -> ! {
+    extern "C-unwind" fn panic_utf8(len: u64, ptr: u64) -> ! {
         with_mock_interface(|b| b.panic_utf8(len, ptr));
         unreachable!()
     }
     #[no_mangle]
-    extern "C" fn log_utf8(len: u64, ptr: u64) {
+    extern "C-unwind" fn log_utf8(len: u64, ptr: u64) {
         with_mock_interface(|b| b.log_utf8(len, ptr))
     }
     #[no_mangle]
-    extern "C" fn log_utf16(len: u64, ptr: u64) {
+    extern "C-unwind" fn log_utf16(len: u64, ptr: u64) {
         with_mock_interface(|b| b.log_utf16(len, ptr))
     }
     #[no_mangle]
-    extern "C" fn promise_create(
+    extern "C-unwind" fn promise_create(
         account_id_len: u64,
         account_id_ptr: u64,
         function_name_len: u64,
@@ -345,7 +363,7 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_then(
+    extern "C-unwind" fn promise_then(
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
@@ -371,15 +389,15 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
+    extern "C-unwind" fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64 {
         with_mock_interface(|b| b.promise_and(promise_idx_ptr, promise_idx_count))
     }
     #[no_mangle]
-    extern "C" fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64 {
+    extern "C-unwind" fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64 {
         with_mock_interface(|b| b.promise_batch_create(account_id_len, account_id_ptr))
     }
     #[no_mangle]
-    extern "C" fn promise_batch_then(
+    extern "C-unwind" fn promise_batch_then(
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
@@ -387,11 +405,11 @@ mod mock_chain {
         with_mock_interface(|b| b.promise_batch_then(promise_index, account_id_len, account_id_ptr))
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_create_account(promise_index: u64) {
+    extern "C-unwind" fn promise_batch_action_create_account(promise_index: u64) {
         with_mock_interface(|b| b.promise_batch_action_create_account(promise_index))
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_deploy_contract(
+    extern "C-unwind" fn promise_batch_action_deploy_contract(
         promise_index: u64,
         code_len: u64,
         code_ptr: u64,
@@ -400,8 +418,68 @@ mod mock_chain {
             b.promise_batch_action_deploy_contract(promise_index, code_len, code_ptr)
         })
     }
+
+    #[cfg(feature = "global-contracts")]
+    // #########################
+    // # Global Contract API   #
+    // #########################
     #[no_mangle]
-    extern "C" fn promise_batch_action_function_call(
+    extern "C-unwind" fn promise_batch_action_deploy_global_contract(
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_deploy_global_contract(promise_index, code_len, code_ptr)
+        })
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_deploy_global_contract_by_account_id(
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_deploy_global_contract_by_account_id(
+                promise_index,
+                code_len,
+                code_ptr,
+            )
+        })
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_use_global_contract(
+        promise_index: u64,
+        code_hash_len: u64,
+        code_hash_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_use_global_contract(promise_index, code_hash_len, code_hash_ptr)
+        })
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_use_global_contract_by_account_id(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_batch_action_use_global_contract_by_account_id(
+                promise_index,
+                account_id_len,
+                account_id_ptr,
+            )
+        })
+    }
+
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_function_call(
         promise_index: u64,
         function_name_len: u64,
         function_name_ptr: u64,
@@ -424,7 +502,7 @@ mod mock_chain {
     }
 
     #[no_mangle]
-    extern "C" fn promise_batch_action_function_call_weight(
+    extern "C-unwind" fn promise_batch_action_function_call_weight(
         promise_index: u64,
         function_name_len: u64,
         function_name_ptr: u64,
@@ -449,11 +527,11 @@ mod mock_chain {
     }
 
     #[no_mangle]
-    extern "C" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
+    extern "C-unwind" fn promise_batch_action_transfer(promise_index: u64, amount_ptr: u64) {
         with_mock_interface(|b| b.promise_batch_action_transfer(promise_index, amount_ptr))
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_stake(
+    extern "C-unwind" fn promise_batch_action_stake(
         promise_index: u64,
         amount_ptr: u64,
         public_key_len: u64,
@@ -464,7 +542,7 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_add_key_with_full_access(
+    extern "C-unwind" fn promise_batch_action_add_key_with_full_access(
         promise_index: u64,
         public_key_len: u64,
         public_key_ptr: u64,
@@ -480,7 +558,7 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_add_key_with_function_call(
+    extern "C-unwind" fn promise_batch_action_add_key_with_function_call(
         promise_index: u64,
         public_key_len: u64,
         public_key_ptr: u64,
@@ -506,7 +584,7 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_delete_key(
+    extern "C-unwind" fn promise_batch_action_delete_key(
         promise_index: u64,
         public_key_len: u64,
         public_key_ptr: u64,
@@ -516,7 +594,7 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_batch_action_delete_account(
+    extern "C-unwind" fn promise_batch_action_delete_account(
         promise_index: u64,
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
@@ -530,19 +608,52 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn promise_results_count() -> u64 {
+    extern "C-unwind" fn promise_yield_create(
+        function_name_len: u64,
+        function_name_ptr: u64,
+        arguments_len: u64,
+        arguments_ptr: u64,
+        gas: u64,
+        gas_weight: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_yield_create(
+                function_name_len,
+                function_name_ptr,
+                arguments_len,
+                arguments_ptr,
+                gas,
+                gas_weight,
+                register_id,
+            )
+        })
+    }
+    #[no_mangle]
+    extern "C-unwind" fn promise_yield_resume(
+        data_id_len: u64,
+        data_id_ptr: u64,
+        payload_len: u64,
+        payload_ptr: u64,
+    ) -> u32 {
+        with_mock_interface(|b| {
+            b.promise_yield_resume(data_id_len, data_id_ptr, payload_len, payload_ptr)
+        })
+    }
+    #[no_mangle]
+    extern "C-unwind" fn promise_results_count() -> u64 {
         with_mock_interface(|b| b.promise_results_count())
     }
     #[no_mangle]
-    extern "C" fn promise_result(result_idx: u64, register_id: u64) -> u64 {
+    extern "C-unwind" fn promise_result(result_idx: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.promise_result(result_idx, register_id))
     }
     #[no_mangle]
-    extern "C" fn promise_return(promise_id: u64) {
+    extern "C-unwind" fn promise_return(promise_id: u64) {
         with_mock_interface(|b| b.promise_return(promise_id))
     }
     #[no_mangle]
-    extern "C" fn storage_write(
+    extern "C-unwind" fn storage_write(
         key_len: u64,
         key_ptr: u64,
         value_len: u64,
@@ -554,35 +665,179 @@ mod mock_chain {
         })
     }
     #[no_mangle]
-    extern "C" fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
+    extern "C-unwind" fn storage_read(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.storage_read(key_len, key_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
+    extern "C-unwind" fn storage_remove(key_len: u64, key_ptr: u64, register_id: u64) -> u64 {
         with_mock_interface(|b| b.storage_remove(key_len, key_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn storage_has_key(key_len: u64, key_ptr: u64) -> u64 {
+    extern "C-unwind" fn storage_has_key(key_len: u64, key_ptr: u64) -> u64 {
         with_mock_interface(|b| b.storage_has_key(key_len, key_ptr))
     }
     #[no_mangle]
-    extern "C" fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
+    extern "C-unwind" fn validator_stake(account_id_len: u64, account_id_ptr: u64, stake_ptr: u64) {
         with_mock_interface(|b| b.validator_stake(account_id_len, account_id_ptr, stake_ptr))
     }
     #[no_mangle]
-    extern "C" fn validator_total_stake(stake_ptr: u64) {
+    extern "C-unwind" fn validator_total_stake(stake_ptr: u64) {
         with_mock_interface(|b| b.validator_total_stake(stake_ptr))
     }
     #[no_mangle]
-    extern "C" fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) {
+    extern "C-unwind" fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.alt_bn128_g1_multiexp(value_len, value_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64) {
+    extern "C-unwind" fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64) {
         with_mock_interface(|b| b.alt_bn128_g1_sum(value_len, value_ptr, register_id))
     }
     #[no_mangle]
-    extern "C" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
+    extern "C-unwind" fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
         with_mock_interface(|b| b.alt_bn128_pairing_check(value_len, value_ptr))
+    }
+
+    // ###########
+    // BLS12-381 #
+    // ###########
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_p1_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64 {
+        with_mock_interface(|b| b.bls12381_p1_sum(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_p2_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64 {
+        with_mock_interface(|b| b.bls12381_p2_sum(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_g1_multiexp(
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| b.bls12381_g1_multiexp(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_g2_multiexp(
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| b.bls12381_g2_multiexp(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_map_fp_to_g1(
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| b.bls12381_map_fp_to_g1(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_map_fp2_to_g2(
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| b.bls12381_map_fp2_to_g2(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_pairing_check(value_len: u64, value_ptr: u64) -> u64 {
+        with_mock_interface(|b| b.bls12381_pairing_check(value_len, value_ptr))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_p1_decompress(
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| b.bls12381_p1_decompress(value_len, value_ptr, register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn bls12381_p2_decompress(
+        value_len: u64,
+        value_ptr: u64,
+        register_id: u64,
+    ) -> u64 {
+        with_mock_interface(|b| b.bls12381_p2_decompress(value_len, value_ptr, register_id))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use near_gas::NearGas;
+    use near_primitives::types::GasWeight;
+
+    use crate::{
+        env,
+        test_utils::{accounts, get_created_receipts, get_logs},
+        testing_env,
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_mocked_blockchain_api() {
+        let public_key: crate::types::PublicKey =
+            "ed25519:H3C2AVAWKq5Qm7FkyDB5cHKcYKHgbiiB2BzX8DQX8CJ".parse().unwrap();
+        let context = VMContextBuilder::new()
+            .signer_account_id(accounts(0))
+            .signer_account_pk(public_key.clone())
+            .build();
+
+        testing_env!(context.clone());
+        assert_eq!(env::signer_account_id(), accounts(0));
+        assert_eq!(env::signer_account_pk(), public_key);
+
+        env::storage_write(b"smile", b"hello_worlds");
+        assert_eq!(env::storage_read(b"smile").unwrap(), b"hello_worlds");
+        assert!(env::storage_has_key(b"smile"));
+        env::storage_remove(b"smile");
+        assert!(!env::storage_has_key(b"smile"));
+
+        let promise_index = env::promise_create(
+            "account.near".parse().unwrap(),
+            "method",
+            &[],
+            NearToken::from_millinear(1),
+            NearGas::from_tgas(1),
+        );
+
+        env::promise_batch_action_stake(promise_index, NearToken::from_millinear(1), &public_key);
+
+        env::log_str("logged");
+
+        let logs = get_logs();
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0], "logged");
+
+        let actions = get_created_receipts();
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].receiver_id.to_string(), "account.near");
+        assert_eq!(actions[0].actions.len(), 2);
+        assert_eq!(
+            actions[0].actions[0],
+            MockAction::FunctionCallWeight {
+                receipt_index: 0,
+                method_name: b"method".to_vec(),
+                args: [].to_vec(),
+                attached_deposit: NearToken::from_millinear(1),
+                prepaid_gas: NearGas::from_tgas(1),
+                gas_weight: GasWeight(0)
+            }
+        );
+
+        assert_eq!(
+            actions[0].actions[1],
+            MockAction::Stake {
+                receipt_index: 0,
+                stake: NearToken::from_millinear(1),
+                public_key: near_crypto::PublicKey::from_str(
+                    "ed25519:H3C2AVAWKq5Qm7FkyDB5cHKcYKHgbiiB2BzX8DQX8CJ"
+                )
+                .unwrap()
+            }
+        );
     }
 }

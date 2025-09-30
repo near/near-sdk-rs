@@ -5,6 +5,7 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/invalid_arg_pat.rs");
     t.pass("compilation_tests/regular.rs");
     t.pass("compilation_tests/private.rs");
+    t.pass("compilation_tests/deny_unknown_arguments.rs");
     t.pass("compilation_tests/trait_impl.rs");
     t.compile_fail("compilation_tests/bad_argument.rs");
     t.pass("compilation_tests/complex.rs");
@@ -13,6 +14,8 @@ fn compilation_tests() {
     t.pass("compilation_tests/init_function.rs");
     t.pass("compilation_tests/init_ignore_state.rs");
     t.pass("compilation_tests/no_default.rs");
+    // TODO: unignore upon resolution of https://github.com/near/near-sdk-rs/issues/1211
+    // t.pass("compilation_tests/lifetime_method_result.rs");
     t.pass("compilation_tests/lifetime_method.rs");
     t.pass("compilation_tests/cond_compilation.rs");
     t.compile_fail("compilation_tests/payable_view.rs");
@@ -21,9 +24,10 @@ fn compilation_tests() {
     t.pass("compilation_tests/function_error.rs");
     t.pass("compilation_tests/enum_near_bindgen.rs");
     t.pass("compilation_tests/schema_derive.rs");
-    if rustversion::cfg!(since(1.72)) {
-        // The compilation error output has slightly changed in 1.72, so we
-        // snapshoted this new version
+
+    if rustversion::cfg!(since(1.80)) && std::env::consts::OS == "linux" {
+        // The compilation error output has slightly changed in 1.7x and 1.8x and between platforms,
+        // so we snapshoted this single version
         t.compile_fail("compilation_tests/schema_derive_invalids.rs");
     }
     t.compile_fail("compilation_tests/generic_function.rs");
@@ -34,8 +38,10 @@ fn compilation_tests() {
     t.compile_fail("compilation_tests/self_forbidden_in_non_init_fn_arg.rs");
     t.pass("compilation_tests/handle_result_alias.rs");
     t.pass("compilation_tests/contract_metadata.rs");
+    t.pass("compilation_tests/contract_metadata-no-version-no-link.rs");
     t.compile_fail("compilation_tests/contract_metadata_fn_name.rs");
     t.pass("compilation_tests/contract_metadata_bindgen.rs");
     t.pass("compilation_tests/types.rs");
+    t.compile_fail("compilation_tests/nested_near_error.rs");
     t.compile_fail("compilation_tests/error_handling_incorrect_result.rs");
 }

@@ -2,4 +2,7 @@
 ignore = [
     "RUSTSEC-2020-0071", # `chrono` is a transient dependency used by `near-sandbox-utils` and other dependencies
     "RUSTSEC-2022-0093", # security audit error in ed25519-dalek which is not relevant for near-sdk-rs
+    "RUSTSEC-2024-0344", # security audit error in ed25519-dalek which is not relevant for near-sdk-rs
+    "RUSTSEC-2021-0145", # this needs to be investigated, `atty` has not been updated for 4 years
+    "RUSTSEC-2022-0054", # unmaintained, perhaps needs to be replaced
 ]

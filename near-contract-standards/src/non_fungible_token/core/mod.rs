@@ -5,10 +5,11 @@ mod resolver;
 
 pub use self::core_impl::*;
 
-pub use self::receiver::NonFungibleTokenReceiver;
-pub use self::resolver::NonFungibleTokenResolver;
+pub use self::receiver::{ext_nft_receiver, NonFungibleTokenReceiver};
+pub use self::resolver::{ext_nft_resolver, NonFungibleTokenResolver};
 
 use crate::non_fungible_token::token::{Token, TokenId};
+use near_sdk::ext_contract;
 use near_sdk::AccountId;
 use near_sdk::BaseError;
 use near_sdk::PromiseOrValue;
@@ -50,6 +51,7 @@ use near_sdk::PromiseOrValue;
 ///}
 /// ```
 ///
+#[ext_contract(ext_nft_core)]
 pub trait NonFungibleTokenCore {
     /// Simple transfer. Transfer a given `token_id` from current owner to
     /// `receiver_id`.

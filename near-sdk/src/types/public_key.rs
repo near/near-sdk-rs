@@ -97,6 +97,7 @@ impl TryFrom<PublicKey> for near_crypto::PublicKey {
 ///             .unwrap();
 /// ```
 #[derive(Debug, Clone, PartialEq, PartialOrd, Ord, Eq, BorshSerialize, Hash)]
+#[cfg_attr(feature = "abi", derive(borsh::BorshSchema))]
 pub struct PublicKey {
     data: Vec<u8>,
 }
@@ -248,9 +249,9 @@ impl std::fmt::Display for ParsePublicKeyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
             ParsePublicKeyErrorKind::InvalidLength(l) => {
-                write!(f, "invalid length of the public key, expected 32 got {}", l)
+                write!(f, "invalid length of the public key, expected 32 got {l}")
             }
-            ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {}", e),
+            ParsePublicKeyErrorKind::Base58(e) => write!(f, "base58 decoding error: {e}"),
             ParsePublicKeyErrorKind::UnknownCurve => write!(f, "unknown curve kind"),
         }
     }

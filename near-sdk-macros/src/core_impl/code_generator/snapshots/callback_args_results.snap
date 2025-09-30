@@ -14,8 +14,16 @@ pub extern "C" fn method() {
     let mut x: Result<u64, PromiseError> = match ::near_sdk::env::promise_result(0u64) {
         ::near_sdk::PromiseResult::Successful(data) => {
             ::std::result::Result::Ok(
-                ::near_sdk::serde_json::from_slice(&data)
-                    .expect("Failed to deserialize callback using JSON"),
+                match ::near_sdk::serde_json::from_slice(&data) {
+                    Ok(deserialized) => deserialized,
+                    Err(e) => {
+                        ::near_sdk::env::panic_str(
+                            &format!(
+                                "Failed to deserialize callback using JSON. Error: `{e}`"
+                            ),
+                        );
+                    }
+                },
             )
         }
         ::near_sdk::PromiseResult::Failed => {
@@ -27,8 +35,16 @@ pub extern "C" fn method() {
     ) {
         ::near_sdk::PromiseResult::Successful(data) => {
             ::std::result::Result::Ok(
-                ::near_sdk::serde_json::from_slice(&data)
-                    .expect("Failed to deserialize callback using JSON"),
+                match ::near_sdk::serde_json::from_slice(&data) {
+                    Ok(deserialized) => deserialized,
+                    Err(e) => {
+                        ::near_sdk::env::panic_str(
+                            &format!(
+                                "Failed to deserialize callback using JSON. Error: `{e}`"
+                            ),
+                        );
+                    }
+                },
             )
         }
         ::near_sdk::PromiseResult::Failed => {
@@ -36,5 +52,5 @@ pub extern "C" fn method() {
         }
     };
     let contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    contract.method(&mut x, y);
+    Hello::method(&contract, &mut x, y);
 }

@@ -3,8 +3,9 @@ use crate::errors;
 /// Enables contract runtime to panic with the given type. Any error type used in conjunction
 /// with `#[handle_result]` has to implement this trait.
 ///
-/// ```
-/// use near_sdk::FunctionError;
+/// Example:
+/// ```no_run
+/// use near_sdk::{FunctionError, near};
 ///
 /// enum Error {
 ///     NotFound,
@@ -19,6 +20,19 @@ use crate::errors;
 ///             Error::Unexpected { message } =>
 ///                 near_sdk::env::panic_str(&format!("unexpected error: {}", message))
 ///         }
+///     }
+/// }
+///
+/// #[near(contract_state)]
+/// #[derive(Default)]
+/// pub struct Contract;
+///
+/// #[near]
+/// impl Contract {
+///     // if the Error does not implement FunctionError, the following will not compile with #[handle_result]
+///     #[handle_result]
+///     pub fn set(&self, value: String) -> Result<String, Error> {
+///         Err(Error::NotFound)
 ///     }
 /// }
 /// ```

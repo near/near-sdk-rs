@@ -71,6 +71,22 @@ enum PromiseAction {
     DeleteAccount {
         beneficiary_id: AccountId,
     },
+    #[cfg(feature = "global-contracts")]
+    DeployGlobalContract {
+        code: Vec<u8>,
+    },
+    #[cfg(feature = "global-contracts")]
+    DeployGlobalContractByAccountId {
+        code: Vec<u8>,
+    },
+    #[cfg(feature = "global-contracts")]
+    UseGlobalContract {
+        code_hash: Vec<u8>,
+    },
+    #[cfg(feature = "global-contracts")]
+    UseGlobalContractByAccountId {
+        account_id: AccountId,
+    },
 }
 
 impl PromiseAction {
@@ -129,6 +145,28 @@ impl PromiseAction {
             DeleteAccount { beneficiary_id } => {
                 crate::env::promise_batch_action_delete_account(promise_index, beneficiary_id)
             }
+            #[cfg(feature = "global-contracts")]
+            DeployGlobalContract { code } => {
+                crate::env::promise_batch_action_deploy_global_contract(promise_index, code)
+            }
+            #[cfg(feature = "global-contracts")]
+            DeployGlobalContractByAccountId { code } => {
+                crate::env::promise_batch_action_deploy_global_contract_by_account_id(
+                    promise_index,
+                    code,
+                )
+            }
+            #[cfg(feature = "global-contracts")]
+            UseGlobalContract { code_hash } => {
+                crate::env::promise_batch_action_use_global_contract(promise_index, code_hash)
+            }
+            #[cfg(feature = "global-contracts")]
+            UseGlobalContractByAccountId { account_id } => {
+                crate::env::promise_batch_action_use_global_contract_by_account_id(
+                    promise_index,
+                    account_id,
+                )
+            }
         }
     }
 }
@@ -136,7 +174,7 @@ impl PromiseAction {
 struct PromiseSingle {
     pub account_id: AccountId,
     pub actions: RefCell<Vec<PromiseAction>>,
-    pub after: RefCell<Option<Promise>>,
+    pub after: RefCell<Option<Rc<Promise>>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -222,6 +260,8 @@ impl PromiseJoint {
 ///   .transfer(NearToken::from_yoctonear(1000))
 ///   .add_full_access_key(env::signer_account_pk());
 /// ```
+///
+/// More information about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
@@ -249,6 +289,7 @@ enum PromiseSubtype {
 
 impl Promise {
     /// Create a promise that acts on the given account.
+    /// Uses low-level [`crate::env::promise_batch_create`]
     pub fn new(account_id: AccountId) -> Self {
         Self {
             subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
@@ -272,16 +313,90 @@ impl Promise {
     }
 
     /// Create account on which this promise acts.
+    /// Uses low-level [`crate::env::promise_batch_action_create_account`]
     pub fn create_account(self) -> Self {
         self.add_action(PromiseAction::CreateAccount)
     }
 
     /// Deploy a smart contract to the account on which this promise acts.
+    /// Uses low-level [`crate::env::promise_batch_action_deploy_contract`]
     pub fn deploy_contract(self, code: Vec<u8>) -> Self {
         self.add_action(PromiseAction::DeployContract { code })
     }
 
+    #[cfg(feature = "global-contracts")]
+    /// Deploy a global smart contract using the provided contract code.
+    /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code = vec![0u8; 100]; // Contract bytecode
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .deploy_global_contract(code);
+    /// ```
+    pub fn deploy_global_contract(self, code: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContract { code })
+    }
+
+    #[cfg(feature = "global-contracts")]
+    /// Deploy a global smart contract, identifiable by the predecessor's account ID.
+    /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code = vec![0u8; 100]; // Contract bytecode
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .deploy_global_contract_by_account_id(code);
+    /// ```
+    pub fn deploy_global_contract_by_account_id(self, code: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
+    }
+
+    #[cfg(feature = "global-contracts")]
+    /// Use an existing global contract by code hash.
+    /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code_hash = vec![0u8; 32]; // 32-byte hash
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .use_global_contract(code_hash);
+    /// ```
+    pub fn use_global_contract(self, code_hash: Vec<u8>) -> Self {
+        self.add_action(PromiseAction::UseGlobalContract { code_hash })
+    }
+
+    #[cfg(feature = "global-contracts")]
+    /// Use an existing global contract by referencing the account that deployed it.
+    /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken, AccountId};
+    ///
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .transfer(NearToken::from_yoctonear(1000))
+    ///     .use_global_contract_by_account_id("deployer.near".parse().unwrap());
+    /// ```
+    pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
+        self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
+    }
+
     /// A low-level interface for making a function call to the account that this promise acts on.
+    /// Uses low-level [`crate::env::promise_batch_action_function_call`]
     pub fn function_call(
         self,
         function_name: String,
@@ -295,6 +410,7 @@ impl Promise {
     /// A low-level interface for making a function call to the account that this promise acts on.
     /// unlike [`Promise::function_call`], this function accepts a weight to use relative unused gas
     /// on this function call at the end of the scheduling method execution.
+    /// Uses low-level [`crate::env::promise_batch_action_function_call_weight`]
     pub fn function_call_weight(
         self,
         function_name: String,
@@ -313,21 +429,25 @@ impl Promise {
     }
 
     /// Transfer tokens to the account that this promise acts on.
+    /// Uses low-level [`crate::env::promise_batch_action_transfer`]
     pub fn transfer(self, amount: NearToken) -> Self {
         self.add_action(PromiseAction::Transfer { amount })
     }
 
     /// Stake the account for the given amount of tokens using the given public key.
+    /// Uses low-level [`crate::env::promise_batch_action_stake`]
     pub fn stake(self, amount: NearToken, public_key: PublicKey) -> Self {
         self.add_action(PromiseAction::Stake { amount, public_key })
     }
 
     /// Add full access key to the given account.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
     pub fn add_full_access_key(self, public_key: PublicKey) -> Self {
         self.add_full_access_key_with_nonce(public_key, 0)
     }
 
     /// Add full access key to the given account with a provided nonce.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_full_access`]
     pub fn add_full_access_key_with_nonce(self, public_key: PublicKey, nonce: u64) -> Self {
         self.add_action(PromiseAction::AddFullAccessKey { public_key, nonce })
     }
@@ -335,6 +455,7 @@ impl Promise {
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
     /// e.g. `"method_a,method_b".to_string()`.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
     pub fn add_access_key_allowance(
         self,
         public_key: PublicKey,
@@ -364,6 +485,7 @@ impl Promise {
     }
 
     /// Add an access key with a provided nonce.
+    /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
     pub fn add_access_key_allowance_with_nonce(
         self,
         public_key: PublicKey,
@@ -401,11 +523,13 @@ impl Promise {
     }
 
     /// Delete access key from the given account.
+    /// Uses low-level [`crate::env::promise_batch_action_delete_key`]
     pub fn delete_key(self, public_key: PublicKey) -> Self {
         self.add_action(PromiseAction::DeleteKey { public_key })
     }
 
     /// Delete the given account.
+    /// Uses low-level [`crate::env::promise_batch_action_delete_account`]
     pub fn delete_account(self, beneficiary_id: AccountId) -> Self {
         self.add_action(PromiseAction::DeleteAccount { beneficiary_id })
     }
@@ -423,6 +547,7 @@ impl Promise {
     /// let p3 = p1.and(p2);
     /// // p3.create_account();
     /// ```
+    /// Uses low-level [`crate::env::promise_and`]
     pub fn and(self, other: Promise) -> Promise {
         Promise {
             subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
@@ -447,8 +572,18 @@ impl Promise {
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then(p2).and(p3).then(p4);
     /// ```
-    pub fn then(self, mut other: Promise) -> Promise {
-        match &mut other.subtype {
+    /// Uses low-level [`crate::env::promise_batch_then`]
+    pub fn then(self, other: Promise) -> Promise {
+        Rc::new(self).then_impl(other)
+    }
+
+    /// Shared, private implementation between `then` and `then_concurrent`.
+    ///
+    /// This takes self as a reference counted object promise, to allow multiple
+    /// dependencies pointing to the same promise without duplicating that
+    /// promise.
+    fn then_impl(self: Rc<Self>, other: Promise) -> Promise {
+        match &other.subtype {
             PromiseSubtype::Single(x) => {
                 let mut after = x.after.borrow_mut();
                 if after.is_some() {
@@ -461,6 +596,45 @@ impl Promise {
             }
         }
         other
+    }
+
+    /// Schedules execution of multiple concurrent promises right after the
+    /// current promise finishes executing.
+    ///
+    /// This method will send the same return value as a data receipt to all
+    /// following receipts.
+    ///
+    /// In the following code, `bob_near` is created first, `carol_near` second,
+    /// and finally `dave_near` and `eva_near` are created concurrently.
+    ///
+    /// ```no_run
+    /// # use near_sdk::Promise;
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// p1.then(p2).then_concurrent(vec![p3, p4]);
+    /// ```
+    ///
+    /// The returned [`ConcurrentPromises`] allows chaining more promises.
+    ///
+    /// In the following code, `bob_near` is created first, next `carol_near`
+    /// and `dave_near` are created concurrently, and finally `eva_near` is
+    /// created after all others have been created.
+    ///
+    /// ```no_run
+    /// # use near_sdk::Promise;
+    /// let p1 = Promise::new("bob_near".parse().unwrap()).create_account();
+    /// let p2 = Promise::new("carol_near".parse().unwrap()).create_account();
+    /// let p3 = Promise::new("dave_near".parse().unwrap()).create_account();
+    /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
+    /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
+    /// ```
+    pub fn then_concurrent(self, promises: Vec<Promise>) -> ConcurrentPromises {
+        let this = Rc::new(self);
+        let mapped_promises =
+            promises.into_iter().map(|other| Rc::clone(&this).then_impl(other)).collect();
+        ConcurrentPromises { promises: mapped_promises }
     }
 
     /// A specialized, relatively low-level API method. Allows to mark the given promise as the one
@@ -489,6 +663,7 @@ impl Promise {
     ///     }
     /// }
     /// ```
+    /// Makes the promise to use low-level [`crate::env::promise_return`].
     #[allow(clippy::wrong_self_convention)]
     pub fn as_return(self) -> Self {
         *self.should_return.borrow_mut() = true;
@@ -611,6 +786,45 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
 
     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
         T::json_schema(gen)
+    }
+}
+
+/// A list of promises that are executed concurrently.
+///
+/// This is the return type of [`Promise::then_concurrent`] and it wraps the
+/// contained promises for a more convenient syntax when chaining calls.
+///
+/// Use [`ConcurrentPromises::join`] to create a new promises that waits for all
+/// concurrent promises and takes all their return values as inputs.
+///
+/// Use [`ConcurrentPromises::split_off`] to divide the list of promises into
+/// subgroups that can be joined independently.
+pub struct ConcurrentPromises {
+    promises: Vec<Promise>,
+}
+
+impl ConcurrentPromises {
+    /// Create a new promises that waits for all contained concurrent promises.
+    ///
+    /// The returned promise is a [`Promise::and`] combination of all contained
+    /// promises. Chain it with a [`Promise::then`] to wait for them to finish
+    /// and receive all their outputs as inputs in a following function call.
+    pub fn join(self) -> Promise {
+        self.promises
+            .into_iter()
+            .reduce(|left, right| left.and(right))
+            .expect("cannot join empty concurrent promises")
+    }
+
+    /// Splits the contained list of promises into two at the given index,
+    /// returning a new [`ConcurrentPromises`] containing the elements in the
+    /// range [at, len).
+    ///
+    /// After the call, the original [`ConcurrentPromises`] will be left
+    /// containing the elements [0, at).
+    pub fn split_off(&mut self, at: usize) -> ConcurrentPromises {
+        let right_side = self.promises.split_off(at);
+        ConcurrentPromises { promises: right_side }
     }
 }
 
@@ -841,5 +1055,276 @@ mod tests {
             )
         });
         assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_global_contract() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code = vec![1, 2, 3, 4];
+
+        {
+            Promise::new(alice()).create_account().deploy_global_contract(code.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: _ } if c == code
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_global_contract_by_account_id() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code = vec![5, 6, 7, 8];
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .deploy_global_contract_by_account_id(code.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: _ } if c == code
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_use_global_contract() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code_hash = vec![0u8; 32];
+
+        {
+            Promise::new(alice()).create_account().use_global_contract(code_hash.clone());
+        }
+
+        // Check if any UseGlobalContract action exists
+        let has_action = get_actions().any(|el| matches!(el, MockAction::UseGlobalContract { .. }));
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_use_global_contract_by_account_id() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let deployer = bob();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .use_global_contract_by_account_id(deployer.clone());
+        }
+
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::UseGlobalContract {
+                    contract_id: near_primitives::action::GlobalContractIdentifier::AccountId(contract_id),
+                    receipt_index: _
+                }
+                if contract_id == deployer
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[test]
+    fn test_then() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .then(Promise::new(sub_account_1).create_account());
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+        let sub_creation = &receipts[1];
+
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+    }
+
+    #[test]
+    fn test_then_concurrent() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+        let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
+
+        {
+            let p1 = Promise::new(sub_account_1.clone()).create_account();
+            let p2 = Promise::new(sub_account_2.clone()).create_account();
+            Promise::new(alice()).create_account().then_concurrent(vec![p1, p2]);
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+
+        let sub1_creation = &receipts[1];
+        let sub2_creation = &receipts[2];
+
+        // ensure we are looking at the right receipts
+        assert_eq!(sub1_creation.receiver_id, sub_account_1);
+        assert_eq!(sub2_creation.receiver_id, sub_account_2);
+
+        // Check dependencies were created
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub1_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub2_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+    }
+
+    #[test]
+    fn test_then_concurrent_split_off_then() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+        let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
+        let sub_account_3: AccountId = "sub3.sub2.alice.near".parse().unwrap();
+
+        {
+            let p1 = Promise::new(sub_account_1.clone()).create_account();
+            let p2 = Promise::new(sub_account_2.clone()).create_account();
+            let p3 = Promise::new(sub_account_3.clone()).create_account();
+            Promise::new(alice())
+                .create_account()
+                .then_concurrent(vec![p1, p2])
+                .split_off(1)
+                .join()
+                .then(p3);
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+
+        // recursive construction switches the order of receipts
+        let sub1_creation = &receipts[3];
+        let sub2_creation = &receipts[1];
+        let sub3_creation = &receipts[2];
+
+        // ensure we are looking at the right receipts
+        assert_eq!(sub1_creation.receiver_id, sub_account_1);
+        assert_eq!(sub2_creation.receiver_id, sub_account_2);
+        assert_eq!(sub3_creation.receiver_id, sub_account_3);
+
+        // Find receipt index to depend on
+        let sub2_creation_index = sub2_creation.actions[0].receipt_index().unwrap();
+
+        // Check dependencies were created
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub1_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub2_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub3_creation.receipt_indices,
+            &[sub2_creation_index],
+            "then() must create dependency on sub2_creation"
+        );
+    }
+
+    #[test]
+    fn test_then_concurrent_twice() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+        let sub_account_1: AccountId = "sub1.alice.near".parse().unwrap();
+        let sub_account_2: AccountId = "sub2.alice.near".parse().unwrap();
+        let sub_account_3: AccountId = "sub3.sub2.alice.near".parse().unwrap();
+        let sub_account_4: AccountId = "sub4.sub2.alice.near".parse().unwrap();
+
+        {
+            let p1 = Promise::new(sub_account_1.clone()).create_account();
+            let p2 = Promise::new(sub_account_2.clone()).create_account();
+            let p3 = Promise::new(sub_account_3.clone()).create_account();
+            let p4 = Promise::new(sub_account_4.clone()).create_account();
+            Promise::new(alice())
+                .create_account()
+                .then_concurrent(vec![p1, p2])
+                .join()
+                .then_concurrent(vec![p3, p4]);
+        }
+
+        let receipts = get_created_receipts();
+        let main_account_creation = &receipts[0];
+        // recursive construction switches the order of receipts
+        let sub1_creation = &receipts[1];
+        let sub2_creation = &receipts[2];
+        let sub3_creation = &receipts[3];
+        let sub4_creation = &receipts[4];
+
+        // ensure we are looking at the right receipts
+        assert_eq!(sub1_creation.receiver_id, sub_account_1);
+        assert_eq!(sub2_creation.receiver_id, sub_account_2);
+        assert_eq!(sub3_creation.receiver_id, sub_account_3);
+        assert_eq!(sub4_creation.receiver_id, sub_account_4);
+
+        // Find receipt indices to depend on
+        let sub1_creation_index = sub1_creation.actions[0].receipt_index().unwrap();
+        let sub2_creation_index = sub2_creation.actions[0].receipt_index().unwrap();
+
+        // Check dependencies were created
+        assert!(
+            main_account_creation.receipt_indices.is_empty(),
+            "first receipt must not have dependencies"
+        );
+        assert_eq!(
+            &sub1_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub2_creation.receipt_indices,
+            &[0],
+            "then_concurrent() must create dependency on receipt 0"
+        );
+        assert_eq!(
+            &sub3_creation.receipt_indices,
+            &[sub1_creation_index, sub2_creation_index],
+            "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
+        );
+        assert_eq!(
+            &sub4_creation.receipt_indices,
+            &[sub1_creation_index, sub2_creation_index],
+            "then_concurrent() must create dependency on sub1_creation_index + sub2_creation"
+        );
     }
 }

@@ -18,14 +18,14 @@ impl ItemImplInfo {
                 "Impl type parameters are not supported for smart contracts.",
             ));
         }
-        let is_trait_impl = original.trait_.is_some();
         let ty = (*original.self_ty.as_ref()).clone();
+        let trait_ = original.trait_.as_ref().map(|(_not, path, _for)| path);
 
         let mut methods = vec![];
         let mut errors = vec![];
         for subitem in &mut original.items {
             if let ImplItem::Fn(m) = subitem {
-                match ImplItemMethodInfo::new(m, is_trait_impl, ty.clone()) {
+                match ImplItemMethodInfo::new(m, trait_.cloned(), ty.clone()) {
                     Ok(Some(method_info)) => methods.push(method_info),
                     Ok(None) => {} // do nothing
                     Err(e) => errors.push(e),

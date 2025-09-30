@@ -10,8 +10,14 @@ pub fn borsh_test(self, a: String) -> ::near_sdk::Promise {
             a: &'nearinput String,
         }
         let __args = Input { a: &a };
-        ::near_sdk::borsh::to_vec(&__args)
-            .expect("Failed to serialize the cross contract args using Borsh.")
+        match near_sdk::borsh::to_vec(&__args) {
+            Ok(serialized) => serialized,
+            Err(_) => {
+                ::near_sdk::env::panic_str(
+                    "Failed to serialize the cross contract args using Borsh.",
+                )
+            }
+        }
     };
     ::near_sdk::Promise::new(self.account_id)
         .function_call_weight(
@@ -22,4 +28,3 @@ pub fn borsh_test(self, a: String) -> ::near_sdk::Promise {
             self.gas_weight,
         )
 }
-

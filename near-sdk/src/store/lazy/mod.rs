@@ -116,6 +116,11 @@ where
             }
         }
     }
+
+    /// Removes the underlying storage item. Useful for deprecating the obsolete [`Lazy`] values.
+    pub fn remove(&mut self) -> bool {
+        env::storage_remove(&self.storage_key)
+    }
 }
 
 impl<T> Lazy<T>
@@ -180,6 +185,15 @@ mod tests {
         // A value that is not stored in storage yet and one that has not been loaded yet can
         // be checked for equality.
         assert_eq!(lazy_loaded, b);
+    }
+
+    #[test]
+    pub fn test_remove() {
+        let mut lazy = Lazy::new(b"m", 8u8);
+        lazy.flush();
+        assert!(env::storage_has_key(b"m"));
+        lazy.remove();
+        assert!(!env::storage_has_key(b"m"));
     }
 
     #[test]

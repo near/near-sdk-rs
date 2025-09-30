@@ -10,6 +10,7 @@ use crate::store::free_list::FreeListIndex;
 use crate::store::key::{Sha256, ToKey};
 use crate::{env, errors, IntoStorageKey};
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk_macros::near;
 use std::borrow::Borrow;
 use std::fmt;
 
@@ -87,21 +88,29 @@ use std::fmt;
 ///
 /// [`with_hasher`]: Self::with_hasher
 /// [`LookupSet`]: crate::store::LookupSet
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 #[deprecated(
     since = "5.0.0",
-    note = "Suboptimal iteration performance. See performance considerations doc for details."
+    note = "Suboptimal iteration performance. See performance considerations doc for details. Consider using IterableSet instead (WARNING: manual storage migration is required if contract was previously deployed)"
 )]
 pub struct UnorderedSet<T, H = Sha256>
 where
     T: BorshSerialize + Ord,
     H: ToKey,
 {
-    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `T` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     elements: FreeList<T>,
-    // ser/de is independent of `T`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `T`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     index: LookupMap<T, FreeListIndex, H>,
 }
 
@@ -429,7 +438,7 @@ where
     ///     println!("val: {}", val);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<T>
+    pub fn iter(&self) -> Iter<'_, T>
     where
         T: BorshDeserialize,
     {
@@ -453,7 +462,7 @@ where
     ///
     /// assert!(a.is_empty());
     /// ```
-    pub fn drain(&mut self) -> Drain<T, H>
+    pub fn drain(&mut self) -> Drain<'_, T, H>
     where
         T: BorshDeserialize,
     {
@@ -948,5 +957,25 @@ mod tests {
 
         // Check the last removed value.
         assert_eq!(set.elements.get(FreeListIndex(6)), None);
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "UnorderedSet".to_string(),
+            <UnorderedSet<NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <UnorderedSet<NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(
+            &mut defs,
+        );
+
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

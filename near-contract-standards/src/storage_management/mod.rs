@@ -1,4 +1,4 @@
-use near_sdk::{near, AccountId, BaseError, NearToken};
+use near_sdk::{ext_contract, near, AccountId, BaseError, NearToken};
 
 #[near(serializers=[borsh, json])]
 pub struct StorageBalance {
@@ -75,6 +75,7 @@ pub struct StorageBalanceBounds {
 ///
 /// ```
 ///
+#[ext_contract(ext_storage_management)]
 pub trait StorageManagement {
     // if `registration_only=true` MUST refund above the minimum balance if the account didn't exist and
     //     refund full deposit if the account exists.
@@ -106,7 +107,7 @@ pub trait StorageManagement {
     ///
     /// If `force=true` the function SHOULD ignore account balances (burn them) and close the account.
     /// Otherwise, MUST panic if caller has a positive registered balance (eg token holdings) or
-    ///     the contract doesn't support force unregistration.
+    /// the contract doesn't support force deregistration.
     /// MUST require exactly 1 yoctoNEAR attached balance to prevent restricted function-call access-key call
     /// (UX wallet security)
     /// Returns `true` iff the account was unregistered.

@@ -15,10 +15,16 @@ pub fn generate_serializer(
     let constructor = quote! { let __args = #constructor_call; };
     let value_ser = match serializer {
         SerializerType::JSON => quote! {
-            ::near_sdk::serde_json::to_vec(&__args).expect("Failed to serialize the cross contract args using JSON.")
+            match near_sdk::serde_json::to_vec(&__args) {
+                Ok(serialized) => serialized,
+                Err(_) => ::near_sdk::env::panic_str("Failed to serialize the cross contract args using JSON."),
+            }
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::borsh::to_vec(&__args).expect("Failed to serialize the cross contract args using Borsh.")
+            match near_sdk::borsh::to_vec(&__args) {
+                Ok(serialized) => serialized,
+                Err(_) => ::near_sdk::env::panic_str("Failed to serialize the cross contract args using Borsh."),
+            }
         },
     };
 

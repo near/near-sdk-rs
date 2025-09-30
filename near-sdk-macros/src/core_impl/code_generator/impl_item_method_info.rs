@@ -145,14 +145,26 @@ impl ImplItemMethodInfo {
             let decomposition = self.attr_signature_info.decomposition_pattern();
             let serializer_invocation = match self.attr_signature_info.input_serializer {
                 SerializerType::JSON => quote! {
-                    ::near_sdk::serde_json::from_slice(
-                        &::near_sdk::env::input().expect("Expected input since method has arguments.")
-                    ).expect("Failed to deserialize input from JSON.")
+                    match ::near_sdk::env::input() {
+                        Some(input) => match ::near_sdk::serde_json::from_slice(&input) {
+                            Ok(deserialized) => deserialized,
+                            Err(e) => {
+                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from JSON. Error: `{e}`"));
+                            }
+                        },
+                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
+                    };
                 },
                 SerializerType::Borsh => quote! {
-                    ::near_sdk::borsh::BorshDeserialize::try_from_slice(
-                        &::near_sdk::env::input().expect("Expected input since method has arguments.")
-                    ).expect("Failed to deserialize input from Borsh.")
+                    match ::near_sdk::env::input() {
+                        Some(input) => match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&input) {
+                            Ok(deserialized) => deserialized,
+                            Err(e) => {
+                                ::near_sdk::env::panic_str(&format!("Failed to deserialize input from Borsh. Error: `{e}`"));
+                            }
+                        },
+                        None => ::near_sdk::env::panic_str("Expected input since method has arguments.")
+                    };
                 },
             };
             quote! {
@@ -304,24 +316,41 @@ impl ImplItemMethodInfo {
 
         let ident = &self.attr_signature_info.ident;
         let arg_list = self.attr_signature_info.arg_list();
+        let struct_type = &self.struct_type;
 
-        let method_invocation = || {
+        let method_fqdn = if let Some(impl_trait) = &self.impl_trait {
             quote! {
-                contract.#ident(#arg_list)
+                <#struct_type as #impl_trait>::#ident
+            }
+        } else {
+            quote! {
+                #struct_type::#ident
+            }
+        };
+
+        let method_invocation = |receiver: &Receiver| {
+            if receiver.reference.is_some() {
+                let mutability = receiver.mutability;
+                quote! {
+                    #method_fqdn(&#mutability contract, #arg_list)
+                }
+            } else {
+                quote! {
+                    #method_fqdn(contract, #arg_list)
+                }
             }
         };
 
         let static_invocation = || {
-            let struct_type = &self.struct_type;
             quote! {
-                #struct_type::#ident(#arg_list)
+                #method_fqdn(#arg_list)
             }
         };
 
         match &self.attr_signature_info.method_kind {
             Call(call_method) => {
-                if call_method.receiver.is_some() {
-                    method_invocation()
+                if let Some(receiver) = call_method.receiver.as_ref() {
+                    method_invocation(receiver)
                 } else {
                     static_invocation()
                 }
@@ -331,8 +360,8 @@ impl ImplItemMethodInfo {
             Init(_) => quote! {},
 
             View(view_method) => {
-                if view_method.receiver.is_some() {
-                    method_invocation()
+                if let Some(receiver) = view_method.receiver.as_ref() {
+                    method_invocation(receiver)
                 } else {
                     static_invocation()
                 }
@@ -364,10 +393,16 @@ impl ImplItemMethodInfo {
 
         let value_ser = |result_serializer: &SerializerType| match result_serializer {
             SerializerType::JSON => quote! {
-                let result = ::near_sdk::serde_json::to_vec(&result).expect("Failed to serialize the return value using JSON.");
+                let result = match near_sdk::serde_json::to_vec(&result) {
+                    Ok(v) => v,
+                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using JSON."),
+                };
             },
             SerializerType::Borsh => quote! {
-                let result = ::near_sdk::borsh::to_vec(&result).expect("Failed to serialize the return value using Borsh.");
+                let result = match near_sdk::borsh::to_vec(&result) {
+                    Ok(v) => v,
+                    Err(_) => ::near_sdk::env::panic_str("Failed to serialize the return value using Borsh."),
+                };
             },
         };
 

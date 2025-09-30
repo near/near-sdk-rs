@@ -146,6 +146,33 @@ extern "C" {
         beneficiary_id_len: u64,
         beneficiary_id_ptr: u64,
     );
+    #[cfg(feature = "global-contracts")]
+    // #########################
+    // # Global Contract API   #
+    // #########################
+    pub fn promise_batch_action_deploy_global_contract(
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+    );
+    #[cfg(feature = "global-contracts")]
+    pub fn promise_batch_action_deploy_global_contract_by_account_id(
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+    );
+    #[cfg(feature = "global-contracts")]
+    pub fn promise_batch_action_use_global_contract(
+        promise_index: u64,
+        code_hash_len: u64,
+        code_hash_ptr: u64,
+    );
+    #[cfg(feature = "global-contracts")]
+    pub fn promise_batch_action_use_global_contract_by_account_id(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+    );
     pub fn promise_yield_create(
         function_name_len: u64,
         function_name_ptr: u64,
@@ -195,6 +222,20 @@ extern "C" {
     pub fn alt_bn128_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64);
     pub fn alt_bn128_g1_sum(value_len: u64, value_ptr: u64, register_id: u64);
     pub fn alt_bn128_pairing_check(value_len: u64, value_ptr: u64) -> u64;
+
+    // #############
+    // # BLS12-381 #
+    // #############
+    pub fn bls12381_p1_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_p2_sum(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_g1_multiexp(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_g2_multiexp(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_map_fp_to_g1(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_map_fp2_to_g2(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_pairing_check(value_len: u64, value_ptr: u64) -> u64;
+    pub fn bls12381_p1_decompress(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+    pub fn bls12381_p2_decompress(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
+
 }
 
 /// Alias for [`block_index`] function. Returns the height of the current block.

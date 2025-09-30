@@ -85,7 +85,7 @@ impl ItemImplInfo {
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
-    use syn::{parse_quote, ImplItemFn, Type};
+    use syn::{parse_quote, parse_str, ImplItemFn, Type};
     use crate::core_impl::info_extractor::{ImplItemMethodInfo, ItemImplInfo};
     use crate::core_impl::utils::test_helpers::{local_insta_assert_snapshot, pretty_print_syn_str};
 
@@ -94,7 +94,7 @@ mod tests {
     fn trait_implt() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("fn method(&self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, true, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, Some(parse_str("SomeTrait").unwrap()), impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -103,7 +103,7 @@ mod tests {
     fn no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method(&self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -112,7 +112,7 @@ mod tests {
     fn owned_no_args_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method(self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -122,7 +122,7 @@ mod tests {
     fn mut_owned_no_args_no_return() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method(mut self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -131,7 +131,7 @@ mod tests {
     fn no_args_no_return_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method(&mut self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -140,7 +140,7 @@ mod tests {
     fn arg_no_return_no_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method(&self, k: u64) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -150,7 +150,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -160,7 +160,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -170,7 +170,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&self) -> &Option<u64> { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -179,7 +179,7 @@ mod tests {
     fn arg_ref() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method(&self, k: &u64) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -189,7 +189,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn =
             syn::parse_str("pub fn method(&self, k: &mut u64) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -200,7 +200,7 @@ mod tests {
         let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_unwrap] x: &mut u64, y: ::std::string::String, #[callback_unwrap] z: ::std::vec::Vec<u8>) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -211,7 +211,7 @@ mod tests {
         let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_unwrap] x: &mut u64, #[callback_unwrap] y: ::std::string::String) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -222,7 +222,7 @@ mod tests {
         let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_result] x: &mut Result<u64, PromiseError>, #[callback_result] y: Result<::std::string::String, PromiseError>) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -233,7 +233,7 @@ mod tests {
         let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_vec] x: Vec<String>, y: String) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -245,7 +245,7 @@ mod tests {
             #[init]
             pub fn method(k: &mut u64) -> Self { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -257,7 +257,7 @@ mod tests {
             #[init]
             pub fn method(k: &mut u64) { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, false, impl_type).map(|_| ()).unwrap_err();
+        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
         let expected = "Init function must return the contract state.";
         assert_eq!(expected, actual.to_string());
     }
@@ -269,7 +269,7 @@ mod tests {
             #[init(ignore_state)]
             pub fn method(k: &mut u64) -> Self { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -282,7 +282,7 @@ mod tests {
             #[payable]
             pub fn method(k: &mut u64) -> Self { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -294,7 +294,7 @@ mod tests {
             #[result_serializer(borsh)]
             pub fn method(&mut self, #[serializer(borsh)] k: u64, #[serializer(borsh)]m: Bar) -> Option<u64> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -305,7 +305,7 @@ mod tests {
         let mut method: ImplItemFn = parse_quote! {
             #[private] pub fn method(&self, #[callback_unwrap] #[serializer(borsh)] x: &mut u64, #[serializer(borsh)] y: ::std::string::String, #[callback_unwrap] #[serializer(json)] z: ::std::vec::Vec<u8>) { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -314,7 +314,7 @@ mod tests {
     fn no_args_no_return_mut_payable() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("#[payable] pub fn method(&mut self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -323,7 +323,19 @@ mod tests {
     fn private_method() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("#[private] pub fn private_method(&mut self) { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
+
+    #[test]
+    fn deny_unknown_arguments_return_mut_method() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[deny_unknown_arguments] 
+            pub fn method(&mut self, k: u64, m: Bar) -> Option<u64> { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -335,11 +347,11 @@ mod tests {
             #[handle_result]
             pub fn method(&self) -> Result::<u64, &'static str> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
-    
+
     #[test]
     fn handle_result_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
@@ -347,7 +359,7 @@ mod tests {
             #[handle_result]
             pub fn method(&mut self) -> Result<u64, &'static str> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -360,7 +372,7 @@ mod tests {
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -373,7 +385,7 @@ mod tests {
             #[handle_result]
             pub fn new() -> Result<Self, &'static str> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -386,7 +398,7 @@ mod tests {
             #[handle_result]
             pub fn new() -> Result<Self, &'static str> { }
         };
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
@@ -395,10 +407,11 @@ mod tests {
     fn handle_no_self() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = syn::parse_str("pub fn method() { }").unwrap();
-        let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
+
 
     #[test]
     fn result_implicit() {
@@ -424,6 +437,7 @@ mod tests {
     }
 
     #[test]
+
     fn generated_method_error() {
         let mut impl_contract: syn::ItemImpl = parse_quote! {
             impl Contract {

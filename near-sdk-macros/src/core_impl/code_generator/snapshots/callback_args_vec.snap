@@ -16,11 +16,19 @@ pub extern "C" fn method() {
     struct Input {
         y: String,
     }
-    let Input { y }: Input = ::near_sdk::serde_json::from_slice(
-            &::near_sdk::env::input()
-                .expect("Expected input since method has arguments."),
-        )
-        .expect("Failed to deserialize input from JSON.");
+    let Input { y }: Input = match ::near_sdk::env::input() {
+        Some(input) => {
+            match ::near_sdk::serde_json::from_slice(&input) {
+                Ok(deserialized) => deserialized,
+                Err(e) => {
+                    ::near_sdk::env::panic_str(
+                        &format!("Failed to deserialize input from JSON. Error: `{e}`"),
+                    );
+                }
+            }
+        }
+        None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
+    };
     let x: Vec<String> = ::std::iter::Iterator::collect(
         ::std::iter::Iterator::map(
             0..::near_sdk::env::promise_results_count(),
@@ -36,11 +44,19 @@ pub extern "C" fn method() {
                         )
                     }
                 };
-                ::near_sdk::serde_json::from_slice(&data)
-                    .expect("Failed to deserialize callback using JSON")
+                match ::near_sdk::serde_json::from_slice(&data) {
+                    Ok(deserialized) => deserialized,
+                    Err(e) => {
+                        ::near_sdk::env::panic_str(
+                            &format!(
+                                "Failed to deserialize callback using JSON. Error: `{e}`"
+                            ),
+                        );
+                    }
+                }
             },
         ),
     );
     let contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    contract.method(x, y);
+    Hello::method(&contract, x, y);
 }

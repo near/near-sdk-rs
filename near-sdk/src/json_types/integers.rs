@@ -95,8 +95,8 @@ mod tests {
         test_serde!(U128, u128, 123);
         test_serde!(U128, u128, 10u128.pow(18));
         test_serde!(U128, u128, 2u128.pow(100));
-        test_serde!(U128, u128, u128::max_value());
-        assert!(U128::from(u128::min_value()) < U128::from(u128::max_value()));
+        test_serde!(U128, u128, u128::MAX);
+        assert!(U128::from(u128::MIN) < U128::from(u128::MAX));
     }
 
     #[test]
@@ -108,9 +108,9 @@ mod tests {
         test_serde!(I128, i128, 10i128.pow(18));
         test_serde!(I128, i128, 2i128.pow(100));
         test_serde!(I128, i128, -(2i128.pow(100)));
-        test_serde!(I128, i128, i128::max_value());
-        test_serde!(I128, i128, i128::min_value());
-        assert!(I128::from(i128::min_value()) < I128::from(i128::max_value()));
+        test_serde!(I128, i128, i128::MAX);
+        test_serde!(I128, i128, i128::MIN);
+        assert!(I128::from(i128::MIN) < I128::from(i128::MAX));
     }
 
     #[test]
@@ -120,8 +120,8 @@ mod tests {
         test_serde!(U64, u64, 123);
         test_serde!(U64, u64, 10u64.pow(18));
         test_serde!(U64, u64, 2u64.pow(60));
-        test_serde!(U64, u64, u64::max_value());
-        assert!(U64::from(u64::min_value()) < U64::from(u64::max_value()));
+        test_serde!(U64, u64, u64::MAX);
+        assert!(U64::from(u64::MIN) < U64::from(u64::MAX));
     }
 
     #[test]
@@ -133,8 +133,8 @@ mod tests {
         test_serde!(I64, i64, 10i64.pow(18));
         test_serde!(I64, i64, 2i64.pow(60));
         test_serde!(I64, i64, -(2i64.pow(60)));
-        test_serde!(I64, i64, i64::max_value());
-        test_serde!(I64, i64, i64::min_value());
-        assert!(I64::from(i64::min_value()) < I64::from(i64::max_value()));
+        test_serde!(I64, i64, i64::MAX);
+        test_serde!(I64, i64, i64::MIN);
+        assert!(I64::from(i64::MIN) < I64::from(i64::MAX));
     }
 }

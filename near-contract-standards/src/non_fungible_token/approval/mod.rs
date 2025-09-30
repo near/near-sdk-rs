@@ -2,6 +2,7 @@ mod approval_impl;
 mod approval_receiver;
 
 pub use approval_receiver::*;
+use near_sdk::ext_contract;
 
 use crate::non_fungible_token::token::TokenId;
 use near_sdk::{AccountId, BaseError, Promise};
@@ -53,6 +54,7 @@ use near_sdk::{AccountId, BaseError, Promise};
 /// }
 /// ```
 ///
+#[ext_contract(ext_nft_approval)]
 pub trait NonFungibleTokenApproval {
     /// Add an approved account for a specific token.
     ///

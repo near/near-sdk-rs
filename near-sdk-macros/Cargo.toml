@@ -2,11 +2,11 @@
 name = "near-sdk-macros"
 version.workspace = true
 authors = ["Near Inc <max@nearprotocol.com>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-categories = ["wasm"]
-repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://near-sdk.io"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = """
 Main macro of the library for writing NEAR smart contracts.
 """
@@ -15,14 +15,14 @@ Main macro of the library for writing NEAR smart contracts.
 proc-macro = true
 
 [dependencies]
-proc-macro2 = { version = "1",  default-features = false }
+proc-macro2 = { version = "1", default-features = false }
 syn = { version = "2", default-features = false }
-strum = { version = "0.26",  default-features = false }
+strum = { version = "0.26", default-features = false }
 strum_macros = "0.26"
-quote = { version = "1.0",  default-features = false }
+quote = { version = "1.0", default-features = false }
 Inflector = { version = "0.11.4", default-features = false, features = [] }
 darling = { version = "0.20.3", default-features = false }
-serde = { version = "1",  default-features = false, features = ["serde_derive"] }
+serde = { version = "1", default-features = false, features = ["serde_derive"] }
 serde_json = "1"
 
 [dev-dependencies]
@@ -34,3 +34,6 @@ prettyplease = { version = "0.2.15" }
 abi = []
 __abi-embed = ["abi"]
 __abi-generate = ["abi"]
+
+[package.metadata.docs.rs]
+features = ["__abi-generate"]

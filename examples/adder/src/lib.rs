@@ -1,13 +1,8 @@
-use near_sdk::near;
+use near_sdk::{env, near, Promise};
 
+#[derive(Debug, PartialEq, Eq)]
 #[near(serializers=[borsh, json])]
 pub struct Pair(u32, u32);
-
-#[near(serializers=[borsh, json])]
-pub struct DoublePair {
-    first: Pair,
-    second: Pair,
-}
 
 #[derive(Default)]
 #[near(serializers=[borsh, json], contract_state)]
@@ -15,26 +10,36 @@ pub struct Adder {}
 
 #[near]
 impl Adder {
+    /// Call functions a, b, and c, d,  asynchronously and handle results with `add_callback_vec`.
+    pub fn call_all() -> Promise {
+        Self::ext(env::current_account_id())
+            .a()
+            .and(Self::ext(env::current_account_id()).b())
+            .and(Self::ext(env::current_account_id()).c())
+            .and(Self::ext(env::current_account_id()).d())
+            .then(Self::ext(env::current_account_id()).add_callback_vec())
+    }
+
     /// Adds two pairs point-wise.
-    pub fn add(&self, a: Pair, b: Pair) -> Pair {
-        sum_pair(&a, &b)
+    pub fn a(&self) -> Pair {
+        Pair(1, 1)
     }
 
-    #[result_serializer(borsh)]
-    pub fn add_borsh(&self, #[serializer(borsh)] a: Pair, #[serializer(borsh)] b: Pair) -> Pair {
-        sum_pair(&a, &b)
+    pub fn b(&self) -> Pair {
+        Pair(2, 3)
     }
 
-    pub fn add_callback(
-        &self,
-        #[callback_unwrap] a: DoublePair,
-        #[callback_unwrap] b: DoublePair,
-        #[callback_vec] others: Vec<DoublePair>,
-    ) -> DoublePair {
-        Some(b).iter().chain(others.iter()).fold(a, |acc, el| DoublePair {
-            first: sum_pair(&acc.first, &el.first),
-            second: sum_pair(&acc.second, &el.second),
-        })
+    pub fn c(&self) -> Pair {
+        Pair(5, 8)
+    }
+
+    pub fn d(&self) -> Pair {
+        Pair(13, 21)
+    }
+
+    pub fn add_callback_vec(&self, #[callback_vec] elements: Vec<Pair>) -> Pair {
+        let start = Pair(0, 0);
+        elements.iter().fold(start, |acc, el| sum_pair(&acc, &el))
     }
 }
 
@@ -44,47 +49,24 @@ fn sum_pair(a: &Pair, b: &Pair) -> Pair {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
-    use near_abi::*;
-    use near_sdk::serde_json;
-    use tokio::fs;
+    use crate::Pair;
 
-    #[ignore]
     #[tokio::test]
-    async fn embedded_abi_test() -> anyhow::Result<()> {
-        let wasm = fs::read("res/adder.wasm").await?;
+    async fn test_add_callback_vec() -> anyhow::Result<()> {
+        let wasm = near_workspaces::compile_project("./").await?;
         let worker = near_workspaces::sandbox().await?;
         let contract = worker.dev_deploy(&wasm).await?;
 
-        let res = contract.view("__contract_abi").await?;
+        let res = contract
+            .call("call_all")
+            .args_json(())
+            .gas(near_sdk::Gas::from_tgas(300))
+            .transact()
+            .await?;
+        println!("res: {:#?}", res);
 
-        let abi_root =
-            serde_json::from_slice::<AbiRoot>(&zstd::decode_all(&res.result[..])?)?;
-
-        assert_eq!(abi_root.schema_version, "0.3.0");
-        assert_eq!(abi_root.metadata.name, Some("adder".to_string()));
-        assert_eq!(abi_root.metadata.version, Some("0.1.0".to_string()));
-        assert_eq!(
-            &abi_root.metadata.authors[..],
-            &["Near Inc <hello@nearprotocol.com>"]
-        );
-        assert_eq!(abi_root.body.functions.len(), 3);
-
-        let add_function = &abi_root.body.functions[0];
-
-        assert_eq!(add_function.name, "add");
-        assert_eq!(add_function.doc, Some(" Adds two pairs point-wise.".to_string()));
-        assert_eq!(add_function.kind, AbiFunctionKind::View);
-        assert_eq!(add_function.modifiers, &[]);
-        match &add_function.params {
-            AbiParameters::Json { args } => {
-                assert_eq!(args.len(), 2);
-                assert_eq!(args[0].name, "a");
-                assert_eq!(args[1].name, "b");
-            }
-            AbiParameters::Borsh { .. } => {
-                assert!(false);
-            }
-        }
+        let result = res.json::<Pair>()?;
+        assert_eq!(result, Pair(21, 33));
 
         Ok(())
     }

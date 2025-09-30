@@ -402,7 +402,7 @@ where
     /// assert_eq!(count[&1], 1);
     /// assert_eq!(count.get(&8), None);
     /// ```
-    pub fn entry(&mut self, key: K) -> Entry<K, V>
+    pub fn entry(&mut self, key: K) -> Entry<'_, K, V>
     where
         K: Clone,
     {
@@ -733,7 +733,6 @@ mod test_map {
     use crate::store::LookupMap;
     use borsh::{BorshDeserialize, BorshSerialize};
     use std::cell::RefCell;
-    use std::usize;
     use std::vec::Vec;
 
     #[test]

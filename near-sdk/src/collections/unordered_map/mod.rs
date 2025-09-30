@@ -295,7 +295,7 @@ where
     }
 
     /// Iterate over deserialized keys and values.
-    pub fn iter(&self) -> Iter<K, V> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter::new(self)
     }
 

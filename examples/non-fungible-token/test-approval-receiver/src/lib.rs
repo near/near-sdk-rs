@@ -16,7 +16,7 @@ pub struct ApprovalReceiver {
 }
 
 // Have to repeat the same trait for our own implementation.
-trait ValueReturnTrait {
+pub trait ValueReturnTrait {
     fn ok_go(&self, msg: String) -> PromiseOrValue<String>;
 }
 

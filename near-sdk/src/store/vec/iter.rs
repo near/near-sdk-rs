@@ -5,7 +5,7 @@ use super::Vector;
 use crate::{env, errors};
 
 /// An iterator over references to each element in the stored vector.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Iter<'a, T>
 where
     T: BorshSerialize + BorshDeserialize,

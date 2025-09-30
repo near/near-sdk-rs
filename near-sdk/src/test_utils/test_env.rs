@@ -32,7 +32,7 @@ pub fn setup() {
 }
 
 /// free == effectively unlimited gas
-/// Sets up the blockchain interface with a [`VMConfig`] which sets the gas costs to zero.
+/// Sets up the blockchain interface with a [`near_parameters::vm::Config`] which sets the gas costs to zero.
 pub fn setup_free() {
     let mut config = test_vm_config();
     config.make_free();

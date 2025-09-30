@@ -22,7 +22,7 @@ impl FactoryContract {
             &env::signer_account_pk(),
             0,
         );
-        let code: &[u8] = include_bytes!("../../../status-message/res/status_message.wasm");
+        let code: &[u8] = include_bytes!(env!("BUILD_RS_SUB_BUILD_STATUS-MESSAGE"));
         env::promise_batch_action_deploy_contract(promise_idx, code);
     }
 

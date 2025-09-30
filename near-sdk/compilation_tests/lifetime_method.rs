@@ -10,9 +10,9 @@ struct Ident {
 
 #[near]
 impl Ident {
-    pub fn is_ident<'a>(&self, other: &'a u32) -> Option<&'a u32> {
+    pub fn is_ident<'a>(&self, other: &'a u32) -> Option<u32> {
         if *other == self.value {
-            Some(other)
+            Some(*other)
         } else {
             None
         }

@@ -16,7 +16,7 @@ pub struct TokenReceiver {
 }
 
 // Have to repeat the same trait for our own implementation.
-trait ValueReturnTrait {
+pub trait ValueReturnTrait {
     fn ok_go(&self, return_it: bool) -> PromiseOrValue<bool>;
 }
 

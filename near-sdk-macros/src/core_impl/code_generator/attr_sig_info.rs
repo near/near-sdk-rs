@@ -35,6 +35,17 @@ impl AttrSigInfo {
         }
     }
 
+    /// Whether the method has `deny_unknown_arguments` attribute.
+    pub fn deny_unknown_arguments(&self) -> bool {
+        use MethodKind::*;
+
+        match &self.method_kind {
+            Call(call_method) => call_method.deny_unknown_arguments,
+            Init(init_method) => init_method.deny_unknown_arguments,
+            View(view_method) => view_method.deny_unknown_arguments,
+        }
+    }
+
     pub fn input_struct_ser(&self) -> TokenStream2 {
         let args: Vec<_> = self.input_args().collect();
         assert!(
@@ -75,7 +86,7 @@ impl AttrSigInfo {
     /// and `SUBTYPE` is one of the following: `[T; n]`, path like
     /// `std::collections::HashMap<SUBTYPE, SUBTYPE>`, or tuple `(SUBTYPE0, SUBTYPE1, ...)`.
     /// # Example
-    /// ```ignore
+    /// ```rust
     /// struct Input {
     ///   arg0: Vec<String>,
     ///   arg1: [u64; 10],
@@ -89,10 +100,17 @@ impl AttrSigInfo {
             "Can only generate input struct for when input args are specified"
         );
         let attribute = match &self.input_serializer {
-            SerializerType::JSON => quote! {
-                #[derive(::near_sdk::serde::Deserialize)]
-                #[serde(crate = "::near_sdk::serde")]
-            },
+            SerializerType::JSON => {
+                let deny_fields_attr = if self.deny_unknown_arguments() {
+                    quote! { deny_unknown_fields }
+                } else {
+                    quote! {}
+                };
+                quote! {
+                    #[derive(::near_sdk::serde::Deserialize)]
+                    #[serde(crate = "::near_sdk::serde", #deny_fields_attr)]
+                }
+            }
             SerializerType::Borsh => quote! {
                 #[derive(::near_sdk::borsh::BorshDeserialize)]
                 #[borsh(crate = "::near_sdk::borsh")]
@@ -309,10 +327,20 @@ impl AttrSigInfo {
 fn deserialize_data(ty: &SerializerType) -> TokenStream2 {
     match ty {
         SerializerType::JSON => quote! {
-            ::near_sdk::serde_json::from_slice(&data).expect("Failed to deserialize callback using JSON")
+            match ::near_sdk::serde_json::from_slice(&data) {
+                Ok(deserialized) => deserialized,
+                Err(e) => {
+                    ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using JSON. Error: `{e}`"));
+                },
+            }
         },
         SerializerType::Borsh => quote! {
-            ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data).expect("Failed to deserialize callback using Borsh")
+            match ::near_sdk::borsh::BorshDeserialize::try_from_slice(&data) {
+                Ok(deserialized) => deserialized,
+                Err(e) => {
+                    ::near_sdk::env::panic_str(&format!("Failed to deserialize callback using Borsh. Error: `{e}`"));
+                }
+            }
         },
     }
 }

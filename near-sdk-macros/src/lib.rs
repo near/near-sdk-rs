@@ -43,57 +43,25 @@ struct NearMacroArgs {
     inside_nearsdk: Option<bool>,
 }
 
-/// This attribute macro is used to enhance the near_bindgen macro.
-/// It is used to add Borsh and Serde derives for serialization and deserialization.
-/// It also adds `BorshSchema` and `JsonSchema` if needed
-///
-/// If you would like to add Borsh or Serde serialization and deserialization to your contract,
-/// you can use the abi attribute and pass in the serializers you would like to use.
-///
-/// # Example
-///
-/// ```ignore
-/// #[near(serializers=[borsh, json])]
-/// struct MyStruct {
-///    pub name: String,
-/// }
-/// ```
-/// effectively becomes:
-/// ```ignore
-/// use borsh::{BorshSerialize, BorshDeserialize};
-/// use serde::{Serialize, Deserialize};
-/// use near_sdk_macro::NearSchema;
-/// #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
-/// #[borsh(crate = "near_sdk::borsh")]
-/// #[serde(crate = "near_sdk::serde")]
-/// struct MyStruct {
-///   pub name: String,
-/// }
-/// ```
-/// Please note that `BorshSchema` and `JsonSchema` are added inside NearSchema whenever you use near macro for struct or enum.
-/// By default, if no serializers are passed, Borsh is used.
-///
-/// If you want this struct to be a contract state, you can pass in the contract_state argument.
-///
-/// # Example
-/// ```ignore
-/// #[near(contract_state)]
-/// struct MyStruct {
-///     pub name: String,
-/// }
-/// ```
-/// becomes:
-/// ```ignore
-/// #[near_bindgen]
-/// #[derive(BorshSerialize, BorshDeserialize, NearSchema)]
-/// #[borsh(crate = "near_sdk::borsh")]
-/// struct MyStruct {
-///    pub name: String,
-/// }
-/// ```
-///
-/// As well, the macro supports arguments like `event_json` and `contract_metadata`.
-///
+fn has_nested_near_macros(item: TokenStream) -> bool {
+    syn::parse::<syn::Item>(item)
+        .ok()
+        .and_then(|item_ast| {
+            let attrs = match item_ast {
+                syn::Item::Struct(s) => s.attrs,
+                syn::Item::Enum(e) => e.attrs,
+                syn::Item::Impl(i) => i.attrs,
+                _ => vec![], // Other cases don't support near macros anyway
+            };
+
+            attrs.into_iter().find(|attr| {
+                let path_str = attr.path().to_token_stream().to_string();
+                path_str == "near" || path_str == "near_bindgen"
+            })
+        })
+        .is_some()
+}
+
 #[proc_macro_attribute]
 pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -119,6 +87,17 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {::near_sdk}
     };
+
+    // Check for nested near macros by parsing the input and examining actual attributes
+    if has_nested_near_macros(item.clone()) {
+        return TokenStream::from(
+            syn::Error::new(
+                Span::call_site(),
+                "#[near] or #[near_bindgen] attributes are not allowed to be nested inside of the outmost #[near] attribute. Only a single #[near] attribute is allowed",
+            )
+            .to_compile_error(),
+        );
+    }
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
 
@@ -235,103 +214,6 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// This attribute macro is used on a struct and its implementations
-/// to generate the necessary code to expose `pub` methods from the contract as well
-/// as generating the glue code to be a valid NEAR contract.
-///
-/// This macro will generate code to load and deserialize state if the `self` parameter is included
-/// as well as saving it back to state if `&mut self` is used.
-///
-/// For parameter serialization, this macro will generate a struct with all of the parameters as
-/// fields and derive deserialization for it. By default this will be JSON deserialized with `serde`
-/// but can be overwritten by using `#[serializer(borsh)]`.
-///
-/// `#[near_bindgen]` will also handle serializing and setting the return value of the
-/// function execution based on what type is returned by the function. By default, this will be
-/// done through `serde` serialized as JSON, but this can be overwritten using
-/// `#[result_serializer(borsh)]`.
-///
-/// # Examples
-///
-/// ```ignore
-/// use near_sdk::near_bindgen;
-///
-/// #[near_bindgen]
-/// pub struct Contract {
-///    data: i8,
-/// }
-///
-/// #[near_bindgen]
-/// impl Contract {
-///     pub fn some_function(&self) {}
-/// }
-/// ```
-///
-/// Events Standard:
-///
-/// By passing `event_json` as an argument `near_bindgen` will generate the relevant code to format events
-/// according to NEP-297
-///
-/// For parameter serialization, this macro will generate a wrapper struct to include the NEP-297 standard fields `standard` and `version
-/// as well as include serialization reformatting to include the `event` and `data` fields automatically.
-/// The `standard` and `version` values must be included in the enum and variant declaration (see example below).
-/// By default this will be JSON deserialized with `serde`
-///
-///
-/// # Examples
-///
-/// ```ignore
-/// use near_sdk::near_bindgen;
-///
-/// #[near_bindgen(event_json(standard = "nepXXX"))]
-/// pub enum MyEvents {
-///    #[event_version("1.0.0")]
-///    Swap { token_in: AccountId, token_out: AccountId, amount_in: u128, amount_out: u128 },
-///
-///    #[event_version("2.0.0")]
-///    StringEvent(String),
-///
-///    #[event_version("3.0.0")]
-///    EmptyEvent
-/// }
-///
-/// #[near_bindgen]
-/// impl Contract {
-///     pub fn some_function(&self) {
-///         MyEvents::StringEvent(
-///             String::from("some_string")
-///         ).emit();
-///     }
-///
-/// }
-/// ```
-///
-/// Contract Source Metadata Standard:
-///
-/// By using `contract_metadata` as an argument `near_bindgen` will populate the contract metadata
-/// according to [`NEP-330`](<https://github.com/near/NEPs/blob/master/neps/nep-0330.md>) standard. This still applies even when `#[near_bindgen]` is used without
-/// any arguments.
-///
-/// All fields(version, link, standard) are optional and will be populated with defaults from the Cargo.toml file if not specified.
-///
-/// The `contract_source_metadata()` view function will be added and can be used to retrieve the source metadata.
-/// Also, the source metadata will be stored as a constant, `CONTRACT_SOURCE_METADATA`, in the contract code.
-///
-/// # Examples
-/// ```ignore
-/// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-/// use near_sdk::near_bindgen;
-///
-/// #[derive(Default, BorshSerialize, BorshDeserialize)]
-/// #[near_bindgen(contract_metadata(
-///     version = "39f2d2646f2f60e18ab53337501370dc02a5661c",
-///     link = "https://github.com/near-examples/nft-tutorial",
-///     standard(standard = "nep330", version = "1.1.0"),
-///     standard(standard = "nep171", version = "1.0.0"),
-///     standard(standard = "nep177", version = "2.0.0"),
-/// ))]
-/// struct Contract {}
-/// ```
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
@@ -342,6 +224,7 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                              generics: &syn::Generics|
      -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
         let metadata_impl_gen = generate_contract_metadata_method(ident, generics).into();
+
         let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
             .expect("failed to generate contract metadata");
         process_impl_block(metadata_impl_gen)
@@ -458,21 +341,6 @@ fn process_impl_block(
     .into())
 }
 
-/// `ext_contract` takes a Rust Trait and converts it to a module with static methods.
-/// Each of these static methods takes positional arguments defined by the Trait,
-/// then the receiver_id, the attached deposit and the amount of gas and returns a new Promise.
-///
-/// # Examples
-///
-/// ```ignore
-/// use near_sdk::ext_contract;
-///
-/// #[ext_contract(ext_calculator)]
-/// trait Calculator {
-///     fn mult(&self, a: u64, b: u64) -> u128;
-///     fn sum(&self, a: u128, b: u128) -> u128;
-/// }
-/// ```
 #[proc_macro_attribute]
 pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(mut input) = syn::parse::<ItemTrait>(item) {
@@ -485,7 +353,7 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                     return TokenStream::from(
                         syn::Error::new(
                             Span::call_site(),
-                            format!("Failed to parse mod name for ext_contract: {}", err),
+                            format!("Failed to parse mod name for ext_contract: {err}"),
                         )
                         .to_compile_error(),
                     )
@@ -508,43 +376,6 @@ pub fn ext_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
                 .to_compile_error(),
         )
     }
-}
-
-// The below attributes a marker-attributes and therefore they are no-op.
-
-/// `callback` is a marker attribute it does not generate code by itself.
-#[proc_macro_attribute]
-#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
-pub fn callback(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-/// `callback_args_vec` is a marker attribute it does not generate code by itself.
-#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
-#[proc_macro_attribute]
-pub fn callback_vec(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-/// `serializer` is a marker attribute it does not generate code by itself.
-#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
-#[proc_macro_attribute]
-pub fn serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-/// `result_serializer` is a marker attribute it does not generate code by itself.
-#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
-#[proc_macro_attribute]
-pub fn result_serializer(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
-}
-
-/// `init` is a marker attribute it does not generate code by itself.
-#[deprecated(since = "4.0.0", note = "Case is handled internally by macro, no need to import")]
-#[proc_macro_attribute]
-pub fn init(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    item
 }
 
 #[cfg(feature = "abi")]
@@ -653,7 +484,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                 #[automatically_derived]
                 impl #generics #near_sdk_crate::schemars::JsonSchema for #input_ident_proxy #generics #where_clause {
                     fn schema_name() -> ::std::string::String {
-                        stringify!(#input_ident #generics).to_string()
+                        <#input_ident #generics as #near_sdk_crate::schemars::JsonSchema>::schema_name()
                     }
 
                     fn json_schema(gen: &mut #near_sdk_crate::schemars::gen::SchemaGenerator) -> #near_sdk_crate::schemars::schema::Schema {
@@ -675,7 +506,7 @@ pub fn derive_near_schema(#[allow(unused)] input: TokenStream) -> TokenStream {
                 #[automatically_derived]
                 impl #generics #near_sdk_crate::borsh::BorshSchema for #input_ident_proxy #generics #where_clause {
                     fn declaration() -> #near_sdk_crate::borsh::schema::Declaration {
-                        stringify!(#input_ident #generics).to_string()
+                        <#input_ident #generics as #near_sdk_crate::borsh::BorshSchema>::declaration()
                     }
 
                     fn add_definitions_recursively(
@@ -761,10 +592,6 @@ fn get_where_clause(
     where_clause
 }
 
-/// `PanicOnDefault` generates implementation for `Default` trait that panics with the following
-/// message `The contract is not initialized` when `default()` is called.
-/// This is a helpful macro in case the contract is required to be initialized with either `init` or
-/// `init(ignore_state)`.
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemStruct>(item) {
@@ -787,9 +614,6 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
     }
 }
 
-/// `BorshStorageKey` generates implementation for `BorshIntoStorageKey` trait.
-/// It allows the type to be passed as a unique prefix for persistent collections.
-/// The type should also implement or derive `BorshSerialize` trait.
 #[proc_macro_derive(BorshStorageKey)]
 pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     let (name, generics) = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
@@ -818,9 +642,6 @@ pub fn borsh_storage_key(item: TokenStream) -> TokenStream {
     })
 }
 
-/// `FunctionError` generates implementation for `near_sdk::FunctionError` trait.
-/// It allows contract runtime to panic with the type using its `ToString` implementation
-/// as the message.
 #[proc_macro_derive(FunctionError)]
 pub fn function_error(item: TokenStream) -> TokenStream {
     let name = if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
@@ -845,26 +666,12 @@ pub fn function_error(item: TokenStream) -> TokenStream {
     })
 }
 
-/// NOTE: This is an internal implementation for `#[near_bindgen(events(standard = ...))]` attribute.
-///
-/// This derive macro is used to inject the necessary wrapper and logic to auto format
-/// standard event logs. The other appropriate attribute macros are not injected with this macro.
-/// Required attributes below:
-/// ```ignore
-/// #[derive(near_sdk::serde::Serialize, std::clone::Clone)]
-/// #[serde(crate="near_sdk::serde")]
-/// #[serde(tag = "event", content = "data")]
-/// #[serde(rename_all="snake_case")]
-/// pub enum MyEvent {
-///     Event
-/// }
-/// ```
 #[proc_macro_derive(EventMetadata, attributes(event_version))]
 pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
     if let Ok(input) = syn::parse::<ItemEnum>(item) {
         let name = &input.ident;
         // get `standard` const injected from `near_events`
-        let standard_name = format!("{}_event_standard", name);
+        let standard_name = format!("{name}_event_standard");
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
         // version from each attribute macro
         let mut event_meta: Vec<proc_macro2::TokenStream> = vec![];
@@ -918,6 +725,27 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                     let json = ::near_sdk::serde_json::to_string(&event)
                             .unwrap_or_else(|_| ::near_sdk::env::abort());
                     ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
+                }
+
+                pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
+                    use ::std::string::String;
+
+                    let (standard, version): (String, String) = match self {
+                        #(#event_meta),*
+                    };
+
+                    #[derive(::near_sdk::serde::Serialize)]
+                    #[serde(crate="::near_sdk::serde")]
+                    #[serde(rename_all="snake_case")]
+                    struct EventBuilder #custom_impl_generics #where_clause {
+                        standard: String,
+                        version: String,
+                        #[serde(flatten)]
+                        event_data: &#event_lifetime #name #type_generics
+                    }
+                    let event = EventBuilder { standard, version, event_data: self };
+                    ::near_sdk::serde_json::to_value(&event)
+                        .unwrap_or_else(|_| ::near_sdk::env::abort())
                 }
             }
         })

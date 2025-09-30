@@ -88,20 +88,28 @@ use super::{FreeList, LookupMap};
 /// [`with_hasher`]: Self::with_hasher
 #[deprecated(
     since = "5.0.0",
-    note = "Suboptimal iteration performance. See performance considerations doc for details."
+    note = "Suboptimal iteration performance. See performance considerations doc for details. Consider using IterableMap instead (WARNING: manual storage migration is required if contract was previously deployed)"
 )]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 pub struct UnorderedMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     keys: FreeList<K>,
-    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     values: LookupMap<K, ValueAndIndex<V>, H>,
 }
 
@@ -260,7 +268,7 @@ where
     ///     println!("key: {} val: {}", key, val);
     /// }
     /// ```
-    pub fn iter(&self) -> Iter<K, V, H>
+    pub fn iter(&self) -> Iter<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -290,7 +298,7 @@ where
     ///     println!("key: {} val: {}", key, val);
     /// }
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<K, V, H>
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -314,7 +322,7 @@ where
     ///     println!("{}", key);
     /// }
     /// ```
-    pub fn keys(&self) -> Keys<K>
+    pub fn keys(&self) -> Keys<'_, K>
     where
         K: BorshDeserialize,
     {
@@ -338,7 +346,7 @@ where
     ///     println!("{}", val);
     /// }
     /// ```
-    pub fn values(&self) -> Values<K, V, H>
+    pub fn values(&self) -> Values<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -366,7 +374,7 @@ where
     ///     println!("{}", val);
     /// }
     /// ```
-    pub fn values_mut(&mut self) -> ValuesMut<K, V, H>
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -393,7 +401,7 @@ where
     ///
     /// assert!(a.is_empty());
     /// ```
-    pub fn drain(&mut self) -> Drain<K, V, H>
+    pub fn drain(&mut self) -> Drain<'_, K, V, H>
     where
         K: BorshDeserialize,
     {
@@ -615,7 +623,7 @@ where
     /// assert_eq!(count[&1], 1);
     /// assert_eq!(count.get(&8), None);
     /// ```
-    pub fn entry(&mut self, key: K) -> Entry<K, V>
+    pub fn entry(&mut self, key: K) -> Entry<'_, K, V>
     where
         K: Clone,
     {
@@ -840,5 +848,23 @@ mod tests {
         assert_eq!(map.remove_entry(&8).unwrap(), (8, 8));
         assert_eq!(map.remove_entry(&1).unwrap(), (1, 1));
         assert_eq!(map.remove_entry(&3).unwrap(), (3, 3));
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "UnorderedMap".to_string(),
+            <UnorderedMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <UnorderedMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

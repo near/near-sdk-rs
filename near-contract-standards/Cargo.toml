@@ -2,22 +2,29 @@
 name = "near-contract-standards"
 version.workspace = true
 authors = ["Near Inc <hello@near.org>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-categories = ["wasm"]
-repository = "https://github.com/near/near-sdk-rs"
-homepage = "https://near-sdk.io"
+edition.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+homepage.workspace = true
 documentation = "https://docs.rs/near-contract-standards"
 description = """
 NEAR smart contracts standard library.
 """
 
 [dependencies]
-near-sdk = { path = "../near-sdk", version = "~5.1.0", default-features = false, features = ["legacy"] }
+near-sdk = { path = "../near-sdk", version = "~5.17.2", default-features = false, features = [
+    "legacy",
+] }
 
 [dev-dependencies]
-near-sdk = { path = "../near-sdk", default-features = false, features = ["unit-testing"] }
+near-sdk = { path = "../near-sdk", default-features = false, features = [
+    "unit-testing",
+] }
 
 [features]
 default = []
-abi = ["near-sdk/abi"]
+abi = ["near-sdk/__abi-generate"]
+
+[package.metadata.docs.rs]
+features = ["abi"]

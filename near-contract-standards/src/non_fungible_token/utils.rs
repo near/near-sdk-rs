@@ -38,7 +38,7 @@ pub fn refund_deposit_to_account(
     require_or_err!(
         required_cost <= attached_deposit,
         InsufficientBalance::new(Some(
-            format!("Must attach {} yoctoNEAR to cover storage", required_cost).as_str()
+            format!("Must attach {} to cover storage", required_cost.exact_amount_display()).as_str()
         ))
     );
 

@@ -12,7 +12,7 @@ pub use contract_error::{check_contract_error_trait, wrap_error, BaseError, Cont
 use crate::{env, NearToken, PromiseResult};
 
 /// Helper macro to log a message through [`env::log_str`].
-/// This macro can be used similar to the [`std::format`] macro in most cases.
+/// This macro can be used similar to the [`std::format`] macro.
 ///
 /// This differs from [`std::format`] because instead of generating a string, it will log the utf8
 /// bytes as a log through [`env::log_str`].
@@ -27,7 +27,7 @@ use crate::{env, NearToken, PromiseResult};
 /// # fn main() {
 /// log!("test");
 /// let world: &str = "world";
-/// log!(world);
+/// log!("{world}");
 /// log!("Hello {}", world);
 /// log!("x = {}, y = {y}", 10, y = 30);
 /// # }
@@ -36,11 +36,8 @@ use crate::{env, NearToken, PromiseResult};
 /// [`env::log_str`]: crate::env::log_str
 #[macro_export]
 macro_rules! log {
-    ($arg:expr) => {
-        $crate::env::log_str($arg.as_ref())
-    };
     ($($arg:tt)*) => {
-        $crate::env::log_str(format!($($arg)*).as_str())
+        $crate::env::log_str(::std::format!($($arg)*).as_str())
     };
 }
 
@@ -181,16 +178,28 @@ pub fn assert_one_yocto() {
 }
 
 /// Returns true if promise was successful.
-/// Fails if called outside a callback that received 1 promise result.
+///
+/// Calls [`crate::env::panic_str`] **host function** if called outside a callback that received precisely 1 promise result.
+///
+/// Uses low-level [`crate::env::promise_results_count`] and [`crate::env::promise_result`] **host functions**.
 pub fn is_promise_success() -> bool {
-    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
+    require!(
+        env::promise_results_count() == 1,
+        "Contract expected a single result on the callback"
+    );
     env::promise_result_internal(0).is_ok()
 }
 
 /// Returns the result of the promise if successful. Otherwise returns None.
-/// Fails if called outside a callback that received 1 promise result.
+///
+/// Calls [`crate::env::panic_str`] **host function** if called outside a callback that received precisely 1 promise result.
+///
+/// Uses low-level [`crate::env::promise_results_count`] and [`crate::env::promise_result`] **host functions**.
 pub fn promise_result_as_success() -> Option<Vec<u8>> {
-    require!(env::promise_results_count() == 1, "Contract expected a result on the callback");
+    require!(
+        env::promise_results_count() == 1,
+        "Contract expected a single result on the callback"
+    );
     match env::promise_result(0) {
         PromiseResult::Successful(result) => Some(result),
         _ => None,

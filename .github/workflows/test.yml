@@ -8,41 +8,54 @@ env:
   RUSTFLAGS: -D warnings
 jobs:
   test:
-    runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
+    runs-on: ${{ matrix.platform.os }}
+    name: "${{ matrix.platform.os }} ${{ matrix.platform.rs }} ${{ matrix.features }}"
     strategy:
+      fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable, 1.72.1]
+        platform:
+          - os: ubuntu-latest
+            rs: 1.85.0
+          - os: ubuntu-latest
+            rs: 1.86.0
+          - os: macos-latest
+            rs: 1.85.0
+          - os: macos-latest
+            rs: 1.86.0
+        features: ["", "--features unstable,legacy,__abi-generate"]
     steps:
-      - uses: actions/checkout@v3
-      - name: "${{ matrix.toolchain }} with rustfmt, and wasm32"
+      - uses: actions/checkout@v4
+      - name: "${{ matrix.platform.rs }} with rustfmt, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: ${{ matrix.platform.rs }}
           default: true
           target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
-      - name: Downgrade dependencies
-        run: |
-          cargo update -p clap@4.5.4 --precise 4.4.18
-          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
+      - name: Install cargo-near CLI (dependency for build with near-workspaces)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
+      - uses: Swatinem/rust-cache@v2
+      #      - name: Downgrade dependencies
+      #        run: |
+      #          cargo update -p clap@4.5.4 --precise 4.4.18
+      #          cd examples/adder && cargo update -p clap@4.5.4 --precise 4.4.18
+      - name: print rustc && rustdoc version
+        run: rustc --version && rustdoc --version
       - name: test
-        run: cargo test --all --features unstable,legacy
+        run: cargo test --all ${{ matrix.features }}
   lint:
     name: Clippy and fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Install stable toolchain
+      - uses: actions/checkout@v4
+      - name: Install 1.86 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - name: Test Format
         run: cargo fmt -- --check
       - run: cargo clippy --tests --all-features -- -Dclippy::all
@@ -50,47 +63,70 @@ jobs:
     name: Compilation tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Install stable toolchain
+      - uses: actions/checkout@v4
+      - name: Install 1.86 toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - name: Compilation tests
-        run: cargo test --package near-sdk --test compilation_tests --features abi --features unstable -- compilation_tests --exact --nocapture
+        run: cargo test --package near-sdk --test compilation_tests --features __abi-generate --features unstable -- compilation_tests --exact --nocapture
   windows:
     name: Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: "Setup Windows toolchain"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.86
           default: true
-      - uses: Swatinem/rust-cache@v1
-      - run: cargo check -p near-sdk --features unstable,legacy
-      - run: cargo check -p near-sdk --no-default-features
-      - run: cargo check -p near-sdk --no-default-features --features legacy
-      - run: cargo check -p near-sdk --no-default-features --features unstable
-      - run: cargo check -p near-contract-standards
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --features unstable,legacy
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features legacy
+      - run: cargo check -p near-sdk --target wasm32-unknown-unknown --no-default-features --features unstable
+      - run: cargo check -p near-contract-standards --target wasm32-unknown-unknown
   audit:
     name: Audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.86
+          default: true
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Audit
+        run: cargo install cargo-audit
+      - name: Run Audit
+        run: cargo audit
+  # there're sometimes warnings, which signal, that the generated doc
+  # won't look as expected, when rendered, and sometimes errors, which will prevent doc from being
+  # generated at release time altogether.
+  cargo-doc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           default: true
-      - uses: Swatinem/rust-cache@v1
-      - name: Install Audit
-        run: cargo install cargo-audit
-      - name: Run Audit
-        run: cargo audit
+      - name: run cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo doc -p near-sdk --features unstable,legacy,unit-testing,__macro-docs,__abi-generate
+          cargo doc -p near-sdk-macros --features __abi-generate
+          cargo doc -p near-contract-standards --no-deps --features abi
+          cargo doc -p near-sys

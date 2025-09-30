@@ -1,7 +1,21 @@
+#![allow(clippy::manual_unwrap_or_default)]
+
 use darling::{ast::NestedMeta, Error, FromMeta};
 use proc_macro2::TokenStream;
 use quote::quote;
 
+mod nep330_keys {
+
+    pub const LINK: &str = "NEP330_LINK";
+    pub const VERSION: &str = "NEP330_VERSION";
+}
+mod build_info;
+
+const CARGO_PKG_REPOSITORY_KEY: &str = "CARGO_PKG_REPOSITORY";
+const CARGO_PKG_VERSION_KEY: &str = "CARGO_PKG_VERSION";
+
+const STANDARD_NEP330: &str = "nep330";
+const STANDARD_NEP330_VERSION: &str = "1.3.0";
 #[derive(FromMeta)]
 struct MacroConfig {
     contract_metadata: Option<ContractMetadata>,
@@ -11,8 +25,12 @@ struct MacroConfig {
 pub(crate) struct ContractMetadata {
     version: Option<String>,
     link: Option<String>,
+
     #[darling(multiple, rename = "standard")]
     standards: Vec<Standard>,
+
+    #[darling(skip)]
+    build_info: Option<build_info::BuildInfo>,
 }
 
 impl quote::ToTokens for ContractMetadata {
@@ -29,10 +47,16 @@ impl quote::ToTokens for ContractMetadata {
                 standard(standard = #standard_name, version = #standard_version),
             };
         }
+
+        // This is necessary, because using a simple `version = #version`, will lead to macros tokenizing `version = None` to `version = `, which
+        // cannot be parsed as meta and is considered invalid.
+        let version_tokens = version.as_ref().map(|v| quote! { version = #v, });
+        let link_tokens = link.as_ref().map(|l| quote! { link = #l, });
+
         tokens.extend(quote! {
             contract_metadata(
-                version = #version,
-                link = #link,
+                #version_tokens
+                #link_tokens
                 #standards
             )
         })
@@ -47,26 +71,38 @@ struct Standard {
 
 impl ContractMetadata {
     fn populate(mut self) -> Self {
-        if self.version.is_none() {
-            let version = std::env::var("CARGO_PKG_VERSION").unwrap_or(String::from(""));
-            if !version.is_empty() {
-                self.version = Some(version);
+        if self.link.is_none() {
+            let field_val = std::env::var(nep330_keys::LINK)
+                .or(std::env::var(CARGO_PKG_REPOSITORY_KEY))
+                .unwrap_or(String::from(""));
+            if !field_val.is_empty() {
+                self.link = Some(field_val);
             }
         }
-
-        if self.link.is_none() {
-            let repo = std::env::var("CARGO_PKG_REPOSITORY").unwrap_or(String::from(""));
-            if !repo.is_empty() {
-                self.link = Some(repo);
+        if self.version.is_none() {
+            let field_val = std::env::var(nep330_keys::VERSION)
+                .or(std::env::var(CARGO_PKG_VERSION_KEY))
+                .unwrap_or(String::from(""));
+            if !field_val.is_empty() {
+                self.version = Some(field_val);
             }
         }
 
         // adding nep330 if it is not present
         if self.standards.is_empty()
-            || self.standards.iter().all(|s| s.standard.to_ascii_lowercase() != "nep330")
+            || self.standards.iter().all(|s| !s.standard.eq_ignore_ascii_case(STANDARD_NEP330))
         {
-            self.standards
-                .push(Standard { standard: "nep330".to_string(), version: "1.1.0".to_string() });
+            self.standards.push(Standard {
+                standard: STANDARD_NEP330.to_string(),
+                version: STANDARD_NEP330_VERSION.to_string(),
+            });
+        }
+
+        if std::env::var(build_info::nep330_keys::BUILD_ENVIRONMENT).is_ok() {
+            self.build_info = Some(
+                build_info::BuildInfo::from_env()
+                    .expect("Build Details Extension field not provided or malformed"),
+            );
         }
 
         self

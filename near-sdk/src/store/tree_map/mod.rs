@@ -30,18 +30,26 @@ fn expect<T>(val: Option<T>) -> T {
 /// - `min`/`max`:              O(log(N))
 /// - `above`/`below`:          O(log(N))
 /// - `range` of K elements:    O(Klog(N))
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(inside_nearsdk)]
 pub struct TreeMap<K, V, H = Sha256>
 where
     K: BorshSerialize + Ord,
     V: BorshSerialize,
     H: ToKey,
 {
-    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K`, `V`, `H` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     values: LookupMap<K, V, H>,
-    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize` bounds removed
-    #[borsh(bound(serialize = "", deserialize = ""))]
+    // ser/de is independent of `K` ser/de, `BorshSerialize`/`BorshDeserialize`/`BorshSchema` bounds removed
+    #[cfg_attr(not(feature = "abi"), borsh(bound(serialize = "", deserialize = "")))]
+    #[cfg_attr(
+        feature = "abi",
+        borsh(bound(serialize = "", deserialize = ""), schema(params = ""))
+    )]
     tree: Tree<K>,
 }
 
@@ -1603,7 +1611,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.iter().nth(1), Some((&2, &42)));
         assert_eq!(map.iter().count(), 3);
-        assert_eq!(map.iter().last(), Some((&3, &43)));
+        assert_eq!(map.iter().next_back(), Some((&3, &43)));
         map.clear();
     }
 
@@ -1628,7 +1636,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.iter().rev().nth(1), Some((&2, &42)));
         assert_eq!(map.iter().rev().count(), 3);
-        assert_eq!(map.iter().rev().last(), Some((&1, &41)));
+        assert_eq!(map.iter().rev().next_back(), Some((&1, &41)));
         map.clear();
     }
 
@@ -1666,7 +1674,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.range(31..).nth(2), Some((&45, &42)));
         assert_eq!(map.range(31..).count(), 4);
-        assert_eq!(map.range(31..).last(), Some((&50, &42)));
+        assert_eq!(map.range(31..).next_back(), Some((&50, &42)));
 
         map.clear();
     }
@@ -1710,7 +1718,7 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.range(..31).rev().nth(2), Some((&20, &42)));
         assert_eq!(map.range(..31).rev().count(), 6);
-        assert_eq!(map.range(..31).rev().last(), Some((&5, &42)));
+        assert_eq!(map.range(..31).rev().next_back(), Some((&5, &42)));
 
         map.clear();
     }
@@ -1782,7 +1790,10 @@ mod tests {
         // Test custom iterator impls
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((&35, &42)));
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
-        assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((&40, &42)));
+        assert_eq!(
+            map.range((Bound::Excluded(20), Bound::Excluded(45))).next_back(),
+            Some((&40, &42))
+        );
 
         map.clear();
     }
@@ -2128,5 +2139,23 @@ mod tests {
         // root.
         swap_set(&mut map);
         assert_eq!(map.tree.root, Some(FreeListIndex(0)));
+    }
+
+    #[cfg(feature = "abi")]
+    #[test]
+    fn test_borsh_schema() {
+        #[derive(
+            borsh::BorshSerialize, borsh::BorshDeserialize, PartialEq, Eq, PartialOrd, Ord,
+        )]
+        struct NoSchemaStruct;
+
+        assert_eq!(
+            "TreeMap".to_string(),
+            <TreeMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::declaration()
+        );
+        let mut defs = Default::default();
+        <TreeMap<NoSchemaStruct, NoSchemaStruct> as borsh::BorshSchema>::add_definitions_recursively(&mut defs);
+
+        insta::assert_snapshot!(format!("{:#?}", defs));
     }
 }

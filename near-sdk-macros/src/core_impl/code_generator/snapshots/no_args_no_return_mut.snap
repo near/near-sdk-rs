@@ -13,6 +13,6 @@ pub extern "C" fn method() {
         );
     }
     let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    contract.method();
+    Hello::method(&mut contract);
     ::near_sdk::env::state_write(&contract);
 }

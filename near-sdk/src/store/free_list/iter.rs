@@ -36,6 +36,7 @@ fn decrement_count(count: &mut u32) {
 }
 
 /// An iterator over elements in the storage bucket. This only yields the occupied entries.
+#[derive(Clone)]
 pub struct Iter<'a, T>
 where
     T: BorshDeserialize + BorshSerialize,

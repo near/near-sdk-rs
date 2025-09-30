@@ -3,6 +3,7 @@ name = "token-receiver"
 version = "0.0.1"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
+repository = "https://github.com/near/near-sdk-rs"
 
 [lib]
 crate-type = ["cdylib"]
@@ -10,3 +11,27 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = { path = "../../../near-sdk" }
 near-contract-standards = { path = "../../../near-contract-standards" }
+
+[dev-dependencies]
+near-sdk = { path = "../../../near-sdk", features = ["unit-testing"] }
+
+[package.metadata.near.reproducible_build]
+# docker image, descriptor of build environment
+image = "sourcescan/cargo-near:0.14.2-rust-1.86.0"
+# tag after colon above serves only descriptive purpose; image is identified by digest
+image_digest = "sha256:2320519772d04dd960c2c5c0172c0887ca4407e1c7c04e3be246b07cc5b21db0"
+# list of environment variables names, whose values, if set, will be used as external build parameters
+# in a reproducible manner
+# supported by `sourcescan/cargo-near:0.10.1-rust-1.82.0` image or later images
+passed_env = []
+# build command inside of docker container 
+# if docker image from default gallery is used https://hub.docker.com/r/sourcescan/cargo-near/tags,
+# the command may be any combination of flags of `cargo-near`,
+# supported by respective version of binary inside the container besides `--no-locked` flag
+container_build_command = [
+    "cargo",
+    "near",
+    "build",
+    "non-reproducible-wasm",
+    "--locked",
+]

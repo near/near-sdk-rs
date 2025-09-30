@@ -9,41 +9,33 @@ env:
 jobs:
   test:
     runs-on: ${{ matrix.platform }}
-    name: "${{ matrix.platform }} ${{ matrix.toolchain }}"
+    name: "${{ matrix.example }} - ${{ matrix.platform }}"
     strategy:
+      fail-fast: false
       matrix:
         platform: [ubuntu-latest, macos-latest]
-        toolchain: [stable]
+        toolchain: [1.86]
+        example:
+          [
+            lockable-fungible-token,
+            status-message,
+            mission-control,
+            test-contract,
+          ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: "${{ matrix.toolchain }} with rustfmt, clippy, and wasm32"
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
           target: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v1
-      - name: Build lockable-fungible-token
+      - name: Install cargo-near CLI (dependency for build with near-workspaces)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.14.0/cargo-near-installer.sh | sh
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./examples/${{ matrix.example }} -> target"
+      - name: Test
         env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/lockable-fungible-token/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/lockable-fungible-token/target/wasm32-unknown-unknown/release/*.wasm ./examples/lockable-fungible-token/res/
-      - name: Test lockable-fungible-token
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/lockable-fungible-token/Cargo.toml --all
-      - name: Build status-message
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/status-message/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/status-message/target/wasm32-unknown-unknown/release/*.wasm ./examples/status-message/res/
-      - name: Test status-message
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/status-message/Cargo.toml --all
-      - name: Build mission-control
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/mission-control/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/mission-control/target/wasm32-unknown-unknown/release/*.wasm ./examples/mission-control/res/
-      - name: Test mission-control
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/mission-control/Cargo.toml --all
-      - name: Build test-contract
-        env:
-          RUSTFLAGS: '-C link-arg=-s'
-        run: cargo +${{ matrix.toolchain }} build --manifest-path=./examples/test-contract/Cargo.toml --target wasm32-unknown-unknown --release --all && cp ./examples/test-contract/target/wasm32-unknown-unknown/release/*.wasm ./examples/test-contract/res/
-      - name: Test test-contract
-        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/test-contract/Cargo.toml --all
+          NEAR_RPC_TIMEOUT_SECS: 100
+        run: cargo +${{ matrix.toolchain }} test  --manifest-path=./examples/${{ matrix.example }}/Cargo.toml --workspace
