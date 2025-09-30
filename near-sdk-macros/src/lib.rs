@@ -760,6 +760,12 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
     }
 }
 
+#[derive(FromMeta)]
+struct ContractErrorArgs {
+    sdk: Option<bool>,
+    inside_nearsdk: Option<bool>,
+}
+
 /// This attribute macro is used on a struct or enum to generate the necessary code for an error
 ///  returned from a contract method call.
 ///
@@ -812,12 +818,6 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
 /// which can be returned from contract method with defined structure.
 ///  - implement `From<ErrorStruct> for near_sdk::BaseError` as a polymorphic solution
 ///  - implement `From<ErrorStruct> for String` to convert the error to a string
-
-#[derive(FromMeta)]
-struct ContractErrorArgs {
-    sdk: Option<bool>,
-    inside_nearsdk: Option<bool>,
-}
 #[proc_macro_attribute]
 pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
     let meta_list = match NestedMeta::parse_meta_list(attr.into()) {

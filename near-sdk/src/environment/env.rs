@@ -736,10 +736,8 @@ pub fn bls12381_p1_sum(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute BLS12-381 G2 sum.
@@ -747,10 +745,8 @@ pub fn bls12381_p2_sum(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p2_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute BLS12-381 G1 multiexponentiation.
@@ -758,10 +754,8 @@ pub fn bls12381_g1_multiexp(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute BLS12-381 G2 multiexponentiation.
@@ -769,10 +763,8 @@ pub fn bls12381_g2_multiexp(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_g2_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Map an Fp element to a BLS12-381 G1 point.
@@ -780,10 +772,8 @@ pub fn bls12381_map_fp_to_g1(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_map_fp_to_g1(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Map an Fp2 element to a BLS12-381 G2 point.
@@ -791,10 +781,8 @@ pub fn bls12381_map_fp2_to_g2(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_map_fp2_to_g2(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Perform BLS12-381 pairing check. Returns true if the pairing check passes.
@@ -807,10 +795,8 @@ pub fn bls12381_p1_decompress(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p1_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Decompress a BLS12-381 G2 point.
@@ -818,10 +804,8 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 // ################
