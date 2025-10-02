@@ -139,11 +139,12 @@ pub enum ReturnKind {
     /// As soon as ErrType implements ContractErrorTrait, it is returned as a well-defined structure.
     /// You can see the structure in #[contract_error] documentation.
     /// If the error struct does not implement ContractErrorTrait, the code should not compile.
-    ///  - In case #[persist_on_error] is used on method, panic is not called.
-    /// And the contract state is written safely.
+    ///  - In case #[unsafe_persist_on_error] is used on method, panic is not called.
+    /// And the contract state is written.
     /// But the extra <method_name>_error method is generated.
     /// And this method is called in a new Promise.
     /// This method effectively panics with structured error.
+    /// Please note #[unsafe_persist_on_error] is not safe. Imagine the user has a balance of 100 $COIN. Then they spent 20 $COIN. But some error occurs and you can't proceed with the transaction. Then the user will lose 20 $COIN in case you forget to revert the balance.
     ///
     /// # Example:
     /// ```ignore
@@ -155,9 +156,9 @@ pub enum ReturnKind {
     /// ```
     ///
     /// ```ignore
-    /// // Write state safely anyway.
+    /// // Write state anyway.
     /// // if Ok() is returned, just return. Otherwise call new Promise which will panic with well-structured error.
-    /// #[persist_on_error]
+    /// #[unsafe_persist_on_error]
     /// pub fn foo(&mut self) -> Result<u64, MyError>;
     /// ```
     ///
@@ -168,5 +169,5 @@ pub enum ReturnKind {
 #[derive(Clone, PartialEq, Eq)]
 pub struct StatusResult {
     pub result_type: Type,
-    pub persist_on_error: bool,
+    pub unsafe_persist_on_error: bool,
 }

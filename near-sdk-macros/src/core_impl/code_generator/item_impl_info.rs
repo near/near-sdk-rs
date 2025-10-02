@@ -59,7 +59,7 @@ impl ItemImplInfo {
         self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
             if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
                 let error_method_name = quote::format_ident!("{}_error", method.ident);
-                if status.persist_on_error {
+                if status.unsafe_persist_on_error {
                     let error_type = crate::get_error_type_from_status(status);
                     let panic_tokens = crate::standardized_error_panic_tokens();
 
@@ -424,10 +424,10 @@ mod tests {
     }
 
     #[test]
-    fn persist_on_error() {
+    fn unsafe_persist_on_error() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[persist_on_error]
+            #[unsafe_persist_on_error]
             pub fn method(&mut self) -> Result<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, false, impl_type).unwrap().unwrap();
@@ -440,7 +440,7 @@ mod tests {
     fn generated_method_error() {
         let mut impl_contract: syn::ItemImpl = parse_quote! {
             impl Contract {
-                #[persist_on_error]
+                #[unsafe_persist_on_error]
                 pub fn method(&mut self) -> Result<u64, &'static str> { }
             }
         };

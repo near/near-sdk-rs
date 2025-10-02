@@ -62,7 +62,7 @@ impl Contract {
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     // ExecutionError("Smart contract panicked: {\"error\":{\"error_type\":\"error_handling::MyErrorEnum\",\"value\":\"X\"}}")
     // (changes value from 2 to 3)
-    #[persist_on_error]
+    #[unsafe_persist_on_error]
     pub fn inc_persist_on_err(&mut self, is_error: bool) -> Result<u32, MyErrorEnum> {
         self.value += 1;
         if is_error {

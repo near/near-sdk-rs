@@ -107,7 +107,7 @@ impl ImplItemMethodInfo {
     fn error_handling_tokens(&self) -> TokenStream2 {
         match &self.attr_signature_info.returns.kind {
             ReturnKind::HandlesResultImplicit(status_result) => {
-                if status_result.persist_on_error {
+                if status_result.unsafe_persist_on_error {
                     let error_method_name =
                         quote::format_ident!("{}_error", self.attr_signature_info.ident);
                     let contract_ser = self.contract_ser_tokens();

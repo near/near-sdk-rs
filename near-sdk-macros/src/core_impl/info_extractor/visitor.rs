@@ -14,7 +14,7 @@ struct ParsedData {
     handles_result: ResultHandling,
     is_payable: bool,
     is_private: bool,
-    persist_on_error: bool,
+    unsafe_persist_on_error: bool,
     ignores_state: bool,
     deny_unknown_arguments: bool,
     result_serializer: SerializerType,
@@ -43,7 +43,7 @@ impl Default for ParsedData {
             handles_result: Default::default(),
             is_payable: Default::default(),
             is_private: Default::default(),
-            persist_on_error: Default::default(),
+            unsafe_persist_on_error: Default::default(),
             ignores_state: Default::default(),
             deny_unknown_arguments: Default::default(),
             result_serializer: SerializerType::JSON,
@@ -140,8 +140,8 @@ impl Visitor {
             if params.check { ResultHandling::NoCheck } else { ResultHandling::Check }
     }
 
-    pub fn visit_persist_on_error_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
-        self.parsed_data.persist_on_error = true;
+    pub fn visit_unsafe_persist_on_error_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
+        self.parsed_data.unsafe_persist_on_error = true;
         Ok(())
     }
 
@@ -180,7 +180,7 @@ impl Visitor {
                 kind: parse_return_kind(
                     typ,
                     self.parsed_data.handles_result,
-                    self.parsed_data.persist_on_error,
+                    self.parsed_data.unsafe_persist_on_error,
                 )?,
             }),
         }
@@ -247,7 +247,7 @@ fn is_view(sig: &Signature) -> bool {
 fn parse_return_kind(
     typ: &Type,
     handles_result: ResultHandling,
-    persist_on_error: bool,
+    unsafe_persist_on_error: bool,
 ) -> syn::Result<ReturnKind> {
     match handles_result {
         ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(typ.clone())),
@@ -262,7 +262,7 @@ fn parse_return_kind(
             if utils::type_is_result(typ) {
                 Ok(ReturnKind::HandlesResultImplicit(crate::StatusResult {
                     result_type: typ.clone(),
-                    persist_on_error,
+                    unsafe_persist_on_error,
                 }))
             } else {
                 Ok(ReturnKind::General(typ.clone()))
