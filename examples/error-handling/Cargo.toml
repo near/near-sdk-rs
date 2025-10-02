@@ -8,13 +8,14 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk" }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 
 [dev-dependencies]
-near-workspaces = { version = "0.9.0", default-features = false, features = ["install"] }
+near-workspaces = { version = "0.21.0", features = ["unstable"] }
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
+rstest = "0.23.0"
 
 [profile.release]
 codegen-units = 1

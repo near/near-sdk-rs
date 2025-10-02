@@ -1,6 +1,9 @@
 use near_sdk::serde_json;
 use near_workspaces::Contract;
+use near_workspaces::cargo_near_build;
 use serde_json::json;
+use rstest::{fixture, rstest};
+use std::str::FromStr;
 
 async fn get_value(contract: &Contract) -> anyhow::Result<u64> {
     let get_value: serde_json::Value =
@@ -38,11 +41,34 @@ async fn check_call(
     assert_eq!(get_value(&contract).await.unwrap(), expected_value);
 }
 
+fn build_contract(path: &str, contract_name: &str) -> Vec<u8> {
+    let artifact = cargo_near_build::build_with_cli(cargo_near_build::BuildOpts {
+        manifest_path: Some(
+            cargo_near_build::camino::Utf8PathBuf::from_str(path).expect("camino PathBuf from str"),
+        ),
+        ..Default::default()
+    })
+    .expect(&format!("building `{}` contract for tests", contract_name));
+
+    let contract_wasm = std::fs::read(&artifact)
+        .map_err(|err| format!("accessing {} to read wasm contents: {}", artifact, err))
+        .expect("std::fs::read");
+    contract_wasm
+}
+
+#[fixture]
+#[once]
+fn error_handling_contract_wasm() -> Vec<u8> {
+    build_contract("./Cargo.toml", "error-handling")
+}
+
+#[rstest]
 #[tokio::test]
-async fn test_error_handling() -> anyhow::Result<()> {
+async fn test_error_handling(
+    error_handling_contract_wasm: &Vec<u8>,
+) -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
-    let contract =
-        worker.dev_deploy(&std::fs::read(format!("res/{}.wasm", "error_handling"))?).await?;
+    let contract = worker.dev_deploy(error_handling_contract_wasm).await?;
 
     check_call(&contract, "inc_handle_result", false, 1, None).await;
     check_call(&contract, "inc_persist_on_err", false, 2, None).await;
