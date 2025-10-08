@@ -8,7 +8,7 @@ use near_sdk::errors::{
 };
 use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, log, near, require, unwrap_or_err, AccountId, Gas,
+    assert_one_yocto, contract_error, env, log, near, require, AccountId, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use near_sdk::{require_or_err, BaseError};
@@ -131,8 +131,8 @@ impl FungibleToken {
     ) -> Result<(), BaseError> {
         require_or_err!(sender_id != receiver_id, ReceiverIsSender::new());
         require_or_err!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
-        unwrap_or_err!(self.internal_withdraw(sender_id, amount));
-        unwrap_or_err!(self.internal_deposit(receiver_id, amount));
+        self.internal_withdraw(sender_id, amount).unwrap();
+        self.internal_deposit(receiver_id, amount).unwrap();
         FtTransfer {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,

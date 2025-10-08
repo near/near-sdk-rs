@@ -113,57 +113,6 @@ macro_rules! require_or_err {
     };
 }
 
-/// Helper macro to unwrap an Option or Result, returning an error if None or Err.
-///
-///  - If you have an option you would like to unwrap, you use unwrap_or_err! on it and
-/// provide an error that will be returned from the function in case the option value is None
-///
-///  - If you have a result you would like to unwrap, you use unwrap_or_err! on it and
-/// the error will be returned from the function in case the result is an Err
-///
-/// # Examples
-///
-/// ```no_run
-/// use near_sdk::unwrap_or_err;
-/// use near_sdk::errors::ContractError;
-///
-/// # fn method() -> Result<u64, ContractError> {
-///
-/// let option_some: Option<u64> = Some(5);
-/// let option_none: Option<u64> = None;
-///
-/// let result_ok: Result<u64, ContractError> = Ok(5);
-/// let result_err: Result<u64, ContractError> = Err(ContractError::new("Some error"));
-///
-/// let option_success: u64 = unwrap_or_err!(option_some, ContractError::new("Some error")); // option_success == 5
-/// let option_error: u64 = unwrap_or_err!(option_none, ContractError::new("Some error")); // error is returned from main
-///
-/// let result_success: u64 = unwrap_or_err!(result_ok); // result_success == 5
-/// let result_error: u64 = unwrap_or_err!(result_err); // error is returned from main
-///
-/// Ok(0)
-/// # }
-///```
-#[macro_export]
-macro_rules! unwrap_or_err {
-    ( $exp:expr, $err:expr ) => {
-        match $exp {
-            Some(x) => x,
-            None => {
-                return Err($err.into());
-            }
-        }
-    };
-    ( $exp:expr ) => {
-        match $exp {
-            Ok(x) => x,
-            Err(err) => {
-                return Err(err.into());
-            }
-        }
-    };
-}
-
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
     require!(env::predecessor_account_id() == env::current_account_id(), "Method is private");

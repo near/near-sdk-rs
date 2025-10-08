@@ -2,7 +2,7 @@ use crate::fungible_token::{Balance, FungibleToken};
 use crate::storage_management::{StorageBalance, StorageBalanceBounds, StorageManagement};
 use near_sdk::errors::InsufficientBalance;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, log, unwrap_or_err, AccountId, BaseError, NearToken,
+    assert_one_yocto, contract_error, env, log, AccountId, BaseError, NearToken,
     Promise,
 };
 
@@ -91,7 +91,7 @@ impl StorageManagement for FungibleToken {
                 .into());
             }
 
-            unwrap_or_err!(self.internal_register_account(&account_id));
+            self.internal_register_account(&account_id).unwrap();
             let refund = amount.saturating_sub(min_balance);
             if refund > NearToken::from_near(0) {
                 Promise::new(env::predecessor_account_id()).transfer(refund);

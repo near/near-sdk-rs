@@ -855,6 +855,7 @@ pub fn contract_error(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut expanded = quote! {
         #[#near_sdk_crate ::near(serializers=[json], inside_nearsdk=#bool_inside_nearsdk_for_macro)]
+        #[derive(Debug)]
         #input
 
         impl #near_sdk_crate ::ContractErrorTrait for #ident {

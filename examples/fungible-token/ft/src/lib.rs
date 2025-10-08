@@ -29,7 +29,7 @@ use near_sdk::collections::LazyOption;
 use near_sdk::json_types::U128;
 use near_sdk::errors::ContractAlreadyInitialized;
 use near_sdk::{
-    env, log, near, require, unwrap_or_err, AccountId, BaseError, BorshStorageKey, NearToken,
+    env, log, near, require, AccountId, BaseError, BorshStorageKey, NearToken,
     PanicOnDefault, PromiseOrValue,
 };
 
@@ -144,11 +144,11 @@ impl FungibleTokenResolver for Contract {
         receiver_id: AccountId,
         amount: U128,
     ) -> Result<U128, BaseError> {
-        let (used_amount, burned_amount) = unwrap_or_err!(self.token.internal_ft_resolve_transfer(
+        let (used_amount, burned_amount) = self.token.internal_ft_resolve_transfer(
             &sender_id,
             receiver_id,
             amount
-        ));
+        ).unwrap();
         if burned_amount > 0 {
             log!("Account @{} burned {}", sender_id, burned_amount);
         }
@@ -175,8 +175,8 @@ impl StorageManagement for Contract {
     #[payable]
     fn storage_unregister(&mut self, force: Option<bool>) -> Result<bool, BaseError> {
         #[allow(unused_variables)]
-        if let Some((account_id, balance)) =
-            unwrap_or_err!(self.token.internal_storage_unregister(force))
+        if let Some((account_id, balance)) = 
+            self.token.internal_storage_unregister(force).unwrap()
         {
             log!("Closed @{} with {}", account_id, balance);
             Ok(true)

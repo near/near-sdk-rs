@@ -12,7 +12,7 @@ use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::errors::{InsufficientGas, InvalidArgument, PermissionDenied};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require, require_or_err, unwrap_or_err, AccountId,
+    assert_one_yocto, contract_error, env, near, require, require_or_err, AccountId,
     BaseError, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
@@ -212,7 +212,7 @@ impl NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> Result<(AccountId, Option<HashMap<AccountId, u64>>), BaseError> {
-        let owner_id = unwrap_or_err!(self.owner_by_id.get(token_id), TokenNotFound {});
+        let owner_id = self.owner_by_id.get(token_id).ok_or_else(|| TokenNotFound {}).unwrap();
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
@@ -222,10 +222,9 @@ impl NonFungibleToken {
         // check if authorized
         let sender_id = if sender_id != &owner_id {
             // Panic if approval extension is NOT being used
-            let app_acc_ids = unwrap_or_err!(
-                approved_account_ids.as_ref(),
-                ApprovalNotSupported::new("Approval extension is disabled")
-            );
+            let app_acc_ids = 
+                approved_account_ids.as_ref().ok_or_else(||
+                ApprovalNotSupported::new("Approval extension is disabled")).unwrap();
 
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = app_acc_ids.get(sender_id);
@@ -253,7 +252,7 @@ impl NonFungibleToken {
 
         require_or_err!(&owner_id != receiver_id, ReceiverIsSender::new());
 
-        unwrap_or_err!(self.internal_transfer_unguarded(token_id, &owner_id, receiver_id));
+        self.internal_transfer_unguarded(token_id, &owner_id, receiver_id).unwrap();
 
         NonFungibleToken::emit_transfer(&owner_id, receiver_id, token_id, sender_id, memo);
 
@@ -381,7 +380,7 @@ impl NonFungibleToken {
             if self.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
 
         if let Some((id, storage_usage)) = initial_storage_usage {
-            unwrap_or_err!(refund_deposit_to_account(env::storage_usage() - storage_usage, id))
+            refund_deposit_to_account(env::storage_usage() - storage_usage, id).unwrap()
         }
 
         // Return any extra attached deposit not used for storage
@@ -420,13 +419,13 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> Result<(), BaseError> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        unwrap_or_err!(self.internal_transfer(
+        self.internal_transfer(
             &sender_id,
             &receiver_id,
             &token_id,
             approval_id,
             memo
-        ));
+        ).unwrap();
         Ok(())
     }
 
@@ -506,11 +505,11 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             return Ok(true);
         };
 
-        unwrap_or_err!(self.internal_transfer_unguarded(
+        self.internal_transfer_unguarded(
             &token_id,
             &receiver_id,
             &previous_owner_id
-        ));
+        ).unwrap();
 
         // If using Approval Management extension,
         // 1. revert any approvals receiver already set, refunding storage costs

@@ -21,7 +21,7 @@ pub struct StorageBalanceBounds {
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near, PanicOnDefault, AccountId, NearToken, log, unwrap_or_err, BaseError};
+/// use near_sdk::{near, PanicOnDefault, AccountId, NearToken, log, BaseError};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::FungibleToken;
@@ -56,7 +56,7 @@ pub struct StorageBalanceBounds {
 ///     #[payable]
 ///     fn storage_unregister(&mut self, force: Option<bool>) -> Result<bool, BaseError> {
 ///         #[allow(unused_variables)]
-///         if let Some((account_id, balance)) = unwrap_or_err!(self.token.internal_storage_unregister(force)) {
+///         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force)).unwrap() {
 ///             log!("Closed @{} with {}", account_id, balance);
 ///             Ok(true)
 ///         } else {
