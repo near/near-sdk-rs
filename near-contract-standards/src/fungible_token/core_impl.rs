@@ -11,7 +11,7 @@ use near_sdk::{
     assert_one_yocto, contract_error, env, log, near, require, AccountId, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
-use near_sdk::{require_or_err, BaseError};
+use near_sdk::BaseError;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
 const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
@@ -129,8 +129,8 @@ impl FungibleToken {
         amount: Balance,
         memo: Option<String>,
     ) -> Result<(), BaseError> {
-        require_or_err!(sender_id != receiver_id, ReceiverIsSender::new());
-        require_or_err!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
+        require!(sender_id != receiver_id, ReceiverIsSender::new());
+        require!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
         self.internal_withdraw(sender_id, amount).unwrap();
         self.internal_deposit(receiver_id, amount).unwrap();
         FtTransfer {
