@@ -9,7 +9,7 @@ repository = "https://github.com/near/near-sdk-rs"
 anyhow = "1.0"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { version = "0.21", features = ["unstable"] }
+near-workspaces = { git = "https://github.com/polyprogrammist/near-workspaces-rs.git", branch = "sandbox280", features = ["unstable"] }
 rstest = "0.23.0"
 
 [profile.release]
