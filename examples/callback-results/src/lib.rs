@@ -1,4 +1,4 @@
-use near_sdk::require_or_err;
+use near_sdk::require;
 use near_sdk::{env, near, BaseError, Promise, PromiseError};
 use near_sdk::errors::{InvalidArgument, UnexpectedFailure, InvalidPromiseReturn};
 
@@ -49,14 +49,14 @@ impl Callback {
     /// Panics if value is 0, returns the value passed in otherwise.
     #[private]
     pub fn c(value: u8) -> Result<u8, InvalidArgument> {
-        require_or_err!(value > 0, InvalidArgument::new("Value must be positive"));
+        require!(value > 0, InvalidArgument::new("Value must be positive"));
         Ok(value)
     }
 
     /// Panics if value is 0.
     #[private]
     pub fn d(value: u8) -> Result<(), InvalidArgument> {
-        require_or_err!(value > 0, InvalidArgument::new("Value must be positive"));
+        require!(value > 0, InvalidArgument::new("Value must be positive"));
         Ok(())
     }
 
@@ -68,9 +68,9 @@ impl Callback {
         #[callback_result] c: Result<u8, PromiseError>,
         #[callback_result] d: Result<(), PromiseError>,
     ) -> Result<(bool, bool, bool), BaseError> {
-        require_or_err!(a == A_VALUE, InvalidPromiseReturn::new("Promise returned incorrect value"));
+        require!(a == A_VALUE, InvalidPromiseReturn::new("Promise returned incorrect value"));
         if let Ok(s) = b.as_ref() {
-            require_or_err!(s == "Some string");
+            require!(s == "Some string");
         }
         Ok((b.is_err(), c.is_err(), d.is_err()))
     }
