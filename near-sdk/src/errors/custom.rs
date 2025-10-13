@@ -53,6 +53,10 @@ impl RequireFailed {
     pub fn new() -> Self {
         Self { message: "require! assertion failed".to_string() }
     }
+
+    pub fn new_from_message(message: String) -> Self {
+        Self { message: message }
+    }
 }
 
 #[contract_error(inside_nearsdk)]

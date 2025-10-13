@@ -65,16 +65,16 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_err(::near_sdk::errors::RequireFailed::new().into());
+            $crate::env::panic_err($crate::errors::RequireFailed::new().into());
         }
     };
     ($cond:expr, $message:expr $(,)?) => {
         if cfg!(debug_assertions) {
             // Error message must be &str to match panic_str signature
-            let msg: &str = &$message;
+            let msg: String = $crate::utils::stringify_err($message);
             assert!($cond, "{}", msg)
         } else if !$cond {
-            $crate::env::panic_str(&$message)
+            $crate::env::panic_str($crate::utils::stringify_err($message).as_str());
         }
     };
 }
@@ -137,6 +137,10 @@ pub fn is_promise_success() -> bool {
         "Contract expected a single result on the callback"
     );
     env::promise_result_internal(0).is_ok()
+}
+
+pub fn stringify_err<T: serde::Serialize>(err: T) -> String {
+    serde_json::json!(err).to_string()
 }
 
 /// Returns the result of the promise if successful. Otherwise returns None.
