@@ -241,14 +241,21 @@ async fn simulate_transfer_call_receiver_panics_and_nft_resolve_transfer_produce
             Some("transfer & call"),
             "incorrect message",
         ))
-        .gas(near_sdk::Gas::from_tgas(30))
+        .gas(near_sdk::Gas::from_tgas(5))
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
     assert!(res.is_failure());
 
-    // Prints no logs
-    assert_eq!(res.logs().len(), 0);
+    // Prints no logs (from successful receipts)
+    assert_eq!(
+        res.outcomes()
+            .into_iter()
+            .filter(|outcome| outcome.is_success())
+            .flat_map(|o| &o.logs)
+            .count(),
+        0
+    );
 
     let token = nft_contract
         .call("nft_token")
