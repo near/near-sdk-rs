@@ -36,9 +36,9 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         // Defaults to 0 based on the spec:
         // https://nomicon.io/Standards/NonFungibleToken/Enumeration.html#interface
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
-        require_or_err!((self.owner_by_id.len() as u128) >= start_index, IndexOutOfBounds {});
+        require!((self.owner_by_id.len() as u128) >= start_index, IndexOutOfBounds {});
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
-        require_or_err!(limit != 0, InvalidArgument::new("Cannot provide limit of 0."));
+        require!(limit != 0, InvalidArgument::new("Cannot provide limit of 0."));
         Ok(self
             .owner_by_id
             .iter()
@@ -76,9 +76,9 @@ impl NonFungibleTokenEnumeration for NonFungibleToken {
         }
 
         let limit = limit.map(|v| v as usize).unwrap_or(usize::MAX);
-        require_or_err!(limit != 0, InvalidArgument::new("Cannot provide limit of 0."));
+        require!(limit != 0, InvalidArgument::new("Cannot provide limit of 0."));
         let start_index: u128 = from_index.map(From::from).unwrap_or_default();
-        require_or_err!(token_set.len() as u128 > start_index, IndexOutOfBounds {});
+        require!(token_set.len() as u128 > start_index, IndexOutOfBounds {});
         Ok(token_set
             .iter()
             .skip(start_index as usize)

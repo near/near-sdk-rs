@@ -53,7 +53,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id)).unwrap();
 
-        require_or_err!(
+        require!(
             env::predecessor_account_id() == owner_id,
             PermissionDenied::new(Some("Predecessor must be token owner."))
         );
@@ -95,7 +95,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id)).unwrap();
         let predecessor_account_id = env::predecessor_account_id();
 
-        require_or_err!(
+        require!(
             predecessor_account_id == owner_id,
             PermissionDenied::new(Some("Predecessor must be token owner."))
         );
@@ -129,7 +129,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id)).unwrap();
         let predecessor_account_id = env::predecessor_account_id();
 
-        require_or_err!(
+        require!(
             predecessor_account_id == owner_id,
             PermissionDenied::new(Some("Predecessor must be token owner."))
         );

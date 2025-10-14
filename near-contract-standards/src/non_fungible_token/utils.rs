@@ -35,7 +35,7 @@ pub fn refund_deposit_to_account(
     let required_cost = env::storage_byte_cost().saturating_mul(storage_used.into());
     let attached_deposit = env::attached_deposit();
 
-    require_or_err!(
+    require!(
         required_cost <= attached_deposit,
         InsufficientBalance::new(Some(
             format!("Must attach {} to cover storage", required_cost.exact_amount_display()).as_str()
@@ -56,7 +56,7 @@ pub fn refund_deposit(storage_used: u64) -> Result<(), BaseError> {
 
 /// Assert that at least 1 yoctoNEAR was attached.
 pub(crate) fn assert_at_least_one_yocto() -> Result<(), BaseError> {
-    require_or_err!(
+    require!(
         env::attached_deposit() >= NearToken::from_yoctonear(1),
         InsufficientBalance::new(Some("Requires attached deposit of at least 1 yoctoNEAR"))
     );

@@ -235,7 +235,7 @@ impl NonFungibleToken {
             }
 
             // If approval_id included, check that it matches
-            require_or_err!(
+            require!(
                 approval_id.is_none() || actual_approval_id == approval_id.as_ref(),
                 PermissionDenied::new(Some(
                     format!(
@@ -250,7 +250,7 @@ impl NonFungibleToken {
             None
         };
 
-        require_or_err!(&owner_id != receiver_id, ReceiverIsSender::new());
+        require!(&owner_id != receiver_id, ReceiverIsSender::new());
 
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id).unwrap();
 

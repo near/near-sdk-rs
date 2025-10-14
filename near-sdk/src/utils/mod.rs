@@ -94,8 +94,8 @@ macro_rules! require {
 ///
 /// # fn f() -> Result<(), BaseError> {
 /// let a = 2;
-/// require_or_err!(a > 0);
-/// require_or_err!("test" != "other", ContractError::new("Some custom error message if false"));
+/// require!(a > 0);
+/// require!("test" != "other", ContractError::new("Some custom error message if false"));
 /// Ok(())
 /// # }
 /// ```

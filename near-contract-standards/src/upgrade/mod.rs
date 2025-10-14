@@ -8,7 +8,7 @@ type WrappedDuration = U64;
 
 pub trait Ownable {
     fn assert_owner(&self) -> Result<(), BaseError> {
-        require_or_err!(
+        require!(
             env::predecessor_account_id() == self.get_owner(),
             PermissionDenied::new(Some("Owner must be predecessor"))
         );
@@ -63,7 +63,7 @@ impl Upgradable for Upgrade {
 
     fn stage_code(&mut self, code: Vec<u8>, timestamp: Timestamp) -> Result<(), BaseError> {
         self.assert_owner().unwrap();
-        require_or_err!(
+        require!(
             env::block_timestamp() + self.staging_duration < timestamp,
             InvalidArgument::new("Timestamp must be later than staging duration")
         );

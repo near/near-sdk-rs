@@ -43,16 +43,16 @@ pub trait NonFungibleTokenMetadataProvider {
 
 impl NFTContractMetadata {
     pub fn assert_valid(&self) -> Result<(), BaseError> {
-        require_or_err!(
+        require!(
             self.spec == NFT_METADATA_SPEC,
             InvalidSpec::new("Spec is not NFT metadata")
         );
-        require_or_err!(
+        require!(
             self.reference.is_some() == self.reference_hash.is_some(),
             InvalidContractState::new("Reference and reference hash must be present")
         );
         if let Some(reference_hash) = &self.reference_hash {
-            require_or_err!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
+            require!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
         }
         Ok(())
     }
@@ -60,14 +60,14 @@ impl NFTContractMetadata {
 
 impl TokenMetadata {
     pub fn assert_valid(&self) -> Result<(), BaseError> {
-        require_or_err!(self.media.is_some() == self.media_hash.is_some());
+        require!(self.media.is_some() == self.media_hash.is_some());
         if let Some(media_hash) = &self.media_hash {
-            require_or_err!(media_hash.0.len() == 32, InvalidHashLength::new(32));
+            require!(media_hash.0.len() == 32, InvalidHashLength::new(32));
         }
 
-        require_or_err!(self.reference.is_some() == self.reference_hash.is_some());
+        require!(self.reference.is_some() == self.reference_hash.is_some());
         if let Some(reference_hash) = &self.reference_hash {
-            require_or_err!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
+            require!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
         }
         Ok(())
     }

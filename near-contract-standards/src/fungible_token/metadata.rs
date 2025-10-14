@@ -23,10 +23,10 @@ pub trait FungibleTokenMetadataProvider {
 
 impl FungibleTokenMetadata {
     pub fn assert_valid(&self) -> Result<(), BaseError> {
-        require_or_err!(self.spec == FT_METADATA_SPEC);
-        require_or_err!(self.reference.is_some() == self.reference_hash.is_some());
+        require!(self.spec == FT_METADATA_SPEC);
+        require!(self.reference.is_some() == self.reference_hash.is_some());
         if let Some(reference_hash) = &self.reference_hash {
-            require_or_err!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
+            require!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
         }
         Ok(())
     }
