@@ -1,5 +1,5 @@
 use near_sdk::errors::InsufficientBalance;
-use near_sdk::{contract_error, env, require_or_err, AccountId, BaseError, NearToken, Promise};
+use near_sdk::{contract_error, env, require, AccountId, BaseError, NearToken, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
 

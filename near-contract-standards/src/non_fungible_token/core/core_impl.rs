@@ -12,7 +12,7 @@ use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::errors::{InsufficientGas, InvalidArgument, PermissionDenied};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require, require_or_err, AccountId,
+    assert_one_yocto, contract_error, env, near, require, AccountId,
     BaseError, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;

@@ -1,7 +1,7 @@
 use near_sdk::errors::{ContractUpgradeError, InvalidArgument, PermissionDenied};
 use near_sdk::json_types::U64;
 use near_sdk::{
-    env, near, require_or_err, AccountId, BaseError, Duration, Promise, Timestamp,
+    env, near, require, AccountId, BaseError, Duration, Promise, Timestamp,
 };
 
 type WrappedDuration = U64;

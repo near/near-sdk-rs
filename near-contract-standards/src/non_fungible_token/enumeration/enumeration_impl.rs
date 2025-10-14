@@ -3,7 +3,7 @@ use crate::non_fungible_token::token::Token;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::errors::{IndexOutOfBounds, InvalidArgument};
 use near_sdk::json_types::U128;
-use near_sdk::{contract_error, require_or_err, AccountId, BaseError};
+use near_sdk::{contract_error, require, AccountId, BaseError};
 
 type TokenId = String;
 

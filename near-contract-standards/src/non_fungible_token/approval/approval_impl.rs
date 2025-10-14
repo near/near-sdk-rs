@@ -11,7 +11,7 @@ use crate::non_fungible_token::ApprovalNotSupported;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::errors::PermissionDenied;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, require_or_err, AccountId, BaseError,
+    assert_one_yocto, contract_error, env, require, AccountId, BaseError,
     Gas, Promise,
 };
 

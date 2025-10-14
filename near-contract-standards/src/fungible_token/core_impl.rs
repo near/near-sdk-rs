@@ -73,23 +73,13 @@ impl FungibleToken {
         account_id: &AccountId,
         amount: Balance,
     ) -> Result<(), BaseError> {
-        let balance_result = self.internal_unwrap_balance_of(account_id);
-        let balance: u128;
-        if let Ok(unwrapped_balance) = balance_result {
-            balance = unwrapped_balance;
-        } else {
-            return Err(balance_result.unwrap_err().into());
-        }
+        let balance: u128 = self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            let checked = self.total_supply.checked_add(amount);
-            match checked {
-                Some(new_total_supply) => {
-                    self.total_supply = new_total_supply;
-                    Ok(())
-                }
-                None => Err(TotalSupplyOverflow {}.into()),
-            }
+            self.total_supply = self.total_supply
+                .checked_add(amount)
+                .ok_or_else(|| TotalSupplyOverflow {}).unwrap();
+            Ok(())
         } else {
             Err(BalanceOverflow {}.into())
         }
@@ -100,23 +90,13 @@ impl FungibleToken {
         account_id: &AccountId,
         amount: Balance,
     ) -> Result<(), BaseError> {
-        let balance_result = self.internal_unwrap_balance_of(account_id);
-        let balance: u128;
-        if let Ok(unwrapped_balance) = balance_result {
-            balance = unwrapped_balance;
-        } else {
-            return Err(balance_result.unwrap_err().into());
-        }
+        let balance: u128 = self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            let checked = self.total_supply.checked_sub(amount);
-            match checked {
-                Some(new_total_supply) => {
-                    self.total_supply = new_total_supply;
-                    Ok(())
-                }
-                None => Err(TotalSupplyOverflow {}.into()),
-            }
+            self.total_supply = self.total_supply
+                .checked_sub(amount)
+                .ok_or_else(|| TotalSupplyOverflow {}).unwrap();
+            Ok(())
         } else {
             Err(InsufficientBalance::new(None).into())
         }

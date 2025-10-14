@@ -79,40 +79,6 @@ macro_rules! require {
     };
 }
 
-/// Helper macro to create assertions that will return an error.
-///
-/// This macro can be used similarly to [`require!`] but will return an error instead of panicking.
-///
-/// Returns Err(near_sdk::errors::RequireFailed) unless error message provided
-///
-/// # Examples
-///
-/// ```no_run
-/// use near_sdk::require_or_err;
-/// use near_sdk::BaseError;
-/// use near_sdk::errors::ContractError;
-///
-/// # fn f() -> Result<(), BaseError> {
-/// let a = 2;
-/// require!(a > 0);
-/// require!("test" != "other", ContractError::new("Some custom error message if false"));
-/// Ok(())
-/// # }
-/// ```
-#[macro_export]
-macro_rules! require_or_err {
-    ($cond:expr $(,)?) => {
-        if !$cond {
-            return Err(::near_sdk::errors::RequireFailed::new().into());
-        }
-    };
-    ($cond:expr, $err:expr $(,)?) => {
-        if !$cond {
-            return Err($err.into());
-        }
-    };
-}
-
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
     require!(env::predecessor_account_id() == env::current_account_id(), "Method is private");

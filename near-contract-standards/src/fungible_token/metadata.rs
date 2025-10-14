@@ -1,6 +1,6 @@
 use near_sdk::errors::InvalidHashLength;
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::{ext_contract, near, require_or_err, BaseError};
+use near_sdk::{ext_contract, near, require, BaseError};
 
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
