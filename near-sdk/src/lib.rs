@@ -352,7 +352,7 @@ compile_error!(
 /// as if `#[serde_as]` is added to the type (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
 ///
 /// ```
-/// # use std::{collections::BTreeMap, u128};
+/// # use std::{collections::BTreeMap};
 /// use near_sdk::{
 ///     near,
 ///     serde_json::json,
