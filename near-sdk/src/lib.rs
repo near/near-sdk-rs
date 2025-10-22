@@ -376,7 +376,6 @@ compile_error!(
 ///     #[serde_as(as = "JsonString")]
 ///     pub json_string: serde_json::Value,
 /// }
-///
 /// # fn main() {
 /// #     assert_eq!(
 /// #         serde_json::to_value(&MyStruct {
