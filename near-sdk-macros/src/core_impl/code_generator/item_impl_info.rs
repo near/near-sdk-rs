@@ -59,7 +59,7 @@ impl ItemImplInfo {
         self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
             if let ReturnKind::HandlesResultExplicit(_) = &method.returns.kind {
                 let warning_message = format!(
-                    "Method '{}' uses #[handle_result] attribute which is deprecated. Consider using implicit Result handling with #[contract_error] instead.",
+                    "Method '{}' uses #[handle_result] attribute which is deprecated. Consider using implicit Result handling instead.",
                     method.ident
                 );
                 let warning_name = format_ident!("using_handle_result_{}", method.ident);
