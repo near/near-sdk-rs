@@ -24,3 +24,6 @@ opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
+
+[patch.crates-io]
+near-sandbox-utils = { git = "https://github.com/PolyProgrammist/near-sandbox-rs.git", branch = "home15" }
