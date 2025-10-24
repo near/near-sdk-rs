@@ -114,6 +114,18 @@ macro_rules! require_or_err {
     };
 }
 
+#[macro_export]
+macro_rules! compile_warning {(
+    $name:ident, $message:expr $(,)*
+) => (
+    mod $name {
+        #[must_use = $message]
+        struct compile_warning;
+        #[allow(dead_code)]
+        fn trigger_warning () { compile_warning; }
+    }
+)}
+
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {
     require!(env::predecessor_account_id() == env::current_account_id(), "Method is private");

@@ -58,6 +58,16 @@ impl ItemImplInfo {
 
         self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
             if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
+                // if method.ident ends with _error, emit warning to avoid name clash
+                if method.ident.to_string().ends_with("_error") {
+                    let warning_message = format!(
+                        "Method '{}' ends with '_error'. This suffix in method identifier is reserved for our usage",
+                        method.ident
+                    );
+                    error_methods.extend(quote! {
+                        near_sdk::compile_warning!(example, #warning_message);
+                    });
+                }
                 let error_method_name = quote::format_ident!("{}_error", method.ident);
                 if status.unsafe_persist_on_error {
                     let error_type = crate::get_error_type_from_status(status);
