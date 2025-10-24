@@ -11,7 +11,7 @@ use crate::non_fungible_token::ApprovalNotSupported;
 use crate::non_fungible_token::NonFungibleToken;
 use near_sdk::errors::PermissionDenied;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, require, AccountId, BaseError,
+    assert_one_yocto, contract_error, env, require_or_err, AccountId, BaseError,
     Gas, Promise,
 };
 
@@ -53,7 +53,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id)).unwrap();
 
-        require!(
+        require_or_err!(
             env::predecessor_account_id() == owner_id,
             PermissionDenied::new(Some("Predecessor must be token owner."))
         );
@@ -88,14 +88,14 @@ impl NonFungibleTokenApproval for NonFungibleToken {
 
     fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) -> Result<(), BaseError> {
         assert_one_yocto();
-        let approvals_by_id = 
+        let approvals_by_id =
             self.approvals_by_id.as_mut().ok_or_else(||
             ApprovalNotSupported::new("NFT does not support Approval Management")).unwrap();
 
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id)).unwrap();
         let predecessor_account_id = env::predecessor_account_id();
 
-        require!(
+        require_or_err!(
             predecessor_account_id == owner_id,
             PermissionDenied::new(Some("Predecessor must be token owner."))
         );
@@ -129,7 +129,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         let owner_id = expect_token_found(self.owner_by_id.get(&token_id)).unwrap();
         let predecessor_account_id = env::predecessor_account_id();
 
-        require!(
+        require_or_err!(
             predecessor_account_id == owner_id,
             PermissionDenied::new(Some("Predecessor must be token owner."))
         );

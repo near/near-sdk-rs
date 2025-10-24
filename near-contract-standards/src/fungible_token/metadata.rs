@@ -1,6 +1,6 @@
 use near_sdk::errors::InvalidHashLength;
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::{ext_contract, near, require, BaseError};
+use near_sdk::{ext_contract, near, require_or_err, BaseError};
 
 pub const FT_METADATA_SPEC: &str = "ft-1.0.0";
 
@@ -23,10 +23,10 @@ pub trait FungibleTokenMetadataProvider {
 
 impl FungibleTokenMetadata {
     pub fn assert_valid(&self) -> Result<(), BaseError> {
-        require!(self.spec == FT_METADATA_SPEC);
-        require!(self.reference.is_some() == self.reference_hash.is_some());
+        require_or_err!(self.spec == FT_METADATA_SPEC);
+        require_or_err!(self.reference.is_some() == self.reference_hash.is_some());
         if let Some(reference_hash) = &self.reference_hash {
-            require!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
+            require_or_err!(reference_hash.0.len() == 32, InvalidHashLength::new(32));
         }
         Ok(())
     }

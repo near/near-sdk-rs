@@ -1,14 +1,14 @@
 use near_sdk::errors::{ContractUpgradeError, InvalidArgument, PermissionDenied};
 use near_sdk::json_types::U64;
 use near_sdk::{
-    env, near, require, AccountId, BaseError, Duration, Promise, Timestamp,
+    env, near, require_or_err, AccountId, BaseError, Duration, Promise, Timestamp,
 };
 
 type WrappedDuration = U64;
 
 pub trait Ownable {
     fn assert_owner(&self) -> Result<(), BaseError> {
-        require!(
+        require_or_err!(
             env::predecessor_account_id() == self.get_owner(),
             PermissionDenied::new(Some("Owner must be predecessor"))
         );
@@ -63,7 +63,7 @@ impl Upgradable for Upgrade {
 
     fn stage_code(&mut self, code: Vec<u8>, timestamp: Timestamp) -> Result<(), BaseError> {
         self.assert_owner().unwrap();
-        require!(
+        require_or_err!(
             env::block_timestamp() + self.staging_duration < timestamp,
             InvalidArgument::new("Timestamp must be later than staging duration")
         );

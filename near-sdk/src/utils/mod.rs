@@ -41,6 +41,7 @@ macro_rules! log {
     };
 }
 
+
 /// Helper macro to create assertions that will panic through the runtime host functions.
 ///
 /// This macro can be used similarly to [`assert!`] but will reduce code size by not including
@@ -65,16 +66,50 @@ macro_rules! require {
         if cfg!(debug_assertions) {
             assert!($cond)
         } else if !$cond {
-            $crate::env::panic_err($crate::errors::RequireFailed::new().into());
+            $crate::env::panic_err(::near_sdk::errors::RequireFailed::new().into());
         }
     };
     ($cond:expr, $message:expr $(,)?) => {
         if cfg!(debug_assertions) {
             // Error message must be &str to match panic_str signature
-            let msg: String = $crate::utils::stringify_err($message);
+            let msg: &str = &$message;
             assert!($cond, "{}", msg)
         } else if !$cond {
-            $crate::env::panic_str($crate::utils::stringify_err($message).as_str());
+            $crate::env::panic_str(&$message)
+        }
+    };
+}
+
+/// Helper macro to create assertions that will return an error.
+///
+/// This macro can be used similarly to [`require!`] but will return an error instead of panicking.
+///
+/// Returns Err(near_sdk::errors::RequireFailed) unless error message provided
+///
+/// # Examples
+///
+/// ```no_run
+/// use near_sdk::require_or_err;
+/// use near_sdk::BaseError;
+/// use near_sdk::errors::ContractError;
+///
+/// # fn f() -> Result<(), BaseError> {
+/// let a = 2;
+/// require_or_err!(a > 0);
+/// require_or_err!("test" != "other", ContractError::new("Some custom error message if false"));
+/// Ok(())
+/// # }
+/// ```
+#[macro_export]
+macro_rules! require_or_err {
+    ($cond:expr $(,)?) => {
+        if !$cond {
+            return Err(::near_sdk::errors::RequireFailed::new().into());
+        }
+    };
+    ($cond:expr, $err:expr $(,)?) => {
+        if !$cond {
+            return Err($err.into());
         }
     };
 }
@@ -103,10 +138,6 @@ pub fn is_promise_success() -> bool {
         "Contract expected a single result on the callback"
     );
     env::promise_result_internal(0).is_ok()
-}
-
-pub fn stringify_err<T: serde::Serialize>(err: T) -> String {
-    serde_json::json!(err).to_string()
 }
 
 /// Returns the result of the promise if successful. Otherwise returns None.

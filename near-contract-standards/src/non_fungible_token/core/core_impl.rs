@@ -12,7 +12,7 @@ use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
 use near_sdk::errors::{InsufficientGas, InvalidArgument, PermissionDenied};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require, AccountId,
+    assert_one_yocto, contract_error, env, near, require_or_err, AccountId,
     BaseError, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
@@ -234,7 +234,7 @@ impl NonFungibleToken {
             }
 
             // If approval_id included, check that it matches
-            require!(
+            require_or_err!(
                 approval_id.is_none() || actual_approval_id == approval_id.as_ref(),
                 PermissionDenied::new(Some(
                     format!(
@@ -249,7 +249,7 @@ impl NonFungibleToken {
             None
         };
 
-        require!(&owner_id != receiver_id, ReceiverIsSender::new());
+        require_or_err!(&owner_id != receiver_id, ReceiverIsSender::new());
 
         self.internal_transfer_unguarded(token_id, &owner_id, receiver_id).unwrap();
 
