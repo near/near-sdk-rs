@@ -1100,6 +1100,9 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
+pub mod events;
+pub use crate::events::{AsNep297Event, Nep297Event};
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]

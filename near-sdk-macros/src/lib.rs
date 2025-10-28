@@ -10,6 +10,7 @@ use proc_macro::TokenStream;
 use self::core_impl::*;
 use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
+use inflector::Inflector;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
@@ -671,12 +672,22 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
         // version from each attribute macro
         let mut event_meta: Vec<proc_macro2::TokenStream> = vec![];
+        let mut version_arms: Vec<proc_macro2::TokenStream> = vec![];
+        let mut event_name_arms: Vec<proc_macro2::TokenStream> = vec![];
         for var in &input.variants {
             if let Some(version) = core_impl::get_event_version(var) {
                 let var_ident = &var.ident;
                 event_meta.push(quote! {
                     #name::#var_ident { .. } => {(::std::string::ToString::to_string(&#standard_ident), ::std::string::ToString::to_string(#version))}
-                })
+                });
+                version_arms.push(quote! {
+                    #name::#var_ident { .. } => ::std::borrow::Cow::Borrowed(#version)
+                });
+                let event_name =
+                    proc_macro2::Literal::string(&var.ident.to_string().to_snake_case());
+                event_name_arms.push(quote! {
+                    #name::#var_ident { .. } => ::std::borrow::Cow::Borrowed(#event_name)
+                });
             } else {
                 return TokenStream::from(
                     syn::Error::new(
@@ -697,53 +708,48 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             0,
             syn::GenericParam::Lifetime(syn::LifetimeParam::new(event_lifetime.clone())),
         );
-        let (custom_impl_generics, ..) = generics.split_for_impl();
 
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
                 pub fn emit(&self) {
-                    use ::std::string::String;
-
-                    let (standard, version): (String, String) = match self {
-                        #(#event_meta),*
-                    };
-
-                    #[derive(::near_sdk::serde::Serialize)]
-                    #[serde(crate="::near_sdk::serde")]
-                    #[serde(rename_all="snake_case")]
-                    struct EventBuilder #custom_impl_generics #where_clause {
-                        standard: String,
-                        version: String,
-                        #[serde(flatten)]
-                        event_data: &#event_lifetime #name #type_generics
-                    }
-                    let event = EventBuilder { standard, version, event_data: self };
-                    let json = ::near_sdk::serde_json::to_string(&event)
-                            .unwrap_or_else(|_| ::near_sdk::env::abort());
-                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
+                    use ::near_sdk::AsNep297Event;
+                    ::near_sdk::env::log_str(&self.to_nep297_event().to_event_log());
                 }
 
                 pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
-                    use ::std::string::String;
-
-                    let (standard, version): (String, String) = match self {
-                        #(#event_meta),*
-                    };
-
-                    #[derive(::near_sdk::serde::Serialize)]
-                    #[serde(crate="::near_sdk::serde")]
-                    #[serde(rename_all="snake_case")]
-                    struct EventBuilder #custom_impl_generics #where_clause {
-                        standard: String,
-                        version: String,
-                        #[serde(flatten)]
-                        event_data: &#event_lifetime #name #type_generics
-                    }
-                    let event = EventBuilder { standard, version, event_data: self };
-                    ::near_sdk::serde_json::to_value(&event)
-                        .unwrap_or_else(|_| ::near_sdk::env::abort())
+                    use ::near_sdk::AsNep297Event;
+                    self.to_nep297_event().to_json()
                 }
             }
+
+            impl #impl_generics ::near_sdk::events::AsNep297Event for #name #type_generics #where_clause{
+                fn standard(&self) -> ::std::borrow::Cow<'_, str> {
+                    ::std::borrow::Cow::Borrowed(#standard_ident)
+                }
+
+                fn version(&self) -> ::std::borrow::Cow<'_, str> {
+                    match self {
+                        #(#version_arms),*
+                    }
+                }
+
+                fn event(&self) -> ::std::borrow::Cow<'_, str> {
+                    match self {
+                        #(#event_name_arms),*
+                    }
+                }
+
+                fn data(&self) -> ::std::option::Option<::near_sdk::serde_json::Value> {
+                    let value = ::near_sdk::serde_json::to_value(self)
+                        .unwrap_or_else(|_| ::near_sdk::env::abort());
+                    match value {
+                        ::near_sdk::serde_json::Value::Object(mut map) => map.remove("data"),
+                        _ => ::std::option::Option::None,
+                    }
+                }
+            }
+
+
         })
     } else {
         TokenStream::from(
