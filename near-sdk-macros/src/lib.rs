@@ -720,32 +720,36 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                     use ::near_sdk::AsNep297Event;
                     self.to_nep297_event().to_json()
                 }
-            }
 
-            impl #impl_generics ::near_sdk::events::AsNep297Event for #name #type_generics #where_clause{
-                fn standard(&self) -> ::std::borrow::Cow<'_, str> {
+                pub fn standard(&self) -> ::std::borrow::Cow<'_, str> {
                     ::std::borrow::Cow::Borrowed(#standard_ident)
                 }
 
-                fn version(&self) -> ::std::borrow::Cow<'_, str> {
+                pub fn version(&self) -> ::std::borrow::Cow<'_, str> {
                     match self {
                         #(#version_arms),*
                     }
                 }
 
-                fn event(&self) -> ::std::borrow::Cow<'_, str> {
+                pub fn event(&self) -> ::std::borrow::Cow<'_, str> {
                     match self {
                         #(#event_name_arms),*
                     }
                 }
+            }
 
-                fn data(&self) -> ::std::option::Option<::near_sdk::serde_json::Value> {
-                    let value = ::near_sdk::serde_json::to_value(self)
-                        .unwrap_or_else(|_| ::near_sdk::env::abort());
-                    match value {
-                        ::near_sdk::serde_json::Value::Object(mut map) => map.remove("data"),
-                        _ => ::std::option::Option::None,
-                    }
+            impl #impl_generics ::near_sdk::events::AsNep297Event<Self> for #name #type_generics #where_clause{
+                fn to_nep297_event(&self) -> ::near_sdk::events::Nep297Event<'_, Self> {
+                    ::near_sdk::events::Nep297Event::new(
+                        ::std::borrow::Cow::Borrowed(#standard_ident),
+                        match self {
+                            #(#version_arms),*
+                        },
+                        match self {
+                            #(#event_name_arms),*
+                        },
+                        self,
+                    )
                 }
             }
 
