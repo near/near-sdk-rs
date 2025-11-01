@@ -265,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "The contract is not initialized")]
+    #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: HostError(GuestPanic { panic_msg: \"{\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{},\\\"name\\\":\\\"near_sdk::errors::sdk::ContractNotInitialized\\\"},\\\"name\\\":\\\"SDK_CONTRACT_ERROR\\\"}}\" })")]
     fn test_default() {
         let context = get_context(accounts(1));
         testing_env!(context.build());
