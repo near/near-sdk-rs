@@ -1,8 +1,6 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json;
 use near_sdk::{env, near, AccountId, Gas, NearToken, PromiseResult};
-use near_sdk::errors::PromiseFailed;
-use near_sdk::BaseError;
 
 // Prepaid gas for making a single simple call.
 const SINGLE_CALL_GAS: Gas = Gas::from_tgas(20);
@@ -59,7 +57,7 @@ impl FactoryContract {
         env::promise_return(promise1);
     }
 
-    pub fn get_result(&mut self, account_id: AccountId) -> Result<(), BaseError>{
+    pub fn get_result(&mut self, account_id: AccountId) {
         match env::promise_result(0) {
             PromiseResult::Successful(_) => {
                 env::promise_return(env::promise_create(
@@ -69,11 +67,8 @@ impl FactoryContract {
                     NearToken::from_near(0),
                     SINGLE_CALL_GAS,
                 ));
-                return Ok(());
             }
-            _ => {
-                return Err(PromiseFailed::new(Some(0), Some("Failed to set status")).into());
-            },
+            _ => env::panic_str("Failed to set status"),
         };
     }
 }

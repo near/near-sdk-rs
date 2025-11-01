@@ -1,5 +1,4 @@
-use near_sdk::errors::InsufficientBalance;
-use near_sdk::{contract_error, env, require_or_err, AccountId, BaseError, NearToken, Promise};
+use near_sdk::{env, require, AccountId, NearToken, Promise};
 use std::collections::HashMap;
 use std::mem::size_of;
 
@@ -28,49 +27,30 @@ pub fn refund_approved_account_ids(
     refund_approved_account_ids_iter(account_id, approved_account_ids.keys())
 }
 
-pub fn refund_deposit_to_account(
-    storage_used: u64,
-    account_id: AccountId,
-) -> Result<(), BaseError> {
+pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
     let required_cost = env::storage_byte_cost().saturating_mul(storage_used.into());
     let attached_deposit = env::attached_deposit();
 
-    require_or_err!(
+    require!(
         required_cost <= attached_deposit,
-        InsufficientBalance::new(Some(
-            format!("Must attach {} to cover storage", required_cost.exact_amount_display())
-                .as_str()
-        ))
+        format!("Must attach {} to cover storage", required_cost.exact_amount_display())
     );
 
     let refund = attached_deposit.saturating_sub(required_cost);
     if refund.as_yoctonear() > 1 {
         Promise::new(account_id).transfer(refund);
     }
-    Ok(())
 }
 
 /// Assumes that the precedecessor will be refunded
-pub fn refund_deposit(storage_used: u64) -> Result<(), BaseError> {
+pub fn refund_deposit(storage_used: u64) {
     refund_deposit_to_account(storage_used, env::predecessor_account_id())
 }
 
 /// Assert that at least 1 yoctoNEAR was attached.
-pub(crate) fn assert_at_least_one_yocto() -> Result<(), BaseError> {
-    require_or_err!(
+pub(crate) fn assert_at_least_one_yocto() {
+    require!(
         env::attached_deposit() >= NearToken::from_yoctonear(1),
-        InsufficientBalance::new(Some("Requires attached deposit of at least 1 yoctoNEAR"))
-    );
-    Ok(())
-}
-
-#[contract_error]
-pub struct ApprovalNotSupported {
-    message: String,
-}
-
-impl ApprovalNotSupported {
-    pub fn new(message: &str) -> Self {
-        Self { message: String::from(message) }
-    }
+        "Requires attached deposit of at least 1 yoctoNEAR"
+    )
 }

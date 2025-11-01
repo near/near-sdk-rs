@@ -3,15 +3,15 @@ use crate::fungible_token::events::{FtBurn, FtTransfer};
 use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
-use near_sdk::errors::{InsufficientBalance, InvalidArgument, TotalSupplyOverflow};
 use near_sdk::json_types::U128;
-use near_sdk::BaseError;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, log, near, require_or_err, AccountId, Gas,
-    IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, env, log, near, require, AccountId, Gas, IntoStorageKey, PromiseOrValue,
+    PromiseResult, StorageUsage,
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
+
+const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 
 pub type Balance = u128;
 
@@ -55,47 +55,38 @@ impl FungibleToken {
         self.accounts.remove(&tmp_account_id);
     }
 
-    pub fn internal_unwrap_balance_of(
-        &self,
-        account_id: &AccountId,
-    ) -> Result<Balance, AccountNotRegistered> {
+    pub fn internal_unwrap_balance_of(&self, account_id: &AccountId) -> Balance {
         match self.accounts.get(account_id) {
-            Some(balance) => Ok(balance),
-            None => Err(AccountNotRegistered::new(account_id.clone())),
+            Some(balance) => balance,
+            None => {
+                env::panic_str(format!("The account {} is not registered", &account_id).as_str())
+            }
         }
     }
 
-    pub fn internal_deposit(
-        &mut self,
-        account_id: &AccountId,
-        amount: Balance,
-    ) -> Result<(), BaseError> {
-        let balance: u128 =
-            self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
+    pub fn internal_deposit(&mut self, account_id: &AccountId, amount: Balance) {
+        let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_add(amount).ok_or(TotalSupplyOverflow {}).unwrap();
-            Ok(())
+            self.total_supply = self
+                .total_supply
+                .checked_add(amount)
+                .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
         } else {
-            Err(BalanceOverflow {}.into())
+            env::panic_str("Balance overflow");
         }
     }
 
-    pub fn internal_withdraw(
-        &mut self,
-        account_id: &AccountId,
-        amount: Balance,
-    ) -> Result<(), BaseError> {
-        let balance: u128 =
-            self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
+    pub fn internal_withdraw(&mut self, account_id: &AccountId, amount: Balance) {
+        let balance = self.internal_unwrap_balance_of(account_id);
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply =
-                self.total_supply.checked_sub(amount).ok_or(TotalSupplyOverflow {}).unwrap();
-            Ok(())
+            self.total_supply = self
+                .total_supply
+                .checked_sub(amount)
+                .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
         } else {
-            Err(InsufficientBalance::new(None).into())
+            env::panic_str("The account doesn't have enough balance");
         }
     }
 
@@ -105,11 +96,11 @@ impl FungibleToken {
         receiver_id: &AccountId,
         amount: Balance,
         memo: Option<String>,
-    ) -> Result<(), BaseError> {
-        require_or_err!(sender_id != receiver_id, ReceiverIsSender::new());
-        require_or_err!(amount > 0, InvalidArgument::new("The amount should be a positive number"));
-        self.internal_withdraw(sender_id, amount).unwrap();
-        self.internal_deposit(receiver_id, amount).unwrap();
+    ) {
+        require!(sender_id != receiver_id, "Sender and receiver should be different");
+        require!(amount > 0, "The amount should be a positive number");
+        self.internal_withdraw(sender_id, amount);
+        self.internal_deposit(receiver_id, amount);
         FtTransfer {
             old_owner_id: sender_id,
             new_owner_id: receiver_id,
@@ -117,48 +108,21 @@ impl FungibleToken {
             memo: memo.as_deref(),
         }
         .emit();
-        Ok(())
     }
 
-    pub fn internal_register_account(
-        &mut self,
-        account_id: &AccountId,
-    ) -> Result<(), AccountAlreadyRegistered> {
+    pub fn internal_register_account(&mut self, account_id: &AccountId) {
         if self.accounts.insert(account_id, &0).is_some() {
-            return Err(AccountAlreadyRegistered {});
+            env::panic_str("The account is already registered");
         }
-        Ok(())
-    }
-}
-
-#[contract_error]
-pub struct ReceiverIsSender {
-    pub message: String,
-}
-
-impl ReceiverIsSender {
-    pub fn new() -> Self {
-        Self { message: "The receiver should be different from the sender".to_string() }
-    }
-}
-
-impl Default for ReceiverIsSender {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
 impl FungibleTokenCore for FungibleToken {
-    fn ft_transfer(
-        &mut self,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-    ) -> Result<(), BaseError> {
+    fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>) {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, &receiver_id, amount, memo)
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
     }
 
     fn ft_transfer_call(
@@ -172,7 +136,7 @@ impl FungibleTokenCore for FungibleToken {
 
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, &receiver_id, amount, memo).unwrap();
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
             // forward all remaining gas to `ft_on_transfer`
@@ -206,7 +170,7 @@ impl FungibleToken {
         sender_id: &AccountId,
         receiver_id: AccountId,
         amount: U128,
-    ) -> Result<(u128, u128), BaseError> {
+    ) -> (u128, u128) {
         let amount: Balance = amount.into();
 
         // Get the unused amount from the `ft_on_transfer` call result.
@@ -228,17 +192,14 @@ impl FungibleToken {
                 if let Some(new_receiver_balance) = receiver_balance.checked_sub(refund_amount) {
                     self.accounts.insert(&receiver_id, &new_receiver_balance);
                 } else {
-                    return Err(InsufficientBalance::new(Some(
-                        "The receiver account doesn't have enough balance",
-                    ))
-                    .into());
+                    env::panic_str("The receiver account doesn't have enough balance");
                 }
 
                 if let Some(sender_balance) = self.accounts.get(sender_id) {
                     if let Some(new_sender_balance) = sender_balance.checked_add(refund_amount) {
                         self.accounts.insert(sender_id, &new_sender_balance);
                     } else {
-                        return Err(InsufficientBalance::new(None).into());
+                        env::panic_str("Sender balance overflow");
                     }
 
                     FtTransfer {
@@ -248,34 +209,28 @@ impl FungibleToken {
                         memo: Some("refund"),
                     }
                     .emit();
-                    let used_amount = amount.checked_sub(refund_amount);
-                    let Some(used_amount) = used_amount else {
-                        return Err(TotalSupplyOverflow {}.into());
-                    };
-                    return Ok((used_amount, 0));
+                    let used_amount = amount
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
+                    return (used_amount, 0);
                 } else {
                     // Sender's account was deleted, so we need to burn tokens.
-                    let checked = self.total_supply.checked_sub(refund_amount);
-                    match checked {
-                        Some(new_total_supply) => {
-                            self.total_supply = new_total_supply;
-                            log!("The account of the sender was deleted");
-                            FtBurn {
-                                owner_id: &receiver_id,
-                                amount: U128(refund_amount),
-                                memo: Some("refund"),
-                            }
-                            .emit();
-                            return Ok((amount, refund_amount));
-                        }
-                        None => {
-                            return Err(TotalSupplyOverflow {}.into());
-                        }
+                    self.total_supply = self
+                        .total_supply
+                        .checked_sub(refund_amount)
+                        .unwrap_or_else(|| env::panic_str(ERR_TOTAL_SUPPLY_OVERFLOW));
+                    log!("The account of the sender was deleted");
+                    FtBurn {
+                        owner_id: &receiver_id,
+                        amount: U128(refund_amount),
+                        memo: Some("refund"),
                     }
+                    .emit();
+                    return (amount, refund_amount);
                 }
             }
         }
-        Ok((amount, 0))
+        (amount, 0)
     }
 }
 
@@ -285,28 +240,7 @@ impl FungibleTokenResolver for FungibleToken {
         sender_id: AccountId,
         receiver_id: AccountId,
         amount: U128,
-    ) -> Result<U128, BaseError> {
-        let transfer = self.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
-        match transfer {
-            Ok((used_amount, _)) => Ok(used_amount.into()),
-            Err(err) => Err(err),
-        }
+    ) -> U128 {
+        self.internal_ft_resolve_transfer(&sender_id, receiver_id, amount).0.into()
     }
 }
-
-#[contract_error]
-pub struct AccountNotRegistered {
-    account_id: AccountId,
-}
-
-impl AccountNotRegistered {
-    pub fn new(account_id: AccountId) -> Self {
-        Self { account_id }
-    }
-}
-
-#[contract_error]
-pub struct AccountAlreadyRegistered {}
-
-#[contract_error]
-pub struct BalanceOverflow {}

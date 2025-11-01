@@ -1,11 +1,11 @@
-use near_sdk::{ext_contract, json_types::U128, AccountId, BaseError};
+use near_sdk::{ext_contract, json_types::U128, AccountId};
 
 /// [`FungibleTokenResolver`] provides token transfer resolve functionality.
 ///
 /// # Examples
 ///
 /// ```
-/// use near_sdk::{near, PanicOnDefault, AccountId, log, BaseError};
+/// use near_sdk::{near, PanicOnDefault, AccountId, log};
 /// use near_sdk::collections::LazyOption;
 /// use near_sdk::json_types::U128;
 /// use near_contract_standards::fungible_token::{FungibleToken, FungibleTokenResolver};
@@ -26,13 +26,13 @@ use near_sdk::{ext_contract, json_types::U128, AccountId, BaseError};
 ///         sender_id: AccountId,
 ///         receiver_id: AccountId,
 ///         amount: U128,
-///     ) -> Result<U128, BaseError> {
+///     ) -> U128 {
 ///         let (used_amount, burned_amount) =
-///             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount).unwrap();
+///             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount);
 ///         if burned_amount > 0 {
 ///             log!("Account @{} burned {}", sender_id, burned_amount);
 ///         }
-///         Ok(used_amount.into())
+///         used_amount.into()
 ///     }
 /// }
 /// ```
@@ -44,5 +44,5 @@ pub trait FungibleTokenResolver {
         sender_id: AccountId,
         receiver_id: AccountId,
         amount: U128,
-    ) -> Result<U128, BaseError>;
+    ) -> U128;
 }

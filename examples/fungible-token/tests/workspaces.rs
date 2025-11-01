@@ -95,7 +95,7 @@ async fn initialized_contracts(
         .await?;
     assert!(res.is_success());
 
-    Ok((ft_contract, alice, defi_contract))
+    return Ok((ft_contract, alice, defi_contract));
 }
 
 #[rstest]
