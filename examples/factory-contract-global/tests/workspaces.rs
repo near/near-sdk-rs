@@ -156,7 +156,7 @@ async fn test_use_global_contract_by_account() -> anyhow::Result<()> {
 
 /// Test error cases and edge conditions
 #[tokio::test]
-async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
+async fn test_global_contract_edge_cases() -> anyhow::Result<()> { //
     let worker =
         near_workspaces::sandbox_with_version("2.7.0")
             .await?;
