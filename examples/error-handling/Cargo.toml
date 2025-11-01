@@ -1,24 +1,26 @@
 [package]
-name = "factory-contract-global"
+name = "error-handling"
 version = "0.1.0"
+authors = ["Near Inc <hello@nearprotocol.com>"]
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = { path = "../../near-sdk", features = ["legacy", "unstable", "global-contracts"] }
+near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 
 [dev-dependencies]
-near-sdk = { path = "../../near-sdk", features = ["unit-testing", "global-contracts"] }
 near-workspaces = { git = "https://github.com/polyprogrammist/near-workspaces-rs.git", branch = "sandboxutilsbackport", features = ["unstable"] }
-tokio = { version = "1.12.0", features = ["full"] }
+test-case = "2.0"
+tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
+rstest = "0.23.0"
 
 [profile.release]
 codegen-units = 1
+# Tell `rustc` to optimize for small code size.
 opt-level = "z"
 lto = true
 debug = false
 panic = "abort"
-overflow-checks = true
