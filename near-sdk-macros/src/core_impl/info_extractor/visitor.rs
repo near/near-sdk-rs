@@ -255,7 +255,7 @@ fn parse_return_kind(
     suppress_warnings: bool,
 ) -> syn::Result<ReturnKind> {
     match handles_result {
-        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult{
+        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult {
             result_type: typ.clone(),
             suppress_warnings,
         })),
@@ -263,7 +263,7 @@ fn parse_return_kind(
             if !utils::type_is_result(typ) {
                 Err(Error::new(typ.span(), "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`."))
             } else {
-                Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult{
+                Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult {
                     result_type: typ.clone(),
                     suppress_warnings,
                 }))
