@@ -27,7 +27,7 @@ use near_sdk::{ext_contract, json_types::U128, AccountId, BaseError};
 ///         receiver_id: AccountId,
 ///         amount: U128,
 ///     ) -> Result<U128, BaseError> {
-///         let (used_amount, burned_amount) = 
+///         let (used_amount, burned_amount) =
 ///             self.token.internal_ft_resolve_transfer(&sender_id, receiver_id, amount).unwrap();
 ///         if burned_amount > 0 {
 ///             log!("Account @{} burned {}", sender_id, burned_amount);

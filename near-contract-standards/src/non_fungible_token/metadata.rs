@@ -1,6 +1,6 @@
 use near_sdk::errors::{InvalidContractState, InvalidHashLength};
 use near_sdk::json_types::Base64VecU8;
-use near_sdk::{ext_contract, contract_error, near, require_or_err, BaseError};
+use near_sdk::{contract_error, ext_contract, near, require_or_err, BaseError};
 
 /// This spec can be treated like a version of the standard.
 pub const NFT_METADATA_SPEC: &str = "nft-1.0.0";

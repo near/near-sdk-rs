@@ -9,11 +9,11 @@ use crate::non_fungible_token::utils::{refund_approved_account_ids, refund_depos
 use crate::non_fungible_token::ApprovalNotSupported;
 use near_sdk::borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, TreeMap, UnorderedSet};
-use near_sdk::errors::{InsufficientGas, InvalidArgument, PermissionDenied};
+use near_sdk::errors::{InvalidArgument, PermissionDenied};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::{
-    assert_one_yocto, contract_error, env, near, require_or_err, AccountId,
-    BaseError, BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
+    assert_one_yocto, contract_error, env, near, require_or_err, AccountId, BaseError,
+    BorshStorageKey, Gas, IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -211,7 +211,7 @@ impl NonFungibleToken {
         approval_id: Option<u64>,
         memo: Option<String>,
     ) -> Result<(AccountId, Option<HashMap<AccountId, u64>>), BaseError> {
-        let owner_id = self.owner_by_id.get(token_id).ok_or_else(|| TokenNotFound {}).unwrap();
+        let owner_id = self.owner_by_id.get(token_id).ok_or(TokenNotFound {}).unwrap();
 
         // clear approvals, if using Approval Management extension
         // this will be rolled back by a panic if sending fails
@@ -221,9 +221,10 @@ impl NonFungibleToken {
         // check if authorized
         let sender_id = if sender_id != &owner_id {
             // Panic if approval extension is NOT being used
-            let app_acc_ids = 
-                approved_account_ids.as_ref().ok_or_else(||
-                ApprovalNotSupported::new("Approval extension is disabled")).unwrap();
+            let app_acc_ids = approved_account_ids
+                .as_ref()
+                .ok_or_else(|| ApprovalNotSupported::new("Approval extension is disabled"))
+                .unwrap();
 
             // Approval extension is being used; get approval_id for sender.
             let actual_approval_id = app_acc_ids.get(sender_id);
@@ -418,13 +419,7 @@ impl NonFungibleTokenCore for NonFungibleToken {
     ) -> Result<(), BaseError> {
         assert_one_yocto();
         let sender_id = env::predecessor_account_id();
-        self.internal_transfer(
-            &sender_id,
-            &receiver_id,
-            &token_id,
-            approval_id,
-            memo
-        ).unwrap();
+        self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo).unwrap();
         Ok(())
     }
 
@@ -506,11 +501,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             return Ok(true);
         };
 
-        self.internal_transfer_unguarded(
-            &token_id,
-            &receiver_id,
-            &previous_owner_id
-        ).unwrap();
+        self.internal_transfer_unguarded(&token_id, &receiver_id, &previous_owner_id).unwrap();
 
         // If using Approval Management extension,
         // 1. revert any approvals receiver already set, refunding storage costs

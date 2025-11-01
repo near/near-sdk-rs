@@ -3,20 +3,15 @@ use crate::fungible_token::events::{FtBurn, FtTransfer};
 use crate::fungible_token::receiver::ext_ft_receiver;
 use crate::fungible_token::resolver::{ext_ft_resolver, FungibleTokenResolver};
 use near_sdk::collections::LookupMap;
-use near_sdk::errors::{
-    InsufficientBalance, InsufficientGas, InvalidArgument, TotalSupplyOverflow,
-};
+use near_sdk::errors::{InsufficientBalance, InvalidArgument, TotalSupplyOverflow};
 use near_sdk::json_types::U128;
+use near_sdk::BaseError;
 use near_sdk::{
     assert_one_yocto, contract_error, env, log, near, require_or_err, AccountId, Gas,
     IntoStorageKey, PromiseOrValue, PromiseResult, StorageUsage,
 };
-use near_sdk::BaseError;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
-
-const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
-
 
 pub type Balance = u128;
 
@@ -75,12 +70,12 @@ impl FungibleToken {
         account_id: &AccountId,
         amount: Balance,
     ) -> Result<(), BaseError> {
-        let balance: u128 = self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
+        let balance: u128 =
+            self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
         if let Some(new_balance) = balance.checked_add(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply = self.total_supply
-                .checked_add(amount)
-                .ok_or_else(|| TotalSupplyOverflow {}).unwrap();
+            self.total_supply =
+                self.total_supply.checked_add(amount).ok_or(TotalSupplyOverflow {}).unwrap();
             Ok(())
         } else {
             Err(BalanceOverflow {}.into())
@@ -92,12 +87,12 @@ impl FungibleToken {
         account_id: &AccountId,
         amount: Balance,
     ) -> Result<(), BaseError> {
-        let balance: u128 = self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
+        let balance: u128 =
+            self.internal_unwrap_balance_of(account_id).map_err(Into::<BaseError>::into).unwrap();
         if let Some(new_balance) = balance.checked_sub(amount) {
             self.accounts.insert(account_id, &new_balance);
-            self.total_supply = self.total_supply
-                .checked_sub(amount)
-                .ok_or_else(|| TotalSupplyOverflow {}).unwrap();
+            self.total_supply =
+                self.total_supply.checked_sub(amount).ok_or(TotalSupplyOverflow {}).unwrap();
             Ok(())
         } else {
             Err(InsufficientBalance::new(None).into())
@@ -177,7 +172,7 @@ impl FungibleTokenCore for FungibleToken {
 
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
-        self.internal_transfer(&sender_id, &receiver_id, amount, memo);
+        self.internal_transfer(&sender_id, &receiver_id, amount, memo).unwrap();
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
             // forward all remaining gas to `ft_on_transfer`

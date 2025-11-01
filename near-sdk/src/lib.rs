@@ -936,7 +936,6 @@ pub use near_sdk_macros::near;
 /// ```
 pub use near_sdk_macros::near_bindgen;
 
-
 /// TODO: add docs
 pub use near_sdk_macros::contract_error;
 

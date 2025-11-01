@@ -41,7 +41,6 @@ macro_rules! log {
     };
 }
 
-
 /// Helper macro to create assertions that will panic through the runtime host functions.
 ///
 /// This macro can be used similarly to [`assert!`] but will reduce code size by not including
@@ -115,16 +114,20 @@ macro_rules! require_or_err {
 }
 
 #[macro_export]
-macro_rules! compile_warning {(
+macro_rules! compile_warning {
+    (
     $name:ident, $message:expr $(,)*
-) => (
-    mod $name {
-        #[must_use = $message]
-        struct compile_warning;
-        #[allow(dead_code)]
-        fn trigger_warning () { compile_warning; }
-    }
-)}
+) => {
+        mod $name {
+            #[must_use = $message]
+            struct compile_warning;
+            #[allow(dead_code)]
+            fn trigger_warning() {
+                compile_warning;
+            }
+        }
+    };
+}
 
 /// Assert that predecessor_account_id == current_account_id, meaning contract called itself.
 pub fn assert_self() {

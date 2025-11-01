@@ -786,7 +786,7 @@ struct ContractErrorArgs {
 /// ```
 ///
 /// The error is serialized as a JSON object with the following structure:
-/// ```ignore
+/// ```text
 /// {
 ///    "error": {
 ///       // this name can be "SDK_CONTRACT_ERROR" and "CUSTOM_CONTRACT_ERROR"
@@ -814,8 +814,7 @@ struct ContractErrorArgs {
 /// Don't use if it is defined outside.
 ///
 /// Internally, it makes error struct to:
-///  - implement `near_sdk::ContractErrorTrait` so that it becomes correct error
-/// which can be returned from contract method with defined structure.
+///  - implement `near_sdk::ContractErrorTrait` so that it becomes correct error, which can be returned from contract method with defined structure.
 ///  - implement `From<ErrorStruct> for near_sdk::BaseError` as a polymorphic solution
 ///  - implement `From<ErrorStruct> for String` to convert the error to a string
 #[proc_macro_attribute]

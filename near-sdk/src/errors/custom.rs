@@ -55,7 +55,7 @@ impl RequireFailed {
     }
 
     pub fn new_from_message(message: String) -> Self {
-        Self { message: message }
+        Self { message }
     }
 }
 

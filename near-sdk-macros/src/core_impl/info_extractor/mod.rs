@@ -97,7 +97,8 @@ pub enum ReturnKind {
     /// When the contract call happens:
     ///  - Contract struct is initialized
     ///  - The method is called
-    ///  - Contract state is written if it is modifying method.
+    ///  - Contract state is written if it is modifying method
+    ///
     /// In case of panic, state is not written.
     ///
     /// # Example:
@@ -136,14 +137,12 @@ pub enum ReturnKind {
     ///
     /// When the contract call happens, in addition to General:
     ///  - In case Result value is Err, panic is called and state is not written.
+    ///
     /// As soon as ErrType implements ContractErrorTrait, it is returned as a well-defined structure.
     /// You can see the structure in #[contract_error] documentation.
     /// If the error struct does not implement ContractErrorTrait, the code should not compile.
-    ///  - In case #[unsafe_persist_on_error] is used on method, panic is not called.
-    /// And the contract state is written.
-    /// But the extra <method_name>_error method is generated.
-    /// And this method is called in a new Promise.
-    /// This method effectively panics with structured error.
+    ///  - In case #[unsafe_persist_on_error] is used on method, panic is not called. And the contract state is written. But the extra <method_name>_error method is generated. And this method is called in a new Promise. This method effectively panics with structured error.
+    ///
     /// Please note #[unsafe_persist_on_error] is not safe. Imagine the user has a balance of 100 $COIN. Then they spent 20 $COIN. But some error occurs and you can't proceed with the transaction. Then the user will lose 20 $COIN in case you forget to revert the balance.
     ///
     /// # Example:

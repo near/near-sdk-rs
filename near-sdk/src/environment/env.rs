@@ -804,7 +804,7 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    
+
     expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 

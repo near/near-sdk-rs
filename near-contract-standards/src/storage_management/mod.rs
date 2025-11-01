@@ -56,7 +56,7 @@ pub struct StorageBalanceBounds {
 ///     #[payable]
 ///     fn storage_unregister(&mut self, force: Option<bool>) -> Result<bool, BaseError> {
 ///         #[allow(unused_variables)]
-///         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force)).unwrap() {
+///         if let Some((account_id, balance)) = self.token.internal_storage_unregister(force).unwrap() {
 ///             log!("Closed @{} with {}", account_id, balance);
 ///             Ok(true)
 ///         } else {
