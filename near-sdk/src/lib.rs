@@ -348,6 +348,57 @@ compile_error!(
 /// }
 /// ```
 ///
+/// You can also use [`#[serde_as(as = "...")]` attributes](https://docs.rs/serde_with/latest/serde_with/attr.serde_as.html)
+/// as if `#[serde_as]` is added to the type (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
+///
+/// ```
+/// # use std::{collections::BTreeMap};
+/// use near_sdk::{
+///     near,
+///     serde_json::json,
+///     serde_with::{base64::Base64, hex::Hex, json::JsonString, DisplayFromStr},
+/// };
+///
+/// #[near(serializers = [json])]
+/// pub struct MyStruct {
+///     #[serde_as(as = "DisplayFromStr")]
+///     pub amount: u128,
+///
+///     #[serde_as(as = "Hex")]
+///     pub hex_bytes: Vec<u8>,
+///
+///     #[serde_as(as = "Base64")]
+///     pub base64_bytes: Vec<u8>,
+///
+///     #[serde_as(as = "BTreeMap<Hex, Vec<DisplayFromStr>>")]
+///     pub collection: BTreeMap<Vec<u8>, Vec<u128>>,
+///
+///     #[serde_as(as = "JsonString")]
+///     pub json_string: serde_json::Value,
+/// }
+/// # fn main() {
+/// #     assert_eq!(
+/// #         serde_json::to_value(&MyStruct {
+/// #             amount: u128::MAX,
+/// #             hex_bytes: vec![0x1a, 0x2b, 0x3c],
+/// #             base64_bytes: vec![1, 2, 3],
+/// #             collection: [(vec![0x1a, 0x2b, 0x3c], vec![u128::MAX])].into(),
+/// #             json_string: json!({"key": "value"}),
+/// #         })
+/// #         .unwrap(),
+/// #         json!({
+/// #             "amount": "340282366920938463463374607431768211455",
+/// #             "hex_bytes": "1a2b3c",
+/// #             "base64_bytes": "AQID",
+/// #             "collection": {
+/// #                 "1a2b3c": ["340282366920938463463374607431768211455"],
+/// #             },
+/// #             "json_string": "{\"key\":\"value\"}",
+/// #         })
+/// #     );
+/// # }
+/// ```
+///
 /// ## `#[serializer(...)]` (annotates function arguments)
 ///
 /// The attribute makes the function argument deserializable from [`Vec`]<[`u8`]> with either json or borsh. By default, json is used.
@@ -1134,3 +1185,4 @@ pub use bs58;
 pub use schemars;
 pub use serde;
 pub use serde_json;
+pub use serde_with;
