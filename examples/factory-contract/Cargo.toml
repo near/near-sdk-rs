@@ -10,7 +10,7 @@ anyhow = "1.0"
 test-case = "2.0"
 tokio = { version = "1.14", features = ["full"] }
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
-near-workspaces = { git = "https://github.com/polyprogrammist/near-workspaces-rs.git", branch = "sandboxutilsbackport", features = ["unstable"] }
+near-workspaces = "0.21.0"
 
 [profile.release]
 codegen-units = 1
@@ -22,3 +22,6 @@ panic = "abort"
 
 [workspace]
 members = ["high-level", "low-level"]
+
+[patch.crates-io]
+near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }

@@ -21,7 +21,7 @@ panic = "abort"
 
 [dev-dependencies]
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
-near-workspaces = { git = "https://github.com/polyprogrammist/near-workspaces-rs.git", branch = "sandboxutilsbackport", features = ["unstable"] }
+near-workspaces = "0.21.0"
 tokio = { version = "1.14", features = ["full"] }
 anyhow = "1.0"
 near-abi = "0.4.0"
@@ -47,3 +47,6 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
+
+[patch.crates-io]
+near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }

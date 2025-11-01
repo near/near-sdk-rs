@@ -9,7 +9,7 @@ repository = "https://github.com/near/near-sdk-rs"
 anyhow = "1.0"
 near-sdk = { path = "../../near-sdk", features = ["unit-testing"] }
 tokio = { version = "1.14", features = ["full"] }
-near-workspaces = { git = "https://github.com/polyprogrammist/near-workspaces-rs.git", branch = "sandboxutilsbackport", features = ["unstable"] }
+near-workspaces = "0.21.0"
 rstest = "0.23.0"
 
 [profile.release]
@@ -24,3 +24,6 @@ overflow-checks = true
 [workspace]
 # remember to include a member for each contract
 members = ["ft", "test-contract-defi"]
+
+[patch.crates-io]
+near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }
