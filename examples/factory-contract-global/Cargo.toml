@@ -22,3 +22,6 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[patch.crates-io]
+near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }
