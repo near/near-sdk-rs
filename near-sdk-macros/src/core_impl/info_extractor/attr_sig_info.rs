@@ -143,10 +143,23 @@ impl AttrSigInfo {
                 }
                 "handle_result" => {
                     if let Some(value) = args.aliased {
-                        let handle_result = HandleResultAttr { check: value };
+                        let handle_result =
+                            HandleResultAttr { check: value, suppress_warnings: false };
                         visitor.visit_handle_result_attr(&handle_result);
                     } else {
-                        let handle_result = HandleResultAttr { check: false };
+                        let handle_result =
+                            HandleResultAttr { check: false, suppress_warnings: false };
+                        visitor.visit_handle_result_attr(&handle_result);
+                    }
+                }
+                "handle_result_suppres_warnings" => {
+                    if let Some(value) = args.aliased {
+                        let handle_result =
+                            HandleResultAttr { check: value, suppress_warnings: true };
+                        visitor.visit_handle_result_attr(&handle_result);
+                    } else {
+                        let handle_result =
+                            HandleResultAttr { check: false, suppress_warnings: true };
                         visitor.visit_handle_result_attr(&handle_result);
                     }
                 }

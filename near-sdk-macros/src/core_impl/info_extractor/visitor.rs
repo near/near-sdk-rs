@@ -15,6 +15,7 @@ struct ParsedData {
     is_payable: bool,
     is_private: bool,
     unsafe_persist_on_error: bool,
+    suppress_handle_result_warnings: bool,
     ignores_state: bool,
     deny_unknown_arguments: bool,
     result_serializer: SerializerType,
@@ -44,6 +45,7 @@ impl Default for ParsedData {
             is_payable: Default::default(),
             is_private: Default::default(),
             unsafe_persist_on_error: Default::default(),
+            suppress_handle_result_warnings: Default::default(),
             ignores_state: Default::default(),
             deny_unknown_arguments: Default::default(),
             result_serializer: SerializerType::JSON,
@@ -137,7 +139,8 @@ impl Visitor {
 
     pub fn visit_handle_result_attr(&mut self, params: &HandleResultAttr) {
         self.parsed_data.handles_result =
-            if params.check { ResultHandling::NoCheck } else { ResultHandling::Check }
+            if params.check { ResultHandling::NoCheck } else { ResultHandling::Check };
+        self.parsed_data.suppress_handle_result_warnings = params.suppress_warnings;
     }
 
     pub fn visit_unsafe_persist_on_error_attr(&mut self, _attr: &Attribute) -> syn::Result<()> {
@@ -181,6 +184,7 @@ impl Visitor {
                     typ,
                     self.parsed_data.handles_result,
                     self.parsed_data.unsafe_persist_on_error,
+                    self.parsed_data.suppress_handle_result_warnings,
                 )?,
             }),
         }
@@ -248,14 +252,21 @@ fn parse_return_kind(
     typ: &Type,
     handles_result: ResultHandling,
     unsafe_persist_on_error: bool,
+    suppress_warnings: bool,
 ) -> syn::Result<ReturnKind> {
     match handles_result {
-        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(typ.clone())),
+        ResultHandling::NoCheck => Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult{
+            result_type: typ.clone(),
+            suppress_warnings,
+        })),
         ResultHandling::Check => {
             if !utils::type_is_result(typ) {
                 Err(Error::new(typ.span(), "Function marked with #[handle_result] should return Result<T, E> (where E implements FunctionError). If you're trying to use a type alias for `Result`, try `#[handle_result(aliased)]`."))
             } else {
-                Ok(ReturnKind::HandlesResultExplicit(typ.clone()))
+                Ok(ReturnKind::HandlesResultExplicit(crate::ExplicitResult{
+                    result_type: typ.clone(),
+                    suppress_warnings,
+                }))
             }
         }
         ResultHandling::None => {

@@ -130,7 +130,7 @@ pub enum ReturnKind {
     /// #[handle_result]
     /// pub fn foo(&mut self) -> Result<u64, &'static str>;
     /// ```
-    HandlesResultExplicit(Type),
+    HandlesResultExplicit(ExplicitResult),
 
     /// Return type is Result<OkType, ErrType> and, the function is not marked with #[handle_result] and
     /// ErrType struct implements near_sdk::ContractErrorTrait (i.e. used with #[near_sdk::contract_error])
@@ -169,4 +169,10 @@ pub enum ReturnKind {
 pub struct StatusResult {
     pub result_type: Type,
     pub unsafe_persist_on_error: bool,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct ExplicitResult {
+    pub result_type: Type,
+    pub suppress_warnings: bool,
 }

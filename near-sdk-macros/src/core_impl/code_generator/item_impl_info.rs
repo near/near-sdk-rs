@@ -57,15 +57,17 @@ impl ItemImplInfo {
         let mut error_methods = quote! {};
 
         self.methods.iter().map(|m| &m.attr_signature_info).for_each(|method| {
-            if let ReturnKind::HandlesResultExplicit(_) = &method.returns.kind {
-                let warning_message = format!(
-                    "Method '{}' uses #[handle_result] attribute which is deprecated. Consider using implicit Result handling instead.",
-                    method.ident
-                );
-                let warning_name = format_ident!("using_handle_result_{}", method.ident);
-                error_methods.extend(quote! {
-                    near_sdk::compile_warning!(#warning_name, #warning_message);
-                });
+            if let ReturnKind::HandlesResultExplicit(explicit_result) = &method.returns.kind {
+                if !explicit_result.suppress_warnings {
+                    let warning_message = format!(
+                        "Method '{}' uses #[handle_result] attribute which is deprecated. Consider using implicit Result handling instead.",
+                        method.ident
+                    );
+                    let warning_name = format_ident!("using_handle_result_{}", method.ident);
+                    error_methods.extend(quote! {
+                        near_sdk::compile_warning!(#warning_name, #warning_message);
+                    });
+                }
             }
 
             if let ReturnKind::HandlesResultImplicit(status) = &method.returns.kind {
@@ -365,7 +367,7 @@ mod tests {
     fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result]
+            #[handle_result_suppres_warnings]
             pub fn method(&self) -> Result::<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -377,7 +379,7 @@ mod tests {
     fn handle_result_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result]
+            #[handle_result_suppres_warnings]
             pub fn method(&mut self) -> Result<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -389,7 +391,7 @@ mod tests {
     fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result]
+            #[handle_result_suppres_warnings]
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
@@ -403,7 +405,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
             #[init]
-            #[handle_result]
+            #[handle_result_suppres_warnings]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -416,7 +418,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
             #[init(ignore_state)]
-            #[handle_result]
+            #[handle_result_suppres_warnings]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();

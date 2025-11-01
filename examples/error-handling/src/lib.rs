@@ -39,7 +39,7 @@ impl Contract {
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     // ExecutionError("Smart contract panicked: error in inc_handle_result")
     // (does not change value)
-    #[handle_result]
+    #[handle_result_suppres_warnings]
     pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, &'static str> {
         self.value += 1;
         if is_error {
@@ -129,7 +129,7 @@ impl Contract {
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     //  ExecutionError("Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{\\\"error\\\":{\\\"x\\\":5}},\\\"name\\\":\\\"near_sdk::utils::contract_error::BaseError\\\"},\\\"name\\\":\\\"CUSTOM_CONTRACT_ERROR\\\"}}")
     // (does not change value)
-    pub fn inc_base_error(&mut self, is_error: bool) -> Result<u32, BaseError> {
+    pub fn inc_base(&mut self, is_error: bool) -> Result<u32, BaseError> {
         self.value += 1;
         if is_error {
             Err(MyErrorStruct { x: 5 }.into())

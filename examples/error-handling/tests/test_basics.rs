@@ -74,11 +74,11 @@ async fn test_error_handling(
     check_call(&contract, "inc_persist_on_err", false, 2, None).await;
     check_call(&contract, "inc_just_result", false, 3, None).await;
     check_call(&contract, "inc_just_simple", false, 4, None).await;
-    check_call(&contract, "inc_base_error", false, 5, None).await;
+    check_call(&contract, "inc_base", false, 5, None).await;
     check_call(&contract, "inc_handle_result", true, 5, None).await;
     check_call(&contract, "inc_persist_on_err", true, 6, Some("Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":\\\"X\\\",\\\"name\\\":\\\"error_handling::MyErrorEnum\\\"},\\\"name\\\":\\\"CUSTOM_CONTRACT_ERROR\\\"}}\")) }) } }".to_string())).await;
     check_call(&contract, "inc_just_result", true, 6, Some("Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{\\\"x\\\":5},\\\"name\\\":\\\"error_handling::MyErrorStruct\\\"},\\\"name\\\":\\\"SDK_CONTRACT_ERROR\\\"}}\")) }) } }".to_string())).await;
-    check_call(&contract, "inc_base_error", true, 6, Some("Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{\\\"x\\\":5},\\\"name\\\":\\\"error_handling::MyErrorStruct\\\"},\\\"name\\\":\\\"SDK_CONTRACT_ERROR\\\"}}\")) }) } }".to_string())).await;
+    check_call(&contract, "inc_base", true, 6, Some("Error { repr: Custom { kind: Execution, error: ActionError(ActionError { index: Some(0), kind: FunctionCallError(ExecutionError(\"Smart contract panicked: {\\\"error\\\":{\\\"cause\\\":{\\\"info\\\":{\\\"x\\\":5},\\\"name\\\":\\\"error_handling::MyErrorStruct\\\"},\\\"name\\\":\\\"SDK_CONTRACT_ERROR\\\"}}\")) }) } }".to_string())).await;
     check_call(&contract, "inc_just_simple", true, 6, None).await;
 
     Ok(())
