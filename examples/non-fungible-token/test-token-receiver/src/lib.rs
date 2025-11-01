@@ -75,7 +75,7 @@ impl NonFungibleTokenReceiver for TokenReceiver {
                     .ok_go(false)
                     .into()
             }
-            _ => env::panic_err(InvalidArgument::new("Unsupported msg")),
+            _ => env::panic_err(InvalidArgument::new("Unsupported msg").into()),
         }
     }
 }

@@ -1,5 +1,4 @@
-use near_sdk::require_or_err;
-use near_sdk::{env, near, BaseError, Promise, PromiseError};
+use near_sdk::{env, near, require, require_or_err, BaseError, Promise, PromiseError};
 use near_sdk::errors::{InvalidArgument, UnexpectedFailure, InvalidPromiseReturn};
 
 const A_VALUE: u8 = 8;
@@ -70,7 +69,7 @@ impl Callback {
     ) -> Result<(bool, bool, bool), BaseError> {
         require_or_err!(a == A_VALUE, InvalidPromiseReturn::new("Promise returned incorrect value"));
         if let Ok(s) = b.as_ref() {
-            require_or_err!(s == "Some string");
+            require_or_err!(s == "Some string", InvalidPromiseReturn::new("Promise returned incorrect value"));
         }
         Ok((b.is_err(), c.is_err(), d.is_err()))
     }
