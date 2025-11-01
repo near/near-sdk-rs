@@ -152,7 +152,7 @@ impl AttrSigInfo {
                         visitor.visit_handle_result_attr(&handle_result);
                     }
                 }
-                "handle_result_suppres_warnings" => {
+                "handle_result_suppress_warnings" => {
                     if let Some(value) = args.aliased {
                         let handle_result =
                             HandleResultAttr { check: value, suppress_warnings: true };

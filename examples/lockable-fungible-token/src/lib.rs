@@ -58,7 +58,7 @@ pub struct FunToken {
 #[near]
 impl FunToken {
     #[init]
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn new(owner_id: AccountId, total_supply: U128) -> Result<Self, &'static str> {
         let mut ft = Self { accounts: UnorderedMap::new(b"a"), total_supply: total_supply.into() };
         let mut account = ft.get_account(&owner_id);
@@ -71,7 +71,7 @@ impl FunToken {
     /// (`predecessor_id`) who is considered the balance owner to the new `allowance`.
     /// If some amount of tokens is currently locked by the `escrow_account_id` the new allowance is
     /// decreased by the amount of locked tokens.
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn set_allowance(
         &mut self,
         escrow_account_id: AccountId,
@@ -99,7 +99,7 @@ impl FunToken {
     /// Requirements:
     /// * The (`predecessor_id`) should have enough allowance or be the owner.
     /// * The owner should have enough unlocked balance.
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn lock(&mut self, owner_id: AccountId, lock_amount: U128) -> Result<(), &'static str> {
         let lock_amount: u128 = lock_amount.into();
         if lock_amount == 0 {
@@ -137,7 +137,7 @@ impl FunToken {
     /// If called not by the `owner_id` then the `unlock_amount` will be converted to the allowance.
     /// Requirements:
     /// * The (`predecessor_id`) should have at least `unlock_amount` locked tokens from `owner_id`.
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn unlock(&mut self, owner_id: AccountId, unlock_amount: U128) -> Result<(), &'static str> {
         let unlock_amount: u128 = unlock_amount.into();
         if unlock_amount == 0 {
@@ -176,7 +176,7 @@ impl FunToken {
     /// allowance tokens.
     /// * The balance owner should have at least `amount` of locked (by `predecessor_id`) plus
     /// unlocked tokens.
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn transfer_from(
         &mut self,
         owner_id: AccountId,
@@ -230,7 +230,7 @@ impl FunToken {
     }
 
     /// Same as `transfer_from` with `owner_id` `predecessor_id`.
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn transfer(&mut self, new_owner_id: AccountId, amount: U128) -> Result<(), &'static str> {
         self.transfer_from(env::predecessor_account_id(), new_owner_id, amount)
     }

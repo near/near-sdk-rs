@@ -37,12 +37,12 @@ struct Contract {}
 
 #[near]
 impl Contract {
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn set(&self, value: String) -> Result<String, ErrorStruct> {
         Err(ErrorStruct { message: format!("Could not set to {}", value) })
     }
 
-    #[handle_result_suppres_warnings]
+    #[handle_result_suppress_warnings]
     pub fn get(&self) -> Result<String, ErrorEnum> {
         Err(ErrorEnum::NotFound)
     }

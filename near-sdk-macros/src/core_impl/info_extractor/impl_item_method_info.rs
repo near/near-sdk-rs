@@ -56,7 +56,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
             #[init]
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             pub fn method(k: &mut u64) -> Result<Self, Error> { }
         };
         let method = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -69,7 +69,7 @@ mod tests {
     fn handle_result_incorrect_return_type() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             pub fn method(&self) -> &'static str { }
         };
         let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();

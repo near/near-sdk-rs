@@ -367,7 +367,7 @@ mod tests {
     fn handle_result_json() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             pub fn method(&self) -> Result::<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -379,7 +379,7 @@ mod tests {
     fn handle_result_mut() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             pub fn method(&mut self) -> Result<u64, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -391,7 +391,7 @@ mod tests {
     fn handle_result_borsh() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             #[result_serializer(borsh)]
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
@@ -405,7 +405,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
             #[init]
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -418,7 +418,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemFn = parse_quote! {
             #[init(ignore_state)]
-            #[handle_result_suppres_warnings]
+            #[handle_result_suppress_warnings]
             pub fn new() -> Result<Self, &'static str> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
