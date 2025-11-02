@@ -73,7 +73,6 @@ fn test_json_emit() {
     let logs = get_logs();
 
     {
-
         let log0_str = logs[0].strip_prefix("EVENT_JSON:").unwrap();
 
         assert_eq!(log0_event.to_event_log(), logs[0]);
@@ -106,7 +105,6 @@ fn test_json_emit() {
         assert_eq!(data0.get("amount_in").unwrap(), 100);
         assert_eq!(data0.get("amount_out").unwrap(), 200);
         assert_eq!(data0.get("test").unwrap(), "tst");
-
     }
     {
         let log1_str = logs[1].strip_prefix("EVENT_JSON:").unwrap();
