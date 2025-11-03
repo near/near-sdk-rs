@@ -478,7 +478,8 @@ async fn test_lazy() -> anyhow::Result<()> {
         .unwrap();
 
     // Override min gas to avoid constant tuning, it's pretty clear this is performant.
-    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get", Some(70));
+    println!("Total gas for lazy:get: {}", res.total_gas_burnt.as_gas());
+    perform_asserts(res.total_gas_burnt.as_gas(), "lazy:get", Some(25));
 
     let res = account
         .call(&contract_id, "insert_flush")

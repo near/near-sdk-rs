@@ -20,6 +20,8 @@ pub extern "C" fn method() {
             };
             ::near_sdk::env::value_return(&result);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(err) => {
+            ::near_sdk::FunctionError::panic(&err);
+        }
     }
 }
