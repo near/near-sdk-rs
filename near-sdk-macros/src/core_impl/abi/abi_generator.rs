@@ -327,7 +327,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Test").unwrap();
         let mut method = parse_quote! {
             /// I am a function.
-            #[handle_result_suppress_warnings]
+            #[handle_result(suppress_warnings)]
             pub fn f3(&mut self, arg0: FancyStruct, arg1: u64) -> Result<IsOk, Error> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -342,7 +342,7 @@ mod tests {
         let mut method = parse_quote! {
             #[result_serializer(borsh)]
             #[payable]
-            #[handle_result_suppress_warnings]
+            #[handle_result(suppress_warnings)]
             pub fn f3(&mut self, #[serializer(borsh)] arg0: FancyStruct) -> Result<IsOk, Error> { }
         };
         let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();

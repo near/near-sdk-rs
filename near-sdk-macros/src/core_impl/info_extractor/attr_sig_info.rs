@@ -29,7 +29,14 @@ pub struct AttrSigInfo {
 use darling::FromAttributes;
 #[derive(darling::FromAttributes, Clone, Debug)]
 #[darling(
-    attributes(init, payable, private, result_serializer, serializer, handle_result),
+    attributes(
+        init,
+        payable,
+        private,
+        result_serializer,
+        serializer,
+        handle_result,
+    ),
     forward_attrs(serializer)
 )]
 struct AttributeConfig {
@@ -37,6 +44,7 @@ struct AttributeConfig {
     json: Option<bool>,
     ignore_state: Option<bool>,
     aliased: Option<bool>,
+    suppress_warnings: Option<bool>,
 }
 
 impl AttrSigInfo {
@@ -142,26 +150,11 @@ impl AttrSigInfo {
                     visitor.visit_unsafe_persist_on_error_attr(attr)?;
                 }
                 "handle_result" => {
-                    if let Some(value) = args.aliased {
-                        let handle_result =
-                            HandleResultAttr { check: value, suppress_warnings: false };
-                        visitor.visit_handle_result_attr(&handle_result);
-                    } else {
-                        let handle_result =
-                            HandleResultAttr { check: false, suppress_warnings: false };
-                        visitor.visit_handle_result_attr(&handle_result);
-                    }
-                }
-                "handle_result_suppress_warnings" => {
-                    if let Some(value) = args.aliased {
-                        let handle_result =
-                            HandleResultAttr { check: value, suppress_warnings: true };
-                        visitor.visit_handle_result_attr(&handle_result);
-                    } else {
-                        let handle_result =
-                            HandleResultAttr { check: false, suppress_warnings: true };
-                        visitor.visit_handle_result_attr(&handle_result);
-                    }
+                    let handle_result = HandleResultAttr {
+                        check: args.aliased.unwrap_or(false),
+                        suppress_warnings: args.suppress_warnings.unwrap_or(false),
+                    };
+                    visitor.visit_handle_result_attr(&handle_result);
                 }
                 _ => {
                     non_bindgen_attrs.push((*attr).clone());

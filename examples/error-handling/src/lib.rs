@@ -39,7 +39,7 @@ impl Contract {
     // 0: Error: An error occurred during a `FunctionCall` Action, parameter is debug message.
     // ExecutionError("Smart contract panicked: error in inc_handle_result")
     // (does not change value)
-    #[handle_result_suppress_warnings]
+    #[handle_result(suppress_warnings)]
     pub fn inc_handle_result(&mut self, is_error: bool) -> Result<u32, &'static str> {
         self.value += 1;
         if is_error {
