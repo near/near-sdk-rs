@@ -83,8 +83,7 @@ mod tests {
         let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap();
-        assert_eq!((), actual);
+        ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap()
     }
 
     #[test]
@@ -94,8 +93,7 @@ mod tests {
             #[init]
             pub fn new() -> Result<Self, &'static str> { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap();
-        assert_eq!((), actual);
+        ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap()
     }
 
 
