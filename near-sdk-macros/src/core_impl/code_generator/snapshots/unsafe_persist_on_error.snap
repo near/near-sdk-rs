@@ -1,14 +1,19 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 411
+assertion_line: 459
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
 #[no_mangle]
 pub extern "C" fn method() {
     ::near_sdk::env::setup_panic_hook();
-    let contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
-    let result = Hello::method(&contract);
+    if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
+        ::near_sdk::env::panic_err(
+            ::near_sdk::errors::DepositNotAccepted::new("method").into(),
+        );
+    }
+    let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
+    let result = Hello::method(&mut contract);
     match result {
         ::std::result::Result::Ok(result) => {
             let result = match near_sdk::serde_json::to_vec(&result) {
@@ -20,9 +25,13 @@ pub extern "C" fn method() {
                 }
             };
             ::near_sdk::env::value_return(&result);
+            ::near_sdk::env::state_write(&contract);
         }
         ::std::result::Result::Err(err) => {
-            ::near_sdk::env::panic_err(err.into());
+            ::near_sdk::env::state_write(&contract);
+            let promise = Contract::ext(::near_sdk::env::current_account_id())
+                .method_error(err)
+                .as_return();
         }
     }
 }

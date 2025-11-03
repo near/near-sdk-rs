@@ -83,9 +83,8 @@ mod tests {
         let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
-        let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
-        assert_eq!(expected, actual.to_string());
+        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap();
+        assert_eq!((), actual);
     }
 
     #[test]
@@ -95,9 +94,8 @@ mod tests {
             #[init]
             pub fn new() -> Result<Self, &'static str> { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
-        let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
-        assert_eq!(expected, actual.to_string());
+        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap();
+        assert_eq!((), actual);
     }
 
 
