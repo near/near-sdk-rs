@@ -25,6 +25,3 @@ overflow-checks = true
 [workspace]
 # remember to include a member for each contract
 members = ["nft", "test-approval-receiver", "test-token-receiver"]
-
-[patch.crates-io]
-near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }

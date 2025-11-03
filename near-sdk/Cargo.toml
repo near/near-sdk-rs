@@ -111,5 +111,4 @@ features = [
     "__abi-generate",
 ]
 
-[patch.crates-io]
-near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }
+
