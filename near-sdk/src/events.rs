@@ -84,10 +84,10 @@ where
 }
 
 /// Helper trait implemented by events that expose a NEP-297 representation.
-pub trait AsNep297Event<T: Serialize> {
+pub trait AsNep297Event: Serialize + Sized {
     /// Converts the event into a [`Nep297Event`] representation.
     ///
     /// Wraps the event with its NEP-297 metadata. The payload is borrowed so it can be serialized
     /// on demand without cloning.
-    fn to_nep297_event(&self) -> Nep297Event<'_, T>;
+    fn to_nep297_event(&self) -> Nep297Event<'_, Self>;
 }

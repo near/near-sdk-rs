@@ -744,7 +744,7 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
                 }
             }
 
-            impl #impl_generics ::near_sdk::events::AsNep297Event<Self> for #name #type_generics #where_clause{
+            impl #impl_generics ::near_sdk::events::AsNep297Event for #name #type_generics #where_clause{
                 fn to_nep297_event(&self) -> ::near_sdk::events::Nep297Event<'_, Self> {
                     ::near_sdk::events::Nep297Event::new(
                         ::std::borrow::Cow::Borrowed(#standard_ident),
