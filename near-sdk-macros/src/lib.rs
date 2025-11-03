@@ -100,6 +100,7 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     let string_borsh_crate = quote! {#near_sdk_crate::borsh}.to_string();
     let string_serde_crate = quote! {#near_sdk_crate::serde}.to_string();
+    let string_serde_with_crate = quote! {#near_sdk_crate::serde_with}.to_string();
 
     let mut expanded: proc_macro2::TokenStream = quote! {};
 
@@ -179,8 +180,13 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if has_json {
+        let enable_schemars = cfg!(feature = "abi").then_some(quote! {schemars = true,});
         expanded = quote! {
             #expanded
+            #[#near_sdk_crate::serde_with::serde_as(
+                crate = #string_serde_with_crate,
+                #enable_schemars
+            )]
             #[derive(#near_sdk_crate::serde::Serialize, #near_sdk_crate::serde::Deserialize)]
             #[serde(crate = #string_serde_crate)]
         };
