@@ -29,14 +29,7 @@ pub struct AttrSigInfo {
 use darling::FromAttributes;
 #[derive(darling::FromAttributes, Clone, Debug)]
 #[darling(
-    attributes(
-        init,
-        payable,
-        private,
-        result_serializer,
-        serializer,
-        handle_result,
-    ),
+    attributes(init, payable, private, result_serializer, serializer, handle_result,),
     forward_attrs(serializer)
 )]
 struct AttributeConfig {

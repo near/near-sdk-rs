@@ -37,9 +37,6 @@ pub fn result_serializer() {}
 /// See [`near_sdk::near #[handle_result]`](crate::near#handle_result-annotates-methods-of-a-type-in-its-impl-block)
 pub fn handle_result() {}
 
-/// See [`near_sdk::near #[handle_result]`](crate::near#handle_result-annotates-methods-of-a-type-in-its-impl-block)
-pub fn handle_result(suppress_warnings)() {}
-
 /// See [`near_sdk::near #[callback_unwrap]`](crate::near#callback_unwrap-annotates-function-arguments)
 pub fn callback_unwrap() {}
 
