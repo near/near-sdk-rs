@@ -3,6 +3,7 @@ use borsh::BorshSchema;
 use std::cell::RefCell;
 #[cfg(feature = "abi")]
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
 use std::io::{Error, Write};
 use std::num::NonZeroU128;
 use std::rc::Rc;
@@ -202,7 +203,7 @@ impl PromiseSingle {
 }
 
 pub struct PromiseJoint {
-    pub promises: RefCell<Vec<Promise>>,
+    pub promises: RefCell<VecDeque<Promise>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -559,16 +560,16 @@ impl Promise {
                 self
             }
             (PromiseSubtype::Joint(x), _) => {
-                x.promises.borrow_mut().push(other);
+                x.promises.borrow_mut().push_back(other);
                 self
             }
             (_, PromiseSubtype::Joint(x)) => {
-                x.promises.borrow_mut().push(self);
+                x.promises.borrow_mut().push_front(self);
                 other
             }
             _ => Promise {
                 subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
-                    promises: RefCell::new(vec![self, other]),
+                    promises: RefCell::new([self, other].into()),
                     promise_index: RefCell::new(None),
                 })),
                 should_return: RefCell::new(false),
