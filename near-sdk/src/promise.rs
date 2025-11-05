@@ -200,8 +200,7 @@ impl PromiseSingle {
 }
 
 pub struct PromiseJoint {
-    pub promise_a: Promise,
-    pub promise_b: Promise,
+    pub promises: RefCell<Vec<Promise>>,
     /// Promise index that is computed only once.
     pub promise_index: RefCell<Option<PromiseIndex>>,
 }
@@ -212,10 +211,9 @@ impl PromiseJoint {
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
-        let res = crate::env::promise_and(&[
-            self.promise_a.construct_recursively(),
-            self.promise_b.construct_recursively(),
-        ]);
+        let res = crate::env::promise_and(
+            &self.promises.borrow().iter().map(Promise::construct_recursively).collect::<Vec<_>>(),
+        );
         *promise_lock = Some(res);
         res
     }
@@ -549,13 +547,18 @@ impl Promise {
     /// ```
     /// Uses low-level [`crate::env::promise_and`]
     pub fn and(self, other: Promise) -> Promise {
-        Promise {
-            subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
-                promise_a: self,
-                promise_b: other,
-                promise_index: RefCell::new(None),
-            })),
-            should_return: RefCell::new(false),
+        match &self.subtype {
+            PromiseSubtype::Joint(x) => {
+                x.promises.borrow_mut().push(other);
+                self
+            }
+            PromiseSubtype::Single(_) => Promise {
+                subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
+                    promises: RefCell::new(vec![self, other]),
+                    promise_index: RefCell::new(None),
+                })),
+                should_return: RefCell::new(false),
+            },
         }
     }
 
