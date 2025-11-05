@@ -563,8 +563,8 @@ impl Promise {
                 x.promises.borrow_mut().push_back(other);
                 self
             }
-            (_, PromiseSubtype::Joint(x)) => {
-                x.promises.borrow_mut().push_front(self);
+            (_, PromiseSubtype::Joint(o)) => {
+                o.promises.borrow_mut().push_front(self);
                 other
             }
             _ => Promise {
