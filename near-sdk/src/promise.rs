@@ -185,8 +185,10 @@ impl PromiseSingle {
         if let Some(res) = promise_lock.as_ref() {
             return *res;
         }
-        let promise_index = if let Some(after) = self.after.borrow().as_ref() {
-            crate::env::promise_batch_then(after.construct_recursively(), &self.account_id)
+        let promise_index = if let Some(after) =
+            self.after.borrow().as_deref().and_then(Promise::construct_recursively)
+        {
+            crate::env::promise_batch_then(after, &self.account_id)
         } else {
             crate::env::promise_batch_create(&self.account_id)
         };
@@ -206,16 +208,20 @@ pub struct PromiseJoint {
 }
 
 impl PromiseJoint {
-    pub fn construct_recursively(&self) -> PromiseIndex {
+    pub fn construct_recursively(&self) -> Option<PromiseIndex> {
         let mut promise_lock = self.promise_index.borrow_mut();
         if let Some(res) = promise_lock.as_ref() {
-            return *res;
+            return Some(*res);
+        }
+        let promises_lock = self.promises.borrow();
+        if promises_lock.is_empty() {
+            return None;
         }
         let res = crate::env::promise_and(
-            &self.promises.borrow().iter().map(Promise::construct_recursively).collect::<Vec<_>>(),
+            &promises_lock.iter().filter_map(Promise::construct_recursively).collect::<Vec<_>>(),
         );
         *promise_lock = Some(res);
-        res
+        Some(res)
     }
 }
 
@@ -547,12 +553,20 @@ impl Promise {
     /// ```
     /// Uses low-level [`crate::env::promise_and`]
     pub fn and(self, other: Promise) -> Promise {
-        match &self.subtype {
-            PromiseSubtype::Joint(x) => {
+        match (&self.subtype, &other.subtype) {
+            (PromiseSubtype::Joint(x), PromiseSubtype::Joint(o)) => {
+                x.promises.borrow_mut().append(&mut o.promises.borrow_mut());
+                self
+            }
+            (PromiseSubtype::Joint(x), _) => {
                 x.promises.borrow_mut().push(other);
                 self
             }
-            PromiseSubtype::Single(_) => Promise {
+            (_, PromiseSubtype::Joint(x)) => {
+                x.promises.borrow_mut().push(self);
+                other
+            }
+            _ => Promise {
                 subtype: PromiseSubtype::Joint(Rc::new(PromiseJoint {
                     promises: RefCell::new(vec![self, other]),
                     promise_index: RefCell::new(None),
@@ -673,15 +687,15 @@ impl Promise {
         self
     }
 
-    fn construct_recursively(&self) -> PromiseIndex {
+    fn construct_recursively(&self) -> Option<PromiseIndex> {
         let res = match &self.subtype {
             PromiseSubtype::Single(x) => x.construct_recursively(),
-            PromiseSubtype::Joint(x) => x.construct_recursively(),
+            PromiseSubtype::Joint(x) => x.construct_recursively()?,
         };
         if *self.should_return.borrow() {
             crate::env::promise_return(res);
         }
-        res
+        Some(res)
     }
 }
 
