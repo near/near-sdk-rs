@@ -5,7 +5,7 @@ use near_sdk::{env, near, Promise};
 pub struct Pair(u32, u32);
 
 #[derive(Default)]
-#[near(serializers=[borsh, json], contract_state)]
+#[near(serializers=[borsh, json], contract_state(key = b""))]
 pub struct Adder {}
 
 #[near]
