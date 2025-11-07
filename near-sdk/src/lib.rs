@@ -1133,6 +1133,8 @@ pub mod store;
 #[cfg(feature = "legacy")]
 pub mod collections;
 mod environment;
+#[cfg(feature = "component-model")]
+pub use environment::component;
 pub use environment::env;
 
 #[cfg(feature = "unstable")]
