@@ -25,6 +25,7 @@ impl ContractStateArgs {
     ) -> proc_macro2::TokenStream {
         let key = self.key.map(|key| {
             quote! {
+                #[inline]
                 fn state_key() -> &'static [u8] {
                     #key
                 }
