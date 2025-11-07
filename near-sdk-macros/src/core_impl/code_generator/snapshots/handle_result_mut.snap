@@ -9,7 +9,8 @@ pub extern "C" fn method() {
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
         ::near_sdk::env::panic_str("Method method doesn't accept deposit");
     }
-    let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
+    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+        .unwrap_or_default();
     let result = Hello::method(&mut contract);
     match result {
         ::std::result::Result::Ok(result) => {
@@ -22,7 +23,7 @@ pub extern "C" fn method() {
                 }
             };
             ::near_sdk::env::value_return(&result);
-            ::near_sdk::env::state_write(&contract);
+            <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
         }
         ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
     }

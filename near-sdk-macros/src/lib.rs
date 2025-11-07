@@ -38,8 +38,8 @@ impl FromMeta for Serializers {
 #[derive(FromMeta)]
 struct NearMacroArgs {
     serializers: Option<Serializers>,
-    contract_state: Option<bool>,
-    contract_metadata: Option<core_impl::ContractMetadata>,
+    #[darling(default, flatten)]
+    near_bindgen_args: NearBindgenMacroArgs,
     inside_nearsdk: Option<bool>,
 }
 
@@ -104,12 +104,9 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut expanded: proc_macro2::TokenStream = quote! {};
 
-    if near_macro_args.contract_state.unwrap_or(false) {
-        if let Some(metadata) = near_macro_args.contract_metadata {
-            expanded = quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
-        } else {
-            expanded = quote! {#[#near_sdk_crate::near_bindgen]}
-        }
+    if near_macro_args.near_bindgen_args.contract_state.is_some() {
+        let near_bindgen_args = near_macro_args.near_bindgen_args;
+        expanded = quote! {#[#near_sdk_crate::near_bindgen(#near_bindgen_args)]};
     };
 
     let mut has_borsh = false;
@@ -220,65 +217,34 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[derive(Default, FromMeta)]
+struct NearBindgenMacroArgs {
+    contract_state: Option<core_impl::state::ContractStateArgs>,
+    #[darling(default)]
+    contract_metadata: core_impl::ContractMetadata,
+}
+
+impl quote::ToTokens for NearBindgenMacroArgs {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let contract_state = &self.contract_state;
+        let contract_metadata = &self.contract_metadata;
+        tokens.extend(quote! {
+            contract_state(#contract_state),
+            contract_metadata(#contract_metadata),
+        })
+    }
+}
+
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
         return core_impl::near_events(attr, item);
     }
 
-    let generate_metadata = |ident: &Ident,
-                             generics: &syn::Generics|
-     -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-        let metadata_impl_gen = generate_contract_metadata_method(ident, generics).into();
-
-        let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
-            .expect("failed to generate contract metadata");
-        process_impl_block(metadata_impl_gen)
-    };
-
-    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let metadata = core_impl::contract_source_metadata_const(attr);
-
-        let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
-
-        let metadata_impl_gen = match metadata_impl_gen {
-            Ok(metadata) => metadata,
-            Err(err) => return err.into(),
-        };
-
-        let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
-        #[cfg(feature = "__abi-embed-checked")]
-        let abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed-checked"))]
-        let abi_embedded = quote! {};
-        TokenStream::from(quote! {
-            #input
-            #ext_gen
-            #abi_embedded
-            #metadata
-            #metadata_impl_gen
-        })
+    let (ident, generics) = if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        (input.ident, input.generics)
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        let metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
-
-        let metadata_impl_gen = match metadata_impl_gen {
-            Ok(metadata) => metadata,
-            Err(err) => return err.into(),
-        };
-
-        let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
-        #[cfg(feature = "__abi-embed-checked")]
-        let abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed-checked"))]
-        let abi_embedded = quote! {};
-        TokenStream::from(quote! {
-            #input
-            #ext_gen
-            #abi_embedded
-            #metadata
-            #metadata_impl_gen
-        })
+        (input.ident, input.generics)
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
@@ -294,20 +260,65 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        match process_impl_block(input) {
+        return match process_impl_block(input) {
             Ok(output) => output,
             Err(output) => output,
         }
-        .into()
+        .into();
     } else {
-        TokenStream::from(
+        return TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
                 "near_bindgen can only be used on struct or enum definition and impl sections.",
             )
             .to_compile_error(),
-        )
-    }
+        );
+    };
+
+    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return Error::from(e).write_errors().into();
+        }
+    };
+
+    let args = match NearBindgenMacroArgs::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => {
+            return e.write_errors().into();
+        }
+    };
+
+    let impl_contract_state = args.contract_state.map(|s| s.impl_contract_state(&ident, &generics));
+    let metadata = args.contract_metadata.contract_source_metadata_const();
+
+    let metadata_impl_gen = {
+        let metadata_impl_gen = generate_contract_metadata_method(&ident, &generics).into();
+
+        let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
+            .expect("failed to generate contract metadata");
+        process_impl_block(metadata_impl_gen)
+    };
+
+    let metadata_impl_gen = match metadata_impl_gen {
+        Ok(metadata) => metadata,
+        Err(err) => return err.into(),
+    };
+
+    let ext_gen = generate_ext_structs(&ident, Some(&generics));
+    #[cfg(feature = "__abi-embed-checked")]
+    let abi_embedded = abi::embed();
+    #[cfg(not(feature = "__abi-embed-checked"))]
+    let abi_embedded = quote! {};
+    let item = proc_macro2::TokenStream::from(item);
+    TokenStream::from(quote! {
+        #item
+        #ext_gen
+        #abi_embedded
+        #metadata
+        #metadata_impl_gen
+        #impl_contract_state
+    })
 }
 
 // This function deals with impl block processing, generating wrappers and ABI.

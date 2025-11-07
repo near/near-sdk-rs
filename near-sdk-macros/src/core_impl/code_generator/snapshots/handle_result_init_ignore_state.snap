@@ -12,7 +12,7 @@ pub extern "C" fn new() {
     let contract = Hello::new();
     match contract {
         ::std::result::Result::Ok(contract) => {
-            ::near_sdk::env::state_write(&contract);
+            <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
         }
         ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
     }
