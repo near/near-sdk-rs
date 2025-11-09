@@ -612,11 +612,14 @@ pub fn derive_no_default(item: TokenStream) -> TokenStream {
     match syn::parse::<Item>(item) {
         Ok(Item::Enum(ItemEnum { ident, .. })) | Ok(Item::Struct(ItemStruct { ident, .. })) => {
             TokenStream::from(quote! {
-                impl ::std::default::Default for #ident {
-                    fn default() -> Self {
-                        ::near_sdk::env::panic_str("The contract is not initialized");
+                const _: () = {
+                    #[automatically_derived]
+                    impl ::std::default::Default for #ident {
+                        fn default() -> Self {
+                            ::near_sdk::env::panic_str("The contract is not initialized");
+                        }
                     }
-                }
+                };
             })
         }
         _ => TokenStream::from(
