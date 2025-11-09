@@ -16,9 +16,13 @@ impl FungibleToken {
             if balance == 0 || force {
                 self.accounts.remove(&account_id);
                 self.total_supply -= balance;
-                Promise::new(account_id.clone()).transfer(
-                    self.storage_balance_bounds().min.saturating_add(NearToken::from_yoctonear(1)),
-                );
+                Promise::new(account_id.clone())
+                    .transfer(
+                        self.storage_balance_bounds()
+                            .min
+                            .saturating_add(NearToken::from_yoctonear(1)),
+                    )
+                    .detach();
                 Some((account_id, balance))
             } else {
                 env::panic_str(
@@ -56,7 +60,7 @@ impl StorageManagement for FungibleToken {
         if self.accounts.contains_key(&account_id) {
             log!("The account is already registered, refunding the deposit");
             if amount > NearToken::from_near(0) {
-                Promise::new(env::predecessor_account_id()).transfer(amount);
+                Promise::new(env::predecessor_account_id()).transfer(amount).detach();
             }
         } else {
             let min_balance = self.storage_balance_bounds().min;
@@ -67,7 +71,7 @@ impl StorageManagement for FungibleToken {
             self.internal_register_account(&account_id);
             let refund = amount.saturating_sub(min_balance);
             if refund > NearToken::from_near(0) {
-                Promise::new(env::predecessor_account_id()).transfer(refund);
+                Promise::new(env::predecessor_account_id()).transfer(refund).detach();
             }
         }
         self.internal_storage_balance_of(&account_id).unwrap()

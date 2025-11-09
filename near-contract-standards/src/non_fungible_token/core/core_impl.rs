@@ -455,7 +455,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             // The token was burned and doesn't exist anymore.
             // Refund storage cost for storing approvals to original owner and return early.
             if let Some(approved_account_ids) = approved_account_ids {
-                refund_approved_account_ids(previous_owner_id, &approved_account_ids);
+                refund_approved_account_ids(previous_owner_id, &approved_account_ids).detach();
             }
             return true;
         };
@@ -467,7 +467,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         // 2. reset approvals to what previous owner had set before call to nft_transfer_call
         if let Some(by_id) = &mut self.approvals_by_id {
             if let Some(receiver_approvals) = by_id.remove(&token_id) {
-                refund_approved_account_ids(receiver_id.clone(), &receiver_approvals);
+                refund_approved_account_ids(receiver_id.clone(), &receiver_approvals).detach();
             }
             if let Some(previous_owner_approvals) = approved_account_ids {
                 by_id.insert(&token_id, &previous_owner_approvals);
