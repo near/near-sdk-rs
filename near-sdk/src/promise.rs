@@ -267,6 +267,7 @@ impl PromiseJoint {
 /// ```
 ///
 /// More information about promises in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/crosscontract#promises)
+#[must_use = "return or detach explicitly via `.detach()`"]
 pub struct Promise {
     subtype: PromiseSubtype,
     should_return: RefCell<bool>,
@@ -698,6 +699,10 @@ impl Promise {
         }
         Some(res)
     }
+
+    /// Explicitly detach given promise
+    #[inline]
+    pub fn detach(self) {}
 }
 
 impl Drop for Promise {
@@ -756,6 +761,7 @@ impl schemars::JsonSchema for Promise {
 ///     contract_a::ext("bob_near".parse().unwrap()).a().into()
 /// };
 /// ```
+#[must_use = "return or detach explicitly via `.detach()`"]
 #[derive(serde::Serialize)]
 #[serde(untagged)]
 pub enum PromiseOrValue<T> {
@@ -817,6 +823,7 @@ impl<T: schemars::JsonSchema> schemars::JsonSchema for PromiseOrValue<T> {
 ///
 /// Use [`ConcurrentPromises::split_off`] to divide the list of promises into
 /// subgroups that can be joined independently.
+#[must_use = "return or detach explicitly via `.detach()`"]
 pub struct ConcurrentPromises {
     promises: Vec<Promise>,
 }
@@ -844,6 +851,10 @@ impl ConcurrentPromises {
         let right_side = self.promises.split_off(at);
         ConcurrentPromises { promises: right_side }
     }
+
+    /// Explicitly detach given promises
+    #[inline]
+    pub fn detach(self) {}
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -916,7 +927,7 @@ mod tests {
         // Promise is only executed when dropped so we put it in its own scope to make sure receipts
         // are ready afterwards.
         {
-            Promise::new(alice()).create_account().add_full_access_key(public_key.clone());
+            Promise::new(alice()).create_account().add_full_access_key(public_key.clone()).detach();
         }
 
         assert!(has_add_key_with_full_access(public_key, None));
@@ -932,7 +943,8 @@ mod tests {
         {
             Promise::new(alice())
                 .create_account()
-                .add_full_access_key_with_nonce(public_key.clone(), nonce);
+                .add_full_access_key_with_nonce(public_key.clone(), nonce)
+                .detach();
         }
 
         assert!(has_add_key_with_full_access(public_key, Some(nonce)));
@@ -948,12 +960,15 @@ mod tests {
         let function_names = "method_a,method_b".to_string();
 
         {
-            Promise::new(alice()).create_account().add_access_key_allowance(
-                public_key.clone(),
-                Allowance::Limited(allowance.try_into().unwrap()),
-                receiver_id.clone(),
-                function_names.clone(),
-            );
+            Promise::new(alice())
+                .create_account()
+                .add_access_key_allowance(
+                    public_key.clone(),
+                    Allowance::Limited(allowance.try_into().unwrap()),
+                    receiver_id.clone(),
+                    function_names.clone(),
+                )
+                .detach();
         }
 
         assert!(has_add_key_with_function_call(
@@ -976,12 +991,15 @@ mod tests {
 
         {
             #[allow(deprecated)]
-            Promise::new(alice()).create_account().add_access_key(
-                public_key.clone(),
-                allowance,
-                receiver_id.clone(),
-                function_names.clone(),
-            );
+            Promise::new(alice())
+                .create_account()
+                .add_access_key(
+                    public_key.clone(),
+                    allowance,
+                    receiver_id.clone(),
+                    function_names.clone(),
+                )
+                .detach();
         }
 
         assert!(has_add_key_with_function_call(
@@ -1004,13 +1022,16 @@ mod tests {
         let nonce = 42;
 
         {
-            Promise::new(alice()).create_account().add_access_key_allowance_with_nonce(
-                public_key.clone(),
-                Allowance::Limited(allowance.try_into().unwrap()),
-                receiver_id.clone(),
-                function_names.clone(),
-                nonce,
-            );
+            Promise::new(alice())
+                .create_account()
+                .add_access_key_allowance_with_nonce(
+                    public_key.clone(),
+                    Allowance::Limited(allowance.try_into().unwrap()),
+                    receiver_id.clone(),
+                    function_names.clone(),
+                    nonce,
+                )
+                .detach();
         }
 
         assert!(has_add_key_with_function_call(
@@ -1034,13 +1055,16 @@ mod tests {
 
         {
             #[allow(deprecated)]
-            Promise::new(alice()).create_account().add_access_key_with_nonce(
-                public_key.clone(),
-                allowance,
-                receiver_id.clone(),
-                function_names.clone(),
-                nonce,
-            );
+            Promise::new(alice())
+                .create_account()
+                .add_access_key_with_nonce(
+                    public_key.clone(),
+                    allowance,
+                    receiver_id.clone(),
+                    function_names.clone(),
+                    nonce,
+                )
+                .detach();
         }
 
         assert!(has_add_key_with_function_call(
@@ -1062,7 +1086,8 @@ mod tests {
             Promise::new(alice())
                 .create_account()
                 .add_full_access_key(public_key.clone())
-                .delete_key(public_key.clone());
+                .delete_key(public_key.clone())
+                .detach();
         }
         let public_key = near_crypto::PublicKey::try_from(public_key).unwrap();
 
@@ -1083,7 +1108,7 @@ mod tests {
         let code = vec![1, 2, 3, 4];
 
         {
-            Promise::new(alice()).create_account().deploy_global_contract(code.clone());
+            Promise::new(alice()).create_account().deploy_global_contract(code.clone()).detach();
         }
 
         let has_action = get_actions().any(|el| {
@@ -1105,7 +1130,8 @@ mod tests {
         {
             Promise::new(alice())
                 .create_account()
-                .deploy_global_contract_by_account_id(code.clone());
+                .deploy_global_contract_by_account_id(code.clone())
+                .detach();
         }
 
         let has_action = get_actions().any(|el| {
@@ -1125,7 +1151,7 @@ mod tests {
         let code_hash = vec![0u8; 32];
 
         {
-            Promise::new(alice()).create_account().use_global_contract(code_hash.clone());
+            Promise::new(alice()).create_account().use_global_contract(code_hash.clone()).detach();
         }
 
         // Check if any UseGlobalContract action exists
@@ -1143,7 +1169,8 @@ mod tests {
         {
             Promise::new(alice())
                 .create_account()
-                .use_global_contract_by_account_id(deployer.clone());
+                .use_global_contract_by_account_id(deployer.clone())
+                .detach();
         }
 
         let has_action = get_actions().any(|el| {
@@ -1167,7 +1194,8 @@ mod tests {
         {
             Promise::new(alice())
                 .create_account()
-                .then(Promise::new(sub_account_1).create_account());
+                .then(Promise::new(sub_account_1).create_account())
+                .detach();
         }
 
         let receipts = get_created_receipts();
@@ -1194,7 +1222,7 @@ mod tests {
         {
             let p1 = Promise::new(sub_account_1.clone()).create_account();
             let p2 = Promise::new(sub_account_2.clone()).create_account();
-            Promise::new(alice()).create_account().then_concurrent(vec![p1, p2]);
+            Promise::new(alice()).create_account().then_concurrent(vec![p1, p2]).detach();
         }
 
         let receipts = get_created_receipts();
@@ -1240,7 +1268,8 @@ mod tests {
                 .then_concurrent(vec![p1, p2])
                 .split_off(1)
                 .join()
-                .then(p3);
+                .then(p3)
+                .detach();
         }
 
         let receipts = get_created_receipts();
@@ -1298,7 +1327,8 @@ mod tests {
                 .create_account()
                 .then_concurrent(vec![p1, p2])
                 .join()
-                .then_concurrent(vec![p3, p4]);
+                .then_concurrent(vec![p3, p4])
+                .detach();
         }
 
         let receipts = get_created_receipts();

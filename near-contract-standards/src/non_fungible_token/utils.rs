@@ -38,7 +38,7 @@ pub fn refund_deposit_to_account(storage_used: u64, account_id: AccountId) {
 
     let refund = attached_deposit.saturating_sub(required_cost);
     if refund.as_yoctonear() > 1 {
-        Promise::new(account_id).transfer(refund);
+        Promise::new(account_id).transfer(refund).detach();
     }
 }
 
