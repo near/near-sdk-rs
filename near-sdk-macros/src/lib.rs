@@ -12,7 +12,9 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{
+    parse_quote, Expr, ImplItem, Item, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause,
+};
 
 #[derive(Debug, Clone)]
 struct Serializers {
@@ -607,23 +609,23 @@ fn get_where_clause(
 
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemStruct>(item) {
-        let name = &input.ident;
-        TokenStream::from(quote! {
-            impl ::std::default::Default for #name {
-                fn default() -> Self {
-                    ::near_sdk::env::panic_str("The contract is not initialized");
+    match syn::parse::<Item>(item) {
+        Ok(Item::Enum(ItemEnum { ident, .. })) | Ok(Item::Struct(ItemStruct { ident, .. })) => {
+            TokenStream::from(quote! {
+                impl ::std::default::Default for #ident {
+                    fn default() -> Self {
+                        ::near_sdk::env::panic_str("The contract is not initialized");
+                    }
                 }
-            }
-        })
-    } else {
-        TokenStream::from(
+            })
+        }
+        _ => TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
                 "PanicOnDefault can only be used on type declarations sections.",
             )
             .to_compile_error(),
-        )
+        ),
     }
 }
 
