@@ -769,6 +769,12 @@ pub enum PromiseOrValue<T> {
     Value(T),
 }
 
+impl<T> PromiseOrValue<T> {
+    /// Explicitly detach if it was a promise
+    #[inline]
+    pub fn detach(self) {}
+}
+
 #[cfg(feature = "abi")]
 impl<T> BorshSchema for PromiseOrValue<T>
 where
