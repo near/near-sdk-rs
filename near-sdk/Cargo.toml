@@ -111,3 +111,4 @@ features = [
     "__macro-docs",
     "__abi-generate",
 ]
+

@@ -16,3 +16,4 @@ homepage = "https://docs.near.org/"
 ### borsh = { git = "https://github.com/near/borsh-rs", branch = "master" }
 ### near-vm-logic = { git = "https://github.com/near/nearcore", branch = "master" }
 ### near-primitives-core = { git = "https://github.com/near/nearcore", branch = "master" }
+near-sandbox-utils = { git = 'https://github.com/polyprogrammist/near-sandbox-rs.git', branch = "backports" }
