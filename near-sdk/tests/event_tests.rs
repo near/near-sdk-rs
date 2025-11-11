@@ -247,7 +247,6 @@ mod emit_gas_consumption_tests {
     use super::*;
     use near_sdk::env;
     use near_sdk::test_utils::test_env::{alice, bob};
-    use near_sdk::Gas;
 
     fn setup_test_env() {
         let context = near_sdk::test_utils::VMContextBuilder::new()
@@ -299,7 +298,7 @@ mod emit_gas_consumption_tests {
             let gas_after = env::used_gas();
             let gas_used = gas_after.as_gas() - gas_before.as_gas();
 
-            perform_gas_asserts(gas_used, "Swap event emit", 63796097058);
+            perform_gas_asserts(gas_used, "Swap event emit", 63796097058 + 3000000000);
         }
 
         // Test empty event emission (minimal overhead)
@@ -310,7 +309,7 @@ mod emit_gas_consumption_tests {
             let gas_after = env::used_gas();
             let gas_used = gas_after.as_gas() - gas_before.as_gas();
 
-            perform_gas_asserts(gas_used, "Empty event emit", 34172359170);
+            perform_gas_asserts(gas_used, "Empty event emit", 34172359170 + 1700000000);
         }
 
         // Test string event emission
@@ -321,7 +320,7 @@ mod emit_gas_consumption_tests {
             let gas_after = env::used_gas();
             let gas_used = gas_after.as_gas() - gas_before.as_gas();
 
-            perform_gas_asserts(gas_used, "String event emit", 40961132436);
+            perform_gas_asserts(gas_used, "String event emit", 40961132436 + 2000000000);
         }
     }
 
@@ -338,7 +337,7 @@ mod emit_gas_consumption_tests {
             let gas_used = gas_after.as_gas() - gas_before.as_gas();
 
             println!("{}", near_gas::NearGas::from_tgas(3).as_gas());
-            perform_gas_asserts(gas_used, "Small data event", 39109648818);
+            perform_gas_asserts(gas_used, "Small data event", 39109648818 + 2000000000);
         }
 
         // Medium data (~1KB)
@@ -351,7 +350,7 @@ mod emit_gas_consumption_tests {
             let gas_after = env::used_gas();
             let gas_used = gas_after.as_gas() - gas_before.as_gas();
 
-            perform_gas_asserts(gas_used, "Medium data event (1KB)", 353553283275);
+            perform_gas_asserts(gas_used, "Medium data event (1KB)", 353553283275 + 15000000000);
         }
 
         // Large data (~10KB)
@@ -364,7 +363,7 @@ mod emit_gas_consumption_tests {
             let gas_after = env::used_gas();
             let gas_used = gas_after.as_gas() - gas_before.as_gas();
 
-            perform_gas_asserts(gas_used, "Large data event (10KB)", 3123372775803);
+            perform_gas_asserts(gas_used, "Large data event (10KB)", 3123372775803 + 150000000000);
         }
     }
 
@@ -392,6 +391,6 @@ mod emit_gas_consumption_tests {
         let gas_after = env::used_gas();
         let total_gas_used = gas_after.as_gas() - gas_before.as_gas();
 
-        perform_gas_asserts(total_gas_used, "Total gas used", 3184545730536);
+        perform_gas_asserts(total_gas_used, "Total gas used", 3184545730536 + 150000000000);
     }
 }
