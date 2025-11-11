@@ -1,155 +1,315 @@
 //! Blockchain-specific methods available to the smart contract that allow to interact with NEAR runtime.
-//! This is a wrapper around a low-level [`near_sys`](near_sys).
-//!
-//! Unless you know what you are doing prefer using `env::*`
-//! whenever possible.
 //!
 //! In case of cross-contract calls prefer using higher-level API available
-//! through [`crate::Promise`], and [`crate::PromiseOrValue<T>`].
+//! through [`crate::component::Promise`].
 
-use std::convert::TryInto;
-use std::mem::{size_of, size_of_val};
-use std::panic as std_panic;
-use std::{convert::TryFrom, mem::MaybeUninit};
+use core::str::FromStr;
+use core::{array, fmt};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
-use crate::mock::MockedBlockchain;
+use crate::env::{ATOMIC_OP_REGISTER, EVICTED_REGISTER, REGISTER_EXPECTED_ERR, STATE_KEY};
 use crate::promise::Allowance;
-use crate::types::{
-    AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
-};
-use crate::{CryptoHash, GasWeight, PromiseError};
-use near_sys as sys;
+use crate::public_key::{ParsePublicKeyError, ParsePublicKeyErrorKind};
+use crate::types::{Gas, NearToken, PromiseResult};
+use crate::{BlockHeight, CryptoHash, GasWeight, StorageUsage};
 
-pub(crate) const REGISTER_EXPECTED_ERR: &str =
-    "Register was expected to have data because we just wrote it into it.";
+mod bindings;
+use bindings::near::nearcore::runtime;
+pub use bindings::near::nearcore::runtime::*;
 
-/// Register used internally for atomic operations. This register is safe to use by the user,
-/// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
-/// guest code is not parallel.
-pub(crate) const ATOMIC_OP_REGISTER: u64 = u64::MAX - 2;
-/// Register used to record evicted values from the storage.
-pub(crate) const EVICTED_REGISTER: u64 = u64::MAX - 1;
+impl From<u128> for U128 {
+    fn from(value: u128) -> Self {
+        Self { lo: value as _, hi: (value >> 64) as _ }
+    }
+}
 
-/// Key used to store the state of the contract.
-pub(crate) const STATE_KEY: &[u8] = b"STATE";
+impl From<NearToken> for U128 {
+    fn from(v: NearToken) -> Self {
+        v.as_yoctonear().into()
+    }
+}
 
-/// The minimum length of a valid account ID.
-const MIN_ACCOUNT_ID_LEN: u64 = 2;
-/// The maximum length of a valid account ID.
-const MAX_ACCOUNT_ID_LEN: u64 = 64;
+impl From<U128> for u128 {
+    fn from(U128 { lo, hi }: U128) -> Self {
+        u128::from(lo) | (u128::from(hi) << 64)
+    }
+}
+
+impl From<U128> for NearToken {
+    fn from(v: U128) -> Self {
+        NearToken::from_yoctonear(v.into())
+    }
+}
+
+impl From<U128> for [u8; 16] {
+    fn from(U128 { lo, hi }: U128) -> Self {
+        let lo = lo.to_ne_bytes();
+        let hi = hi.to_ne_bytes();
+        array::from_fn(|i| if i < 8 { lo[i] } else { hi[i - 8] })
+    }
+}
+
+impl From<[u8; 16]> for U128 {
+    fn from(bytes: [u8; 16]) -> Self {
+        u128::from_ne_bytes(bytes).into()
+    }
+}
+
+impl From<U160> for [u8; 20] {
+    fn from(U160 { lo, hi }: U160) -> Self {
+        let lo: [u8; 16] = lo.into();
+        let hi = hi.to_ne_bytes();
+        array::from_fn(|i| if i < 10 { lo[i] } else { hi[i - 10] })
+    }
+}
+
+impl From<U256> for [u8; 32] {
+    fn from(U256 { lo, hi }: U256) -> Self {
+        let lo: [u8; 16] = lo.into();
+        let hi: [u8; 16] = hi.into();
+        array::from_fn(|i| if i < 16 { lo[i] } else { hi[i - 16] })
+    }
+}
+
+impl From<[u8; 32]> for U256 {
+    fn from(
+        [
+            v0,
+            v1,
+            v2,
+            v3,
+            v4,
+            v5,
+            v6,
+            v7,
+            v8,
+            v9,
+            v10,
+            v11,
+            v12,
+            v13,
+            v14,
+            v15,
+            v16,
+            v17,
+            v18,
+            v19,
+            v20,
+            v21,
+            v22,
+            v23,
+            v24,
+            v25,
+            v26,
+            v27,
+            v28,
+            v29,
+            v30,
+            v31,
+        ]: [u8; 32],
+    ) -> Self {
+        Self {
+            lo: [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15].into(),
+            hi: [v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31]
+                .into(),
+        }
+    }
+}
+
+impl From<U512> for [u8; 64] {
+    fn from(U512 { lo, hi }: U512) -> Self {
+        let lo: [u8; 32] = lo.into();
+        let hi: [u8; 32] = hi.into();
+        array::from_fn(|i| if i < 32 { lo[i] } else { hi[i - 32] })
+    }
+}
+
+impl From<[u8; 64]> for U512 {
+    fn from(bytes: [u8; 64]) -> Self {
+        let (lo, hi) = bytes.split_first_chunk().unwrap();
+        let (hi, []) = hi.split_first_chunk().unwrap() else {
+            unreachable!();
+        };
+        Self { lo: (*lo).into(), hi: (*hi).into() }
+    }
+}
+
+impl U128 {
+    pub fn to_ne_bytes(self) -> [u8; 16] {
+        self.into()
+    }
+
+    pub fn from_ne_bytes(bytes: [u8; 16]) -> Self {
+        bytes.into()
+    }
+}
+
+impl U160 {
+    pub fn to_ne_bytes(self) -> [u8; 20] {
+        self.into()
+    }
+}
+
+impl U256 {
+    pub fn to_ne_bytes(self) -> [u8; 32] {
+        self.into()
+    }
+
+    pub fn from_ne_bytes(bytes: [u8; 32]) -> Self {
+        bytes.into()
+    }
+}
+
+impl U512 {
+    pub fn to_ne_bytes(self) -> [u8; 64] {
+        self.into()
+    }
+
+    pub fn from_ne_bytes(bytes: [u8; 64]) -> Self {
+        bytes.into()
+    }
+}
+
+impl From<PublicKey> for crate::PublicKey {
+    fn from(key: PublicKey) -> Self {
+        match key {
+            PublicKey::Ed25519(key) => {
+                Self::from_parts(crate::CurveType::ED25519, key.to_ne_bytes().into())
+            }
+            PublicKey::Secp256k1(key) => {
+                Self::from_parts(crate::CurveType::SECP256K1, key.to_ne_bytes().into())
+            }
+        }
+        .unwrap()
+    }
+}
+
+impl FromStr for PublicKey {
+    type Err = ParsePublicKeyError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let (curve, key_data) = crate::PublicKey::split_key_type_data(value)?;
+        let data = bs58::decode(key_data).into_vec()?;
+        let n = data.len();
+        match curve {
+            crate::CurveType::ED25519 => {
+                let Ok(buf) = data.try_into() else {
+                    return Err(ParsePublicKeyError {
+                        kind: ParsePublicKeyErrorKind::InvalidLength(n),
+                    });
+                };
+                Ok(Self::Ed25519(U256::from_ne_bytes(buf)))
+            }
+            crate::CurveType::SECP256K1 => {
+                let Ok(buf) = data.try_into() else {
+                    return Err(ParsePublicKeyError {
+                        kind: ParsePublicKeyErrorKind::InvalidLength(n),
+                    });
+                };
+                Ok(Self::Secp256k1(U512::from_ne_bytes(buf)))
+            }
+        }
+    }
+}
+
+impl FromStr for AccountId {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::from_string(value)
+    }
+}
+
+impl TryFrom<Box<str>> for AccountId {
+    type Error = ();
+
+    fn try_from(account_id: Box<str>) -> Result<Self, Self::Error> {
+        account_id.parse()
+    }
+}
+
+impl TryFrom<String> for AccountId {
+    type Error = ();
+
+    fn try_from(account_id: String) -> Result<Self, Self::Error> {
+        account_id.parse()
+    }
+}
+
+impl fmt::Display for AccountId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&Self::to_string(self), f)
+    }
+}
+
+impl From<AccountId> for String {
+    fn from(account_id: AccountId) -> Self {
+        AccountId::to_string(&account_id)
+    }
+}
+
+impl From<AccountId> for Box<str> {
+    fn from(account_id: AccountId) -> Box<str> {
+        AccountId::to_string(&account_id).into_boxed_str()
+    }
+}
+
+impl PartialEq<AccountId> for AccountId {
+    fn eq(&self, other: &AccountId) -> bool {
+        Self::to_string(self).as_str() == Self::to_string(other).as_str()
+    }
+}
+
+impl PartialEq<AccountId> for String {
+    fn eq(&self, other: &AccountId) -> bool {
+        self.as_str() == AccountId::to_string(other).as_str()
+    }
+}
+
+impl PartialEq<String> for AccountId {
+    fn eq(&self, other: &String) -> bool {
+        Self::to_string(self).as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<AccountId> for str {
+    fn eq(&self, other: &AccountId) -> bool {
+        self == AccountId::to_string(other).as_str()
+    }
+}
+
+impl PartialEq<str> for AccountId {
+    fn eq(&self, other: &str) -> bool {
+        Self::to_string(self).as_str() == other
+    }
+}
+
+impl Eq for AccountId {}
 
 fn expect_register<T>(option: Option<T>) -> T {
     option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
-}
-
-/// A simple macro helper to read blob value coming from host's method.
-macro_rules! try_method_into_register {
-    ( $method:ident ) => {{
-        unsafe { sys::$method(ATOMIC_OP_REGISTER) };
-        read_register(ATOMIC_OP_REGISTER)
-    }};
-}
-
-/// Same as `try_method_into_register` but expects the data.
-macro_rules! method_into_register {
-    ( $method:ident ) => {{
-        expect_register(try_method_into_register!($method))
-    }};
-}
-
-//* Note: need specific length functions because const generics don't work with mem::transmute
-//* https://github.com/rust-lang/rust/issues/61956
-
-pub(crate) unsafe fn read_register_fixed_20(register_id: u64) -> [u8; 20] {
-    let mut hash = [MaybeUninit::<u8>::uninit(); 20];
-    sys::read_register(register_id, hash.as_mut_ptr() as _);
-    std::mem::transmute(hash)
-}
-
-pub(crate) unsafe fn read_register_fixed_32(register_id: u64) -> [u8; 32] {
-    let mut hash = [MaybeUninit::<u8>::uninit(); 32];
-    sys::read_register(register_id, hash.as_mut_ptr() as _);
-    std::mem::transmute(hash)
-}
-
-pub(crate) unsafe fn read_register_fixed_64(register_id: u64) -> [u8; 64] {
-    let mut hash = [MaybeUninit::<u8>::uninit(); 64];
-    sys::read_register(register_id, hash.as_mut_ptr() as _);
-    std::mem::transmute(hash)
-}
-
-/// Replaces the current low-level blockchain interface accessible through `env::*` with another
-/// low-level blockchain interface with builtin functions of the NEAR runtime. In most cases you
-/// want to use `testing_env!` macro to set it.
-///
-/// ```
-/// # let context = near_sdk::test_utils::VMContextBuilder::new().build();
-/// # let vm_config = near_sdk::test_vm_config();
-/// # let fees_config = near_sdk::RuntimeFeesConfig::test();
-/// # let storage = Default::default();
-/// # let validators = Default::default();
-/// let mocked_blockchain = near_sdk::MockedBlockchain::new(
-///           context,
-///           vm_config,
-///           fees_config,
-///           vec![],
-///           storage,
-///           validators,
-///           None,
-///       );
-/// near_sdk::env::set_blockchain_interface(mocked_blockchain);
-/// ```
-#[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
-pub fn set_blockchain_interface(blockchain_interface: MockedBlockchain) {
-    crate::mock::with_mocked_blockchain(|b| {
-        *b = blockchain_interface;
-    })
 }
 
 /// Implements panic hook that converts `PanicInfo` into a string and provides it through the
 /// blockchain interface.
 // TODO: replace with std::panic::PanicHookInfo when MSRV becomes >= 1.81.0
 #[allow(deprecated)]
-fn panic_hook_impl(info: &std_panic::PanicInfo) {
-    panic_str(info.to_string().as_str());
+fn panic_hook_impl(info: &std::panic::PanicInfo) {
+    panic(Some(info.to_string().as_str()));
 }
 
 /// Setups panic hook to expose error info to the blockchain.
 pub fn setup_panic_hook() {
-    std_panic::set_hook(Box::new(panic_hook_impl));
+    std::panic::set_hook(Box::new(panic_hook_impl));
 }
 
-/// Reads the content of the `register_id`. If register is not used returns `None`.
+/// Reads the content of the `register_id`.
 pub fn read_register(register_id: u64) -> Option<Vec<u8>> {
-    // Get register length and convert to a usize. The max register size in config is much less
-    // than the u32 max so the abort should never be hit, but is there for safety because there
-    // would be undefined behaviour during `read_register` if the buffer length is truncated.
-    let len: usize = register_len(register_id)?.try_into().unwrap_or_else(|_| abort());
-
-    // Initialize buffer with capacity.
-    let mut buffer = Vec::with_capacity(len);
-
-    // Read register into buffer.
-    //* SAFETY: This is safe because the buffer is initialized with the exact capacity of the
-    //*         register that is being read from.
-    unsafe {
-        sys::read_register(register_id, buffer.as_mut_ptr() as u64);
-
-        // Set updated length after writing to buffer.
-        buffer.set_len(len);
-    }
-    Some(buffer)
+    register_len(register_id).map(|_| runtime::read_register(register_id))
 }
 
 /// Returns the size of the register. If register is not used returns `None`.
 pub fn register_len(register_id: u64) -> Option<u64> {
-    let len = unsafe { sys::register_len(register_id) };
-    if len == u64::MAX {
-        None
-    } else {
-        Some(len)
-    }
+    runtime::register_len(register_id)
 }
 
 // ###############
@@ -158,124 +318,112 @@ pub fn register_len(register_id: u64) -> Option<u64> {
 /// The id of the account that owns the current contract.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::current_account_id;
-/// use near_sdk::AccountId;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::current_account_id;
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// assert_eq!(current_account_id(), "alice.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn current_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(current_account_id))
+    runtime::current_account_id()
 }
 
 /// The id of the account that either signed the original transaction or issued the initial
 /// cross-contract call.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::signer_account_id;
-/// use near_sdk::AccountId;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::signer_account_id;
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// assert_eq!(signer_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn signer_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(signer_account_id))
+    runtime::signer_account_id()
 }
 
 /// The public key of the account that did the signing.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::signer_account_pk;
-/// use near_sdk::{PublicKey, CurveType};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::signer_account_pk;
+/// use near_sdk::component::PublicKey;
+/// use near_sdk::CurveType;
 ///
-/// let pk = PublicKey::from_parts(near_sdk::CurveType::ED25519, vec![0; 32]).unwrap();
+/// let pk = PublicKey::Ed25519([0; 32].into());
 /// assert_eq!(signer_account_pk(), pk);
 /// ```
 pub fn signer_account_pk() -> PublicKey {
-    PublicKey::try_from(method_into_register!(signer_account_pk)).unwrap_or_else(|_| abort())
+    runtime::signer_account_pk()
 }
 
 /// The id of the account that was the previous contract in the chain of cross-contract calls.
 /// If this is the first contract, it is equal to `signer_account_id`.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::predecessor_account_id;
-/// use near_sdk::AccountId;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::predecessor_account_id;
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// assert_eq!(predecessor_account_id(), "bob.near".parse::<AccountId>().unwrap());
 /// ```
 pub fn predecessor_account_id() -> AccountId {
-    assert_valid_account_id(method_into_register!(predecessor_account_id))
-}
-
-/// Helper function to convert and check the account ID from bytes from the runtime.
-fn assert_valid_account_id(bytes: Vec<u8>) -> AccountId {
-    String::from_utf8(bytes)
-        .ok()
-        .and_then(|s| AccountId::try_from(s).ok())
-        .unwrap_or_else(|| abort())
+    runtime::predecessor_account_id()
 }
 
 /// The input to the contract call serialized as bytes. If input is not provided returns `None`.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::input;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::input;
 ///
-/// assert_eq!(input(), Some(Vec::new()));
+/// assert_eq!(input(), [0u8; 0]);
 /// ```
 /// See an example here [here](https://github.com/near-examples/update-migrate-rust/blob/a1a326de73c152831f93fbf6d90932e13a08b89f/self-updates/update/src/update.rs#L19)
-pub fn input() -> Option<Vec<u8>> {
-    try_method_into_register!(input)
-}
-
-/// Current block index.
-///
-/// # Examples
-/// ```
-/// use near_sdk::env::block_index;
-///
-/// assert_eq!(block_index(), 0);
-/// ```
-#[deprecated(since = "4.0.0", note = "Use block_height instead")]
-pub fn block_index() -> BlockHeight {
-    block_height()
+pub fn input() -> Vec<u8> {
+    runtime::input()
 }
 
 /// Returns the height of the block the transaction is being executed in.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::block_height;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::block_height;
 ///
 /// assert_eq!(block_height(), 0);
 /// ```
 pub fn block_height() -> BlockHeight {
-    unsafe { sys::block_height() }
+    runtime::block_height()
 }
 
 /// Current block timestamp, i.e, number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::block_timestamp;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::block_timestamp;
 ///
 /// assert_eq!(block_timestamp(), 0);
 /// ```
 pub fn block_timestamp() -> u64 {
-    unsafe { sys::block_timestamp() }
+    runtime::block_timestamp()
 }
 
 /// Current block timestamp, i.e, number of non-leap-milliseconds since January 1, 1970 0:00:00 UTC.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::block_timestamp_ms;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::block_timestamp_ms;
 ///
 /// assert_eq!(block_timestamp_ms(), 0);
 /// ```
@@ -286,25 +434,27 @@ pub fn block_timestamp_ms() -> u64 {
 /// Current epoch height.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::epoch_height;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::epoch_height;
 ///
 /// assert_eq!(epoch_height(), 0);
 /// ```
 pub fn epoch_height() -> u64 {
-    unsafe { sys::epoch_height() }
+    runtime::epoch_height()
 }
 
 /// Current total storage usage of this smart contract that this account would be paying for.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::storage_usage;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::storage_usage;
 ///
 /// assert_eq!(storage_usage(), 307200);
 /// ```
 pub fn storage_usage() -> StorageUsage {
-    unsafe { sys::storage_usage() }
+    runtime::storage_usage()
 }
 
 // #################
@@ -314,73 +464,72 @@ pub fn storage_usage() -> StorageUsage {
 /// attached to the transaction
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::account_balance;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::account_balance;
 /// use near_sdk::NearToken;
 ///
 /// assert_eq!(account_balance(), NearToken::from_near(100));
 /// ```
 pub fn account_balance() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::account_balance(data.as_ptr() as u64) };
-    NearToken::from_yoctonear(u128::from_le_bytes(data))
+    runtime::account_balance().into()
 }
 
 /// The balance locked for potential validator staking.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::account_locked_balance;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::account_locked_balance;
 /// use near_sdk::NearToken;
 ///
 /// assert_eq!(account_locked_balance(), NearToken::from_yoctonear(0));
 /// ```
 pub fn account_locked_balance() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::account_locked_balance(data.as_ptr() as u64) };
-    NearToken::from_yoctonear(u128::from_le_bytes(data))
+    runtime::account_locked_balance().into()
 }
 
 /// The balance that was attached to the call that will be immediately deposited before the
 /// contract execution starts
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::attached_deposit;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::attached_deposit;
 /// use near_sdk::NearToken;
 ///
 /// assert_eq!(attached_deposit(), NearToken::from_yoctonear(0));
 /// ```
 pub fn attached_deposit() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::attached_deposit(data.as_ptr() as u64) };
-    NearToken::from_yoctonear(u128::from_le_bytes(data))
+    runtime::attached_deposit().into()
 }
 
 /// The amount of gas attached to the call that can be used to pay for the gas fees.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::prepaid_gas;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::prepaid_gas;
 /// use near_sdk::Gas;
 ///
 /// assert_eq!(prepaid_gas(), Gas::from_tgas(300));
 /// ```
 pub fn prepaid_gas() -> Gas {
-    Gas::from_gas(unsafe { sys::prepaid_gas() })
+    Gas::from_gas(runtime::prepaid_gas())
 }
 
 /// The gas that was already burnt during the contract execution (cannot exceed `prepaid_gas`)
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::used_gas;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::used_gas;
 /// use near_sdk::Gas;
 ///
 /// assert_eq!(used_gas(), Gas::from_gas(264768111));
 /// ```
 pub fn used_gas() -> Gas {
-    Gas::from_gas(unsafe { sys::used_gas() })
+    Gas::from_gas(runtime::used_gas())
 }
 
 // ############
@@ -392,24 +541,26 @@ pub fn used_gas() -> Gas {
 /// same method/block.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::random_seed;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::random_seed;
 ///
 /// assert_eq!(random_seed(), vec![0; 32]);
 /// ```
 pub fn random_seed() -> Vec<u8> {
-    random_seed_array().to_vec()
+    runtime::random_seed()
 }
 
 /// Returns the random seed from the current block. This 32 byte hash is based on the VRF value from
 /// the block. This value is not modified in any way each time this function is called within the
 /// same method/block.
 /// Example of usage:
-/// ```rust
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
 /// use rand::{Rng, SeedableRng};
 /// use rand_chacha::ChaCha20Rng;
 /// use near_sdk::near;
-/// use near_sdk::env;
+/// use near_sdk::component;
 /// #[near(contract_state)]
 /// struct RngExample {
 ///    val: i32,
@@ -417,7 +568,7 @@ pub fn random_seed() -> Vec<u8> {
 /// #[near]
 /// impl RngExample {
 ///     pub fn increment(&mut self) {
-///         let mut rng = ChaCha20Rng::from_seed(env::random_seed_array());
+///         let mut rng = ChaCha20Rng::from_seed(component::random_seed_array());
 ///         let value = rng.gen_range(0..1011);
 ///         self.val += value;
 ///     }
@@ -429,10 +580,11 @@ pub fn random_seed() -> Vec<u8> {
 ///
 /// Example of usage with [near-rng](https://lib.rs/crates/near-rng) which allows to decrease size of contract binary:
 ///
-/// ```rust
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
 /// use near_rng::Rng;
 /// use near_sdk::near;
-/// use near_sdk::env;
+/// use near_sdk::component;
 /// #[near(contract_state)]
 /// struct NearRngExample {
 ///    val: i32,
@@ -440,7 +592,7 @@ pub fn random_seed() -> Vec<u8> {
 /// #[near]
 /// impl NearRngExample {
 ///     pub fn increment(&mut self) {
-///         let mut rng = Rng::new(&env::random_seed());
+///         let mut rng = Rng::new(&component::random_seed());
 ///         let value = rng.rand_range_i32(0, 20);
 ///         self.val += value;
 ///     }
@@ -451,20 +603,15 @@ pub fn random_seed() -> Vec<u8> {
 /// ```
 /// More info in [documentation](https://docs.near.org/develop/contracts/security/random)
 pub fn random_seed_array() -> [u8; 32] {
-    //* SAFETY: random_seed syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid random_seed implementation.
-    unsafe {
-        sys::random_seed(ATOMIC_OP_REGISTER);
-        read_register_fixed_32(ATOMIC_OP_REGISTER)
-    }
+    random_seed().try_into().unwrap()
 }
 
 /// Hashes the random sequence of bytes using sha256.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::sha256;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::sha256;
 /// use hex;
 ///
 /// assert_eq!(
@@ -479,8 +626,9 @@ pub fn sha256(value: &[u8]) -> Vec<u8> {
 /// Hashes the random sequence of bytes using keccak256.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::keccak256;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::keccak256;
 /// use hex;
 ///
 /// assert_eq!(
@@ -496,8 +644,9 @@ pub fn keccak256(value: &[u8]) -> Vec<u8> {
 /// Hashes the random sequence of bytes using keccak512.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::keccak512;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::keccak512;
 /// use hex;
 ///
 /// assert_eq!(
@@ -513,8 +662,9 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 /// Hashes the bytes using the SHA-256 hash function. This returns a 32 byte hash.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::sha256_array;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::sha256_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -525,20 +675,15 @@ pub fn keccak512(value: &[u8]) -> Vec<u8> {
 /// );
 /// ```
 pub fn sha256_array(value: &[u8]) -> [u8; 32] {
-    //* SAFETY: sha256 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid sha256 implementation.
-    unsafe {
-        sys::sha256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_32(ATOMIC_OP_REGISTER)
-    }
+    runtime::sha256(value).into()
 }
 
 /// Hashes the bytes using the Keccak-256 hash function. This returns a 32 byte hash.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::keccak256_array;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::keccak256_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -549,20 +694,15 @@ pub fn sha256_array(value: &[u8]) -> [u8; 32] {
 /// );
 /// ```
 pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
-    //* SAFETY: keccak256 syscall will always generate 32 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 32, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid keccak256 implementation.
-    unsafe {
-        sys::keccak256(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_32(ATOMIC_OP_REGISTER)
-    }
+    runtime::keccak256(value).into()
 }
 
 /// Hashes the bytes using the Keccak-512 hash function. This returns a 64 byte hash.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::keccak512_array;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::keccak512_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -573,20 +713,15 @@ pub fn keccak256_array(value: &[u8]) -> [u8; 32] {
 /// );
 /// ```
 pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
-    //* SAFETY: keccak512 syscall will always generate 64 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 64, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid keccak512 implementation.
-    unsafe {
-        sys::keccak512(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_64(ATOMIC_OP_REGISTER)
-    }
+    keccak512(value).try_into().unwrap()
 }
 
 /// Hashes the bytes using the RIPEMD-160 hash function. This returns a 20 byte hash.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::ripemd160_array;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::ripemd160_array;
 /// use hex;
 ///
 /// assert_eq!(
@@ -597,13 +732,7 @@ pub fn keccak512_array(value: &[u8]) -> [u8; 64] {
 /// );
 /// ```
 pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
-    //* SAFETY: ripemd160 syscall will always generate 20 bytes inside of the atomic op register
-    //*         so the read will have a sufficient buffer of 20, and can transmute from uninit
-    //*         because all bytes are filled. This assumes a valid ripemd160 implementation.
-    unsafe {
-        sys::ripemd160(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-        read_register_fixed_20(ATOMIC_OP_REGISTER)
-    }
+    runtime::ripemd160(value).into()
 }
 
 /// Recovers an ECDSA signer address from a 32-byte message `hash` and a corresponding `signature`
@@ -613,36 +742,21 @@ pub fn ripemd160_array(value: &[u8]) -> [u8; 20] {
 /// which is generally only ideal for transactions.
 ///
 /// Returns 64 bytes representing the public key if the recovery was successful.
-#[cfg(feature = "unstable")]
 pub fn ecrecover(
-    hash: &[u8],
-    signature: &[u8],
+    hash: [u8; 32],
+    signature: [u8; 64],
     v: u8,
     malleability_flag: bool,
 ) -> Option<[u8; 64]> {
-    unsafe {
-        let return_code = sys::ecrecover(
-            hash.len() as _,
-            hash.as_ptr() as _,
-            signature.len() as _,
-            signature.as_ptr() as _,
-            v as u64,
-            malleability_flag as u64,
-            ATOMIC_OP_REGISTER,
-        );
-        if return_code == 0 {
-            None
-        } else {
-            Some(read_register_fixed_64(ATOMIC_OP_REGISTER))
-        }
-    }
+    runtime::ecrecover(hash.into(), signature.into(), v, malleability_flag).map(Into::into)
 }
 
 /// Verifies signature of message using provided ED25519 Public Key
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::ed25519_verify;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::ed25519_verify;
 /// use hex;
 ///
 /// assert_eq!(
@@ -679,17 +793,8 @@ pub fn ecrecover(
 ///     false
 /// );
 /// ```
-pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32]) -> bool {
-    unsafe {
-        sys::ed25519_verify(
-            signature.len() as _,
-            signature.as_ptr() as _,
-            message.len() as _,
-            message.as_ptr() as _,
-            public_key.len() as _,
-            public_key.as_ptr() as _,
-        ) == 1
-    }
+pub fn ed25519_verify(signature: [u8; 64], message: &[u8], public_key: [u8; 32]) -> bool {
+    runtime::ed25519_verify(signature.into(), message, public_key.into())
 }
 
 /// Compute alt_bn128 g1 multiexp.
@@ -698,14 +803,8 @@ pub fn ed25519_verify(signature: &[u8; 64], message: &[u8], public_key: &[u8; 32
 /// well-suited for ZK proofs.
 ///
 /// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
-pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::alt_bn128_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+pub fn alt_bn128_g1_multiexp(value: &[u8]) -> [u8; 64] {
+    runtime::alt_bn128_g1_multiexp(value).into()
 }
 
 /// Compute alt_bn128 g1 sum.
@@ -714,14 +813,8 @@ pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
 /// well-suited for ZK proofs.
 ///
 /// See also: [EIP-196](https://eips.ethereum.org/EIPS/eip-196)
-pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::alt_bn128_g1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+pub fn alt_bn128_g1_sum(value: &[u8]) -> [u8; 64] {
+    runtime::alt_bn128_g1_sum(value).into()
 }
 /// Compute pairing check
 ///
@@ -730,7 +823,7 @@ pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
 ///
 /// See also: [EIP-197](https://eips.ethereum.org/EIPS/eip-197)
 pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
-    unsafe { sys::alt_bn128_pairing_check(value.len() as _, value.as_ptr() as _) == 1 }
+    runtime::alt_bn128_pairing_check(value)
 }
 
 // #############
@@ -741,94 +834,70 @@ pub fn alt_bn128_pairing_check(value: &[u8]) -> bool {
 ///
 /// See also: [IETF draft-irtf-cfrg-pairing-friendly-curves](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves)
 pub fn bls12381_p1_sum(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_p1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_p1_sum(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Compute BLS12-381 G2 sum.
 pub fn bls12381_p2_sum(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_p2_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_p2_sum(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Compute BLS12-381 G1 multiexponentiation.
 pub fn bls12381_g1_multiexp(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_g1_multiexp(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Compute BLS12-381 G2 multiexponentiation.
 pub fn bls12381_g2_multiexp(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_g2_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_g2_multiexp(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Map an Fp element to a BLS12-381 G1 point.
 pub fn bls12381_map_fp_to_g1(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_map_fp_to_g1(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_map_fp_to_g1(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Map an Fp2 element to a BLS12-381 G2 point.
 pub fn bls12381_map_fp2_to_g2(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_map_fp2_to_g2(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_map_fp2_to_g2(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Perform BLS12-381 pairing check. Returns true if the pairing check passes.
 pub fn bls12381_pairing_check(value: &[u8]) -> bool {
-    unsafe { sys::bls12381_pairing_check(value.len() as _, value.as_ptr() as _) == 0 }
+    runtime::bls12381_pairing_check(value).unwrap_or_default()
 }
 
 /// Decompress a BLS12-381 G1 point.
 pub fn bls12381_p1_decompress(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_p1_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_p1_decompress(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
 /// Decompress a BLS12-381 G2 point.
 pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
-    unsafe {
-        sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
-    };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
+    match runtime::bls12381_p2_decompress(value) {
+        Ok(result) => result,
+        Err(()) => panic_str(REGISTER_EXPECTED_ERR),
     }
 }
 
@@ -839,14 +908,16 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
 /// the given amount and gas.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::promise_create;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::promise_create;
+/// use near_sdk::component::AccountId;
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas};
+/// use near_sdk::{NearToken, Gas};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse::<AccountId>().unwrap(),
+///     &"counter.near".parse::<AccountId>().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -863,38 +934,30 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 ///
 pub fn promise_create(
-    account_id: AccountId,
+    account_id: &AccountId,
     function_name: &str,
     arguments: &[u8],
     amount: NearToken,
     gas: Gas,
-) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
-    unsafe {
-        PromiseIndex(sys::promise_create(
-            account_id.len() as _,
-            account_id.as_ptr() as _,
-            function_name.len() as _,
-            function_name.as_ptr() as _,
-            arguments.len() as _,
-            arguments.as_ptr() as _,
-            &amount.as_yoctonear() as *const u128 as _,
-            gas.as_gas(),
-        ))
-    }
+) -> Promise {
+    let p = Promise::new(account_id);
+    p.function_call(function_name.as_bytes(), arguments, amount.into(), gas.as_gas(), 0);
+    p
 }
 
 /// Attaches the callback (which is a [`near_primitives::action::FunctionCallAction`]) that is executed after promise pointed by `promise_idx` is complete.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_create, promise_then};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_create, promise_then};
+/// use near_sdk::component::AccountId;
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas};
+/// use near_sdk::{NearToken, Gas};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse().unwrap(),
+///     &"counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -904,8 +967,8 @@ pub fn promise_create(
 /// );
 ///
 /// let chained_promise = promise_then(
-///     promise,
-///     "greetings.near".parse().unwrap(),
+///     &promise,
+///     &"greetings.near".parse().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -918,40 +981,31 @@ pub fn promise_create(
 ///
 /// Example usages of this low-level api are <https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs> and <https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs>
 pub fn promise_then(
-    promise_idx: PromiseIndex,
-    account_id: AccountId,
+    promise: &Promise,
+    account_id: &AccountId,
     function_name: &str,
     arguments: &[u8],
     amount: NearToken,
     gas: Gas,
-) -> PromiseIndex {
-    let account_id = account_id.as_bytes();
-    unsafe {
-        PromiseIndex(sys::promise_then(
-            promise_idx.0,
-            account_id.len() as _,
-            account_id.as_ptr() as _,
-            function_name.len() as _,
-            function_name.as_ptr() as _,
-            arguments.len() as _,
-            arguments.as_ptr() as _,
-            &amount.as_yoctonear() as *const u128 as _,
-            gas.as_gas(),
-        ))
-    }
+) -> Promise {
+    let p = promise.then(account_id);
+    p.function_call(function_name.as_bytes(), arguments, amount.into(), gas.as_gas(), 0);
+    p
 }
 
 /// Creates a new promise which completes when time all promises passed as arguments complete.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_create, promise_and};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_create, promise_and};
+/// use near_sdk::component::AccountId;
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas};
+/// use near_sdk::{NearToken, Gas};
 /// use std::str::FromStr;
 ///
 /// let promise1 = promise_create(
-///     "counter.near".parse().unwrap(),
+///     &"counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -961,7 +1015,7 @@ pub fn promise_then(
 /// );
 ///
 /// let promise2 = promise_create(
-///     "greetings.near".parse().unwrap(),
+///     &"greetings.near".parse().unwrap(),
 ///     "set_greeting",
 ///     serde_json::json!({
 ///         "text": "Hello World"
@@ -970,26 +1024,21 @@ pub fn promise_then(
 ///     Gas::from_tgas(30)
 /// );
 ///
-/// let chained_promise = promise_and(&[promise1, promise2]);
+/// let chained_promise = promise_and(&[&promise1, &promise2]);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_and`]
-pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
-    let mut data = vec![0u8; size_of_val(promise_indices)];
-    for i in 0..promise_indices.len() {
-        data[i * size_of::<PromiseIndex>()..(i + 1) * size_of::<PromiseIndex>()]
-            .copy_from_slice(&promise_indices[i].0.to_le_bytes());
-    }
-    unsafe { PromiseIndex(sys::promise_and(data.as_ptr() as _, promise_indices.len() as _)) }
+pub fn promise_and(promises: &[&Promise]) -> Promise {
+    Promise::and(promises)
 }
 
 /// # Examples
 /// ```no_run
 ///
-/// use near_sdk::env;
-/// use near_sdk::AccountId;
+/// use near_sdk::component;
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
-/// let promise = env::promise_batch_create(
+/// let promise = component::promise_batch_create(
 ///     &"receiver.near".parse().unwrap()
 /// );
 /// ```
@@ -997,16 +1046,16 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 ///
 /// Example:
 /// ```no_run
-/// use near_sdk::{env, NearToken, Gas, AccountId};
+/// use near_sdk::{component, NearToken, Gas};
 ///
-/// let promise_index = env::promise_batch_create(
+/// let promise = component::promise_batch_create(
 ///     &"example.near".parse().unwrap()
 /// );
 ///
 /// // Adding actions to the promise
-/// env::promise_batch_action_transfer(promise_index, NearToken::from_near(10u128)); // Transfer 10 NEAR
-/// env::promise_batch_action_function_call(
-///     promise_index,
+/// component::promise_batch_action_transfer(&promise, NearToken::from_near(10u128)); // Transfer 10 NEAR
+/// component::promise_batch_action_function_call(
+///     &promise,
 ///     "method_name", // Target method
 ///     b"{}",           // Arguments
 ///     NearToken::from_near(0), // Attached deposit
@@ -1018,22 +1067,21 @@ pub fn promise_and(promise_indices: &[PromiseIndex]) -> PromiseIndex {
 /// More information about batching actions can be found in [NEAR documentation](https://docs.near.org/build/smart-contracts/anatomy/actions)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_create`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
-    unsafe {
-        PromiseIndex(sys::promise_batch_create(account_id.len() as _, account_id.as_ptr() as _))
-    }
+pub fn promise_batch_create(account_id: &AccountId) -> Promise {
+    Promise::new(account_id)
 }
 
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_then, promise_create};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_then, promise_create};
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas};
+/// use near_sdk::component::AccountId;
+/// use near_sdk::{NearToken, Gas};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     "counter.near".parse().unwrap(),
+///     &"counter.near".parse().unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -1043,53 +1091,48 @@ pub fn promise_batch_create(account_id: &AccountId) -> PromiseIndex {
 /// );
 ///
 /// let new_promise = promise_batch_then(
-///     promise,
+///     &promise,
 ///     &"receiver.near".parse().unwrap()
 /// );
 /// ```
 /// Attach a callback NEAR promise to a batch of NEAR promise actions.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_then`]
-pub fn promise_batch_then(promise_index: PromiseIndex, account_id: &AccountId) -> PromiseIndex {
-    let account_id: &str = account_id.as_ref();
-    unsafe {
-        PromiseIndex(sys::promise_batch_then(
-            promise_index.0,
-            account_id.len() as _,
-            account_id.as_ptr() as _,
-        ))
-    }
+pub fn promise_batch_then(promise: &Promise, account_id: &AccountId) -> Promise {
+    promise.then(account_id)
 }
 
 /// Attach a create account promise action to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_create_account, promise_batch_create};
-/// use near_sdk::AccountId;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_create_account, promise_batch_create};
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
 ///     &AccountId::from_str("new_account.near").unwrap()
 /// );
 ///
-/// promise_batch_action_create_account(promise);
+/// promise_batch_action_create_account(&promise);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_create_account`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
-    unsafe { sys::promise_batch_action_create_account(promise_index.0) }
+pub fn promise_batch_action_create_account(promise: &Promise) {
+    promise.create_account()
 }
 
 /// Attach a deploy contract promise action to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_deploy_contract, promise_batch_create};
-/// use near_sdk::AccountId;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_deploy_contract, promise_batch_create};
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1097,28 +1140,24 @@ pub fn promise_batch_action_create_account(promise_index: PromiseIndex) {
 /// );
 ///
 /// let code = [0; 1487];
-/// promise_batch_action_deploy_contract(promise, &code);
+/// promise_batch_action_deploy_contract(&promise, &code);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_deploy_contract`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &[u8]) {
-    unsafe {
-        sys::promise_batch_action_deploy_contract(
-            promise_index.0,
-            code.len() as _,
-            code.as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_deploy_contract(promise: &Promise, code: &[u8]) {
+    promise.deploy_contract(code)
 }
 
 /// Attach a function call promise action to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_function_call, promise_batch_create};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_function_call, promise_batch_create};
+/// use near_sdk::component::AccountId;
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas};
+/// use near_sdk::{NearToken, Gas};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1126,7 +1165,7 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 /// );
 ///
 /// promise_batch_action_function_call(
-///     promise,
+///     &promise,
 ///     "increase",
 ///     serde_json::json!({ "value": 5 }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
@@ -1135,33 +1174,25 @@ pub fn promise_batch_action_deploy_contract(promise_index: PromiseIndex, code: &
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call`]
 pub fn promise_batch_action_function_call(
-    promise_index: PromiseIndex,
+    promise: &Promise,
     function_name: &str,
     arguments: &[u8],
     amount: NearToken,
     gas: Gas,
 ) {
-    unsafe {
-        sys::promise_batch_action_function_call(
-            promise_index.0,
-            function_name.len() as _,
-            function_name.as_ptr() as _,
-            arguments.len() as _,
-            arguments.as_ptr() as _,
-            &amount.as_yoctonear() as *const u128 as _,
-            gas.as_gas(),
-        )
-    }
+    promise.function_call(function_name.as_bytes(), arguments, amount.into(), gas.as_gas(), 0)
 }
 
 /// Attach a function call with specific gas weight promise action to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_function_call_weight, promise_batch_create};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_function_call_weight, promise_batch_create};
+/// use near_sdk::component::AccountId;
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas, GasWeight};
+/// use near_sdk::{NearToken, Gas, GasWeight};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1169,7 +1200,7 @@ pub fn promise_batch_action_function_call(
 /// );
 ///
 /// promise_batch_action_function_call_weight(
-///     promise,
+///     &promise,
 ///     "increase",
 ///     serde_json::json!({ "value": 5 }).to_string().into_bytes().as_slice(),
 ///     NearToken::from_yoctonear(0),
@@ -1179,34 +1210,31 @@ pub fn promise_batch_action_function_call(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_function_call_weight`]
 pub fn promise_batch_action_function_call_weight(
-    promise_index: PromiseIndex,
+    promise: &Promise,
     function_name: &str,
     arguments: &[u8],
     amount: NearToken,
     gas: Gas,
     weight: GasWeight,
 ) {
-    unsafe {
-        sys::promise_batch_action_function_call_weight(
-            promise_index.0,
-            function_name.len() as _,
-            function_name.as_ptr() as _,
-            arguments.len() as _,
-            arguments.as_ptr() as _,
-            &amount.as_yoctonear() as *const u128 as _,
-            gas.as_gas(),
-            weight.0,
-        )
-    }
+    promise.function_call(
+        function_name.as_bytes(),
+        arguments,
+        amount.into(),
+        gas.as_gas(),
+        weight.0,
+    )
 }
 
 /// Attach a transfer promise action to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_transfer, promise_batch_create};
-/// use near_sdk::{NearToken, AccountId};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_transfer, promise_batch_create};
+/// use near_sdk::component::AccountId;
+/// use near_sdk::NearToken;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1214,28 +1242,25 @@ pub fn promise_batch_action_function_call_weight(
 /// );
 ///
 /// promise_batch_action_transfer(
-///     promise,
+///     &promise,
 ///     NearToken::from_near(1),
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_transfer`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearToken) {
-    unsafe {
-        sys::promise_batch_action_transfer(
-            promise_index.0,
-            &amount.as_yoctonear() as *const u128 as _,
-        )
-    }
+pub fn promise_batch_action_transfer(promise: &Promise, amount: NearToken) {
+    promise.transfer(amount.into())
 }
 
 /// Attach a stake promise action to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_stake, promise_batch_create};
-/// use near_sdk::{NearToken, PublicKey, AccountId};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_stake, promise_batch_create};
+/// use near_sdk::component::{AccountId, PublicKey};
+/// use near_sdk::NearToken;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1244,34 +1269,24 @@ pub fn promise_batch_action_transfer(promise_index: PromiseIndex, amount: NearTo
 ///
 /// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
 /// promise_batch_action_stake(
-///     promise,
+///     &promise,
 ///     NearToken::from_near(1),
-///     &pk
+///     pk
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_stake`]
-pub fn promise_batch_action_stake(
-    promise_index: PromiseIndex,
-    amount: NearToken,
-    public_key: &PublicKey,
-) {
-    unsafe {
-        sys::promise_batch_action_stake(
-            promise_index.0,
-            &amount.as_yoctonear() as *const u128 as _,
-            public_key.as_bytes().len() as _,
-            public_key.as_bytes().as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_stake(promise: &Promise, amount: NearToken, public_key: PublicKey) {
+    promise.stake(amount.into(), public_key)
 }
 
 /// Attach promise action that adds a full access key to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_add_key_with_full_access, promise_batch_create};
-/// use near_sdk::{PublicKey, AccountId};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_add_key_with_full_access, promise_batch_create};
+/// use near_sdk::component::{PublicKey, AccountId};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1281,39 +1296,31 @@ pub fn promise_batch_action_stake(
 /// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
 /// let nonce = 55;
 /// promise_batch_action_add_key_with_full_access(
-///     promise,
-///     &pk,
+///     &promise,
+///     pk,
 ///     nonce
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_add_key_with_full_access`]
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/factory-contract/low-level/src/lib.rs)
 pub fn promise_batch_action_add_key_with_full_access(
-    promise_index: PromiseIndex,
-    public_key: &PublicKey,
+    promise: &Promise,
+    public_key: PublicKey,
     nonce: u64,
 ) {
-    unsafe {
-        sys::promise_batch_action_add_key_with_full_access(
-            promise_index.0,
-            public_key.as_bytes().len() as _,
-            public_key.as_bytes().as_ptr() as _,
-            nonce,
-        )
-    }
+    promise.add_key_with_full_access(public_key, nonce)
 }
 
-/// This is a short lived function while we migrate between the Balance and the allowance type
+/// Attach promise action that adds a key with function call with specifi allowance to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
-pub(crate) fn migrate_to_allowance(allowance: NearToken) -> Allowance {
-    Allowance::limited(allowance).unwrap_or(Allowance::Unlimited)
-}
-
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_add_key_with_function_call, promise_batch_create};
-/// use near_sdk::{PublicKey, AccountId, NearToken};
+/// Unlimited allowance
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_add_key_allowance_with_function_call, promise_batch_create};
+/// use near_sdk::component::{PublicKey, AccountId};
+/// use near_sdk::Allowance;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1322,117 +1329,68 @@ pub(crate) fn migrate_to_allowance(allowance: NearToken) -> Allowance {
 ///
 /// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
 /// let nonce = 55;
-/// promise_batch_action_add_key_with_function_call(
-///     promise,
-///     &pk,
+/// promise_batch_action_add_key_allowance_with_function_call(
+///     &promise,
+///     pk,
 ///     nonce,
-///     NearToken::from_near(1),
+///     Allowance::unlimited(),
 ///     &AccountId::from_str("counter.near").unwrap(),
-///     "increase,decrease"
+///     &[b"increase", b"decrease"],
 /// );
 /// ```
-#[deprecated(since = "5.0.0", note = "Use add_access_key_allowance instead")]
-pub fn promise_batch_action_add_key_with_function_call(
-    promise_index: PromiseIndex,
-    public_key: &PublicKey,
+///
+/// Limited allowance (1 NEAR)
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_add_key_allowance_with_function_call, promise_batch_create};
+/// use near_sdk::component::{PublicKey, AccountId};
+/// use near_sdk::{Allowance, NearToken};
+/// use std::str::FromStr;
+///
+/// let promise = promise_batch_create(
+///     &AccountId::from_str("receiver.near").unwrap()
+/// );
+///
+/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
+/// let nonce = 55;
+/// promise_batch_action_add_key_allowance_with_function_call(
+///     &promise,
+///     pk,
+///     nonce,
+///     Allowance::limited(NearToken::from_near(1)).unwrap(),
+///     &AccountId::from_str("counter.near").unwrap(),
+///     &[b"increase", b"decrease"],
+/// );
+/// ```
+pub fn promise_batch_action_add_key_allowance_with_function_call(
+    promise: &Promise,
+    public_key: PublicKey,
     nonce: u64,
-    allowance: NearToken,
+    allowance: Allowance,
     receiver_id: &AccountId,
-    function_names: &str,
+    function_names: &[&[u8]],
 ) {
-    let allowance = migrate_to_allowance(allowance);
-    promise_batch_action_add_key_allowance_with_function_call(
-        promise_index,
+    let allowance = match allowance {
+        Allowance::Limited(x) => x.get(),
+        Allowance::Unlimited => 0,
+    };
+    promise.add_key_with_function_call(
         public_key,
         nonce,
-        allowance,
+        allowance.into(),
         receiver_id,
         function_names,
     )
 }
 
-/// Attach promise action that adds a key with function call with specifi allowance to the NEAR promise index with the provided promise index.
-///
-/// More info about batching [here](crate::env::promise_batch_create)
-/// # Examples
-/// Unlimited allowance
-/// ```
-/// use near_sdk::env::{promise_batch_action_add_key_allowance_with_function_call, promise_batch_create};
-/// use near_sdk::{PublicKey, AccountId, Allowance};
-/// use std::str::FromStr;
-///
-/// let promise = promise_batch_create(
-///     &AccountId::from_str("receiver.near").unwrap()
-/// );
-///
-/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
-/// let nonce = 55;
-/// promise_batch_action_add_key_allowance_with_function_call(
-///     promise,
-///     &pk,
-///     nonce,
-///     Allowance::unlimited(),
-///     &AccountId::from_str("counter.near").unwrap(),
-///     "increase,decrease"
-/// );
-/// ```
-///
-/// Limited allowance (1 NEAR)
-/// ```
-/// use near_sdk::env::{promise_batch_action_add_key_allowance_with_function_call, promise_batch_create};
-/// use near_sdk::{PublicKey, AccountId, Allowance, NearToken};
-/// use std::str::FromStr;
-///
-/// let promise = promise_batch_create(
-///     &AccountId::from_str("receiver.near").unwrap()
-/// );
-///
-/// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
-/// let nonce = 55;
-/// promise_batch_action_add_key_allowance_with_function_call(
-///     promise,
-///     &pk,
-///     nonce,
-///     Allowance::limited(NearToken::from_near(1)).unwrap(),
-///     &AccountId::from_str("counter.near").unwrap(),
-///     "increase,decrease"
-/// );
-/// ```
-pub fn promise_batch_action_add_key_allowance_with_function_call(
-    promise_index: PromiseIndex,
-    public_key: &PublicKey,
-    nonce: u64,
-    allowance: Allowance,
-    receiver_id: &AccountId,
-    function_names: &str,
-) {
-    let receiver_id: &str = receiver_id.as_ref();
-    let allowance = match allowance {
-        Allowance::Limited(x) => x.get(),
-        Allowance::Unlimited => 0,
-    };
-    unsafe {
-        sys::promise_batch_action_add_key_with_function_call(
-            promise_index.0,
-            public_key.as_bytes().len() as _,
-            public_key.as_bytes().as_ptr() as _,
-            nonce,
-            &allowance as *const u128 as _,
-            receiver_id.len() as _,
-            receiver_id.as_ptr() as _,
-            function_names.len() as _,
-            function_names.as_ptr() as _,
-        )
-    }
-}
-
 /// Attach promise action that deletes the key to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_delete_key, promise_batch_create};
-/// use near_sdk::{PublicKey, AccountId};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_delete_key, promise_batch_create};
+/// use near_sdk::component::{PublicKey, AccountId};
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1441,28 +1399,23 @@ pub fn promise_batch_action_add_key_allowance_with_function_call(
 ///
 /// let pk: PublicKey = "secp256k1:qMoRgcoXai4mBPsdbHi1wfyxF9TdbPCF4qSDQTRP3TfescSRoUdSx6nmeQoN3aiwGzwMyGXAb1gUjBTv5AY8DXj".parse().unwrap();
 /// promise_batch_action_delete_key(
-///     promise,
-///     &pk
+///     &promise,
+///     pk
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_key`]
-pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: &PublicKey) {
-    unsafe {
-        sys::promise_batch_action_delete_key(
-            promise_index.0,
-            public_key.as_bytes().len() as _,
-            public_key.as_bytes().as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_delete_key(promise: &Promise, public_key: PublicKey) {
+    promise.delete_key(public_key)
 }
 
 /// Attach promise action that deletes the account to the NEAR promise index with the provided promise index.
 ///
-/// More info about batching [here](crate::env::promise_batch_create)
+/// More info about batching [here](crate::component::promise_batch_create)
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_batch_action_delete_account, promise_batch_create};
-/// use near_sdk::AccountId;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_batch_action_delete_account, promise_batch_create};
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_batch_create(
@@ -1470,133 +1423,93 @@ pub fn promise_batch_action_delete_key(promise_index: PromiseIndex, public_key: 
 /// );
 ///
 /// promise_batch_action_delete_account(
-///     promise,
+///     &promise,
 ///     &AccountId::from_str("beneficiary.near").unwrap()
 /// );
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_batch_action_delete_account`]
-pub fn promise_batch_action_delete_account(
-    promise_index: PromiseIndex,
-    beneficiary_id: &AccountId,
-) {
-    let beneficiary_id: &str = beneficiary_id.as_ref();
-    unsafe {
-        sys::promise_batch_action_delete_account(
-            promise_index.0,
-            beneficiary_id.len() as _,
-            beneficiary_id.as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_delete_account(promise: &Promise, beneficiary_id: &AccountId) {
+    promise.delete_account(beneficiary_id)
 }
 
-#[cfg(feature = "global-contracts")]
 /// Deploys a global contract using the provided contract code.
 ///
 /// # Arguments
-/// * `promise_index` - Promise batch index
+/// * `promise` - Promise batch index
 /// * `code` - Contract bytecode to deploy as a global contract
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::component;
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = component::promise_batch_create(&"alice.near".parse().unwrap());
 /// let code = vec![0u8; 100]; // Contract bytecode
-/// env::promise_batch_action_deploy_global_contract(promise, &code);
+/// component::promise_batch_action_deploy_global_contract(&promise, &code);
 /// ```
-pub fn promise_batch_action_deploy_global_contract(promise_index: PromiseIndex, code: &[u8]) {
-    unsafe {
-        sys::promise_batch_action_deploy_global_contract(
-            promise_index.0,
-            code.len() as _,
-            code.as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_deploy_global_contract(promise: &Promise, code: &[u8]) {
+    promise.deploy_global_contract(code)
 }
 
-#[cfg(feature = "global-contracts")]
 /// Deploys a global contract by referencing another account's deployed code.
 ///
 /// # Arguments
-/// * `promise_index` - Promise batch index
+/// * `promise` - Promise batch index
 /// * `code` - Contract bytecode to deploy as a global contract
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::component;
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
+/// let promise = component::promise_batch_create(&"alice.near".parse().unwrap());
 /// let code = vec![0u8; 100]; // Contract bytecode
-/// env::promise_batch_action_deploy_global_contract_by_account_id(promise, &code);
+/// component::promise_batch_action_deploy_global_contract_by_account_id(&promise, &code);
 /// ```
-pub fn promise_batch_action_deploy_global_contract_by_account_id(
-    promise_index: PromiseIndex,
-    code: &[u8],
-) {
-    unsafe {
-        sys::promise_batch_action_deploy_global_contract_by_account_id(
-            promise_index.0,
-            code.len() as _,
-            code.as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_deploy_global_contract_by_account_id(promise: &Promise, code: &[u8]) {
+    promise.deploy_global_contract_by_account_id(code)
 }
 
-#[cfg(feature = "global-contracts")]
 /// Uses an existing global contract by code hash.
 ///
 /// # Arguments
-/// * `promise_index` - Promise batch index
+/// * `promise` - Promise batch index
 /// * `code_hash` - Hash of the global contract code to use
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::{env, PromiseIndex};
+/// use near_sdk::component;
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
-/// let code_hash = vec![0u8; 32]; // 32-byte hash
-/// env::promise_batch_action_use_global_contract(promise, &code_hash);
+/// let promise = component::promise_batch_create(&"alice.near".parse().unwrap());
+/// let code_hash = [0u8; 32]; // 32-byte hash
+/// component::promise_batch_action_use_global_contract(&promise, code_hash);
 /// ```
-pub fn promise_batch_action_use_global_contract(promise_index: PromiseIndex, code_hash: &[u8]) {
-    unsafe {
-        sys::promise_batch_action_use_global_contract(
-            promise_index.0,
-            code_hash.len() as _,
-            code_hash.as_ptr() as _,
-        )
-    }
+pub fn promise_batch_action_use_global_contract(promise: &Promise, code_hash: [u8; 32]) {
+    promise.use_global_contract(code_hash.into())
 }
 
-#[cfg(feature = "global-contracts")]
 /// Uses an existing global contract by referencing the account that deployed it.
 ///
 /// # Arguments
-/// * `promise_index` - Promise batch index
+/// * `promise` - Promise batch index
 /// * `account_id` - Account ID that deployed the global contract
 ///
 /// # Examples
-/// ```no_run
-/// use near_sdk::{env, PromiseIndex, AccountId};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component;
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
-/// let promise = env::promise_batch_create(&"alice.near".parse().unwrap());
-/// env::promise_batch_action_use_global_contract_by_account_id(
-///     promise,
+/// let promise = component::promise_batch_create(&"alice.near".parse().unwrap());
+/// component::promise_batch_action_use_global_contract_by_account_id(
+///     &promise,
 ///     &AccountId::from_str("deployer.near").unwrap()
 /// );
 /// ```
 pub fn promise_batch_action_use_global_contract_by_account_id(
-    promise_index: PromiseIndex,
+    promise: &Promise,
     account_id: &AccountId,
 ) {
-    let account_id: &str = account_id.as_ref();
-    unsafe {
-        sys::promise_batch_action_use_global_contract_by_account_id(
-            promise_index.0,
-            account_id.len() as _,
-            account_id.as_ptr() as _,
-        )
-    }
+    promise.use_global_contract_by_account_id(account_id)
 }
 
 /// If the current function is invoked by a callback we can access the execution results of the
@@ -1604,8 +1517,9 @@ pub fn promise_batch_action_use_global_contract_by_account_id(
 /// incomplete callbacks.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::promise_results_count;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::promise_results_count;
 ///
 /// assert_eq!(promise_results_count(), 0);
 /// ```
@@ -1613,30 +1527,30 @@ pub fn promise_batch_action_use_global_contract_by_account_id(
 ///
 /// See example of usage [here](https://github.com/near/near-sdk-rs/blob/master/examples/cross-contract-calls/low-level/src/lib.rs)
 pub fn promise_results_count() -> u64 {
-    unsafe { sys::promise_results_count() }
+    Promise::get_results_count()
 }
 /// If the current function is invoked by a callback we can access the execution results of the
 /// promises that caused the callback.
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::env::{promise_result, promise_results_count, log_str};
+/// use near_sdk::component::{promise_result, promise_results_count, log};
 /// use near_sdk::PromiseResult;
 ///
 /// assert!(promise_results_count() > 0);
 ///
-/// // The promise_index will be in the range [0, n)
+/// // The promise will be in the range [0, n)
 /// // where n is the number of promises triggering this callback,
 /// // retrieved from promise_results_count()
-/// let promise_index = 0;
-/// let result = promise_result(promise_index);
+/// let promise = 0;
+/// let result = promise_result(promise);
 ///
 /// match result {
 ///     PromiseResult::Successful(data) => {
-///         log_str(format!("Result as Vec<u8>: {:?}", data).as_str());
+///         log(format!("Result as Vec<u8>: {:?}", data).as_str());
 ///     }
 ///     PromiseResult::Failed => {
-///         log_str("Promise failed!");
+///         log("Promise failed!");
 ///     }
 /// };
 /// ```
@@ -1649,20 +1563,13 @@ pub fn promise_results_count() -> u64 {
 /// - [examples/factory-contract/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/factory-contract/low-level/src/lib.rs#L61)
 /// - [examples/cross-contract-calls/low-level](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L46)
 pub fn promise_result(result_idx: u64) -> PromiseResult {
-    match promise_result_internal(result_idx) {
-        Ok(()) => {
+    match Promise::get_result(result_idx, ATOMIC_OP_REGISTER) {
+        Some(Ok(())) => {
             let data = expect_register(read_register(ATOMIC_OP_REGISTER));
             PromiseResult::Successful(data)
         }
-        Err(PromiseError::Failed) => PromiseResult::Failed,
-    }
-}
-
-pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseError> {
-    match unsafe { sys::promise_result(result_idx, ATOMIC_OP_REGISTER) } {
-        1 => Ok(()),
-        2 => Err(PromiseError::Failed),
-        _ => abort(),
+        Some(Err(())) => PromiseResult::Failed,
+        None => abort(),
     }
 }
 
@@ -1670,14 +1577,16 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 /// function.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{promise_create, promise_return};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{promise_create, promise_return};
 /// use near_sdk::serde_json;
-/// use near_sdk::{AccountId, NearToken, Gas};
+/// use near_sdk::{NearToken, Gas};
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// let promise = promise_create(
-///     AccountId::from_str("counter.near").unwrap(),
+///     &AccountId::from_str("counter.near").unwrap(),
 ///     "increment",
 ///     serde_json::json!({
 ///         "value": 5
@@ -1686,13 +1595,13 @@ pub(crate) fn promise_result_internal(result_idx: u64) -> Result<(), PromiseErro
 ///     Gas::from_tgas(30)
 /// );
 ///
-/// promise_return(promise);
+/// promise_return(&promise);
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_return`]
 ///
 /// Example usages: [one](https://github.com/near/near-sdk-rs/tree/master/examples/cross-contract-calls/low-level/src/lib.rs), [two](https://github.com/near/near-sdk-rs/tree/master/examples/factory-contract/low-level/src/lib.rs)
-pub fn promise_return(promise_idx: PromiseIndex) {
-    unsafe { sys::promise_return(promise_idx.0) }
+pub fn promise_return(promise: &Promise) {
+    promise.return_()
 }
 
 /// Creates a promise that will execute a method on the current account with given arguments.
@@ -1708,7 +1617,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::env::{promise_yield_create, promise_yield_resume, read_register};
+/// use near_sdk::component::{promise_yield_create, promise_yield_resume, read_register};
 /// use near_sdk::serde_json;
 /// use near_sdk::{Gas, GasWeight, CryptoHash};
 ///
@@ -1733,7 +1642,7 @@ pub fn promise_return(promise_idx: PromiseIndex) {
 ///
 /// // Resume execution using previously retrieved `data_id`
 /// promise_yield_resume(
-///     &data_id,
+///     data_id,
 ///     // passed as callback_result
 ///     serde_json::json!({
 ///         "key": "value",
@@ -1749,18 +1658,8 @@ pub fn promise_yield_create(
     gas: Gas,
     weight: GasWeight,
     register_id: u64,
-) -> PromiseIndex {
-    unsafe {
-        PromiseIndex(sys::promise_yield_create(
-            function_name.len() as _,
-            function_name.as_ptr() as _,
-            arguments.len() as _,
-            arguments.as_ptr() as _,
-            gas.as_gas(),
-            weight.0,
-            register_id as _,
-        ))
-    }
+) -> Promise {
+    Promise::yield_create(function_name.as_bytes(), arguments, gas.as_gas(), weight.0, register_id)
 }
 
 /// Accepts a resumption token `data_id` created by promise_yield_create on the local account.
@@ -1774,7 +1673,7 @@ pub fn promise_yield_create(
 ///
 /// # Examples
 /// ```no_run
-/// use near_sdk::env::{promise_yield_create, promise_yield_resume, read_register};
+/// use near_sdk::component::{promise_yield_create, promise_yield_resume, read_register};
 /// use near_sdk::serde_json;
 /// use near_sdk::{Gas, GasWeight, CryptoHash};
 ///
@@ -1799,7 +1698,7 @@ pub fn promise_yield_create(
 ///
 /// // Resume execution using previously retrieved `data_id`
 /// promise_yield_resume(
-///     &data_id,
+///     data_id,
 ///     // passed as callback_result
 ///     serde_json::json!({
 ///         "key": "value",
@@ -1809,15 +1708,8 @@ pub fn promise_yield_create(
 /// ```
 /// More low-level info here: [`near_vm_runner::logic::VMLogic::promise_yield_resume`]
 /// See example of usage [here](https://github.com/near/mpc/blob/79ec50759146221e7ad8bb04520f13333b75ca07/chain-signatures/contract/src/lib.rs#L288) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/mpc-contract/src/lib.rs#L84)
-pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
-    unsafe {
-        sys::promise_yield_resume(
-            data_id.len() as _,
-            data_id.as_ptr() as _,
-            data.len() as _,
-            data.as_ptr() as _,
-        ) != 0
-    }
+pub fn promise_yield_resume(data_id: CryptoHash, data: &[u8]) -> bool {
+    Promise::yield_resume(data_id.into(), data)
 }
 
 // ###############
@@ -1827,9 +1719,11 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
 /// For a given account return its current stake. If the account is not a validator, returns 0.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::validator_stake;
-/// use near_sdk::{AccountId, NearToken};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::validator_stake;
+/// use near_sdk::component::AccountId;
+/// use near_sdk::NearToken;
 /// use std::str::FromStr;
 ///
 /// assert_eq!(
@@ -1838,19 +1732,15 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: &[u8]) -> bool {
 /// );
 /// ```
 pub fn validator_stake(account_id: &AccountId) -> NearToken {
-    let account_id: &str = account_id.as_ref();
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe {
-        sys::validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
-    };
-    NearToken::from_yoctonear(u128::from_le_bytes(data))
+    runtime::validator_stake(account_id).into()
 }
 
 /// Returns the total stake of validators in the current epoch.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::validator_total_stake;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::validator_total_stake;
 /// use near_sdk::NearToken;
 ///
 /// assert_eq!(
@@ -1859,9 +1749,7 @@ pub fn validator_stake(account_id: &AccountId) -> NearToken {
 /// );
 /// ```
 pub fn validator_total_stake() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::validator_total_stake(data.as_ptr() as u64) };
-    NearToken::from_yoctonear(u128::from_le_bytes(data))
+    runtime::validator_total_stake().into()
 }
 
 // #####################
@@ -1870,13 +1758,15 @@ pub fn validator_total_stake() -> NearToken {
 /// Sets the blob of data as the return value of the contract.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::value_return;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::value_return;
 ///
 /// value_return(b"String data");
 /// ```
-/// ```
-/// use near_sdk::env::value_return;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::value_return;
 /// use near_sdk::serde_json;
 ///
 /// value_return(
@@ -1888,40 +1778,28 @@ pub fn validator_total_stake() -> NearToken {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/examples/cross-contract-calls/low-level/src/lib.rs#L18)
 pub fn value_return(value: &[u8]) {
-    unsafe { sys::value_return(value.len() as _, value.as_ptr() as _) }
-}
-/// Terminates the execution of the program with the UTF-8 encoded message.
-/// [`panic_str`] should be used as the bytes are required to be UTF-8
-///
-/// # Examples
-/// ```should_panic
-/// use near_sdk::env::panic;
-///
-/// panic(b"Unexpected error");
-/// ```
-#[deprecated(since = "4.0.0", note = "Use env::panic_str to panic with a message.")]
-pub fn panic(message: &[u8]) -> ! {
-    unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
+    runtime::value_return(value)
 }
 
 /// Terminates the execution of the program with the UTF-8 encoded message.
 ///
 /// # Examples
 /// ```should_panic
-/// use near_sdk::env::panic_str;
+/// use near_sdk::component::panic_str;
 ///
 /// panic_str("Unexpected error");
 /// ```
 /// ```should_panic
-/// use near_sdk::env::panic_str;
-/// use near_sdk::AccountId;
+/// use near_sdk::component::panic_str;
+/// use near_sdk::component::AccountId;
 /// use std::str::FromStr;
 ///
 /// let account = AccountId::from_str("bob.near").unwrap();
 /// panic_str(format!("Unexpected error happened for account {}", account).as_str());
 /// ```
 pub fn panic_str(message: &str) -> ! {
-    unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
+    panic(Some(message));
+    unreachable!()
 }
 
 /// Aborts the current contract execution without a custom message.
@@ -1929,7 +1807,7 @@ pub fn panic_str(message: &str) -> ! {
 ///
 /// # Examples
 /// ```should_panic
-/// use near_sdk::env::abort;
+/// use near_sdk::component::abort;
 ///
 /// abort();
 /// ```
@@ -1942,47 +1820,34 @@ pub fn abort() -> ! {
         core::arch::wasm32::unreachable()
     }
     #[cfg(not(target_arch = "wasm32"))]
-    unsafe {
-        sys::panic()
+    {
+        panic(None);
+        unreachable!()
     }
 }
 
 /// Logs the string message message. This message is stored on chain.
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::log_str;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::log;
 ///
-/// log_str("Some text");
+/// log("Some text");
 /// ```
-/// ```
-/// use near_sdk::env::log_str;
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::log;
 ///
 /// let number = 5;
-/// log_str(format!("Number: {}", number).as_str());
+/// log(format!("Number: {}", number).as_str());
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/event.rs#L29)
-pub fn log_str(message: &str) {
+pub fn log(message: &str) {
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     eprintln!("{message}");
 
-    unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
-}
-
-/// Log the UTF-8 encodable message.
-///
-/// # Examples
-/// ```
-/// use near_sdk::env::log;
-///
-/// log(b"Text");
-/// ```
-#[deprecated(since = "4.0.0", note = "Use env::log_str for logging messages.")]
-pub fn log(message: &[u8]) {
-    #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
-    eprintln!("{}", String::from_utf8_lossy(message));
-
-    unsafe { sys::log_utf8(message.len() as _, message.as_ptr() as _) }
+    runtime::log(message)
 }
 
 // ###############
@@ -1996,8 +1861,9 @@ pub fn log(message: &[u8]) {
 /// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{storage_write, storage_read};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{storage_write, storage_read};
 ///
 /// assert!(!storage_write(b"key", b"value"));
 /// assert!(storage_write(b"key", b"another_value"));
@@ -2005,19 +1871,7 @@ pub fn log(message: &[u8]) {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L63)
 pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
-    match unsafe {
-        sys::storage_write(
-            key.len() as _,
-            key.as_ptr() as _,
-            value.len() as _,
-            value.as_ptr() as _,
-            EVICTED_REGISTER,
-        )
-    } {
-        0 => false,
-        1 => true,
-        _ => abort(),
-    }
+    runtime::storage_write(key, value, EVICTED_REGISTER)
 }
 /// Reads the value stored under the given key.
 ///
@@ -2028,8 +1882,9 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// For practical examples, see different implementations in [`near-examples/update-migrate-rust` repo](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{storage_write, storage_read};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{storage_write, storage_read};
 ///
 /// assert!(storage_read(b"key").is_none());
 /// storage_write(b"key", b"value");
@@ -2039,11 +1894,7 @@ pub fn storage_write(key: &[u8], value: &[u8]) -> bool {
 /// Another example:
 /// - [near-contract-standards/src/upgrade](https://github.com/near/near-sdk-rs/blob/746e4280a7e25b2036bd4e2f2c186cd76e1a7cde/near-contract-standards/src/upgrade/mod.rs?plain=1#L77)
 pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
-    match unsafe { sys::storage_read(key.len() as _, key.as_ptr() as _, ATOMIC_OP_REGISTER) } {
-        0 => None,
-        1 => Some(expect_register(read_register(ATOMIC_OP_REGISTER))),
-        _ => abort(),
-    }
+    runtime::storage_read(key)
 }
 /// Removes the value stored under the given key.
 /// If key-value existed returns `true`, otherwise `false`.
@@ -2053,8 +1904,9 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{storage_write, storage_remove};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{storage_write, storage_remove};
 ///
 /// assert_eq!(storage_remove(b"key"), false);
 /// storage_write(b"key", b"value");
@@ -2062,11 +1914,7 @@ pub fn storage_read(key: &[u8]) -> Option<Vec<u8>> {
 /// ```
 /// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/upgrade/mod.rs#L79)
 pub fn storage_remove(key: &[u8]) -> bool {
-    match unsafe { sys::storage_remove(key.len() as _, key.as_ptr() as _, EVICTED_REGISTER) } {
-        0 => false,
-        1 => true,
-        _ => abort(),
-    }
+    runtime::storage_remove(key, EVICTED_REGISTER)
 }
 /// Reads the most recent value that was evicted with `storage_write` or `storage_remove` command.
 ///
@@ -2075,8 +1923,9 @@ pub fn storage_remove(key: &[u8]) -> bool {
 /// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{storage_write, storage_remove, storage_get_evicted};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{storage_write, storage_remove, storage_get_evicted};
 ///
 /// assert_eq!(storage_get_evicted(), None);
 /// ```
@@ -2090,19 +1939,16 @@ pub fn storage_get_evicted() -> Option<Vec<u8>> {
 /// For practical examples, see different implementations in [this repository](https://github.com/near-examples/update-migrate-rust).
 ///
 /// # Examples
-/// ```
-/// use near_sdk::env::{storage_write, storage_has_key};
+#[cfg_attr(target_arch = "wasm32", doc = "```")]
+#[cfg_attr(not(target_arch = "wasm32"), doc = "```no_run")]
+/// use near_sdk::component::{storage_write, storage_has_key};
 ///
 /// assert_eq!(storage_has_key(b"key"), false);
 /// storage_write(b"key", b"value");
 /// assert_eq!(storage_has_key(b"key"), true);
 /// ```
 pub fn storage_has_key(key: &[u8]) -> bool {
-    match unsafe { sys::storage_has_key(key.len() as _, key.as_ptr() as _) } {
-        0 => false,
-        1 => true,
-        _ => abort(),
-    }
+    runtime::storage_has_key(key)
 }
 
 // ############################################
@@ -2129,158 +1975,12 @@ pub fn state_exists() -> bool {
     storage_has_key(STATE_KEY)
 }
 
-// #####################################
-// # Parameters exposed by the runtime #
-// #####################################
-
-/// Price per 1 byte of storage from mainnet genesis config.
-/// TODO: will be using the host function when it will be available.
-///
-/// # Examples
-/// ```
-/// use near_sdk::env::storage_byte_cost;
-/// use near_sdk::NearToken;
-///
-/// assert_eq!(storage_byte_cost(), NearToken::from_yoctonear(10000000000000000000));
-/// ```
-/// Example of usage [here](https://github.com/near/near-sdk-rs/blob/189897180649bce47aefa4e5af03664ee525508d/near-contract-standards/src/fungible_token/storage_impl.rs#L105), [here](https://github.com/near/near-sdk-rs/blob/master/near-contract-standards/src/non_fungible_token/utils.rs) and [here](https://github.com/near/near-sdk-rs/blob/master/examples/fungible-token/tests/workspaces.rs)
-pub fn storage_byte_cost() -> NearToken {
-    NearToken::from_yoctonear(10_000_000_000_000_000_000u128)
-}
-
-// ##################
-// # Helper methods #
-// ##################
-
-/// Returns `true` if the given account ID is valid and `false` otherwise.
-///
-/// # Examples
-///
-/// ```
-/// use near_sdk::env::is_valid_account_id;
-///
-/// assert_eq!(is_valid_account_id(b"test.near"), true);
-/// assert_eq!(is_valid_account_id(b"test!.%.near"), false);
-/// ```
-pub fn is_valid_account_id(account_id: &[u8]) -> bool {
-    if (account_id.len() as u64) < MIN_ACCOUNT_ID_LEN
-        || (account_id.len() as u64) > MAX_ACCOUNT_ID_LEN
-    {
-        return false;
-    }
-
-    // NOTE: We don't want to use Regex here, because it requires extra time to compile it.
-    // The valid account ID regex is /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
-    // Instead the implementation is based on the previous character checks.
-
-    // We can safely assume that last char was a separator.
-    let mut last_char_is_separator = true;
-
-    for c in account_id {
-        let current_char_is_separator = match *c {
-            b'a'..=b'z' | b'0'..=b'9' => false,
-            b'-' | b'_' | b'.' => true,
-            _ => return false,
-        };
-        if current_char_is_separator && last_char_is_separator {
-            return false;
-        }
-        last_char_is_separator = current_char_is_separator;
-    }
-    // The account can't end as separator.
-    !last_char_is_separator
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_is_valid_account_id_strings() {
-        // Valid
-        for account_id in &[
-            "aa",
-            "a-a",
-            "a-aa",
-            "100",
-            "0o",
-            "com",
-            "near",
-            "bowen",
-            "b-o_w_e-n",
-            "b.owen",
-            "bro.wen",
-            "a.ha",
-            "a.b-a.ra",
-            "system",
-            "over.9000",
-            "google.com",
-            "illia.cheapaccounts.near",
-            "0o0ooo00oo00o",
-            "alex-skidanov",
-            "10-4.8-2",
-            "b-o_w_e-n",
-            "no_lols",
-            "0123456789012345678901234567890123456789012345678901234567890123",
-            // Valid, but can't be created
-            "near.a",
-            "a.a",
-        ] {
-            assert!(
-                is_valid_account_id(account_id.as_ref()),
-                "Valid account id {:?} marked invalid",
-                account_id
-            );
-        }
-
-        // Invalid
-        for account_id in &[
-            "",
-            "a",
-            "A",
-            "Abc",
-            "-near",
-            "near-",
-            "-near-",
-            "near.",
-            ".near",
-            "near@",
-            "@near",
-            "неар",
-            "@@@@@",
-            "0__0",
-            "0_-_0",
-            "0_-_0",
-            "..",
-            "a..near",
-            "nEar",
-            "_bowen",
-            "hello world",
-            "abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz",
-            "01234567890123456789012345678901234567890123456789012345678901234",
-            // `@` separators are banned now
-            "some-complex-address@gmail.com",
-            "sub.buy_d1gitz@atata@b0-rg.c_0_m",
-        ] {
-            assert!(
-                !is_valid_account_id(account_id.as_ref()),
-                "Invalid account id {:?} marked valid",
-                account_id
-            );
-        }
-    }
-
-    #[test]
-    fn test_is_valid_account_id_binary() {
-        assert!(!is_valid_account_id(&[]));
-        assert!(!is_valid_account_id(&[0]));
-        assert!(!is_valid_account_id(&[0, 1]));
-        assert!(!is_valid_account_id(&[0, 1, 2]));
-        assert!(is_valid_account_id(b"near"));
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn hash_smoke_tests() {
         assert_eq!(
             &super::sha256_array(b"some value"),
@@ -2309,8 +2009,8 @@ mod tests {
         );
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
+    #[ignore]
     fn random_seed_smoke_test() {
         crate::testing_env!(crate::test_utils::VMContextBuilder::new()
             .random_seed([8; 32])
@@ -2319,9 +2019,8 @@ mod tests {
         assert_eq!(super::random_seed(), [8; 32]);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    #[cfg(feature = "unstable")]
     #[test]
+    #[ignore]
     fn test_ecrecover() {
         use crate::test_utils::test_env;
         use hex::FromHex;
@@ -2355,25 +2054,26 @@ mod tests {
 
         test_env::setup_free();
         for EcrecoverTest { m, v, sig, mc, res } in
-            from_slice::<'_, Vec<_>>(include_bytes!("../../tests/ecrecover-tests.json")).unwrap()
+            from_slice::<'_, Vec<_>>(include_bytes!("../../../tests/ecrecover-tests.json")).unwrap()
         {
-            assert_eq!(super::ecrecover(&m, &sig, v, mc), res);
+            assert_eq!(super::ecrecover(m, sig, v, mc), res);
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     #[test]
+    #[ignore]
     fn signer_public_key() {
         let key: PublicKey =
             "ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".parse().unwrap();
 
         crate::testing_env!(crate::test_utils::VMContextBuilder::new()
-            .signer_account_pk(key.clone())
+            .signer_account_pk(crate::PublicKey::from(key))
             .build());
         assert_eq!(super::signer_account_pk(), key);
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn ed25519_verify() {
         const SIGNATURE: [u8; 64] = [
             145, 193, 203, 18, 114, 227, 14, 117, 33, 213, 121, 66, 130, 14, 25, 4, 36, 120, 46,
@@ -2411,13 +2111,14 @@ mod tests {
             100, 107, 108, 97, 100, 106, 102, 107, 108, 106, 97, 100, 115, 107,
         ];
 
-        assert!(super::ed25519_verify(&SIGNATURE, &MESSAGE, &PUBLIC_KEY));
-        assert!(!super::ed25519_verify(&BAD_SIGNATURE, &MESSAGE, &FORGED_PUBLIC_KEY));
-        assert!(!super::ed25519_verify(&SIGNATURE, &MESSAGE, &FORGED_PUBLIC_KEY));
-        assert!(!super::ed25519_verify(&FORGED_SIGNATURE, &MESSAGE, &PUBLIC_KEY));
+        assert!(super::ed25519_verify(SIGNATURE, &MESSAGE, PUBLIC_KEY));
+        assert!(!super::ed25519_verify(BAD_SIGNATURE, &MESSAGE, FORGED_PUBLIC_KEY));
+        assert!(!super::ed25519_verify(SIGNATURE, &MESSAGE, FORGED_PUBLIC_KEY));
+        assert!(!super::ed25519_verify(FORGED_SIGNATURE, &MESSAGE, PUBLIC_KEY));
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     pub fn alt_bn128_g1_multiexp() {
         // Originated from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-test-contracts/estimator-contract/src/lib.rs#L557-L720
         let buffer = [
@@ -2431,7 +2132,7 @@ mod tests {
 
         assert_eq!(
             super::alt_bn128_g1_multiexp(&buffer),
-            vec![
+            [
                 150, 94, 159, 52, 239, 226, 181, 150, 77, 86, 90, 186, 102, 219, 243, 204, 36, 128,
                 164, 209, 106, 6, 62, 124, 235, 104, 223, 195, 30, 204, 42, 20, 13, 158, 14, 197,
                 133, 73, 43, 171, 28, 68, 82, 116, 244, 164, 36, 251, 244, 8, 234, 40, 118, 55,
@@ -2441,6 +2142,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     pub fn alt_bn128_g1_sum() {
         // Originated from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-test-contracts/estimator-contract/src/lib.rs#L557-L720
         let buffer = [
@@ -2452,7 +2154,7 @@ mod tests {
 
         assert_eq!(
             super::alt_bn128_g1_sum(&buffer),
-            vec![
+            [
                 11, 49, 94, 29, 152, 111, 116, 138, 248, 2, 184, 8, 159, 80, 169, 45, 149, 48, 32,
                 49, 37, 6, 133, 105, 171, 194, 120, 44, 195, 17, 180, 35, 137, 154, 4, 192, 211,
                 244, 93, 200, 2, 44, 0, 64, 26, 108, 139, 147, 88, 235, 242, 23, 253, 52, 110, 236,
@@ -2462,6 +2164,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     pub fn alt_bn128_pairing_check() {
         // Taken from https://github.com/near/nearcore/blob/8cd095ffc98a6507ed2d2a8982a6a3e42ebc1b62/runtime/near-vm-runner/src/logic/tests/alt_bn128.rs#L239-L250
         let valid_pair = [
@@ -2516,6 +2219,7 @@ mod tests {
         assert!(!super::alt_bn128_pairing_check(&invalid_pair));
     }
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p1_sum_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
@@ -2525,6 +2229,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p1_sum_50_100() {
         let buffer: [[u8; 2 * 97]; 25] = [[
             0, 18, 25, 108, 90, 67, 214, 146, 36, 216, 113, 51, 137, 40, 95, 38, 185, 143, 134,
@@ -2547,6 +2252,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p2_sum_0_100() {
         let buffer: [u8; 0] = [];
         for _ in 0..100 {
@@ -2556,6 +2262,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p2_sum_50_100() {
         let buffer: [[u8; 2 * 193]; 25] = [[
             0, 12, 199, 10, 88, 127, 70, 82, 3, 157, 129, 23, 182, 16, 56, 88, 173, 205, 151, 40,
@@ -2586,6 +2293,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_g1_multiexp_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_g1_multiexp(&buffer);
@@ -2593,6 +2301,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_g1_multiexp_50_100() {
         let buffer: [[u8; 96 + 32]; 50] = [[
             23, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195, 104,
@@ -2610,6 +2319,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_g2_multiexp_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_g2_multiexp(&buffer);
@@ -2617,6 +2327,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_g2_multiexp_50_100() {
         let buffer: [[u8; 192 + 32]; 50] = [[
             19, 224, 43, 96, 82, 113, 159, 96, 125, 172, 211, 160, 136, 39, 79, 101, 89, 107, 208,
@@ -2638,6 +2349,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_map_fp_to_g1_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_map_fp_to_g1(&buffer);
@@ -2645,6 +2357,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_map_fp_to_g1_50_100() {
         let buffer: [[u8; 48]; 50] = [[
             20, 64, 110, 91, 251, 146, 9, 37, 106, 56, 32, 135, 154, 41, 172, 47, 98, 214, 172,
@@ -2657,6 +2370,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_map_fp2_to_g2_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_map_fp2_to_g2(&buffer);
@@ -2664,6 +2378,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_map_fp2_to_g2_10_100() {
         let buffer: [[u8; 96]; 10] = [[
             14, 136, 91, 179, 57, 150, 225, 47, 7, 218, 105, 7, 62, 44, 12, 200, 128, 188, 142,
@@ -2679,6 +2394,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_pairing_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_pairing_check(&buffer);
@@ -2686,6 +2402,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_pairing_valid_check() {
         // Valid test vector (should return true)
         let valid_input = hex::decode("085fad8696122c8a421033164e6a71d9adb3882933beba2c14dcad9bfd4badb30b49306c59a7a7837b72e02993f5a4ad025871da31a9be44cd3a46365038ef6f3658fc65ff3064e348083b2de4d983c7436f486f6e9de272fa0db7dfa543656811f7dbc8c5b084e2daf685536a2d155d69c7683b811c840e4167a5c966bad4eebfdb757ef9caa63ffde16727fa5c15ac0b15a2802624e85d6987eb53a69714401adfd5ca5e6151a8e9c0790dfc4494ea77ad32b66e95da7f615ee2fe7b6594f00493deb2392b4159afc07b69000f9b097ecca94bf5a46cb13f95dabdd9a40a2e207c077059c821caa29a40930b4b757f11404dcfe5e92c69acdbf3667651d5adf6856956805693fb945d83c5cf158371536814442ff31d6ad1b834a4ab13ad9917f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c96655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca0f968bd243908ff3e5fa1ab3f31e078197e58ace562bbe8b5a271d5fba50237da0c8fe65e7b5771cc0a86fd57f32347e15a26d1f5d56c472d019eea2539e58db00c49aa5d0a9663838903fddbe436b5b157e83b35d1a4e5f89f78127f35dacf005a2854c7f36818c137070d1342bba362b5d0c7daed605fcc739df577c33bd6ab6e07ab4a97beee81aa57c8d41f447440eeaf1f595b7b57457d7792b4bc14be74d0038f7ac3767a9c61fecaa02c3d07982c02995f22f66c05b8eb3b9facd5571").unwrap();
@@ -2695,6 +2412,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_pairing_5_100() {
         let buffer: [[u8; 288]; 5] = [[
             23, 241, 211, 167, 49, 151, 215, 148, 38, 149, 99, 140, 79, 169, 172, 15, 195, 104,
@@ -2720,6 +2438,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p1_decompress_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_p1_decompress(&buffer);
@@ -2727,6 +2446,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p1_decompress_50_100() {
         let buffer: [[u8; 48]; 50] = [[
             185, 110, 35, 139, 110, 142, 126, 177, 120, 97, 234, 41, 91, 204, 20, 203, 207, 103,
@@ -2739,6 +2459,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p2_decompress_0_100() {
         let buffer: [u8; 0] = [];
         let result = super::bls12381_p2_decompress(&buffer);
@@ -2746,6 +2467,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn bls12381_p2_decompress_50_100() {
         let buffer: [[u8; 96]; 50] = [[
             143, 150, 139, 210, 67, 144, 143, 243, 229, 250, 26, 179, 243, 30, 7, 129, 151, 229,
@@ -2761,41 +2483,41 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "global-contracts")]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn test_global_contract_functions() {
         // Test the global contract promise batch action functions
         // These tests verify the functions can be called without panicking
 
-        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let promise = super::promise_batch_create(&"alice.near".parse().unwrap());
         let code = vec![0u8; 100]; // Mock contract bytecode
-        let code_hash = vec![0u8; 32]; // Mock 32-byte hash
+        let code_hash = [0u8; 32]; // Mock 32-byte hash
         let account_id = "deployer.near".parse().unwrap();
 
         // Test deploy_global_contract
-        super::promise_batch_action_deploy_global_contract(promise_index, &code);
+        super::promise_batch_action_deploy_global_contract(&promise, &code);
 
         // Test deploy_global_contract_by_account_id
-        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &code);
+        super::promise_batch_action_deploy_global_contract_by_account_id(&promise, &code);
 
         // Test use_global_contract
-        super::promise_batch_action_use_global_contract(promise_index, &code_hash);
+        super::promise_batch_action_use_global_contract(&promise, code_hash);
 
         // Test use_global_contract_by_account_id
-        super::promise_batch_action_use_global_contract_by_account_id(promise_index, &account_id);
+        super::promise_batch_action_use_global_contract_by_account_id(&promise, &account_id);
     }
 
     #[test]
-    #[cfg(feature = "global-contracts")]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn test_global_contract_edge_cases() {
         // Test with minimal valid inputs
-        let promise_index = super::promise_batch_create(&"alice.near".parse().unwrap());
+        let promise = super::promise_batch_create(&"alice.near".parse().unwrap());
 
         // Test with single byte code (minimal size)
-        super::promise_batch_action_deploy_global_contract(promise_index, &[0]);
-        super::promise_batch_action_deploy_global_contract_by_account_id(promise_index, &[0]);
+        super::promise_batch_action_deploy_global_contract(&promise, &[0]);
+        super::promise_batch_action_deploy_global_contract_by_account_id(&promise, &[0]);
 
         // Test with 32-byte hash (standard size for CryptoHash)
         let valid_hash = [0u8; 32];
-        super::promise_batch_action_use_global_contract(promise_index, &valid_hash);
+        super::promise_batch_action_use_global_contract(&promise, valid_hash);
     }
 }
