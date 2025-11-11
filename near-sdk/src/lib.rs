@@ -1153,6 +1153,9 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
+pub mod events;
+pub use crate::events::{AsNep297Event, Nep297Event};
+
 pub mod state;
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
