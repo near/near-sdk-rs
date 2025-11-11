@@ -2,6 +2,7 @@ use near_sdk::test_utils::get_logs;
 use near_sdk::{near, AccountId, AsNep297Event};
 
 #[near(event_json(standard = "test_standard"))]
+#[derive(Debug)]
 pub enum TestEvents<'a, 'b, T>
 where
     T: near_sdk::serde::Serialize,
@@ -237,5 +238,160 @@ fn test_json_emit() {
         assert_eq!(log5_event.version(), "1.0.0");
         assert_eq!(log5_event.event(), "test");
         assert!(log5_event.data().is_none());
+    }
+}
+
+// Gas consumption tests for emit() similar to store_performance_tests.rs
+#[cfg(target_os = "linux")]
+mod emit_gas_consumption_tests {
+    use super::*;
+    use near_sdk::env;
+    use near_sdk::test_utils::test_env::{alice, bob};
+    use near_sdk::Gas;
+
+    fn setup_test_env() {
+        let context = near_sdk::test_utils::VMContextBuilder::new()
+            .current_account_id(alice())
+            .predecessor_account_id(bob())
+            .build();
+        near_sdk::testing_env!(context);
+    }
+
+    #[track_caller]
+    fn perform_gas_asserts(gas_used: u64, event_type: &str, expected_max: u64) {
+        let caller = std::panic::Location::caller();
+        println!(
+            "{}: Consumed {} out of {}",
+            event_type,
+            near_gas::NearGas::from_gas(gas_used),
+            near_gas::NearGas::from_gas(expected_max)
+        );
+        assert!(
+            gas_used <= expected_max,
+            "Gas consumption too high for {} at {}:{}:{}: {} (expected at most {})",
+            event_type,
+            caller.file(),
+            caller.line(),
+            caller.column(),
+            gas_used,
+            expected_max
+        );
+    }
+
+    #[test]
+    fn test_emit_performance() {
+        setup_test_env();
+
+        // Test simple Swap event emission
+        {
+            let token_in: AccountId = "wrap.near".parse().unwrap();
+            let token_out: AccountId = "test.near".parse().unwrap();
+            let event = TestEvents::Swap {
+                token_in,
+                token_out,
+                amount_in: 100,
+                amount_out: 200,
+                test: String::from("test"),
+            };
+
+            let gas_before = env::used_gas();
+            event.emit();
+            let gas_after = env::used_gas();
+            let gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+            perform_gas_asserts(gas_used, "Swap event emit", 63796097058);
+        }
+
+        // Test empty event emission (minimal overhead)
+        {
+            let event = TestEvents::EmptyEvent::<String>;
+            let gas_before = env::used_gas();
+            event.emit();
+            let gas_after = env::used_gas();
+            let gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+            perform_gas_asserts(gas_used, "Empty event emit", 34172359170);
+        }
+
+        // Test string event emission
+        {
+            let event = TestEvents::StringEvent::<String>(String::from("test_string"));
+            let gas_before = env::used_gas();
+            event.emit();
+            let gas_after = env::used_gas();
+            let gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+            perform_gas_asserts(gas_used, "String event emit", 40961132436);
+        }
+    }
+
+    #[test]
+    fn test_emit_with_varying_data_sizes() {
+        setup_test_env();
+
+        // Small data (< 100 bytes)
+        {
+            let event = TestEvents::StringEvent::<String>(String::from("small"));
+            let gas_before = env::used_gas();
+            event.emit();
+            let gas_after = env::used_gas();
+            let gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+            println!("{}", near_gas::NearGas::from_tgas(3).as_gas());
+            perform_gas_asserts(gas_used, "Small data event", 39109648818);
+        }
+
+        // Medium data (~1KB)
+        {
+            let medium_string = "x".repeat(1024);
+            let event = TestEvents::StringEvent::<String>(medium_string);
+
+            let gas_before = env::used_gas();
+            event.emit();
+            let gas_after = env::used_gas();
+            let gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+            perform_gas_asserts(gas_used, "Medium data event (1KB)", 353553283275);
+        }
+
+        // Large data (~10KB)
+        {
+            let large_string = "x".repeat(10000);
+            let event = TestEvents::StringEvent::<String>(large_string);
+
+            let gas_before = env::used_gas();
+            event.emit();
+            let gas_after = env::used_gas();
+            let gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+            perform_gas_asserts(gas_used, "Large data event (10KB)", 3123372775803);
+        }
+    }
+
+    #[test]
+    fn test_emit_multiple_events_performance() {
+        setup_test_env();
+
+        let iterations = 50;
+        let token_in: AccountId = "wrap.near".parse().unwrap();
+        let token_out: AccountId = "test.near".parse().unwrap();
+
+        let gas_before = env::used_gas();
+
+        for i in 0..iterations {
+            let event = TestEvents::Swap {
+                token_in: token_in.clone(),
+                token_out: token_out.clone(),
+                amount_in: i as u128,
+                amount_out: (i * 2) as u128,
+                test: format!("test_{}", i),
+            };
+            event.emit();
+        }
+
+        let gas_after = env::used_gas();
+        let total_gas_used = gas_after.as_gas() - gas_before.as_gas();
+
+        perform_gas_asserts(total_gas_used, "Total gas used", 3184545730536);
     }
 }
