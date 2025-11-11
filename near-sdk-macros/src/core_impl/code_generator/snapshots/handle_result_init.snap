@@ -9,13 +9,13 @@ pub extern "C" fn new() {
     if ::near_sdk::env::attached_deposit().as_yoctonear() != 0 {
         ::near_sdk::env::panic_str("Method new doesn't accept deposit");
     }
-    if ::near_sdk::env::state_exists() {
+    if <Hello as ::near_sdk::state::ContractState>::state_exists() {
         ::near_sdk::env::panic_str("The contract has already been initialized");
     }
     let contract = Hello::new();
     match contract {
         ::std::result::Result::Ok(contract) => {
-            ::near_sdk::env::state_write(&contract);
+            <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
         }
         ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
     }

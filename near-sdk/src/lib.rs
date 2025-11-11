@@ -166,6 +166,8 @@ compile_error!(
 ///
 /// The attribute prepares a struct/enum to be a contract state. Only one contract state is allowed per crate.
 ///
+/// Custom storage key can be set via `#[near(contract_state(key = b"CUSTOM"))]`.
+///
 /// A contract type is usually acompanied by an `impl` block, annotated with [`#[near]`](near#near-annotates-impl-blocks).
 ///
 /// This attribute is also required to make the [`#[near(contract_metadata(...))]`](near#nearcontract_metadata-annotates-structsenums) attribute work.
@@ -1153,6 +1155,8 @@ pub use crate::types::*;
 
 pub mod events;
 pub use crate::events::{AsNep297Event, Nep297Event};
+
+pub mod state;
 
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
