@@ -1369,10 +1369,7 @@ mod tests {
         let code = vec![10, 11, 12, 13];
 
         {
-            Promise::new(alice())
-                .create_account()
-                .publish_contract(code.clone(), None)
-                .detach();
+            Promise::new(alice()).create_account().publish_contract(code.clone(), None).detach();
         }
 
         // Should use DeployGlobalContract when no account_id provided
@@ -1475,7 +1472,7 @@ mod tests {
         {
             Promise::new(alice())
                 .create_account()
-                .deploy_from_published(&publisher)  // Test with reference
+                .deploy_from_published(&publisher) // Test with reference
                 .detach();
         }
 
