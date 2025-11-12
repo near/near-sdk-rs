@@ -30,6 +30,66 @@ impl Allowance {
     }
 }
 
+#[cfg(feature = "global-contracts")]
+/// Reference to a global contract, either by code hash or by the account that published it.
+///
+/// This enum is used internally by [`Promise::deploy_from_published`] to support
+/// ergonomic API where you can pass either a hash or an account ID.
+enum GlobalContractRef {
+    Hash(Vec<u8>),
+    Account(AccountId),
+}
+
+#[cfg(feature = "global-contracts")]
+/// Trait for converting values into a global contract reference.
+///
+/// This trait enables ergonomic usage of [`Promise::deploy_from_published`],
+/// allowing you to pass either a code hash (as `Vec<u8>`) or an account ID directly.
+///
+/// # Examples
+/// ```no_run
+/// use near_sdk::{Promise, AccountId};
+///
+/// let hash = vec![0u8; 32];
+/// let account: AccountId = "multisig.near".parse().unwrap();
+///
+/// // Both work seamlessly:
+/// Promise::new("alice.near".parse().unwrap())
+///     .deploy_from_published(hash);
+///
+/// Promise::new("bob.near".parse().unwrap())
+///     .deploy_from_published(account);
+/// ```
+#[allow(private_interfaces)]
+pub trait IntoGlobalContractRef {
+    #[doc(hidden)]
+    fn into_ref(self) -> GlobalContractRef;
+}
+
+#[cfg(feature = "global-contracts")]
+#[allow(private_interfaces)]
+impl IntoGlobalContractRef for Vec<u8> {
+    fn into_ref(self) -> GlobalContractRef {
+        GlobalContractRef::Hash(self)
+    }
+}
+
+#[cfg(feature = "global-contracts")]
+#[allow(private_interfaces)]
+impl IntoGlobalContractRef for AccountId {
+    fn into_ref(self) -> GlobalContractRef {
+        GlobalContractRef::Account(self)
+    }
+}
+
+#[cfg(feature = "global-contracts")]
+#[allow(private_interfaces)]
+impl IntoGlobalContractRef for &AccountId {
+    fn into_ref(self) -> GlobalContractRef {
+        GlobalContractRef::Account(self.clone())
+    }
+}
+
 enum PromiseAction {
     CreateAccount,
     DeployContract {
@@ -331,8 +391,54 @@ impl Promise {
     }
 
     #[cfg(feature = "global-contracts")]
+    /// Publish contract code to the global contract registry.
+    ///
+    /// This is a high-level API that publishes contract code to make it globally accessible.
+    /// The code can then be referenced by multiple accounts using [`Self::deploy_from_published`],
+    /// saving on deployment costs.
+    ///
+    /// # Parameters
+    /// * `code` - The contract bytecode to publish
+    /// * `account_id` - Optional account ID to associate with this code:
+    ///   - `None`: Code is indexed only by its hash
+    ///   - `Some(account_id)`: Code is indexed by both hash AND the account, making it easier
+    ///     for others to reference via the account name
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken};
+    ///
+    /// let code = vec![0u8; 100]; // Contract bytecode
+    ///
+    /// // Publish indexed by hash only
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .publish_contract(code.clone(), None)
+    ///     .detach();
+    ///
+    /// // Publish indexed by account (makes it easy for others to find)
+    /// Promise::new("multisig-template.near".parse().unwrap())
+    ///     .create_account()
+    ///     .publish_contract(code, Some("multisig-template.near".parse().unwrap()))
+    ///     .detach();
+    /// ```
+    pub fn publish_contract(self, code: Vec<u8>, account_id: Option<AccountId>) -> Self {
+        if let Some(_account_id) = account_id {
+            self.add_action(PromiseAction::DeployGlobalContractByAccountId { code })
+        } else {
+            self.add_action(PromiseAction::DeployGlobalContract { code })
+        }
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[deprecated(
+        since = "5.18.0",
+        note = "Use `publish_contract(code, None)` instead for a cleaner API"
+    )]
     /// Deploy a global smart contract using the provided contract code.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract`]
+    ///
+    /// **Deprecated:** Use [`Self::publish_contract`] instead.
     ///
     /// # Examples
     /// ```no_run
@@ -349,8 +455,14 @@ impl Promise {
     }
 
     #[cfg(feature = "global-contracts")]
+    #[deprecated(
+        since = "5.18.0",
+        note = "Use `publish_contract(code, Some(account_id))` instead for a cleaner API"
+    )]
     /// Deploy a global smart contract, identifiable by the predecessor's account ID.
     /// Uses low-level [`crate::env::promise_batch_action_deploy_global_contract_by_account_id`]
+    ///
+    /// **Deprecated:** Use [`Self::publish_contract`] instead.
     ///
     /// # Examples
     /// ```no_run
@@ -367,8 +479,55 @@ impl Promise {
     }
 
     #[cfg(feature = "global-contracts")]
+    /// Deploy an account using previously published global contract code.
+    ///
+    /// This is a high-level API that creates a new account and deploys it using code that
+    /// was previously published to the global contract registry via [`Self::publish_contract`].
+    /// This saves on deployment costs since the code doesn't need to be uploaded again.
+    ///
+    /// The `reference` parameter accepts either:
+    /// - A code hash (`Vec<u8>`) - if you know the exact hash of the published code
+    /// - An account ID (`AccountId`) - if the code was published with an associated account
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use near_sdk::{Promise, NearToken, AccountId};
+    ///
+    /// let code_hash = vec![0u8; 32]; // Hash from previously published code
+    /// let publisher: AccountId = "multisig-template.near".parse().unwrap();
+    ///
+    /// // Deploy using code hash
+    /// Promise::new("alice.near".parse().unwrap())
+    ///     .create_account()
+    ///     .deploy_from_published(code_hash)
+    ///     .detach();
+    ///
+    /// // Deploy using publisher account (more ergonomic!)
+    /// Promise::new("bob.near".parse().unwrap())
+    ///     .create_account()
+    ///     .deploy_from_published(publisher)
+    ///     .detach();
+    /// ```
+    pub fn deploy_from_published(self, reference: impl IntoGlobalContractRef) -> Self {
+        match reference.into_ref() {
+            GlobalContractRef::Hash(code_hash) => {
+                self.add_action(PromiseAction::UseGlobalContract { code_hash })
+            }
+            GlobalContractRef::Account(account_id) => {
+                self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
+            }
+        }
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[deprecated(
+        since = "5.18.0",
+        note = "Use `deploy_from_published(code_hash)` instead for a cleaner API"
+    )]
     /// Use an existing global contract by code hash.
     /// Uses low-level [`crate::env::promise_batch_action_use_global_contract`]
+    ///
+    /// **Deprecated:** Use [`Self::deploy_from_published`] instead.
     ///
     /// # Examples
     /// ```no_run
@@ -385,8 +544,14 @@ impl Promise {
     }
 
     #[cfg(feature = "global-contracts")]
+    #[deprecated(
+        since = "5.18.0",
+        note = "Use `deploy_from_published(account_id)` instead for a cleaner API"
+    )]
     /// Use an existing global contract by referencing the account that deployed it.
     /// Uses low-level [`crate::env::promise_batch_action_use_global_contract_by_account_id`]
+    ///
+    /// **Deprecated:** Use [`Self::deploy_from_published`] instead.
     ///
     /// # Examples
     /// ```no_run
@@ -1108,6 +1273,7 @@ mod tests {
 
     #[cfg(feature = "global-contracts")]
     #[test]
+    #[allow(deprecated)]
     fn test_deploy_global_contract() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
@@ -1128,6 +1294,7 @@ mod tests {
 
     #[cfg(feature = "global-contracts")]
     #[test]
+    #[allow(deprecated)]
     fn test_deploy_global_contract_by_account_id() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
@@ -1151,6 +1318,7 @@ mod tests {
 
     #[cfg(feature = "global-contracts")]
     #[test]
+    #[allow(deprecated)]
     fn test_use_global_contract() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
@@ -1167,6 +1335,7 @@ mod tests {
 
     #[cfg(feature = "global-contracts")]
     #[test]
+    #[allow(deprecated)]
     fn test_use_global_contract_by_account_id() {
         testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
 
@@ -1187,6 +1356,138 @@ mod tests {
                     receipt_index: _
                 }
                 if contract_id == deployer
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_publish_contract_by_hash_only() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code = vec![10, 11, 12, 13];
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .publish_contract(code.clone(), None)
+                .detach();
+        }
+
+        // Should use DeployGlobalContract when no account_id provided
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: _ } if c == code
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_publish_contract_with_account() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code = vec![20, 21, 22, 23];
+        let publisher = bob();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .publish_contract(code.clone(), Some(publisher))
+                .detach();
+        }
+
+        // Should use DeployGlobalContract when account_id provided
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::DeployGlobalContract { code: c, receipt_index: _, mode: _ } if c == code
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_from_published_with_hash() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let code_hash = vec![0u8; 32];
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .deploy_from_published(code_hash.clone())
+                .detach();
+        }
+
+        // Should use UseGlobalContract when hash is provided
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::UseGlobalContract {
+                    contract_id: near_primitives::action::GlobalContractIdentifier::CodeHash(_),
+                    receipt_index: _
+                }
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_from_published_with_account() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let publisher = bob();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .deploy_from_published(publisher.clone())
+                .detach();
+        }
+
+        // Should use UseGlobalContract with AccountId when account is provided
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::UseGlobalContract {
+                    contract_id: near_primitives::action::GlobalContractIdentifier::AccountId(ref account_id),
+                    receipt_index: _
+                }
+                if *account_id == publisher
+            )
+        });
+        assert!(has_action);
+    }
+
+    #[cfg(feature = "global-contracts")]
+    #[test]
+    fn test_deploy_from_published_with_account_ref() {
+        testing_env!(VMContextBuilder::new().signer_account_id(alice()).build());
+
+        let publisher = bob();
+
+        {
+            Promise::new(alice())
+                .create_account()
+                .deploy_from_published(&publisher)  // Test with reference
+                .detach();
+        }
+
+        // Should work with &AccountId too
+        let has_action = get_actions().any(|el| {
+            matches!(
+                el,
+                MockAction::UseGlobalContract {
+                    contract_id: near_primitives::action::GlobalContractIdentifier::AccountId(ref account_id),
+                    receipt_index: _
+                }
+                if *account_id == publisher
             )
         });
         assert!(has_action);
