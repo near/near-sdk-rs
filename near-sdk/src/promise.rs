@@ -405,12 +405,17 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_function_call`]
     pub fn function_call(
         self,
-        function_name: String,
+        function_name: impl Into<String>,
         arguments: Vec<u8>,
         amount: NearToken,
         gas: Gas,
     ) -> Self {
-        self.add_action(PromiseAction::FunctionCall { function_name, arguments, amount, gas })
+        self.add_action(PromiseAction::FunctionCall {
+            function_name: function_name.into(),
+            arguments,
+            amount,
+            gas,
+        })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
@@ -419,14 +424,14 @@ impl Promise {
     /// Uses low-level [`crate::env::promise_batch_action_function_call_weight`]
     pub fn function_call_weight(
         self,
-        function_name: String,
+        function_name: impl Into<String>,
         arguments: Vec<u8>,
         amount: NearToken,
         gas: Gas,
         weight: GasWeight,
     ) -> Self {
         self.add_action(PromiseAction::FunctionCallWeight {
-            function_name,
+            function_name: function_name.into(),
             arguments,
             amount,
             gas,
@@ -460,14 +465,14 @@ impl Promise {
 
     /// Add an access key that is restricted to only calling a smart contract on some account using
     /// only a restricted set of methods. Here `function_names` is a comma separated list of methods,
-    /// e.g. `"method_a,method_b".to_string()`.
+    /// e.g. `"method_a,method_b"`.
     /// Uses low-level [`crate::env::promise_batch_action_add_key_with_function_call`]
     pub fn add_access_key_allowance(
         self,
         public_key: PublicKey,
         allowance: Allowance,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
     ) -> Self {
         self.add_access_key_allowance_with_nonce(
             public_key,
@@ -484,7 +489,7 @@ impl Promise {
         public_key: PublicKey,
         allowance: NearToken,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
     ) -> Self {
         let allowance = migrate_to_allowance(allowance);
         self.add_access_key_allowance(public_key, allowance, receiver_id, function_names)
@@ -497,14 +502,14 @@ impl Promise {
         public_key: PublicKey,
         allowance: Allowance,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
         nonce: u64,
     ) -> Self {
         self.add_action(PromiseAction::AddAccessKey {
             public_key,
             allowance,
             receiver_id,
-            function_names,
+            function_names: function_names.into(),
             nonce,
         })
     }
@@ -515,7 +520,7 @@ impl Promise {
         public_key: PublicKey,
         allowance: NearToken,
         receiver_id: AccountId,
-        function_names: String,
+        function_names: impl Into<String>,
         nonce: u64,
     ) -> Self {
         let allowance = migrate_to_allowance(allowance);
@@ -649,7 +654,10 @@ impl Promise {
     /// let p4 = Promise::new("eva_near".parse().unwrap()).create_account();
     /// p1.then_concurrent(vec![p2, p3]).join().then(p4);
     /// ```
-    pub fn then_concurrent(self, promises: Vec<Promise>) -> ConcurrentPromises {
+    pub fn then_concurrent(
+        self,
+        promises: impl IntoIterator<Item = Promise>,
+    ) -> ConcurrentPromises {
         let this = Rc::new(self);
         let mapped_promises =
             promises.into_iter().map(|other| Rc::clone(&this).then_impl(other)).collect();
