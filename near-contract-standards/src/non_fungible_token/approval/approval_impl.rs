@@ -82,7 +82,8 @@ impl NonFungibleTokenApproval for NonFungibleToken {
                 refund_approved_account_ids_iter(
                     predecessor_account_id,
                     core::iter::once(&account_id),
-                );
+                )
+                .detach();
                 // if this was the last approval, remove the whole HashMap to save space.
                 if approved_account_ids.is_empty() {
                     approvals_by_id.remove(&token_id);
@@ -108,7 +109,7 @@ impl NonFungibleTokenApproval for NonFungibleToken {
         // if token has no approvals, do nothing
         if let Some(approved_account_ids) = &mut approvals_by_id.get(&token_id) {
             // otherwise, refund owner for storage costs of all approvals...
-            refund_approved_account_ids(predecessor_account_id, approved_account_ids);
+            refund_approved_account_ids(predecessor_account_id, approved_account_ids).detach();
             // ...and remove whole HashMap of approvals
             approvals_by_id.remove(&token_id);
         }

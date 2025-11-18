@@ -232,8 +232,9 @@ impl ImplItemMethodInfo {
 
             Init(init_method) => {
                 if !init_method.ignores_state {
+                    let struct_type = &self.struct_type;
                     quote! {
-                        if ::near_sdk::env::state_exists() {
+                        if <#struct_type as ::near_sdk::state::ContractState>::state_exists() {
                             ::near_sdk::env::panic_err(::near_sdk::errors::ContractAlreadyInitialized{}.into());
                         }
                     }
@@ -257,7 +258,7 @@ impl ImplItemMethodInfo {
             let mutability = receiver.mutability;
 
             quote! {
-                let #mutability contract: #struct_type = ::near_sdk::env::state_read().unwrap_or_default();
+                let #mutability contract = <#struct_type as ::near_sdk::state::ContractState>::state_read().unwrap_or_default();
             }
         };
 
@@ -289,11 +290,12 @@ impl ImplItemMethodInfo {
     fn contract_ser_tokens(&self) -> TokenStream2 {
         use MethodKind::*;
 
-        fn contract_ser() -> TokenStream2 {
+        let contract_ser = || {
+            let struct_type = &self.struct_type;
             quote! {
-                ::near_sdk::env::state_write(&contract);
+                <#struct_type as ::near_sdk::state::ContractState>::state_write(&contract);
             }
-        }
+        };
 
         match &self.attr_signature_info.method_kind {
             Call(call_method) => {

@@ -50,6 +50,7 @@ near-crypto = { version = "0.31", default-features = false, optional = true }
 near-parameters = { version = "0.31", optional = true }
 
 [dev-dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
 rand = "0.8.4"
 trybuild = "1.0"

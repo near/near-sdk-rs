@@ -20,13 +20,12 @@ impl FactoryContract {
             .create_account()
             .transfer(amount)
             .add_full_access_key(env::signer_account_pk())
-            .deploy_contract(
-                include_bytes!(env!("BUILD_RS_SUB_BUILD_STATUS-MESSAGE")).to_vec(),
-            );
+            .deploy_contract(include_bytes!(env!("BUILD_RS_SUB_BUILD_STATUS-MESSAGE")).to_vec())
+            .detach();
     }
 
     pub fn simple_call(&mut self, account_id: AccountId, message: String) {
-        ext_status_message::ext(account_id).set_status(message);
+        ext_status_message::ext(account_id).set_status(message).detach();
     }
     pub fn complex_call(&mut self, account_id: AccountId, message: String) -> Promise {
         // 1) call status_message to record a message from the signer.

@@ -12,7 +12,8 @@ pub extern "C" fn method() {
             ::near_sdk::errors::DepositNotAccepted::new("method").into(),
         );
     }
-    let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
+    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+        .unwrap_or_default();
     Hello::method(&mut contract);
-    ::near_sdk::env::state_write(&contract);
+    <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
 }

@@ -116,7 +116,7 @@ impl GlobalFactoryContract {
 
     /// Example of calling a status message contract that was deployed as global
     pub fn call_global_status_contract(&mut self, account_id: AccountId, message: String) {
-        ext_status_message::ext(account_id).set_status(message);
+        ext_status_message::ext(account_id).set_status(message).detach();
     }
 
     /// Example of complex call using global contracts
@@ -156,7 +156,6 @@ mod tests {
             .build()
     }
 
-    
     #[test]
     fn test_deploy_global_contract() {
         let context = get_context(accounts(1));
@@ -166,11 +165,9 @@ mod tests {
         let code = vec![0u8; 100]; // Mock bytecode
         let account_id = accounts(2);
 
-        contract.deploy_global_contract(
-            "test_contract".to_string(),
-            code.clone().into(),
-            account_id,
-        );
+        contract
+            .deploy_global_contract("test_contract".to_string(), code.clone().into(), account_id)
+            .detach();
 
         // Check that the contract was recorded
         let stored_hash = contract.get_global_contract_hash("test_contract".to_string());
@@ -181,7 +178,6 @@ mod tests {
         assert_eq!(stored_hash.unwrap(), expected_hash.into());
     }
 
-    
     #[test]
     fn test_list_global_contracts() {
         let context = get_context(accounts(1));
@@ -191,11 +187,13 @@ mod tests {
         let code = vec![0u8; 100];
         let account_id = accounts(2);
 
-        contract.deploy_global_contract(
-            "test_contract".to_string(),
-            code.clone().into(),
-            account_id.clone(),
-        );
+        contract
+            .deploy_global_contract(
+                "test_contract".to_string(),
+                code.clone().into(),
+                account_id.clone(),
+            )
+            .detach();
 
         let contracts = contract.list_global_contracts();
         assert_eq!(contracts.len(), 1);

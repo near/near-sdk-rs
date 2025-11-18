@@ -10,9 +10,12 @@ use proc_macro::TokenStream;
 use self::core_impl::*;
 use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
+use inflector::Inflector;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse_quote, Expr, ImplItem, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause};
+use syn::{
+    parse_quote, Expr, ImplItem, Item, ItemEnum, ItemImpl, ItemStruct, ItemTrait, WhereClause,
+};
 
 #[derive(Debug, Clone)]
 struct Serializers {
@@ -38,8 +41,8 @@ impl FromMeta for Serializers {
 #[derive(FromMeta)]
 struct NearMacroArgs {
     serializers: Option<Serializers>,
-    contract_state: Option<bool>,
-    contract_metadata: Option<core_impl::ContractMetadata>,
+    #[darling(default, flatten)]
+    near_bindgen_args: NearBindgenMacroArgs,
     inside_nearsdk: Option<bool>,
 }
 
@@ -104,12 +107,9 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut expanded: proc_macro2::TokenStream = quote! {};
 
-    if near_macro_args.contract_state.unwrap_or(false) {
-        if let Some(metadata) = near_macro_args.contract_metadata {
-            expanded = quote! {#[#near_sdk_crate::near_bindgen(#metadata)]}
-        } else {
-            expanded = quote! {#[#near_sdk_crate::near_bindgen]}
-        }
+    if near_macro_args.near_bindgen_args.contract_state.is_some() {
+        let near_bindgen_args = near_macro_args.near_bindgen_args;
+        expanded = quote! {#[#near_sdk_crate::near_bindgen(#near_bindgen_args)]};
     };
 
     let mut has_borsh = false;
@@ -220,66 +220,34 @@ pub fn near(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+#[derive(Default, FromMeta)]
+struct NearBindgenMacroArgs {
+    contract_state: Option<core_impl::state::ContractStateArgs>,
+    #[darling(default)]
+    contract_metadata: core_impl::ContractMetadata,
+}
+
+impl quote::ToTokens for NearBindgenMacroArgs {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let contract_state = &self.contract_state;
+        let contract_metadata = &self.contract_metadata;
+        tokens.extend(quote! {
+            contract_state(#contract_state),
+            contract_metadata(#contract_metadata),
+        })
+    }
+}
+
 #[proc_macro_attribute]
 pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
     if attr.to_string().contains("event_json") {
         return core_impl::near_events(attr, item);
     }
 
-    let generate_metadata = |ident: &Ident,
-                             generics: &syn::Generics|
-     -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
-        let metadata_impl_gen = generate_contract_metadata_method(ident, generics).into();
-
-        let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
-            .expect("failed to generate contract metadata");
-        process_impl_block(metadata_impl_gen)
-    };
-
-    if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
-        let metadata = core_impl::contract_source_metadata_const(attr);
-
-        let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
-
-        let metadata_impl_gen = match metadata_impl_gen {
-            Ok(metadata) => metadata,
-            Err(err) => return err.into(),
-        };
-
-        let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
-        #[cfg(feature = "__abi-embed-checked")]
-        let abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed-checked"))]
-        let abi_embedded = quote! {};
-        TokenStream::from(quote! {
-            #input
-            #ext_gen
-            #abi_embedded
-            #metadata
-            #metadata_impl_gen
-        })
+    let (ident, generics) = if let Ok(input) = syn::parse::<ItemStruct>(item.clone()) {
+        (input.ident, input.generics)
     } else if let Ok(input) = syn::parse::<ItemEnum>(item.clone()) {
-        let metadata = core_impl::contract_source_metadata_const(attr);
-        let metadata_impl_gen = generate_metadata(&input.ident, &input.generics);
-
-        let metadata_impl_gen = match metadata_impl_gen {
-            Ok(metadata) => metadata,
-            Err(err) => return err.into(),
-        };
-
-        let ext_gen = generate_ext_structs(&input.ident, Some(&input.generics));
-        #[cfg(feature = "__abi-embed-checked")]
-        let abi_embedded = abi::embed();
-        #[cfg(not(feature = "__abi-embed-checked"))]
-        let abi_embedded = quote! {};
-
-        TokenStream::from(quote! {
-            #input
-            #ext_gen
-            #abi_embedded
-            #metadata
-            #metadata_impl_gen
-        })
+        (input.ident, input.generics)
     } else if let Ok(input) = syn::parse::<ItemImpl>(item) {
         for method in &input.items {
             if let ImplItem::Fn(m) = method {
@@ -295,20 +263,65 @@ pub fn near_bindgen(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
         }
-        match process_impl_block(input) {
+        return match process_impl_block(input) {
             Ok(output) => output,
             Err(output) => output,
         }
-        .into()
+        .into();
     } else {
-        TokenStream::from(
+        return TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
                 "near_bindgen can only be used on struct or enum definition and impl sections.",
             )
             .to_compile_error(),
-        )
-    }
+        );
+    };
+
+    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return Error::from(e).write_errors().into();
+        }
+    };
+
+    let args = match NearBindgenMacroArgs::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => {
+            return e.write_errors().into();
+        }
+    };
+
+    let impl_contract_state = args.contract_state.map(|s| s.impl_contract_state(&ident, &generics));
+    let metadata = args.contract_metadata.contract_source_metadata_const();
+
+    let metadata_impl_gen = {
+        let metadata_impl_gen = generate_contract_metadata_method(&ident, &generics).into();
+
+        let metadata_impl_gen = syn::parse::<ItemImpl>(metadata_impl_gen)
+            .expect("failed to generate contract metadata");
+        process_impl_block(metadata_impl_gen)
+    };
+
+    let metadata_impl_gen = match metadata_impl_gen {
+        Ok(metadata) => metadata,
+        Err(err) => return err.into(),
+    };
+
+    let ext_gen = generate_ext_structs(&ident, Some(&generics));
+    #[cfg(feature = "__abi-embed-checked")]
+    let abi_embedded = abi::embed();
+    #[cfg(not(feature = "__abi-embed-checked"))]
+    let abi_embedded = quote! {};
+    let item = proc_macro2::TokenStream::from(item);
+    TokenStream::from(quote! {
+        #item
+        #ext_gen
+        #abi_embedded
+        #metadata
+        #metadata_impl_gen
+        #impl_contract_state
+    })
 }
 
 // This function deals with impl block processing, generating wrappers and ABI.
@@ -600,23 +613,26 @@ fn get_where_clause(
 
 #[proc_macro_derive(PanicOnDefault)]
 pub fn derive_no_default(item: TokenStream) -> TokenStream {
-    if let Ok(input) = syn::parse::<ItemStruct>(item) {
-        let name = &input.ident;
-        TokenStream::from(quote! {
-            impl ::std::default::Default for #name {
-                fn default() -> Self {
-                    ::near_sdk::env::panic_err(::near_sdk::errors::ContractNotInitialized{}.into());
-                }
-            }
-        })
-    } else {
-        TokenStream::from(
+    match syn::parse::<Item>(item) {
+        Ok(Item::Enum(ItemEnum { ident, .. })) | Ok(Item::Struct(ItemStruct { ident, .. })) => {
+            TokenStream::from(quote! {
+                const _: () = {
+                    #[automatically_derived]
+                    impl ::std::default::Default for #ident {
+                        fn default() -> Self {
+                            ::near_sdk::env::panic_err(::near_sdk::errors::ContractNotInitialized{}.into());
+                        }
+                    }
+                };
+            })
+        }
+        _ => TokenStream::from(
             syn::Error::new(
                 Span::call_site(),
                 "PanicOnDefault can only be used on type declarations sections.",
             )
             .to_compile_error(),
-        )
+        ),
     }
 }
 
@@ -681,12 +697,22 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
         let standard_ident = syn::Ident::new(&standard_name, Span::call_site());
         // version from each attribute macro
         let mut event_meta: Vec<proc_macro2::TokenStream> = vec![];
+        let mut version_arms: Vec<proc_macro2::TokenStream> = vec![];
+        let mut event_name_arms: Vec<proc_macro2::TokenStream> = vec![];
         for var in &input.variants {
             if let Some(version) = core_impl::get_event_version(var) {
                 let var_ident = &var.ident;
                 event_meta.push(quote! {
                     #name::#var_ident { .. } => {(::std::string::ToString::to_string(&#standard_ident), ::std::string::ToString::to_string(#version))}
-                })
+                });
+                version_arms.push(quote! {
+                    #name::#var_ident { .. } => ::std::borrow::Cow::Borrowed(#version)
+                });
+                let event_name =
+                    proc_macro2::Literal::string(&var.ident.to_string().to_snake_case());
+                event_name_arms.push(quote! {
+                    #name::#var_ident { .. } => ::std::borrow::Cow::Borrowed(#event_name)
+                });
             } else {
                 return TokenStream::from(
                     syn::Error::new(
@@ -707,53 +733,52 @@ pub fn derive_event_attributes(item: TokenStream) -> TokenStream {
             0,
             syn::GenericParam::Lifetime(syn::LifetimeParam::new(event_lifetime.clone())),
         );
-        let (custom_impl_generics, ..) = generics.split_for_impl();
 
         TokenStream::from(quote! {
             impl #impl_generics #name #type_generics #where_clause {
                 pub fn emit(&self) {
-                    use ::std::string::String;
-
-                    let (standard, version): (String, String) = match self {
-                        #(#event_meta),*
-                    };
-
-                    #[derive(::near_sdk::serde::Serialize)]
-                    #[serde(crate="::near_sdk::serde")]
-                    #[serde(rename_all="snake_case")]
-                    struct EventBuilder #custom_impl_generics #where_clause {
-                        standard: String,
-                        version: String,
-                        #[serde(flatten)]
-                        event_data: &#event_lifetime #name #type_generics
-                    }
-                    let event = EventBuilder { standard, version, event_data: self };
-                    let json = ::near_sdk::serde_json::to_string(&event)
-                            .unwrap_or_else(|_| ::near_sdk::env::abort());
-                    ::near_sdk::env::log_str(&::std::format!("EVENT_JSON:{}", json));
+                    use ::near_sdk::AsNep297Event;
+                    ::near_sdk::env::log_str(&self.to_nep297_event().to_event_log());
                 }
 
                 pub fn to_json(&self) -> ::near_sdk::serde_json::Value {
-                    use ::std::string::String;
+                    use ::near_sdk::AsNep297Event;
+                    self.to_nep297_event().to_json()
+                }
 
-                    let (standard, version): (String, String) = match self {
-                        #(#event_meta),*
-                    };
+                pub fn standard(&self) -> ::std::borrow::Cow<'_, str> {
+                    ::std::borrow::Cow::Borrowed(#standard_ident)
+                }
 
-                    #[derive(::near_sdk::serde::Serialize)]
-                    #[serde(crate="::near_sdk::serde")]
-                    #[serde(rename_all="snake_case")]
-                    struct EventBuilder #custom_impl_generics #where_clause {
-                        standard: String,
-                        version: String,
-                        #[serde(flatten)]
-                        event_data: &#event_lifetime #name #type_generics
+                pub fn version(&self) -> ::std::borrow::Cow<'_, str> {
+                    match self {
+                        #(#version_arms),*
                     }
-                    let event = EventBuilder { standard, version, event_data: self };
-                    ::near_sdk::serde_json::to_value(&event)
-                        .unwrap_or_else(|_| ::near_sdk::env::abort())
+                }
+
+                pub fn event(&self) -> ::std::borrow::Cow<'_, str> {
+                    match self {
+                        #(#event_name_arms),*
+                    }
                 }
             }
+
+            impl #impl_generics ::near_sdk::events::AsNep297Event for #name #type_generics #where_clause{
+                fn to_nep297_event(&self) -> ::near_sdk::events::Nep297Event<'_, Self> {
+                    ::near_sdk::events::Nep297Event::new(
+                        ::std::borrow::Cow::Borrowed(#standard_ident),
+                        match self {
+                            #(#version_arms),*
+                        },
+                        match self {
+                            #(#event_name_arms),*
+                        },
+                        self,
+                    )
+                }
+            }
+
+
         })
     } else {
         TokenStream::from(

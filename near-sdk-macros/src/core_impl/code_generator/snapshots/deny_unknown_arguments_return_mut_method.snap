@@ -30,7 +30,8 @@ pub extern "C" fn method() {
         }
         None => ::near_sdk::env::panic_str("Expected input since method has arguments."),
     };
-    let mut contract: Hello = ::near_sdk::env::state_read().unwrap_or_default();
+    let mut contract = <Hello as ::near_sdk::state::ContractState>::state_read()
+        .unwrap_or_default();
     let result = Hello::method(&mut contract, k, m);
     let result = match near_sdk::serde_json::to_vec(&result) {
         Ok(v) => v,
@@ -41,5 +42,5 @@ pub extern "C" fn method() {
         }
     };
     ::near_sdk::env::value_return(&result);
-    ::near_sdk::env::state_write(&contract);
+    <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
 }
