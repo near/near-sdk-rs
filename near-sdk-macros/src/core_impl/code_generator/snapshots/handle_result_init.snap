@@ -1,6 +1,5 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/item_impl_info.rs
-assertion_line: 378
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_arch = "wasm32")]
@@ -22,8 +21,10 @@ pub extern "C" fn new() {
     let contract = Hello::new();
     match contract {
         ::std::result::Result::Ok(contract) => {
-            ::near_sdk::env::state_write(&contract);
+            <Hello as ::near_sdk::state::ContractState>::state_write(&contract);
         }
-        ::std::result::Result::Err(err) => ::near_sdk::FunctionError::panic(&err),
+        ::std::result::Result::Err(err) => {
+            ::near_sdk::FunctionError::panic(&err);
+        }
     }
 }
