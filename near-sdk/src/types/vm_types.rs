@@ -21,6 +21,9 @@ pub use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReturnD
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Copy, Clone)]
 pub struct PromiseIndex(pub(crate) u64);
 
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Copy, Clone)]
+pub struct ActionIndex(pub(crate) u64);
+
 /// An index of Receipt to append an action
 #[deprecated(since = "4.1.0", note = "type not used within SDK, use u64 directly or another alias")]
 pub type ReceiptIndex = u64;
@@ -39,7 +42,7 @@ pub enum PromiseResult {
 impl From<PromiseResult> for VmPromiseResult {
     fn from(p: PromiseResult) -> Self {
         match p {
-            PromiseResult::Successful(v) => Self::Successful(v),
+            PromiseResult::Successful(v) => Self::Successful(v.into()),
             PromiseResult::Failed => Self::Failed,
         }
     }

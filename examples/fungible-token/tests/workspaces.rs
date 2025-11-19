@@ -432,7 +432,7 @@ async fn simulate_transfer_call_with_burned_amount(
     assert!(logs.contains(&"The account of the sender was deleted"));
     assert!(logs.contains(&(expected.as_str())));
 
-    match res.receipt_outcomes()[4].clone().into_result()? {
+    match res.receipt_outcomes()[5].clone().into_result()? {
         ValueOrReceiptId::Value(val) => {
             let used_amount = val.json::<U128>()?;
             assert_eq!(used_amount, transfer_amount);

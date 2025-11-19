@@ -7,7 +7,12 @@ pub use self::public_key::{CurveType, PublicKey};
 mod primitives;
 pub use self::primitives::*;
 
-pub use near_account_id::{AccountId, AccountIdRef};
+#[cfg(feature = "global-contracts")]
+mod contract_code;
+#[cfg(feature = "global-contracts")]
+pub use self::contract_code::*;
+
+pub use near_account_id::{AccountId, AccountIdRef, AccountType};
 /// A wrapper struct for `u64` that represents gas. And provides helpful methods to convert to and from tera-gas and giga-gas.
 pub use near_gas::NearGas as Gas;
 /// A wrapper struct for `u128` that represents tokens. And provides helpful methods to convert with a proper precision.

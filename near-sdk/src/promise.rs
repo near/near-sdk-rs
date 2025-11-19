@@ -88,6 +88,11 @@ enum PromiseAction {
     UseGlobalContractByAccountId {
         account_id: AccountId,
     },
+    #[cfg(feature = "deterministic-accounts")]
+    DeterministicStateInit {
+        state_init: crate::state_init::StateInit,
+        amount: NearToken,
+    },
 }
 
 impl PromiseAction {
@@ -168,12 +173,41 @@ impl PromiseAction {
                     account_id,
                 )
             }
+            #[cfg(feature = "deterministic-accounts")]
+            DeterministicStateInit {
+                state_init: crate::state_init::StateInit::V1(state_init),
+                amount,
+            } => {
+                use crate::GlobalContractId;
+
+                let action_index = match &state_init.code {
+                    GlobalContractId::CodeHash(code_hash) => {
+                        crate::env::promise_batch_action_state_init(
+                            promise_index,
+                            code_hash,
+                            *amount,
+                        )
+                    }
+                    GlobalContractId::AccountId(account_id) => {
+                        crate::env::promise_batch_action_state_init_by_account_id(
+                            promise_index,
+                            account_id,
+                            *amount,
+                        )
+                    }
+                };
+                for (key, value) in &state_init.data {
+                    crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
+                }
+            }
         }
     }
 }
 
 struct PromiseSingle {
     pub account_id: AccountId,
+    #[cfg(feature = "deterministic-accounts")]
+    pub refund_to: RefCell<Option<AccountId>>,
     pub actions: RefCell<Vec<PromiseAction>>,
     pub after: RefCell<Option<Rc<Promise>>>,
     /// Promise index that is computed only once.
@@ -193,6 +227,10 @@ impl PromiseSingle {
         } else {
             crate::env::promise_batch_create(&self.account_id)
         };
+        #[cfg(feature = "deterministic-accounts")]
+        if let Some(refund_to) = self.refund_to.take() {
+            crate::env::promise_set_refund_to(promise_index, &refund_to);
+        }
         let actions_lock = self.actions.borrow();
         for action in actions_lock.iter() {
             action.add(promise_index);
@@ -300,6 +338,8 @@ impl Promise {
         Self {
             subtype: PromiseSubtype::Single(Rc::new(PromiseSingle {
                 account_id,
+                #[cfg(feature = "deterministic-accounts")]
+                refund_to: RefCell::new(None),
                 actions: RefCell::new(vec![]),
                 after: RefCell::new(None),
                 promise_index: RefCell::new(None),
@@ -399,6 +439,20 @@ impl Promise {
     /// ```
     pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
         self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
+    }
+
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn state_init(self, state_init: crate::state_init::StateInit, amount: NearToken) -> Self {
+        self.add_action(PromiseAction::DeterministicStateInit { state_init, amount })
+    }
+
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn set_refund_to(self, beneficiary_id: AccountId) -> Self {
+        let PromiseSubtype::Single(p) = &self.subtype else {
+            crate::env::panic_str("Cannot set refund_to for joint promise.");
+        };
+        p.refund_to.replace(Some(beneficiary_id));
+        self
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.

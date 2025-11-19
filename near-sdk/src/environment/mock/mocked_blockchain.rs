@@ -6,7 +6,8 @@ use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
 use crate::VMContext;
 use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
-use near_primitives_core::version::PROTOCOL_VERSION;
+use near_primitives::account::AccountContract;
+use near_primitives_core::{gas::Gas, version::PROTOCOL_VERSION};
 use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
 use near_vm_runner::logic::{ExecutionResultState, External, MemoryLike, VMLogic};
@@ -83,8 +84,7 @@ where
         let context: Box<near_vm_runner::logic::VMContext> =
             Box::new(sdk_context_to_vm_context(context, promise_results));
         ext.fake_trie = storage;
-        ext.validators =
-            validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v.as_yoctonear())).collect();
+        ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
         let config = Arc::new(config);
         let fees_config = Arc::new(fees_config);
         let result_state =
@@ -149,7 +149,7 @@ where
     }
 
     pub fn gas(&mut self, gas_amount: u32) {
-        self.logic.borrow_mut().gas(gas_amount.into()).unwrap()
+        self.logic.borrow_mut().gas(Gas::from_gas(gas_amount.into())).unwrap()
     }
 
     /// Returns logs created so far by the runtime.
@@ -167,15 +167,23 @@ fn sdk_context_to_vm_context(
         signer_account_id: context.signer_account_id.as_str().parse().unwrap(),
         signer_account_pk: context.signer_account_pk.into_bytes(),
         predecessor_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
+        #[cfg(feature = "deterministic-accounts")]
+        refund_to_account_id: context.refund_to_account_id,
+        #[cfg(not(feature = "deterministic-accounts"))]
+        refund_to_account_id: context.predecessor_account_id.as_str().parse().unwrap(),
         input: context.input,
         block_height: context.block_index,
         block_timestamp: context.block_timestamp,
         epoch_height: context.epoch_height,
-        account_balance: context.account_balance.as_yoctonear(),
-        account_locked_balance: context.account_locked_balance.as_yoctonear(),
+        account_balance: context.account_balance,
+        account_locked_balance: context.account_locked_balance,
         storage_usage: context.storage_usage,
-        attached_deposit: context.attached_deposit.as_yoctonear(),
-        prepaid_gas: context.prepaid_gas.as_gas(),
+        #[cfg(feature = "deterministic-accounts")]
+        account_contract: context.account_contract,
+        #[cfg(not(feature = "deterministic-accounts"))]
+        account_contract: AccountContract::None,
+        attached_deposit: context.attached_deposit,
+        prepaid_gas: context.prepaid_gas,
         random_seed: context.random_seed.to_vec(),
         view_config: context.view_config,
         output_data_receivers: context
@@ -221,6 +229,11 @@ mod mock_chain {
     #[no_mangle]
     extern "C-unwind" fn predecessor_account_id(register_id: u64) {
         with_mock_interface(|b| b.predecessor_account_id(register_id))
+    }
+    #[cfg(feature = "deterministic-accounts")]
+    #[no_mangle]
+    extern "C-unwind" fn refund_to_account_id(register_id: u64) {
+        with_mock_interface(|b| b.refund_to_account_id(register_id))
     }
     #[no_mangle]
     extern "C-unwind" fn input(register_id: u64) {
@@ -403,6 +416,17 @@ mod mock_chain {
         account_id_ptr: u64,
     ) -> u64 {
         with_mock_interface(|b| b.promise_batch_then(promise_index, account_id_len, account_id_ptr))
+    }
+    #[cfg(feature = "deterministic-accounts")]
+    #[no_mangle]
+    extern "C-unwind" fn promise_set_refund_to(
+        promise_idx: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_set_refund_to(promise_idx, account_id_len, account_id_ptr)
+        })
     }
     #[no_mangle]
     extern "C-unwind" fn promise_batch_action_create_account(promise_index: u64) {
@@ -639,6 +663,66 @@ mod mock_chain {
         with_mock_interface(|b| {
             b.promise_yield_resume(data_id_len, data_id_ptr, payload_len, payload_ptr)
         })
+    }
+    #[cfg(feature = "deterministic-accounts")]
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_state_init(
+        promise_index: u64,
+        code_hash_len: u64,
+        code_hash_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_batch_action_state_init(
+                promise_index,
+                code_hash_len,
+                code_hash_ptr,
+                amount_ptr,
+            )
+        })
+    }
+    #[cfg(feature = "deterministic-accounts")]
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_state_init_by_account_id(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_batch_action_state_init_by_account_id(
+                promise_index,
+                account_id_len,
+                account_id_ptr,
+                amount_ptr,
+            )
+        })
+    }
+    #[cfg(feature = "deterministic-accounts")]
+    #[no_mangle]
+    extern "C-unwind" fn set_state_init_data_entry(
+        promise_index: u64,
+        action_index: u64,
+        key_len: u64,
+        key_ptr: u64,
+        value_len: u64,
+        value_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.set_state_init_data_entry(
+                promise_index,
+                action_index,
+                key_len,
+                key_ptr,
+                value_len,
+                value_ptr,
+            )
+        })
+    }
+    #[cfg(feature = "deterministic-accounts")]
+    #[no_mangle]
+    extern "C-unwind" fn current_contract_code(register_id: u64) -> u64 {
+        with_mock_interface(|b| b.current_contract_code(register_id))
     }
     #[no_mangle]
     extern "C-unwind" fn promise_results_count() -> u64 {
