@@ -36,7 +36,7 @@ impl Allowance {
 /// This enum is used internally by [`Promise::deploy_from_published`] to support
 /// ergonomic API where you can pass either a hash or an account ID.
 enum GlobalContractRef {
-    Hash(Vec<u8>),
+    CodeHash(CryptoHash),
     Account(AccountId),
 }
 
