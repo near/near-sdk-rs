@@ -20,9 +20,6 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
     // Compile status message contract to use as global contract
     let status_code = near_workspaces::compile_project("../status-message").await?;
 
-    // Deploy a global contract
-    let global_account_id: AccountId = format!("global.{}", factory_contract.id()).parse()?;
-
     let res = factory_contract
         .call("deploy_global_contract")
         .args_json(("status_message", Base64VecU8::from(status_code.clone())))
@@ -66,7 +63,6 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 
     // First deploy a global contract
     let status_code = near_workspaces::compile_project("../status-message").await?;
-    let global_account_id: AccountId = format!("global.{}", factory_contract.id()).parse()?;
 
     let res = factory_contract
         .call("deploy_global_contract")

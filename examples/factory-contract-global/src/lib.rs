@@ -146,7 +146,6 @@ mod tests {
 
         let mut contract = GlobalFactoryContract::default();
         let code = vec![0u8; 100]; // Mock bytecode
-        let account_id = accounts(2);
 
         contract.deploy_global_contract("test_contract".to_string(), code.clone().into()).detach();
 
@@ -165,7 +164,6 @@ mod tests {
 
         let mut contract = GlobalFactoryContract::default();
         let code = vec![0u8; 100];
-        let account_id = accounts(2);
 
         contract.deploy_global_contract("test_contract".to_string(), code.clone().into()).detach();
 
