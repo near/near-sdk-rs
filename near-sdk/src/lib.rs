@@ -52,16 +52,32 @@
 //! }
 //! ```
 //!
-//! ### Compiling to WASM
+//! ### Cargo NEAR Extension
 //!
-//! Install `cargo-near` in case if you don't have it:
+//! [`cargo-near`](https://github.com/near/cargo-near) is a handy command line
+//! extension to `cargo`, which guides you through the common tasks of
+//! creating, building, and deploying smart contracts.
+//!
+//! Follow the [installation instructions](https://github.com/near/cargo-near?tab=readme-ov-file#installation) on cargo-near README.
+//!
+//! Or compile it and install it from the source code:
+//!
 //! ```bash
 //! cargo install --locked cargo-near
 //! ```
 //!
-//! More installation methods on [cargo-near](https://github.com/near/cargo-near)
+//! ### Create New NEAR Smart Contract
 //!
-//! Builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml):
+//! `cargo-near` can be used to start a new project with an example smart contract, unit tests,
+//! integration tests, and continuous integration preconfigured for you.
+//!
+//! ```bash
+//! cargo near new
+//! ```
+//!
+//! ### Compiling to WASM
+//!
+//! `cargo-near` builds a NEAR smart contract along with its [ABI](https://github.com/near/abi) (while in the directory containing contract's Cargo.toml):
 //!
 //! ```bash
 //! cargo near build
@@ -97,8 +113,10 @@
 //! ```bash
 //! cargo test
 //! ```
-//* Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
-//* https://github.com/rust-lang/rust-clippy/issues/8091
+
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+// Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
+// https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
 // We want to enable all clippy lints, but some of them generate false positives.
 #![allow(clippy::missing_const_for_fn, clippy::redundant_pub_crate)]
@@ -147,6 +165,8 @@ compile_error!(
 /// ## `#[near(contract_state)]` (annotates structs/enums)
 ///
 /// The attribute prepares a struct/enum to be a contract state. Only one contract state is allowed per crate.
+///
+/// Custom storage key can be set via `#[near(contract_state(key = b"CUSTOM"))]`.
 ///
 /// A contract type is usually acompanied by an `impl` block, annotated with [`#[near]`](near#near-annotates-impl-blocks).
 ///
@@ -328,6 +348,57 @@ compile_error!(
 ///     #[serde(alias = "VARIANT_2")]
 ///     Variant2,
 /// }
+/// ```
+///
+/// You can also use [`#[serde_as(as = "...")]` attributes](https://docs.rs/serde_with/latest/serde_with/attr.serde_as.html)
+/// as if `#[serde_as]` is added to the type (which is what actually happens under the hood of `#[near(serializers = [json])]` implementation).
+///
+/// ```
+/// # use std::{collections::BTreeMap};
+/// use near_sdk::{
+///     near,
+///     serde_json::json,
+///     serde_with::{base64::Base64, hex::Hex, json::JsonString, DisplayFromStr},
+/// };
+///
+/// #[near(serializers = [json])]
+/// pub struct MyStruct {
+///     #[serde_as(as = "DisplayFromStr")]
+///     pub amount: u128,
+///
+///     #[serde_as(as = "Hex")]
+///     pub hex_bytes: Vec<u8>,
+///
+///     #[serde_as(as = "Base64")]
+///     pub base64_bytes: Vec<u8>,
+///
+///     #[serde_as(as = "BTreeMap<Hex, Vec<DisplayFromStr>>")]
+///     pub collection: BTreeMap<Vec<u8>, Vec<u128>>,
+///
+///     #[serde_as(as = "JsonString")]
+///     pub json_string: serde_json::Value,
+/// }
+/// # fn main() {
+/// #     assert_eq!(
+/// #         serde_json::to_value(&MyStruct {
+/// #             amount: u128::MAX,
+/// #             hex_bytes: vec![0x1a, 0x2b, 0x3c],
+/// #             base64_bytes: vec![1, 2, 3],
+/// #             collection: [(vec![0x1a, 0x2b, 0x3c], vec![u128::MAX])].into(),
+/// #             json_string: json!({"key": "value"}),
+/// #         })
+/// #         .unwrap(),
+/// #         json!({
+/// #             "amount": "340282366920938463463374607431768211455",
+/// #             "hex_bytes": "1a2b3c",
+/// #             "base64_bytes": "AQID",
+/// #             "collection": {
+/// #                 "1a2b3c": ["340282366920938463463374607431768211455"],
+/// #             },
+/// #             "json_string": "{\"key\":\"value\"}",
+/// #         })
+/// #     );
+/// # }
 /// ```
 ///
 /// ## `#[serializer(...)]` (annotates function arguments)
@@ -1082,6 +1153,11 @@ pub mod json_types;
 mod types;
 pub use crate::types::*;
 
+pub mod events;
+pub use crate::events::{AsNep297Event, Nep297Event};
+
+pub mod state;
+
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
 pub use environment::mock;
 #[cfg(all(feature = "unit-testing", not(target_arch = "wasm32")))]
@@ -1116,3 +1192,4 @@ pub use bs58;
 pub use schemars;
 pub use serde;
 pub use serde_json;
+pub use serde_with;

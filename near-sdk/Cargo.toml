@@ -21,7 +21,8 @@ required-features = ["abi", "unstable"]
 # Provide near_bidgen macros.
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-near-sdk-macros = { path = "../near-sdk-macros", version = "~5.17.1" }
+serde_with = { version = "3", features = ["base64", "hex", "json"] }
+near-sdk-macros = { path = "../near-sdk-macros", version = "~5.17.2" }
 near-sys = { path = "../near-sys", version = "0.2.5" }
 base64 = "0.22"
 borsh = { version = "1.0.0", features = ["derive"] }
@@ -49,6 +50,7 @@ near-crypto = { version = "0.31", default-features = false, optional = true }
 near-parameters = { version = "0.31", optional = true }
 
 [dev-dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
 near-sdk = { path = ".", features = ["legacy", "unit-testing"] }
 rand = "0.8.4"
 trybuild = "1.0"
@@ -84,6 +86,7 @@ abi = [
     "near-account-id/abi",
     "near-gas/abi",
     "near-token/abi",
+    "serde_with/schemars_0_8",
 ]
 unit-testing = [
     "near-vm-runner",

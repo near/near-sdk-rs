@@ -10,7 +10,6 @@ use near_sdk::{
 };
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
-const GAS_FOR_FT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 const ERR_TOTAL_SUPPLY_OVERFLOW: &str = "Total supply overflow";
 
@@ -134,20 +133,20 @@ impl FungibleTokenCore for FungibleToken {
         msg: String,
     ) -> PromiseOrValue<U128> {
         assert_one_yocto();
-        require!(env::prepaid_gas() > GAS_FOR_FT_TRANSFER_CALL, "More gas is required");
+
         let sender_id = env::predecessor_account_id();
         let amount: Balance = amount.into();
         self.internal_transfer(&sender_id, &receiver_id, amount, memo);
-        let receiver_gas = env::prepaid_gas()
-            .checked_sub(GAS_FOR_FT_TRANSFER_CALL)
-            .unwrap_or_else(|| env::panic_str("Prepaid gas overflow"));
         // Initiating receiver's call and the callback
         ext_ft_receiver::ext(receiver_id.clone())
-            .with_static_gas(receiver_gas)
+            // forward all remaining gas to `ft_on_transfer`
+            .with_unused_gas_weight(1)
             .ft_on_transfer(sender_id.clone(), amount.into(), msg)
             .then(
                 ext_ft_resolver::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    // do not distribute remaining gas for `ft_resolve_transfer`
+                    .with_unused_gas_weight(0)
                     .ft_resolve_transfer(sender_id, receiver_id, amount.into()),
             )
             .into()

@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 
 const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(5);
-const GAS_FOR_NFT_TRANSFER_CALL: Gas = Gas::from_tgas(30);
 
 /// Implementation of the non-fungible token standard.
 /// Allows to include NEP-171 compatible token to any contract.
@@ -393,17 +392,19 @@ impl NonFungibleTokenCore for NonFungibleToken {
         msg: String,
     ) -> PromiseOrValue<bool> {
         assert_one_yocto();
-        require!(env::prepaid_gas() > GAS_FOR_NFT_TRANSFER_CALL, "More gas is required");
         let sender_id = env::predecessor_account_id();
         let (old_owner, old_approvals) =
             self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo);
         // Initiating receiver's call and the callback
         ext_nft_receiver::ext(receiver_id.clone())
-            .with_static_gas(env::prepaid_gas().saturating_sub(GAS_FOR_NFT_TRANSFER_CALL))
+            // forward all remaining gas to `nft_on_transfer`
+            .with_unused_gas_weight(1)
             .nft_on_transfer(sender_id, old_owner.clone(), token_id.clone(), msg)
             .then(
                 ext_nft_resolver::ext(env::current_account_id())
                     .with_static_gas(GAS_FOR_RESOLVE_TRANSFER)
+                    // do not distribute remaining gas for `nft_resolve_transfer`
+                    .with_unused_gas_weight(0)
                     .nft_resolve_transfer(old_owner, receiver_id, token_id, old_approvals),
             )
             .into()
@@ -454,7 +455,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
             // The token was burned and doesn't exist anymore.
             // Refund storage cost for storing approvals to original owner and return early.
             if let Some(approved_account_ids) = approved_account_ids {
-                refund_approved_account_ids(previous_owner_id, &approved_account_ids);
+                refund_approved_account_ids(previous_owner_id, &approved_account_ids).detach();
             }
             return true;
         };
@@ -466,7 +467,7 @@ impl NonFungibleTokenResolver for NonFungibleToken {
         // 2. reset approvals to what previous owner had set before call to nft_transfer_call
         if let Some(by_id) = &mut self.approvals_by_id {
             if let Some(receiver_approvals) = by_id.remove(&token_id) {
-                refund_approved_account_ids(receiver_id.clone(), &receiver_approvals);
+                refund_approved_account_ids(receiver_id.clone(), &receiver_approvals).detach();
             }
             if let Some(previous_owner_approvals) = approved_account_ids {
                 by_id.insert(&token_id, &previous_owner_approvals);

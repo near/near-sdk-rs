@@ -72,6 +72,7 @@ async fn setup_worker(contract: Contract) -> anyhow::Result<(Arc<Worker<Sandbox>
     Ok((worker, contract.id().clone()))
 }
 
+#[track_caller]
 fn perform_asserts(total_gas: u64, col: impl Display, override_min_gas: Option<u64>) {
     // Constraints a bit relaxed to account for binary differences due to on-demand compilation.
     assert!(
@@ -459,7 +460,7 @@ async fn test_lazy() -> anyhow::Result<()> {
 
     let res = account
         .call(&contract_id, "flush")
-        .args_json((2350000,))
+        .args_json((3000000,))
         .max_gas()
         .transact()
         .await?
