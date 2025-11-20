@@ -6,7 +6,6 @@ use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
 use crate::VMContext;
 use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
-use near_primitives::account::AccountContract;
 use near_primitives_core::{gas::Gas, version::PROTOCOL_VERSION};
 use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
@@ -181,7 +180,7 @@ fn sdk_context_to_vm_context(
         #[cfg(feature = "deterministic-accounts")]
         account_contract: context.account_contract,
         #[cfg(not(feature = "deterministic-accounts"))]
-        account_contract: AccountContract::None,
+        account_contract: near_primitives::account::AccountContract::None,
         attached_deposit: context.attached_deposit,
         prepaid_gas: context.prepaid_gas,
         random_seed: context.random_seed.to_vec(),
