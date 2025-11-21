@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.18.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.2...near-sdk-v5.18.0) - 2025-11-21
+
+### Added
+
+- relax owned String requirements ([#1404](https://github.com/near/near-sdk-rs/pull/1404))
+- Add Event::to_event_log() utility function ([#1394](https://github.com/near/near-sdk-rs/pull/1394))
+- be explicit about detached `Promise`s ([#1400](https://github.com/near/near-sdk-rs/pull/1400))
+- *(near-sdk-macros)* `#[near(contract_state(key = b"CUSTOM"))]` ([#1399](https://github.com/near/near-sdk-rs/pull/1399))
+- optimize `Promise::and` ([#1396](https://github.com/near/near-sdk-rs/pull/1396))
+- use #[serde_as] for #[near(serializers = [json])] ([#1393](https://github.com/near/near-sdk-rs/pull/1393))
+
+### Fixed
+
+- Fix serde_as and ordering of the fields in AsNep297Event ([#1405](https://github.com/near/near-sdk-rs/pull/1405))
+- allow PanicOnDefault on eums ([#1401](https://github.com/near/near-sdk-rs/pull/1401))
+
+### Other
+
+- Use CryptoHash wherever applicable and other small papercut fixes ([#1387](https://github.com/near/near-sdk-rs/pull/1387))
+- fix example header format for readme.md ([#1407](https://github.com/near/near-sdk-rs/pull/1407))
+
 ## [5.17.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.1...near-sdk-v5.17.2) - 2025-08-30
 
 ### Other
