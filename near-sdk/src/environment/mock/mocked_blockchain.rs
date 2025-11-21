@@ -799,7 +799,7 @@ mod tests {
         let promise_index = env::promise_create(
             "account.near".parse().unwrap(),
             "method",
-            &[],
+            [],
             NearToken::from_millinear(1),
             NearGas::from_tgas(1),
         );

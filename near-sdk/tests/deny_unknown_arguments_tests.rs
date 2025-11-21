@@ -12,7 +12,7 @@ async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>
     let user_account = sandbox.dev_create_account().await?;
 
     // First we should get serialization error
-    let outcome = user_account
+    user_account
         .call(contract.id(), "new")
         .gas(Gas::from_tgas(10))
         .args_json(json!({
@@ -20,21 +20,22 @@ async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>
             "unknown_field": 1,
         }))
         .transact()
-        .await?;
-    assert!(outcome.is_failure());
+        .await?
+        .into_result()
+        .expect_err("Expected deserialization error due to unknown field");
     // Now all should be fine
-    let outcome = user_account
+    user_account
         .call(contract.id(), "new")
         .gas(Gas::from_tgas(10))
         .args_json(json!({
             "starting_value": 0,
         }))
         .transact()
-        .await?;
-    assert!(outcome.is_success());
+        .await?
+        .into_result()?;
 
     // mut method check
-    let outcome = user_account
+    user_account
         .call(contract.id(), "inc")
         .gas(Gas::from_tgas(10))
         .args_json(json!({
@@ -42,20 +43,21 @@ async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>
             "unknown_field": 1,
         }))
         .transact()
-        .await?;
-    assert!(outcome.is_failure());
-    let outcome = user_account
+        .await?
+        .into_result()
+        .expect_err("Expected deserialization error due to unknown field");
+    user_account
         .call(contract.id(), "inc")
         .gas(Gas::from_tgas(10))
         .args_json(json!({
             "by": 3,
         }))
         .transact()
-        .await?;
-    assert!(outcome.is_success());
+        .await?
+        .into_result()?;
 
     // view method check
-    let outcome = user_account
+    user_account
         .call(contract.id(), "inc_view")
         .gas(Gas::from_tgas(10))
         .args_json(json!({
@@ -63,16 +65,18 @@ async fn test_contract_is_operational() -> Result<(), Box<dyn std::error::Error>
             "unknown_field": 1,
         }))
         .transact()
-        .await?;
-    assert!(outcome.is_failure());
-    let outcome = user_account
+        .await?
+        .into_result()
+        .expect_err("Expected deserialization error due to unknown field");
+    user_account
         .call(contract.id(), "inc_view")
         .gas(Gas::from_tgas(10))
         .args_json(json!({
             "by": 3,
         }))
         .transact()
-        .await?;
-    assert!(outcome.is_success());
+        .await?
+        .into_result()?;
+
     Ok(())
 }
