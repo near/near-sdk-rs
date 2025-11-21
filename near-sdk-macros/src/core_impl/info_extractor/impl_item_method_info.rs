@@ -56,7 +56,7 @@ mod tests {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
             #[init]
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn method(k: &mut u64) -> Result<Self, Error> { }
         };
         let method = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
@@ -69,7 +69,7 @@ mod tests {
     fn handle_result_incorrect_return_type() {
         let impl_type: Type = syn::parse_str("Hello").unwrap();
         let mut method: ImplItemMethod = parse_quote! {
-            #[handle_result]
+            #[handle_result(suppress_warnings)]
             pub fn method(&self) -> &'static str { }
         };
         let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
@@ -83,9 +83,7 @@ mod tests {
         let mut method: ImplItemMethod = parse_quote! {
             pub fn method(&self) -> Result<u64, &'static str> { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
-        let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
-        assert_eq!(expected, actual.to_string());
+        ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap()
     }
 
     #[test]
@@ -95,9 +93,7 @@ mod tests {
             #[init]
             pub fn new() -> Result<Self, &'static str> { }
         };
-        let actual = ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap_err();
-        let expected = "Serializing Result<T, E> has been deprecated. Consider marking your method with #[handle_result] if the second generic represents a panicable error or replacing Result with another two type sum enum otherwise. If you really want to keep the legacy behavior, mark the method with #[handle_result] and make it return Result<Result<T, E>, near_sdk::Abort>.";
-        assert_eq!(expected, actual.to_string());
+        ImplItemMethodInfo::new(&mut method, None, impl_type).map(|_| ()).unwrap()
     }
 
 

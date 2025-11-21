@@ -18,11 +18,8 @@ use crate::promise::Allowance;
 use crate::types::{
     AccountId, BlockHeight, Gas, NearToken, PromiseIndex, PromiseResult, PublicKey, StorageUsage,
 };
-use crate::{CryptoHash, GasWeight, PromiseError};
+use crate::{errors, CryptoHash, GasWeight, PromiseError};
 use near_sys as sys;
-
-const REGISTER_EXPECTED_ERR: &str =
-    "Register was expected to have data because we just wrote it into it.";
 
 /// Register used internally for atomic operations. This register is safe to use by the user,
 /// since it only needs to be untouched while methods of `Environment` execute, which is guaranteed
@@ -40,7 +37,7 @@ const MIN_ACCOUNT_ID_LEN: u64 = 2;
 const MAX_ACCOUNT_ID_LEN: u64 = 64;
 
 fn expect_register<T>(option: Option<T>) -> T {
-    option.unwrap_or_else(|| panic_str(REGISTER_EXPECTED_ERR))
+    option.unwrap_or_else(|| panic_err(errors::RegisterEmpty::new().into()))
 }
 
 /// A simple macro helper to read blob value coming from host's method.
@@ -702,10 +699,7 @@ pub fn alt_bn128_g1_multiexp(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::alt_bn128_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute alt_bn128 g1 sum.
@@ -718,11 +712,9 @@ pub fn alt_bn128_g1_sum(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::alt_bn128_g1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
+
 /// Compute pairing check
 ///
 /// `alt_bn128` is a specific curve from the Barreto-Naehrig(BN) family. It is particularly
@@ -744,10 +736,8 @@ pub fn bls12381_p1_sum(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p1_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute BLS12-381 G2 sum.
@@ -755,10 +745,8 @@ pub fn bls12381_p2_sum(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p2_sum(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute BLS12-381 G1 multiexponentiation.
@@ -766,10 +754,8 @@ pub fn bls12381_g1_multiexp(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_g1_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Compute BLS12-381 G2 multiexponentiation.
@@ -777,10 +763,8 @@ pub fn bls12381_g2_multiexp(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_g2_multiexp(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Map an Fp element to a BLS12-381 G1 point.
@@ -788,10 +772,8 @@ pub fn bls12381_map_fp_to_g1(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_map_fp_to_g1(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Map an Fp2 element to a BLS12-381 G2 point.
@@ -799,10 +781,8 @@ pub fn bls12381_map_fp2_to_g2(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_map_fp2_to_g2(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Perform BLS12-381 pairing check. Returns true if the pairing check passes.
@@ -815,10 +795,8 @@ pub fn bls12381_p1_decompress(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p1_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 /// Decompress a BLS12-381 G2 point.
@@ -826,10 +804,8 @@ pub fn bls12381_p2_decompress(value: &[u8]) -> Vec<u8> {
     unsafe {
         sys::bls12381_p2_decompress(value.len() as _, value.as_ptr() as _, ATOMIC_OP_REGISTER);
     };
-    match read_register(ATOMIC_OP_REGISTER) {
-        Some(result) => result,
-        None => panic_str(REGISTER_EXPECTED_ERR),
-    }
+
+    expect_register(read_register(ATOMIC_OP_REGISTER))
 }
 
 // ################
@@ -1922,6 +1898,10 @@ pub fn panic(message: &[u8]) -> ! {
 /// ```
 pub fn panic_str(message: &str) -> ! {
     unsafe { sys::panic_utf8(message.len() as _, message.as_ptr() as _) }
+}
+
+pub fn panic_err(err: crate::BaseError) -> ! {
+    panic_str(serde_json::json!(err).to_string().as_str())
 }
 
 /// Aborts the current contract execution without a custom message.
