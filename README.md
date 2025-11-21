@@ -42,7 +42,7 @@
 
 **Release notes and unreleased changes can be found in the [CHANGELOG](https://github.com/near/near-sdk-rs/blob/master/CHANGELOG.md)**
 
-## Example. For more information, see the [`Attribute Macro near`](https://docs.rs/near-sdk/latest/near_sdk/attr.near.html) documentation
+## Example
 
 Wrap a struct in `#[near]` and it generates a smart contract compatible with the NEAR blockchain:
 ```rust
@@ -66,6 +66,8 @@ impl StatusMessage {
     }
 }
 ```
+
+For more information, see the Attribute Macro [`near`](https://docs.rs/near-sdk/latest/near_sdk/attr.near.html) documentation.
 
 [![How to Deploy a Smart Contract on NEAR | Full Guide for Windows, Mac & Linux (Step-by-Step)](https://github.com/user-attachments/assets/c40daffd-6023-437a-ad2e-f8ab2d2206a9)](https://www.youtube.com/watch?v=7RgQEQSwPjc)
 
