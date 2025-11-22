@@ -1,3 +1,5 @@
+#[cfg(feature = "component-model")]
+pub mod component;
 pub mod env;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "unit-testing"))]
