@@ -683,7 +683,7 @@ where
         let key = match &lo {
             Bound::Included(k) if map.contains_key(k) => Some(k.clone()),
             Bound::Included(k) | Bound::Excluded(k) => map.higher(k),
-            _ => None,
+            Bound::Unbounded => map.min(),
         };
         let key = key.filter(|k| fits(k, &lo, &hi));
 
