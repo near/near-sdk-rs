@@ -202,9 +202,12 @@ impl Visitor {
                 result_serializer,
                 receiver,
             }),
-            Init => {
-                MethodKind::Init(InitMethod { is_payable, deny_unknown_arguments, ignores_state })
-            }
+            Init => MethodKind::Init(InitMethod {
+                is_payable,
+                is_private,
+                deny_unknown_arguments,
+                ignores_state,
+            }),
             View => MethodKind::View(ViewMethod {
                 is_private,
                 deny_unknown_arguments,
