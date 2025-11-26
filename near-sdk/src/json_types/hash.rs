@@ -41,7 +41,7 @@ impl<'de> de::Deserialize<'de> for Base58CryptoHash {
         D: de::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        s.parse::<Self>().map_err(|err| de::Error::custom(err.to_string()))
+        s.parse::<Self>().map_err(de::Error::custom)
     }
 }
 
