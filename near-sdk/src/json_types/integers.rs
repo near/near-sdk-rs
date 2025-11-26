@@ -42,10 +42,7 @@ macro_rules! impl_str_type {
                 D: Deserializer<'de>,
             {
                 let s: String = Deserialize::deserialize(deserializer)?;
-                Ok(Self(
-                    str::parse::<$ty>(&s)
-                        .map_err(|err| serde::de::Error::custom(err.to_string()))?,
-                ))
+                Ok(Self(str::parse::<$ty>(&s).map_err(serde::de::Error::custom)?))
             }
         }
 
