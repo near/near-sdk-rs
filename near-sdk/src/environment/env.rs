@@ -323,8 +323,8 @@ pub fn storage_usage() -> StorageUsage {
 /// assert_eq!(account_balance(), NearToken::from_near(100));
 /// ```
 pub fn account_balance() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::account_balance(data.as_ptr() as u64) };
+    let mut data = [0u8; size_of::<NearToken>()];
+    unsafe { sys::account_balance(data.as_mut_ptr() as u64) };
     NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
@@ -338,8 +338,8 @@ pub fn account_balance() -> NearToken {
 /// assert_eq!(account_locked_balance(), NearToken::from_yoctonear(0));
 /// ```
 pub fn account_locked_balance() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::account_locked_balance(data.as_ptr() as u64) };
+    let mut data = [0u8; size_of::<NearToken>()];
+    unsafe { sys::account_locked_balance(data.as_mut_ptr() as u64) };
     NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
@@ -354,8 +354,8 @@ pub fn account_locked_balance() -> NearToken {
 /// assert_eq!(attached_deposit(), NearToken::from_yoctonear(0));
 /// ```
 pub fn attached_deposit() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::attached_deposit(data.as_ptr() as u64) };
+    let mut data = [0u8; size_of::<NearToken>()];
+    unsafe { sys::attached_deposit(data.as_mut_ptr() as u64) };
     NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
@@ -1869,9 +1869,13 @@ pub fn promise_yield_resume(data_id: &CryptoHash, data: impl AsRef<[u8]>) -> boo
 /// ```
 pub fn validator_stake(account_id: &AccountId) -> NearToken {
     let account_id: &str = account_id.as_ref();
-    let data = [0u8; size_of::<NearToken>()];
+    let mut data = [0u8; size_of::<NearToken>()];
     unsafe {
-        sys::validator_stake(account_id.len() as _, account_id.as_ptr() as _, data.as_ptr() as u64)
+        sys::validator_stake(
+            account_id.len() as _,
+            account_id.as_ptr() as _,
+            data.as_mut_ptr() as u64,
+        )
     };
     NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
@@ -1889,8 +1893,8 @@ pub fn validator_stake(account_id: &AccountId) -> NearToken {
 /// );
 /// ```
 pub fn validator_total_stake() -> NearToken {
-    let data = [0u8; size_of::<NearToken>()];
-    unsafe { sys::validator_total_stake(data.as_ptr() as u64) };
+    let mut data = [0u8; size_of::<NearToken>()];
+    unsafe { sys::validator_total_stake(data.as_mut_ptr() as u64) };
     NearToken::from_yoctonear(u128::from_le_bytes(data))
 }
 
