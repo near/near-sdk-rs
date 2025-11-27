@@ -1806,6 +1806,60 @@ mod tests {
     }
 
     #[test]
+    fn test_range_included_unbounded() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        assert_eq!(
+            map.range((Bound::Included(30), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            vec![(30, 1), (40, 1), (50, 1)]
+        );
+
+        assert!(map
+            .range((Bound::Included(55), Bound::Unbounded))
+            .collect::<Vec<(u32, u32)>>()
+            .is_empty());
+
+        assert_eq!(
+            map.range((Bound::Included(10), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            map.iter().collect::<Vec<(u32, u32)>>()
+        );
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_range_excluded_unbounded() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        assert_eq!(
+            map.range((Bound::Excluded(30), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            vec![(40, 1), (50, 1)]
+        );
+
+        assert!(map
+            .range((Bound::Excluded(50), Bound::Unbounded))
+            .collect::<Vec<(u32, u32)>>()
+            .is_empty());
+
+        assert_eq!(
+            map.range((Bound::Excluded(0), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            map.iter().collect::<Vec<(u32, u32)>>()
+        );
+
+        map.clear();
+    }
+
+    #[test]
     #[should_panic(expected = "Invalid range.")]
     fn test_range_panics_same_excluded() {
         let map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
