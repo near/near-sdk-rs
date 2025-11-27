@@ -1,11 +1,17 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/ext.rs
+assertion_line: 197
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 #[cfg(target_os = "linux")]
 pub fn method(self) -> ::near_sdk::Promise {
     let __args = ::std::vec![];
-    ::near_sdk::Promise::new(self.account_id)
+    match self.promise_or_create_on {
+        ::near_sdk::PromiseOrValue::Promise(p) => p,
+        ::near_sdk::PromiseOrValue::Value(account_id) => {
+            ::near_sdk::Promise::new(account_id)
+        }
+    }
         .function_call_weight(
             ::std::string::String::from("method"),
             __args,
@@ -14,4 +20,3 @@ pub fn method(self) -> ::near_sdk::Promise {
             self.gas_weight,
         )
 }
-
