@@ -15,7 +15,16 @@ pub(crate) fn generate_ext_structs(
         /// API for calling this contract's functions in a subsequent execution.
         pub fn ext(account_id: ::near_sdk::AccountId) -> #name {
             #name {
-                account_id,
+                promise_or_create_on: ::near_sdk::PromiseOrValue::Value(account_id),
+                deposit: ::near_sdk::NearToken::from_near(0),
+                static_gas: ::near_sdk::Gas::from_gas(0),
+                gas_weight: ::near_sdk::GasWeight::default(),
+            }
+        }
+
+        pub fn ext_on(promise: ::near_sdk::Promise) -> #name {
+            #name {
+                promise_or_create_on: ::near_sdk::PromiseOrValue::Promise(promise),
                 deposit: ::near_sdk::NearToken::from_near(0),
                 static_gas: ::near_sdk::Gas::from_gas(0),
                 gas_weight: ::near_sdk::GasWeight::default(),
@@ -34,7 +43,7 @@ pub(crate) fn generate_ext_structs(
     quote! {
       #[must_use]
       pub struct #name {
-          pub(crate) account_id: ::near_sdk::AccountId,
+          pub(crate) promise_or_create_on: ::near_sdk::PromiseOrValue<::near_sdk::AccountId>,
           pub(crate) deposit: ::near_sdk::NearToken,
           pub(crate) static_gas: ::near_sdk::Gas,
           pub(crate) gas_weight: ::near_sdk::GasWeight,
@@ -129,14 +138,19 @@ fn generate_ext_function(attr_signature_info: &AttrSigInfo) -> TokenStream2 {
         #new_non_bindgen_attrs
         pub fn #ident #generics(self, #pat_type_list) -> ::near_sdk::Promise {
             let __args = #serialize;
-            ::near_sdk::Promise::new(self.account_id)
-            .function_call_weight(
-                ::std::string::String::from(#ident_str),
-                __args,
-                self.deposit,
-                self.static_gas,
-                self.gas_weight,
-            )
+            match self.promise_or_create_on {
+                ::near_sdk::PromiseOrValue::Promise(p) => p,
+                ::near_sdk::PromiseOrValue::Value(account_id) => {
+                    ::near_sdk::Promise::new(account_id)
+                }
+            }
+                .function_call_weight(
+                    ::std::string::String::from(#ident_str),
+                    __args,
+                    self.deposit,
+                    self.static_gas,
+                    self.gas_weight,
+                )
         }
     }
 }

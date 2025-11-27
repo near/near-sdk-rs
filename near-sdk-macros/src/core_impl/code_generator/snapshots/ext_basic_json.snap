@@ -1,5 +1,6 @@
 ---
 source: near-sdk-macros/src/core_impl/code_generator/ext.rs
+assertion_line: 209
 expression: pretty_print_syn_str(&actual).unwrap()
 ---
 pub fn method(self, k: &String) -> ::near_sdk::Promise {
@@ -19,7 +20,12 @@ pub fn method(self, k: &String) -> ::near_sdk::Promise {
             }
         }
     };
-    ::near_sdk::Promise::new(self.account_id)
+    match self.promise_or_create_on {
+        ::near_sdk::PromiseOrValue::Promise(p) => p,
+        ::near_sdk::PromiseOrValue::Value(account_id) => {
+            ::near_sdk::Promise::new(account_id)
+        }
+    }
         .function_call_weight(
             ::std::string::String::from("method"),
             __args,
