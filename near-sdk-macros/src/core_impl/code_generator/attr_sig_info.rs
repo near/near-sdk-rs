@@ -30,7 +30,7 @@ impl AttrSigInfo {
 
         match &self.method_kind {
             Call(call_method) => call_method.is_private,
-            Init(_) => false,
+            Init(init_method) => init_method.is_private,
             View(view_method) => view_method.is_private,
         }
     }
