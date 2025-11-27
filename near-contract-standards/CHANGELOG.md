@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.18.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.17.2...near-contract-standards-v5.18.0) - 2025-11-27
+
+### Added
+
+- be explicit about detached `Promise`s ([#1400](https://github.com/near/near-sdk-rs/pull/1400))
+
+### Fixed
+
+- *(near-contract-standards)* do not distribute remaining gas for ft/nft_resolve_transfer() calback ([#1391](https://github.com/near/near-sdk-rs/pull/1391))
+
 ## [5.14.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.13.0...near-contract-standards-v5.14.0) - 2025-05-14
 
 ### Other
