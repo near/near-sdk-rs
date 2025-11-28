@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.18.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.18.0...near-sdk-v5.18.1) - 2025-11-28
+
+### Fixed
+
+- Fixed docs.rs compilation error ([#1415](https://github.com/near/near-sdk-rs/pull/1415))
+
 ## [5.18.0](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.17.2...near-sdk-v5.18.0) - 2025-11-27
 
 ### Added
