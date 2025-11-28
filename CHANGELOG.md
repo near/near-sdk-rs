@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.18.2](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.18.1...near-sdk-v5.18.2) - 2025-11-28
+
+### Other
+
+- Clarified how keys are constructed for persistent NEAR SDK collections ([#1417](https://github.com/near/near-sdk-rs/pull/1417))
+
 ## [5.18.1](https://github.com/near/near-sdk-rs/compare/near-sdk-v5.18.0...near-sdk-v5.18.1) - 2025-11-28
 
 ### Fixed
