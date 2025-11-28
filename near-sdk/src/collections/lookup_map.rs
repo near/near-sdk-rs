@@ -55,8 +55,8 @@ impl<K, V> LookupMap<K, V> {
 
     /// Inserts a serialized key-value pair into the map.
     /// If the map did not have this key present, `None` is returned. Otherwise returns
-    /// a serialized value. Note, the keys that have the same hash value are undistinguished by
-    /// the implementation.
+    /// a serialized value. Note: keys are addressed by their Borsh-serialized bytes (with the map's
+    /// prefix). Two keys that serialize to identical bytes will be indistinguishable.
     pub fn insert_raw(&mut self, key_raw: &[u8], value_raw: &[u8]) -> Option<Vec<u8>> {
         let storage_key = self.raw_key_to_storage_key(key_raw);
         if env::storage_write(&storage_key, value_raw) {
@@ -159,8 +159,8 @@ where
 
     /// Inserts a key-value pair into the map.
     /// If the map did not have this key present, `None` is returned. Otherwise returns
-    /// a value. Note, the keys that have the same hash value are undistinguished by
-    /// the implementation.
+    /// a value. Note: keys are addressed by their Borsh-serialized bytes (with the map's
+    /// prefix). Two keys that serialize to identical bytes will be indistinguishable.
     ///
     /// # Examples
     ///

@@ -166,8 +166,9 @@ where
 
     /// Inserts a key-value pair into the tree.
     /// If the tree did not have this key present, `None` is returned. Otherwise returns
-    /// a value. Note, the keys that have the same hash value are undistinguished by
-    /// the implementation.
+    /// a value. Note: the underlying storage addresses keys by their Borsh-serialized bytes
+    /// (with internal prefixes). Two keys that serialize to identical bytes will be
+    /// indistinguishable.
     ///
     /// # Examples
     ///

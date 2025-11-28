@@ -13,8 +13,8 @@ const ERR_ELEMENT_SERIALIZATION: &str = "Cannot serialize element with Borsh";
 
 /// A non-iterable implementation of a set that stores its content directly on the storage trie.
 ///
-/// This set stores the values under a hash of the set's `prefix` and [`BorshSerialize`] of the
-/// value.
+/// This set stores values under a concatenation of the set's `prefix` and the value's
+/// [`BorshSerialize`] bytes. No hashing is performed.
 #[near(inside_nearsdk)]
 pub struct LookupSet<T> {
     element_prefix: Vec<u8>,
