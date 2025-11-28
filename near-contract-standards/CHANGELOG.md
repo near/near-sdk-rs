@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- *(near-contract-standards)* do not distribute remaining gas for ft/nft_resolve_transfer() calback ([#1391](https://github.com/near/near-sdk-rs/pull/1391))
+- *(near-contract-standards)* do not distribute remaining gas for ft/nft_resolve_transfer() callback ([#1391](https://github.com/near/near-sdk-rs/pull/1391))
 
 ## [5.14.0](https://github.com/near/near-sdk-rs/compare/near-contract-standards-v5.13.0...near-contract-standards-v5.14.0) - 2025-05-14
 

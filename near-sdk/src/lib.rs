@@ -114,7 +114,7 @@
 //! cargo test
 //! ```
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 // Clippy is giving false positive warnings for this in 1.57 version. Remove this if fixed.
 // https://github.com/rust-lang/rust-clippy/issues/8091
 #![allow(clippy::redundant_closure)]
