@@ -10,11 +10,7 @@ use crate::{env, GlobalContractId};
 #[serde(tag = "version")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StateInit {
-    V1(
-        // `self::` fixes #[derive(BorshSchema)] infinite recursion
-        // due to naming collision
-        self::StateInitV1,
-    ),
+    V1(StateInitV1),
 }
 
 impl StateInit {
