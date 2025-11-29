@@ -1,10 +1,13 @@
 use crate::mock::MockedBlockchain;
 use crate::test_utils::test_env::*;
 use crate::{test_vm_config, AccountId};
-use crate::{BlockHeight, EpochHeight, Gas, NearToken, PromiseResult, PublicKey, StorageUsage};
+use crate::{BlockHeight, EpochHeight, NearToken, PromiseResult, PublicKey, StorageUsage};
 use near_parameters::RuntimeFeesConfig;
-use near_primitives_core::config::ViewConfig;
+#[cfg(feature = "deterministic-accounts")]
+use near_primitives::account::AccountContract;
+use near_primitives_core::{config::ViewConfig, gas::Gas};
 use std::convert::TryInto;
+use std::rc::Rc;
 
 /// Returns a pre-defined account_id from a list of 6.
 pub fn accounts(id: usize) -> AccountId {
@@ -39,9 +42,11 @@ pub struct VMContext {
     /// If this execution is the result of direct execution of transaction then it
     /// is equal to `signer_account_id`.
     pub predecessor_account_id: AccountId,
+    #[cfg(feature = "deterministic-accounts")]
+    pub refund_to_account_id: AccountId,
     /// The input to the contract call.
     /// Encoded as base64 string to be able to pass input in borsh binary format.
-    pub input: Vec<u8>,
+    pub input: Rc<[u8]>,
     /// The current block height.
     pub block_index: BlockHeight,
     /// The current block timestamp (number of non-leap-nanoseconds since January 1, 1970 0:00:00 UTC).
@@ -56,6 +61,9 @@ pub struct VMContext {
     pub account_locked_balance: NearToken,
     /// The account's storage usage before the contract execution
     pub storage_usage: StorageUsage,
+    /// The account's current contract code
+    #[cfg(feature = "deterministic-accounts")]
+    pub account_contract: AccountContract,
     /// The balance that was attached to the call that will be immediately deposited before the
     /// contract execution starts.
     pub attached_deposit: NearToken,
@@ -87,15 +95,19 @@ impl VMContextBuilder {
                 signer_account_id: bob(),
                 signer_account_pk: vec![0u8; 33].try_into().unwrap(),
                 predecessor_account_id: bob(),
-                input: vec![],
+                #[cfg(feature = "deterministic-accounts")]
+                refund_to_account_id: bob(),
+                input: [].into(),
                 block_index: 0,
                 block_timestamp: 0,
                 epoch_height: 0,
                 account_balance: NearToken::from_yoctonear(10u128.pow(26)),
                 account_locked_balance: NearToken::from_near(0),
                 storage_usage: 1024 * 300,
+                #[cfg(feature = "deterministic-accounts")]
+                account_contract: AccountContract::None,
                 attached_deposit: NearToken::from_near(0),
-                prepaid_gas: Gas::from_tgas(300),
+                prepaid_gas: Gas::from_teragas(300),
                 random_seed: [0u8; 32],
                 view_config: None,
                 output_data_receivers: vec![],
@@ -120,6 +132,12 @@ impl VMContextBuilder {
 
     pub fn predecessor_account_id(&mut self, account_id: AccountId) -> &mut Self {
         self.context.predecessor_account_id = account_id;
+        self
+    }
+
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn refund_to_account_id(&mut self, beneficiary_id: AccountId) -> &mut Self {
+        self.context.refund_to_account_id = beneficiary_id;
         self
     }
 
@@ -159,6 +177,12 @@ impl VMContextBuilder {
         self
     }
 
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn account_contract(&mut self, code: AccountContract) -> &mut Self {
+        self.context.account_contract = code;
+        self
+    }
+
     pub fn attached_deposit(&mut self, amount: NearToken) -> &mut Self {
         self.context.attached_deposit = amount;
         self
@@ -176,7 +200,7 @@ impl VMContextBuilder {
 
     pub fn is_view(&mut self, is_view: bool) -> &mut Self {
         self.context.view_config =
-            if is_view { Some(ViewConfig { max_gas_burnt: 200000000000000 }) } else { None };
+            if is_view { Some(ViewConfig { max_gas_burnt: Gas::from_teragas(200) }) } else { None };
         self
     }
 

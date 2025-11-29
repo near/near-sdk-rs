@@ -14,6 +14,8 @@ extern "C" {
     pub fn signer_account_id(register_id: u64);
     pub fn signer_account_pk(register_id: u64);
     pub fn predecessor_account_id(register_id: u64);
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn refund_to_account_id(register_id: u64);
     pub fn input(register_id: u64);
     pub fn block_index() -> u64;
     pub fn block_timestamp() -> u64;
@@ -88,6 +90,8 @@ extern "C" {
     pub fn promise_and(promise_idx_ptr: u64, promise_idx_count: u64) -> u64;
     pub fn promise_batch_create(account_id_len: u64, account_id_ptr: u64) -> u64;
     pub fn promise_batch_then(promise_index: u64, account_id_len: u64, account_id_ptr: u64) -> u64;
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn promise_set_refund_to(promise_idx: u64, account_id_len: u64, account_id_ptr: u64);
     // #######################
     // # Promise API actions #
     // #######################
@@ -188,10 +192,39 @@ extern "C" {
         payload_len: u64,
         payload_ptr: u64,
     ) -> u32;
+    // ################################
+    // # Deterministic AccountIds API #
+    // ################################
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn promise_batch_action_state_init(
+        promise_index: u64,
+        code_hash_len: u64,
+        code_hash_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64;
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn promise_batch_action_state_init_by_account_id(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64;
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn set_state_init_data_entry(
+        promise_index: u64,
+        action_index: u64,
+        key_len: u64,
+        key_ptr: u64,
+        value_len: u64,
+        value_ptr: u64,
+    );
+    #[cfg(feature = "deterministic-accounts")]
+    pub fn current_contract_code(register_id: u64) -> u64;
     // #######################
     // # Promise API results #
     // #######################
     pub fn promise_results_count() -> u64;
+    pub fn promise_result_length(result_idx: u64) -> u64;
     pub fn promise_result(result_idx: u64, register_id: u64) -> u64;
     pub fn promise_return(promise_id: u64);
     // ###############
