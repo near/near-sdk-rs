@@ -11,6 +11,8 @@ extern "C" {
     // # Context API #
     // ###############
     pub fn current_account_id(register_id: u64);
+    pub fn current_contract_code(register_id: u64) -> u64;
+    pub fn refund_to_account_id(register_id: u64);
     pub fn signer_account_id(register_id: u64);
     pub fn signer_account_pk(register_id: u64);
     pub fn predecessor_account_id(register_id: u64);
@@ -91,6 +93,7 @@ extern "C" {
     // #######################
     // # Promise API actions #
     // #######################
+    pub fn promise_set_refund_to(promise_index: u64, account_id_len: u64, account_id_ptr: u64);
     pub fn promise_batch_action_create_account(promise_index: u64);
     pub fn promise_batch_action_deploy_contract(promise_index: u64, code_len: u64, code_ptr: u64);
     pub fn promise_batch_action_function_call(
@@ -235,7 +238,6 @@ extern "C" {
     pub fn bls12381_pairing_check(value_len: u64, value_ptr: u64) -> u64;
     pub fn bls12381_p1_decompress(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
     pub fn bls12381_p2_decompress(value_len: u64, value_ptr: u64, register_id: u64) -> u64;
-
 }
 
 /// Alias for [`block_index`] function. Returns the height of the current block.

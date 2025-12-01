@@ -90,6 +90,9 @@ enum PromiseAction {
     UseGlobalContractByAccountId {
         account_id: AccountId,
     },
+    SetRefundTo {
+        account_id: AccountId,
+    },
 }
 
 impl PromiseAction {
@@ -169,6 +172,9 @@ impl PromiseAction {
                     promise_index,
                     account_id,
                 )
+            }
+            SetRefundTo { account_id } => {
+                crate::env::promise_set_refund_to(promise_index, account_id)
             }
         }
     }
@@ -401,6 +407,12 @@ impl Promise {
     /// ```
     pub fn use_global_contract_by_account_id(self, account_id: AccountId) -> Self {
         self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
+    }
+
+    /// Set the account id that will receive the refund if the promise panics.
+    /// Uses low-level [`crate::env::promise_set_refund_to`]
+    pub fn set_refund_to(self, account_id: AccountId) -> Self {
+        self.add_action(PromiseAction::SetRefundTo { account_id })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
