@@ -1028,9 +1028,11 @@ mod tests {
     use crate::mock::MockAction;
     use crate::test_utils::get_created_receipts;
     use crate::test_utils::test_env::{alice, bob};
+    #[cfg(feature = "global-contracts")]
+    use crate::CryptoHash;
     use crate::{
-        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, CryptoHash, NearToken,
-        Promise, PublicKey,
+        test_utils::VMContextBuilder, testing_env, AccountId, Allowance, NearToken, Promise,
+        PublicKey,
     };
 
     fn pk() -> PublicKey {
