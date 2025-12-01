@@ -354,4 +354,17 @@ mod tests {
         let actual = method_info.method_wrapper();
         local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
     }
+
+    #[test]
+    fn init_private() {
+        let impl_type: Type = syn::parse_str("Hello").unwrap();
+        let mut method: ImplItemFn = parse_quote! {
+            #[init]
+            #[private]
+            pub fn new() -> Self { }
+        };
+        let method_info = ImplItemMethodInfo::new(&mut method, None, impl_type).unwrap().unwrap();
+        let actual = method_info.method_wrapper();
+        local_insta_assert_snapshot!(pretty_print_syn_str(&actual).unwrap());
+    }
 }

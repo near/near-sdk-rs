@@ -20,6 +20,12 @@ impl From<CryptoHash> for Base58CryptoHash {
     }
 }
 
+impl AsRef<CryptoHash> for Base58CryptoHash {
+    fn as_ref(&self) -> &CryptoHash {
+        &self.0
+    }
+}
+
 impl ser::Serialize for Base58CryptoHash {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -35,7 +41,7 @@ impl<'de> de::Deserialize<'de> for Base58CryptoHash {
         D: de::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        s.parse::<Self>().map_err(|err| de::Error::custom(err.to_string()))
+        s.parse::<Self>().map_err(de::Error::custom)
     }
 }
 

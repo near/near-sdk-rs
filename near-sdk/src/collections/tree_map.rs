@@ -166,8 +166,9 @@ where
 
     /// Inserts a key-value pair into the tree.
     /// If the tree did not have this key present, `None` is returned. Otherwise returns
-    /// a value. Note, the keys that have the same hash value are undistinguished by
-    /// the implementation.
+    /// a value. Note: the underlying storage addresses keys by their Borsh-serialized bytes
+    /// (with internal prefixes). Two keys that serialize to identical bytes will be
+    /// indistinguishable.
     ///
     /// # Examples
     ///
@@ -909,7 +910,7 @@ where
         let key = match &lo {
             Bound::Included(k) if map.contains_key(k) => Some(k.clone()),
             Bound::Included(k) | Bound::Excluded(k) => map.higher(k),
-            _ => None,
+            Bound::Unbounded => map.min(),
         };
         let key = key.filter(|k| fits(k, &lo, &hi));
 
@@ -1727,6 +1728,134 @@ mod tests {
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).nth(2), Some((35, 42)));
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).count(), 4);
         assert_eq!(map.range((Bound::Excluded(20), Bound::Excluded(45))).last(), Some((40, 42)));
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_range_unbounded_unbounded_equiv_iter() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        let r_all = map.range((Bound::Unbounded, Bound::Unbounded)).collect::<Vec<(u32, u32)>>();
+        let i_all = map.iter().collect::<Vec<(u32, u32)>>();
+        assert_eq!(r_all, i_all);
+
+        assert_eq!(map.range((Bound::Unbounded, Bound::Unbounded)).nth(1), Some((20, 1)));
+        assert_eq!(map.range((Bound::Unbounded, Bound::Unbounded)).count(), 5);
+        assert_eq!(map.range((Bound::Unbounded, Bound::Unbounded)).last(), Some((50, 1)));
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_range_unbounded_included() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        assert_eq!(
+            map.range((Bound::Unbounded, Bound::Included(30))).collect::<Vec<(u32, u32)>>(),
+            vec![(10, 1), (20, 1), (30, 1)]
+        );
+
+        assert!(map
+            .range((Bound::Unbounded, Bound::Included(5)))
+            .collect::<Vec<(u32, u32)>>()
+            .is_empty());
+
+        assert_eq!(
+            map.range((Bound::Unbounded, Bound::Included(50))).collect::<Vec<(u32, u32)>>(),
+            map.iter().collect::<Vec<(u32, u32)>>()
+        );
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_range_unbounded_excluded() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        assert_eq!(
+            map.range((Bound::Unbounded, Bound::Excluded(30))).collect::<Vec<(u32, u32)>>(),
+            vec![(10, 1), (20, 1)]
+        );
+
+        assert!(map
+            .range((Bound::Unbounded, Bound::Excluded(10)))
+            .collect::<Vec<(u32, u32)>>()
+            .is_empty());
+
+        assert_eq!(
+            map.range((Bound::Unbounded, Bound::Excluded(60))).collect::<Vec<(u32, u32)>>(),
+            map.iter().collect::<Vec<(u32, u32)>>()
+        );
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_range_included_unbounded() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        assert_eq!(
+            map.range((Bound::Included(30), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            vec![(30, 1), (40, 1), (50, 1)]
+        );
+
+        assert!(map
+            .range((Bound::Included(55), Bound::Unbounded))
+            .collect::<Vec<(u32, u32)>>()
+            .is_empty());
+
+        assert_eq!(
+            map.range((Bound::Included(10), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            map.iter().collect::<Vec<(u32, u32)>>()
+        );
+
+        map.clear();
+    }
+
+    #[test]
+    fn test_range_excluded_unbounded() {
+        let mut map: TreeMap<u32, u32> = TreeMap::new(next_trie_id());
+
+        let keys = [10, 20, 30, 40, 50];
+        for k in &keys {
+            map.insert(k, &1);
+        }
+
+        assert_eq!(
+            map.range((Bound::Excluded(30), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            vec![(40, 1), (50, 1)]
+        );
+
+        assert!(map
+            .range((Bound::Excluded(50), Bound::Unbounded))
+            .collect::<Vec<(u32, u32)>>()
+            .is_empty());
+
+        assert_eq!(
+            map.range((Bound::Excluded(0), Bound::Unbounded)).collect::<Vec<(u32, u32)>>(),
+            map.iter().collect::<Vec<(u32, u32)>>()
+        );
 
         map.clear();
     }

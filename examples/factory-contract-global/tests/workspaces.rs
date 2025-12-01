@@ -20,12 +20,9 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
     // Compile status message contract to use as global contract
     let status_code = near_workspaces::compile_project("../status-message").await?;
 
-    // Deploy a global contract
-    let global_account_id: AccountId = format!("global.{}", factory_contract.id()).parse()?;
-
     let res = factory_contract
         .call("deploy_global_contract")
-        .args_json(("status_message", Base64VecU8::from(status_code.clone()), &global_account_id))
+        .args_json(("status_message", Base64VecU8::from(status_code.clone())))
         .max_gas()
         .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
@@ -45,11 +42,11 @@ async fn test_deploy_global_contract() -> anyhow::Result<()> {
     assert!(stored_hash.is_some(), "Global contract hash should be stored");
 
     // Verify we can list the deployed global contracts
-    let contracts_list = factory_contract.call("list_global_contracts").view().await?.json::<Vec<(
-        String,
-        Base58CryptoHash,
-        AccountId,
-    )>>()?;
+    let contracts_list = factory_contract
+        .call("get_global_contracts_registered_by_code_hash")
+        .view()
+        .await?
+        .json::<Vec<(String, Base58CryptoHash)>>()?;
 
     assert_eq!(contracts_list.len(), 1);
     assert_eq!(contracts_list[0].0, "status_message");
@@ -66,11 +63,10 @@ async fn test_use_global_contract_by_hash() -> anyhow::Result<()> {
 
     // First deploy a global contract
     let status_code = near_workspaces::compile_project("../status-message").await?;
-    let global_account_id: AccountId = format!("global.{}", factory_contract.id()).parse()?;
 
     let res = factory_contract
         .call("deploy_global_contract")
-        .args_json(("status_message", Base64VecU8::from(status_code.clone()), &global_account_id))
+        .args_json(("status_message", Base64VecU8::from(status_code.clone())))
         .max_gas()
         .deposit(GLOBAL_STORAGE_COST_PER_BYTE.saturating_mul(status_code.len().try_into().unwrap()))
         .transact()
@@ -158,11 +154,11 @@ async fn test_global_contract_edge_cases() -> anyhow::Result<()> {
     assert!(non_existent_hash.is_none(), "Should return None for non-existent contract");
 
     // Test listing contracts when none are deployed
-    let empty_list = factory_contract.call("list_global_contracts").view().await?.json::<Vec<(
-        String,
-        Base58CryptoHash,
-        AccountId,
-    )>>()?;
+    let empty_list = factory_contract
+        .call("get_global_contracts_registered_by_code_hash")
+        .view()
+        .await?
+        .json::<Vec<(String, Base58CryptoHash)>>()?;
 
     assert!(empty_list.is_empty(), "Should return empty list when no contracts deployed");
 

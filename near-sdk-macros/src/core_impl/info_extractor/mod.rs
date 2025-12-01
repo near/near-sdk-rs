@@ -47,11 +47,11 @@ pub enum MethodKind {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct CallMethod {
-    /// Whether method accepting $NEAR.
+    /// Whether method accepts attached $NEAR deposits (panic by default to avoid users attaching tokens to the function that do not handle/register them).
     pub is_payable: bool,
-    /// Whether method can accept calls from self (current account)
+    /// Whether method only accepts calls from self (current account)
     pub is_private: bool,
-    /// Whether method can accept unknown JSON fields
+    /// Whether method only accepts known JSON fields (useful for sensitive functions to prevent typos or malicious actors spoofing users with fields that are not going to be used)
     pub deny_unknown_arguments: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
@@ -61,9 +61,9 @@ pub struct CallMethod {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct ViewMethod {
-    /// Whether method can accept calls from self (current account)
+    /// Whether method only accepts calls from self (current account)
     pub is_private: bool,
-    /// Whether method can accept unknown JSON fields
+    /// Whether method only accepts known JSON fields (useful for sensitive functions to prevent typos or malicious actors spoofing users with fields that are not going to be used)
     pub deny_unknown_arguments: bool,
     /// The serializer that we use for the return type.
     pub result_serializer: SerializerType,
@@ -73,9 +73,11 @@ pub struct ViewMethod {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct InitMethod {
-    /// Whether method accepting $NEAR.
+    /// Whether method accepts attached $NEAR deposits (panic by default to avoid users attaching tokens to the function that do not handle/register them).
     pub is_payable: bool,
-    /// Whether method can accept unknown JSON fields
+    /// Whether method only accepts calls from self (current account)
+    pub is_private: bool,
+    /// Whether method only accepts known JSON fields (useful for sensitive functions to prevent typos or malicious actors spoofing users with fields that are not going to be used)
     pub deny_unknown_arguments: bool,
     /// Whether init method ignores state
     pub ignores_state: bool,
