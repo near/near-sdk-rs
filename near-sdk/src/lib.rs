@@ -1142,7 +1142,7 @@ pub use near_sys as sys;
 
 mod promise;
 #[cfg(feature = "global-contracts")]
-pub use promise::IntoGlobalContractRef;
+pub use promise::GlobalContractRef;
 pub use promise::{Allowance, ConcurrentPromises, Promise, PromiseOrValue};
 
 // Private types just used within macro generation, not stable to be used.

@@ -38,7 +38,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .publish_contract(code_bytes, None)
+            .publish_contract_by_hash(code_bytes)
     }
 
     /// Deploy a global contract, identifiable by the predecessor's account ID
@@ -60,7 +60,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .publish_contract(code_bytes, Some(account_id))
+            .publish_contract_by_account(code_bytes)
     }
 
     /// Use an existing global contract by its code hash
@@ -73,7 +73,7 @@ impl GlobalFactoryContract {
             .create_account()
             .transfer(env::attached_deposit())
             .add_full_access_key(env::signer_account_pk())
-            .deploy_from_published(CryptoHash::from(code_hash).to_vec())
+            .deploy_from_published(CryptoHash::from(code_hash))
     }
 
     /// Use an existing global contract by referencing the account that deployed it
