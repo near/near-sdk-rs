@@ -923,7 +923,6 @@ mod tests {
         );
     }
     #[cfg(feature = "deterministic-account-ids")]
-
     mod deterministic_account_ids {
         use super::*;
         use near_account_id::AccountId;
