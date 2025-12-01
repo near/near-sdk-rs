@@ -11,7 +11,9 @@ extern "C" {
     // # Context API #
     // ###############
     pub fn current_account_id(register_id: u64);
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn current_contract_code(register_id: u64) -> u64;
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn refund_to_account_id(register_id: u64);
     pub fn signer_account_id(register_id: u64);
     pub fn signer_account_pk(register_id: u64);
@@ -93,19 +95,23 @@ extern "C" {
     // #######################
     // # Promise API actions #
     // #######################
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn promise_set_refund_to(promise_index: u64, account_id_len: u64, account_id_ptr: u64);
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn promise_batch_action_state_init(
         promise_index: u64,
         code_len: u64,
         code_ptr: u64,
         amount_ptr: u64,
     ) -> u64;
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn promise_batch_action_state_init_by_account_id(
         promise_index: u64,
         account_id_len: u64,
         account_id_ptr: u64,
         amount_ptr: u64,
     ) -> u64;
+    #[cfg(feature = "deterministic-account-ids")]
     pub fn set_state_init_data_entry(
         promise_index: u64,
         action_index: u64,

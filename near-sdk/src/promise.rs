@@ -1,7 +1,7 @@
 #[cfg(feature = "abi")]
 use borsh::BorshSchema;
 use std::cell::RefCell;
-#[cfg(feature = "abi")]
+#[cfg(any(feature = "abi", feature = "deterministic-account-ids"))]
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::io::{Error, Write};
@@ -9,7 +9,7 @@ use std::num::NonZeroU128;
 use std::rc::Rc;
 
 use crate::env::migrate_to_allowance;
-#[cfg(feature = "global-contracts")]
+#[cfg(any(feature = "deterministic-account-ids", feature = "global-contracts"))]
 use crate::CryptoHash;
 use crate::{AccountId, Gas, GasWeight, NearToken, PromiseIndex, PublicKey};
 
@@ -30,6 +30,13 @@ impl Allowance {
     pub fn limited(balance: NearToken) -> Option<Allowance> {
         NonZeroU128::new(balance.as_yoctonear()).map(Allowance::Limited)
     }
+}
+
+#[cfg(feature = "deterministic-account-ids")]
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum GlobalContractIdentifier {
+    CodeHash(CryptoHash),
+    AccountId(AccountId),
 }
 
 enum PromiseAction {
@@ -90,8 +97,11 @@ enum PromiseAction {
     UseGlobalContractByAccountId {
         account_id: AccountId,
     },
-    SetRefundTo {
-        account_id: AccountId,
+    #[cfg(feature = "deterministic-account-ids")]
+    DeterministicStateInit {
+        code: GlobalContractIdentifier,
+        deposit: NearToken,
+        data: BTreeMap<Vec<u8>, Vec<u8>>,
     },
 }
 
@@ -173,8 +183,27 @@ impl PromiseAction {
                     account_id,
                 )
             }
-            SetRefundTo { account_id } => {
-                crate::env::promise_set_refund_to(promise_index, account_id)
+            #[cfg(feature = "deterministic-account-ids")]
+            DeterministicStateInit { code, deposit, data } => {
+                let action_index = match code {
+                    GlobalContractIdentifier::CodeHash(code_hash) => {
+                        crate::env::promise_batch_action_state_init(
+                            promise_index,
+                            *code_hash,
+                            *deposit,
+                        )
+                    }
+                    GlobalContractIdentifier::AccountId(account_id) => {
+                        crate::env::promise_batch_action_state_init_by_account_id(
+                            promise_index,
+                            account_id.clone(),
+                            *deposit,
+                        )
+                    }
+                };
+                for (key, value) in data.iter() {
+                    crate::env::set_state_init_data_entry(promise_index, action_index, key, value);
+                }
             }
         }
     }
@@ -409,10 +438,15 @@ impl Promise {
         self.add_action(PromiseAction::UseGlobalContractByAccountId { account_id })
     }
 
-    /// Set the account id that will receive the refund if the promise panics.
-    /// Uses low-level [`crate::env::promise_set_refund_to`]
-    pub fn set_refund_to(self, account_id: AccountId) -> Self {
-        self.add_action(PromiseAction::SetRefundTo { account_id })
+    /// Creates a deterministic account with the given code, deposit, and data.
+    #[cfg(feature = "deterministic-account-ids")]
+    pub fn deterministic_state_init(
+        self,
+        code: GlobalContractIdentifier,
+        deposit: NearToken,
+        data: BTreeMap<Vec<u8>, Vec<u8>>,
+    ) -> Self {
+        self.add_action(PromiseAction::DeterministicStateInit { code, deposit, data })
     }
 
     /// A low-level interface for making a function call to the account that this promise acts on.
