@@ -195,7 +195,7 @@ impl VMContextBuilder {
 
     pub fn is_view(&mut self, is_view: bool) -> &mut Self {
         self.context.view_config = if is_view {
-            Some(ViewConfig { max_gas_burnt: near_primitives::gas::Gas::from_gas(200000000000000) })
+            Some(ViewConfig { max_gas_burnt: near_primitives::gas::Gas::from_teragas(200) })
         } else {
             None
         };
