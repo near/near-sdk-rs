@@ -6,6 +6,9 @@ use crate::test_utils::VMContextBuilder;
 use crate::types::{NearToken, PromiseResult};
 use crate::VMContext;
 use near_parameters::{RuntimeConfigStore, RuntimeFeesConfig};
+use near_primitives::account::AccountContract;
+use near_primitives::gas::Gas;
+use near_primitives::hash::CryptoHash;
 use near_primitives_core::version::PROTOCOL_VERSION;
 use near_vm_runner::logic::mocks::mock_external::MockedExternal;
 use near_vm_runner::logic::types::{PromiseResult as VmPromiseResult, ReceiptIndex};
@@ -83,8 +86,7 @@ where
         let context: Box<near_vm_runner::logic::VMContext> =
             Box::new(sdk_context_to_vm_context(context, promise_results));
         ext.fake_trie = storage;
-        ext.validators =
-            validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v.as_yoctonear())).collect();
+        ext.validators = validators.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect();
         let config = Arc::new(config);
         let fees_config = Arc::new(fees_config);
         let result_state =
@@ -148,8 +150,8 @@ where
         result
     }
 
-    pub fn gas(&mut self, gas_amount: u32) {
-        self.logic.borrow_mut().gas(gas_amount.into()).unwrap()
+    pub fn gas(&mut self, gas_amount: u64) {
+        self.logic.borrow_mut().gas(Gas::from_gas(gas_amount)).unwrap()
     }
 
     /// Returns logs created so far by the runtime.
@@ -171,11 +173,11 @@ fn sdk_context_to_vm_context(
         block_height: context.block_index,
         block_timestamp: context.block_timestamp,
         epoch_height: context.epoch_height,
-        account_balance: context.account_balance.as_yoctonear(),
-        account_locked_balance: context.account_locked_balance.as_yoctonear(),
+        account_balance: context.account_balance,
+        account_locked_balance: context.account_locked_balance,
         storage_usage: context.storage_usage,
-        attached_deposit: context.attached_deposit.as_yoctonear(),
-        prepaid_gas: context.prepaid_gas.as_gas(),
+        attached_deposit: context.attached_deposit,
+        prepaid_gas: Gas::from_gas(context.prepaid_gas.as_gas()),
         random_seed: context.random_seed.to_vec(),
         view_config: context.view_config,
         output_data_receivers: context
@@ -184,6 +186,17 @@ fn sdk_context_to_vm_context(
             .map(|a| a.as_str().parse().unwrap())
             .collect(),
         promise_results,
+        refund_to_account_id: context.refund_to_account_id,
+        account_contract: match context.account_contract {
+            crate::AccountContract::None => AccountContract::None,
+            crate::AccountContract::Local(contract) => AccountContract::Local(CryptoHash(contract)),
+            crate::AccountContract::Global(contract) => {
+                AccountContract::Global(CryptoHash(contract))
+            }
+            crate::AccountContract::GlobalByAccount(account_id) => {
+                AccountContract::GlobalByAccount(account_id)
+            }
+        },
     }
 }
 
@@ -209,6 +222,14 @@ mod mock_chain {
     #[no_mangle]
     extern "C-unwind" fn current_account_id(register_id: u64) {
         with_mock_interface(|b| b.current_account_id(register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn current_contract_code(register_id: u64) -> u64 {
+        with_mock_interface(|b| b.current_contract_code(register_id))
+    }
+    #[no_mangle]
+    extern "C-unwind" fn refund_to_account_id(register_id: u64) {
+        with_mock_interface(|b| b.refund_to_account_id(register_id))
     }
     #[no_mangle]
     extern "C-unwind" fn signer_account_id(register_id: u64) {
@@ -474,6 +495,67 @@ mod mock_chain {
                 promise_index,
                 account_id_len,
                 account_id_ptr,
+            )
+        })
+    }
+
+    #[no_mangle]
+    extern "C-unwind" fn promise_set_refund_to(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.promise_set_refund_to(promise_index, account_id_len, account_id_ptr)
+        })
+    }
+
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_state_init(
+        promise_index: u64,
+        code_len: u64,
+        code_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_batch_action_state_init(promise_index, code_len, code_ptr, amount_ptr)
+        })
+    }
+
+    #[no_mangle]
+    extern "C-unwind" fn promise_batch_action_state_init_by_account_id(
+        promise_index: u64,
+        account_id_len: u64,
+        account_id_ptr: u64,
+        amount_ptr: u64,
+    ) -> u64 {
+        with_mock_interface(|b| {
+            b.promise_batch_action_state_init_by_account_id(
+                promise_index,
+                account_id_len,
+                account_id_ptr,
+                amount_ptr,
+            )
+        })
+    }
+
+    #[no_mangle]
+    extern "C-unwind" fn set_state_init_data_entry(
+        promise_index: u64,
+        action_index: u64,
+        key_len: u64,
+        key_ptr: u64,
+        value_len: u64,
+        value_ptr: u64,
+    ) {
+        with_mock_interface(|b| {
+            b.set_state_init_data_entry(
+                promise_index,
+                action_index,
+                key_len,
+                key_ptr,
+                value_len,
+                value_ptr,
             )
         })
     }
@@ -839,5 +921,144 @@ mod tests {
                 .unwrap()
             }
         );
+    }
+    #[cfg(feature = "deterministic-account-ids")]
+    mod deterministic_account_ids {
+        use super::*;
+        use near_account_id::AccountId;
+        use near_primitives::{
+            action::GlobalContractIdentifier,
+            deterministic_account_id::{
+                DeterministicAccountStateInit, DeterministicAccountStateInitV1,
+            },
+        };
+        use std::collections::BTreeMap;
+
+        #[test]
+        fn test_refund_to_contract_code() {
+            let james: AccountId = "james.near".parse().unwrap();
+            let context = VMContextBuilder::new()
+                .account_contract(crate::AccountContract::Local([1; 32]))
+                .refund_to_account_id(james.clone())
+                .build();
+
+            testing_env!(context.clone());
+
+            let current_code = env::current_contract_code();
+            match current_code {
+                crate::AccountContract::Local(code) => assert_eq!(code, [1; 32]),
+                _ => panic!("Expected Local account contract"),
+            }
+
+            let refund_to_account_id = env::refund_to_account_id();
+            assert_eq!(refund_to_account_id, james);
+
+            let promise_index = env::promise_create(
+                james.clone(),
+                "stake",
+                [],
+                NearToken::from_millinear(1),
+                NearGas::from_tgas(1),
+            );
+
+            env::promise_set_refund_to(promise_index, &"mike.near".parse().unwrap());
+
+            let actions = get_created_receipts();
+            assert_eq!(
+                actions[0].actions[1],
+                MockAction::SetRefundTo {
+                    receipt_index: 0,
+                    refund_to_account_id: "mike.near".parse().unwrap(),
+                }
+            );
+        }
+
+        #[test]
+        fn test_deterministic_update() {
+            let context = VMContextBuilder::new().build();
+
+            testing_env!(context.clone());
+
+            let promise_index = env::promise_create(
+                "account.near".parse().unwrap(),
+                "method",
+                [],
+                NearToken::from_millinear(1),
+                NearGas::from_tgas(1),
+            );
+
+            let action_index = env::promise_batch_action_state_init(
+                promise_index,
+                [1; 32],
+                NearToken::from_millinear(1),
+            );
+
+            env::set_state_init_data_entry(promise_index, action_index, b"key", b"value");
+            env::set_state_init_data_entry(promise_index, action_index, b"key2", b"value2");
+
+            let actions = get_created_receipts();
+            let mut tree = BTreeMap::new();
+            tree.insert(b"key".to_vec(), b"value".to_vec());
+            tree.insert(b"key2".to_vec(), b"value2".to_vec());
+            assert_eq!(actions.len(), 1);
+            assert_eq!(
+                actions[0].actions[1],
+                MockAction::DeterministicStateInit {
+                    receipt_index: 0,
+                    state_init: DeterministicAccountStateInit::V1(
+                        DeterministicAccountStateInitV1 {
+                            code: GlobalContractIdentifier::CodeHash(CryptoHash([1; 32])),
+                            data: tree,
+                        }
+                    ),
+                    amount: NearToken::from_millinear(1),
+                }
+            );
+        }
+
+        #[test]
+        fn test_deterministic_account_id() {
+            let context = VMContextBuilder::new().build();
+
+            testing_env!(context.clone());
+
+            let promise_index = env::promise_create(
+                "account.near".parse().unwrap(),
+                "method",
+                [],
+                NearToken::from_millinear(1),
+                NearGas::from_tgas(1),
+            );
+
+            let action_index = env::promise_batch_action_state_init_by_account_id(
+                promise_index,
+                "account.near".parse().unwrap(),
+                NearToken::from_millinear(1),
+            );
+
+            env::set_state_init_data_entry(promise_index, action_index, b"key", b"value");
+            env::set_state_init_data_entry(promise_index, action_index, b"key2", b"value2");
+
+            let actions = get_created_receipts();
+            let mut tree = BTreeMap::new();
+            tree.insert(b"key".to_vec(), b"value".to_vec());
+            tree.insert(b"key2".to_vec(), b"value2".to_vec());
+            assert_eq!(actions.len(), 1);
+            assert_eq!(
+                actions[0].actions[1],
+                MockAction::DeterministicStateInit {
+                    receipt_index: 0,
+                    state_init: DeterministicAccountStateInit::V1(
+                        DeterministicAccountStateInitV1 {
+                            code: GlobalContractIdentifier::AccountId(
+                                "account.near".parse().unwrap()
+                            ),
+                            data: tree,
+                        }
+                    ),
+                    amount: NearToken::from_millinear(1),
+                }
+            );
+        }
     }
 }
